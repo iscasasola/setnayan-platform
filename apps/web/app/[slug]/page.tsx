@@ -42,7 +42,13 @@ import {
   loadMedia,
   loadWidgets,
 } from './_lib/loaders';
-import { anonymousIdentity, type AnonymousReason } from './_lib/site-identity';
+import {
+  anonymousIdentity,
+  guestIdentity,
+  resolveOwnerCapability,
+  type AnonymousReason,
+  type OwnerCapability,
+} from './_lib/site-identity';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -449,6 +455,35 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     <SpatialBackdrop config={backdropConfig} />
   ) : null;
 
+  // ONE viewer-account read for the whole request. Previously the only auth
+  // read on the render path lived down in the guest branch (the claim-account
+  // CTA); the owner gate below needs the same answer, so it is hoisted here
+  // and the guest branch reuses `viewerAccount` instead of re-reading. Auth /
+  // cookie reads stay OUT of the React.cache'd loaders (loaders.ts hard rule).
+  const cookieScopedClient = await createClient();
+  const {
+    data: { user: viewerAccount },
+  } = await cookieScopedClient.auth.getUser();
+
+  // ── OWNER LAYER · FOUNDATION ONLY (owner-locked 2026-07-26) ──────────────
+  // The event owner opens `/[slug]` like a guest and gets owner controls
+  // unlocked on top of it. This resolves WHETHER this viewer holds that
+  // capability; NOTHING consumes it yet, so this render is byte-identical to
+  // the pre-PR page for every visitor including the owner. A later PR mounts
+  // the controls on it.
+  //
+  // The gate is the DATABASE, not the UI: `loadHostMembership` — the same
+  // React.cache'd event_members + event_moderators pair that already gates the
+  // private-event view, `?phase=` preview and `?editor=1` above, so a host who
+  // hits any of those pays ONE query pair for all of them. No query param,
+  // header or cookie can shortcut it, and a guest-session cookie is not an
+  // account (viewerAccount is null for a cookie-only guest → no capability).
+  const ownerCapability: OwnerCapability | null = await resolveOwnerCapability({
+    eventId: event.event_id,
+    viewerUserId: viewerAccount?.id ?? null,
+    checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
+  });
+
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
@@ -481,6 +516,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     proWatermarkHidden,
     siteColorVars,
     editorMode,
+    // Declared-but-unconsumed foundation (see the owner-layer block above).
+    ownerCapability,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody
@@ -554,10 +591,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
-  const cookieScopedClient = await createClient();
-  const {
-    data: { user: viewerAccount },
-  } = await cookieScopedClient.auth.getUser();
+  // (`viewerAccount` is read once, above the siteProps block — same request,
+  // same cookies, same answer; the owner gate shares it.)
 
   // Invite/Join v2 — a no-login guest's photo access closes once the post-event
   // grace ends (dayOfPhase leaves live/post, ~24h after the wedding). Past that,
@@ -588,8 +623,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     <>
       <SiteBody
         {...siteProps}
-        identity={{
-          kind: 'guest',
+        identity={guestIdentity({
           guest,
           qrSvg,
           invitationUrl,
@@ -605,7 +639,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           eventVendorCredits,
           saveFlash,
           faceMode: rsvpFaceMode,
-        }}
+        })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
           (My QR · Camera · Photos) + top-right account affordance. Replaces the

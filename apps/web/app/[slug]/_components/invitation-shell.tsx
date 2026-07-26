@@ -1,6 +1,7 @@
 import { Logo } from '@/app/_components/logo';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
+import { PahinaMotionObserver, PahinaMotionRootFlag } from './pahina-motion';
 
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
@@ -72,6 +73,13 @@ export function InvitationShell({
       className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
       style={themeVars ? (themeVars as React.CSSProperties) : undefined}
     >
+      {/* Scroll choreography (design §6). Deliberately NOT on the fullBleed
+          path above — the veil reveal and STD film own their own motion and the
+          build plan leaves them untouched. Must sit above the content: the flag
+          arms the hidden state before first paint, and its partner below the
+          content builds the observer. See pahina-motion.tsx for why a failure
+          in either one leaves the page fully visible. */}
+      <PahinaMotionRootFlag />
       {backdrop}
       <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
@@ -105,6 +113,7 @@ export function InvitationShell({
       >
         {children}
       </div>
+      <PahinaMotionObserver />
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the

@@ -2576,6 +2576,36 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   }
 } /* @layer components — Pahina foundation */
 
+/* ── Pahina scroll choreography (wave A PR-5, design §6) ─────────────────────
+   FAIL-VISIBLE BY CONSTRUCTION: the hidden state is scoped to `.pahina-js`,
+   which only `PahinaMotionRootFlag` sets and which three separate failure paths
+   remove (see pahina-motion.tsx). With no JS, a broken script, a missing
+   IntersectionObserver, or reduced motion, none of these rules match and the
+   page renders exactly as it does today — fully visible.
+
+   UNLAYERED on purpose, unlike the component classes above: this must beat the
+   `opacity-*`/`translate-*` utilities a future chapter might carry, or a single
+   `opacity-100` on a section would pin it visible and break its reveal. */
+.pahina-js .sn-editorial [data-pahina-chapters] > * {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces — RootFlag already withholds the flag for these guests */
+  .pahina-js .sn-editorial [data-pahina-chapters] > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .sn-editorial {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);

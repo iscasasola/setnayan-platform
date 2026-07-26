@@ -57,6 +57,16 @@ async function newContractedBooking(
      RETURNING vendor_id`,
     [eventId, totalCostPhp, vendorProfileId],
   );
+  // Since 20271009140000 the fee charges ONLY Setnayan-sourced clients, and
+  // "no thread" correctly reads as a client the vendor brought (free). An
+  // amendment fixture is about re-pricing a BILLABLE booking, so say so.
+  if (vendorProfileId) {
+    await db.query(
+      `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+       VALUES ($1, $2, 'explore')`,
+      [eventId, vendorProfileId],
+    );
+  }
   return r.rows[0]!.vendor_id;
 }
 

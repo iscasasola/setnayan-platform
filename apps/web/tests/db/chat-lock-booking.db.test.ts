@@ -76,6 +76,16 @@ async function newConsideringPick(
      RETURNING vendor_id`,
     [eventId, totalCostPhp, vendorProfileId],
   );
+  // Since 20271009140000 only Setnayan-SOURCED clients are billable, and "no
+  // thread" reads as a client the vendor brought (free). A chat-lock fixture is
+  // by definition a couple who came through the marketplace and messaged.
+  if (vendorProfileId) {
+    await db.query(
+      `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+       VALUES ($1, $2, 'explore')`,
+      [eventId, vendorProfileId],
+    );
+  }
   return r.rows[0]!.vendor_id;
 }
 

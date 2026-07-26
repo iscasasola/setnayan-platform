@@ -75,14 +75,23 @@ export type FeeGateResult =
 
 /**
  * inquiry_source values that make a (vendor, event) relationship Setnayan-SOURCED
- * (billable). Anything else — NULL, host_manual, invite_claim, degree — is an
- * IMPORT (free forever, model §3.0e).
+ * (billable) — i.e. the couple discovered the vendor THROUGH the marketplace.
  *
- * ⚠ 'website' is included per Booking_Fee_Build_Plan §PR-0, but the
- * vendor-website-vs-import boundary is an OPEN owner sign-off (#3d-iv). Revisit
- * before go-live — this set is the one place to change it.
+ * Anything else is an IMPORT and free forever: NULL, no thread at all,
+ * host_manual, invite_claim, degree, and **website**.
+ *
+ * ⚠ 'website' was REMOVED 2026-07-26. The 2026-07-21 build plan listed it as
+ * billable with the sign-off flagged open (#3d-iv); the owner closed it — a
+ * couple arriving through the vendor's OWN link is a client the vendor brought
+ * ("bringing in clients will give them free access"), so it is an import.
+ * Charging it would bill vendors for their own audience and push them
+ * off-platform, which is the opposite of "monetize ACCESS, not the deal".
+ *
+ * ⚠ EXPORTED so `booking-fee-gate.test.ts` can assert it against the SQL mirror
+ * `public.booking_fee_is_sourced_surface`. The two must never drift: SQL decides
+ * what is actually charged, this decides what the app believes.
  */
-const SOURCED_INQUIRY_SOURCES: ReadonlySet<string> = new Set([
+export const SOURCED_INQUIRY_SOURCES: ReadonlySet<string> = new Set([
   'explore',
   'search',
   'shortlist',
@@ -91,7 +100,6 @@ const SOURCED_INQUIRY_SOURCES: ReadonlySet<string> = new Set([
   'auto_build',
   'editorial',
   'influencer',
-  'website',
 ]);
 
 /** Map a thread's inquiry_source to the fee attribution axis (sourced | import). */

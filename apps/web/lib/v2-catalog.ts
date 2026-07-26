@@ -22,6 +22,10 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type {
+  CatalogChargeResolution as CatalogChargeResolutionType,
+  BundleChargeResolution as BundleChargeResolutionType,
+} from '@/lib/order-charge-math';
 import {
   VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
   applyVendor3dPlanUnlockDiscountCentavos,
@@ -578,15 +582,12 @@ export async function resolvePaxPricedOrderCentavos(
  * wrapper stays for DISPLAY callers (e.g. the 3D Plan buy card), where "no price
  * → render nothing" is already the right degradation.
  */
-export type CatalogChargeResolution =
-  | { status: 'resolved'; is_pax_priced: boolean; centavos: number; pax: number | null }
-  | { status: 'not_in_catalog' }
-  | { status: 'error'; message: string };
+export type { CatalogChargeResolution } from '@/lib/order-charge-math';
 
 export async function resolveRetailChargeCentavos(
   eventId: string,
   serviceCode: string,
-): Promise<CatalogChargeResolution> {
+): Promise<CatalogChargeResolutionType> {
   let admin;
   try {
     admin = createAdminClient();
@@ -728,14 +729,11 @@ export async function resolveBundleChargeCentavos(
  * the same miss/error split as {@link resolveRetailChargeCentavos}. The charge
  * path uses this one; the `| null` wrapper above is kept for display callers.
  */
-export type BundleChargeResolution =
-  | { status: 'resolved'; centavos: number }
-  | { status: 'not_in_catalog' }
-  | { status: 'error'; message: string };
+export type { BundleChargeResolution } from '@/lib/order-charge-math';
 
 export async function resolveBundleChargeResolution(
   packageCode: string,
-): Promise<BundleChargeResolution> {
+): Promise<BundleChargeResolutionType> {
   let admin;
   try {
     admin = createAdminClient();

@@ -235,42 +235,125 @@ test('every module that mints an order is on the reviewed roster', () => {
 
 const MONEY_KEY = /price|amount|total|centavos|php|fee|cost/i;
 
-/** Slice the balanced `{…}` payload passed to the first `.insert(` after `from('orders')`. */
+/**
+ * Slice the balanced argument text passed to `.insert(…)` after `from('orders')`.
+ *
+ * ⚠ SEC-7 FIX — THIS USED TO SILENTLY SKIP THE ONE FILE THAT MATTERED.
+ * The old version did `src.indexOf('{', …)` from the `.insert(`, i.e. it assumed
+ * the argument was an OBJECT LITERAL. Checkout writes `.insert(insertPayload)` —
+ * a VARIABLE — so `indexOf('{')` ran off into whatever block happened to come
+ * next in the file and matched no `requested_total_php:` at all. The single
+ * module where a client-supplied price genuinely survived to the DB therefore
+ * contributed ZERO assertions to test 3 for its entire life.
+ *
+ * Now: a literal is returned as before; a variable is INLINED — its declaration
+ * plus every later `payload.field = …` mutation, so the money field is visible
+ * wherever it was actually attached.
+ */
+function balancedSlice(src: string, start: number, open: '{' | '('): string | null {
+  const close = open === '{' ? '}' : ')';
+  let depth = 0;
+  for (let j = start; j < src.length; j++) {
+    if (src[j] === open) depth++;
+    else if (src[j] === close) {
+      depth--;
+      if (depth === 0) return src.slice(start, j + 1);
+    }
+  }
+  return null;
+}
+
 function orderInsertPayloads(src: string): string[] {
   const out: string[] = [];
   const re = /\.from\(\s*['"]orders['"]\s*\)[\s\S]{0,80}?\.insert\(/g;
-  for (const m of re.exec(src) ? [...src.matchAll(re)] : []) {
-    let i = src.indexOf('{', m.index + m[0].length - 1);
-    if (i < 0) continue;
-    let depth = 0;
-    for (let j = i; j < src.length; j++) {
-      if (src[j] === '{') depth++;
-      else if (src[j] === '}') {
-        depth--;
-        if (depth === 0) {
-          out.push(src.slice(i, j + 1));
-          break;
-        }
-      }
+  for (const m of [...src.matchAll(re)]) {
+    const argStart = m.index + m[0].length - 1; // at the '(' of .insert(
+    const args = balancedSlice(src, argStart, '(');
+    if (args == null) continue;
+    const inner = args.slice(1, -1).trim();
+
+    // (a) object literal — the original behaviour.
+    if (inner.startsWith('{')) {
+      out.push(inner);
+      continue;
     }
+    // (b) a call like orderRowFor({…}, {…}) — its own text carries the fields.
+    // (c) a bare identifier — inline the declaration + later property writes.
+    const bareId = /^([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(inner);
+    if (!bareId) {
+      out.push(inner);
+      continue;
+    }
+    const id = bareId[1]!;
+    const parts: string[] = [];
+    const decl = new RegExp(
+      `\\b(?:const|let|var)\\s+${id}\\s*(?::[^=\\n]+)?=\\s*([\\s\\S]*?);\\n`,
+    ).exec(src);
+    if (decl) parts.push(decl[1]!);
+    for (const set of src.matchAll(
+      new RegExp(`\\b${id}\\.([A-Za-z0-9_$]+)\\s*=\\s*([^;\\n]+);`, 'g'),
+    )) {
+      parts.push(`${set[1]!}: ${set[2]!},`);
+    }
+    if (parts.length > 0) out.push(parts.join('\n'));
   }
   return out;
 }
 
 /**
- * Does `expr` trace back to a money-shaped `formData.get(...)` within this file?
- * Follows `const <id> = <rhs>;` bindings, max 6 hops.
+ * Walk every binding of `id` in this file: `const/let/var` declarations AND
+ * bare reassignments (`id = …;`). The old walk followed `const` only, which is
+ * the other half of why checkout escaped: its charge lived in
+ * `let originalCentavos: bigint;` and was assigned separately from
+ * `BigInt(originalRaw)`.
  */
-function tracesToClientPrice(src: string, expr: string, depth = 0): boolean {
-  if (depth > 6) return false;
-  if (new RegExp(`formData\\.get\\(\\s*['"\`][^'"\`]*(?:${MONEY_KEY.source})[^'"\`]*['"\`]`, 'i').test(expr)) {
-    return true;
+function bindingsOf(src: string, id: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(
+    new RegExp(`\\b(?:const|let|var)\\s+${id}\\s*(?::[^=\\n]+)?=\\s*([\\s\\S]*?);`, 'g'),
+  )) {
+    out.push(m[1]!);
   }
+  for (const m of src.matchAll(new RegExp(`(?:^|[^.\\w])${id}\\s*=\\s*([^;\\n]+);`, 'g'))) {
+    out.push(m[1]!);
+  }
+  return out;
+}
+
+/** Recurse over the identifiers in `expr`, testing each binding with `hit`. */
+function tracesTo(
+  src: string,
+  expr: string,
+  hit: (text: string) => boolean,
+  depth = 0,
+  seen = new Set<string>(),
+): boolean {
+  if (depth > 8) return false;
+  if (hit(expr)) return true;
   for (const id of new Set([...expr.matchAll(/\b([A-Za-z_$][A-Za-z0-9_$]*)\b/g)].map((m) => m[1]!))) {
-    const bind = new RegExp(`\\bconst\\s+${id}\\s*(?::[^=\\n]+)?=\\s*([\\s\\S]*?);`).exec(src);
-    if (bind && tracesToClientPrice(src, bind[1]!, depth + 1)) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const bound of bindingsOf(src, id)) {
+      if (tracesTo(src, bound, hit, depth + 1, seen)) return true;
+    }
   }
   return false;
+}
+
+/** Does `expr` trace back to a money-shaped `formData.get(...)` within this file? */
+function tracesToClientPrice(src: string, expr: string): boolean {
+  const re = new RegExp(
+    `formData\\.get\\(\\s*['"\`][^'"\`]*(?:${MONEY_KEY.source})[^'"\`]*['"\`]`,
+    'i',
+  );
+  return tracesTo(src, expr, (text) => re.test(text));
+}
+
+/** Does `expr` trace back to the SERVER-SIDE charge authority? */
+function tracesToServerAuthority(src: string, expr: string): boolean {
+  return tracesTo(src, expr, (text) =>
+    /resolveOrderChargeCentavos\(|orderTotalToPhp\(/.test(text),
+  );
 }
 
 test('no order-minting module takes its price from the browser', () => {
@@ -300,13 +383,14 @@ test('no order-minting module takes its price from the browser', () => {
 test('submitOrderAction rejects a retired SKU BEFORE any charge resolver', () => {
   const src = read(CHECKOUT_ACTIONS);
   const gate = src.indexOf('resolveServiceSellability(serviceKey)');
-  const resolver = src.indexOf('resolvePaxPricedOrderCentavos(');
+  const resolver = src.indexOf('resolveOrderChargeCentavos(');
   assert.ok(gate > 0, 'the sellability gate is gone from checkout');
-  assert.ok(resolver > 0, 'the catalog charge resolver is gone from checkout');
+  assert.ok(resolver > 0, 'the server-side charge authority is gone from checkout');
   assert.ok(
     gate < resolver,
-    'the reject must precede the resolvers — a null resolve keeps the CLIENT price, so gating ' +
-      'inside the resolver turns "charged its real price" into "charged whatever the browser sent"',
+    'the reject must precede the resolvers. `is_active=false` is OVERLOADED — on ' +
+      'SETNAYAN_AI_RENEW it means "not independently sellable", not "retired" — so this stays a ' +
+      'separate REJECT and never becomes an is_active filter inside a resolver.',
   );
   assert.match(
     src.slice(gate, gate + 400),
@@ -320,7 +404,151 @@ test('submitOrderAction rejects a retired SKU BEFORE any charge resolver', () =>
   );
 });
 
-test('checkout writes the catalog-resolved base, not the posted one', () => {
+/* ── 4b · ⭐ SEC-7 · NO SERVER PRICE ⇒ NO SALE ──────────────────────────────── */
+
+/**
+ * THE SEC-7 HOLE, stated precisely so a future reader can re-derive it:
+ *
+ *   `originalCentavos` was seeded from `formData.get('original_centavos')` and
+ *   overwritten ONLY IF a catalog row resolved. `resolveServiceSellability`
+ *   returns 'unknown' for keys in NEITHER catalog and 'unknown' is deliberately
+ *   ALLOWED. `SETNAYAN_AI_SUB` is such a key (verified absent from both catalogs
+ *   in prod), and its branch SKIPS the `event_members` check because the SKU is
+ *   eventless. So any signed-in account could POST
+ *   `service_key=SETNAYAN_AI_SUB, original_centavos=1` and mint a ₱0.01 order;
+ *   on approval `cyclesFromAmount(0.01, null)` returned 1 and stamped a full
+ *   28-day subscription. Repeatable, stacking.
+ *
+ * These are the assertions that keep it shut. Note what they DON'T do: they do
+ * not enumerate SKUs. The invariant is structural — the charge comes from the
+ * authority or the sale is refused — so a NEW key with no resolver fails the
+ * sale by construction rather than by anyone remembering to list it.
+ */
+test('SEC-7 · the charged amount traces to the server authority, not the browser', () => {
+  const src = read(CHECKOUT_ACTIONS);
+  const payloads = orderInsertPayloads(src);
+  assert.ok(
+    payloads.length > 0,
+    'the orders insert payload could not be extracted from checkout — the taint trace is blind ' +
+      'again (it was, for `.insert(insertPayload)`, until SEC-7)',
+  );
+  let checked = 0;
+  for (const payload of payloads) {
+    const field = /requested_total_php\s*:\s*([^,\n]+)/.exec(payload);
+    if (!field) continue;
+    checked++;
+    assert.ok(
+      tracesToServerAuthority(src, field[1]!),
+      `requested_total_php (${field[1]!.trim()}) no longer traces to resolveOrderChargeCentavos(). ` +
+        'Deleting the server resolve must FAIL this test — that is the entire point of it.',
+    );
+    assert.ok(
+      !tracesToClientPrice(src, field[1]!),
+      `requested_total_php (${field[1]!.trim()}) traces back to a money-shaped form field. ` +
+        'SEC-7: the browser may choose WHAT; the server decides the peso figure.',
+    );
+  }
+  assert.equal(checked, 1, 'expected exactly one requested_total_php in the checkout mint');
+});
+
+test('SEC-7 · a refusal from the authority stops the sale', () => {
+  const src = read(CHECKOUT_ACTIONS);
+  const call = src.indexOf('resolveOrderChargeCentavos(');
+  assert.ok(call > 0, 'the charge authority call is gone');
+  assert.match(
+    src.slice(call, call + 1200),
+    /if \(!authority\.ok\)[\s\S]*?return \{ ok: false/,
+    'an unresolvable price must REFUSE. The old code fell through and kept the POSTed value — ' +
+      'that fall-through IS SEC-7.',
+  );
+  // No resolver may be re-added that hands back a client fallback.
+  assert.ok(
+    !/original_centavos[\s\S]{0,400}?requested_total_php/.test(src),
+    'the posted centavos are within reach of the stored amount again',
+  );
+});
+
+test('SEC-7 · checkout cannot multiply the total by cycles (the 36× overcharge trap)', () => {
+  const src = read(CHECKOUT_ACTIONS);
+  // `setnayan-ai-subscribe.tsx` ALREADY ships unit × cycles as original_centavos.
+  // Checkout used to multiply by `cycles` a SECOND time — with the default 6-cycle
+  // preset that is 36×. It was unreachable only because the unit price was
+  // unresolvable; making the price server-resolved is exactly what would have
+  // armed it. The multiply now lives in ONE place (the authority), and the total
+  // it returns is a branded bigint whose product is NOT assignable back to the
+  // brand — so a second multiply is a COMPILE error, not a review item.
+  assert.ok(
+    !/parseCycles\s*\(/.test(src),
+    'checkout parses cycles again. Cycle parsing + the unit × cycles multiply belong to ' +
+      'lib/order-charge-authority.ts, in exactly one place, so they cannot happen twice.',
+  );
+  assert.ok(
+    !/\*\s*BigInt\(\s*cycles\s*\)|cycles\s*\)\s*\*|\*\s*cycles\b/.test(src),
+    'checkout multiplies by cycles again — that is the 36× overcharge',
+  );
+
+  // The multiply lives in the PURE half, and there is exactly one of it.
+  const math = read('lib/order-charge-math.ts');
+  const multiplies = [...math.matchAll(/BigInt\([^;]*?\)\s*\*\s*BigInt\(/g)];
+  assert.equal(
+    multiplies.length,
+    1,
+    'unit × cycles must happen in exactly ONE place; found ' +
+      `${multiplies.length}. Two multiply sites is how cycles² comes back.`,
+  );
+  assert.match(
+    math,
+    /declare const ORDER_TOTAL_BRAND: unique symbol/,
+    'the branded total is what makes double-multiplication unrepresentable — keep the brand',
+  );
+  // The brand may only be applied to a number READ FROM A CATALOG, never to the
+  // product of arithmetic on an existing total. Two sites: the generic
+  // constructor and the AI unit × cycles. A third is a new way to launder a
+  // multiplied total back into a "total".
+  const seals = [...math.matchAll(/as OrderTotalCentavos/g)];
+  assert.equal(
+    seals.length,
+    2,
+    `the brand is applied at ${seals.length} sites, expected 2 (sealServerResolvedTotal + ` +
+      'resolveAiSubTotal). Every extra site is a place a re-multiplied value can be called a total.',
+  );
+  const authority = read('lib/order-charge-authority.ts');
+  assert.ok(
+    !/as OrderTotalCentavos/.test(authority),
+    'the async resolvers must go through the pure constructors, never brand a value themselves',
+  );
+});
+
+test('SEC-7 · the catalog resolvers fail CLOSED on a read error', () => {
+  const cat = read('lib/v2-catalog.ts');
+  // resolvePaxPricedOrderCentavos returned null for BOTH "no row" and "the read
+  // errored", and checkout kept the client price on null — so a transient (or
+  // induced) failure left the browser's number standing as the charge.
+  assert.match(
+    cat,
+    /export async function resolveRetailChargeCentavos/,
+    'the miss/error-separating retail resolver is gone',
+  );
+  assert.match(
+    cat,
+    /export async function resolveBundleChargeResolution/,
+    'the miss/error-separating bundle resolver is gone',
+  );
+  for (const fn of ['resolveRetailChargeCentavos', 'resolveBundleChargeResolution']) {
+    const at = cat.indexOf(`export async function ${fn}`);
+    const body = cat.slice(at, at + 2000);
+    assert.match(body, /status: 'error'/, `${fn} must be able to report a read error`);
+    assert.match(body, /status: 'not_in_catalog'/, `${fn} must report a miss distinctly`);
+  }
+  const authority = read('lib/order-charge-authority.ts');
+  assert.match(
+    authority,
+    /status === 'error'[\s\S]{0,120}?refusal: 'read_error'/,
+    'a catalog read error must REFUSE the sale, never fall back to the posted price',
+  );
+});
+
+test('checkout writes the server-resolved base, not the posted one', () => {
   const src = read(CHECKOUT_ACTIONS);
   assert.match(
     src,
@@ -329,10 +557,10 @@ test('checkout writes the catalog-resolved base, not the posted one', () => {
   );
   assert.match(
     src,
-    /const originalPriceForOrderTotal = Number\(originalCentavos\) \/ 100/,
-    'originalPriceForOrderTotal must derive from originalCentavos (overwritten by the resolvers)',
+    /const originalPriceForOrderTotal = orderTotalToPhp\(chargeTotal\)/,
+    'originalPriceForOrderTotal must derive from the branded authority total',
   );
-  const resolver = src.indexOf('resolvePaxPricedOrderCentavos(');
+  const resolver = src.indexOf('resolveOrderChargeCentavos(');
   const write = src.indexOf('const originalPriceForOrderTotal');
   assert.ok(resolver < write, 'the resolve must happen before the amount is frozen for the row');
 });

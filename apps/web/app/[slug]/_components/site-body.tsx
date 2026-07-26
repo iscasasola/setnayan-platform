@@ -88,6 +88,7 @@ import {
   PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
+import { PahinaMasthead } from './pahina-masthead';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -510,78 +511,46 @@ export function SiteBody({
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
         {plan.anonymousHeroBanner ? (
-          <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
-            <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/90"
-            />
-            <div className="relative space-y-3 px-6 py-12 sm:py-16">
-              {dayOfBadge}
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                You&rsquo;re invited
-              </p>
-              {/* The couple's mark — mirrors the guest hero so the anonymous
-                  shared-link open shows the SAME monogram (animated when the paid
-                  upgrade is owned), not just plain initials. */}
-              <div className="flex justify-center">
-                <HeroMonogram
-                  event={event}
-                  monogram={monogram}
-                  animatedMonogram={animatedMonogram}
-                  bespokeSvg={bespokeSvg}
-                  shadow
-                />
-              </div>
-              {/* Italic serif treatment for the couple's display name —
-                  structural typography enhancement from v2.1 guest-microsite
-                  template (CLAUDE.md 2026-05-28 row 11 guest-microsite port,
-                  couple-palette respected per globals.css guardrail). The
-                  italic emphasis carries the editorial, intimate feel of the
-                  template without touching color tokens. */}
-              <h1 className="font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
-                {event.display_name}
-              </h1>
-              <p className="text-base text-ink/70">
-                {[formatEventDate(event.event_date), event.venue_name]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            </div>
-          </div>
+          /* Pahina masthead (wave A PR-2) — typographic hero; the photo/video is
+             demoted to the cover plate below the type (STRUCTURAL: was a
+             text-over-scrim banner). Monogram mount + personalization unchanged. */
+          <PahinaMasthead
+            displayName={event.display_name}
+            eventDate={event.event_date}
+            venueName={event.venue_name}
+            badgeSlot={dayOfBadge}
+            monogramSlot={
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+                shadow
+              />
+            }
+            mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
+            mediaCaption={event.venue_name}
+          />
         ) : null}
         {phasedBody(() => (
           <>
             <div className="space-y-6 text-center">
-              {!hasHeroMedia ? dayOfBadge : null}
               {!hasHeroMedia ? (
-                <>
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    You&rsquo;re invited
-                  </p>
-                  {/* The couple's mark — mirrors the guest cream-on-cream hero so
-                      the anonymous shared-link open shows the SAME monogram (animated
-                      when the paid upgrade is owned), not just plain initials. */}
-                  <div className="flex justify-center">
+                /* Pahina masthead, text-only variant (wave A PR-2). */
+                <PahinaMasthead
+                  displayName={event.display_name}
+                  eventDate={event.event_date}
+                  venueName={event.venue_name}
+                  badgeSlot={dayOfBadge}
+                  monogramSlot={
                     <HeroMonogram
                       event={event}
                       monogram={monogram}
                       animatedMonogram={animatedMonogram}
                       bespokeSvg={bespokeSvg}
                     />
-                  </div>
-                  {/* Italic serif treatment — see comment on the heroPhotoUrl
-                      branch above. Same structural typography enhancement from
-                      v2.1 template; couple palette tokens unchanged. */}
-                  <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
-                    {event.display_name}
-                  </h1>
-                  <p className="text-base text-ink/60">
-                    {[formatEventDate(event.event_date), event.venue_name]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </>
+                  }
+                />
               ) : null}
               {reason === 'invalid_invite' ? (
                 <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
@@ -862,66 +831,38 @@ export function SiteBody({
               (plan.body === 'normal' ≡ the old !showEditorialPlaceholder &&
               !showSaveTheDate pair.) */}
           {plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
-            <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
-              {/* Full-bleed video (Increment B) or photo. */}
-              <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
-              {/* Cream overlay for text contrast — gradient bottom is stronger so
-                  the date + monogram circle read cleanly on busy photo backgrounds. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/85"
-              />
-              <div className="relative px-6 py-12 sm:py-16">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                  You are invited
-                </p>
-                <div className="mt-6 flex justify-center">
-                  <HeroMonogram
-                    event={event}
-                    monogram={monogram}
-                    animatedMonogram={animatedMonogram}
-                    bespokeSvg={bespokeSvg}
-                    shadow
-                  />
-                </div>
-                {/* Italic serif display name — structural typography from v2.1
-                    guest-microsite template (CLAUDE.md 2026-05-28 row 11).
-                    Couple palette tokens (monogram.color · cream · ink ·
-                    terracotta) untouched per globals.css wedding-landing
-                    guardrail. */}
-                <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
-                  {event.display_name}
-                </h1>
-                <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/65">
-                  {formatEventDate(event.event_date)}
-                </p>
-                <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
-              </div>
-            </section>
+            /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
+               (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
+            <PahinaMasthead
+              displayName={event.display_name}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                  shadow
+                />
+              }
+              mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
+              mediaCaption={event.venue_name}
+            />
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
-            <section className="text-center">
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                You are invited
-              </p>
-              <div className="mt-6 flex justify-center">
+            <PahinaMasthead
+              displayName={event.display_name}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
                   animatedMonogram={animatedMonogram}
                   bespokeSvg={bespokeSvg}
                 />
-              </div>
-              {/* Italic serif treatment — see comment on the heroPhotoUrl
-                  branch above. Same structural enhancement from v2.1
-                  template; couple palette untouched. */}
-              <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
-                {event.display_name}
-              </h1>
-              <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
-                {formatEventDate(event.event_date)}
-              </p>
-              <hr className="mx-auto mt-6 w-24 border-t border-ink/20" />
-            </section>
+              }
+            />
           ) : null}
 
           {/* Increment C (flag-dark): after the wedding, the body below the
@@ -1376,6 +1317,7 @@ export function SiteBody({
 
   return (
     <InvitationShell
+      monogramText={event.monogram_text}
       backdrop={backdrop}
       rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}

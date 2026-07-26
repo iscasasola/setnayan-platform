@@ -17,6 +17,12 @@ import {
 } from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { presignClientRef } from '@/lib/r2-client-ref.server';
+import {
+  eventMediaPolicy,
+  parseClientRef,
+  stdMediaPolicy,
+} from '@/lib/r2-client-ref';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
 
@@ -100,7 +106,12 @@ export async function presignStdBackground(
 ): Promise<{ url: string | null }> {
   if (!eventId || !ref) return { url: null };
   await requireCouple(eventId);
-  const url = await displayUrlForStoredAsset(ref);
+  // SEC-1: `ref` is a raw server-action argument — any signed-in caller can put
+  // ANY key in it. Membership on `eventId` says nothing about who owns the
+  // object, so this used to sign another couple's payment proof or another
+  // vendor's DTI permit (all five buckets) on request. Pin it to THIS event's
+  // own Save-the-Date uploads in the public media bucket; anything else → null.
+  const url = await presignClientRef(ref, stdMediaPolicy(eventId));
   return { url: url ?? null };
 }
 
@@ -186,7 +197,32 @@ export async function saveAllStdContent(
   }
   // Step-1 background choice — validated to {kind, value}.
   if (data.background !== undefined && data.background !== null) {
-    patch.std_background = resolveStdBackground(data.background);
+    const bg = resolveStdBackground(data.background);
+    // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
+    // presigned LATER — by lib/std-bg-image.ts and by the PUBLIC wedding-site
+    // loaders, which serve anonymous visitors. `resolveStdBackground` accepts
+    // ANY non-empty string for kind==='upload', so an unvalidated ref turns
+    // this write into a cross-tenant read oracle with an anonymous delivery
+    // channel. Refuse a foreign ref rather than persisting it.
+    //
+    // Grandfather clause: a value IDENTICAL to what is already stored is
+    // allowed through even if it fails today's policy. Re-saving the builder
+    // must not brick on a row written before this rule existed — and echoing
+    // back a ref we already serve introduces nothing new.
+    if (bg.kind === 'upload' && !parseClientRef(bg.value, stdMediaPolicy(eventId))) {
+      const { data: curBg } = await supabase
+        .from('events')
+        .select('std_background')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const stored = resolveStdBackground(
+        (curBg as Record<string, unknown> | null)?.std_background,
+      );
+      if (!(stored.kind === 'upload' && stored.value === bg.value)) {
+        return { ok: false, error: 'bad-background-ref' };
+      }
+    }
+    patch.std_background = bg;
   }
   // Step-3 media choice — validated to {type, videoKey?, posterKey?, fit?}.
   //
@@ -205,6 +241,10 @@ export async function saveAllStdContent(
   let screenAfterSave: { videoKey: string; posterR2Key: string } | null = null;
   if (data.media !== undefined && data.media !== null) {
     const incoming = resolveStdMedia(data.media);
+    // SEC-1: videoKey / posterKey are client-supplied refs that get presigned
+    // later on the PUBLIC wedding site (app/[slug]/_lib/loaders.ts) and read
+    // server-side by screenStdVideo(). Pin both to this event's own uploads.
+    const stdPolicy = stdMediaPolicy(eventId);
     if (incoming.type === 'video' && incoming.videoKey) {
       const { data: cur } = await supabase
         .from('events')
@@ -213,6 +253,21 @@ export async function saveAllStdContent(
         .maybeSingle();
       const currentRow = (cur as Record<string, unknown> | null) ?? null;
       const current = resolveStdMedia(currentRow?.std_media);
+      // Same grandfather clause as the background above: a ref identical to the
+      // one already stored may be echoed back, anything NEW must pass policy.
+      if (
+        !parseClientRef(incoming.videoKey, stdPolicy) &&
+        !(current.type === 'video' && current.videoKey === incoming.videoKey)
+      ) {
+        return { ok: false, error: 'bad-video-ref' };
+      }
+      if (
+        incoming.posterKey &&
+        !parseClientRef(incoming.posterKey, stdPolicy) &&
+        !(current.type === 'video' && current.posterKey === incoming.posterKey)
+      ) {
+        return { ok: false, error: 'bad-poster-ref' };
+      }
       const sameVideo =
         current.type === 'video' && current.videoKey === incoming.videoKey;
       const posterKey =
@@ -243,7 +298,21 @@ export async function saveAllStdContent(
   // the film + Event/RSVP paths read). Uploading a song enables it; removal /
   // disable stays on the dedicated site-chrome surface (we never clobber here).
   if (typeof data.siteMusicKey === 'string' && data.siteMusicKey.trim()) {
-    patch.site_bg_music_r2_key = data.siteMusicKey.trim();
+    // SEC-1: same laundering path — the song ref is presigned for anonymous
+    // visitors by the public site loader. Must be this event's own upload.
+    const musicKey = data.siteMusicKey.trim();
+    if (!parseClientRef(musicKey, eventMediaPolicy(eventId))) {
+      // Grandfather an unchanged value, as above.
+      const { data: curMusic } = await supabase
+        .from('events')
+        .select('site_bg_music_r2_key')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const stored = (curMusic as { site_bg_music_r2_key?: string | null } | null)
+        ?.site_bg_music_r2_key;
+      if (stored !== musicKey) return { ok: false, error: 'bad-music-ref' };
+    }
+    patch.site_bg_music_r2_key = musicKey;
     patch.site_bg_music_enabled = true;
   }
 

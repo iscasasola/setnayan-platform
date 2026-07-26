@@ -11,6 +11,7 @@ import {
   type PaymentMethodType,
 } from '@/lib/vendor-payment-methods';
 import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
+import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 
 const BASE = '/vendor-dashboard/payment-options';
 
@@ -63,6 +64,15 @@ export async function addPaymentMethod(formData: FormData) {
   } else if (methodType === 'qr') {
     const qrRef = str(formData.get('qr_r2_key'), 512);
     if (!qrRef) fail('Upload your QR image first.');
+    // SEC-1: this ref was stored and fetched with no validation at all. Two
+    // consequences: (a) decodeQrFromR2 → displayUrlForStoredAsset passes a
+    // non-r2:// value through VERBATIM and then fetch()es it, which is an SSRF;
+    // (b) the stored ref is presigned to COUPLES later
+    // (lib/vendor-payment-methods.server.ts), so a foreign key parked here gets
+    // signed for a third party. Pin it to this vendor's own payment-qr folder.
+    if (!parseClientRef(qrRef, vendorPaymentQrPolicy(vendorProfileId))) {
+      fail('That QR image reference isn’t valid — re-upload and try again.');
+    }
     row.qr_r2_key = qrRef;
     // Server-side decode (anti-swap): store what the QR ACTUALLY encodes, not
     // what the vendor typed. If the image can't be read, keep the vendor's note

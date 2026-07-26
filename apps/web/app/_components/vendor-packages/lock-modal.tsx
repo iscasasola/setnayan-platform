@@ -148,22 +148,33 @@ export function LockPackageModal({
               </p>
 
               <ul className="space-y-2">
-                {pkg.items.map((item) => {
+                {/* Same set the public card lists (package-card.tsx filters on
+                    is_default_included). Listing add-ons here rendered them
+                    PRE-TICKED, and unticking one refunded money the vendor
+                    never charged. */}
+                {pkg.items
+                  .filter((i) => i.is_default_included)
+                  .map((item) => {
                   const removed = removedIds.includes(item.item_id);
+                  const locked = item.is_required === true;
                   return (
                     <li key={item.item_id}>
                       <label
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                          removed
-                            ? 'border-ink/10 bg-cream/40 opacity-60'
-                            : 'border-success-300/50 bg-success-50/30'
+                        className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          locked
+                            ? 'cursor-default border-ink/10 bg-cream/60'
+                            : removed
+                              ? 'cursor-pointer border-ink/10 bg-cream/40 opacity-60'
+                              : 'cursor-pointer border-success-300/50 bg-success-50/30'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={!removed}
+                          disabled={locked}
                           onChange={() => toggle(item)}
-                          className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/20 text-terracotta focus:ring-terracotta"
+                          aria-describedby={locked ? `req-${item.item_id}` : undefined}
+                          className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/20 text-terracotta focus:ring-terracotta disabled:opacity-50"
                         />
                         <div className="min-w-0 flex-1">
                           <p
@@ -173,7 +184,15 @@ export function LockPackageModal({
                           >
                             {item.service_description}
                           </p>
-                          {item.replacement_value_centavos > 0 ? (
+                          {locked ? (
+                            <p
+                              id={`req-${item.item_id}`}
+                              className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45"
+                            >
+                              Always included
+                            </p>
+                          ) : null}
+                          {!locked && item.replacement_value_centavos > 0 ? (
                             <p
                               className={`mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
                                 removed ? 'text-success-700' : 'text-ink/45'

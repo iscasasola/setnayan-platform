@@ -283,29 +283,59 @@ export async function lockPackage(
   //    marketplace_vendor_id link so the compatibility-check + finalized-
   //    card-photo flows (PR #341 + PR B 2026-05-22) work out-of-the-box.
   if (kept.length > 0) {
-    const eventVendorRows = kept.map((item) => {
-      // A picked upgrade belongs to the line it upgrades. Without this the
-      // surcharge exists only on the booking total, and every per-row consumer
-      // — planning cards, the budget, and the §6.4 fee base — under-reports it.
-      const chosen = resolveChosenOption(item, chosenOptionIds);
-      const lineCentavos =
-        item.replacement_value_centavos + (chosen?.price_delta_centavos ?? 0);
-      return {
-        event_id: eventId,
-        category: resolveVendorCategory(item.canonical_service),
-        vendor_name: vendor.business_name || pkg.package_name,
-        contact_email: vendor.contact_email ?? null,
-        contact_phone: vendor.contact_phone ?? null,
-        status: 'contracted' as const,
-        total_cost_php: lineCentavos > 0 ? lineCentavos / 100 : null,
-        marketplace_vendor_id: pkg.vendor_profile_id,
-        event_vendor_package_id: bookingId,
-        // Provenance. Without it the only link back was (booking, category), and
-        // that mapping is many-to-one — see migration 20271007240000.
-        package_item_id: item.item_id,
-        notes: `From package: ${pkg.package_name} — ${item.service_description}`,
-      };
-    });
+    // ── ONE ANCHOR, N COVERED (Vendor_Package_Credit_BUILD_SPEC_2026-07-26 § 0)
+    //
+    // A package used to cascade N equal rows, all carrying the same
+    // marketplace_vendor_id — which the partial unique index
+    // `event_vendors_unique_marketplace_pick_per_event` has forbidden since
+    // 2026-06-25, so ANY package with 2+ lines failed to lock outright.
+    //
+    // Now exactly ONE row is the anchor: it carries the gross total, the
+    // booking fee, and the free-tier slot. Every other kept line is a COVERED
+    // row carrying NO money (a DB CHECK enforces that), exempt from the
+    // marketplace-pick and hard-single uniqueness rules.
+    //
+    // The anchor ABSORBS the item matching the package's primary service, so
+    // that item gets no covered row of its own. If none matches, the anchor
+    // carries package_item_id = NULL and no line is skipped.
+    const anchorCategory = resolveVendorCategory(pkg.primary_canonical_service);
+    const anchorItem =
+      kept.find((i) => resolveVendorCategory(i.canonical_service) === anchorCategory) ?? null;
+
+    const baseRow = {
+      event_id: eventId,
+      vendor_name: vendor.business_name || pkg.package_name,
+      contact_email: vendor.contact_email ?? null,
+      contact_phone: vendor.contact_phone ?? null,
+      status: 'contracted' as const,
+      marketplace_vendor_id: pkg.vendor_profile_id,
+      event_vendor_package_id: bookingId,
+    };
+
+    const eventVendorRows = [
+      {
+        ...baseRow,
+        category: anchorCategory,
+        package_role: 'anchor' as const,
+        // THE money row: the whole agreed total, upgrades included. This is the
+        // §6.4 booking-fee base — one number the couple accepted, not a line.
+        total_cost_php: bookingTotalCentavos > 0 ? bookingTotalCentavos / 100 : null,
+        package_item_id: anchorItem?.item_id ?? null,
+        notes: `Package: ${pkg.package_name}`,
+      },
+      ...kept
+        .filter((item) => item.item_id !== anchorItem?.item_id)
+        .map((item) => ({
+          ...baseRow,
+          category: resolveVendorCategory(item.canonical_service),
+          package_role: 'covered' as const,
+          // NEVER money. The anchor holds it; `event_vendors_covered_rows_carry_no_money`
+          // makes a peso here impossible rather than merely discouraged.
+          total_cost_php: null,
+          package_item_id: item.item_id,
+          notes: `From package: ${pkg.package_name} — ${item.service_description}`,
+        })),
+    ];
 
     const { data: insertedRows, error: cascadeErr } = await supabase
       .from('event_vendors')

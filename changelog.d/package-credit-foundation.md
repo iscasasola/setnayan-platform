@@ -155,3 +155,29 @@ wave.
 SPEC IMPACT: None in this PR (schema + pure engine only, flag-dark). The
 owner-locked credit model itself is logged in the corpus `DECISION_LOG.md`
 by the wave that ships the customer-visible behaviour.
+
+### Owner ruling 2026-07-26 — the pool is a spending allowance, never a discount
+
+Owner: *"their price starts at is floor price. there should never be an option to
+have a service at 0."* · *"swap will only add since swap starts at the cheapest
+variant"* · *"one bill"*.
+
+`refundable` no longer refunds an untouched consumable budget. The refund is
+capped at **`removedTotalCentavos`** — the value of lines the couple actually
+dropped. On the seeded ₱1.4M / ₱200k package, a couple who customizes nothing now
+pays the **full ₱1,400,000** (it previously paid ₱1,200,000 and still received
+every inclusion).
+
+This also delivers the **price floor for free**. A balanced package satisfies
+`sum(replacement_value) ≤ price − pool`, so
+`total ≥ price − removedTotal ≥ pool > 0` — the bill can never reach ₱0 while the
+package is balanced, with no magic-number floor to maintain.
+
+"Swaps only add" was already true by construction and is now pinned by a test:
+`CHECK (price_delta_centavos >= 0)` plus the default option fixed at delta 0, so
+the base variant is always the cheapest and no selection can create credit.
+"One bill" is unchanged — overspend lands on the single package total.
+
+4 tests that pinned the old literal reading were rewritten, 4 added.
+Falsified: reverting the cap turns **7 tests red**. 65/65 in-file · 3700/3700 lib
+· `npx tsc --noEmit` exit 0.

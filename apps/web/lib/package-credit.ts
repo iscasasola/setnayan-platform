@@ -708,8 +708,27 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
   // and every centavo of pool is accounted for as spent, refunded, or
   // forfeited. Whatever the price cannot absorb is FORFEITED, including
   // under 'refundable'.
+  // OWNER-LOCKED 2026-07-26: "their price starts at is floor price. there should
+  // never be an option to have a service at 0."
+  //
+  // The consumable POOL is a SPENDING ALLOWANCE, never a discount. Only the value
+  // of lines the couple ACTUALLY DROPPED may come off the price. Capping the
+  // refund at `removedTotalCentavos` (not at basePrice) is what makes that true:
+  // an untouched ₱200,000 food pool can no longer silently become ₱200,000 off a
+  // ₱1.4M bill for a couple who changed nothing.
+  //
+  // It also delivers the price FLOOR for free. A balanced package satisfies the
+  // authoring rule `sum(replacement_value) ≤ price − pool`
+  // (20260604110000:168-171), so:
+  //     total ≥ basePrice − removedTotal ≥ price − (price − pool) = pool > 0
+  // i.e. the bill can never reach ₱0 while the package is balanced.
+  //
+  // Unspent POOL is therefore forfeited under BOTH policies; `refundable` governs
+  // only the dropped-line value. Swaps cannot create credit either — option
+  // deltas carry CHECK (price_delta_centavos >= 0) and the default option is
+  // pinned at 0, so the base variant is always the cheapest and every swap ADDS.
   const creditRefundCentavos = refundable
-    ? Math.min(remainingCreditCentavos, basePriceCentavos)
+    ? Math.min(remainingCreditCentavos, removedTotalCentavos, basePriceCentavos)
     : 0;
   const forfeitedCreditCentavos = remainingCreditCentavos - creditRefundCentavos;
 

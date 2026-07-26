@@ -376,7 +376,9 @@ test('SURPLUS · expiring: leftover is forfeited, price unchanged', () => {
   assert.equal(r.bookingTotalCentavos, TOTAL_PRICE);
 });
 
-test('SURPLUS · refundable: leftover comes off the price', () => {
+test('SURPLUS · refundable: leftover pool is FORFEITED, not discounted', () => {
+  // OWNER 2026-07-26: the pool is a spending allowance, never a discount. Nothing
+  // was dropped here, so nothing may come off the price.
   const r = ok(
     computePackageCredit({
       pkg: pkg({ unspent_credit_policy: 'refundable' }),
@@ -384,9 +386,9 @@ test('SURPLUS · refundable: leftover comes off the price', () => {
     }),
   );
   const leftover = CONSUMABLE - DELTA_MAIN_PREMIUM;
-  assert.equal(r.creditRefundCentavos, leftover);
-  assert.equal(r.forfeitedCreditCentavos, 0);
-  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE - leftover);
+  assert.equal(r.creditRefundCentavos, 0, 'nothing dropped -> nothing refunded');
+  assert.equal(r.forfeitedCreditCentavos, leftover, 'the unused allowance is forfeited');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE, 'the sticker price stands');
 });
 
 test('EXACTLY ZERO: spend meets credit — no leftover, no overspend, either policy', () => {
@@ -447,7 +449,10 @@ test('refundable + huge credit vs a tiny price clamps the total at zero', () => 
       ...BASELINE,
     }),
   );
-  assert.equal(r.bookingTotalCentavos, 0);
+  // OWNER 2026-07-26: "there should never be an option to have a service at 0."
+  // Nothing was dropped, so the pool cannot discount anything.
+  assert.equal(r.bookingTotalCentavos, 1_000, 'the price floor holds');
+  assert.equal(r.creditRefundCentavos, 0);
 });
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -944,9 +949,12 @@ test('RECONCILES: a refund is never larger than the price it comes off', () => {
       },
     }),
   );
-  assert.equal(r.bookingTotalCentavos, 0);
-  assert.equal(r.creditRefundCentavos, 1_000_000, 'only what the price could absorb');
-  assert.equal(r.forfeitedCreditCentavos, 4_000_000, 'the residue is LOST, and says so');
+  // OWNER 2026-07-26: with nothing dropped the refund is 0, so the bill is the
+  // full price and the ENTIRE pool is forfeited. The old phantom-refund shape is
+  // now unreachable by construction rather than merely clamped.
+  assert.equal(r.bookingTotalCentavos, 1_000_000, 'the price floor holds');
+  assert.equal(r.creditRefundCentavos, 0, 'nothing dropped -> nothing refunded');
+  assert.equal(r.forfeitedCreditCentavos, 5_000_000, 'the whole allowance is forfeited');
   // The identity, stated directly.
   assert.equal(
     r.bookingTotalCentavos,
@@ -1037,7 +1045,7 @@ test('RECONCILES: both identities hold across a matrix of shapes and policies', 
 /* that change — deliberately loud.                                          */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-test("PINNED: 'refundable' discounts the untouched base budget on a zero-customization booking", () => {
+test("OWNER-RESOLVED: 'refundable' does NOT discount an untouched budget", () => {
   // The real seeded Sofitel shape: ₱1,400,000 package, ₱200,000 consumable.
   const sofitel = pkg({
     total_price_centavos: 140_000_000,
@@ -1045,11 +1053,11 @@ test("PINNED: 'refundable' discounts the untouched base budget on a zero-customi
     unspent_credit_policy: 'refundable',
   });
   const r = ok(computePackageCredit({ pkg: sofitel, ...BASELINE }));
-  assert.equal(
-    r.bookingTotalCentavos,
-    120_000_000,
-    'a couple who customizes NOTHING pays ₱200,000 less and still gets every inclusion — owner must confirm this is intended',
-  );
+  // RESOLVED by the owner 2026-07-26: a couple who customizes NOTHING pays the
+  // FULL sticker price. The consumable budget is spending power, not a rebate.
+  assert.equal(r.bookingTotalCentavos, 140_000_000, 'full price — the allowance is not a discount');
+  assert.equal(r.creditRefundCentavos, 0);
+  assert.equal(r.forfeitedCreditCentavos, 20_000_000);
 });
 
 test("PINNED: 'expiring' (the DEFAULT) charges the full sticker price for the same booking", () => {
@@ -1138,4 +1146,51 @@ test('DIVERGENCE: keptItems() includes un-ticked lines, keptItemIds does not', (
     }),
   );
   assert.deepEqual(r.keptItemIds, ['ticked'], 'credit engine: an un-ticked line is NOT in the booking');
+});
+
+// ── OWNER-LOCKED 2026-07-26 — the pool is a SPENDING ALLOWANCE, never a discount ──
+// Owner: "their price starts at is floor price. there should never be an option to
+// have a service at 0." Only the value of lines ACTUALLY DROPPED comes off the
+// price; an untouched pool is forfeited. SUPERSEDES the earlier literal reading.
+
+test('refundable: an UNTOUCHED pool is never a discount', () => {
+  const r = ok(
+    computePackageCredit({ pkg: pkg({ unspent_credit_policy: 'refundable' }), ...BASELINE }),
+  );
+  assert.equal(r.creditRefundCentavos, 0, 'changed nothing -> refund nothing');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE, 'the sticker price stands');
+  assert.equal(r.forfeitedCreditCentavos, CONSUMABLE, 'the pool is forfeited, not gifted');
+});
+
+test('refundable: the refund is capped at what was actually DROPPED', () => {
+  const r = ok(
+    computePackageCredit({
+      pkg: pkg({ unspent_credit_policy: 'refundable' }),
+      ...BASELINE,
+      removedItemIds: [OPT_FIXED],
+    }),
+  );
+  assert.equal(r.creditRefundCentavos, V_OPT_FIXED, 'exactly the dropped value');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE - V_OPT_FIXED);
+});
+
+test('THE FLOOR: dropping everything droppable still cannot bill zero', () => {
+  const r = ok(
+    computePackageCredit({
+      pkg: pkg({ unspent_credit_policy: 'refundable' }),
+      ...BASELINE,
+      removedItemIds: [OPT_FIXED, OPT_CHOICE],
+    }),
+  );
+  assert.ok(r.bookingTotalCentavos > 0, 'never PHP 0');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE - V_OPT_FIXED - V_OPT_CHOICE);
+});
+
+test('swaps can only ADD — the base variant is the cheapest by construction', () => {
+  for (const it of items()) {
+    for (const o of it.options ?? []) {
+      assert.ok(o.price_delta_centavos >= 0, `${o.option_id} must not be negative`);
+      if (o.is_default) assert.equal(o.price_delta_centavos, 0, 'the default is the floor');
+    }
+  }
 });

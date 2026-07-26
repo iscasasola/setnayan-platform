@@ -126,6 +126,7 @@ const EVENT = '2b000000-0000-4000-8000-000000000001';
 const VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000001';
 const THREAD = '2d000000-0000-4000-8000-000000000001';
 const SUBJECT_GUEST = '2e000000-0000-4000-8000-000000000001';
+const OUTSIDER_VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000002';
 
 const SUBJECT_EMAIL = 'leaving.person@example.com';
 const CENOMAR_REF = 'PSA-CENOMAR-2026-0099887';
@@ -133,6 +134,36 @@ const SELFIE_REF = 'r2://setnayan-media/faces/subject-selfie.jpg';
 const PAPERWORK_REF = 'r2://setnayan-media/paperwork/cenomar-scan.pdf';
 const PROFILE_PHOTO_REF = 'r2://setnayan-media/profile/subject.jpg';
 const CHAT_ATTACHMENT_URL = 'https://media.setnayan.com/chat/thread-1/contract-draft.pdf';
+
+// ── the CO-PARTNER'S civil-registry documents · MUST SURVIVE ────────────────
+// The whole point of per-partner scoping. These belong to the person who is
+// STAYING; an event-wide purge destroyed them, and nothing brings a PSA
+// document back.
+const PARTNER_CENOMAR_REF = 'PSA-CENOMAR-2026-0044556';
+const PARTNER_PAPERWORK_REF = 'r2://setnayan-media/paperwork/partner-cenomar-scan.pdf';
+// A per-partner document nobody attributed, and a JOINT one that by definition
+// has no single subject. Both must survive: an unattributable row is not ours
+// to destroy.
+const UNATTRIBUTED_PSA_REF = 'PSA-BIRTH-2026-0011223';
+const JOINT_LICENCE_REF = 'LGU-ML-2026-0055';
+
+// ── vendor verification: the heaviest identity documents in the product ─────
+const GOV_ID_REF = 'r2://setnayan-vendor-verification/leaving-shop/government-id.jpg';
+const DTI_REF = 'r2://setnayan-vendor-verification/leaving-shop/dti-certificate.pdf';
+// Nested one array deep — the shape a known-key read would silently miss.
+const PORTFOLIO_REF_A = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-1.jpg';
+const PORTFOLIO_REF_B = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-2.jpg';
+// Another vendor's government ID, on the same table. MUST SURVIVE.
+const OUTSIDER_GOV_ID_REF = 'r2://setnayan-vendor-verification/outsider-shop/government-id.jpg';
+
+const SUBJECT_DOC_UPLOADS = {
+  government_id: { r2_key: GOV_ID_REF, uploaded_at: '2026-02-01T00:00:00Z' },
+  dti_certificate: { r2_key: DTI_REF, uploaded_at: '2026-02-02T00:00:00Z' },
+  bir_2303: null,
+  portfolio_samples: [{ r2_key: PORTFOLIO_REF_A }, { r2_key: PORTFOLIO_REF_B }],
+  social_media: { instagram: 'https://instagram.com/manila-lens' },
+  client_references: [{ name: 'Prior Client', contact: '+63 917 222 2222' }],
+};
 
 /** A wizard_state carrying one of EVERY key shape the writers can produce. */
 const SEEDED_WIZARD_STATE = {
@@ -235,17 +266,45 @@ before(async () => {
       ('${EVENT}', '${SUBJECT}', 'couple', NULL),
       ('${EVENT}', '${PARTNER}', 'couple', NULL);
 
-    -- ── civil-registry paperwork (the other home for a CENOMAR number) ──────
-    INSERT INTO public.event_paperwork (event_id, document_type, status, tracking_reference, document_r2_key, notes)
-    VALUES ('${EVENT}', 'cenomar_partner_1', 'in_processing', '${CENOMAR_REF}', '${PAPERWORK_REF}',
-            'Picked up by Anna on the 14th');
+    -- ── civil-registry paperwork · FOUR rows, one per scoping case ──────────
+    -- The table is keyed by event_id only, so before subject_user_id existed
+    -- the purge took all four. Rows 2-4 are the harm that caused.
+    INSERT INTO public.event_paperwork (event_id, document_type, status, tracking_reference,
+                                        document_r2_key, notes, subject_user_id)
+    VALUES
+      -- (a) the LEAVER's own document → must be erased
+      ('${EVENT}', 'cenomar_partner_1', 'in_processing', '${CENOMAR_REF}', '${PAPERWORK_REF}',
+       'Picked up by Anna on the 14th', '${SUBJECT}'),
+      -- (b) the CO-PARTNER's own document → must SURVIVE
+      ('${EVENT}', 'cenomar_partner_2', 'received', '${PARTNER_CENOMAR_REF}', '${PARTNER_PAPERWORK_REF}',
+       'Ben collected his on the 20th', '${PARTNER}'),
+      -- (c) a per-partner document nobody attributed → must SURVIVE (fail closed)
+      ('${EVENT}', 'psa_birth_cert_partner_1', 'requested', '${UNATTRIBUTED_PSA_REF}', NULL,
+       'Requested online, unclear who filed it', NULL),
+      -- (d) a JOINT document — no single subject exists → must SURVIVE
+      ('${EVENT}', 'marriage_license', 'in_processing', '${JOINT_LICENCE_REF}', NULL,
+       'Both partners appeared at the LGU', NULL);
 
-    -- ── the LIVE Google credential (keyed by event_id, no user FK) ──────────
+    -- ── LIVE Google credentials · three attributions on one event ───────────
+    -- UNIQUE (event_id, provider) forces distinct providers; the attribution,
+    -- not the provider, is what erasure keys on.
     INSERT INTO public.oauth_grants (event_id, provider, scopes, refresh_token, access_token,
-                                     external_account_id, external_account_display, metadata)
-    VALUES ('${EVENT}', 'drive_photo_delivery', ARRAY['drive.file'], 'REFRESH-TOKEN-STILL-VALID', 'ACCESS-TOKEN',
-            'google-subject-1234', '${SUBJECT_EMAIL}',
-            '{"account_name":"Leaving Person","picture_url":"https://lh3.googleusercontent.com/a/subject"}'::jsonb);
+                                     external_account_id, external_account_display, metadata,
+                                     granted_by_user_id)
+    VALUES
+      -- the LEAVER consented → the credential must not outlive the account
+      ('${EVENT}', 'drive_photo_delivery', ARRAY['drive.file'], 'REFRESH-TOKEN-STILL-VALID', 'ACCESS-TOKEN',
+       'google-subject-1234', '${SUBJECT_EMAIL}',
+       '{"account_name":"Leaving Person","picture_url":"https://lh3.googleusercontent.com/a/subject"}'::jsonb,
+       '${SUBJECT}'),
+      -- the CO-PARTNER's own Google account → must SURVIVE
+      ('${EVENT}', 'drive', ARRAY['drive.file'], 'PARTNER-REFRESH-TOKEN', 'PARTNER-ACCESS-TOKEN',
+       'google-subject-5678', 'partner@example.com',
+       '{"account_name":"Staying Partner"}'::jsonb, '${PARTNER}'),
+      -- a pre-attribution grant, and note external_account_display here is a
+      -- CHANNEL TITLE, not an email — the concrete reason it is not a user key
+      ('${EVENT}', 'youtube', ARRAY['youtube.upload'], 'LEGACY-REFRESH-TOKEN', 'LEGACY-ACCESS-TOKEN',
+       'UC_channel_id', 'Anna & Ben Wedding', '{}'::jsonb, NULL);
 
     INSERT INTO public.oauth_state (state_token, event_id, provider, initiated_by)
     VALUES ('state-abc', '${EVENT}', 'drive_photo_delivery', '${SUBJECT}');
@@ -264,6 +323,22 @@ before(async () => {
 
     INSERT INTO public.vendor_push_tokens (vendor_profile_id, token, platform)
     VALUES ('${VENDOR_PROFILE}', 'push-token-xyz', 'web');
+
+    -- ── an UNRELATED vendor's shop, so over-deletion has something to hit ───
+    INSERT INTO public.vendor_profiles (vendor_profile_id, user_id, business_name, is_published)
+    VALUES ('${OUTSIDER_VENDOR_PROFILE}', '${OUTSIDER}', 'Someone Else Studio', TRUE);
+
+    -- ── vendor verification: government ID / DTI / portfolio, private bucket ─
+    -- Keyed by vendor_profile_id. Its only *_user_id column is admin_user_id
+    -- (the reviewing STAFF member), which is why the coverage guardrail's
+    -- subject detector can never flag this table — see its docstring.
+    INSERT INTO public.vendor_verification_applications
+      (vendor_profile_id, application_type, status, doc_uploads, docs_complete)
+    VALUES
+      ('${VENDOR_PROFILE}', 'initial', 'pending_review',
+       '${JSON.stringify(SUBJECT_DOC_UPLOADS)}'::jsonb, TRUE),
+      ('${OUTSIDER_VENDOR_PROFILE}', 'initial', 'pending_review',
+       '{"government_id":{"r2_key":"${OUTSIDER_GOV_ID_REF}"}}'::jsonb, FALSE);
 
     -- ── chat: the subject's message (with an attachment) + the partner's ────
     INSERT INTO public.chat_threads (thread_id, event_id, vendor_profile_id)
@@ -340,6 +415,21 @@ before(async () => {
   before_.oauth_grants = await count(`SELECT count(*) FROM public.oauth_grants WHERE event_id = $1`, [EVENT]);
   before_.paperwork = await count(
     `SELECT count(*) FROM public.event_paperwork WHERE event_id = $1 AND tracking_reference IS NOT NULL`, [EVENT]);
+  before_.subjectPaperwork = await count(
+    `SELECT count(*) FROM public.event_paperwork WHERE subject_user_id = $1`, [SUBJECT]);
+  before_.partnerPaperwork = await count(
+    `SELECT count(*) FROM public.event_paperwork WHERE subject_user_id = $1`, [PARTNER]);
+  before_.unattributedPaperwork = await count(
+    `SELECT count(*) FROM public.event_paperwork WHERE event_id = $1 AND subject_user_id IS NULL`, [EVENT]);
+  before_.subjectGrants = await count(
+    `SELECT count(*) FROM public.oauth_grants WHERE granted_by_user_id = $1`, [SUBJECT]);
+  before_.partnerGrants = await count(
+    `SELECT count(*) FROM public.oauth_grants WHERE granted_by_user_id = $1`, [PARTNER]);
+  before_.unattributedGrants = await count(
+    `SELECT count(*) FROM public.oauth_grants WHERE granted_by_user_id IS NULL`);
+  before_.verificationDocs = await count(
+    `SELECT count(*) FROM public.vendor_verification_applications
+      WHERE vendor_profile_id = $1 AND doc_uploads <> '{}'::jsonb`, [VENDOR_PROFILE]);
   before_.waitlist = await count(`SELECT count(*) FROM public.couple_waitlist_signups WHERE email = $1`, [SUBJECT_EMAIL]);
   before_.subjectMessages = await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [SUBJECT]);
   before_.enrollments = await count(`SELECT count(*) FROM public.guest_face_enrollments WHERE guest_id = $1`, [SUBJECT_GUEST]);
@@ -462,18 +552,47 @@ test('2b · events.wizard_state — the personal payload is stripped, INCLUDING 
   assert.ok(!asText.includes('A & B'), 'the monogram initials survived in wizard_state');
 });
 
-test('2c · event_paperwork — the civil-registry reference and document are cleared', async () => {
+test('2c · event_paperwork — the LEAVER’S OWN civil-registry document is cleared', async () => {
   const row = (await db.query<Record<string, unknown>>(
-    `SELECT tracking_reference, document_r2_key, notes FROM public.event_paperwork WHERE event_id = $1`,
-    [EVENT])).rows[0];
+    `SELECT tracking_reference, document_r2_key, notes FROM public.event_paperwork
+      WHERE event_id = $1 AND document_type = 'cenomar_partner_1'`, [EVENT])).rows[0];
   assert.equal(row?.tracking_reference, null, 'the PSA/CENOMAR tracking reference survived');
   assert.equal(row?.document_r2_key, null, 'the scanned-document pointer survived');
   assert.equal(row?.notes, null, 'the free-text note survived');
   assert.ok(deletedStoredAssets.includes(PAPERWORK_REF), 'the scanned document was not handed to storage for deletion');
 });
 
-test('2d · oauth_grants — the live Google refresh token is gone', async () => {
-  assert.equal(await count(`SELECT count(*) FROM public.oauth_grants WHERE event_id = $1`, [EVENT]), 0);
+test('2d · oauth_grants — the LEAVER’S OWN live Google refresh token is gone', async () => {
+  assert.equal(
+    await count(`SELECT count(*) FROM public.oauth_grants WHERE granted_by_user_id = $1`, [SUBJECT]), 0,
+    'a credential the subject consented to outlived their account');
+  // …and specifically the row, not just the attribution.
+  assert.equal(
+    await count(
+      `SELECT count(*) FROM public.oauth_grants WHERE event_id = $1 AND provider = 'drive_photo_delivery'`,
+      [EVENT]),
+    0,
+  );
+});
+
+test('2n · vendor verification — the government ID and every doc ref are purged', async () => {
+  // The R2 objects first: a cleared JSONB with the file still in the private
+  // bucket is unreachable-but-retained, the worst of both outcomes.
+  for (const ref of [GOV_ID_REF, DTI_REF, PORTFOLIO_REF_A, PORTFOLIO_REF_B]) {
+    assert.ok(
+      deletedStoredAssets.includes(ref),
+      `${ref} was never handed to storage — a government ID / DTI / portfolio file survived erasure ` +
+        'in the private setnayan-vendor-verification bucket',
+    );
+  }
+  const row = (await db.query<Record<string, unknown>>(
+    `SELECT doc_uploads, docs_complete, status FROM public.vendor_verification_applications
+      WHERE vendor_profile_id = $1`, [VENDOR_PROFILE])).rows[0];
+  assert.deepEqual(row?.doc_uploads, {}, 'doc_uploads still holds the subject’s identity documents');
+  assert.equal(row?.docs_complete, false,
+    'docs_complete stayed TRUE over an empty map — the application would sit in the admin review queue with nothing to review');
+  // The row survives: it is also the admin verification DECISION record.
+  assert.equal(row?.status, 'pending_review', 'the application row was deleted, not scrubbed');
 });
 
 test('2e · users — the identity row is anonymized AND the lockout is stamped', async () => {
@@ -606,9 +725,109 @@ test('3b · the CO-PARTNER’S setup progress survives the wizard_state scrub', 
 
 test('3c · event_paperwork keeps its checklist progress', async () => {
   const row = (await db.query<Record<string, unknown>>(
-    `SELECT document_type, status FROM public.event_paperwork WHERE event_id = $1`, [EVENT])).rows[0];
+    `SELECT document_type, status FROM public.event_paperwork
+      WHERE event_id = $1 AND document_type = 'cenomar_partner_1'`, [EVENT])).rows[0];
   assert.equal(row?.document_type, 'cenomar_partner_1', 'the paperwork row was destroyed, not scrubbed');
   assert.equal(row?.status, 'in_processing');
+});
+
+test('3g · THE CO-PARTNER’S PSA / CENOMAR DOCUMENT SURVIVES INTACT', async () => {
+  // The defect this scoping exists to fix. Before the subject_user_id filter,
+  // `.in('event_id', eventIds)` erased this row too: one partner deleting their
+  // account destroyed the other partner's civil-registry documents — a third
+  // party's sensitive PI (§3(l)), removed by someone with no standing to ask,
+  // and irreversible. Nothing else in this suite catches it, because every
+  // other assertion is checking that data is GONE.
+  const row = (await db.query<Record<string, unknown>>(
+    `SELECT tracking_reference, document_r2_key, notes, status FROM public.event_paperwork
+      WHERE event_id = $1 AND document_type = 'cenomar_partner_2'`, [EVENT])).rows[0];
+  assert.equal(row?.tracking_reference, PARTNER_CENOMAR_REF,
+    'the CO-PARTNER’S CENOMAR reference was destroyed by the other partner’s account deletion');
+  assert.equal(row?.document_r2_key, PARTNER_PAPERWORK_REF,
+    'the CO-PARTNER’S scanned document pointer was destroyed');
+  assert.equal(row?.notes, 'Ben collected his on the 20th');
+  assert.equal(row?.status, 'received');
+  assert.ok(
+    !deletedStoredAssets.includes(PARTNER_PAPERWORK_REF),
+    'the CO-PARTNER’S scanned PSA document was handed to storage for DELETION — the R2 object is gone ' +
+      'and no amount of DB repair brings a civil-registry scan back',
+  );
+});
+
+test('3h · an UNATTRIBUTED document survives — fail closed, never guess', async () => {
+  const row = (await db.query<Record<string, unknown>>(
+    `SELECT tracking_reference, subject_user_id FROM public.event_paperwork
+      WHERE event_id = $1 AND document_type = 'psa_birth_cert_partner_1'`, [EVENT])).rows[0];
+  assert.equal(row?.tracking_reference, UNATTRIBUTED_PSA_REF,
+    'a row with subject_user_id IS NULL was erased. Unattributable is not the same as the leaver’s — ' +
+      'the purge must keep what it cannot prove, and audit the shortfall instead');
+  assert.equal(row?.subject_user_id, null);
+});
+
+test('3i · a JOINT document type survives while the other partner remains', async () => {
+  // marriage_license / pre_cana_certificate / banns_posted and the four
+  // counselling records have no single data subject by construction — they are
+  // the couple's, and one partner leaving does not make them erasable.
+  const row = (await db.query<Record<string, unknown>>(
+    `SELECT tracking_reference, notes, status FROM public.event_paperwork
+      WHERE event_id = $1 AND document_type = 'marriage_license'`, [EVENT])).rows[0];
+  assert.equal(row?.tracking_reference, JOINT_LICENCE_REF, 'the couple’s joint marriage licence was erased');
+  assert.equal(row?.notes, 'Both partners appeared at the LGU');
+  assert.equal(row?.status, 'in_processing');
+  // And the row count itself: 4 seeded, 1 scrubbed in place, 0 deleted.
+  assert.equal(await count(`SELECT count(*) FROM public.event_paperwork WHERE event_id = $1`, [EVENT]), 4,
+    'paperwork rows were DELETED rather than scrubbed — the couple lost checklist entries');
+});
+
+test('3j · the CO-PARTNER’S Google credential and the unattributed grant survive', async () => {
+  const partnerGrant = (await db.query<Record<string, unknown>>(
+    `SELECT refresh_token, external_account_display FROM public.oauth_grants
+      WHERE event_id = $1 AND provider = 'drive'`, [EVENT])).rows[0];
+  assert.equal(partnerGrant?.refresh_token, 'PARTNER-REFRESH-TOKEN',
+    'the CO-PARTNER’S Google Drive connection was revoked by the other partner’s account deletion');
+  assert.equal(partnerGrant?.external_account_display, 'partner@example.com');
+
+  const legacyGrant = (await db.query<Record<string, unknown>>(
+    `SELECT refresh_token, granted_by_user_id FROM public.oauth_grants
+      WHERE event_id = $1 AND provider = 'youtube'`, [EVENT])).rows[0];
+  assert.equal(legacyGrant?.refresh_token, 'LEGACY-REFRESH-TOKEN',
+    'a grant with granted_by_user_id IS NULL was deleted — it may be the co-partner’s account, and ' +
+      'the purge has no way to know');
+  assert.equal(legacyGrant?.granted_by_user_id, null);
+});
+
+test('3k · another VENDOR’S government ID is untouched', async () => {
+  const row = (await db.query<Record<string, unknown>>(
+    `SELECT doc_uploads FROM public.vendor_verification_applications WHERE vendor_profile_id = $1`,
+    [OUTSIDER_VENDOR_PROFILE])).rows[0];
+  assert.deepEqual(row?.doc_uploads, { government_id: { r2_key: OUTSIDER_GOV_ID_REF } },
+    'an unrelated vendor’s verification documents were wiped');
+  assert.ok(
+    !deletedStoredAssets.includes(OUTSIDER_GOV_ID_REF),
+    'an unrelated vendor’s government ID was handed to storage for deletion',
+  );
+});
+
+test('3l · what fail-closed KEPT is audit-logged, not silently dropped', async () => {
+  // Fail-closed is only defensible if the residue is countable. Without this
+  // row, "erasure completed" would also mean "…except for N documents and M
+  // credentials nobody counted", and the DPO could not tell a clean run from a
+  // run that skipped everything.
+  const rows = await db.query<{ metadata: Record<string, unknown> }>(
+    `SELECT metadata FROM public.admin_audit_log
+      WHERE action = 'erasure_unattributed_retained' AND target_id = $1`, [SUBJECT]);
+  const byStage = new Map(rows.rows.map((r) => [String(r.metadata?.stage), r.metadata]));
+  assert.deepEqual(
+    [...byStage.keys()].sort(),
+    ['oauth-grants-unattributed', 'paperwork-unattributed'],
+    `expected both retention notes, got: ${JSON.stringify([...byStage.keys()])}`,
+  );
+  assert.equal(byStage.get('paperwork-unattributed')?.retained_count, before_.unattributedPaperwork);
+  assert.equal(byStage.get('oauth-grants-unattributed')?.retained_count, before_.unattributedGrants);
+  // Counts and reasons only — never the reference numbers being retained.
+  const asText = JSON.stringify([...byStage.values()]);
+  assert.ok(!asText.includes(UNATTRIBUTED_PSA_REF), 'the audit row leaked the PSA reference it is reporting on');
+  assert.ok(!asText.includes(JOINT_LICENCE_REF), 'the audit row leaked the marriage-licence reference');
 });
 
 test('3d · the co-partner’s chat message and the thread survive', async () => {

@@ -190,6 +190,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
   vendor_admin_motion_votes: 'Admin decision record — the uid on it is a staff actor, not the subject.',
+  oauth_grants:
+    'Live credential material — refresh_token / access_token to the subject’s Google account. Same rule as api_keys: a bearer secret is never exported, and a subject-access download is a file that lands in Downloads and gets emailed around. Newly VISIBLE 2026-07-26, not newly excluded: `granted_by_user_id` was added so ERASURE could stop deleting the co-partner’s grant event-wide (migration 20271009100000), and the attribution column is what made this table detectable at all. The non-secret fact of the connection (which account, connected when) is mirrored onto `events.photo_delivery_account_email` / `photo_delivery_status`.',
 
   // ── Newly VISIBLE 2026-07-21 (second pass) ────────────────────────────────
   // These 21 became visible when STAFF_ACTOR_FK was DELETED (see the
@@ -242,6 +244,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
  * exactly what this map exists to make visible.
  */
 const KNOWN_GAPS: Record<string, string> = {
+  // ── Newly VISIBLE 2026-07-26, not newly created ──────────────────────────
+  event_paperwork:
+    'TODO(RA10173-backlog): the subject’s own PSA / CENOMAR / baptismal reference numbers and the scanned documents behind them — squarely subject data, and not exported today. It became DETECTABLE only on 2026-07-26, when `subject_user_id` was added so ERASURE could stop destroying the co-partner’s civil-registry documents event-wide (migration 20271009100000). Nothing populates that column yet (no user↔partner-slot mapping exists), so an attribution-scoped export would currently return zero rows; wire it into the export route in the same PR that lands the mapping. Only the 8 per-partner document_type values can ever have a subject — the 7 joint ones (marriage_license, pre_cana_certificate, banns_posted, the counselling records) belong to both partners and need their own disclosure decision.',
+
   // ── Newly VISIBLE 2026-07-21, not newly created ──────────────────────────
   // These three were always gaps. They were invisible because STAFF_ACTOR
   // wrongly claimed `accessed_user_id` / `target_user_id` name an operator; on
@@ -387,8 +393,24 @@ const KNOWN_GAPS: Record<string, string> = {
  * coverage got worse. Refusing the raise would have meant keeping the heuristic
  * wrong to protect a number — precisely the false confidence this file exists
  * to prevent. Every future movement must be downward.
+ *
+ *   88 → 89  2026-07-26 · `event_paperwork`. Same shape as every raise above:
+ *            the gap is not new, the VISIBILITY is. The table holds the
+ *            subject's PSA / CENOMAR references and was never exported, but it
+ *            is keyed by event_id and had no user column at all, so this
+ *            detector was structurally incapable of counting it. Adding
+ *            `subject_user_id` — for ERASURE, so one partner deleting their
+ *            account would stop destroying the OTHER partner's civil-registry
+ *            documents — is what made it countable. (`oauth_grants` became
+ *            visible in the same migration and went to DELIBERATE_EXCLUSIONS
+ *            instead: it is credential material.)
+ *
+ *            Worth stating plainly, because it is the reusable lesson: an
+ *            attribution column improves BOTH sides at once. It let erasure
+ *            stop over-deleting, and it dragged a silent export gap into the
+ *            count. Tables with no user column are not clean; they are unread.
  */
-const KNOWN_GAP_CEILING = 88;
+const KNOWN_GAP_CEILING = 89;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

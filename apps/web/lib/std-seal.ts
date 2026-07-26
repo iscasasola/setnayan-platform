@@ -34,8 +34,13 @@ export function splitFingerprint(fp: string): { etag: string; size: number } | n
   const cut = fp.lastIndexOf(':');
   if (cut <= 0) return null;
   const etag = fp.slice(0, cut);
-  const size = Number(fp.slice(cut + 1));
-  if (!etag || !Number.isFinite(size)) return null;
+  const raw = fp.slice(cut + 1);
+  // `Number('')` is 0, not NaN — so an EMPTY size would parse as a real
+  // zero-byte object. A parser this system leans on must not invent a value out
+  // of an absent one; that leniency is the whole bug class SEC-6 is about.
+  if (!etag || raw.length === 0) return null;
+  const size = Number(raw);
+  if (!Number.isFinite(size)) return null;
   return { etag, size };
 }
 

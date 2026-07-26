@@ -5,7 +5,10 @@ import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
+import {
+  PACKAGE_CANONICAL_TO_VENDOR_CATEGORY,
+  PACKAGE_ITEM_OPTION_SELECT,
+} from '@/lib/vendor-packages';
 import type { DraftPackage } from '@/lib/package-authoring';
 import { PackageEditor } from '../_components/package-editor';
 
@@ -77,7 +80,7 @@ export default async function EditPackagePage({
     const { data: options } = itemIds.length
       ? await supabase
           .from('vendor_package_item_options')
-          .select('option_id, item_id, label, price_delta_centavos, is_default, is_available')
+          .select(PACKAGE_ITEM_OPTION_SELECT)
           .in('item_id', itemIds)
           .order('display_order', { ascending: true })
       : { data: [] as never[] };
@@ -108,7 +111,7 @@ export default async function EditPackagePage({
           .filter((o) => o.item_id === i.item_id)
           .map((o) => ({
             ref: o.option_id,
-            label: o.label,
+            label: o.option_label,
             price_delta_centavos: o.price_delta_centavos,
             is_default: o.is_default,
             is_available: o.is_available,

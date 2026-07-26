@@ -40,6 +40,10 @@ import {
   type DraftPackage,
   type DraftProblem,
 } from '@/lib/package-authoring';
+import {
+  PACKAGE_ITEM_OPTION_SELECT,
+  type VendorPackageItemOptionRow,
+} from '@/lib/vendor-packages';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
@@ -101,7 +105,7 @@ async function loadOwnDraft(
   const { data: options } = itemIds.length
     ? await supabase
         .from('vendor_package_item_options')
-        .select('option_id, item_id, label, price_delta_centavos, is_default, is_available')
+        .select(PACKAGE_ITEM_OPTION_SELECT)
         .in('item_id', itemIds)
     : { data: [] as never[] };
 
@@ -121,7 +125,7 @@ async function loadOwnDraft(
         .filter((o) => o.item_id === i.item_id)
         .map((o) => ({
           ref: o.option_id,
-          label: o.label,
+          label: o.option_label,
           price_delta_centavos: o.price_delta_centavos,
           is_default: o.is_default,
           is_available: o.is_available,
@@ -253,18 +257,22 @@ async function writeItems(
   // Re-key by display_order — the insert preserves it, and it is the only link
   // back to the draft's client-side refs.
   const byOrder = new Map(itemRows.map((r) => [r.display_order, r.item_id]));
-  const optionRows = draft.items.flatMap((i, idx) => {
-    const itemId = byOrder.get(idx);
-    if (!itemId) return [];
-    return i.options.map((o, oIdx) => ({
-      item_id: itemId,
-      label: o.label.trim(),
-      price_delta_centavos: o.price_delta_centavos,
-      is_default: o.is_default,
-      is_available: o.is_available,
-      display_order: oIdx,
-    }));
-  });
+  // Typed as the real row so a mis-named column is a compile error, not a
+  // PostgREST 400 at runtime — writing `label` here (the column is
+  // `option_label`) silently saved every choice line with no options at all.
+  const optionRows: ReadonlyArray<Omit<VendorPackageItemOptionRow, 'option_id'>> =
+    draft.items.flatMap((i, idx) => {
+      const itemId = byOrder.get(idx);
+      if (!itemId) return [];
+      return i.options.map((o, oIdx) => ({
+        item_id: itemId,
+        option_label: o.label.trim(),
+        price_delta_centavos: o.price_delta_centavos,
+        is_default: o.is_default,
+        is_available: o.is_available,
+        display_order: oIdx,
+      }));
+    });
 
   if (optionRows.length > 0) {
     const { error: optErr } = await supabase

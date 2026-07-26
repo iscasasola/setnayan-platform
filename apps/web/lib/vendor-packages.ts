@@ -178,6 +178,50 @@ export type VendorPackageItemRow = {
   is_required?: boolean;
 };
 
+/**
+ * One alternative on a CHOICE line (migration 20271006413374). A line is a
+ * choice iff it carries at least one of these.
+ *
+ * ⚠ The DB column is `option_label`, NOT `label`. The authoring surface asked
+ * for `label` in two SELECTs and wrote `label` in its INSERT; PostgREST 400s on
+ * an unknown column, so no vendor could save or reload a choice option at all.
+ * This type and {@link PACKAGE_ITEM_OPTION_COLUMNS} exist so the name is
+ * written down once, in one place, instead of in free-text query strings —
+ * `vendor-packages.columns.test.ts` checks it against the migration.
+ */
+export type VendorPackageItemOptionRow = {
+  option_id: string;
+  item_id: string;
+  option_label: string;
+  /** EXTRA over the default. The DB pins the default option to 0. */
+  price_delta_centavos: number;
+  is_default: boolean;
+  is_available: boolean;
+  display_order: number;
+};
+
+/**
+ * The columns of `vendor_package_item_options` this app reads or writes, spelled
+ * as the database spells them. NOT the full table — `option_description`,
+ * `created_at` and `updated_at` exist in the migration and are deliberately
+ * absent here because nothing consumes them yet.
+ *
+ * Every name in this list is asserted to be a real column by the columns test.
+ */
+export const PACKAGE_ITEM_OPTION_COLUMNS = [
+  'option_id',
+  'item_id',
+  'option_label',
+  'price_delta_centavos',
+  'is_default',
+  'is_available',
+  'display_order',
+] as const;
+
+/** The PostgREST select list for a choice option. Use this, never a literal. */
+export const PACKAGE_ITEM_OPTION_SELECT =
+  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available';
+
 export type VendorPackageWithItems = VendorPackageRow & {
   items: ReadonlyArray<VendorPackageItemRow>;
 };

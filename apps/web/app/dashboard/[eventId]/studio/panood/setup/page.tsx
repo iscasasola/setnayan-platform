@@ -26,9 +26,16 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { readEventWatchUrls } from '@/lib/watch-live-links';
+import {
+  savePanoodWatchUrl,
+  clearPanoodWatchUrl,
+  savePanoodFacebookUrl,
+  clearPanoodFacebookUrl,
+} from './actions';
 import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 
 export const metadata = { title: 'Live Studio setup · Setnayan' };
 
@@ -74,6 +81,10 @@ type PanoodSetup = {
   // live; null while the broadcast is staged but not yet running. With the
   // BYO-YouTube pivot, this URL points at the couple's own channel.
   youtubeWatchUrl: string | null;
+  // DUAL-STREAM (owner-approved 2026-07-26) ← events.panood_watch_url_facebook.
+  // The couple's SIMULTANEOUS Facebook Live link, pasted by them; their encoder
+  // (obs-multi-rtmp) fans the same program output out to both destinations.
+  facebookWatchUrl: string | null;
 };
 
 type YoutubeGrant = {
@@ -92,6 +103,8 @@ type Props = {
     youtube_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    facebook_url_saved?: string;
+    facebook_url_error?: string;
   }>;
 };
 
@@ -103,6 +116,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     youtube_error: youtubeError,
     watch_url_saved: watchUrlSaved,
     watch_url_error: watchUrlError,
+    facebook_url_saved: facebookUrlSaved,
+    facebook_url_error: facebookUrlError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -152,21 +167,19 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     baseOwned,
     customMonogramOwned,
     youtubeWatchUrl: null,
+    facebookWatchUrl: null,
   };
 
   // REAL watch-URL read (the first live persistence on this surface —
-  // migration 20261122000000). Tolerant separate select so a pre-migration
-  // environment renders null instead of erroring the page; the user-session
-  // client is RLS-scoped to the host's own events.
+  // migration 20261122000000), now covering the DUAL-STREAM Facebook column too
+  // (20271006100000). readEventWatchUrls retries with a YouTube-only select if
+  // the Facebook column is missing (42703), so a pre-migration environment keeps
+  // its YouTube field instead of losing both. The user-session client is
+  // RLS-scoped to the host's own events.
   try {
-    const { data: watchRow, error: watchErr } = await supabase
-      .from('events')
-      .select('panood_watch_url')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if (!watchErr && watchRow?.panood_watch_url) {
-      setup.youtubeWatchUrl = watchRow.panood_watch_url as string;
-    }
+    const urls = await readEventWatchUrls(supabase, eventId);
+    setup.youtubeWatchUrl = urls.youtubeWatchUrl;
+    setup.facebookWatchUrl = urls.facebookWatchUrl;
   } catch {
     // pre-migration env — keep null
   }
@@ -313,9 +326,12 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       <YouTubeDelivery
         eventId={eventId}
         youtubeWatchUrl={setup.youtubeWatchUrl}
+        facebookWatchUrl={setup.facebookWatchUrl}
         connected={!!youtubeGrant}
         watchUrlSaved={Boolean(watchUrlSaved)}
         watchUrlError={Boolean(watchUrlError)}
+        facebookUrlSaved={Boolean(facebookUrlSaved)}
+        facebookUrlError={Boolean(facebookUrlError)}
       />
     </section>
   );
@@ -881,15 +897,21 @@ function PackCard({
 function YouTubeDelivery({
   eventId,
   youtubeWatchUrl,
+  facebookWatchUrl,
   connected,
   watchUrlSaved,
   watchUrlError,
+  facebookUrlSaved,
+  facebookUrlError,
 }: {
   eventId: string;
   youtubeWatchUrl: string | null;
+  facebookWatchUrl: string | null;
   connected: boolean;
   watchUrlSaved: boolean;
   watchUrlError: boolean;
+  facebookUrlSaved: boolean;
+  facebookUrlError: boolean;
 }) {
   return (
     <section
@@ -1014,6 +1036,18 @@ function YouTubeDelivery({
           </p>
         ) : null}
       </div>
+
+      {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door,
+          directly under the YouTube one so the 30-day Facebook warning inside
+          the card sits next to the copy that lasts. */}
+      <FacebookDualStreamCard
+        eventId={eventId}
+        facebookUrl={facebookWatchUrl}
+        saveAction={savePanoodFacebookUrl}
+        clearAction={clearPanoodFacebookUrl}
+        saved={facebookUrlSaved}
+        error={facebookUrlError}
+      />
 
       <p className="text-xs text-ink/55">
         Want to share with smart-TV viewers? Once the broadcast is live, the YouTube

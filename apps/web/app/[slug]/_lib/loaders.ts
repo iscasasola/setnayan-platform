@@ -52,7 +52,8 @@ import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-
 import { getWallSnapshot } from '@/lib/live-wall';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
-import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { youTubeEmbedUrl } from '@/lib/panood-watch';
+import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
 import {
   applyGuestPick,
   fetchRoamViewerState,
@@ -460,13 +461,9 @@ export const loadLiveLayer = cache(
         // day-of page surfaces the wall mirror. The old
         // event_software_activations_v2 reads had no payment-path writer (their
         // only writer, verify_and_activate_manual_payment, has zero callers).
-        const [ownsWall, watchRowRes] = await Promise.all([
+        const [ownsWall, watchUrls] = await Promise.all([
           eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
-          admin
-            .from('events')
-            .select('panood_watch_url')
-            .eq('event_id', event.event_id)
-            .maybeSingle(),
+          readEventWatchUrls(admin, event.event_id),
         ]);
         if (ownsWall) {
           const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
@@ -478,16 +475,12 @@ export const loadLiveLayer = cache(
               : null,
           };
         }
-        const watchUrl = watchRowRes.error
-          ? null
-          : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
-              ?.panood_watch_url ?? null);
-        if (watchUrl) {
-          const videoId = parseYouTubeVideoId(watchUrl);
-          if (videoId) {
-            watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
-          }
-        }
+        // DUAL-STREAM (owner-approved 2026-07-26). resolveWatchLinks re-validates
+        // BOTH stored URLs on every render — `events` UPDATE RLS is ROW-level and
+        // the anon key is public, so a forged value must degrade to "no link"
+        // rather than reach an iframe src or an href. Returns null when neither
+        // side is usable, which is byte-for-byte the old behaviour.
+        watchLive = resolveWatchLinks(watchUrls);
         // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
         // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
         // mirrored non-secret) turns the single embed into a camera/zone picker. The
@@ -537,6 +530,10 @@ export const loadLiveLayer = cache(
                 embedUrl: youTubeEmbedUrl(featured.videoId),
                 watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
                 roam,
+                // Carried through deliberately: a couple who published a Facebook
+                // link AND owns Roam must not lose the Facebook door just because
+                // the picker replaced the single embed.
+                facebookUrl: watchLive?.facebookUrl ?? null,
               };
             } catch {
               // invalid featured id — keep any CAST watchLive as-is

@@ -22,8 +22,20 @@ import type { EntrancePos } from '@/lib/indoor-blueprint';
 import type { GuestHubData } from '../_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
- *  staged — single-cam Panood live is free for every host). */
-export type WatchLiveData = { embedUrl: string; watchUrl: string; roam?: RoamManifest };
+ *  staged — single-cam Panood live is free for every host).
+ *
+ *  DUAL-STREAM (2026-07-26): a couple may also be live on Facebook. `embedUrl` /
+ *  `watchUrl` are NULLABLE because Facebook can be the only destination they
+ *  published — in that case there is no player, just the link. `facebookUrl` is
+ *  a LINK-OUT ONLY: facebook.com is deliberately absent from next.config.ts
+ *  frame-src, so it is never an iframe src. Both values come out of
+ *  lib/watch-live-links.ts, which re-validates them on every render. */
+export type WatchLiveData = {
+  embedUrl: string | null;
+  watchUrl: string | null;
+  roam?: RoamManifest;
+  facebookUrl?: string | null;
+};
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 export type LiveWallData = {
   tiles: WallTile[];

@@ -6,17 +6,17 @@ export function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
     return (
       <section
         aria-label="Live event mode"
-        className="flex items-center gap-3 rounded-xl border-2 border-success-300 bg-success-50 p-4 sm:p-5"
+        className="flex items-center gap-3 rounded-xl border-l-2 border-gild bg-veil/60 p-4 sm:p-5"
       >
         <span
           aria-hidden
-          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success-600"
+          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-terracotta"
         />
         <div className="flex-1">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-success-800">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             Live now
           </p>
-          <p className="text-sm text-success-900">
+          <p className="text-sm text-ink/80">
             The wedding is happening. Your schedule, QR, and venue info are pinned
             below — they work offline if WiFi cuts out.
           </p>

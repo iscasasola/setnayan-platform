@@ -489,8 +489,8 @@ export function SiteBody({
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
       dayOfPhase === 'live' ? (
-        <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
+        <p className="inline-flex items-center gap-2 rounded-full border border-terracotta px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           Happening now
         </p>
       ) : dayOfPhase === 'post' ? (
@@ -559,7 +559,7 @@ export function SiteBody({
                   an old one stops working the moment it&rsquo;s replaced.
                 </p>
               ) : reason === 'wrong_event' ? (
-                <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+                <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
                   You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
                   QR or invite link to switch.
                 </p>
@@ -1004,7 +1004,7 @@ export function SiteBody({
                   <div className="flex items-center justify-between gap-3">
                     <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                       {isLive ? (
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
                       ) : null}
                       Photos of you{isLive ? ' — so far' : ''}
                     </p>
@@ -1018,7 +1018,7 @@ export function SiteBody({
                       account keeps them forever. The claim-account box already sits near
                       the top of the page for accountless viewers. */}
                   {isPost && showClaimAccountCta ? (
-                    <p className="mt-3 rounded-lg border border-warn-900/15 bg-warn-100 px-3 py-2 text-sm text-warn-900">
+                    <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
                       These close about a day after the wedding. Save the ones you want now —
                       or make a free account (the box near the top) to keep them forever.
                     </p>
@@ -1272,7 +1272,7 @@ export function SiteBody({
               ))}
 
               {isLimitedPlusOne ? (
-                <section className="rounded-xl border border-warn-200 bg-warn-50 p-5 text-sm text-warn-900">
+                <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
                   gallery — ask them to share. In-app features like Shutter
                   require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on

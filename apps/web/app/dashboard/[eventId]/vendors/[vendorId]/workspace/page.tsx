@@ -83,20 +83,15 @@ import type {
 } from '@/lib/vendor-service-payment-schedules';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import { ReservationTermsAck } from './_components/reservation-terms-ack';
-// First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
-// reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
-// + platform_settings receiving accounts), with a Setnayan admin accepting the
-// payment at /admin/payments. Interim until the automated payment system goes
-// live (2027-01-01). The order is keyed by a stable per-service key so this page
-// can surface its live status.
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  fetchOrdersForEvent,
-  ORDER_STATUS_LABEL,
-  ORDER_STATUS_TONE,
-  type OrderRow,
-} from '@/lib/orders';
+// REMOVED 2026-07-26 (owner ruling — "all setnayan in app services are either on
+// their exact location on the dashboard or on suites"): the first-party
+// "Setnayan-as-a-vendor" order-and-pay path that used to live on this page
+// (InlineCheckoutDrawer + fetchPlatformSettings + fetchOrdersForEvent, keyed by a
+// runtime-synthesised `setnayan_service__{category}`) is gone. Setnayan's own
+// services are bought where they LIVE — the suite (/dashboard/[eventId]/suite) or
+// the service's own studio page — from an admin-priced catalog SKU. This page is
+// now only ever a THIRD-PARTY vendor relationship: a deal the couple records and
+// settles off-platform.
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import { VendorProposalsCard } from './_components/vendor-proposals-card';
@@ -444,7 +439,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       ev.status === 'complete');
 
   // Couple-visibility fix (2026-07-01): the couple's OWN picked-vendor
-  // marketplace HEADER (business_name / logo / city / is_setnayan_service),
+  // marketplace HEADER (business_name / logo / city / slug),
   // SERVICES, and CONTACT are resolved via the ADMIN client. Ownership is
   // already proven above — the event_vendors row was fetched through the couple
   // RLS client keyed on (vendor_id, event_id), and a miss/deny hits notFound().
@@ -492,13 +487,25 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('vendor_id', vendorId)
       .order('starts_at', { ascending: true }),
 
-    // Marketplace profile — logo, business name, city, + is_setnayan_service
-    // (drives the "Provided by Setnayan" attribution). ADMIN read (ownership
-    // proven above) so an unpublished claimed vendor still hydrates the header.
+    // Marketplace profile — logo, business name, city, slug. ADMIN read
+    // (ownership proven above) so an unpublished claimed vendor still hydrates
+    // the header.
+    //
+    // ⚠ FIXED 2026-07-26 — this select also asked for `is_setnayan_service`, a
+    // column that DOES NOT EXIST on `vendor_profiles`. It is a computed column of
+    // the `vendor_market_stats` VIEW (an array-membership test over
+    // `vendor_profiles.services`, migration 20260607020000), so PostgREST failed
+    // the WHOLE query with a hard 42703 and `data` came back null — the header
+    // silently lost the business name, logo, city and slug for every marketplace
+    // pick, not just the attribution it was added for. Invisible in production
+    // only because no `event_vendors` row has a `marketplace_vendor_id` yet.
+    // It is NOT re-pointed at the view: the "Provided by Setnayan" attribution it
+    // fed was removed together with the first-party buy path (owner ruling
+    // 2026-07-26), and prod has 0 profiles with `is_setnayan_service = true`.
     ev.marketplace_vendor_id
       ? marketplaceAdmin
           .from('vendor_profiles')
-          .select('business_name, business_slug, logo_url, city, is_setnayan_service')
+          .select('business_name, business_slug, logo_url, city')
           .eq('vendor_profile_id', ev.marketplace_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -662,7 +669,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     business_slug: string | null;
     logo_url: string | null;
     city: string | null;
-    is_setnayan_service: boolean | null;
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
@@ -745,7 +751,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // --------------------------------------------------------------------------
   const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
   const logoUrl = safeHttpUrl(marketplaceProfile?.logo_url);
-  const isSetnayanService = marketplaceProfile?.is_setnayan_service === true;
   const categoryLabel =
     (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
 
@@ -753,48 +758,31 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // fallback when this pick isn't tied to a locked package (manual/off-platform).
   const serviceTitle = packageHeader?.name ?? categoryLabel;
   const serviceDescription = packageHeader?.description ?? null;
-  const attribution = isSetnayanService ? 'Provided by Setnayan' : `by ${displayName}`;
+  const attribution = `by ${displayName}`;
 
   // --------------------------------------------------------------------------
-  // First-party Setnayan-service order-and-pay (interim · owner 2026-06-04)
+  // 🚫 REMOVED 2026-07-26 — "Setnayan as a vendor" order-and-pay (was: owner
+  // directive 2026-06-04, interim).
   //
-  // Setnayan's own services are paid TO Setnayan (not a third-party vendor), so
-  // the couple pays through the same inline apply-then-pay drawer the add-on
-  // SKUs use, and a Setnayan admin accepts the payment at /admin/payments. We
-  // key the order by a stable per-service key so we can surface its live status
-  // right here. Price precedence mirrors the hero: package locked total (already
-  // centavos) → snapshot itemized (pesos→centavos) → host total_cost_php (pesos
-  // →centavos). centavos so the drawer's BigInt voucher math is exact.
+  // This page used to synthesise a `setnayan_service__{ev.category}` service_key
+  // at RUNTIME and mount an InlineCheckoutDrawer against it, pricing the order
+  // from a three-tier precedence whose LAST tier was `ev.total_cost_php` — a
+  // number the COUPLE types into the Costing form below. That made it the third
+  // instance of "a value the customer can edit decides what they are charged"
+  // (after `events.event_type`/SEC-5 and the latent `events.estimated_pax`).
+  //
+  // The owner's ruling deletes the path outright rather than repricing it: every
+  // in-app Setnayan service is sold from its OWN location — the suite
+  // (/dashboard/[eventId]/suite) or its studio page — as an ordinary catalog SKU
+  // with an admin-set price in `platform_retail_catalog_v2`. Monogram and Papic
+  // already work that way.
+  //
+  // `event_vendors.total_cost_php` stays exactly where it is. It is the couple's
+  // own BUDGET record, which is its real job; it simply stops being a price.
+  //
+  // The matching server resolver was removed from `lib/order-charge-authority.ts`
+  // in the same change, so the key is inert on the POST path too.
   // --------------------------------------------------------------------------
-  const setnayanServiceKey = `setnayan_service__${ev.category}`;
-  const setnayanServiceCentavos =
-    packageHeader?.priceCentavos != null && packageHeader.priceCentavos > 0
-      ? Math.round(packageHeader.priceCentavos)
-      : vendorBudgetSummary && vendorBudgetSummary.itemizedTotal > 0
-        ? Math.round(vendorBudgetSummary.itemizedTotal * 100)
-        : Number(ev.total_cost_php) > 0
-          ? Math.round(Number(ev.total_cost_php) * 100)
-          : 0;
-
-  let setnayanSettings: Awaited<
-    ReturnType<typeof fetchPlatformSettings>
-  > | null = null;
-  let setnayanOrders: OrderRow[] = [];
-  if (isSetnayanService) {
-    const [settingsResolved, ordersResolved] = await Promise.all([
-      fetchPlatformSettings(supabase).catch(() => null),
-      fetchOrdersForEvent(supabase, eventId).catch(() => [] as OrderRow[]),
-    ]);
-    setnayanSettings = settingsResolved;
-    setnayanOrders = ordersResolved.filter(
-      (o) => o.service_key === setnayanServiceKey,
-    );
-  }
-  // Latest non-terminal order for this service (orders come back newest-first).
-  const activeSetnayanOrder =
-    setnayanOrders.find(
-      (o) => o.status !== 'cancelled' && o.status !== 'refunded',
-    ) ?? null;
 
   const stage = inferStage(ev.status);
   const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
@@ -1047,7 +1035,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           >
             All services
           </Link>
-          {!isSetnayanService && (() => {
+          {/* Cancel / dispute. The `!isSetnayanService &&` guard that used to
+              wrap this was dropped 2026-07-26: it existed to hide "cancel this
+              booking" / "raise a dispute" on a service Setnayan itself provided
+              (you don't dispute your own platform). With the first-party path
+              gone, this page is always a third-party vendor relationship, so the
+              affordance is always the right one. */}
+          {(() => {
             // Mirror the server-side downpaid signal from cancelBookingAsHost.
             const downpaid =
               ev.status === 'deposit_paid' ||
@@ -1568,105 +1562,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </>
       ) : null;
 
-  const paymentModeSection =
-      isSetnayanService ? (
-        <section
-          aria-labelledby="managed-heading"
-          className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6"
-        >
-          <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mulberry/10 text-mulberry">
-              <Sparkles aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="space-y-1">
-                <h2
-                  id="managed-heading"
-                  className="text-sm font-semibold text-ink"
-                >
-                  Managed by Setnayan
-                </h2>
-                <p className="text-xs text-ink/70">
-                  This is a first-party Setnayan service, so you pay Setnayan
-                  directly — there&rsquo;s no separate vendor. Send your payment,
-                  upload the screenshot, and our team verifies and activates it
-                  within one business day.
-                </p>
-              </div>
-
-              {/* Live status of this service's order, if one exists. */}
-              {activeSetnayanOrder ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/15 bg-cream/70 px-3 py-2.5">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${ORDER_STATUS_TONE[activeSetnayanOrder.status]}`}
-                  >
-                    {ORDER_STATUS_LABEL[activeSetnayanOrder.status]}
-                  </span>
-                  <span className="font-mono text-[11px] text-ink/55">
-                    {activeSetnayanOrder.reference_code}
-                  </span>
-                  <span className="text-xs font-medium text-ink">
-                    {formatPHP(activeSetnayanOrder.requested_total_php)}
-                  </span>
-                  <Link
-                    href={`/dashboard/${eventId}/orders/${activeSetnayanOrder.order_id}`}
-                    className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                  >
-                    <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Track / upload proof
-                  </Link>
-                </div>
-              ) : null}
-
-              {/* Pay surface — same inline apply-then-pay drawer the add-on SKUs
-                  use, pre-filled with this service's price + Setnayan's own
-                  BDO/GCash receiving accounts. Admin accepts at /admin/payments. */}
-              {setnayanServiceCentavos > 0 && setnayanSettings ? (
-                <div className="space-y-2">
-                  <InlineCheckoutDrawer
-                    serviceKey={setnayanServiceKey}
-                    displayName={serviceTitle}
-                    originalPriceCentavos={String(setnayanServiceCentavos)}
-                    eventId={eventId}
-                    settings={{
-                      bdo_account_name: setnayanSettings.bdo_account_name,
-                      bdo_account_number: setnayanSettings.bdo_account_number,
-                      bdo_qr_url: setnayanSettings.bdo_qr_url,
-                      gcash_account_name: setnayanSettings.gcash_account_name,
-                      gcash_number: setnayanSettings.gcash_number,
-                      gcash_qr_url: setnayanSettings.gcash_qr_url,
-                    }}
-                    triggerLabel={
-                      activeSetnayanOrder ? 'Pay again' : 'Pay for this service'
-                    }
-                    triggerClassName="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                  />
-                  <p className="text-[11px] leading-relaxed text-ink/55">
-                    You&rsquo;re paying Setnayan, not a third-party vendor. Until
-                    our automated payment system goes live, our team confirms each
-                    transfer by hand — keep your reference code and screenshot
-                    handy.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-ink/70">
-                    We&rsquo;ll confirm the exact amount for this service and email
-                    you payment instructions with a reference code.
-                  </p>
-                  <Link
-                    href={`/dashboard/${eventId}/orders`}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-xs font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                  >
-                    <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Track in your Orders
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      ) : (
+  // Costing — the host's own 3-line budget record for this vendor.
+  //
+  // This used to be the ELSE arm of an `isSetnayanService ? … : …` ternary whose
+  // other arm was the "Managed by Setnayan" pay card (a runtime-keyed
+  // InlineCheckoutDrawer). That arm was deleted 2026-07-26 on the owner ruling —
+  // see the block comment above `const stage` — so Costing is now unconditional,
+  // which is what it always was for every real row.
+  const paymentModeSection = (
         <section
           aria-labelledby="costing-heading"
           className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
@@ -2325,24 +2228,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // shell hides this under lg, and the mobile header already carries the hero +
   // status, so this is purely additive on desktop.
   // ------------------------------------------------------------------------
+  //
+  // The leading `if (isSetnayanService)` arm (three Setnayan-order payment
+  // states, read off `activeSetnayanOrder`) was removed 2026-07-26 with the
+  // first-party buy path. The stage-derived chain below already covers every
+  // state a third-party booking can be in, and it always ends in an `else`.
   let railTitle: string;
   let railBody: string;
-  if (isSetnayanService) {
-    const paidUp =
-      activeSetnayanOrder?.status === 'paid' ||
-      activeSetnayanOrder?.status === 'fulfilled';
-    if (paidUp) {
-      railTitle = 'Payment received';
-      railBody = 'Your payment is confirmed — this service is active.';
-    } else if (activeSetnayanOrder) {
-      railTitle = 'Payment in review';
-      railBody = 'We’re verifying your payment. You’ll get an email once it’s activated.';
-    } else {
-      railTitle = 'Pay for this service';
-      railBody =
-        'You pay Setnayan directly. Send your payment, upload the screenshot, and our team activates it within a business day.';
-    }
-  } else if (stage === 'delivered') {
+  if (stage === 'delivered') {
     railTitle = 'Delivered';
     railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
   } else if (stage === 'downpayment_paid') {

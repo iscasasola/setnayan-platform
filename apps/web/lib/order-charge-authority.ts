@@ -56,7 +56,6 @@ import {
 import {
   resolveAiSubTotal,
   sealServerResolvedTotal,
-  setnayanServiceCategoryFromKey,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
 
@@ -65,8 +64,6 @@ export {
   orderTotalToPhp,
   refusalMessage,
   resolveAiSubTotal,
-  setnayanServiceCategoryFromKey,
-  SETNAYAN_SERVICE_KEY_PREFIX,
 } from '@/lib/order-charge-math';
 export type {
   ChargeRefusal,
@@ -97,8 +94,14 @@ export type ChargeAuthorityInput = {
  *   2. `platform_retail_catalog_v2`   — the retail SKUs (flat + the pax curve)
  *   3. Setnayan AI per-EVENT-TYPE ladder — overrides (2) when the flag is on
  *   4. `platform_package_catalog`     — bundles (GUIDED_PACK / MEDIA_PACK / PAPIC_UNLOCK*)
- *   5. `setnayan_service__{category}` — the booked first-party event_vendors deal
- *   6. …nothing else. REFUSE.
+ *   5. …nothing else. REFUSE.
+ *
+ * 🚫 There is deliberately NO resolver for `setnayan_service__{category}` any
+ * more. It was step (5) until 2026-07-26, when the owner deleted the whole
+ * "book Setnayan as a vendor" purchase path: its price fell back to
+ * `event_vendors.total_cost_php`, a figure the buying couple types in
+ * themselves. Every Setnayan service is now an ordinary admin-priced catalog SKU
+ * sold from the suite or its own studio page, so it resolves at step (2).
  *
  * Every DB miss is distinguished from every DB error, and an error REFUSES.
  */
@@ -161,19 +164,7 @@ export async function resolveOrderChargeCentavos(
     return sealServerResolvedTotal(bundle.centavos, 'package_catalog');
   }
 
-  // ── (5) The booked first-party Setnayan service ───────────────────────────
-  const category = setnayanServiceCategoryFromKey(serviceKey);
-  if (category && eventId) {
-    const booked = await resolveSetnayanServiceChargeCentavos(admin, eventId, category);
-    if (booked.status === 'error') {
-      return { ok: false, refusal: 'read_error', detail: booked.message };
-    }
-    if (booked.status === 'resolved') {
-      return sealServerResolvedTotal(booked.centavos, 'event_vendor_setnayan_service');
-    }
-  }
-
-  // ── (6) Nothing owns this key ─────────────────────────────────────────────
+  // ── (5) Nothing owns this key ─────────────────────────────────────────────
   //
   // This is the SEC-7 fix in one line. Previously this fell through and kept
   // `original_centavos` from the POST body. Keys that legitimately land here and
@@ -190,149 +181,15 @@ export async function resolveOrderChargeCentavos(
   //   • 'save-the-date:<slug>'           — DOES NOT EXIST. The comment that named it
   //                                        was wrong; the real Save-the-Date SKU is
   //                                        STD_PREMIUM_OPENINGS, an ordinary retail row.
+  //   • setnayan_service__{category}     — REMOVED 2026-07-26 (owner ruling). It had a
+  //                                        resolver here until this change; now it is
+  //                                        just another unowned key and lands on the
+  //                                        refusal below, by design. Nothing mounts a
+  //                                        drawer against it any more either, so a POST
+  //                                        carrying one is forged.
   return {
     ok: false,
     refusal: 'no_price_source',
     detail: `no server-side price resolver owns service_key=${serviceKey.slice(0, 64)}`,
   };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// The booked-deal resolver
-// ─────────────────────────────────────────────────────────────────────────────
-
-type BookedResolution =
-  | { status: 'resolved'; centavos: number }
-  | { status: 'not_found' }
-  | { status: 'error'; message: string };
-
-/**
- * The authoritative charge for `setnayan_service__{category}`.
- *
- * Mirrors the price precedence the vendor workspace page renders, but re-read
- * here from the DB so the POST body cannot set it:
- *
- *   1. the LOCKED package total on `event_vendor_packages` (falling back to the
- *      package's list `total_price_centavos`)
- *   2. the sum of `event_vendor_line_items`
- *   3. `event_vendors.total_cost_php`
- *
- * ⚠ KNOWN, SEPARATE ISSUE (documented, not fixed here): (2) and (3) are
- * host-writable. Re-reading them server-side removes the POST-body hole this PR
- * is about — a buyer can no longer name a price in the request — but a host can
- * still edit their own declared deal value before paying. That is a different
- * bug with a different fix (locking the declared total once an order exists),
- * and folding it in would widen a security patch into a product change.
- */
-export async function resolveSetnayanServiceChargeCentavos(
-  admin: SupabaseClient,
-  eventId: string,
-  category: string,
-): Promise<BookedResolution> {
-  const { data: vendorRows, error: vErr } = await admin
-    .from('event_vendors')
-    .select('vendor_id, total_cost_php, event_vendor_package_id, marketplace_vendor_id')
-    .eq('event_id', eventId)
-    .eq('category', category);
-  if (vErr) return { status: 'error', message: `event_vendors: ${vErr.message}` };
-  const rows = (vendorRows ?? []) as Array<{
-    vendor_id: string;
-    total_cost_php: number | string | null;
-    event_vendor_package_id: string | null;
-    marketplace_vendor_id: string | null;
-  }>;
-  if (rows.length === 0) return { status: 'not_found' };
-
-  // The drawer only renders for a FIRST-PARTY Setnayan service, so require the
-  // same thing here rather than pricing off any vendor that happens to share the
-  // category. Anything other than exactly one match → refuse: an ambiguous key
-  // is never a licence to guess a price.
-  const marketplaceIds = rows
-    .map((r) => r.marketplace_vendor_id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  if (marketplaceIds.length === 0) return { status: 'not_found' };
-
-  // ⚠ `vendor_market_stats`, NOT `vendor_profiles`. `is_setnayan_service` is a
-  // COMPUTED column of the view (an array-membership test over
-  // `vendor_profiles.services`, migration 20260607020000) and does not exist on
-  // the base table — selecting it there is a hard PostgREST 42703, which this
-  // function turns into a permanent `read_error` refusal rather than a price.
-  // The rest of the codebase already reads it from the view; `vendors/page.tsx`
-  // even SPLITS its query for exactly this reason. Verified against prod:
-  //   vendor_profiles.is_setnayan_service      → 0 rows in information_schema
-  //   vendor_market_stats.is_setnayan_service  → 1
-  // Nothing is broken in prod today only because every `event_vendors` row has
-  // `marketplace_vendor_id IS NULL`, so the early-return above fires first.
-  const { data: profiles, error: pErr } = await admin
-    .from('vendor_market_stats')
-    .select('vendor_profile_id, is_setnayan_service')
-    .in('vendor_profile_id', marketplaceIds);
-  if (pErr) return { status: 'error', message: `vendor_market_stats: ${pErr.message}` };
-  const firstParty = new Set(
-    ((profiles ?? []) as Array<{ vendor_profile_id: string; is_setnayan_service: boolean | null }>)
-      .filter((p) => p.is_setnayan_service === true)
-      .map((p) => p.vendor_profile_id),
-  );
-  const candidates = rows.filter(
-    (r) => r.marketplace_vendor_id != null && firstParty.has(r.marketplace_vendor_id),
-  );
-  if (candidates.length !== 1) return { status: 'not_found' };
-  const vendor = candidates[0]!;
-
-  // (1) Locked package total.
-  if (vendor.event_vendor_package_id) {
-    const { data: bookingRow, error: bErr } = await admin
-      .from('event_vendor_packages')
-      .select('package_id, status, total_locked_centavos')
-      .eq('booking_id', vendor.event_vendor_package_id)
-      .maybeSingle();
-    if (bErr) return { status: 'error', message: `event_vendor_packages: ${bErr.message}` };
-    const booking = bookingRow as {
-      package_id: string | null;
-      status: string | null;
-      total_locked_centavos: number | string | null;
-    } | null;
-    if (booking && booking.status === 'locked' && booking.package_id) {
-      const locked =
-        booking.total_locked_centavos != null ? Number(booking.total_locked_centavos) : null;
-      if (locked != null && Number.isFinite(locked) && locked > 0) {
-        return { status: 'resolved', centavos: Math.round(locked) };
-      }
-      const { data: pkgRow, error: pkErr } = await admin
-        .from('vendor_packages')
-        .select('total_price_centavos')
-        .eq('package_id', booking.package_id)
-        .maybeSingle();
-      if (pkErr) return { status: 'error', message: `vendor_packages: ${pkErr.message}` };
-      const list = (pkgRow as { total_price_centavos: number | string | null } | null)
-        ?.total_price_centavos;
-      const listNum = list != null ? Number(list) : null;
-      if (listNum != null && Number.isFinite(listNum) && listNum > 0) {
-        return { status: 'resolved', centavos: Math.round(listNum) };
-      }
-    }
-  }
-
-  // (2) Itemized line items.
-  const { data: items, error: iErr } = await admin
-    .from('event_vendor_line_items')
-    .select('amount_php')
-    .eq('event_id', eventId)
-    .eq('vendor_id', vendor.vendor_id);
-  if (iErr) return { status: 'error', message: `event_vendor_line_items: ${iErr.message}` };
-  const itemized = ((items ?? []) as Array<{ amount_php: number | string | null }>).reduce(
-    (acc, li) => acc + Number(li.amount_php ?? 0),
-    0,
-  );
-  if (Number.isFinite(itemized) && itemized > 0) {
-    return { status: 'resolved', centavos: Math.round(itemized * 100) };
-  }
-
-  // (3) The headline declared total.
-  const headline = Number(vendor.total_cost_php ?? 0);
-  if (Number.isFinite(headline) && headline > 0) {
-    return { status: 'resolved', centavos: Math.round(headline * 100) };
-  }
-
-  return { status: 'not_found' };
 }

@@ -365,10 +365,19 @@ export async function submitOrderAction(
   // value"). Filtering inside the resolver would turn a retired SKU from
   // "charged its real price" into "charged whatever the browser sent".
   //
-  // 'unknown' (in neither catalog) deliberately ALLOWS: PAPIC_CAMERAS,
-  // SETNAYAN_AI_SUB, 'save-the-date:<slug>' and 'vendor_additional_branch__<uuid>'
-  // are all legitimate keys with no catalog row. A "must map to an active row"
-  // rule would break every one of them.
+  // 'unknown' (in neither catalog) deliberately ALLOWS keys with no catalog
+  // row: SETNAYAN_AI_SUB, setnayan_service__{category}, PAPIC_CAMERAS and
+  // vendor_additional_branch__<uuid>. A "must map to an active row" rule would
+  // break them. Sellability is NOT the price gate — resolveOrderChargeCentavos
+  // is, and it refuses anything it cannot price server-side.
+  //
+  // ⚠ This list was WRONG until 2026-07-26 and the error was load-bearing: it
+  // named 'save-the-date:<slug>', which DOES NOT EXIST anywhere in the codebase
+  // (the real SKU is STD_PREMIUM_OPENINGS, an ordinary retail row), and it
+  // OMITTED setnayan_service__{category}, which is genuinely drawer-mounted and
+  // was genuinely undefended. A confident, inaccurate comment is worse than no
+  // comment: it was read as an inventory during the SEC-7 review. Verify before
+  // trusting a list like this.
   //
   // Fails CLOSED on a read error. This knowingly reverses the older "a transient
   // read failure NEVER blocks an order" stance for THIS check only: a checkout

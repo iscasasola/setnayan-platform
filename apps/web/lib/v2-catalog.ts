@@ -780,10 +780,15 @@ export async function resolveBundleChargeResolution(
  *
  *   'sellable' — row exists in either catalog and is_active = true
  *   'retired'  — row exists in either catalog and is_active = false → REJECT
- *   'unknown'  — in NEITHER catalog. Legitimate and common: PAPIC_CAMERAS,
- *                SETNAYAN_AI_SUB, 'save-the-date:<slug>' and
+ *   'unknown'  — in NEITHER catalog. Legitimate and common: SETNAYAN_AI_SUB,
+ *                setnayan_service__{category}, PAPIC_CAMERAS and
  *                'vendor_additional_branch__<uuid>' style keys. → ALLOW. A
  *                naive "must map to an active row" rule would kill all of them.
+ *                ⚠ This list previously named 'save-the-date:<slug>', which
+ *                does not exist anywhere in the codebase (the real SKU is
+ *                STD_PREMIUM_OPENINGS, an ordinary retail row), and omitted
+ *                setnayan_service__{category}, which was genuinely undefended.
+ *                Corrected 2026-07-26 — verify such lists, do not trust them.
  *   'error'    — DB/env failure → caller REJECTS (fail closed).
  *
  * ⚠ DO NOT reuse this to filter catalog READS. `is_active=false` is overloaded

@@ -252,11 +252,22 @@ export async function resolveSetnayanServiceChargeCentavos(
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
   if (marketplaceIds.length === 0) return { status: 'not_found' };
 
+  // ⚠ `vendor_market_stats`, NOT `vendor_profiles`. `is_setnayan_service` is a
+  // COMPUTED column of the view (an array-membership test over
+  // `vendor_profiles.services`, migration 20260607020000) and does not exist on
+  // the base table — selecting it there is a hard PostgREST 42703, which this
+  // function turns into a permanent `read_error` refusal rather than a price.
+  // The rest of the codebase already reads it from the view; `vendors/page.tsx`
+  // even SPLITS its query for exactly this reason. Verified against prod:
+  //   vendor_profiles.is_setnayan_service      → 0 rows in information_schema
+  //   vendor_market_stats.is_setnayan_service  → 1
+  // Nothing is broken in prod today only because every `event_vendors` row has
+  // `marketplace_vendor_id IS NULL`, so the early-return above fires first.
   const { data: profiles, error: pErr } = await admin
-    .from('vendor_profiles')
+    .from('vendor_market_stats')
     .select('vendor_profile_id, is_setnayan_service')
     .in('vendor_profile_id', marketplaceIds);
-  if (pErr) return { status: 'error', message: `vendor_profiles: ${pErr.message}` };
+  if (pErr) return { status: 'error', message: `vendor_market_stats: ${pErr.message}` };
   const firstParty = new Set(
     ((profiles ?? []) as Array<{ vendor_profile_id: string; is_setnayan_service: boolean | null }>)
       .filter((p) => p.is_setnayan_service === true)

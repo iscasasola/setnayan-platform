@@ -409,3 +409,89 @@ test('flag OFF still charges a picked upgrade — it is never free', () => {
   const up = priceCustomizedPackage(pkg, [], ['halo'], false)!.bookingTotalCentavos;
   assert.equal(up - base, 4_000);
 });
+
+/* ── CREDIT IS CONSUMABLE ON OTHER SERVICES ───────────────────────────────── */
+
+test('credit BUYS another service — the pool drains, the price does not move', () => {
+  // Owner-locked 2026-07-26: "credits can be consumables to other services, but
+  // not deductables… can be used on other services of the vendors as well."
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 0 })], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 50_000,
+  });
+  const before = priceCustomizedPackage(pkg, [], [], true)!;
+  const after = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc-photo', quantity: 1 }],
+    [{ addition_id: 'svc-photo', unit_price_centavos: 30_000 }],
+  )!;
+
+  assert.equal(
+    after.bookingTotalCentavos,
+    before.bookingTotalCentavos,
+    'consuming credit must NOT change what the couple pays',
+  );
+  assert.equal(
+    before.remainingConsumableCentavos - after.remainingConsumableCentavos,
+    30_000,
+    'the pool must actually be debited — otherwise the service was free',
+  );
+});
+
+test('spending MORE than the pool bills the excess, it does not discount', () => {
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 0 })], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 10_000,
+  });
+  const r = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc-big', quantity: 1 }],
+    [{ addition_id: 'svc-big', unit_price_centavos: 25_000 }],
+  )!;
+  assert.equal(r.overspendCentavos, 15_000, 'the excess is owed');
+  assert.equal(
+    r.bookingTotalCentavos,
+    priceCustomizedPackage(pkg, [], [], true)!.bookingTotalCentavos + 15_000,
+  );
+});
+
+test('an addition with NO committed price is refused, never priced at zero', () => {
+  // The failure this prevents: a service the vendor never opted into credit
+  // (credit_price_centavos NULL) being handed over for free.
+  const pkg = pkgWith([item('a')], { is_consumable_flexible: true, consumable_budget_centavos: 50_000 });
+  const r = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc-unpriced', quantity: 1 }],
+    [], // nothing resolved
+  );
+  assert.equal(r, null, 'an unpriced addition must fail closed');
+});
+
+test('additions are refused outright when the credit flag is OFF', () => {
+  // Silently dropping them would tell the couple the booking simply cost less.
+  const pkg = pkgWith([item('a')], { is_consumable_flexible: true, consumable_budget_centavos: 50_000 });
+  const r = priceCustomizedPackage(
+    pkg, [], [], false, 0,
+    [{ addition_id: 'svc', quantity: 1 }],
+    [{ addition_id: 'svc', unit_price_centavos: 10_000 }],
+  );
+  assert.equal(r, null);
+});
+
+test('quantity multiplies the COMMITTED price, not a client number', () => {
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 0 })], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 100_000,
+  });
+  const r = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc', quantity: 3 }],
+    [{ addition_id: 'svc', unit_price_centavos: 20_000 }],
+  )!;
+  assert.equal(
+    priceCustomizedPackage(pkg, [], [], true)!.remainingConsumableCentavos -
+      r.remainingConsumableCentavos,
+    60_000,
+    '3 × ₱200 committed',
+  );
+});

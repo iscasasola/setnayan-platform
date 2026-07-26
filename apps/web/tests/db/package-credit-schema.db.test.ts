@@ -507,3 +507,27 @@ test('the DEFAULT option cannot be a per-head charge', async () => {
     /check|unique/i,
   );
 });
+
+/* ── credit_price_centavos (migration 20271011320964) ──────────────────────*/
+
+test('a service is NOT credit-spendable by default', async () => {
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int n FROM public.vendor_services WHERE credit_price_centavos IS NOT NULL`,
+  );
+  assert.equal(r.rows[0]!.n, 0, 'fail-closed: opting a service into credit is deliberate');
+});
+
+test('a credit price of ZERO is impossible — NULL already means "not for sale"', async () => {
+  const svc = await db.query<{ vendor_service_id: string }>(
+    `SELECT vendor_service_id FROM public.vendor_services LIMIT 1`,
+  );
+  if (svc.rows.length === 0) return; // no seeded service in this replay
+  await assert.rejects(
+    db.query(
+      `UPDATE public.vendor_services SET credit_price_centavos = 0 WHERE vendor_service_id = $1`,
+      [svc.rows[0]!.vendor_service_id],
+    ),
+    /check/i,
+    'a ₱0 credit price would hand a service over for nothing',
+  );
+});

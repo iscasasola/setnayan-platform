@@ -61,6 +61,7 @@ import {
   selectFeaturedZone,
 } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
+import { fetchGuestPickCameras, shouldOfferGuestPick } from '@/lib/live-studio-guest-pick';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -518,11 +519,42 @@ export const loadLiveLayer = cache(
           // canPublishMultiCam; the lookup is skipped entirely for a
           // zero-or-one-channel (free single-cam) manifest, so the free path pays
           // nothing for the gate.
-          const publishable = limitPublishedManifest(
-            manifest,
-            manifest.length > 1 ? await canPublishMultiCam(admin, event.event_id) : true,
-          );
+          // ⭐ ONE ANSWER, TWO CONSUMERS. Resolve the entitlement ONCE and let both the
+          // YouTube manifest and the Wave 10 side-camera roster read the same boolean.
+          // The zero-or-one-channel shortcut is preserved for the free single-cam path
+          // — but a free event with side cameras must still be asked, or guest-pick
+          // would be the one paid capability you could get without paying.
+          const needsEntitlement = manifest.length > 1 || guestPickEnabled;
+          const multiCamOwned = needsEntitlement
+            ? await canPublishMultiCam(admin, event.event_id)
+            : true;
+
+          const publishable = limitPublishedManifest(manifest, multiCamOwned);
           const roam = applyGuestPick(publishable, guestPickEnabled);
+
+          // WAVE 10 · GUEST-PICK AT ₱0 — side cameras served peer-to-peer from the
+          // operator's phone. Deliberately NOT part of the manifest: they have no
+          // YouTube id (they are never broadcast), and parseRoamManifest drops
+          // idless entries by design.
+          //
+          // Three gates, all of which must pass, and all of which already exist:
+          //   • guestPickEnabled — the host's own switch (Wave 2)
+          //   • multiCamOwned    — THE paywall, the same helper that reduced the
+          //                        manifest one line above (§ 4d). Not a second rule.
+          //   • a live, claimed camera on the zone (inside fetchGuestPickCameras)
+          // Enforced by OMISSION, matching the manifest: a guest whose event fails any
+          // gate is never told a side camera exists, so nothing on their page can open
+          // a connection to one.
+          const guestCameras = shouldOfferGuestPick({
+            // Already inside `if (liveStudioRoamEnabled())`; passed explicitly so the
+            // gate reads as the complete rule rather than a partial one.
+            flagEnabled: true,
+            guestPickEnabled,
+            multiCamOwned,
+          })
+            ? await fetchGuestPickCameras(admin, event.event_id)
+            : [];
+
           const featured = selectFeaturedZone(roam);
           if (featured) {
             try {
@@ -538,6 +570,15 @@ export const loadLiveLayer = cache(
             } catch {
               // invalid featured id — keep any CAST watchLive as-is
             }
+          }
+
+          // Attach the side cameras to whatever director's cut we ended up with —
+          // the Roam featured zone above, or the plain CAST embed resolved earlier.
+          // ⚠ ONLY when one exists: guest-pick's entire failure story is "fall back to
+          // the director's cut", so offering side cameras with nothing to fall back to
+          // would build the one broken state this wave is meant to avoid.
+          if (watchLive && guestCameras.length > 0) {
+            watchLive = { ...watchLive, guestCameras, eventId: event.event_id };
           }
         }
       } catch {

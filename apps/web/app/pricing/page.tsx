@@ -133,11 +133,32 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      // ONE Live Studio SKU (owner 2026-07-21): ₱2,500/day unlocks everything, laptop or phone.
-      // PANOOD_SYSTEM_MOBILE was never purchasable — no buy surface ever posted it, and it had
-      // zero orders — so listing it here advertised a phantom product. Row is now inactive in
-      // the catalog and drops out of resolvedGroups automatically.
-      { code: 'PANOOD_SYSTEM' }, // Live Studio ₱2,500/day
+      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱2,999 PER EVENT (owner-locked 2026-07-25 ·
+      // Live_Studio_Unified_Spec § 3: Cast + Roam merged into one switching product).
+      //
+      // 🚨 IT MUST BE LISTED HERE OR IT CAN NEVER APPEAR. `resolvedGroups` maps over
+      // ADDON_GROUPS' items and omits anything the catalog doesn't return — so a SKU in
+      // no group is invisible on /pricing no matter what the catalog says. That is the
+      // trap COUPLE_WEBSITE_PRO's comment below records ("must be LISTED here or the
+      // reactivated umbrella never appears"), and Live Studio was walking into it: at
+      // the flag flip its Studio tile and buy drawer would light up while /pricing
+      // showed NO paid live-broadcast row at all — because the only Live Studio code
+      // listed here was PANOOD_SYSTEM, which is now permanently retired (below).
+      //
+      // Safe to list while dark: `fetchV2CustomerCatalog` name-excludes LIVE_STUDIO
+      // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
+      // and appears the moment the owner flips the flag — one launch switch, no second
+      // code change. (Free single-camera livestream is unaffected and stays free.)
+      { code: 'LIVE_STUDIO' }, // Live Studio ₱2,999/event — the unified switching SKU
+      // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
+      // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
+      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱2,999 unified
+      // controller (a ₱500 arbitrage on a live buy button). PANOOD_SYSTEM_MOBILE was
+      // retired 2026-07-21 and was never purchasable anyway (no buy surface ever posted
+      // it, zero orders). Both drop out of resolvedGroups automatically; the code stays
+      // listed — same convention as LIVE_BACKGROUND below — so the retirement is legible
+      // here rather than looking like an accidental deletion.
+      { code: 'PANOOD_SYSTEM' }, // retired 2026-07-26 — folded into LIVE_STUDIO above
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       // LIVE_BACKGROUND is bundle-only (2026-07-22) — folded into Monogram PRO —

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { resolveLivePax } from '@/lib/pax';
 import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
@@ -201,6 +202,12 @@ export async function lockPackage(
     }
   }
 
+  // Head count for per-head option upgrades ("+₱150/head"). SERVER-resolved —
+  // it multiplies money, so it must never come from the client. Null (no
+  // headcount yet) reads as 0 and each option's own `min_pax` floors it, so a
+  // per-head upgrade prices at its minimum rather than at nothing.
+  const livePax = (await resolveLivePax(supabase, eventId)) ?? 0;
+
   // ONE pricer, shared with removeItemFromPackage — see priceCustomizedPackage
   // for why computing this in two places was a live money bug.
   const creditTotals = priceCustomizedPackage(
@@ -208,6 +215,7 @@ export async function lockPackage(
     removedIds,
     chosenOptionIds,
     packageCreditEnabled(),
+    livePax,
   );
   if (!creditTotals) {
     return {
@@ -590,11 +598,13 @@ export async function removeItemFromPackage(formData: FormData) {
   // dropped the upgrade from the stored total while `chosen_option_ids` still
   // recorded the pick — and the booking fee rides on that total.
   const survivingOptionIds = newCustom.chosen_option_ids ?? [];
+  const removePax = (await resolveLivePax(supabase, eventId)) ?? 0;
   const totals = priceCustomizedPackage(
     pkg,
     newRemoved,
     survivingOptionIds,
     packageCreditEnabled(),
+    removePax,
   );
   if (!totals) throw new Error('Package pricing could not be computed.');
   const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =

@@ -117,9 +117,24 @@ export const MAX_ADDITION_QUANTITY = 10_000;
  */
 export type UnspentCreditPolicy = 'expiring';
 
+/** How an option's uplift is priced. Mirrors the LINE basis in ./package-line-pricing. */
+export type CreditOptionBasis = 'fixed' | 'per_pax';
+
 /** One alternative on a CHOICE line (`vendor_package_item_options` row). */
 export type CreditOption = {
   option_id: string;
+  /**
+   * 'fixed'   → `price_delta_centavos` is the whole uplift.
+   * 'per_pax' → the uplift is `per_pax_delta_centavos × max(pax, min_pax)`,
+   *             which is how PH catering actually prices a premium menu.
+   * Absent = 'fixed', so every option written before this existed keeps its
+   * exact behaviour.
+   */
+  pricing_basis?: CreditOptionBasis;
+  /** Per-head uplift when the basis is 'per_pax'. Non-negative, like the flat delta. */
+  per_pax_delta_centavos?: number;
+  /** Billing floor for a per_pax option. */
+  min_pax?: number;
   /**
    * EXTRA cost over the package's assumed default, in centavos. The DB pins
    * the default's delta to 0 (`vendor_package_item_options_default_is_free`)
@@ -202,6 +217,16 @@ export type CreditCatalogueEntry = {
 
 export type PackageCreditInput = {
   pkg: CreditPackage;
+  /**
+   * Head count used to price `per_pax` options. Server-resolved (`lib/pax.ts`
+   * `resolveLivePax`), never taken from the client — it is a multiplier on
+   * money.
+   *
+   * Omitted = 0, which with `min_pax` floors still prices a per-head option at
+   * its minimum rather than at nothing. A per-head upgrade must never be free
+   * because a caller forgot to pass the guest count.
+   */
+  paxCount?: number;
   /** Line ids the couple dropped. Required lines here are an error. */
   removedItemIds?: ReadonlyArray<string>;
   /** Option ids the couple picked. At most one per line. */
@@ -331,6 +356,27 @@ export function isChoiceLine(item: CreditItem): boolean {
   return Array.isArray(item.options) && item.options.length > 0;
 }
 
+/**
+ * What one option actually adds, in centavos, at this guest count.
+ *
+ * 'fixed'   → the flat delta.
+ * 'per_pax' → rate × max(pax, min_pax) — the same billable-pax rule package
+ *             LINES already use (`lib/package-line-pricing.ts`), so a premium
+ *             menu prices identically whether it is a line or an option.
+ */
+export function optionDeltaCentavos(option: CreditOption, paxCount: number): number {
+  if (option.pricing_basis === 'per_pax') {
+    const rate = Number(option.per_pax_delta_centavos ?? 0);
+    const billablePax = Math.max(
+      Number.isFinite(paxCount) ? paxCount : 0,
+      Number(option.min_pax ?? 0),
+    );
+    if (!Number.isFinite(rate) || !Number.isFinite(billablePax)) return 0;
+    return Math.max(0, Math.round(rate * billablePax));
+  }
+  return Number(option.price_delta_centavos ?? 0);
+}
+
 /* ──────────────────────────────────────────────────────────────────────── */
 /* The engine                                                               */
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -345,6 +391,8 @@ export function isChoiceLine(item: CreditItem): boolean {
  */
 export function computePackageCredit(input: PackageCreditInput): PackageCreditResult {
   const errors: PackageCreditError[] = [];
+  // Server-resolved head count for per-pax options. See PackageCreditInput.
+  const paxCount = Number.isFinite(input?.paxCount) ? Number(input.paxCount) : 0;
   const fail = (code: PackageCreditErrorCode, detail: string, ref?: string) => {
     errors.push(ref === undefined ? { code, detail } : { code, ref, detail });
   };
@@ -448,11 +496,31 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
         );
         continue;
       }
+      if (option.pricing_basis === 'per_pax') {
+        if (!isMoney(option.per_pax_delta_centavos)) {
+          fail(
+            'invalid_money',
+            `per_pax_delta_centavos is not a sane centavo amount: ${String(option.per_pax_delta_centavos)}`,
+            option.option_id,
+          );
+          continue;
+        }
+        const floor = option.min_pax ?? 0;
+        if (!Number.isSafeInteger(floor) || floor < 0) {
+          fail('invalid_package', `min_pax must be a non-negative integer: ${String(floor)}`, option.option_id);
+          continue;
+        }
+      } else if (option.per_pax_delta_centavos) {
+        // Money parked on the basis that is NOT in force reads as an upgrade a
+        // reader might price from. Refuse the shape rather than pick a column.
+        fail('invalid_package', 'a fixed-basis option carries a per-pax rate', option.option_id);
+        continue;
+      }
       if (option.is_default) {
         defaultCount += 1;
-        if (option.price_delta_centavos !== 0) {
-          // The package price already includes the default; charging extra
-          // for it would surcharge a couple who chose nothing.
+        // The package price already includes the default; charging extra for it
+        // would surcharge a couple who chose nothing. Free on BOTH bases.
+        if (option.price_delta_centavos !== 0 || (option.per_pax_delta_centavos ?? 0) !== 0) {
           fail('invalid_package', 'the default option must have a zero delta', option.option_id);
         }
       }
@@ -575,10 +643,10 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
       selections.push({
         item_id: item.item_id,
         option_id: chosen.option_id,
-        price_delta_centavos: chosen.price_delta_centavos,
+        price_delta_centavos: optionDeltaCentavos(chosen, paxCount),
         source: 'chosen',
       });
-      optionDeltaTotal += chosen.price_delta_centavos;
+      optionDeltaTotal += optionDeltaCentavos(chosen, paxCount);
       continue;
     }
 
@@ -600,10 +668,10 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
     selections.push({
       item_id: item.item_id,
       option_id: fallback.option_id,
-      price_delta_centavos: fallback.price_delta_centavos,
+      price_delta_centavos: optionDeltaCentavos(fallback, paxCount),
       source: 'default',
     });
-    optionDeltaTotal += fallback.price_delta_centavos;
+    optionDeltaTotal += optionDeltaCentavos(fallback, paxCount);
   }
 
   /* ---- 5. Catalogue additions ------------------------------------------ */

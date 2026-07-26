@@ -59,9 +59,14 @@ export default async function PlaylistPage({ params }: Props) {
   // matching the four Music canonical categories.
   const [picksRaw, eventRow, musicVendorRow] = await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
+    // ⚠ `display_name`, NOT `event_name` — public.events has no `event_name`
+    // column and never has. PostgREST 42703'd the WHOLE query, so
+    // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
+    // below bounced EVERY visitor straight back to /dashboard: this page was
+    // 100% unreachable in production.
     supabase
       .from('events')
-      .select('event_id,event_name')
+      .select('event_id,display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -90,7 +95,7 @@ export default async function PlaylistPage({ params }: Props) {
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-ink/55 transition-colors hover:text-ink/85"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to {eventRow.data.event_name ?? 'event home'}
+        Back to {eventRow.data.display_name ?? 'event home'}
       </Link>
 
       <header className="sn-reveal mb-6 space-y-2">

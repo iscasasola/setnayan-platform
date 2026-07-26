@@ -150,9 +150,16 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
       .eq('event_id', eventId)
       .eq('guest_id', targetId)
       .maybeSingle(),
+    // ⚠ `id`, NOT `member_id` — public.event_members' primary key is `id`.
+    // PostgREST 42703s the whole query, so `sourceMember` was ALWAYS null. Two
+    // consequences, both silent:
+    //   1. the "don't merge into a seat already claimed by a different account"
+    //      guard below could never fire — a safety check that was never running;
+    //   2. the membership hand-over never happened, so merging a duplicate guest
+    //      left the joiner's account bound to the row that was merged away.
     admin
       .from('event_members')
-      .select('member_id, user_id')
+      .select('id, user_id')
       .eq('event_id', eventId)
       .eq('guest_id', sourceId)
       .maybeSingle(),
@@ -181,7 +188,7 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
     await admin
       .from('event_members')
       .update({ guest_id: targetId, role: (target.role as string) ?? 'guest' })
-      .eq('member_id', sourceMember.member_id);
+      .eq('id', sourceMember.id);
   }
 
   // Soft-delete the merged-away unlisted row.

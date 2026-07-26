@@ -112,21 +112,28 @@ export async function POST(req: Request) {
     if (!userId) return err(401, 'unauthenticated', 'Sign in required.');
 
     const admin = createAdminClient();
+    // ⚠ REWRITTEN 2026-07-26 — identical defect to sync-device/route.ts.
+    // `vendor_service_agents` is (created_at, vendor_service_id,
+    // vendor_team_member_id): no `vendor_id`, no `member_id`. And
+    // vendor_profiles has `user_id`, not `owner_user_id`. Both reads 42703'd,
+    // so `allowed` was permanently false and this endpoint 403'd its own
+    // vendor team. Fail-closed, so dead rather than unsafe.
     const { data: vendorMembership } = await admin
-      .from('vendor_service_agents')
-      .select('member_id')
-      .eq('vendor_id', vendorId)
-      .eq('member_id', userId)
+      .from('vendor_team_members')
+      .select('vendor_team_member_id')
+      .eq('vendor_profile_id', vendorId)
+      .eq('user_id', userId)
+      .is('deactivated_at', null)
       .maybeSingle();
 
     let allowed = !!vendorMembership;
     if (!allowed) {
       const { data: vendorOwner } = await admin
         .from('vendor_profiles')
-        .select('owner_user_id')
+        .select('user_id')
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
-      allowed = vendorOwner?.owner_user_id === userId;
+      allowed = !!vendorOwner?.user_id && vendorOwner.user_id === userId;
     }
     if (!allowed) {
       return err(403, 'not_vendor_team', 'You are not on this vendor team.');

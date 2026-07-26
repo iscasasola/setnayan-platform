@@ -505,7 +505,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ev.marketplace_vendor_id
       ? marketplaceAdmin
           .from('vendor_profiles')
-          .select('business_name, business_slug, logo_url, city')
+          // ⚠ 2026-07-26 · #3769 removed `is_setnayan_service` from this list
+          // but LEFT `city`, which also does not exist on vendor_profiles (the
+          // column is `location_city`). One unknown column 42703s the WHOLE
+          // row, so the fix was incomplete and this header STILL lost
+          // business_name / business_slug / logo_url for every marketplace pick.
+          .select('business_name, business_slug, logo_url, location_city')
           .eq('vendor_profile_id', ev.marketplace_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -668,7 +673,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     business_name: string;
     business_slug: string | null;
     logo_url: string | null;
-    city: string | null;
+    location_city: string | null;
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
@@ -986,7 +991,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </div>
               <p className="text-xs text-ink/65">
                 {attribution}
-                {marketplaceProfile?.city ? ` · ${marketplaceProfile.city}` : ''}
+                {marketplaceProfile?.location_city
+                  ? ` · ${marketplaceProfile.location_city}`
+                  : ''}
               </p>
             </div>
           </div>

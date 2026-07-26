@@ -7,6 +7,17 @@
  * second, subtly-different copy. Two parsers would be worse than one imperfect
  * one: they would disagree, and the disagreement would be invisible.
  *
+ * THIRD CONSUMER (2026-07-26): `./select-column-scan.ts`, the phantom-column
+ * guard — it diffs every `.from().select()` in apps/web against this schema.
+ * Read that file's "HONEST LIMITS" before trusting it; limit 7 in particular
+ * explains why a migration-derived schema can disagree with production even
+ * when this parser is perfect.
+ *
+ * ⚠ KNOWN GAP: `ALTER TABLE … RENAME COLUMN a TO b` is not handled, so `b` is
+ * invisible and `a` lingers. Only two migrations use it today
+ * (20260914000000_love_story_covert_renames.sql, both inside a DO block, which
+ * is separately invisible). Callers pin the fallout rather than guess.
+ *
  * ⚠ The honesty notes in the export guardrail's own docblock apply verbatim and
  * are not repeated here. In short: only regex-visible `CREATE TABLE public.<x>`
  * and `ALTER TABLE … ADD COLUMN` are seen. A table or column created inside a DO
@@ -120,8 +131,27 @@ export function readSchema(migrationsDir: string = MIGRATIONS_DIR): Map<string, 
       schema.set(table, entry);
     }
 
+    // Strip `--` comments HERE TOO, for the same reason the CREATE body above
+    // strips them — and it is the same bug wearing a different hat. The ALTER
+    // regex below is non-greedy to the first `;`, and a prose semicolon inside
+    // an inline comment ends the statement early:
+    //   ALTER TABLE public.events
+    //     -- … tap-to-start (autoplay blocked); streamed from R2, lazy-loaded …
+    //     ADD COLUMN IF NOT EXISTS site_bg_music_r2_key TEXT,
+    //     …
+    // (20260912000000_wedding_website_lifecycle_foundation.sql:55). The body
+    // was truncated at that semicolon, BEFORE the first ADD COLUMN, so all ten
+    // columns that statement adds were invisible.
+    //
+    // Measured 2026-07-26 when the phantom-column guard was added: this one
+    // line recovered 20 of the 22 columns it was about to have to allow-list as
+    // parser blind spots. Widening is safe for both existing consumers — T10 in
+    // the export guardrail and SEEN in the erasure guardrail assert that
+    // classified tables ARE seen, so seeing more can never trip them. Verified:
+    // both guardrails green, full unit suite 4152/0.
+    const alterSql = sql.replace(/--[^\n]*/g, '');
     const alterRe = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(?:public\.)?([a-z0-9_]+)([\s\S]*?);/gi;
-    while ((m = alterRe.exec(sql))) {
+    while ((m = alterRe.exec(alterSql))) {
       const entry = schema.get(m[1] ?? '');
       if (!entry) continue;
       const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)([^,;]*)/gi;

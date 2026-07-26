@@ -160,7 +160,13 @@ export async function GET() {
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('event_members')
-      .select('event_id, member_type, joined_via, created_at, events(public_id, display_name, event_date, slug)')
+      // ⚠ `joined_at`, NOT `created_at` — public.event_members has no
+      // `created_at`. PostgREST 42703s the whole query, so `event_memberships`
+      // was ALWAYS an empty section in the RA 10173 subject-access export: the
+      // data subject was told, in writing, that they belong to no events. The
+      // route's own listOutcome() machinery did flag it in `not_included`, but
+      // the wrong column meant the section could never populate at all.
+      .select('event_id, member_type, joined_via, joined_at, events(public_id, display_name, event_date, slug)')
       .eq('user_id', user.id),
     // RA 10173 completeness (PR-G) — events the user OWNS (member_type='couple')
     // carry sensitive per-partner birth date/time + consent for the BaZi

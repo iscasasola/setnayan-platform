@@ -40,6 +40,21 @@ import 'server-only';
  * an ISR-cached page. Making the object un-writable removes the window entirely:
  * there is no writer, so there is nothing to race.
  *
+ * ── ROUND THREE: SEALING IS IDENTITY, NOT PROVENANCE ────────────────────────
+ * Round two was still the same bug. Freezing an object answers "will the served
+ * bytes still be the bytes we froze?" — it says nothing about whether anyone
+ * ever LOOKED at them. The screen classified a poster JPEG and sealed the MP4
+ * beside it, so a dirty video with a clean unrelated poster earned an approval
+ * that was bound, sealed, and wrong.
+ *
+ * So a seal is now a CANDIDATE, and authorisation is a separate, per-artifact
+ * `StdExamination` recording who examined those exact bytes
+ * (`COMPETENT_EXAMINERS`, lib/std-media.ts). The poster screen can only write
+ * the poster's. The video's requires an examiner competent for a video, which
+ * today means a human — and `stdVideoReviewMedia` below hands that human the
+ * SEALED object, so what they watch and what a guest receives are one object
+ * rather than two reads of a writable key.
+ *
  * ── FAIL CLOSED, EVERYWHERE ─────────────────────────────────────────────────
  * Every unresolvable case — R2 unconfigured, object missing, HEAD refused, no
  * ETag, malformed ref, foreign bucket, wrong event, copy refused, copy landed
@@ -53,23 +68,27 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 
-import { r2Copy, r2Head, type R2BucketName } from '@/lib/r2';
+import * as Sentry from '@sentry/nextjs';
+
+import { r2Copy, r2Delete, r2Head, type R2BucketName } from '@/lib/r2';
 import {
   parseClientRef,
-  R2_SEALED_SEGMENT,
   stdSealedPolicy,
   stdVideoPosterPolicy,
   stdVideoSourcePolicy,
   type ClientRefPolicy,
 } from '@/lib/r2-client-ref';
 import { encodeR2Ref, presignDisplayUrl } from '@/lib/uploads';
+import { sealObject, type SealDeps } from '@/lib/std-seal';
 import {
   NO_STD_NSFW_VERDICT,
   resolveStdNsfwVerdict,
   stdVerdictMatchesContent,
   stdVideoServeRefs,
+  verdictSealedRefs,
   type StdMedia,
   type StdNsfwVerdict,
+  type StdSealedPair,
 } from '@/lib/std-media';
 
 /**
@@ -163,16 +182,6 @@ async function fingerprintObject(obj: {
   }
 }
 
-/** Split a `<etag>:<bytes>` fingerprint back into its parts. */
-function splitFingerprint(fp: string): { etag: string; size: number } | null {
-  const cut = fp.lastIndexOf(':');
-  if (cut <= 0) return null;
-  const etag = fp.slice(0, cut);
-  const size = Number(fp.slice(cut + 1));
-  if (!etag || !Number.isFinite(size)) return null;
-  return { etag, size };
-}
-
 /** Fingerprint the couple's uploaded video + poster, in one round trip each. */
 export async function stdSourceFingerprints(
   media: StdMedia,
@@ -186,106 +195,128 @@ export async function stdSourceFingerprints(
 }
 
 /**
- * SEAL one screened object: copy it, server-side, into this event's
- * `std-screened/` prefix and prove the copy holds the bytes we judged.
+ * The live R2 bindings for `lib/std-seal.ts`'s injected operations.
  *
- * Three properties, and the design needs all three:
- *
- *   • **CONDITIONED ON THE SOURCE ETAG.** `CopySourceIfMatch` makes R2 refuse the
- *     copy if the source changed since we fingerprinted it, so the copy cannot
- *     silently capture a swap that landed between the classify and the copy.
- *   • **VERIFIED AFTER THE FACT.** We HEAD the destination and require the same
- *     `<etag>:<bytes>`. If R2 ever ignored the condition, or a multipart path
- *     produced a different ETag shape, this refuses rather than sealing bytes we
- *     did not check. The seal is never taken on trust.
- *   • **UNGUESSABLE *AND* UNWRITABLE.** The key carries a fresh `randomUUID()`
- *     (so it cannot be pre-created by someone who knows their own ETag) under a
- *     segment `/api/upload` refuses outright (so it cannot be written even if
- *     guessed). Two independent controls; neither is load-bearing on its own.
- *
- * Returns the sealed `r2://…` ref, or null. Null means "no approval" — the
- * caller must not write an `approved` verdict without a seal.
+ * `warn` goes to Sentry as well as the console on purpose. Every failure inside
+ * sealing is fail-CLOSED, which means a systemic breakage — R2 rejecting the
+ * conditional copy header, a bucket permission drift, a multipart path that
+ * changes the ETag shape — presents to a couple as "my video just never plays"
+ * and to us as silence. `r2Copy` had no caller in this codebase before SEC-6, so
+ * this is the first real exercise of `CopySourceIfMatch` against R2; a total
+ * outage of the feature must page someone rather than look like low demand.
  */
-async function sealScreenedObject(args: {
-  eventId: string;
-  role: 'video' | 'poster';
-  source: { bucket: R2BucketName; key: string };
-  fingerprint: string;
-}): Promise<string | null> {
-  const parts = splitFingerprint(args.fingerprint);
-  if (!parts) return null;
-  // Content-addressed AND unguessable: the digest is in the name (so a sealed
-  // object is self-describing and a mismatch is obvious in a bucket listing),
-  // behind a random segment (so the name cannot be predicted before it exists).
-  const digest = `${parts.etag}-${parts.size}`.replace(/[^A-Za-z0-9._-]/g, '-');
-  const toKey = `events/${args.eventId}/${R2_SEALED_SEGMENT}/${randomUUID()}/${args.role}-${digest}`;
-  try {
-    await r2Copy({
-      bucket: args.source.bucket,
-      fromKey: args.source.key,
-      toKey,
-      sourceIfMatch: parts.etag,
-    });
-  } catch (err) {
-    // Copy refused (a 412 means the source moved under us — exactly what the
-    // condition is for), or R2 is unconfigured. Either way: no approval.
-    //
-    // LOGGED, not silent. This path fails CLOSED, so a systemic failure here
-    // (an R2 change that rejects the conditional header outright, a bucket
-    // permission drift) would look identical to "nobody uploaded a video" —
-    // every couple's film would quietly close on the photo gallery with no
-    // signal anywhere. One warning per attempt, throttled upstream to once per
-    // 10 minutes per event by stdVideoNeedsScreen.
-    console.warn(
-      `[std-video-gate] seal failed (video stays unapproved) — event_id=${args.eventId} role=${args.role}: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return null;
-  }
-  const sealedFingerprint = await fingerprintObject({
-    bucket: args.source.bucket,
-    key: toKey,
-  });
-  if (sealedFingerprint !== args.fingerprint) {
-    console.warn(
-      `[std-video-gate] sealed copy does not match the screened bytes (video stays unapproved) — event_id=${args.eventId} role=${args.role}`,
-    );
-    return null;
-  }
-  const ref = encodeR2Ref(args.source.bucket, toKey);
-  // Final self-check: the ref we are about to persist must satisfy the same
-  // policy the serve path will apply to it. A seal the reader would refuse is a
-  // seal we must not record as an approval.
-  return parseClientRef(ref, stdSealedPolicy(args.eventId)) ? ref : null;
-}
+const liveSealDeps: SealDeps = {
+  copy: (args) =>
+    r2Copy({
+      bucket: args.bucket as R2BucketName,
+      fromKey: args.fromKey,
+      toKey: args.toKey,
+      sourceIfMatch: args.sourceIfMatch,
+    }),
+  fingerprint: (args) =>
+    fingerprintObject({ bucket: args.bucket as R2BucketName, key: args.key }),
+  warn: (message, context) => {
+    console.warn(`${message} ${JSON.stringify(context)}`);
+    Sentry.captureMessage(message, { level: 'error', extra: context });
+  },
+};
 
 /**
- * Seal both objects for an approval. All-or-nothing: a half-sealed approval is
- * no approval, so the caller leaves the verdict undecided and the heal retries.
+ * Seal BOTH objects. All-or-nothing: a half-sealed pair authorises nothing, so
+ * the caller leaves the verdict undecided and the heal retries.
+ *
+ * Note what this does and does not mean. Sealing FREEZES an object so the bytes
+ * examined and the bytes served cannot drift apart. It is not itself an
+ * examination — that is `StdExamination`, and the video's can only be written by
+ * an examiner competent to judge a video. Round two collapsed the two ideas and
+ * that is exactly how a classification of a JPEG ended up authorising an MP4.
  */
 export async function sealScreenedMedia(args: {
   eventId: string;
   media: StdMedia;
   videoFingerprint: string;
   posterFingerprint: string;
-}): Promise<{ servedVideoKey: string; servedPosterKey: string } | null> {
+}): Promise<StdSealedPair | null> {
   const video = parseClientRef(args.media.videoKey, stdVideoSourcePolicy(args.eventId));
   const poster = parseClientRef(args.media.posterKey, stdVideoPosterPolicy(args.eventId));
   if (!video || !poster) return null;
-  const servedVideoKey = await sealScreenedObject({
-    eventId: args.eventId,
-    role: 'video',
-    source: video,
-    fingerprint: args.videoFingerprint,
-  });
-  if (!servedVideoKey) return null;
-  const servedPosterKey = await sealScreenedObject({
-    eventId: args.eventId,
-    role: 'poster',
-    source: poster,
-    fingerprint: args.posterFingerprint,
-  });
-  if (!servedPosterKey) return null;
-  return { servedVideoKey, servedPosterKey };
+
+  const sealOne = async (
+    role: 'video' | 'poster',
+    source: { bucket: R2BucketName; key: string },
+    fingerprint: string,
+  ): Promise<string | null> => {
+    const key = await sealObject(liveSealDeps, {
+      eventId: args.eventId,
+      role,
+      bucket: source.bucket,
+      sourceKey: source.key,
+      fingerprint,
+      nonce: randomUUID(),
+    });
+    if (!key) return null;
+    const ref = encodeR2Ref(source.bucket, key);
+    // Final self-check: the ref we are about to persist must satisfy the same
+    // policy the serve path will apply to it. A seal the reader would refuse is
+    // a seal we must not record.
+    return parseClientRef(ref, stdSealedPolicy(args.eventId)) ? ref : null;
+  };
+
+  const videoRef = await sealOne('video', video, args.videoFingerprint);
+  if (!videoRef) return null;
+  const posterRef = await sealOne('poster', poster, args.posterFingerprint);
+  if (!posterRef) return null;
+  return {
+    videoRef,
+    videoFingerprint: args.videoFingerprint,
+    posterRef,
+    posterFingerprint: args.posterFingerprint,
+  };
+}
+
+/**
+ * Delete the sealed objects an OUTGOING verdict owned that the INCOMING one does
+ * not — the takedown and the garbage collector, in one place.
+ *
+ * Sealing makes a second permanent copy of the couple's media in the
+ * public-by-design media bucket, and until this existed nothing ever removed
+ * one. Three consequences, all real:
+ *
+ *   • **Takedown did not take anything down.** A rejected video's sealed copy
+ *     stayed fetchable at an unsigned public URL that every guest who loaded the
+ *     page while it was approved already holds — and the new verdict overwrote
+ *     the only pointer to it, so nothing could even enumerate it afterwards.
+ *   • **Erasure could not reach it.** Account deletion walks refs it can read
+ *     out of DB columns; a discarded seal is in no column.
+ *   • **It grew without bound.** Every re-screen minted a fresh pair under a new
+ *     random key and stranded the previous one.
+ *
+ * Best-effort by contract (the house rule for `r2Delete`): a failure here must
+ * never break the decision that has already been written. Anything that does not
+ * delete is logged, not thrown.
+ */
+export async function retireSupersededSeals(args: {
+  eventId: string;
+  previous: StdNsfwVerdict;
+  next: StdNsfwVerdict;
+}): Promise<void> {
+  const keep = new Set(verdictSealedRefs(args.next));
+  const drop = verdictSealedRefs(args.previous).filter((ref) => !keep.has(ref));
+  if (drop.length === 0) return;
+  const policy = stdSealedPolicy(args.eventId);
+  for (const ref of drop) {
+    // Only ever delete something that parses as THIS event's sealed object. A
+    // malformed or foreign ref in the column must not become a delete primitive.
+    const parsed = parseClientRef(ref, policy);
+    if (!parsed) continue;
+    try {
+      await r2Delete({ bucket: parsed.bucket, key: parsed.key });
+    } catch (err) {
+      console.warn(
+        `[std-video-gate] could not delete a superseded sealed object — event_id=${args.eventId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 }
 
 /**
@@ -329,43 +360,98 @@ export async function stdVideoServeUrls(
   }
 }
 
+export type StdReviewMedia = {
+  /** Presigned URL of the SEALED video — what the reviewer watches. */
+  videoUrl: string | null;
+  /** Presigned URL of the SEALED poster. */
+  posterUrl: string | null;
+  /** Live `<etag>:<bytes>` of the sealed video; the Approve pin. */
+  videoFingerprint: string | null;
+  /** Live `<etag>:<bytes>` of the sealed poster. */
+  posterFingerprint: string | null;
+  /**
+   * Whether this row is in a state a human can approve at all. False when the
+   * automatic screen has not sealed yet, or when a sealed object no longer
+   * reads back the bytes it was sealed with.
+   */
+  approvable: boolean;
+  /**
+   * True when the verdict NAMES a sealed pair but R2 no longer serves it —
+   * something deleted or replaced the object out of band. The row must stay
+   * visible to an operator and be re-screened; it must never be quietly
+   * approvable, and it must never look fine.
+   */
+  sealBroken: boolean;
+};
+
 /**
- * The admin reviewer's player. Presigns the couple's SOURCE objects — the bytes
- * under review, which is what a human must actually watch — and hands back the
- * fingerprints of exactly those bytes so the Approve action can be PINNED to
- * them (see app/admin/reveal-studio/actions.ts). Without that pin, an approval
- * covers "whatever is at the key when the button is clicked", which need not be
- * what was on screen.
+ * What the admin reviewer is shown, and what their Approve is pinned to.
  *
- * Same strict parser as everything else, so a reviewer can never be shown a
- * foreign origin while the fingerprint covers an R2 decoy.
+ * ── THE REVIEWER WATCHES THE SEAL, NOT THE SOURCE ───────────────────────────
+ * This is the round-three change and it is the whole reason a human approval
+ * means anything. Round two presigned the couple's SOURCE object: mutable, held
+ * open by a 5-minute presigned PUT the couple still has, and pinned to an
+ * MD5-derived ETag. So "the bytes on screen" and "the bytes served" were two
+ * different reads of a writable key, reconciled by a hash comparison.
+ *
+ * Now the reviewer streams the SEALED object — the exact, immutable, writer-less
+ * copy the guest's browser will fetch. There is no reconciliation to get wrong:
+ * it is the same object. The fingerprint pin stays as a second lock (it catches
+ * an out-of-band deletion or replacement between page load and click), but the
+ * guarantee no longer rests on it.
+ *
+ * A row that is not sealed yet is NOT approvable. An admin can only ever put
+ * their name to frozen bytes.
  */
 export async function stdVideoReviewMedia(
   media: StdMedia,
+  verdict: StdNsfwVerdict,
   eventId: string,
-): Promise<{
-  videoUrl: string | null;
-  posterUrl: string | null;
-  videoFingerprint: string | null;
-  posterFingerprint: string | null;
-}> {
-  const empty = {
+): Promise<StdReviewMedia> {
+  const empty: StdReviewMedia = {
     videoUrl: null,
     posterUrl: null,
     videoFingerprint: null,
     posterFingerprint: null,
+    approvable: false,
+    sealBroken: false,
   };
-  const video = parseClientRef(media.videoKey, stdVideoSourcePolicy(eventId));
-  const poster = parseClientRef(media.posterKey, stdVideoPosterPolicy(eventId));
-  if (!video) return empty;
+  if (media.type !== 'video') return empty;
+  const sealed = verdict.sealed;
+  // Not sealed yet → nothing frozen to examine → nothing to approve. The queue
+  // still shows the row (so an operator can see it is stuck and reject it), it
+  // just cannot be approved into existence.
+  if (!sealed) return empty;
+  const policy = stdSealedPolicy(eventId);
+  const video = parseClientRef(sealed.videoRef, policy);
+  const poster = parseClientRef(sealed.posterRef, policy);
+  if (!video || !poster) return { ...empty, sealBroken: true };
   try {
-    const [videoFingerprint, posterFingerprint, videoUrl, posterUrl] = await Promise.all([
+    const [videoFingerprint, posterFingerprint] = await Promise.all([
       fingerprintObject(video),
-      poster ? fingerprintObject(poster) : Promise.resolve(null),
-      presignDisplayUrl(video.bucket, video.key),
-      poster ? presignDisplayUrl(poster.bucket, poster.key) : Promise.resolve(null),
+      fingerprintObject(poster),
     ]);
-    return { videoUrl, posterUrl, videoFingerprint, posterFingerprint };
+    // The sealed objects must still hold the bytes they were sealed with. They
+    // have no writer, so a mismatch means an operator acted on the bucket — and
+    // that is a refusal, never an assumption.
+    if (
+      videoFingerprint !== sealed.videoFingerprint ||
+      posterFingerprint !== sealed.posterFingerprint
+    ) {
+      return { ...empty, sealBroken: true };
+    }
+    const [videoUrl, posterUrl] = await Promise.all([
+      presignDisplayUrl(video.bucket, video.key),
+      presignDisplayUrl(poster.bucket, poster.key),
+    ]);
+    return {
+      videoUrl,
+      posterUrl,
+      videoFingerprint,
+      posterFingerprint,
+      approvable: true,
+      sealBroken: false,
+    };
   } catch {
     return empty;
   }

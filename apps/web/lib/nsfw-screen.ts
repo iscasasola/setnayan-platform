@@ -563,18 +563,46 @@ export async function screenEditorialVendorMedia(opts: {
 // undecided and the opportunistic heal retries. There is no "approved but
 // unsealed" state that shows anything to a guest.
 //
-// ── WHAT THIS STILL DOES NOT DO (stated, not hidden) ────────────────────────
-// The classifier reads the POSTER, never the video's own frames. Sealing makes
-// the verdict cover exactly the bytes the guest receives; it does not make a
-// poster-derived verdict a statement about the video's content. A host who
-// uploads a dirty video with a clean, unrelated poster still gets an approval —
-// bound, sealed, and wrong. Closing THAT needs server-side frame extraction and
-// belongs to the platform-wide nsfw-screen sweep, not here. See the PR body.
+// ── ROUND THREE: THIS FUNCTION CAN NO LONGER APPROVE A VIDEO ────────────────
+// The classifier reads the POSTER. It never downloads, decodes or looks at a
+// single frame of the video — it cannot, because nsfwjs is image-only and there
+// is no server-side video processing anywhere in this stack (see
+// lib/video-compress.ts: "Vercel can't run ffmpeg; everything video is done in
+// the browser"). And `posterKey` arrives from the client with no derivation
+// proof: the poster is grabbed in the browser and uploaded as an independent
+// object, so "dirty video + clean unrelated poster" was — for two rounds — a
+// complete bypass that produced a real, bound, sealed `approved`.
 //
-// Verdict mapping: 'clean' → 'approved' (goes live) · 'nsfw_blocked' →
-// 'rejected' (never live). FAIL-OPEN in the sense that an error never throws
-// and never loses the upload — but the RESULT is fail-CLOSED: with no decided,
-// bound verdict the video simply does not play.
+// Sealing did not fix that and could not: it guarantees the served bytes are
+// the bytes we froze, not that anyone examined them.
+//
+// So this screen is now a REJECT-ONLY PRE-FILTER. Its outcomes are:
+//
+//   'nsfw_blocked' → 'rejected'   — terminal. A dirty poster is reason enough to
+//                                   refuse the video beside it; refusing needs no
+//                                   examination of the video, only evidence.
+//   'clean'        → 'in_review'  — seals both objects and records ONE
+//                                   examination: the poster's, by 'nsfwjs-image',
+//                                   over the exact bytes it downloaded. The video
+//                                   is sealed but unexamined, so it does not play.
+//                                   A human then watches the SEALED video in the
+//                                   Reveal Studio and their Approve is what
+//                                   records the video's examination.
+//
+// There is no value this function can write that authorises a video, because
+// `COMPETENT_EXAMINERS.video` does not contain 'nsfwjs-image' (lib/std-media.ts).
+// That is deliberate: the fix must be a property of the model, not a rule this
+// file remembers to follow.
+//
+// ⚠ WHEN SERVER-SIDE FRAME EXTRACTION LANDS, this is the seam. Decode the
+// SEALED video's own bytes, classify N frames, and record an examination with
+// `by: 'frame-extract'` after adding it to COMPETENT_EXAMINERS.video. The human
+// gate then comes off by itself. Until then it stays on: the platform lock says
+// the NSFW filter cannot be disabled, and an unexamined video reaching a guest
+// page is that lock being false.
+//
+// FAIL-OPEN in the sense that an error never throws and never loses the upload —
+// but the RESULT is fail-CLOSED: with no examination the video does not play.
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
@@ -599,20 +627,38 @@ export async function screenStdVideo(opts: {
     const { resolveStdMedia, resolveStdNsfwVerdict, stdVideoNeedsScreen } = await import(
       '@/lib/std-media'
     );
-    const { sealScreenedMedia, stdSourceFingerprints } = await import(
+    const { sealScreenedMedia, stdSourceFingerprints, retireSupersededSeals } = await import(
       '@/lib/std-video-gate'
     );
     const { parseClientRef, stdVideoPosterPolicy } = await import('@/lib/r2-client-ref');
     const admin = createAdminClient();
 
-    /** UPDATE the verdict only while the row still holds this exact media. */
+    /**
+     * UPDATE the verdict only while the row still holds this exact media, then
+     * delete any sealed objects the outgoing verdict owned and the new one does
+     * not. Sealing writes a second permanent copy into the public media bucket;
+     * without this it would be write-only, so a rejected video would stay
+     * fetchable forever and every re-screen would strand a 200 MB orphan.
+     *
+     * Deletion is gated on the UPDATE actually landing (`.select()` returns the
+     * affected rows) — a conditional write that matched nothing must not take
+     * the live seals down with it.
+     */
     const writeVerdict = async (verdict: Record<string, unknown>) => {
-      await admin
+      const { data } = await admin
         .from('events')
         .update({ std_media_nsfw: verdict })
         .eq('event_id', opts.eventId)
         .filter('std_media->>videoKey', 'eq', opts.videoKey)
-        .filter('std_media->>posterKey', 'eq', opts.posterR2Key);
+        .filter('std_media->>posterKey', 'eq', opts.posterR2Key)
+        .select('event_id');
+      if (!data || data.length === 0) return false;
+      await retireSupersededSeals({
+        eventId: opts.eventId,
+        previous: verdict0,
+        next: resolveStdNsfwVerdict(verdict),
+      });
+      return true;
     };
 
     const { data: row, error: rowError } = await admin

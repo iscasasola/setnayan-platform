@@ -70,12 +70,134 @@
  *      couple's upload key after approval now lands on an object no guest reads.
  *      Check-then-serve, the 24-hour presign TTL and the 60-second ISR window
  *      all stop mattering, because the object behind the URL cannot change.
+ *
+ * ── ROUND THREE (2026-07-26): IDENTITY IS NOT PROVENANCE ────────────────────
+ * Round two was still the same defect in different clothes. Both earlier cuts
+ * shipped a verdict that authorised a served artifact on the strength of
+ * evidence gathered about a DIFFERENT artifact:
+ *
+ *   • round one — evidence was a HEAD of an R2 decoy; the browser fetched a
+ *     foreign origin;
+ *   • round two — evidence was a classification of a JPEG; the browser fetched
+ *     the MP4 sitting next to it. `posterKey` arrives from the client with no
+ *     derivation proof, so "upload a dirty video with a clean, unrelated
+ *     poster" produced an approval that was bound, sealed, and wrong.
+ *
+ * Sealing fixed IDENTITY (is the served object still the object we froze?) and
+ * left PROVENANCE (was the served object ever examined at all?) untouched.
+ * Identity without provenance is a notarised signature on a blank page.
+ *
+ * THE RULE, stated once and enforced structurally:
+ *
+ *     An artifact may be served only if THAT ARTIFACT'S OWN BYTES were examined
+ *     by an examiner competent to judge them. Anything else may only REJECT.
+ *
+ * It is monotone on purpose. Rejection is safe from any evidence — a dirty
+ * poster is reason enough to refuse the video beside it. Approval is not.
+ *
+ * So the verdict no longer carries one status over two objects. It carries a
+ * per-artifact `StdExamination` naming the SEALED ref, its fingerprint, and WHO
+ * examined those bytes — and `COMPETENT_EXAMINERS` (below) decides which
+ * examiners may authorise which role. An image classifier is competent for the
+ * JPEG it read and for nothing else, so there is no value the poster screen can
+ * write that authorises a video. The divergence is unrepresentable rather than
+ * checked for.
  */
 
 import { parseClientRef, stdSealedPolicy, stdVideoPosterPolicy, stdVideoSourcePolicy } from '@/lib/r2-client-ref';
 
 export type StdMediaType = 'gallery' | 'video';
-export type StdNsfwStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * Where a couple's video sits in the screening pipeline.
+ *
+ *  • `pending`   — never screened, or the media changed and it needs one again.
+ *  • `in_review` — the poster passed the automatic screen and both objects are
+ *                  SEALED, but nothing has examined the video's own bytes yet,
+ *                  so it does NOT play. Waiting on a human in the Reveal Studio.
+ *  • `approved`  — every artifact a guest receives has been examined. Plays.
+ *  • `rejected`  — refused. Never plays.
+ */
+export type StdNsfwStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+
+/**
+ * WHO looked at a specific artifact's bytes.
+ *
+ *  • `nsfwjs-image`  — the automatic classifier DOWNLOADED those bytes and ran
+ *                      nsfwjs over them. Image-only: it can judge a JPEG.
+ *  • `human-review`  — an admin streamed that exact SEALED object in the Reveal
+ *                      Studio player and pressed Approve against its fingerprint.
+ *
+ * When server-side frame extraction lands it joins this union as
+ * `'frame-extract'` and is added to `COMPETENT_EXAMINERS.video` — one line, same
+ * rule, and the human gate can come back off.
+ */
+export type StdExaminer = 'nsfwjs-image' | 'human-review';
+
+/**
+ * WHICH examiners may authorise WHICH artifact. This table is the round-three
+ * fix in four lines.
+ *
+ * An image classifier reads a JPEG. That makes it competent to judge the JPEG it
+ * read — the poster is itself served to guests, so for the poster the examined
+ * bytes and the served bytes are the same object. It says NOTHING about a video
+ * file that merely sits next to that JPEG in the same row, which is why
+ * `nsfwjs-image` is absent from the `video` set: a poster-derived approval of a
+ * video is not a weak signal to be weighed, it is not evidence about the video
+ * at all.
+ *
+ * A human who streamed the sealed object examined the served bytes by
+ * definition, so `human-review` is competent for both.
+ */
+export const COMPETENT_EXAMINERS: Readonly<
+  Record<'video' | 'poster', ReadonlySet<StdExaminer>>
+> = {
+  poster: new Set<StdExaminer>(['nsfwjs-image', 'human-review']),
+  video: new Set<StdExaminer>(['human-review']),
+};
+
+/**
+ * The record that ONE artifact's own bytes were examined.
+ *
+ * `ref` is the SEALED object — precisely what the browser will fetch. Not the
+ * couple's mutable upload key, not a sibling, not a proxy. If an examination
+ * cannot name the served object, it cannot authorise it.
+ */
+export type StdExamination = {
+  /** Sealed `r2://…/std-screened/…` ref — the object a guest receives. */
+  ref: string;
+  /** `<etag>:<bytes>` that object must still carry at serve time. */
+  fingerprint: string;
+  /**
+   * SHA-256 of the examined bytes, when the examiner actually HELD them (the
+   * poster screen downloads its JPEG, so it can hash it). Null when the examiner
+   * streamed rather than buffered — a human watching a 200 MB clip.
+   *
+   * Recorded because `fingerprint`'s ETag is documented to be the body MD5 for a
+   * single PUT (lib/r2.ts), and MD5 is not collision-resistant. Where we hold
+   * the bytes we should not be relying on MD5, so we do not.
+   */
+  digest: string | null;
+  /** WHO examined these bytes. */
+  by: StdExaminer;
+  /** When. */
+  at: string;
+};
+
+/**
+ * The pair of SEALED objects the screen produced for one media choice. Frozen
+ * copies awaiting (or carrying) examination — see `StdNsfwVerdict.sealed`.
+ */
+export type StdSealedPair = {
+  /** Sealed copy of the couple's video. */
+  videoRef: string;
+  /** `<etag>:<bytes>` the sealed video must still carry. */
+  videoFingerprint: string;
+  /** Sealed copy of the couple's poster frame. */
+  posterRef: string;
+  /** `<etag>:<bytes>` the sealed poster must still carry. */
+  posterFingerprint: string;
+};
 
 export type StdMedia = {
   type: StdMediaType;
@@ -107,29 +229,45 @@ export type StdMedia = {
  */
 export type StdNsfwVerdict = {
   status: StdNsfwStatus;
-  /** The video R2 ref this verdict authorises. */
+  /** The couple's video R2 ref this verdict is ABOUT (the invalidation key). */
   videoKey: string | null;
-  /** The poster R2 ref that was actually classified (the screening proxy). */
+  /** The couple's poster R2 ref this verdict is ABOUT. */
   posterKey: string | null;
-  /** `<etag>:<bytes>` of the object at videoKey at screen time. */
+  /** `<etag>:<bytes>` of the object at videoKey when it was sealed. */
   videoFingerprint: string | null;
-  /** `<etag>:<bytes>` of the object at posterKey at screen time. */
+  /** `<etag>:<bytes>` of the object at posterKey when it was sealed. */
   posterFingerprint: string | null;
   /**
-   * The SEALED copy of the video — `events/{id}/std-screened/…`, written by the
-   * service-role screen as a server-side R2 copy conditioned on
-   * `videoFingerprint`'s ETag, into a prefix no client upload can name.
+   * The SEALED candidate artifacts — immutable copies of the couple's two
+   * objects, written by the service-role screen into `events/{id}/std-screened/`
+   * (a prefix `/api/upload` refuses to presign).
    *
-   * THIS, not `videoKey`, is what the guest's browser fetches. The couple's own
-   * upload key stays mutable (they hold a 5-minute presigned PUT and may re-PUT
-   * to it); the sealed copy does not, so a post-approval byte swap has nowhere
-   * to land that a guest reads. An `approved` verdict without sealed keys is
-   * incomplete and does not serve.
+   * These are the CANDIDATES, not the authorisation. Sealing freezes an object
+   * so that "the bytes examined" and "the bytes served" cannot drift apart; it
+   * says nothing about whether anyone examined them. That is what `video` and
+   * `poster` below are for, and it is the distinction round two collapsed.
+   *
+   * The reviewer's player streams `videoRef` — so a human approval is, by
+   * construction, an examination of the exact object a guest will fetch.
    */
-  servedVideoKey: string | null;
-  /** The sealed copy of the poster frame — the bytes that were classified. */
-  servedPosterKey: string | null;
-  /** When a decision was reached (null while never decided). */
+  sealed: StdSealedPair | null;
+  /**
+   * Proof that the SEALED VIDEO's own bytes were examined — the only thing that
+   * can authorise streaming it.
+   *
+   * Null until a competent examiner has looked. The automatic screen CANNOT
+   * fill this in: it reads the poster, and `COMPETENT_EXAMINERS.video` does not
+   * include `nsfwjs-image`. Today only `human-review` can, which is why a clean
+   * poster parks the row at `in_review` instead of publishing it.
+   */
+  video: StdExamination | null;
+  /**
+   * Proof that the SEALED POSTER's own bytes were examined. The automatic screen
+   * fills this in, legitimately: it downloads that JPEG and classifies it, so
+   * for the poster the examined bytes and the served bytes are one object.
+   */
+  poster: StdExamination | null;
+  /** When a terminal decision was reached (null while undecided). */
   screenedAt: string | null;
   /**
    * When a screen was last ATTEMPTED — written even when the attempt fails, so
@@ -145,8 +283,9 @@ export const NO_STD_NSFW_VERDICT: StdNsfwVerdict = {
   posterKey: null,
   videoFingerprint: null,
   posterFingerprint: null,
-  servedVideoKey: null,
-  servedPosterKey: null,
+  sealed: null,
+  video: null,
+  poster: null,
   screenedAt: null,
   attemptedAt: null,
 };
@@ -205,18 +344,80 @@ export function resolveStdNsfwVerdict(raw: unknown): StdNsfwVerdict {
   if (!raw || typeof raw !== 'object') return NO_STD_NSFW_VERDICT;
   const o = raw as Record<string, unknown>;
   const status: StdNsfwStatus =
-    o.status === 'approved' || o.status === 'rejected' ? o.status : 'pending';
+    o.status === 'approved' || o.status === 'rejected' || o.status === 'in_review'
+      ? o.status
+      : 'pending';
   return {
     status,
     videoKey: nonEmpty(o.videoKey),
     posterKey: nonEmpty(o.posterKey),
     videoFingerprint: nonEmpty(o.videoFingerprint),
     posterFingerprint: nonEmpty(o.posterFingerprint),
-    servedVideoKey: nonEmpty(o.servedVideoKey),
-    servedPosterKey: nonEmpty(o.servedPosterKey),
+    sealed: resolveSealedPair(o.sealed),
+    video: resolveExamination(o.video),
+    poster: resolveExamination(o.poster),
     screenedAt: nonEmpty(o.screenedAt),
     attemptedAt: nonEmpty(o.attemptedAt),
   };
+}
+
+/** Parse the sealed-candidate pair. All four fields or nothing (fail closed). */
+function resolveSealedPair(raw: unknown): StdSealedPair | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const videoRef = nonEmpty(o.videoRef);
+  const videoFingerprint = nonEmpty(o.videoFingerprint);
+  const posterRef = nonEmpty(o.posterRef);
+  const posterFingerprint = nonEmpty(o.posterFingerprint);
+  if (!videoRef || !videoFingerprint || !posterRef || !posterFingerprint) return null;
+  if (videoRef === posterRef) return null; // one object may not be both artifacts
+  return { videoRef, videoFingerprint, posterRef, posterFingerprint };
+}
+
+/**
+ * Every sealed object this verdict OWNS — what to delete when it is superseded.
+ *
+ * Sealing creates a second permanent copy of the couple's media. Without this
+ * the copies are write-only: a rejected video would stay fetchable forever at an
+ * unsigned public URL, a re-upload would strand the previous pair, and nothing
+ * would know they existed. `retireSupersededSeals` (lib/std-video-gate.ts) diffs
+ * the outgoing verdict against the incoming one over this list.
+ */
+export function verdictSealedRefs(verdict: StdNsfwVerdict): string[] {
+  const refs = new Set<string>();
+  if (verdict.sealed) {
+    refs.add(verdict.sealed.videoRef);
+    refs.add(verdict.sealed.posterRef);
+  }
+  if (verdict.video) refs.add(verdict.video.ref);
+  if (verdict.poster) refs.add(verdict.poster.ref);
+  return [...refs];
+}
+
+/**
+ * Parse one `StdExamination`. Total and fail-closed: an examination missing its
+ * ref, its fingerprint, its examiner, or its timestamp is not a weaker
+ * examination, it is NO examination — and an unrecognised `by` (a value written
+ * by a newer deploy, or by hand) resolves to null rather than being trusted as
+ * some unknown-but-probably-fine examiner.
+ *
+ * The pre-round-three shape (`servedVideoKey` / `servedPosterKey` as bare
+ * strings, one `status` covering both objects) has no `by` field, so a verdict
+ * written by the old code resolves to `{video:null, poster:null}` → not
+ * servable → re-screened. That is the intended migration path: the column is
+ * unapplied in prod, and even if it were, an approval with no recorded examiner
+ * is exactly the thing this release stops honouring.
+ */
+function resolveExamination(raw: unknown): StdExamination | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const ref = nonEmpty(o.ref);
+  const fingerprint = nonEmpty(o.fingerprint);
+  const at = nonEmpty(o.at);
+  const by = o.by;
+  if (!ref || !fingerprint || !at) return null;
+  if (by !== 'nsfwjs-image' && by !== 'human-review') return null;
+  return { ref, fingerprint, digest: nonEmpty(o.digest), by, at };
 }
 
 /**
@@ -241,14 +442,12 @@ export function verdictBindsMedia(media: StdMedia, verdict: StdNsfwVerdict): boo
  * A convenience boolean over `stdVideoServeRefs` (below), which is the real
  * decision and which requires an `approved` verdict that
  *   (a) binds to this exact media (both source keys), AND
- *   (b) carries both content fingerprints, AND
- *   (c) names SEALED copies of both objects, each a well-formed ref under this
- *       event's `std-screened/` prefix.
+ *   (b) carries an EXAMINATION for each served artifact, AND
+ *   (c) whose examiner is COMPETENT for that artifact's role, AND
+ *   (d) whose ref is a well-formed SEALED ref under this event's prefix.
  *
- * (c) is round two. Without it an `approved` verdict authorises the couple's own
- * mutable upload key; with it, an approval that never produced sealed bytes is
- * simply incomplete and does not serve. There is no "approved but unsealed"
- * state that shows anything to a guest.
+ * (b)+(c) are round three and they are the whole point: (d) alone proves the
+ * served object cannot change, which is worthless if nothing ever looked at it.
  *
  * PURE. A server caller about to SERVE must additionally confirm the SEALED
  * objects still carry the recorded fingerprints — use `stdVideoServeUrls`
@@ -275,18 +474,48 @@ export type StdServeRefs = {
 };
 
 /**
+ * Is this examination good enough to authorise serving `role`?
+ *
+ * Three questions, and all three have to be yes:
+ *   1. Does an examination exist at all?
+ *   2. Was its examiner COMPETENT for this artifact — i.e. did it examine THIS
+ *      KIND of thing, not something adjacent to it? (`COMPETENT_EXAMINERS`.)
+ *   3. Does it name a well-formed SEALED object under THIS event's prefix — an
+ *      object with no writer, so "the bytes examined" and "the bytes served"
+ *      cannot drift apart afterwards?
+ *
+ * (2) is the round-three addition and it is the one that makes a poster-derived
+ * approval of a video impossible to express, rather than merely unwise.
+ */
+export function examinationAuthorises(
+  examination: StdExamination | null,
+  role: 'video' | 'poster',
+  eventId: string,
+): boolean {
+  if (!examination) return false;
+  if (!COMPETENT_EXAMINERS[role].has(examination.by)) return false;
+  // Belt-and-braces: the ref came out of a service-role-only column, but it is
+  // checked with the same parser the write side used, so an operator paste or a
+  // future writer bug fails closed rather than presigning an arbitrary key.
+  if (!parseClientRef(examination.ref, stdSealedPolicy(eventId))) return false;
+  return examination.fingerprint.length > 0;
+}
+
+/**
  * THE serve decision, pure and total: given the row, the verdict and the event,
  * WHICH objects — if any — may be handed to a guest, and what must they hash to?
  *
  * This is the single place the "screen object A, serve object B" divergence is
- * killed. It never returns the couple's `videoKey`. The only refs it can emit
- * are sealed ones, and a sealed ref is one the screen wrote after classifying
- * the bytes — so "an unscreened digest simply has no approved verdict" is
- * enforced by there being nothing else to return.
+ * killed, and round three is what finally kills it. It never returns the
+ * couple's `videoKey`; the only refs it can emit come out of an EXAMINATION, and
+ * an examination names the bytes its examiner actually looked at. So an object
+ * nothing has examined has nothing to return it — not "has a verdict we decided
+ * to distrust", but no path to the serve URL at all.
  *
  * Null on every unresolved case: not a video, not approved, verdict names other
- * media, missing fingerprint, missing seal, seal outside this event's screened
- * prefix, seal not an `r2://` ref at all.
+ * media, an artifact with no examination, an examination by an examiner not
+ * competent for that artifact (a poster classifier vouching for a video), a ref
+ * outside this event's sealed prefix, or one object standing in for both roles.
  */
 export function stdVideoServeRefs(
   media: StdMedia,
@@ -296,22 +525,20 @@ export function stdVideoServeRefs(
   if (!eventId) return null;
   if (verdict.status !== 'approved') return null;
   if (!verdictBindsMedia(media, verdict)) return null;
-  const { videoFingerprint, posterFingerprint, servedVideoKey, servedPosterKey } = verdict;
-  if (!videoFingerprint || !posterFingerprint) return null;
-  if (!servedVideoKey || !servedPosterKey) return null;
-  // The seals came out of a service-role-only column, so this is belt-and-braces
-  // — but it is the same parser the write side used, and an operator paste or a
-  // future writer bug should fail closed rather than presign an arbitrary key.
-  const sealed = stdSealedPolicy(eventId);
-  if (!parseClientRef(servedVideoKey, sealed)) return null;
-  if (!parseClientRef(servedPosterKey, sealed)) return null;
-  // A single object may not stand in for both roles.
-  if (servedVideoKey === servedPosterKey) return null;
+  const { video, poster } = verdict;
+  if (!examinationAuthorises(video, 'video', eventId)) return null;
+  if (!examinationAuthorises(poster, 'poster', eventId)) return null;
+  // Non-null after the guards above; TypeScript cannot see through the helper.
+  const v = video as StdExamination;
+  const p = poster as StdExamination;
+  // A single object may not stand in for both roles — one examination must not
+  // be able to cover two served artifacts.
+  if (v.ref === p.ref) return null;
   return {
-    videoRef: servedVideoKey,
-    posterRef: servedPosterKey,
-    videoFingerprint,
-    posterFingerprint,
+    videoRef: v.ref,
+    posterRef: p.ref,
+    videoFingerprint: v.fingerprint,
+    posterFingerprint: p.fingerprint,
   };
 }
 
@@ -345,26 +572,59 @@ export function stdNsfwDisplayStatus(
   eventId: string,
 ): StdNsfwStatus {
   if (!verdictBindsMedia(media, verdict)) return 'pending';
-  // An `approved` verdict that produced no sealed copy shows nothing to a guest
-  // (stdVideoServeRefs returns null), so telling the couple "approved" would be
-  // a lie and would hide the row from the admin queue, which filters on this.
-  // It reads as 'pending' — which is the truth: it still needs a screen.
-  if (verdict.status === 'approved' && !stdVideoServeRefs(media, verdict, eventId)) {
-    return 'pending';
-  }
-  return verdict.status;
+  if (verdict.status === 'rejected') return 'rejected';
+  // An `approved` verdict that cannot actually serve — no examination, an
+  // examiner not competent for the artifact, a malformed seal — is not
+  // 'approved' in any sense the couple or the admin queue should be told. It
+  // reads as 'pending', which is the truth: it still needs a screen. (Telling
+  // them 'approved' is also what hid such a row from the ONE surface that can
+  // fix it, since the queue filters on this function.)
+  if (stdVideoServeRefs(media, verdict, eventId)) return 'approved';
+  // Sealed and poster-screened, waiting on the human who must examine the video
+  // itself. Distinct from 'pending' because nothing more will happen
+  // automatically — no amount of re-screening can produce a video examination.
+  if (stdVideoAwaitsReview(verdict, eventId)) return 'in_review';
+  return 'pending';
+}
+
+/**
+ * Has the automatic screen finished its part — sealed both objects and examined
+ * the poster — leaving only the human examination of the video outstanding?
+ *
+ * This is the state a clean poster now produces. It is deliberately NOT
+ * "approved with one field missing": the video has been examined by nobody, so
+ * it does not play, and no automatic path can change that.
+ */
+export function stdVideoAwaitsReview(verdict: StdNsfwVerdict, eventId: string): boolean {
+  if (verdict.status !== 'in_review' && verdict.status !== 'approved') return false;
+  if (!verdict.sealed) return false;
+  if (!examinationAuthorises(verdict.poster, 'poster', eventId)) return false;
+  return !examinationAuthorises(verdict.video, 'video', eventId);
 }
 
 /** How long before a failed / never-finished screen may be retried. */
 export const STD_SCREEN_RETRY_MS = 10 * 60_000; // 10 min
 
 /**
- * Should a screen be (re-)attempted for this media right now?
+ * Floor between screen attempts when the verdict does NOT bind the media.
  *
- * True when the media is a screenable video whose verdict does not bind (or
- * binds but is still undecided), and no attempt has been made inside the
- * throttle window. Keeps the opportunistic heal from re-loading the 4.4 MB
- * nsfwjs model on every render while a screen that already failed sits there.
+ * The full 10-minute window used to apply only to BOUND verdicts, which left the
+ * unbound path — the one an attacker controls — with no throttle at all: PATCH
+ * `std_media` with a different poster, load the builder, and the screen re-runs
+ * immediately, downloading and classifying and re-sealing every time. A short
+ * floor closes that loop without making a couple who legitimately re-picks their
+ * video wait: 15 seconds is invisible to a person and ruinous to a loop.
+ */
+export const STD_SCREEN_UNBOUND_RETRY_MS = 15_000;
+
+/**
+ * Should the AUTOMATIC screen be (re-)attempted for this media right now?
+ *
+ * True when the media is a screenable video and the screen's own work — seal
+ * both objects, examine the poster — is not yet done, outside the throttle
+ * window. False once the row is sealed + poster-examined: at that point it is
+ * waiting on a human, and re-running the classifier would only re-load the
+ * 4.4 MB nsfwjs model to reach the same conclusion.
  */
 export function stdVideoNeedsScreen(
   media: StdMedia,
@@ -375,18 +635,20 @@ export function stdVideoNeedsScreen(
   if (media.type !== 'video') return false;
   if (!nonEmpty(media.videoKey) || !nonEmpty(media.posterKey)) return false;
   const bound = verdictBindsMedia(media, verdict);
-  // 'approved' with no usable seal is NOT decided — the copy step failed (or the
-  // row predates sealing). Re-screening is the recovery path, and it is what
-  // stops a row from going permanently dark AND invisible.
-  const decided =
-    verdict.status === 'rejected' ||
-    (verdict.status === 'approved' && stdVideoServeRefs(media, verdict, eventId) !== null);
-  if (bound && decided) return false; // already decided
-  if (bound && verdict.attemptedAt) {
-    const attempted = Date.parse(verdict.attemptedAt);
-    if (Number.isFinite(attempted) && nowMs - attempted < STD_SCREEN_RETRY_MS) {
+  if (bound) {
+    // Terminal, or the screen already did everything it can do.
+    if (verdict.status === 'rejected') return false;
+    if (
+      verdict.sealed &&
+      examinationAuthorises(verdict.poster, 'poster', eventId)
+    ) {
       return false;
     }
+  }
+  if (verdict.attemptedAt) {
+    const attempted = Date.parse(verdict.attemptedAt);
+    const window = bound ? STD_SCREEN_RETRY_MS : STD_SCREEN_UNBOUND_RETRY_MS;
+    if (Number.isFinite(attempted) && nowMs - attempted < window) return false;
   }
   return true;
 }

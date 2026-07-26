@@ -2461,6 +2461,216 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * couples' guest-facing pages keep the wedding-editorial register (Cormorant
  * display · Manrope body · DM Mono labels) exactly as before the Atelier
  * chrome flip. Do NOT apply to chrome surfaces. */
+:root {
+  /* Pahina material tokens — fallbacks for palette-less events; palette events
+     get these overridden by buildSitePaletteVars (lib/site-palette.ts §Pahina). */
+  --color-gild: 169 131 75;        /* #A9834B Atelier gold */
+  --color-paper-deep: 241 241 240; /* alabaster darkened ~4% */
+  --color-veil: 243 236 225;       /* #f3ece1 veil ivory */
+}
+
+/* ── Pahina foundation (guest-site design 2026-07-25) — INERT until the wave-A
+   restyle PRs swap classNames. All scoped under .sn-editorial per ground rule 4:
+   never leaks to dashboards/marketing.
+
+   In @layer components (wave A PR-3) for the same reason the launcher fidelity
+   surfaces below are: these carry a `.sn-editorial X` descendant selector, and
+   UNLAYERED css beats every @layer including utilities (see the note at the
+   `.sn-*` block above). Unlayered, a plate could never be tuned with a Tailwind
+   `bg-*`/`border-*`/`p-*` on the same element — which is exactly what the
+   chapter components need. Layered, the utility wins as authors expect. ────── */
+@layer components {
+  .sn-editorial .pahina-eyebrow {
+    font-family: var(--font-editorial-mono), ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgb(var(--color-gild));
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6em;
+  }
+  .sn-editorial .pahina-eyebrow::after {
+    content: '';
+    flex: 0 0 3.5rem;
+    height: 1px;
+    align-self: center;
+    background: rgb(var(--color-gild) / 0.55);
+  }
+  .sn-editorial .pahina-plate {
+    background: rgb(var(--color-paper-deep));
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    padding: 1.25rem;
+    position: relative;
+  }
+  .sn-editorial .pahina-plate::after {
+    /* printed inner hairline frame */
+    content: '';
+    position: absolute;
+    inset: 0.5rem;
+    border: 1px solid rgb(var(--color-ink) / 0.08);
+    pointer-events: none;
+  }
+  .sn-editorial .pahina-rule {
+    border: 0;
+    height: 1px;
+    background: rgb(var(--color-ink) / 0.12);
+  }
+  .sn-editorial .pahina-grain {
+    position: relative;
+  }
+  .sn-editorial .pahina-grain::before {
+    /* paper grain — tiny inline SVG feTurbulence tile (~500B), multiply blend */
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  /* ── Pahina chapter grammar (wave A PR-3) — the three moves Tailwind cannot
+     express as utilities: a ::first-letter drop cap, the gild-ruled pull quote,
+     and the silk swatch's inner shading + gild pin. ────────────────────────── */
+  .sn-editorial .pahina-dropcap::first-letter {
+    font-family: var(--font-pahina-display), Georgia, serif;
+    float: left;
+    font-size: 3.4em;
+    line-height: 0.82;
+    font-weight: 300;
+    padding-right: 0.09em;
+    padding-top: 0.04em;
+    color: rgb(var(--color-gild));
+  }
+  .sn-editorial .pahina-quote {
+    font-family: var(--font-pahina-display), Georgia, serif;
+    font-style: italic;
+    border-left: 2px solid rgb(var(--color-gild));
+    padding-left: 1.15rem;
+    line-height: 1.42;
+  }
+  .sn-editorial .pahina-swatch {
+    /* fabric sample, not a color square: tall chip, rounded only at the bottom,
+       inner shading down the fold, gild pin at the head */
+    position: relative;
+    display: block;
+    width: 3.25rem;
+    height: 4.5rem;
+    border-radius: 0 0 1.6rem 1.6rem;
+    box-shadow:
+      inset -0.55rem 0 0.7rem -0.5rem rgb(0 0 0 / 0.28),
+      inset 0.4rem 0 0.6rem -0.5rem rgb(255 255 255 / 0.35);
+  }
+  .sn-editorial .pahina-swatch::after {
+    content: '';
+    position: absolute;
+    top: 0.4rem;
+    left: 50%;
+    width: 0.3rem;
+    height: 0.3rem;
+    margin-left: -0.15rem;
+    border-radius: 9999px;
+    background: rgb(var(--color-gild));
+    box-shadow: 0 0 0 1px rgb(var(--color-paper) / 0.75);
+  }
+
+  /* ── Reply-card materials (wave A PR-4, spec §5/§7) ─────────────────────── */
+  .sn-editorial .pahina-letterpress {
+    /* pressed-into-the-stock: a light lip below, an ink shadow above */
+    text-shadow:
+      0 1px 0 rgb(var(--color-paper) / 0.9),
+      0 -1px 1px rgb(var(--color-ink) / 0.25);
+  }
+  .sn-editorial .pahina-deckle {
+    /* the one thing on the page that IS a card in real life — heavier stock:
+       paper-deep, a lifted drop shadow, and the printed inner hairline */
+    position: relative;
+    background: rgb(var(--color-paper-deep));
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    padding: 1.5rem;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 10px 24px -12px rgb(0 0 0 / 0.18);
+  }
+  .sn-editorial .pahina-deckle::after {
+    content: '';
+    position: absolute;
+    inset: 0.55rem;
+    border: 1px solid rgb(var(--color-ink) / 0.12);
+    pointer-events: none;
+  }
+  .sn-editorial .pahina-perforation {
+    /* the stub rule — a dashed tear line across the reply card */
+    border: 0;
+    border-top: 1px dashed rgb(var(--color-ink) / 0.25);
+    height: 0;
+  }
+} /* @layer components — Pahina foundation */
+
+/* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
+   The deliberate variation axis: ONE switch, two genuinely different-feeling
+   sites. Daylight is the default and is byte-identical to today — this block
+   only matches when the couple has opted in and the shell stamps
+   `data-art="candlelight"`, so every existing event is untouched.
+
+   These are the SAME `--color-*` vars `buildSitePaletteVars` emits, overridden
+   at the shell. That matters: everything downstream (plates, gild, veil, the
+   couple's own accent, Pro custom colours layered last) keeps working through
+   the one pipe rather than needing a second set of dark-only rules.
+
+   Set as a var block, NOT as component overrides, and placed BEFORE the motion
+   rules so specificity games are unnecessary. */
+[data-art='candlelight'] {
+  --color-paper: 24 22 20; /* warm near-black stock */
+  --color-paper-deep: 33 30 27; /* recessed plates lift, not sink, in the dark */
+  --color-ink: 240 234 224; /* warm cream type */
+  --color-cream: 24 22 20; /* legacy slot follows paper */
+  --color-veil: 44 39 34; /* the wash reads as candle-glow, not fog */
+  --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
+}
+[data-art='candlelight'] .pahina-grain::before {
+  /* grain has to work HARDER on dark stock and must not multiply to mud */
+  opacity: 0.09;
+  mix-blend-mode: screen;
+}
+[data-art='candlelight'] .pahina-letterpress {
+  /* letterpress inverts in the dark: the lip goes above, the shadow below */
+  text-shadow:
+    0 -1px 0 rgb(var(--color-paper) / 0.9),
+    0 1px 1px rgb(0 0 0 / 0.5);
+}
+
+/* ── Pahina scroll choreography (wave A PR-5, design §6) ─────────────────────
+   FAIL-VISIBLE BY CONSTRUCTION: the hidden state is scoped to `.pahina-js`,
+   which only `PahinaMotionRootFlag` sets and which three separate failure paths
+   remove (see pahina-motion.tsx). With no JS, a broken script, a missing
+   IntersectionObserver, or reduced motion, none of these rules match and the
+   page renders exactly as it does today — fully visible.
+
+   UNLAYERED on purpose, unlike the component classes above: this must beat the
+   `opacity-*`/`translate-*` utilities a future chapter might carry, or a single
+   `opacity-100` on a section would pin it visible and break its reveal. */
+.pahina-js .sn-editorial [data-pahina-chapters] > * {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces — RootFlag already withholds the flag for these guests */
+  .pahina-js .sn-editorial [data-pahina-chapters] > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .sn-editorial {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);

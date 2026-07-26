@@ -5,14 +5,19 @@
 export function SpecialMessageWidget({ text }: { text: string | null }) {
   const msg = (text ?? '').trim();
   if (!msg) return null;
+  // Pahina (design 2026-07-25 §7): a "Good to know" plate. Unnumbered on
+  // purpose — `WhatToBringWidget` is its sibling and both can render on one
+  // page, so they read as two notes rather than two competing chapters.
   return (
-    <section className="rounded-xl border border-ink/10 bg-cream p-6 text-center">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        A note from us
+    <section className="space-y-3">
+      <p className="pahina-eyebrow">
+        <span>A note from us</span>
       </p>
-      <p className="mx-auto mt-3 max-w-prose whitespace-pre-line font-serif text-xl italic leading-relaxed text-ink">
-        {msg}
-      </p>
+      <div className="pahina-plate">
+        <p className="max-w-prose whitespace-pre-line font-pahina text-xl font-light italic leading-relaxed text-ink">
+          {msg}
+        </p>
+      </div>
     </section>
   );
 }

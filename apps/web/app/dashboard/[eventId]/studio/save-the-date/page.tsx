@@ -42,6 +42,7 @@ import {
 import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -79,13 +80,8 @@ export default async function SaveTheDatePage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
 
-  const markSvg =
-    (typeof event?.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null) ??
-    (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const markSvg = resolveEventMonogramSvg(event);
 
   // The couple's onboarding lockup — the film's mark when there's no markSvg
   // (owner 2026-06-19 logo precedence). Mirrors the live page's stdLockupFor.

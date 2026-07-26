@@ -94,7 +94,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -287,6 +287,9 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               bgColor={(event.site_bg_color as string | null) ?? null}
               buttonColor={(event.site_button_color as string | null) ?? null}
+              artDirection={
+                (event.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
+              }
             />
           ),
         },

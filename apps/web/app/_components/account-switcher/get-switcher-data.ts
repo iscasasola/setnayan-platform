@@ -6,6 +6,7 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -169,7 +170,9 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       monogram_font_key: (ev.monogram_font_key as string | null) ?? null,
       monogram_style: (ev.monogram_style as string | null) ?? null,
       monogram_frame_key: (ev.monogram_frame_key as string | null) ?? null,
-      monogram_custom_svg: (ev.monogram_custom_svg as string | null) ?? null,
+      // SEC-3: gated on read — the column is host-writable via PostgREST, and
+      // the switcher renders every event the viewer belongs to (cross-tenant).
+      monogram_custom_svg: safeMonogramSvg(ev.monogram_custom_svg),
     }));
   }
 

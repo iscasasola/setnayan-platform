@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { paymentRowFor } from '@/lib/order-mint-identity';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
@@ -17,11 +19,14 @@ import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/ven
  *     (orders_owner_read · user_id = auth.uid()) already scopes the SELECT, and
  *     we additionally assert the service_key is a booking-fee key so this action
  *     can only ever touch fee orders.
- *   • the vendor NEVER marks the fee paid. This only INSERTs a payment row; the
- *     DB write-guard (payments_insert_status_guard, migration 20270920010000)
- *     forces a non-admin insert to status='pending'. Promotion to paid stays
- *     the admin-only /admin/payments approve path (approvePaymentCore →
- *     activateOrderSku → the booking-fee settle bridge). So logging proof here
+ *   • the vendor NEVER marks the fee paid. This only INSERTs a payment row, and
+ *     `paymentRowFor` (lib/order-mint-identity.ts) STAMPS status='pending' and
+ *     forbids the call site from passing one. That is what pins the status
+ *     post-SEC-4b — NOT the DB write-guard: payments_insert_status_guard
+ *     (20270920010000) is RESTRICTIVE `TO authenticated` and exempts
+ *     service_role, which is the role this insert now runs as. Promotion to
+ *     paid stays the admin-only /admin/payments approve path (approvePaymentCore
+ *     → activateOrderSku → the booking-fee settle bridge). So logging proof here
  *     speeds reconciliation but grants the vendor no self-approval.
  */
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -88,19 +93,44 @@ export async function logBookingFeePayment(formData: FormData) {
       ? idempotencyKeyRaw.trim().slice(0, 64)
       : null;
 
-  // Insert the payment. NO status set → defaults to 'pending' (and the
-  // write-guard rejects anything else from a non-admin), so the vendor cannot
-  // self-approve. user_id = auth.uid() satisfies payments_owner_insert.
-  const { error } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: Math.round(amount * 100) / 100,
-    channel: trimmedChannel,
-    reference_number: nullIfBlank(formData.get('reference_number')),
-    screenshot_url: screenshotUrl,
-    paid_at: paidAt,
-    client_idempotency_key: idempotencyKey,
-  });
+  // Insert the payment at status 'pending', so the vendor cannot self-approve.
+  //
+  // ⚠ WHAT ENFORCES THAT, POST-SEC-4b: `paymentRowFor` STAMPS `status:
+  // 'pending'` and makes `status` a forbidden field, so this call site cannot
+  // set one at all. It is NOT the RLS write-guard any more — this insert runs
+  // as service_role (below), and `payments_insert_status_guard`
+  // (20270920010000) is RESTRICTIVE `TO authenticated` whose first branch is
+  // `auth.role() = 'service_role'`, so it no longer evaluates on this path. The
+  // previous wording here ("the write-guard rejects anything else from a
+  // non-admin") described a check that stopped running when this site moved to
+  // the admin client.
+  //
+  // ── SEC-4b · service-role write, ownership already proven above ────────────
+  // `payments` INSERT is revoked from `authenticated` (migration
+  // 20271008178212), so this goes through service_role and no longer satisfies
+  // `payments_owner_insert` by RLS — it bypasses it. The authorization is
+  // unchanged and stays where it was: the `orders` SELECT above runs on the
+  // SESSION client (RLS-scoped), AND this action already asserted
+  // `order.user_id === user.id` explicitly plus `isVendorBookingFeeServiceKey`,
+  // so the order is provably the caller's own fee order before we get here.
+  // `paymentRowFor` re-binds the row to that proven order and to the server's
+  // user id.
+  //
+  // Promotion to paid is untouched: it stays the admin-only /admin/payments
+  // approve path (approvePaymentCore → activateOrderSku → the settle bridge).
+  const { error } = await createAdminClient().from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: Math.round(amount * 100) / 100,
+        channel: trimmedChannel,
+        reference_number: nullIfBlank(formData.get('reference_number')),
+        screenshot_url: screenshotUrl,
+        paid_at: paidAt,
+        client_idempotency_key: idempotencyKey,
+      },
+    ),
+  );
   if (error) {
     const code = (error as { code?: string }).code;
     if (code === '23505' && idempotencyKey) {

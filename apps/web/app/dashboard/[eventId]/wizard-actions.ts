@@ -22,6 +22,23 @@
  *
  * Per [[feedback_setnayan_document_changes_with_why]] every action carries
  * an inline WHY block linking back to the canonical decision-log row.
+ *
+ * ── SEC-2b (migration 20271008731642) · WHY THE READS SAY `events_host` ─────
+ * events.wizard_state is SELECT-denied to the `authenticated` role. It is not
+ * a bag of completion flags: every card stamps its payload in — the wedding
+ * and prenup dates, the budget figure, pax and guest-list counts, monogram
+ * initials (derived from both partners' names), the site slug, per-task vendor
+ * ids — plus markTaskInFlight/markTaskDone's unbounded `meta_*` passthrough,
+ * whose intended contents are PSA/CENOMAR reference numbers. A wedding GUEST
+ * holds the same `authenticated` role as the couple and is admitted to the
+ * events row by current_event_ids(), so all of that was one PostgREST call
+ * away with the public anon key.
+ *
+ * So the 17 read-modify-write cycles below READ through public.events_host —
+ * the couple/moderator-scoped definer view — and still WRITE to public.events,
+ * which is unchanged: UPDATE privileges were never revoked and
+ * couple_can_update_event already scopes the write to member_type='couple'.
+ * Do not "simplify" a read back to .from('events'): it will 42501.
  */
 
 'use server';
@@ -231,7 +248,7 @@ export async function completeSetWeddingDateTask(
   // Read prior event state for the vendor-lock gate + ceremony_type +
   // current wizard_state (needed for the merge below).
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('event_date, ceremony_type, secondary_ceremony_type, wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -450,7 +467,7 @@ export async function completeVendorPickFromMarketplace(
 
   // Read prior wizard_state for the merge.
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -553,7 +570,7 @@ export async function completeVendorPickFromCustom(
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -654,7 +671,7 @@ export async function completePrenupTask(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -731,7 +748,7 @@ export async function markTaskInFlight(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -785,7 +802,7 @@ export async function markTaskDone(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -841,7 +858,7 @@ export async function completeMoodBoardTask(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state, role_palette')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -929,7 +946,7 @@ export async function completeMonogramTask(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -984,7 +1001,7 @@ export async function completeFinalizeSeatplanTask(
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -1050,7 +1067,7 @@ export async function completeCreateWebsiteTask(
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -1523,7 +1540,7 @@ export async function completeDraftGuestListTask(
   // Read the event's wizard_state once so we can decide between
   // in_flight (still iterating) and complete (scaffold landed).
   const { data: eventRow, error: eventErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -1806,7 +1823,7 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   // Auto-promote wizard task to in-flight on first upload across any slot.
   // The "Finish mood board" button is what settles to done.
   const { data: stateRow } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -1928,7 +1945,7 @@ export async function finalizeMoodboard(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -2048,7 +2065,7 @@ export async function setEstimatedPax(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -2108,7 +2125,7 @@ export async function setEstimatedBudget(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -2172,7 +2189,7 @@ export async function addToAddACategory(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
@@ -2243,7 +2260,7 @@ export async function removeFromAddACategory(
   if (!user) redirect('/login');
 
   const { data: priorRow, error: priorErr } = await supabase
-    .from('events')
+    .from('events_host')
     .select('wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();

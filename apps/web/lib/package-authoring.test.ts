@@ -13,6 +13,9 @@ import assert from 'node:assert/strict';
 import {
   validatePackageDraft,
   isPackageDraftValid,
+  editScopeForPackage,
+  structuralChanges,
+  isEditAllowed,
   type DraftPackage,
   type DraftItem,
   type DraftOption,
@@ -306,4 +309,102 @@ test('option problems carry both refs', () => {
   const p = problems.find((x) => x.code === 'choice_default_unavailable');
   assert.equal(p?.itemRef, 'row-1');
   assert.equal(p?.optionRef, 'opt-9');
+});
+
+// ---------------------------------------------------------------------------
+// Edit scope — a booked package is a contract
+// ---------------------------------------------------------------------------
+
+test('a package with no bookings is fully editable', () => {
+  assert.equal(editScopeForPackage(0), 'full');
+});
+
+test('one booking freezes the package to metadata only', () => {
+  assert.equal(editScopeForPackage(1), 'metadata_only');
+  assert.equal(editScopeForPackage(47), 'metadata_only');
+});
+
+test('renaming a booked package is allowed', () => {
+  const stored = draft();
+  const renamed = draft({ package_name: 'Complete Wedding Catering (2027)' });
+  assert.deepEqual(structuralChanges(stored, renamed), []);
+  assert.equal(isEditAllowed('metadata_only', stored, renamed), true);
+});
+
+test('re-pricing a booked package is refused', () => {
+  const stored = draft();
+  const repriced = draft({ total_price_centavos: 12_000_00 });
+  assert.deepEqual(structuralChanges(stored, repriced), ['total_price_centavos']);
+  assert.equal(isEditAllowed('metadata_only', stored, repriced), false);
+});
+
+test('adding or removing an inclusion is structural', () => {
+  const stored = draft();
+  const added = draft({ items: [item(), item({ ref: 'i2', service_description: 'Cake' })] });
+  assert.ok(structuralChanges(stored, added).includes('items'));
+
+  const removed = draft({ items: [] });
+  assert.ok(structuralChanges(stored, removed).includes('items'));
+});
+
+test('flipping an inclusion to required is structural', () => {
+  const stored = draft();
+  const nowRequired = draft({ items: [item({ is_required: true })] });
+  assert.ok(structuralChanges(stored, nowRequired).includes('items'));
+});
+
+test('re-pricing a choice option is structural', () => {
+  const base = (delta: number) =>
+    draft({
+      items: [
+        item({
+          options: [
+            opt({ ref: 'a', label: 'Chicken', is_default: true }),
+            opt({ ref: 'b', label: 'Beef', price_delta_centavos: delta }),
+          ],
+        }),
+      ],
+    });
+  assert.ok(structuralChanges(base(8_000_00), base(9_500_00)).includes('items'));
+});
+
+test('marking a choice option sold out is structural — it changes what is sellable', () => {
+  const avail = (is_available: boolean) =>
+    draft({
+      items: [
+        item({
+          options: [
+            opt({ ref: 'a', label: 'Chicken', is_default: true }),
+            opt({ ref: 'b', label: 'Beef', price_delta_centavos: 100, is_available }),
+          ],
+        }),
+      ],
+    });
+  assert.ok(structuralChanges(avail(true), avail(false)).includes('items'));
+});
+
+test('item and option order does not count as a change', () => {
+  const a = draft({
+    items: [
+      item({ ref: 'i1' }),
+      item({ ref: 'i2', service_description: 'Cake', options: [
+        opt({ ref: 'x', label: 'Vanilla', is_default: true }),
+        opt({ ref: 'y', label: 'Choco', price_delta_centavos: 500 }),
+      ] }),
+    ],
+  });
+  const b = draft({
+    items: [
+      item({ ref: 'i2', service_description: 'Cake', options: [
+        opt({ ref: 'y', label: 'Choco', price_delta_centavos: 500 }),
+        opt({ ref: 'x', label: 'Vanilla', is_default: true }),
+      ] }),
+      item({ ref: 'i1' }),
+    ],
+  });
+  assert.deepEqual(structuralChanges(a, b), []);
+});
+
+test('an unbooked package accepts a structural edit', () => {
+  assert.equal(isEditAllowed('full', draft(), draft({ total_price_centavos: 1 })), true);
 });

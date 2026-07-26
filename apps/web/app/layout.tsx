@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import {
   Cormorant_Garamond,
+  Fraunces,
   Manrope,
   DM_Mono,
   Hanken_Grotesk,
@@ -84,6 +85,24 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
   weight: ['400', '500', '600', '700'],
   variable: '--font-editorial-display',
+});
+
+// Pahina display face (guest-site design 2026-07-25 §3) — loaded under its OWN
+// variable so this PR is inert; the .sn-editorial restyle PRs consume it.
+// Wave-A PR-5 CHECKED THIS AND CORMORANT STAYS — it has real consumers, so do
+// not "clean it up" on a future bundle pass without redoing the check:
+//   · `.sn-editorial` (globals.css) maps --font-display → --font-editorial-display,
+//     so every font-display / font-serif in the guest tree still resolves here.
+//     Only the Pahina-specific `font-pahina` classes use Fraunces.
+//   · app/global-error.tsx names 'Cormorant Garamond' directly.
+// Retiring it means first repointing --font-editorial-display at Fraunces, which
+// restyles the whole guest tree — a visual change, not a bundle cleanup.
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-pahina-display',
 });
 
 const manrope = Manrope({
@@ -463,7 +482,7 @@ export default async function RootLayout({
       lang="en-PH"
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*

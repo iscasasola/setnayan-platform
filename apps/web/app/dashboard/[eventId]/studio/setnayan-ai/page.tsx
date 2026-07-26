@@ -116,7 +116,7 @@ export default async function SetnayanAiPage({ params }: Props) {
     (await eventOwnsSku(supabase, eventId, SKU_CODE));
 
   // Per-EVENT-TYPE pricing (owner-locked 2026-07-22): the price is this event
-  // type's tier on the load ladder — ₱1,499 Wedding · ₱999 Debut/Corporate ·
+  // type's tier on the load ladder — ₱1,499 Wedding · ₱899 Debut/Corporate ·
   // ₱499 standard · ₱99 light · ₱0 no-vendors — resolved from the catalog (never
   // hardcoded; last-resort fallback in lib/setnayan-ai-type-pricing.ts). The
   // order still charges SETNAYAN_AI (the entitlement); checkout re-resolves this

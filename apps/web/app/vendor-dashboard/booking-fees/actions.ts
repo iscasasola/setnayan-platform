@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { paymentRowFor } from '@/lib/order-mint-identity';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
@@ -90,17 +92,34 @@ export async function logBookingFeePayment(formData: FormData) {
 
   // Insert the payment. NO status set → defaults to 'pending' (and the
   // write-guard rejects anything else from a non-admin), so the vendor cannot
-  // self-approve. user_id = auth.uid() satisfies payments_owner_insert.
-  const { error } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: Math.round(amount * 100) / 100,
-    channel: trimmedChannel,
-    reference_number: nullIfBlank(formData.get('reference_number')),
-    screenshot_url: screenshotUrl,
-    paid_at: paidAt,
-    client_idempotency_key: idempotencyKey,
-  });
+  // self-approve.
+  //
+  // ── SEC-4b · service-role write, ownership already proven above ────────────
+  // `payments` INSERT is revoked from `authenticated` (migration
+  // 20271008178212), so this goes through service_role and no longer satisfies
+  // `payments_owner_insert` by RLS — it bypasses it. The authorization is
+  // unchanged and stays where it was: the `orders` SELECT above runs on the
+  // SESSION client (RLS-scoped), AND this action already asserted
+  // `order.user_id === user.id` explicitly plus `isVendorBookingFeeServiceKey`,
+  // so the order is provably the caller's own fee order before we get here.
+  // `paymentRowFor` re-binds the row to that proven order and to the server's
+  // user id.
+  //
+  // Promotion to paid is untouched: it stays the admin-only /admin/payments
+  // approve path (approvePaymentCore → activateOrderSku → the settle bridge).
+  const { error } = await createAdminClient().from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: Math.round(amount * 100) / 100,
+        channel: trimmedChannel,
+        reference_number: nullIfBlank(formData.get('reference_number')),
+        screenshot_url: screenshotUrl,
+        paid_at: paidAt,
+        client_idempotency_key: idempotencyKey,
+      },
+    ),
+  );
   if (error) {
     const code = (error as { code?: string }).code;
     if (code === '23505' && idempotencyKey) {

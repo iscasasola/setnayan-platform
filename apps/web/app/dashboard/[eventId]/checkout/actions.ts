@@ -64,6 +64,7 @@ import {
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
@@ -582,22 +583,48 @@ export async function submitOrderAction(
     ? platformHint
     : await getRequestPlatform();
 
-  const insertPayload: Record<string, unknown> = {
-    event_id: eventIdClean,
-    user_id: user.id,
-    service_key: serviceKey,
-    description: displayName,
-    requested_total_php: originalPriceForOrderTotal,
-    reference_code: referenceCode,
-    platform: orderPlatform,
-    // Land at 'submitted' which is the existing canonical "queued for admin
-    // review" state. The new spec's 'pending_approval' maps semantically;
-    // a follow-up migration extends the enum with the new value names but
-    // backward-compat readers (admin payment reconciliation queue at
-    // /admin/payments) continue to filter on the current enum so we
-    // preserve their behaviour.
-    status: 'submitted',
-  };
+  // ── SEC-4b · service-role mint, identity stamped server-side ──────────────
+  // `orders` INSERT is revoked from `authenticated` (migration 20271008178212),
+  // so this write goes through service_role — which bypasses
+  // `orders_owner_write`'s `WITH CHECK (user_id = auth.uid())`, the only thing
+  // that used to bind the row to the buyer. `orderRowFor` restores that binding
+  // in code: user_id can only be the id `supabase.auth.getUser()` returned, and
+  // supplying it in `fields` is a compile error.
+  //
+  // AUTHORIZATION FOR THIS ROW ALREADY RAN ABOVE and is unchanged: signed in +
+  // not anonymous (line ~307), an `event_members` row for (event, user)
+  // (line ~321), and `coordinatorMoneyScopeAllowed(… 'checkout')` (line ~336).
+  // RLS never checked event_id here — that scoping was always code-side.
+  //
+  // ⚠ eventId FIX (found while converting): the `if (!isAiSub)` guard SKIPS the
+  // membership + coordinator checks for the eventless per-user AI subscription,
+  // yet the payload still carried the caller-supplied `eventIdClean`. Nothing
+  // verified it, and under service_role that would have become a way to bind an
+  // eventless purchase to a stranger's event. The SKU "has no event_id" by
+  // design (see the comment at the top of this function), so it is pinned to
+  // null: an event id is now only ever written when a membership check covered
+  // it.
+  const insertPayload: Record<string, unknown> = orderRowFor(
+    {
+      userId: user.id,
+      eventId: isAiSub ? null : eventIdClean,
+      vendorProfileId: null, // couple-side purchase — never vendor-billed.
+    },
+    {
+      service_key: serviceKey,
+      description: displayName,
+      requested_total_php: originalPriceForOrderTotal,
+      reference_code: referenceCode,
+      platform: orderPlatform,
+      // Land at 'submitted' which is the existing canonical "queued for admin
+      // review" state. The new spec's 'pending_approval' maps semantically;
+      // a follow-up migration extends the enum with the new value names but
+      // backward-compat readers (admin payment reconciliation queue at
+      // /admin/payments) continue to filter on the current enum so we
+      // preserve their behaviour.
+      status: 'submitted',
+    },
+  );
 
   // Voucher snapshot columns from PR #594. orders_voucher_coherence CHECK
   // requires (code NULL AND discount = 0) OR (code NOT NULL AND discount > 0).
@@ -606,7 +633,9 @@ export async function submitOrderAction(
     insertPayload.voucher_discount_centavos = Number(voucherDiscountCentavos);
   }
 
-  const { data: orderRow, error: orderErr } = await supabase
+  const moneyWriter = createAdminClient();
+
+  const { data: orderRow, error: orderErr } = await moneyWriter
     .from('orders')
     .insert(insertPayload)
     .select('order_id')
@@ -631,20 +660,28 @@ export async function submitOrderAction(
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
   // state · the order lands directly ready for admin reconciliation.
-  const paymentInsert: Record<string, unknown> = {
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: finalAmountForPayment,
-    channel,
-    reference_number: referenceNumberClean,
-    screenshot_url: screenshotUrl,
-    paid_at: new Date().toISOString().slice(0, 10),
-  };
+  //
+  // SEC-4b: `payments` INSERT is revoked from `authenticated` too, so this also
+  // goes through service_role. `verifiedOrderId` is the row we just minted in
+  // this same request for this same user — the strongest possible proof it is
+  // the caller's own order (`payments_owner_insert` never checked that: the FK
+  // validates existence only, so a session-role POST could pin a payment onto a
+  // stranger's order).
+  const paymentInsert: Record<string, unknown> = paymentRowFor(
+    { userId: user.id, verifiedOrderId: orderId },
+    {
+      amount_php: finalAmountForPayment,
+      channel,
+      reference_number: referenceNumberClean,
+      screenshot_url: screenshotUrl,
+      paid_at: new Date().toISOString().slice(0, 10),
+    },
+  );
   if (idempotencyKey) {
     paymentInsert.client_idempotency_key = idempotencyKey;
   }
 
-  const { data: paymentRow, error: paymentErr } = await supabase
+  const { data: paymentRow, error: paymentErr } = await moneyWriter
     .from('payments')
     .insert(paymentInsert)
     .select('payment_id')
@@ -658,8 +695,9 @@ export async function submitOrderAction(
       error_message: String(paymentErr?.message ?? 'payments insert returned no row'),
       payload_snapshot: { orderId, eventId: eventIdClean, serviceKey, channel },
     });
-    // Rollback the orders row to avoid an orphan.
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Rollback the orders row to avoid an orphan. Same client that minted it —
+    // a mixed-client compensation is how a rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return {
       ok: false,
       reason: paymentErr?.message ?? 'Could not log payment. Please try again.',
@@ -690,8 +728,14 @@ export async function submitOrderAction(
         payload_snapshot: { orderId, paymentId, eventId: eventIdClean, serviceKey, voucherCodeId, dbErrorCode: (redemptionErr as { code?: string }).code },
       });
       // Rollback both prior INSERTs.
-      await supabase.from('payments').delete().eq('payment_id', paymentId);
-      await supabase.from('orders').delete().eq('order_id', orderId);
+      //
+      // ⚠ BUG FIXED IN PASSING: the payments DELETE was on the SESSION client,
+      // and public.payments has NO DELETE policy for `authenticated` — RLS
+      // matched zero rows, so this "rollback" silently deleted nothing and left
+      // an orphan payment behind whenever a voucher race fired. On service_role
+      // it actually rolls back.
+      await moneyWriter.from('payments').delete().eq('payment_id', paymentId);
+      await moneyWriter.from('orders').delete().eq('order_id', orderId);
       const code = (redemptionErr as { code?: string }).code;
       const reason =
         code === '23505'

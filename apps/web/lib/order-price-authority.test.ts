@@ -23,8 +23,9 @@
  *
  *   1. THE ACTION IS GONE      — and the module mints no orders at all.
  *   2. THE ROSTER IS REVIEWED  — every module that inserts into `orders` is
- *                                enumerated with where its amount comes from.
- *                                A new one goes RED rather than sneaking in.
+ *                                enumerated with where its amount comes from
+ *                                AND which client it writes with. A new one
+ *                                goes RED rather than sneaking in.
  *   3. NO CLIENT PRICE         — no order-minting module traces its
  *                                `requested_total_php` back to a money-shaped
  *                                `formData` read.
@@ -34,6 +35,26 @@
  *                                resolve falls back to the client price).
  *   5. ADMIN STAYS ADMIN       — the one path that legitimately mints a bespoke
  *                                amount stays `assertAdmin()`-gated.
+ *   6. SERVER-ONLY MINT (SEC-4b) — every mint goes through a service-role
+ *                                client and stamps its identity columns via
+ *                                `lib/order-mint-identity.ts`.
+ *
+ * ── SEC-4b · WHY TEST 6 EXISTS ───────────────────────────────────────────────
+ * SEC-4 was the APP half. The DB half (migration 20271008178212) revokes INSERT
+ * on `orders` + `payments` from `authenticated` / `anon`, because the same ₱1
+ * order could be POSTed straight to PostgREST with the public anon key,
+ * skipping every line of code these tests police. `orders_owner_write` is
+ * `FOR ALL … WITH CHECK (user_id = auth.uid())` — it authenticates the buyer
+ * and says nothing about the amount, and `guard_orders_protected_columns` is
+ * BEFORE **UPDATE**, so it never sees an INSERT.
+ *
+ * That revoke means every minting site now writes as `service_role`, which
+ * BYPASSES ALL POLICIES — so `WITH CHECK (user_id = auth.uid())`, the only
+ * thing that used to bind a row to its buyer, is gone. `orderRowFor()` /
+ * `paymentRowFor()` (lib/order-mint-identity.ts) restore that binding in code:
+ * they stamp `user_id` / `event_id` / `vendor_profile_id` from server-derived
+ * values and make supplying them a TYPE ERROR. Test 6 is what keeps a future
+ * site from taking the service-role client without taking the binding with it.
  *
  * ── HONESTY ABOUT THE HEURISTIC ──────────────────────────────────────────────
  * These are SOURCE-SCANNING tests, so be plain about what they cannot see:
@@ -113,35 +134,59 @@ test('the module exports exactly the two reviewed server actions', () => {
 /* ── 2 · THE ROSTER IS REVIEWED ─────────────────────────────────────────────── */
 
 /**
- * Every module that inserts an `orders` row, and WHERE ITS AMOUNT COMES FROM.
- * The value is the review note, not decoration — if you cannot write one, the
- * module should not be minting orders.
+ * Every module that inserts an `orders` row: WHERE ITS AMOUNT COMES FROM, and —
+ * since SEC-4b — WHICH CLIENT IT WRITES WITH and WHAT AUTHORIZES the row now
+ * that RLS no longer does. The value is the review note, not decoration — if
+ * you cannot write one, the module should not be minting orders.
+ *
+ * Every entry is now service-role (test 6 enforces it): migration
+ * 20271008178212 revoked INSERT from `authenticated` / `anon`.
  */
 const ORDER_MINTERS: Record<string, string> = {
   [CHECKOUT_ACTIONS]:
     'Couple checkout. Re-resolves from platform_retail_catalog_v2 / platform_package_catalog ' +
-    'server-side and rejects a retired SKU before the resolvers. THE canonical path.',
+    'server-side and rejects a retired SKU before the resolvers. THE canonical path. ' +
+    'SEC-4b: was the SESSION client, now service-role (`moneyWriter`). Authorized by ' +
+    'getUser + not-anonymous + an event_members row + coordinatorMoneyScopeAllowed(checkout); ' +
+    'event_id is pinned NULL on the eventless AI-subscription branch, which skips those checks.',
   'app/dashboard/[eventId]/studio/papic/actions.ts':
     'Papic camera/window buys. Amount is a server-computed quote (quote.totalPhp / ' +
-    'quote.frozenBillPhp); the form supplies quantities and windows, never pesos.',
+    'quote.frozenBillPhp); the form supplies quantities and windows, never pesos. ' +
+    'Already service-role before SEC-4b — unchanged.',
   'app/vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts':
-    'Vendor photo-challenge SKU. pricePhp read server-side from the vendor catalog.',
+    'Vendor photo-challenge SKU. pricePhp read server-side from the vendor catalog. ' +
+    'SEC-4b: paid branch moved to the file’s existing `admin` client (the ₱0 branch was ' +
+    'already there). The client-supplied event_id is bound by the admin event_vendors read ' +
+    '(own marketplace_vendor_id + COMMITTED_BOOKING_STATUSES) that runs before pricing.',
   'app/vendor-dashboard/subscription/booth-addon-actions.ts':
-    'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog.',
+    'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
+    'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +
+    'resolveVendorRoleForProfile + tier + verified + the first-5-free evaluation.',
   'app/vendor-dashboard/subscription/ai-addon-actions.ts':
-    'Vendor AI add-on. pricePhp read server-side from the vendor catalog.',
+    'Vendor AI add-on. pricePhp read server-side from the vendor catalog. ' +
+    'SEC-4b: paid branch now service-role (`moneyWriter`); the free-first-cycle branch keeps its ' +
+    'own admin client and its atomic is-null-guarded trial claim. Same vendor-role gate.',
   'app/vendor-dashboard/subscription/custom/actions.ts':
     'Vendor Custom plan. The form carries the COMPOSITION (branches/seats/photos…); unit ' +
-    'prices come from fetchCustomUnitPrices() and the total from computeCustomQuote().',
+    'prices come from fetchCustomUnitPrices() and the total from computeCustomQuote(). ' +
+    'SEC-4b: now service-role (`moneyWriter`), and the role gate was tightened from the ' +
+    'global-highest resolveVendorRole to the PROFILE-scoped resolveVendorRoleForProfile.',
   'app/vendor-dashboard/team/actions.ts':
-    'Extra vendor seat. feePhp from fetchSeatFeePhp() — catalog, not form.',
+    'Extra vendor seat. feePhp from fetchSeatFeePhp() — catalog, not form. ' +
+    'SEC-4b: now service-role (`moneyWriter`). Authorized by ensureAdmin() (vendorProfileId ' +
+    'resolved from a vendor_team_members owner/admin row) + canBuyExtraSeats.',
   'app/vendor-dashboard/deep-search/actions.ts':
-    'Vendor Deep Search SKU. pricePhp read server-side from the vendor catalog.',
+    'Vendor Deep Search SKU. pricePhp read server-side from the vendor catalog. ' +
+    'SEC-4b: now reuses the `admin` client the allowance count already created. Authorized by ' +
+    'the DPO control + fetchOwnVendorProfile + resolveVendorRoleForProfile + deepSearchEligibility.',
   'app/vendor-dashboard/branches/actions.ts':
-    'Vendor branch add/renew. feePhp from fetchBranchFeePhp() — catalog, not form.',
+    'Vendor branch add/renew. feePhp from fetchBranchFeePhp() — catalog, not form. ' +
+    'SEC-4b: now service-role (`moneyWriter`) inside startBranchPayment, whose session-client ' +
+    'parameter was REMOVED so a later edit cannot reach for it. Authorized by requireBranchManager ' +
+    '(own profile + owner/admin + Enterprise).',
   'lib/booking-fee-lock.server.ts':
     'Booking fee at vendor lock. amountPhp is derived by the fee ladder (lib/booking-fee-lock.ts) ' +
-    'from the declared deal value; service-role insert.',
+    'from the declared deal value; service-role insert. Already service-role — unchanged.',
   [ADMIN_CUSTOM_PLANS]:
     'ADMIN-MINTED BESPOKE AMOUNT — legitimate and intentional. assertAdmin()-gated, service-role ' +
     'write, per-quote unit-price overrides are an admin negotiation tool. Exempt from test 3.',
@@ -312,5 +357,144 @@ test('the bespoke-amount admin path stays admin-gated and service-role', () => {
     src,
     /const \{ data: orderRow, error: oErr \} = await admin\s*\n\s*\.from\('orders'\)/,
     'the admin mint must go through the service-role client, not the caller session',
+  );
+});
+
+/* ── 6 · SERVER-ONLY MINT (SEC-4b) ──────────────────────────────────────────── */
+
+/**
+ * The identifier a `.from('orders'|'payments').insert(` chain hangs off — i.e.
+ * `admin` in `await admin\n  .from('orders').insert(…)`, or the literal
+ * `createAdminClient()` when the client is constructed inline.
+ */
+function mintClients(src: string, table: 'orders' | 'payments'): string[] {
+  const re = new RegExp(`\\.from\\(\\s*['"]${table}['"]\\s*\\)[\\s\\S]{0,80}?\\.insert\\b`, 'g');
+  const out: string[] = [];
+  for (const m of [...src.matchAll(re)]) {
+    const before = src.slice(0, m.index).trimEnd();
+    if (before.endsWith('createAdminClient()')) {
+      out.push('createAdminClient()');
+      continue;
+    }
+    const id = /([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(before);
+    out.push(id ? id[1]! : '<unresolved>');
+  }
+  return out;
+}
+
+/** Is `id` bound in this file to a service-role client? */
+function isServiceRoleClient(src: string, id: string): boolean {
+  if (id === 'createAdminClient()') return true;
+  const bind = new RegExp(`\\bconst\\s+${id}\\s*=\\s*(await\\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`).exec(src);
+  return bind?.[2] === 'createAdminClient';
+}
+
+/**
+ * Modules whose mint client is a FUNCTION PARAMETER, so source-scanning inside
+ * the file cannot resolve it. Reviewed by hand instead — a reason is required,
+ * and a new entry is a deliberate act rather than an oversight.
+ */
+const MINT_CLIENT_REVIEWED: Record<string, string> = {
+  'lib/booking-fee-lock.server.ts':
+    '`admin: SupabaseClient` is a parameter, not a local binding. The module header states "MUST ' +
+    'be called with the SERVICE-ROLE admin client (the RPC is service_role-only)", and its only ' +
+    'caller passes createAdminClient(). Verified by hand 2026-07-26.',
+};
+
+/**
+ * Mints that do NOT stamp identity through `orderRowFor`. These were ALREADY
+ * service-role before SEC-4b, so `orders_owner_write`'s WITH CHECK was never
+ * the thing protecting them and there is no removed check to restore. A reason
+ * is required; anything new defaults to RED.
+ */
+const IDENTITY_STAMP_REVIEWED: Record<string, string> = {
+  'app/dashboard/[eventId]/studio/papic/actions.ts':
+    'Three couple-side Papic mints, service-role since they were written. user_id is the getUser() ' +
+    'id and event_id is membership-checked upstream. NOT converted here to keep the SEC-4b diff to ' +
+    'the sites that actually lost an RLS check — worth folding onto the helper in a follow-up.',
+  'lib/booking-fee-lock.server.ts':
+    'The vendor booking fee is minted BY A LOCK, not by a session. There is no auth.uid() in scope: ' +
+    'the payer is resolved from the charge’s vendor profile (and the order stays payer-less when the ' +
+    'profile is unclaimed), so a "stamp the caller’s id" helper does not apply.',
+};
+
+test('every order mint writes through a service-role client, never the session', () => {
+  // The DB no longer permits anything else: migration 20271008178212 revoked
+  // INSERT on orders from `authenticated` + `anon`. A session-client mint is
+  // therefore a runtime 42501 in production — this test turns that into a
+  // build-time failure with an explanation instead.
+  const offenders: string[] = [];
+  for (const rel of findOrderMinters()) {
+    if (rel in MINT_CLIENT_REVIEWED) continue;
+    const src = read(rel);
+    for (const client of mintClients(src, 'orders')) {
+      if (!isServiceRoleClient(src, client)) {
+        offenders.push(`${rel} → ${client}.from('orders').insert(…)`);
+      }
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'an order is minted with a non-service-role client. INSERT on public.orders is revoked from ' +
+      '`authenticated` (SEC-4b, migration 20271008178212) because a session-role POST straight to ' +
+      'PostgREST could set requested_total_php to ₱1 for any SKU. Use createAdminClient() — and ' +
+      'then add the ownership assertion that RLS is no longer making for you.',
+  );
+});
+
+test('every payments insert writes through a service-role client too', () => {
+  // Same revoke, other half of the exploit: payments_owner_insert checked the
+  // PAYER and neither the amount nor whether order_id belongs to the caller.
+  // Scanned repo-wide, not just the orders roster — logPayment and the vendor
+  // booking-fee action insert payments without ever minting an order.
+  const offenders: string[] = [];
+  const roots = ['app', 'lib'].map((d) => join(WEB, d)).filter((d) => existsSync(d));
+  for (const root of roots) {
+    for (const file of collectTs(root)) {
+      const rel = relative(WEB, file);
+      if (rel in MINT_CLIENT_REVIEWED) continue;
+      const src = readFileSync(file, 'utf8');
+      for (const client of mintClients(src, 'payments')) {
+        if (!isServiceRoleClient(src, client)) {
+          offenders.push(`${rel} → ${client}.from('payments').insert(…)`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'a payment row is inserted with a non-service-role client. INSERT on public.payments is ' +
+      'revoked from `authenticated` (SEC-4b) — the amount was never constrained and the FK only ' +
+      'checked that the order EXISTS, so a session-role POST could pin any amount onto any order.',
+  );
+});
+
+test('every converted mint stamps its identity columns through order-mint-identity', () => {
+  // service_role bypasses `orders_owner_write`'s WITH CHECK (user_id =
+  // auth.uid()) — the ONLY thing that used to bind a row to its buyer. The
+  // helpers put that binding back in code and make supplying user_id / event_id
+  // / vendor_profile_id by hand a type error. A mint that writes those columns
+  // literally has opted out of the guarantee.
+  const offenders: string[] = [];
+  for (const rel of findOrderMinters()) {
+    if (rel in IDENTITY_STAMP_REVIEWED) continue;
+    const src = read(rel);
+    // An admin setting a negotiated amount for someone else is the product
+    // working; there is no "the caller's own id" to stamp (see note d).
+    if (/\bassertAdmin\s*\(/.test(src)) continue;
+    for (const payload of orderInsertPayloads(src)) {
+      if (/\borderRowFor\s*\(/.test(payload)) continue;
+      if (!/\buser_id\s*:/.test(payload)) continue;
+      offenders.push(`${rel} → orders insert sets user_id by hand`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'an order payload sets its identity columns literally instead of via orderRowFor(). Under ' +
+      'service_role nothing checks them any more — orderRowFor stamps them from the id ' +
+      'supabase.auth.getUser() returned and makes the hand-written form a compile error.',
   );
 });

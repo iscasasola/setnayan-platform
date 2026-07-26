@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { paymentRowFor } from '@/lib/order-mint-identity';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -137,8 +138,9 @@ export async function logPayment(formData: FormData) {
   // a payment only when the couple granted the 'checkout' scope at invite
   // time (coordinator_access_consents.scopes). Flag OFF = exact current
   // behavior (helper returns true without reading).
+  const moneyWriter = createAdminClient();
   const checkoutAllowed = await coordinatorMoneyScopeAllowed(
-    createAdminClient(),
+    moneyWriter,
     eventId,
     user.id,
     'checkout',
@@ -196,16 +198,31 @@ export async function logPayment(formData: FormData) {
       ? idempotencyKeyRaw.trim().slice(0, 64)
       : null;
 
-  const { error } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: Math.round(amount * 100) / 100,
-    channel: trimmedChannel,
-    reference_number: nullIfBlank(formData.get('reference_number')),
-    screenshot_url: screenshotUrl,
-    paid_at: paidAt,
-    client_idempotency_key: idempotencyKey,
-  });
+  // ── SEC-4b · service-role write, ownership already proven above ────────────
+  // `payments` INSERT is revoked from `authenticated` (migration
+  // 20271008178212), so this goes through service_role — which bypasses
+  // `payments_owner_insert`'s `WITH CHECK (user_id = auth.uid())`.
+  //
+  // Nothing about the AUTHORIZATION changes: the guards that matter are the two
+  // above, and both stay on the SESSION client precisely so RLS keeps scoping
+  // them — the `orders` SELECT (RLS `orders_owner_read` limits it to the
+  // caller's own orders / their events' orders, and a foreign order_id comes
+  // back null → reject) plus the event_id match and the coordinator 'checkout'
+  // consent scope. `paymentRowFor` then re-binds the row to that proven order
+  // and to the server's user id, replacing what RLS used to enforce.
+  const { error } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: ownedOrder.order_id as string },
+      {
+        amount_php: Math.round(amount * 100) / 100,
+        channel: trimmedChannel,
+        reference_number: nullIfBlank(formData.get('reference_number')),
+        screenshot_url: screenshotUrl,
+        paid_at: paidAt,
+        client_idempotency_key: idempotencyKey,
+      },
+    ),
+  );
   if (error) {
     // 23505 = unique_violation. With a non-null idempotency key this means
     // the customer's previous submit succeeded and they retried; treat as

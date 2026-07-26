@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
@@ -95,7 +97,6 @@ async function requireBranchManager(): Promise<
  * admin-managed catalog by the caller (falls back to ₱999) and passed in here.
  */
 async function startBranchPayment(
-  supabase: SupabaseClient,
   userId: string,
   vendorProfileId: string,
   branchId: string,
@@ -104,34 +105,60 @@ async function startBranchPayment(
   feePhp: number,
 ): Promise<{ referenceCode: string } | { error: true }> {
   const referenceCode = generateReferenceCode();
-  const { data: orderRow, error: oErr } = await supabase
+
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212), so the money writes go through service_role. That bypasses
+  // `orders_owner_write`'s `WITH CHECK (user_id = auth.uid())` — the only thing
+  // RLS ever checked here (it never looked at vendor_profile_id at all).
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate: every caller of this helper
+  // goes through `requireBranchManager()` above, which asserts authenticated →
+  // `fetchOwnVendorProfile` (vendorProfileId resolved FROM THE SESSION, never
+  // from form input) → owner/admin via canManageVendor → Enterprise-or-higher
+  // tier. `renewBranch` additionally re-reads the branch filtered by
+  // `parent_vendor_profile_id`. `userId` / `vendorProfileId` are that helper's
+  // return values, so `orderRowFor` can only stamp server-derived ids.
+  //
+  // The helper's `supabase: SupabaseClient` parameter is GONE rather than
+  // silently unused: only the two money INSERTs and their rollback are elevated,
+  // and every remaining read/write in this module (requireBranchManager,
+  // fetchBranchFeePhp, the vendor_branches rows) deliberately keeps the SESSION
+  // client so RLS keeps scoping it. Removing the parameter makes it impossible
+  // for a later edit to reach for "the client that's already in scope" here.
+  const moneyWriter = createAdminClient();
+  const identity = { userId, eventId: null, vendorProfileId };
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: userId,
-      vendor_profile_id: vendorProfileId,
-      service_key: branchServiceKey(branchId),
-      description: `Additional Branch — ${label}`,
-      requested_total_php: feePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(identity, {
+        service_key: branchServiceKey(branchId),
+        description: `Additional Branch — ${label}`,
+        requested_total_php: feePhp,
+        status: 'submitted',
+        reference_code: referenceCode,
+      }),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) return { error: true };
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: userId,
-    amount_php: feePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId, verifiedOrderId: orderId },
+      {
+        amount_php: feePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return { error: true };
   }
   return { referenceCode };
@@ -230,7 +257,6 @@ export async function createBranch(
   //    (falls back to the ₱999 literal if the SKU row is missing).
   const feePhp = await fetchBranchFeePhp(supabase);
   const res = await startBranchPayment(
-    supabase,
     userId,
     vendorProfileId,
     branchId,
@@ -284,7 +310,6 @@ export async function renewBranch(
 
   const feePhp = await fetchBranchFeePhp(supabase);
   const res = await startBranchPayment(
-    supabase,
     userId,
     vendorProfileId,
     branchId,

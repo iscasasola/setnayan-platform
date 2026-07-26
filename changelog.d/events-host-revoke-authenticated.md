@@ -28,3 +28,27 @@ SPEC IMPACT: None — this restores the intent already documented in
 `DECISION_LOG.md` (SEC-2b: "only SELECT is granted — an UPDATE grant would bypass
 couple_can_update_event AND RLS"). The migration said so in a comment; it just
 did not do it.
+
+### Also in this PR — main was RED from a three-way merge collision
+
+`#3736`, `#3738` and `#3742` were each green alone and red together. Two fixes:
+
+1. **`orders-pax-snapshot-freeze.db.test.ts` asserted a privilege another merged PR
+   removed.** It claimed *"submitOrderAction inserts through the session-bound
+   (authenticated) client"* and asserted `authenticated` CAN INSERT an order. SEC-4b
+   (#3738, `20271008178212`) revoked exactly that and moved checkout to `service_role`.
+   Inverted rather than deleted — it now asserts the session role is REFUSED, and a new
+   companion test keeps the original "checkout still works" intent by measuring the
+   `service_role` path checkout actually uses. Net: 7 → 8 subtests, strictly stronger.
+
+2. **Exposure baseline regenerated** for the merged narrowings plus one deliberate
+   addition. Verified mechanically, not by eye — of 54 changed keys, **0 gained a
+   privilege**; 4 keys disappeared entirely (SEC-2b column revokes); and exactly **one
+   genuinely new key** appears:
+
+       view public.events_host  type=view owner=postgres honours_rls=NO select=authenticated
+
+   That is SEC-2b's host view, accepted deliberately. THE FREEZE is right to flag it: it
+   does read past RLS, and its safety rests entirely on its own WHERE predicate
+   (`member_type='couple'` or an accepted, non-removed moderator) mirroring the check in
+   `app/dashboard/[eventId]/layout.tsx`.

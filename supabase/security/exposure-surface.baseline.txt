@@ -9,14 +9,14 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6152
+# facts: 6149
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     719
-#   col       4400
+#   col       4396
 #   policy    806
-#   view      9
+#   view      10
 #   func      214
 #
 schema	auth	usage=anon,authenticated
@@ -357,8 +357,8 @@ tpriv	public.order_ledger|anon	SI
 tpriv	public.order_ledger|authenticated	SI
 tpriv	public.order_refunds|anon	SIUD
 tpriv	public.order_refunds|authenticated	SIUD
-tpriv	public.orders|anon	SIUD
-tpriv	public.orders|authenticated	SIUD
+tpriv	public.orders|anon	SUD
+tpriv	public.orders|authenticated	SUD
 tpriv	public.owner_alerts|anon	SIUD
 tpriv	public.owner_alerts|authenticated	SIUD
 tpriv	public.pabati_clips|anon	SIUD
@@ -413,8 +413,8 @@ tpriv	public.patiktok_source_clips|anon	SIUD
 tpriv	public.patiktok_source_clips|authenticated	SIUD
 tpriv	public.pax_change_audit|anon	SIUD
 tpriv	public.pax_change_audit|authenticated	SIUD
-tpriv	public.payments|anon	SIUD
-tpriv	public.payments|authenticated	SIUD
+tpriv	public.payments|anon	SUD
+tpriv	public.payments|authenticated	SUD
 tpriv	public.people|anon	SIUD
 tpriv	public.people|authenticated	SIUD
 tpriv	public.person_connections|anon	SIUD
@@ -1991,9 +1991,8 @@ col	public.events.archived	anon=SIU authenticated=SIU
 col	public.events.attire_guide_palette	anon=SIU authenticated=SIU
 col	public.events.auspicious_reasons	anon=SIU authenticated=SIU
 col	public.events.auto_seat_last_used_at	anon=SIU authenticated=SIU
-col	public.events.bazi_birthdata_consent_at	anon=S authenticated=S
 col	public.events.bride_name	anon=SIU authenticated=SIU
-col	public.events.budget_band	anon=SIU authenticated=SIU
+col	public.events.budget_band	anon=IU authenticated=IU
 col	public.events.ceremony_sub_type	anon=SIU authenticated=SIU
 col	public.events.ceremony_type	anon=SIU authenticated=SIU
 col	public.events.ceremony_type_locked_at	anon=SIU authenticated=SIU
@@ -2018,7 +2017,7 @@ col	public.events.date_window_end	anon=SIU authenticated=SIU
 col	public.events.date_window_start	anon=SIU authenticated=SIU
 col	public.events.display_name	anon=SIU authenticated=SIU
 col	public.events.dress_code_config	anon=SIU authenticated=SIU
-col	public.events.estimated_budget_centavos	anon=SIU authenticated=SIU
+col	public.events.estimated_budget_centavos	anon=IU authenticated=IU
 col	public.events.estimated_pax	anon=SIU authenticated=SIU
 col	public.events.event_date	anon=SIU authenticated=SIU
 col	public.events.event_date_precision	anon=SIU authenticated=SIU
@@ -2095,15 +2094,12 @@ col	public.events.papic_style	anon=SIU authenticated=SIU
 col	public.events.papic_unli_cap_php	anon=S authenticated=S
 col	public.events.papic_window_end	anon=SIU authenticated=SIU
 col	public.events.papic_window_start	anon=SIU authenticated=SIU
-col	public.events.partner_a_birth_date	anon=SIU authenticated=SIU
-col	public.events.partner_a_birth_time	anon=SIU authenticated=SIU
-col	public.events.partner_b_birth_date	anon=SIU authenticated=SIU
-col	public.events.partner_b_birth_time	anon=SIU authenticated=SIU
-col	public.events.photo_delivery_account_email	anon=S authenticated=S
+col	public.events.partner_a_birth_date	anon=IU authenticated=IU
+col	public.events.partner_a_birth_time	anon=IU authenticated=IU
+col	public.events.partner_b_birth_date	anon=IU authenticated=IU
+col	public.events.partner_b_birth_time	anon=IU authenticated=IU
 col	public.events.photo_delivery_completed_at	anon=S authenticated=S
 col	public.events.photo_delivery_failed_count	anon=S authenticated=S
-col	public.events.photo_delivery_folder_id	anon=S authenticated=S
-col	public.events.photo_delivery_folder_name	anon=S authenticated=S
 col	public.events.photo_delivery_progress_pct	anon=S authenticated=S
 col	public.events.photo_delivery_provider	anon=S authenticated=S
 col	public.events.photo_delivery_started_at	anon=S authenticated=S
@@ -2172,7 +2168,7 @@ col	public.events.wall_tile_layout	anon=SIU authenticated=SIU
 col	public.events.wax_seal_config	anon=SIU authenticated=SIU
 col	public.events.website_open_browse	anon=SIU authenticated=SIU
 col	public.events.what_to_bring	anon=SIU authenticated=SIU
-col	public.events.wizard_state	anon=SIU authenticated=SIU
+col	public.events.wizard_state	anon=IU authenticated=IU
 col	public.faith_vocab.created_at	anon=SIU authenticated=SIU
 col	public.faith_vocab.faith_key	anon=SIU authenticated=SIU
 col	public.faith_vocab.is_civil	anon=SIU authenticated=SIU
@@ -2781,33 +2777,33 @@ col	public.order_refunds.refunded_at	anon=SIU authenticated=SIU
 col	public.order_refunds.refunded_by_admin_id	anon=SIU authenticated=SIU
 col	public.order_refunds.status	anon=SIU authenticated=SIU
 col	public.order_refunds.updated_at	anon=SIU authenticated=SIU
-col	public.orders.admin_notes	anon=SIU authenticated=SIU
-col	public.orders.bir_withholding_centavos	anon=SIU authenticated=SIU
-col	public.orders.comp_grant_id	anon=SIU authenticated=SIU
-col	public.orders.confirmed_total_php	anon=SIU authenticated=SIU
-col	public.orders.created_at	anon=SIU authenticated=SIU
-col	public.orders.description	anon=SIU authenticated=SIU
-col	public.orders.disbursement_fee_centavos	anon=SIU authenticated=SIU
-col	public.orders.event_id	anon=SIU authenticated=SIU
-col	public.orders.expires_at	anon=SIU authenticated=SIU
-col	public.orders.gateway_fee_centavos	anon=SIU authenticated=SIU
-col	public.orders.order_id	anon=SIU authenticated=SIU
-col	public.orders.pax_snapshot	anon=SIU authenticated=SIU
-col	public.orders.payment_method_key	anon=SIU authenticated=SIU
-col	public.orders.platform	anon=SIU authenticated=SIU
-col	public.orders.public_id	anon=SIU authenticated=SIU
-col	public.orders.reference_code	anon=SIU authenticated=SIU
-col	public.orders.requested_total_php	anon=SIU authenticated=SIU
-col	public.orders.service_key	anon=SIU authenticated=SIU
-col	public.orders.setnayan_fee_bps	anon=SIU authenticated=SIU
-col	public.orders.status	anon=SIU authenticated=SIU
-col	public.orders.updated_at	anon=SIU authenticated=SIU
-col	public.orders.user_id	anon=SIU authenticated=SIU
-col	public.orders.vendor_absorbed_fee	anon=SIU authenticated=SIU
-col	public.orders.vendor_net_centavos	anon=SIU authenticated=SIU
-col	public.orders.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.orders.voucher_code_applied	anon=SIU authenticated=SIU
-col	public.orders.voucher_discount_centavos	anon=SIU authenticated=SIU
+col	public.orders.admin_notes	anon=SU authenticated=SU
+col	public.orders.bir_withholding_centavos	anon=SU authenticated=SU
+col	public.orders.comp_grant_id	anon=SU authenticated=SU
+col	public.orders.confirmed_total_php	anon=SU authenticated=SU
+col	public.orders.created_at	anon=SU authenticated=SU
+col	public.orders.description	anon=SU authenticated=SU
+col	public.orders.disbursement_fee_centavos	anon=SU authenticated=SU
+col	public.orders.event_id	anon=SU authenticated=SU
+col	public.orders.expires_at	anon=SU authenticated=SU
+col	public.orders.gateway_fee_centavos	anon=SU authenticated=SU
+col	public.orders.order_id	anon=SU authenticated=SU
+col	public.orders.pax_snapshot	anon=SU authenticated=SU
+col	public.orders.payment_method_key	anon=SU authenticated=SU
+col	public.orders.platform	anon=SU authenticated=SU
+col	public.orders.public_id	anon=SU authenticated=SU
+col	public.orders.reference_code	anon=SU authenticated=SU
+col	public.orders.requested_total_php	anon=SU authenticated=SU
+col	public.orders.service_key	anon=SU authenticated=SU
+col	public.orders.setnayan_fee_bps	anon=SU authenticated=SU
+col	public.orders.status	anon=SU authenticated=SU
+col	public.orders.updated_at	anon=SU authenticated=SU
+col	public.orders.user_id	anon=SU authenticated=SU
+col	public.orders.vendor_absorbed_fee	anon=SU authenticated=SU
+col	public.orders.vendor_net_centavos	anon=SU authenticated=SU
+col	public.orders.vendor_profile_id	anon=SU authenticated=SU
+col	public.orders.voucher_code_applied	anon=SU authenticated=SU
+col	public.orders.voucher_discount_centavos	anon=SU authenticated=SU
 col	public.owner_alerts.acknowledged_at	anon=SIU authenticated=SIU
 col	public.owner_alerts.acknowledged_by	anon=SIU authenticated=SIU
 col	public.owner_alerts.alert_id	anon=SIU authenticated=SIU
@@ -3138,22 +3134,22 @@ col	public.pax_change_audit.prev_total_php	anon=SIU authenticated=SIU
 col	public.pax_change_audit.quote_base_pax	anon=SIU authenticated=SIU
 col	public.pax_change_audit.rate_php	anon=SIU authenticated=SIU
 col	public.pax_change_audit.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.payments.admin_notes	anon=SIU authenticated=SIU
-col	public.payments.admin_resubmit_notice	anon=SIU authenticated=SIU
-col	public.payments.amount_php	anon=SIU authenticated=SIU
-col	public.payments.channel	anon=SIU authenticated=SIU
-col	public.payments.client_idempotency_key	anon=SIU authenticated=SIU
-col	public.payments.created_at	anon=SIU authenticated=SIU
-col	public.payments.order_id	anon=SIU authenticated=SIU
-col	public.payments.paid_at	anon=SIU authenticated=SIU
-col	public.payments.payment_id	anon=SIU authenticated=SIU
-col	public.payments.reference_number	anon=SIU authenticated=SIU
-col	public.payments.reviewed_at	anon=SIU authenticated=SIU
-col	public.payments.reviewed_by_user_id	anon=SIU authenticated=SIU
-col	public.payments.screenshot_url	anon=SIU authenticated=SIU
-col	public.payments.status	anon=SIU authenticated=SIU
-col	public.payments.updated_at	anon=SIU authenticated=SIU
-col	public.payments.user_id	anon=SIU authenticated=SIU
+col	public.payments.admin_notes	anon=SU authenticated=SU
+col	public.payments.admin_resubmit_notice	anon=SU authenticated=SU
+col	public.payments.amount_php	anon=SU authenticated=SU
+col	public.payments.channel	anon=SU authenticated=SU
+col	public.payments.client_idempotency_key	anon=SU authenticated=SU
+col	public.payments.created_at	anon=SU authenticated=SU
+col	public.payments.order_id	anon=SU authenticated=SU
+col	public.payments.paid_at	anon=SU authenticated=SU
+col	public.payments.payment_id	anon=SU authenticated=SU
+col	public.payments.reference_number	anon=SU authenticated=SU
+col	public.payments.reviewed_at	anon=SU authenticated=SU
+col	public.payments.reviewed_by_user_id	anon=SU authenticated=SU
+col	public.payments.screenshot_url	anon=SU authenticated=SU
+col	public.payments.status	anon=SU authenticated=SU
+col	public.payments.updated_at	anon=SU authenticated=SU
+col	public.payments.user_id	anon=SU authenticated=SU
 col	public.people.birth_date	anon=SIU authenticated=SIU
 col	public.people.claimed_by_user_id	anon=SIU authenticated=SIU
 col	public.people.created_at	anon=SIU authenticated=SIU
@@ -5949,6 +5945,7 @@ policy	storage.objects|moodboard_library_storage_admin_write	mode=PERMISSIVE cmd
 policy	storage.objects|moodboard_library_storage_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(bucket_id = 'moodboard-library'::text) check=NULL
 policy	storage.objects|moodboard_library_storage_vendor_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text))) check=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text)))
 view	public.bottleneck_signals_current	type=matview owner=postgres honours_rls=NO select=authenticated
+view	public.events_host	type=view owner=postgres honours_rls=NO select=authenticated
 view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_active_tools	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_completed_events	type=view owner=postgres honours_rls=NO select=anon,authenticated

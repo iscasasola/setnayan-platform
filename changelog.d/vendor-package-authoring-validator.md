@@ -34,3 +34,31 @@ fixes rather than one at a time.
 
 SPEC IMPACT: `Vendor_Card_Actions_Findings_2026-07-26.md` §3b — begins closing the
 "vendor authoring surface does not exist" gap. Server actions + UI follow in PR-2/PR-3.
+
+### PR-2 (same branch) · the server actions
+
+`savePackage` / `setPackageActive` / `deletePackage`, behind
+`NEXT_PUBLIC_PACKAGE_AUTHORING` (strict `=== 'true'`, default OFF).
+
+Four guards on every write: **flag** → **ownership** (`vendor_profile_id` matched on every
+query, never taken from the payload) → **shape** (the validator) → **edit scope**.
+
+The edit-scope rule is the one that only bites after launch: a package with a live booking
+is a CONTRACT. `event_vendor_packages.customizations.removed_item_ids` and
+`event_vendors.package_item_id` both point at item rows, and the locked total derives from
+`total_price_centavos` — so restructuring underneath a booking silently re-prices a couple's
+contract and orphans their provenance links. `editScopeForPackage` freezes a booked package
+to metadata; `structuralChanges` decides what counts, conservatively (a description typo
+counts, because the alternative is a diff subtle enough to let a real re-price through).
+
+Consequences: items are replaced wholesale on save, which is safe *only* because that path
+is unreachable once a booking exists. A new package starts `is_active = false` so a
+half-built one never appears on a live card. Publishing re-validates, so a draft saved
+before a rule tightened cannot go live broken. A booked package can be unlisted but never
+deleted — including for released bookings, which are still the couple's record of a real
+transaction.
+
+- `apps/web/lib/package-authoring.ts` — `editScopeForPackage`, `structuralChanges`, `isEditAllowed`
+- `apps/web/lib/package-authoring-flag.ts` (new)
+- `apps/web/app/vendor-dashboard/packages/actions.ts` (new)
+- 32 tests total; full unit suite 3789/3789.

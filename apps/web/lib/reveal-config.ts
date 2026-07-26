@@ -156,8 +156,9 @@ export const DEFAULT_TOUCH_GLOW: RevealTouchGlow = {
 };
 
 export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
-  // Off by default — same as the env-flag-off default today; admin flips it on
-  // (the ?reveal= URL override still works for previews regardless).
+  // Off by default — same as the env-flag-off default today; admin flips it on.
+  // (The ?reveal= URL override works only on a NEXT_PUBLIC_STD_REVEAL=1 preview
+  // build — SEC-3 2026-07-26 scoped it; in production the param is inert.)
   enabled: false,
   defaultTemplate: 'veil-sheer',
   templates: {

@@ -413,8 +413,14 @@ export async function submitOrderAction(
   // to how flat retail SKUs are made authoritative. Only SKUs in NEITHER catalog
   // (vendor / legacy · both resolves null) keep the client value.
   const resolved = await resolvePaxPricedOrderCentavos(eventIdClean ?? '', serviceKey);
+  // SEC-3: the pax this order is PRICED at, frozen onto the order row below.
+  // events.estimated_pax is legitimately host-writable and stays that way, so
+  // the billed pax must never be re-derivable from it after the fact. Same
+  // idea as the orders.setnayan_fee_bps snapshot. Null for every non-pax SKU.
+  let paxSnapshot: number | null = null;
   if (resolved) {
     originalCentavos = BigInt(resolved.centavos);
+    if (resolved.is_pax_priced) paxSnapshot = resolved.pax;
   } else {
     const bundleCentavos = await resolveBundleChargeCentavos(serviceKey);
     if (bundleCentavos != null) {
@@ -622,6 +628,12 @@ export async function submitOrderAction(
       // backward-compat readers (admin payment reconciliation queue at
       // /admin/payments) continue to filter on the current enum so we
       // preserve their behaviour.
+      // SEC-3 · migration 20271008000839. Frozen at insert, never recomputed.
+      // Omitted entirely when null so a stale env without the column still
+      // accepts the insert (same defensive shape the rest of this payload uses).
+      // Kept through the SEC-4b conversion: the mint moved to service_role but
+      // the snapshot is still the value priced at order time.
+      ...(paxSnapshot != null ? { pax_snapshot: paxSnapshot } : {}),
       status: 'submitted',
     },
   );

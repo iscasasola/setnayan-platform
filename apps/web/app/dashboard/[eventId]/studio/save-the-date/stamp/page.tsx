@@ -6,6 +6,7 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { paletteSwatches, sealColorFromPalette } from '@/lib/site-palette';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxStampMaker } from './wax-stamp-maker';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Make your wax seal · Setnayan' };
 
@@ -44,13 +45,8 @@ export default async function StampMakerPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
 
-  const markSvg =
-    (typeof event?.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null) ??
-    (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const markSvg = resolveEventMonogramSvg(event);
 
   const palette = sanitizeRolePalette(event?.role_palette);
   const defaultWaxColor = sealColorFromPalette(palette);

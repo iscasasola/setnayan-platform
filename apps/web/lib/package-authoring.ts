@@ -242,3 +242,97 @@ export function validatePackageDraft(draft: DraftPackage): DraftProblem[] {
 export function isPackageDraftValid(draft: DraftPackage): boolean {
   return validatePackageDraft(draft).length === 0;
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* EDIT SCOPE — what a vendor may still change once someone has booked        */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A booked package is a CONTRACT, and three separate things point into its rows:
+ *
+ *   • `event_vendor_packages.customizations.removed_item_ids` — item ids
+ *   • `event_vendors.package_item_id` — item ids (ON DELETE SET NULL)
+ *   • the locked total, derived from `total_price_centavos` minus removals
+ *
+ * So restructuring a package underneath a live booking silently re-prices a
+ * couple's contract and can orphan the provenance link on their booked rows.
+ * Once a booking exists the vendor keeps only cosmetic control; to sell
+ * something different they publish a NEW package, which is also what keeps the
+ * couple's copy honest.
+ */
+export type EditScope = 'full' | 'metadata_only';
+
+export function editScopeForPackage(activeBookingCount: number): EditScope {
+  return activeBookingCount > 0 ? 'metadata_only' : 'full';
+}
+
+/** The fields a `metadata_only` edit may touch. Everything else is frozen. */
+const METADATA_FIELDS = ['package_name', 'description', 'is_active'] as const;
+
+export type StructuralChange =
+  | 'total_price_centavos'
+  | 'consumable_budget_centavos'
+  | 'is_consumable_flexible'
+  | 'items';
+
+/**
+ * Which structural fields a draft would change against what is stored.
+ * Empty = the edit is metadata-only and safe on a booked package.
+ *
+ * Item comparison is deliberately SHALLOW-BUT-TOTAL: any change to the set of
+ * item refs, or to any priced/required field on one, counts. A vendor fixing a
+ * typo in `service_description` is treated as structural too — that is the
+ * conservative direction, and the alternative is a diff subtle enough to let a
+ * real re-price through.
+ */
+export function structuralChanges(
+  stored: DraftPackage,
+  draft: DraftPackage,
+): StructuralChange[] {
+  const changed: StructuralChange[] = [];
+
+  if (stored.total_price_centavos !== draft.total_price_centavos)
+    changed.push('total_price_centavos');
+  if (stored.consumable_budget_centavos !== draft.consumable_budget_centavos)
+    changed.push('consumable_budget_centavos');
+  if (stored.is_consumable_flexible !== draft.is_consumable_flexible)
+    changed.push('is_consumable_flexible');
+
+  const fingerprint = (p: DraftPackage) =>
+    JSON.stringify(
+      [...p.items]
+        .sort((a, b) => a.ref.localeCompare(b.ref))
+        .map((i) => [
+          i.ref,
+          i.service_description,
+          i.canonical_service,
+          i.is_default_included,
+          i.is_required,
+          i.replacement_value_centavos,
+          [...i.options]
+            .sort((a, b) => a.ref.localeCompare(b.ref))
+            .map((o) => [
+              o.ref,
+              o.label,
+              o.price_delta_centavos,
+              o.is_default,
+              o.is_available,
+            ]),
+        ]),
+    );
+  if (fingerprint(stored) !== fingerprint(draft)) changed.push('items');
+
+  return changed;
+}
+
+/** True when this edit is legal for the scope. */
+export function isEditAllowed(
+  scope: EditScope,
+  stored: DraftPackage,
+  draft: DraftPackage,
+): boolean {
+  if (scope === 'full') return true;
+  return structuralChanges(stored, draft).length === 0;
+}
+
+export { METADATA_FIELDS };

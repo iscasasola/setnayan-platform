@@ -1890,6 +1890,38 @@ export async function deleteVendorService(formData: FormData) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
+  // A couple's booked row points here via `event_vendors.service_id`, and that
+  // FK is ON DELETE **SET NULL** — so a hard delete does not fail, it silently
+  // erases which service the couple booked, including on a `contracted` row.
+  // The same applies to `thread_service_interests` and `vendor_locked_qr_tokens`.
+  //
+  // So: a service anyone has ever picked is RETIRED (is_active = false), never
+  // deleted. It vanishes from the vendor's public page exactly as before, and
+  // the couple keeps the record of what they bought. Only a service nobody has
+  // touched is deleted outright.
+  const { count: pickedCount } = await supabase
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('service_id', idRaw);
+
+  if ((pickedCount ?? 0) > 0) {
+    const { error: retireErr } = await supabase
+      .from('vendor_services')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+
+    if (retireErr) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(retireErr.message)}`,
+      );
+    }
+
+    revalidatePath('/vendor-dashboard/services');
+    revalidatePath('/vendor-dashboard/shop');
+    return redirect(`${await servicesReturnBase()}?retired=1`);
+  }
+
   const { error } = await supabase
     .from('vendor_services')
     .delete()

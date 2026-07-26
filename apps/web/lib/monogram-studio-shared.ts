@@ -26,6 +26,8 @@
  * editor garbage.
  */
 
+import { HOSTILE_SVG_PATTERNS } from './monogram-svg-safe';
+
 export const STUDIO_FONT_KEYS = [
   'cardo',
   'gilda',
@@ -410,6 +412,12 @@ const FORBIDDEN: RegExp[] = [
   // reference (http, protocol-relative //, data:, blob:) → reject.
   /(?:href|src)\s*=\s*["'](?!#)/i,
   /url\(\s*["']?(?!#)/i,
+  // SEC-3 (2026-07-26): the list above is \s-separator-only and namespace-blind,
+  // so `<circle/onload=…>`, `<circle fill="x"onload=…>` and `<svg:script>` all
+  // walked straight through it. HOSTILE_SVG_PATTERNS is the hardened set the
+  // READ-time gate enforces; write and read must agree, or a couple saves a
+  // mark that then silently never renders. See lib/monogram-svg-safe.ts.
+  ...HOSTILE_SVG_PATTERNS,
 ];
 
 /**

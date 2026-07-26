@@ -26,6 +26,7 @@
  */
 
 import { notFound, redirect } from 'next/navigation';
+import * as Sentry from '@sentry/nextjs';
 import { ArrowLeft, Calendar, Heart, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -259,7 +260,12 @@ function shortlistBudgetRange(vendors: ShortVendor[]): { lo: number; hi: number 
 
 // ─── Marketplace coverage per candidate date ──────────────────────────────────
 
-type VpRow = { id: string; services: string[] | null };
+// ⚠ `vendor_profile_id`, NOT `id`. `public.vendor_profiles` has no `id` column —
+// its primary key is `vendor_profile_id`, and that is also what `blockRows`
+// carries, so these two are compared directly in marketplaceCoverage below.
+// The old `id` field made the fetch a hard PostgREST 42703 (see the query) AND
+// would have compared the wrong identifier had the column existed.
+type VpRow = { vendor_profile_id: string; services: string[] | null };
 type BlockRow = { vendor_profile_id: string; blocked_at: string; blocked_until: string };
 
 function marketplaceCoverage(
@@ -277,7 +283,7 @@ function marketplaceCoverage(
   for (const vp of vpRows) {
     for (const svc of vp.services ?? []) {
       allCategories.add(svc);
-      if (!blockedOnDate.has(vp.id)) availableCategories.add(svc);
+      if (!blockedOnDate.has(vp.vendor_profile_id)) availableCategories.add(svc);
     }
   }
   return { available: availableCategories.size, total: allCategories.size };
@@ -402,15 +408,45 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
     const [vendors, vpRes] = await Promise.all([
       fetchEventVendors(supabase, eventId),
+      // ⚠ THIS QUERY ALWAYS ERRORED UNTIL 2026-07-26, and did so silently.
+      // It named TWO columns that do not exist on `public.vendor_profiles`:
+      //   · `id`                  — the primary key is `vendor_profile_id`
+      //   · `is_setnayan_service` — a COMPUTED column of the
+      //     `public.vendor_market_stats` VIEW (an array-membership test over
+      //     `vendor_profiles.services`, migration 20260607020000)
+      // PostgREST fails the WHOLE query on an unknown column (42703), so
+      // `vpRes.data` was null, `vpRows` was always `[]`, and the marketplace
+      // coverage figure this feeds was permanently blank. `?? []` then made the
+      // failure indistinguishable from "no vendors match" — a read error and an
+      // empty result must never look the same.
+      //
+      // The `is_setnayan_service` predicate is DROPPED rather than re-pointed at
+      // the view: Setnayan's own services are no longer marketplace vendors at
+      // all (owner 2026-07-26 — they live on their studio page or in the suite),
+      // Explore removed its first-party float the same day, and #3769 deleted the
+      // concept from the vendor workspace. Prod has 0 profiles where it is true,
+      // so it filtered nothing even when it was intended to.
       admin
         .from('vendor_profiles')
-        .select('id, services')
+        .select('vendor_profile_id, services')
         .eq('public_visibility', 'verified')
         .or('is_demo.is.null,is_demo.eq.false')
-        .or('is_setnayan_service.is.null,is_setnayan_service.eq.false')
         .not('services', 'is', null),
     ]);
 
+    // ⚠ A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME. The bare
+    // `?? []` here is precisely why the 42703 above went unnoticed: the page
+    // rendered a confident "0 of 0 categories available" instead of admitting it
+    // could not tell. Same fail-open shape SEC-2b's T9 auditor rejects on the
+    // export route. The coverage figure still degrades to blank rather than
+    // breaking the page — a date picker that renders is worth more than one that
+    // 500s — but the failure is now observable instead of silent.
+    if (vpRes.error) {
+      Sentry.captureException(new Error(`date-selection vendor pool read failed: ${vpRes.error.message}`), {
+        tags: { feature: 'date-selection', query: 'vendor_profiles_pool' },
+        extra: { eventId, code: vpRes.error.code },
+      });
+    }
     const vpRows: VpRow[] = (vpRes.data ?? []) as VpRow[];
 
     // Availability of shortlisted marketplace vendors across the FULL candidate

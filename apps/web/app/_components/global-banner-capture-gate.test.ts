@@ -47,9 +47,12 @@ const GATE_MODULE = 'capture-safe-routes';
 /** Local `./x` imports of a component file, resolved to real paths. */
 function localChildren(sourcePath: string): string[] {
   const src = readFileSync(sourcePath, 'utf8');
-  const specifiers = [...src.matchAll(/from\s+'\.\/([\w.-]+)'/g)].map(
-    (m) => m[1],
-  );
+  // `m[1]` is `string | undefined` under noUncheckedIndexedAccess even though
+  // the group is not optional, so narrow rather than assert — a `!` here would
+  // be the same "trust me" move this whole file exists to prevent.
+  const specifiers = [...src.matchAll(/from\s+'\.\/([\w.-]+)'/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => typeof s === 'string');
   return specifiers
     .map((s) => join(componentsDir, `${s}.tsx`))
     .filter((p) => existsSync(p));
@@ -69,7 +72,9 @@ test('every *-banner mounted in the root layout reaches the capture gate', () =>
   // Components imported from ./_components/ whose module name ends in -banner.
   const mounted = [
     ...layout.matchAll(/from\s+'\.\/_components\/([\w-]*banner)'/g),
-  ].map((m) => m[1]);
+  ]
+    .map((m) => m[1])
+    .filter((n): n is string => typeof n === 'string');
 
   assert.ok(
     mounted.length >= 3,
@@ -105,3 +110,4 @@ test('the pilot banner specifically is gated (the 2026-07-26 miss)', () => {
   const file = join(componentsDir, 'pilot-mode-banner.tsx');
   assert.ok(reachesGate(file), 'PilotModeBanner lost its capture-route gate.');
 });
+

@@ -90,7 +90,14 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
     pricePhp,
   } = props;
   const first5Free = props.first5Free === true;
-  const launchFree = props.launchFree === true;
+  /**
+   * ⚠ AND-ed with `eligible`. The price line renders ABOVE the eligibility gate,
+   * so without this a Free-tier or unverified shop is told "Free through 30 Nov"
+   * three lines above "Vendor AI is available on the paid plans". The window
+   * only zeroes the add-on for a shop that can actually activate it — this makes
+   * the copy say the same thing.
+   */
+  const launchFree = props.launchFree === true && eligible;
   const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
   /** A free cycle is granted with no money changing hands — from the launch
    *  window, the first-5 perk (both repeatable) or the legacy one-time trial.

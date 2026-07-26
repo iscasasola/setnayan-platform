@@ -36,10 +36,7 @@ import {
 } from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
-import {
-  isVendorLaunchFreeNow,
-  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
-} from '@/lib/vendor-launch-free-window-coverage';
+import { isVendorLaunchFreeNow } from '@/lib/vendor-launch-free-window-coverage';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
@@ -241,11 +238,18 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // same clock, so a card can never advertise ₱0 for something the server would
   // still charge for (or vice versa). Flag off → every one of these is false and
   // the page is byte-identical to today.
+  //
+  // ⚠ SUBSCRIPTIONS ARE NOT COVERED (descoped 2026-07-26 — see
+  // `lib/vendor-launch-free-window-coverage.ts` "DELIBERATELY NOT COVERED").
+  // Plan CYCLES stay buyable at list price during the window: zeroing them
+  // needs a DB-side ₱0 order path that `create_vendor_subscription` does not
+  // have, and faking it by disabling the buy button made paid tiers
+  // unobtainable — which in turn made these two tier-gated add-ons
+  // unobtainable, and left lapsed paid vendors unable to renew.
   const launchWindowEnabled = isVendorLaunchFreeWindowEnabled();
   const launchNowMs = Date.now();
   const launchFreeFor = (sku: string) =>
     isVendorLaunchFreeNow({ sku, enabled: launchWindowEnabled, nowMs: launchNowMs });
-  const subscriptionLaunchFree = launchFreeFor('vendor_subscription');
   const aiAddonLaunchFree = launchFreeFor('vendor_ai_addon');
   const boothAddonLaunchFree = launchFreeFor('vendor_3d_booth');
 
@@ -445,22 +449,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </Link>
       ) : null}
 
-      {/* Launch free window — paid plans cost ₱0 until 2026-11-30 (flag-dark).
-          Rendered only while the window is live for subscriptions, so nothing
-          changes with the flag off. */}
-      {subscriptionLaunchFree ? (
-        <div className="mb-5 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-          <p className="font-semibold">
-            Every paid plan is free through {VENDOR_LAUNCH_FREE_WINDOW_END_LABEL}.
-          </p>
-          <p className="mt-0.5">
-            We&rsquo;re in launch — you don&rsquo;t need to buy a plan yet, and we
-            won&rsquo;t take a payment for one. The prices below are what
-            they&rsquo;ll cost once the launch window closes.
-          </p>
-        </div>
-      ) : null}
-
       {/* Monthly / annual toggle (client component · updates ?cycle=) */}
       <SubscriptionCycleToggle cycle={cycle} />
 
@@ -469,7 +457,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         <SubscriptionCards
           cycle={cycle}
           packs={addonPacks}
-          launchFree={subscriptionLaunchFree}
           cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB

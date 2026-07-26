@@ -15,9 +15,9 @@ import { nonStackingFreeExpiry } from '@/lib/vendor-addon-first5-free';
 import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
 import {
   isVendorLaunchFreeNow,
-  vendorLaunchFreePricePhp,
   VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
 } from '@/lib/vendor-launch-free-window-coverage';
+import { resolveVendorAddonGrant } from '@/lib/vendor-addon-free-grant';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
   VENDOR_AI_ADDON_FALLBACK_PHP,
@@ -191,10 +191,15 @@ export async function activateVendorAiAddon(
   };
   const launchFree = isVendorLaunchFreeNow(launchInput);
 
-  const pricePhp = vendorLaunchFreePricePhp(
-    resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp }),
-    launchInput,
-  );
+  // WHICH free grant this is (if any) — pure, tested in
+  // `lib/vendor-addon-free-grant.test.ts`. `grant.consumesTrial` is the single
+  // authority on whether the atomic one-time claim below runs.
+  const grant = resolveVendorAddonGrant({
+    basePricePhp: resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp }),
+    launchFree,
+  });
+  const pricePhp = grant.pricePhp;
+  const launchGrant = grant.kind === 'launch_window';
   /** What a cycle costs this vendor once the free first cycle is spent — so no
    *  message below hardcodes ₱1,500, which is wrong for the entry band. */
   const renewalPricePhp = resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp });
@@ -209,7 +214,7 @@ export async function activateVendorAiAddon(
     const oneCycleFromNow = nextVendorAiAddonExpiry(null, Date.now());
     let newExpiry = oneCycleFromNow;
 
-    if (launchFree) {
+    if (grant.repeatable) {
       // Repeatable grant — there is no one-time claim to serialize a burst on, so
       // clamp the window to ONE cycle ahead (nonStackingFreeExpiry). Pressing the
       // button ten times lands on the same ~28-days-from-now instead of stacking
@@ -262,7 +267,7 @@ export async function activateVendorAiAddon(
         user_id: user.id,
         vendor_profile_id: vendorProfileId,
         service_key: VENDOR_AI_ADDON_SKU_CODE,
-        description: launchFree
+        description: launchGrant
           ? 'Vendor AI — AI Chatbot (free · launch window)'
           : 'Vendor AI — AI Chatbot (first cycle · free)',
         requested_total_php: 0,
@@ -286,7 +291,7 @@ export async function activateVendorAiAddon(
         metadata: {
           service_key: VENDOR_AI_ADDON_SKU_CODE,
           vendor_profile_id: vendorProfileId,
-          kind: launchFree ? 'ai_addon_free_launch_window' : 'ai_addon_free_first_cycle',
+          kind: launchGrant ? 'ai_addon_free_launch_window' : 'ai_addon_free_first_cycle',
           expires_at: newExpiry,
         },
       });
@@ -296,7 +301,7 @@ export async function activateVendorAiAddon(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message: launchFree
+      message: launchGrant
         ? `Vendor AI is on — free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we're in launch. After that it's ${peso(renewalPricePhp)} / 28 days` +
           (trialUsed ? '.' : ", and your free first cycle is still waiting for you.")
         : `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,

@@ -76,7 +76,14 @@ export function AiAddonCard(props: AiAddonCardProps) {
     pricePhp,
     assistantLive,
   } = props;
-  const launchFree = props.launchFree === true;
+  /**
+   * ⚠ AND-ed with `eligible`. The price line renders ABOVE the eligibility gate,
+   * so without this a Free-tier or unverified shop is told "Free through 30 Nov"
+   * three lines above "Vendor AI is available on the paid plans (Solo, Pro,
+   * Enterprise). Upgrade above to add it." The server gates the ₱0 grant on the
+   * same paid-tier + verified check, so the copy has to as well.
+   */
+  const launchFree = props.launchFree === true && eligible;
   /** No money changes hands — launch window OR the one-time free first cycle. */
   const freeCycle = launchFree || trialAvailable;
 

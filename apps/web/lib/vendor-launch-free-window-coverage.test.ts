@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   VENDOR_LAUNCH_FREE_SKUS,
+  VENDOR_LAUNCH_FREE_EXCLUDED_SKUS,
   VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
   isVendorLaunchFreeCoveredSku,
   isVendorLaunchFreeNow,
@@ -13,32 +14,36 @@ import { VENDOR_LAUNCH_FREE_WINDOW_END_MS } from './vendor-launch-free-window';
  * The launch free window's COVERAGE layer — which vendor SKUs go ₱0 until
  * 2026-11-30, behind NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW.
  *
- * The load-bearing property is FLAG-OFF BYTE-IDENTITY: with `enabled:false`,
- * every SKU at every instant must resolve exactly as it does today (never free,
- * price untouched). Every test below loops the whole coverage set + a
- * representative set of non-covered SKUs so a future addition can't slip through
- * unasserted.
+ * Two load-bearing properties:
+ *   1. FLAG-OFF BYTE-IDENTITY — with `enabled:false`, every SKU at every instant
+ *      resolves exactly as it does today (never free, price untouched).
+ *   2. SUBSCRIPTIONS ARE OUT — `vendor_subscription` must never be covered. It
+ *      was in the first cut, and the only way to honour it was to disable the
+ *      plan buy button, which made every paid tier (and therefore the two
+ *      tier-gated add-ons this window DOES cover) unobtainable, and stranded
+ *      lapsed paid vendors with no way to renew. See the module header.
  */
 
 const IN_WINDOW = Date.parse('2026-08-01T00:00:00+08:00');
 const AFTER_WINDOW = Date.parse('2026-12-01T00:00:01+08:00');
 
-/** SKUs that must NEVER be launch-free (metered spend / stored value / fees). */
+/** SKUs that must NEVER be launch-free (plans / metered spend / stored value). */
 const NOT_COVERED = [
-  'vendor_deep_search',
+  ...VENDOR_LAUNCH_FREE_EXCLUDED_SKUS,
   'deep_search_about_you',
   'deep_search_market',
   'vendor_token_pack_10',
-  'vendor_booking_fee',
+  'pro_vendor_monthly',
+  'solo_vendor_annual',
+  'enterprise_vendor_monthly',
   '',
-  'papic_seats', // a COUPLE sku — vendor window must not touch it
+  'papic_seats', // a COUPLE sku — the vendor window must not touch it
 ];
 
 // ── the coverage set itself ─────────────────────────────────────────────────
 
-test('coverage set: exactly the four owner-selected vendor SKUs', () => {
+test('coverage set: exactly the three covered vendor ADD-ONS — no subscriptions', () => {
   assert.deepEqual([...VENDOR_LAUNCH_FREE_SKUS], [
-    'vendor_subscription',
     'vendor_ai_addon',
     'vendor_3d_booth',
     'papic_challenge',
@@ -54,16 +59,42 @@ test('coverage set: membership predicate agrees with the list', () => {
   }
 });
 
-test('coverage set: Deep Search is deliberately NOT covered (metered cash cost)', () => {
-  assert.equal(isVendorLaunchFreeCoveredSku('vendor_deep_search'), false);
+test('DESCOPE LOCK: vendor_subscription is never free, flag on, inside the window', () => {
+  // Re-adding it to VENDOR_LAUNCH_FREE_SKUS re-opens the closed loop this branch
+  // exists to close. `create_vendor_subscription` reads price_php from a catalog
+  // with a `price_php > 0` CHECK and has no ₱0 branch, so "free plans" can only
+  // be faked by taking the buy path away.
+  assert.equal(isVendorLaunchFreeCoveredSku('vendor_subscription'), false);
   assert.equal(
-    isVendorLaunchFreeNow({
-      sku: 'vendor_deep_search',
+    isVendorLaunchFreeNow({ sku: 'vendor_subscription', enabled: true, nowMs: IN_WINDOW }),
+    false,
+  );
+  assert.equal(
+    vendorLaunchFreePricePhp(2499, {
+      sku: 'vendor_subscription',
       enabled: true,
       nowMs: IN_WINDOW,
     }),
+    2499,
+  );
+});
+
+test('coverage set: Deep Search is deliberately NOT covered (metered cash cost)', () => {
+  assert.equal(isVendorLaunchFreeCoveredSku('vendor_deep_search'), false);
+  assert.equal(
+    isVendorLaunchFreeNow({ sku: 'vendor_deep_search', enabled: true, nowMs: IN_WINDOW }),
     false,
   );
+});
+
+test('the covered set and the excluded set are disjoint', () => {
+  for (const sku of VENDOR_LAUNCH_FREE_SKUS) {
+    assert.equal(
+      VENDOR_LAUNCH_FREE_EXCLUDED_SKUS.includes(sku),
+      false,
+      `${sku} is in BOTH lists`,
+    );
+  }
 });
 
 // ── FLAG OFF = byte-identical to today (the whole matrix) ───────────────────
@@ -158,13 +189,36 @@ test('fail closed: a broken clock CHARGES rather than giving away', () => {
   }
 });
 
-test('price: a non-finite / negative base never yields a negative charge', () => {
-  const on = { sku: 'vendor_ai_addon', enabled: true, nowMs: AFTER_WINDOW };
-  assert.equal(vendorLaunchFreePricePhp(Number.NaN, on), 0);
-  assert.equal(vendorLaunchFreePricePhp(-100, on), 0);
-  const off = { sku: 'vendor_ai_addon', enabled: false, nowMs: AFTER_WINDOW };
-  assert.equal(vendorLaunchFreePricePhp(Number.NaN, off), 0);
-  assert.equal(vendorLaunchFreePricePhp(-100, off), 0);
+test('NOT-FREE branch is a pure pass-through — it never INVENTS a ₱0', () => {
+  // Regression lock. The first cut sanitised the pass-through as
+  // `Number.isFinite(base) && base > 0 ? base : 0`, so a NaN/negative resolved
+  // price came back as 0 and every caller's `if (pricePhp <= 0)` took the FREE
+  // activation branch — on `main` that same NaN takes the PAID branch, because
+  // `NaN <= 0` is false. A helper that decided NOT to zero a price must hand
+  // back exactly what it was given.
+  for (const enabled of [true, false]) {
+    for (const sku of ['vendor_ai_addon', 'vendor_subscription']) {
+      const input = { sku, enabled, nowMs: AFTER_WINDOW };
+      assert.equal(
+        Number.isNaN(vendorLaunchFreePricePhp(Number.NaN, input)),
+        true,
+        `NaN must survive (${sku}, enabled=${enabled})`,
+      );
+      assert.equal(vendorLaunchFreePricePhp(-100, input), -100, `${sku} enabled=${enabled}`);
+      assert.equal(vendorLaunchFreePricePhp(0, input), 0, `${sku} enabled=${enabled}`);
+      assert.equal(vendorLaunchFreePricePhp(1500, input), 1500, `${sku} enabled=${enabled}`);
+    }
+  }
+  // And a NaN inside the window on a covered SKU is still zeroed (the window
+  // genuinely decided; there is nothing to charge).
+  assert.equal(
+    vendorLaunchFreePricePhp(Number.NaN, {
+      sku: 'vendor_ai_addon',
+      enabled: true,
+      nowMs: IN_WINDOW,
+    }),
+    0,
+  );
 });
 
 // ── copy ────────────────────────────────────────────────────────────────────

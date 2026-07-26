@@ -50,6 +50,7 @@ import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
 import { Couple3dPlanBuy } from './_components/couple-3d-plan-buy';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
 
@@ -297,13 +298,8 @@ export default async function SeatingLabPage({ params }: Props) {
   // config branch always yields a mark — no separate fallback needed. null only
   // when the event row is missing (e.g. RLS/race) → the scene renders mark-free.
   const event = eventRow.data;
-  const bespoke =
-    (typeof event?.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null) ??
-    (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const bespoke = resolveEventMonogramSvg(event);
   const monogram: Lab3DMonogram = event
     ? bespoke
       ? { kind: 'svg', svg: bespoke }

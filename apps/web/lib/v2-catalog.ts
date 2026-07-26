@@ -28,6 +28,7 @@ import {
   eventVendor3dPlanUnlockDiscountActive,
 } from '@/lib/vendor-3d-plan-unlock';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { resolveLivePax } from '@/lib/pax';
 
 /**
  * Catalog price recurrence (migration 20270322883953). `one_time` = a single
@@ -550,7 +551,7 @@ export function formatSkuPriceLabel(
 export async function resolvePaxPricedOrderCentavos(
   eventId: string,
   serviceCode: string,
-): Promise<{ is_pax_priced: boolean; centavos: number } | null> {
+): Promise<{ is_pax_priced: boolean; centavos: number; pax: number | null } | null> {
   let admin;
   try {
     admin = createAdminClient();
@@ -582,15 +583,37 @@ export async function resolvePaxPricedOrderCentavos(
         : Number(sku.pax_increment_price_php),
   };
 
+  // ── Pax at charge time (SEC-3 · 2026-07-26) ────────────────────────────────
+  // This used to read events.estimated_pax RAW:
+  //
+  //     .from('events').select('estimated_pax')…
+  //     pax = event.estimated_pax
+  //
+  // `events` UPDATE RLS is ROW-level, never column-level, and estimated_pax is
+  // deliberately host-writable (lib/security/events-column-privileges.ts:43-47
+  // — "a grant cannot close those without breaking the product"). So with the
+  // public anon key a host could PATCH estimated_pax → 1, buy a pax-priced SKU
+  // at pax_floor_price_php, and PATCH it back. Real money on a pax curve.
+  //
+  // The fix is to stop trusting a single freely-mutable number: resolveLivePax
+  // is the app's CANONICAL pax definition (lib/pax.ts) and is already what the
+  // vendor quoting engine charges against —
+  //
+  //     final_pax when the list is frozen  (a LOCKED column, service-role only,
+  //                                         guarded by guard_pax_finalize_columns)
+  //     else max(estimated_pax, live headcount on the event's basis)
+  //
+  // …so a deflated estimate is floored by the guest list the host actually has,
+  // and a frozen list ignores the estimate entirely. Deflating to 1 with 250
+  // attending guests on the roster no longer moves the price. (With no guest
+  // list at all the floor price applies anyway — computePaxPriceCentavos
+  // clamps at pax_floor, so there is nothing left to win.)
+  //
+  // Aligning here removes a divergence rather than creating one: every other
+  // pax surface in the app already quotes resolveLivePax.
   let pax: number | null = null;
   if (config.is_pax_priced) {
-    const { data: event } = await admin
-      .from('events')
-      .select('estimated_pax')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    pax =
-      event && event.estimated_pax != null ? Number(event.estimated_pax) : null;
+    pax = await resolveLivePax(admin, eventId);
   }
 
   const standardCentavos = computePaxPriceCentavos(config, pax);
@@ -611,6 +634,7 @@ export async function resolvePaxPricedOrderCentavos(
     const unlocked = await eventVendor3dPlanUnlockDiscountActive(admin, eventId);
     return {
       is_pax_priced: config.is_pax_priced,
+      pax,
       centavos: applyVendor3dPlanUnlockDiscountCentavos(
         serviceCode,
         standardCentavos,
@@ -621,6 +645,7 @@ export async function resolvePaxPricedOrderCentavos(
 
   return {
     is_pax_priced: config.is_pax_priced,
+    pax,
     centavos: standardCentavos,
   };
 }

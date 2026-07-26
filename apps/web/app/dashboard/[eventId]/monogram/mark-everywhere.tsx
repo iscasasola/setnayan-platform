@@ -63,13 +63,21 @@ export function MarkEverywhere({ svg }: { svg: string }) {
     />
   );
 
+  // SEC-3: the mark renders as an inert data-URI <img>, not
+  // dangerouslySetInnerHTML. events.monogram_custom_svg is host-writable
+  // through PostgREST, so it is never trusted markup — the caller gates it
+  // (safeMonogramSvg) and an image context gives no script execution even if
+  // the gate is ever outrun. Visually identical: the same SVG, contained.
   const inlineMark = (extra?: React.CSSProperties) => (
-    <div
-      aria-hidden
-      className="[&>svg]:h-full [&>svg]:w-full"
-      style={{ width: '52%', height: '52%', ...extra }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <div aria-hidden style={{ width: '52%', height: '52%', ...extra }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
+        alt=""
+        draggable={false}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+      />
+    </div>
   );
 
   const scenes: { label: string; body: React.ReactNode }[] = [

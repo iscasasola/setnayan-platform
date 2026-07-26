@@ -82,7 +82,9 @@ import {
 } from '@/lib/smart-sort';
 import { isVendorRankBoostEnabled } from '@/lib/vendor-rank-boost-flag';
 import {
+  composeFeaturedOrder,
   meritScore,
+  organicRespondsFast,
   partitionFeatured,
   type FeaturableVendor,
 } from '@/lib/vendor-rank-boost';
@@ -293,6 +295,18 @@ export async function searchCategoryVendors(input: {
   // be buried, and (b) at most 2 quality-floored slots that ALWAYS render the
   // "Sponsored" label. The relationship tier still leads — a vendor the couple
   // already works with is never displaced by a paid slot.
+  //
+  // ⚠⚠ SCOPE — READ BEFORE FLIPPING THE FLAG. The § 5 merit model is wired into
+  // ONE of the platform's five vendor lists: THIS category-search overlay. The
+  // other four — `lib/vendor-counts.ts`, `/explore`, the 3D-plan demo and
+  // `build-3state-actions.ts` — still order by the unbounded legacy `ad_rank`.
+  // Flipping this flag makes THIS surface § 5-compliant; it does NOT make the
+  // platform § 5-compliant, and until the other four are converted the product
+  // contradicts itself (merit-first in the overlay, pay-to-win in the grid the
+  // couple sees first). Deliberately descoped rather than half-converted: four
+  // untested surface rewrites in one flag-dark branch is how a ranking change
+  // ships a regression nobody can see. Pinned by
+  // `lib/vendor-rank-boost-callsite.test.ts`.
   const rankBoost = isVendorRankBoostEnabled();
 
   const groupCanonicals = canonicalsForGroup(groupId);
@@ -717,6 +731,45 @@ export async function searchCategoryVendors(input: {
     }
   }
 
+  // ── Bot-assisted responsiveness (flag-gated · anti-purchase) ─────────────
+  // `respondsFast` below is derived from vendor_activity_stats, which is derived
+  // from chat_threads.vendor_first_reply_at — and the `stamp_vendor_first_reply`
+  // trigger stamps that for ANY sender_role='vendor' insert, including the
+  // auto-reply bot's (`chat_messages.is_bot = TRUE`, posted via the admin
+  // client). The bot is gated behind the PAID Vendor AI add-on, so crediting it
+  // would make 15 of 100 merit points buyable for ₱1,500/28d — 2.5× the whole
+  // declared paid ceiling, inside the score that is supposed to be blind to
+  // money.
+  //
+  // `vendor_bot_replies` is the bot's own append-only ledger (one row per
+  // posted auto-reply), so its key set is exactly "vendors whose responsiveness
+  // may be machine-earned". A vendor in this set loses the responsiveness
+  // signal in MERIT ONLY — the "Replies fast" badge, the compat score and every
+  // flag-OFF behaviour are untouched.
+  //
+  // FAIL-CLOSED: an errored read marks EVERY candidate bot-assisted, so the
+  // signal drops out for the whole page rather than being handed out unproven.
+  // Dropping it uniformly reorders nothing; handing it out unproven is a sale.
+  //
+  // ⚠ This is a READ-SIDE mitigation. The durable fix is a trigger that ignores
+  // `is_bot` inserts, which would change live vendor_activity_stats for every
+  // surface and is therefore NOT flag-dark — deliberately left to its own PR.
+  const botAssistedIds = new Set<string>();
+  if (rankBoost) {
+    const { data: botRows, error: botErr } = await admin
+      .from('vendor_bot_replies')
+      .select('vendor_profile_id')
+      .in('vendor_profile_id', ids);
+    if (botErr) {
+      for (const id of ids) botAssistedIds.add(id);
+    } else {
+      for (const row of botRows ?? []) {
+        const r = row as { vendor_profile_id: string | null };
+        if (r.vendor_profile_id) botAssistedIds.add(r.vendor_profile_id);
+      }
+    }
+  }
+
   // ── First-Look Window (Wave 2) ───────────────────────────────────────────
   // Read the admin-managed config defensively (lib/firstlook — the two columns
   // may still be mid-apply in prod, so this is a dedicated try/catch reader that
@@ -928,6 +981,14 @@ export async function searchCategoryVendors(input: {
     /** `vendor_profiles.tier_expires_at` as epoch ms; null = no expiry = active
      *  (prod reality — every real paid row carries NULL). Flag-gated. */
     _tierExpiresAtMs: number | null;
+    /** ADMIN-VETTED verification for the Featured gate: `verification_state`
+     *  AND `public_visibility` both 'verified'. Distinct from the public
+     *  `verified` field (which is `public_visibility` alone and drives the trust
+     *  chip) — a top-of-page paid slot needs both greens, so an admin
+     *  de-vetting or a fraud visibility freeze pulls the slot immediately.
+     *  Both columns are trigger-guarded against vendor self-writes
+     *  (`guard_vendor_profiles_entitlement`, migration 20271004444950). */
+    _adminVerified: boolean;
     /** 0–100 merit, computed from match-to-need · reviews · completed bookings
      *  · responsiveness · proximity ONLY (lib/vendor-rank-boost · meritScore).
      *  BLIND to tier and ad spend by construction. 0 on the flag-OFF path
@@ -1076,6 +1137,8 @@ export async function searchCategoryVendors(input: {
       _startsAt: startsAt,
       _tier: prof?.tier_state ?? null,
       _tierExpiresAtMs: tierExpiresAtById.get(r.vendor_profile_id) ?? null,
+      _adminVerified:
+        r.verification_state === 'verified' && r.public_visibility === 'verified',
       // Merit is computed from RECEIPT-BACKED signals only — trusted (arm's-
       // length) reviews and VETTED completed events, never the raw
       // review_count / avg_rating_overall that a sockpuppet ring can inflate.
@@ -1097,7 +1160,13 @@ export async function searchCategoryVendors(input: {
             trustedAvgRating:
               trustedStatsById?.get(r.vendor_profile_id)?.trusted_avg_rating ?? 0,
             completedBookings: completedBookingsById?.get(r.vendor_profile_id) ?? 0,
-            respondsFast,
+            // Responsiveness only counts as MERIT when a human earned it — the
+            // PAID auto-reply bot stamps the same first-reply timestamp this
+            // flag is derived from. See the botAssistedIds read above.
+            respondsFast: organicRespondsFast({
+              respondsFast,
+              botAssisted: botAssistedIds.has(r.vendor_profile_id),
+            }),
             distanceKm: dKm,
             // NOTE: deliberately NOT the vendor's serviceRadiusKm — that value
             // is derived from tier_state (vendor-tier-caps), so using it as the
@@ -1146,21 +1215,45 @@ export async function searchCategoryVendors(input: {
         id: s.vendorProfileId,
         meritScore: s._merit,
         tier: s._tier,
-        verified: s.verified,
+        // Featured needs the ADMIN-VETTED state (verification_state AND
+        // public_visibility), not the display chip — see Shaped._adminVerified.
+        adminVerified: s._adminVerified,
         tierExpiresAtMs: s._tierExpiresAtMs,
         _row: s,
       }));
-    const { featured, organic } = partitionFeatured(rankable, {
+    const partition = partitionFeatured(rankable, {
       nowMs: Date.now(),
       // Fail-closed when the tier_expires_at read failed: still rank, but sell
       // no slots — we can't prove the paid window is open.
       ...(featuredSlotsAllowed ? {} : { maxSlots: 0 }),
     });
-    for (const f of featured) featuredIds.add(f.id);
+    for (const f of partition.featured) featuredIds.add(f.id);
+    // composeFeaturedOrder — NOT a hand-spliced [...featured, ...organic]. The
+    // § 5 "a better free vendor is never buried" invariant is a property of the
+    // COMPOSED order (a slot renders above the whole organic list, so the boost
+    // ceiling alone proves nothing), and that composition is asserted in exactly
+    // one tested place. Splicing it here would put the invariant back out of
+    // reach of any test.
+    const meritOrdered = composeFeaturedOrder(partition).map((v) => v._row);
+    // Smart-sort over-budget SINK (flag-gated · lib/smart-sort). The OFF path
+    // applies this to its tail tier; without it here the ON path would silently
+    // stop honouring the couple's category budget while the overlay kept
+    // nudging about it from `budgetPressure` below. Scoped to the ORGANIC rows
+    // only (labeled Sponsored slots keep their position) and stable, so within
+    // an equal price-fit — which is EVERY vendor inside budget, priceFitScore
+    // returns a flat 1.0 there — the merit order is preserved exactly. No-op
+    // when smart-sort is off: every _priceFit is PRICE_FIT_NEUTRAL.
+    //
+    // ⚠ This is couple-preference, not money: it only ever pushes over-budget
+    // vendors DOWN, and it applies to paid and free alike.
+    const organicRows = meritOrdered.filter((s) => !featuredIds.has(s.vendorProfileId));
+    const organicSorted = smartSort
+      ? [...organicRows].sort((a, b) => b._priceFit - a._priceFit)
+      : organicRows;
     ordered = [
       ...withRelationship,
-      ...featured.map((f) => f._row),
-      ...organic.map((o) => o._row),
+      ...meritOrdered.filter((s) => featuredIds.has(s.vendorProfileId)),
+      ...organicSorted,
     ];
   } else {
     // Tier 1 favorites: empty until the cross-event favorites table ships (V1.x).

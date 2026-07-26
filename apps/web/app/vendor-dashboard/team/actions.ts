@@ -20,26 +20,28 @@ import {
   seatServiceKey,
 } from '@/lib/vendor-seats';
 import {
-  parsableRolesForTier,
+  parsableRoleSet,
   type VendorTeamRoleExtended,
 } from '@/lib/vendor-team-roles';
 import { isVendorTeamRolesV2Enabled } from '@/lib/vendor-team-roles-flag';
 import { notifyVendorAssignment } from '@/lib/vendor-team-assignment-notify';
+import { assignmentServiceDelta } from '@/lib/vendor-team-assignment-notice';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
 /**
  * The role values this store may submit RIGHT NOW (locked model § 7 — the
- * Financial + Secretary scopes are Pro+). Flag OFF, or a tier below Pro, returns
- * the module-level ROLE_SET unchanged, so parsing behaves byte-identically to
- * before this feature existed — including still accepting the retired `owner`
- * value so its friendly "Owner role is retired" message fires instead of the
- * generic "Unknown role."
+ * Secretary scope is Pro+). Flag OFF, or a tier below Pro, returns exactly
+ * today's role set, so parsing behaves byte-identically to before this feature
+ * existed — including still accepting the retired `owner` value so its friendly
+ * "Owner role is retired" message fires instead of the generic "Unknown role."
+ *
+ * The decision itself lives in `lib/vendor-team-roles.ts` (`parsableRoleSet`)
+ * because a `'use server'` module cannot be unit-tested; the flag-OFF guarantee
+ * is pinned there by a test that fails when it is broken.
  */
 function roleSetFor(tierState: string | null | undefined): ReadonlySet<string> {
-  const enabled = isVendorTeamRolesV2Enabled();
-  if (!enabled) return ROLE_SET;
-  return new Set(parsableRolesForTier({ tier: tierState, enabled }));
+  return parsableRoleSet({ tier: tierState, enabled: isVendorTeamRolesV2Enabled() });
 }
 
 const TEAM = '/vendor-dashboard/team';
@@ -473,6 +475,22 @@ export async function setVendorAgentServices(formData: FormData) {
     .getAll('service_ids')
     .filter((v): v is string => typeof v === 'string' && valid.has(v));
 
+  // Prior assignment, read BEFORE the delete so the notice can describe the
+  // hand-off (what was ADDED) rather than the resulting total. FLAG-DARK: this
+  // extra read only happens when the flag is on, so the flag-OFF path issues
+  // exactly the queries it issued before this feature existed.
+  const rolesV2Enabled = isVendorTeamRolesV2Enabled();
+  let priorServiceIds: string[] = [];
+  if (rolesV2Enabled) {
+    const { data: prior } = await supabase
+      .from('vendor_service_agents')
+      .select('vendor_service_id')
+      .eq('vendor_team_member_id', memberIdRaw);
+    priorServiceIds = (prior ?? []).map(
+      (r) => (r as { vendor_service_id: string }).vendor_service_id,
+    );
+  }
+
   const { error: delErr } = await supabase
     .from('vendor_service_agents')
     .delete()
@@ -493,25 +511,32 @@ export async function setVendorAgentServices(formData: FormData) {
   // member's user_id — only runs when NEXT_PUBLIC_VENDOR_TEAM_ROLES_V2 is on,
   // so the flag-OFF path issues exactly the queries it issued before. Deferred
   // via after() and fail-soft: the assignment has already been saved.
-  if (isVendorTeamRolesV2Enabled()) {
-    const assignedCount = selected.length;
-    // Resolve the recipient INSIDE the request (the request-scoped supabase
-    // client is not safe to use from after()); only the delivery is deferred.
-    const { data: assignee } = await supabase
-      .from('vendor_team_members')
-      .select('user_id')
-      .eq('vendor_team_member_id', memberIdRaw)
-      .eq('vendor_profile_id', ctx.vendorProfileId)
-      .maybeSingle();
-    const assigneeUserId = (assignee as { user_id: string } | null)?.user_id;
-    if (assigneeUserId) {
-      after(() =>
-        notifyVendorAssignment({
-          assigneeUserId,
-          actorUserId: currentUserId,
-          subject: { kind: 'services', serviceCount: assignedCount },
-        }).catch(() => {}),
-      );
+  //
+  // The notice describes the DELTA: `added` is empty for a pure revocation and
+  // for a no-op re-save, and shouldNotifyAssignment then stays silent. Sending
+  // the new total meant stripping 4 of 5 services told the member "You've been
+  // assigned 1 service." (Adversarial review 2026-07-26, defect 3.)
+  if (rolesV2Enabled) {
+    const { added } = assignmentServiceDelta(priorServiceIds, selected);
+    if (added.length > 0) {
+      // Resolve the recipient INSIDE the request (the request-scoped supabase
+      // client is not safe to use from after()); only the delivery is deferred.
+      const { data: assignee } = await supabase
+        .from('vendor_team_members')
+        .select('user_id')
+        .eq('vendor_team_member_id', memberIdRaw)
+        .eq('vendor_profile_id', ctx.vendorProfileId)
+        .maybeSingle();
+      const assigneeUserId = (assignee as { user_id: string } | null)?.user_id;
+      if (assigneeUserId) {
+        after(() =>
+          notifyVendorAssignment({
+            assigneeUserId,
+            actorUserId: currentUserId,
+            subject: { kind: 'services', serviceCount: added.length },
+          }).catch(() => {}),
+        );
+      }
     }
   }
 

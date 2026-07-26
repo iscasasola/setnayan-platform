@@ -24,6 +24,7 @@ import {
 import {
   areExtendedRolesAvailable,
   assignableRolesForTier,
+  rolesForRow,
   VENDOR_TEAM_ROLE_BLURB_EXT,
   VENDOR_TEAM_ROLE_LABEL_EXT,
   type VendorTeamRoleExtended,
@@ -60,26 +61,12 @@ const ROLE_TONE: Record<VendorTeamRoleExtended, string> = {
   admin: 'bg-sky-100 text-sky-800',
   agent: 'bg-success-100 text-success-800',
   viewer: 'bg-ink/10 text-ink/65',
-  // Pro+ scopes (locked model § 7) — rendered only once a member actually holds
-  // one, which the flag gates. Existing four are untouched above.
-  // Uses the canonical `warn` (champagne gold) family, not raw Tailwind `amber`
-  // — the Wave-3 token swap replaced ~2,600 amber/emerald/rose hits with these
-  // brand-derived ramps (tailwind.config.ts).
-  financial: 'bg-warn-100 text-warn-900',
+  // Pro+ scope (locked model § 7) — rendered only once a member actually holds
+  // it, which the flag gates. Existing four are untouched above.
+  // Uses canonical brand ramps, not raw Tailwind palettes — the Wave-3 token
+  // swap replaced ~2,600 amber/emerald/rose hits with these (tailwind.config.ts).
   secretary: 'bg-terracotta/10 text-terracotta',
 };
-
-/**
- * The role options for ONE member row: the picker's roles, plus the role that
- * member currently holds if the picker doesn't offer it. Keeps a role edit from
- * silently reassigning someone whose scope is no longer offered.
- */
-function rolesForRow(
-  offered: ReadonlyArray<VendorTeamRoleExtended>,
-  current: VendorTeamRoleExtended,
-): ReadonlyArray<VendorTeamRoleExtended> {
-  return offered.includes(current) ? offered : [...offered, current];
-}
 
 function nameOf(members: VendorTeamMemberWithUser[], userId: string): string {
   const m = members.find((x) => x.user_id === userId);
@@ -117,9 +104,9 @@ export default async function VendorTeamPage({ searchParams }: Props) {
 
   const adminCount = enriched.filter((m) => isVendorAdminRole(m.role)).length;
 
-  // Roles the picker offers. FLAG-DARK (locked model § 7 — the Financial +
-  // Secretary scopes are Pro+): with NEXT_PUBLIC_VENDOR_TEAM_ROLES_V2 off, or on
-  // a tier below Pro, this is byte-identical to VENDOR_ASSIGNABLE_ROLES.
+  // Roles the picker offers. FLAG-DARK (locked model § 7 — the Secretary scope
+  // is Pro+): with NEXT_PUBLIC_VENDOR_TEAM_ROLES_V2 off, or on a tier below Pro,
+  // this is byte-identical to VENDOR_ASSIGNABLE_ROLES.
   const rolesV2 = isVendorTeamRolesV2Enabled();
   const roleOptions = assignableRolesForTier({ tier: ctx.tierState, enabled: rolesV2 });
 
@@ -164,10 +151,8 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         </p>
         {rolesV2 && areExtendedRolesAvailable(ctx.tierState) ? (
           <p className="max-w-prose text-sm text-ink/65">
-            Your plan also unlocks two specialist roles. <strong>Financial</strong> handles billing,
-            payments and reports — and <em>cannot</em> open client chats or messages.{' '}
-            <strong>Secretary</strong> schedules and handles messages across the whole team, but
-            never sees billing or store settings.
+            Your plan also unlocks the <strong>Secretary</strong> role — scheduling and messages
+            across the whole team, but never billing or store settings.
           </p>
         ) : null}
       </header>
@@ -433,10 +418,11 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                         <select name="role" defaultValue={m.role} className="input-field cursor-pointer">
                           {/* Always include the role this member ALREADY holds, even
                               when the picker wouldn't otherwise offer it (e.g. the
-                              flag was turned back off while a Financial member
-                              exists). Without this the <select> would silently fall
-                              back to its first option — Admin — and a plain label
-                              edit would promote them. */}
+                              flag was turned back off, or the store dropped below
+                              Pro, while a Secretary member exists). Without this the
+                              <select> would silently fall back to its first option —
+                              Admin — and a plain label edit would promote them.
+                              Logic + test live in lib/vendor-team-roles.ts. */}
                           {rolesForRow(roleOptions, m.role).map((r) => (
                             <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL_EXT[r]}</option>
                           ))}

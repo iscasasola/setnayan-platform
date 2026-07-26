@@ -1,18 +1,23 @@
 /**
- * Vendor team roles — Financial + Secretary enum labels (DB-level regression).
+ * Vendor team roles — Secretary enum label (DB-level regression).
  *
- * Guards migration 20271003612974_vendor_team_roles_financial_secretary.sql
- * (Vendor_Monetization_Model_LOCKED_2026-07-25 § 7): two new
- * `public.vendor_team_role` labels plus the `vendor_assignment_received`
+ * Guards migration 20271004566590_vendor_team_role_secretary.sql
+ * (Vendor_Monetization_Model_LOCKED_2026-07-25 § 7): one new
+ * `public.vendor_team_role` label plus the `vendor_assignment_received`
  * notification type the assignment hook emits.
  *
  * WITHOUT the migration these tests FAIL — a `vendor_team_members` INSERT with
- * role='financial' raises 22P02 (invalid input value for enum), and the enum
- * label lists come back four/N-1 long. Verified by moving the migration aside
- * and re-running.
+ * role='secretary' raises 22P02 (invalid input value for enum), and the enum
+ * label lists come back N-1 long. Verified by moving the migration aside and
+ * re-running.
+ *
+ * ⛔ `financial` is DESCOPED (2026-07-26) and must NOT be in the enum: its
+ * "billing but no client chat" boundary is not expressible in the single-scalar
+ * `current_vendor_ids` rank, and `ALTER TYPE ... ADD VALUE` is irreversible.
+ * A test below pins its ABSENCE.
  *
  * Also pins the RLS consequence of widening the enum: `current_vendor_ids` must
- * stay FAIL-CLOSED for the two new labels (see the block at the bottom).
+ * stay FAIL-CLOSED for the new label (see the block at the bottom).
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -94,10 +99,18 @@ test('replay applies every migration incl. the new role enum (no unapplied files
   assert.equal(replay.applied, replay.total, 'all migrations accounted for');
 });
 
-test('vendor_team_role now carries financial + secretary', async () => {
+test('vendor_team_role now carries secretary', async () => {
   const labels = await enumLabels('vendor_team_role');
-  assert.ok(labels.includes('financial'), `financial missing from ${labels.join(',')}`);
   assert.ok(labels.includes('secretary'), `secretary missing from ${labels.join(',')}`);
+});
+
+test('DESCOPED: vendor_team_role must NOT carry financial', async () => {
+  const labels = await enumLabels('vendor_team_role');
+  assert.ok(
+    !labels.includes('financial'),
+    'financial was descoped 2026-07-26 — ALTER TYPE ADD VALUE cannot be undone, ' +
+      'so the label must never be added until the RLS split exists',
+  );
 });
 
 test('the four EXISTING roles are untouched (additive-only migration)', async () => {
@@ -109,12 +122,15 @@ test('the four EXISTING roles are untouched (additive-only migration)', async ()
   assert.deepEqual(labels.slice(0, 4), ['owner', 'admin', 'agent', 'viewer']);
 });
 
-test('a Financial member INSERTs — the blocker case without the migration', async () => {
-  await assert.doesNotReject(() => insertMember('financial'));
+test('a Secretary member INSERTs — the blocker case without the migration', async () => {
+  await assert.doesNotReject(() => insertMember('secretary'));
 });
 
-test('a Secretary member INSERTs', async () => {
-  await assert.doesNotReject(() => insertMember('secretary'));
+test('DESCOPED: a Financial member is REJECTED by the enum', async () => {
+  await assert.rejects(
+    () => insertMember('financial'),
+    /invalid input value for enum|22P02/i,
+  );
 });
 
 test('the existing roles still INSERT (regression)', async () => {
@@ -166,9 +182,9 @@ test('a vendor_assignment_received notification INSERTs', async () => {
 // new labels into the CASE) without thinking, this goes red and forces the
 // question "how much should Financial actually see?" to be answered on purpose.
 // ⚠ The flip side is a real, deliberate gap: until that helper is extended
-// (shared RLS surface — out of this track's lane, see the report), a Financial
-// or Secretary member can read NOTHING through RLS, including the billing rows
-// their role exists to see.
+// (shared RLS surface — out of this track's lane, see the report), a Secretary
+// member can read NOTHING through RLS. That is the SAFE direction, and it is
+// why the flag stays off: the role is expressible but not yet useful.
 
 async function insertMemberReturningUser(role: string): Promise<string> {
   memberSeq += 1;
@@ -194,20 +210,15 @@ async function vendorIdsFor(userId: string, minRole: string): Promise<string[]> 
   }
 }
 
-test('FAIL-CLOSED: a Financial member gets NO vendor ids from current_vendor_ids', async () => {
-  const userId = await insertMemberReturningUser('financial');
+test('FAIL-CLOSED: a Secretary member gets NO vendor ids from current_vendor_ids', async () => {
+  const userId = await insertMemberReturningUser('secretary');
   for (const minRole of ['viewer', 'agent', 'admin', 'owner']) {
     assert.deepEqual(
       await vendorIdsFor(userId, minRole),
       [],
-      `financial must not pass current_vendor_ids('${minRole}')`,
+      `secretary must not pass current_vendor_ids('${minRole}')`,
     );
   }
-});
-
-test('FAIL-CLOSED: a Secretary member gets NO vendor ids either', async () => {
-  const userId = await insertMemberReturningUser('secretary');
-  assert.deepEqual(await vendorIdsFor(userId, 'viewer'), []);
 });
 
 test('the existing roles still pass current_vendor_ids (no collateral damage)', async () => {

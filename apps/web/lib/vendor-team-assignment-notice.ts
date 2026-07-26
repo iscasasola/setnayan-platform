@@ -18,12 +18,38 @@
  *                  column exists (owned by another track — see the report).
  */
 
-/** DB enum label added by migration 20271003612974. */
+/** DB enum label added by the vendor-team-roles migration. */
 export const VENDOR_ASSIGNMENT_NOTIFICATION_TYPE = 'vendor_assignment_received';
 
 export type VendorAssignmentSubject =
   | { kind: 'booking'; eventName: string; eventDateIso?: string | null }
+  /**
+   * `serviceCount` is the number of services NEWLY ADDED by this save — the
+   * DELTA, not the new total. See {@link assignmentServiceDelta}.
+   */
   | { kind: 'services'; serviceCount: number };
+
+/**
+ * What changed in a services save.
+ *
+ * The notice must describe the HAND-OFF, not the resulting state. Sending "the
+ * new total" meant a revocation notified the member ("You've been assigned 1
+ * service" after stripping 4 of their 5) and a no-op save notified them too.
+ * (Adversarial review 2026-07-26, defect 3.)
+ *
+ * Pure set arithmetic; duplicates and ordering in either list are irrelevant.
+ */
+export function assignmentServiceDelta(
+  prior: ReadonlyArray<string>,
+  next: ReadonlyArray<string>,
+): { added: string[]; removed: string[] } {
+  const before = new Set(prior);
+  const after = new Set(next);
+  return {
+    added: [...after].filter((id) => !before.has(id)),
+    removed: [...before].filter((id) => !after.has(id)),
+  };
+}
 
 export type VendorAssignmentInput = {
   /** The user being assigned to (notification recipient). */
@@ -45,8 +71,9 @@ export type VendorAssignmentNotice = {
 /**
  * Notify only when there is a REAL hand-off:
  *   • never notify yourself (an admin assigning their own row),
- *   • never notify an empty services assignment (clearing all boxes is not a
- *     hand-off — the member simply has nothing assigned),
+ *   • never notify when NOTHING WAS ADDED — `serviceCount` is the delta, so a
+ *     pure revocation (added 0, removed 4) and a no-op re-save (added 0) both
+ *     land here and stay silent,
  *   • never notify a missing recipient.
  */
 export function shouldNotifyAssignment(input: VendorAssignmentInput): boolean {
@@ -78,12 +105,13 @@ export function buildAssignmentNotice(
     };
   }
 
+  // `n` is the number of services ADDED by this save (the delta).
   const n = input.subject.serviceCount;
   return {
     userId: input.assigneeUserId,
     type: VENDOR_ASSIGNMENT_NOTIFICATION_TYPE,
-    title: `You've been assigned ${n} service${n === 1 ? '' : 's'}`.slice(0, 160),
-    body: `Your team assigned ${n} service${n === 1 ? '' : 's'} to you. Their bookings and clients now show on your dashboard.`,
+    title: `You've been assigned ${n} new service${n === 1 ? '' : 's'}`.slice(0, 160),
+    body: `Your team assigned ${n} new service${n === 1 ? '' : 's'} to you. Their bookings and clients now show on your dashboard.`,
     relatedUrl: '/vendor-dashboard/customers',
   };
 }

@@ -19,7 +19,11 @@ import {
 } from '@/lib/live-studio-roam-zones';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { eventSkuActive } from '@/lib/entitlements';
-import { LIVE_STUDIO_SKU, channelForZoneIndex } from '@/lib/live-studio-control';
+import {
+  LIVE_STUDIO_SKU,
+  channelForZoneIndex,
+  liveStudioControlPath,
+} from '@/lib/live-studio-control';
 import {
   LOWER_THIRD_SUBTITLE_MAX,
   LOWER_THIRD_TITLE_MAX,
@@ -76,8 +80,11 @@ import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-const SETUP_PATH = (eventId: string) =>
-  `/dashboard/${eventId}/studio/live-studio-control/setup`;
+// ⭐ WAVE 8: resolved through the shared helper, not a literal — the controller
+// moved OUT of /dashboard to escape the shell chrome (§ 4g), and a hardcoded
+// redirect target here would have quietly bounced every action back to the old,
+// chrome'd URL. One source of truth: lib/live-studio-control.ts.
+const SETUP_PATH = (eventId: string) => liveStudioControlPath(eventId);
 
 // The Live Studio detail/buy surface — where a locked (free) host is bounced if
 // they somehow POST a multi-camera action without owning LIVE_STUDIO.

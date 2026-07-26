@@ -7,6 +7,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
+// ⭐ WAVE 8: the unified controller moved to a chrome-less top-level route (§ 4g),
+// so its revalidate target comes from the shared helper, never a literal path.
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 import {
   getEventYoutubeAccessToken,
   createPanoodBroadcast,
@@ -226,7 +229,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // Also refresh the unified Live Studio controller, which mounts this same
   // GoLiveCard (2026-07-25) — so its live monitor reflects the new broadcast.
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
-  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
+  revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }
@@ -266,7 +269,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
-  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
+  revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }

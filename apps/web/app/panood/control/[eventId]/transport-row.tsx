@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
-import { goLivePanood, endPanoodBroadcast } from '../../panood/setup/actions';
+import { goLivePanood, endPanoodBroadcast } from '@/app/dashboard/[eventId]/studio/panood/setup/actions';
 
 /**
  * TRANSPORT — the approved single-screen controller's go-live control
@@ -30,8 +30,10 @@ import { goLivePanood, endPanoodBroadcast } from '../../panood/setup/actions';
  *
  * ⭐ WAVE 3 (owner-locked 2026-07-25 · § 4d "rehearse free, pay to broadcast"): the
  * paywall is stated AT THIS MOMENT rather than as padlocks over the tiles — but as a
- * sibling element the page owns (see the "Rehearse free · Unlock … to broadcast all
- * your cameras" line under this row), NOT as a disabled button. This button must
+ * sibling element the page owns (the "Rehearse free · Unlock … to broadcast all your
+ * cameras" line, which Wave 8 moved into the channel column beside the cameras it is
+ * about, plus the persistent unlock bar pinned to the foot of the viewport), NOT as a
+ * disabled button. This button must
  * stay live and free for every host: the live /pricing page promises "Single-camera
  * livestream" free, and breaking that to sell the multi-cam upgrade would be selling
  * against our own published promise.
@@ -50,7 +52,12 @@ export function TransportRow({
   connected: boolean;
   /** There is an active broadcast right now. */
   isLive: boolean;
-  /** In-page anchor to the "Connect YouTube" step. */
+  /**
+   * Anchor for the "Connect YouTube" step. ⭐ WAVE 8: the controller no longer
+   * scrolls, so `#connect` does not jump — it OPENS THE SETUP SHEET at that
+   * section (see _components/setup-sheet.tsx, which listens for the hash). The
+   * prop keeps its shape so this component stays a dumb renderer.
+   */
   connectHref: string;
 }) {
   const [error, setError] = useState<string | null>(null);

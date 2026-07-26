@@ -10,6 +10,7 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -59,7 +60,9 @@ export default async function LiveStudioPage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  const controllerHref = `/dashboard/${eventId}/studio/live-studio-control/setup`;
+  // ⭐ WAVE 8: the controller moved out of /dashboard (chrome-less, § 4g) — resolve
+  // it through the shared helper so this doorway can never point at the old URL.
+  const controllerHref = liveStudioControlPath(eventId);
 
   const [stats, stateCtx, settings, sku] = await Promise.all([
     fetchAddOnStats(supabase, FEATURE_KEY),

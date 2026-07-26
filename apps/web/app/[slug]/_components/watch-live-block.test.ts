@@ -57,23 +57,49 @@ test('the only iframe in the block is the YouTube embed', () => {
   );
 });
 
-test('nothing anywhere in the app embeds Facebook', () => {
-  // Repo-wide, so a future surface cannot quietly add the Meta video plugin.
-  let hits = '';
+/** This file — a guard must not flag the patterns it is written to look for. */
+const SELF = 'app/[slug]/_components/watch-live-block.test.ts:';
+
+/** `git grep -nI` over apps/web, as `file:line:code` rows. Empty on no match. */
+function grepWeb(pattern: string): string[] {
   try {
-    hits = execFileSync(
-      'git',
-      ['grep', '-lI', '-e', 'facebook.com/plugins', '--', 'app', 'lib', 'components'],
-      { cwd: WEB_ROOT, encoding: 'utf8' },
-    );
+    return execFileSync('git', ['grep', '-nI', '-e', pattern, '--', 'app', 'lib', 'components'], {
+      cwd: WEB_ROOT,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(Boolean)
+      .filter((row) => !row.startsWith(SELF));
   } catch {
-    hits = ''; // git grep exits 1 when there are no matches — that is the pass case.
+    return []; // git grep exits 1 when there are no matches — that is the pass case.
   }
-  assert.equal(
-    hits.trim(),
-    '',
-    `facebook.com/plugins (the Meta video embed) appears in:\n${hits}`,
+}
+
+/** True when the matched line is prose (a comment), not code. */
+function isComment(row: string): boolean {
+  const code = row.replace(/^.*?:\d+:/, '').trim();
+  return (
+    code.startsWith('//') || code.startsWith('*') || code.startsWith('/*') || code.startsWith('{/*')
   );
+}
+
+test('nothing anywhere in the app embeds Facebook', () => {
+  // POSITIVE CONTROL first: a silent `git grep` failure (no git dir, wrong cwd)
+  // would make every assertion below pass for the wrong reason.
+  assert.ok(
+    grepWeb('youtube-nocookie').length > 0,
+    'git grep found no youtube-nocookie — the search itself is broken, so this guard proves nothing',
+  );
+
+  // (a) The Meta video plugin URL, anywhere it could be CONSTRUCTED. Comment
+  //     lines are excluded — several files explain WHY we do not embed Facebook.
+  const plugin = grepWeb('facebook.com/plugins').filter((row) => !isComment(row));
+  assert.deepEqual(plugin, [], `facebook.com/plugins (the Meta video embed) is referenced in code`);
+
+  // (b) Any `src` attribute pointing at Facebook — the shape an embed actually
+  //     takes, whether or not it goes through the plugin URL.
+  const srcs = grepWeb('src=[^>]*facebook').filter((row) => !isComment(row));
+  assert.deepEqual(srcs, [], 'a Facebook URL reached a src attribute — Facebook is a link, never an embed');
 });
 
 test('the CSP still refuses to frame facebook.com', () => {

@@ -1,6 +1,6 @@
 /**
  * Setnayan AI per-event-type pricing — the locked ladder + classification
- * invariants (node:test via tsx). Owner-locked 2026-07-22: ₱1,499 / ₱999 / ₱499
+ * invariants (node:test via tsx). Owner-locked 2026-07-22: ₱1,499 / ₱899 / ₱499
  * / ₱99 / ₱0 by AI load. Pure map, no I/O.
  */
 import { test } from 'node:test';
@@ -15,7 +15,7 @@ import {
 } from './setnayan-ai-type-pricing';
 
 test('the locked ladder values', () => {
-  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 1499, B: 999, C: 499, D: 99, E: 0 });
+  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 1499, B: 899, C: 499, D: 99, E: 0 });
   assert.deepEqual(AI_TIER_SKU, {
     A: 'SETNAYAN_AI',
     B: 'SETNAYAN_AI_B',
@@ -28,8 +28,8 @@ test('the locked ladder values', () => {
 test('every canonical event type maps to its locked tier + price', () => {
   const cases: Array<[string, string, number]> = [
     ['wedding', 'A', 1499],
-    ['debut', 'B', 999],
-    ['corporate', 'B', 999],
+    ['debut', 'B', 899],
+    ['corporate', 'B', 899],
     ['christening', 'C', 499],
     ['birthday', 'C', 499],
     ['celebration', 'C', 499],
@@ -38,7 +38,7 @@ test('every canonical event type maps to its locked tier + price', () => {
     ['anniversary', 'C', 499],
     ['graduation', 'C', 499],
     ['reunion', 'C', 499],
-    ['gala_night', 'B', 999],
+    ['gala_night', 'B', 899],
     ['gender_reveal', 'D', 99],
     ['date', 'D', 99],
     ['hangout', 'D', 99],

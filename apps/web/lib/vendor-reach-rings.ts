@@ -72,9 +72,55 @@ export const RING_KM_MAX = 100;
  */
 export const RING1_DEFAULT_KM = 0;
 
+/**
+ * The smallest Ring 2 a vendor may SAVE: 1 km.
+ *
+ * Ring 2 is the outer bound BEYOND WHICH the vendor is not shown to a couple, so
+ * `reach_ring2_km = 0` means "invisible to every couple on earth" — and combined
+ * with the NULL sentinel below, saving it once would be a self-inflicted,
+ * silent, permanent delisting from one stray slider drag. Visibility is what
+ * `public_visibility` is for (admin-guarded); the coverage slider must not be a
+ * second, unguarded way to disappear. `parseRingSettings` REJECTS anything under
+ * this and the settings slider starts here.
+ *
+ * This is a WRITE-side floor only. `resolveRingRadii` still honours a stored 0
+ * (nothing can write one today, but a direct PostgREST PATCH could, and it only
+ * ever narrows the patcher's own reach).
+ */
+export const RING2_MIN_KM = 1;
+
 /** The Ring-2 outer cap for a tier (unknown/garbage tier → Free's 30 km). */
 export function ring2CapKm(tier: string | null | undefined): number {
   return RING2_CAP_KM[asVendorTier(tier)];
+}
+
+/**
+ * What to WRITE into `vendor_profiles.reach_ring2_km` for a chosen radius —
+ * **NULL when the choice is the tier cap.**
+ *
+ * ── WHY THIS FUNCTION EXISTS (it is a money bug, not a tidiness one) ────────
+ * NULL in that column does not mean "0 km", it means **"follow my plan's cap"**
+ * (see `resolveRingRadii` rule 1 and the migration's FAIL-SAFE DEFAULTS block).
+ * The settings card is seeded with the vendor's EFFECTIVE radius, which for an
+ * untouched vendor IS the cap — so a naive "write what the slider says" save
+ * persists the *derived* number and destroys the sentinel.
+ *
+ * The consequence is permanent and invisible: a Solo vendor (cap 30) opens
+ * Coverage, nudges Ring 1, saves → `reach_ring2_km = 30`. They then buy Pro at
+ * ₱2,499/28d for the advertised 60 km, and `resolveRingRadii` clamps their
+ * stored 30 to `min(30, 60) = 30`. They paid for reach and got none of it,
+ * forever, under a card that reads "Upgrade to reach farther."
+ *
+ * Collapsing at-or-above the cap to NULL means "at the cap" stays a RELATIVE
+ * choice that follows the plan up and down, while any deliberately narrower
+ * radius stays absolute. Downgrades are unaffected — the read-side clamp already
+ * handles those without a destructive write.
+ */
+export function ring2ColumnValue(
+  tier: string | null | undefined,
+  effectiveRing2Km: number,
+): number | null {
+  return effectiveRing2Km >= ring2CapKm(tier) ? null : effectiveRing2Km;
 }
 
 /* ── Radii resolution (clamping) ─────────────────────────────────────────── */
@@ -243,13 +289,13 @@ export function resolveReachRing(input: ReachRingInput): ReachRingVerdict {
 }
 
 /**
- * The ONLY ring facts the Proposal Maker (a client component) is given.
+ * The narrowed ring verdict passed around SERVER-SIDE ONLY.
  *
- * Deliberately WITHOUT `distanceKm` and without the venue pin: the vendor is
- * quoting an inquiry, so they are entitled to know "this venue is inside your
- * free-travel ring", not to the couple's exact coordinates. Declared here rather
- * than in `vendor-reach-rings.server.ts` so a `'use client'` module can import
- * the type without dragging in `server-only`.
+ * ⚠ This type must not cross into a `'use client'` module or a props object.
+ * It carries the ring, which the vendor can binary-search into the couple's
+ * venue coordinates (see invariant 3 in `vendor-reach-rings.server.ts`). It is
+ * `Pick`ed down from the full verdict so that even server code handling it can't
+ * accidentally forward `distanceKm`.
  */
 export type TransportRingSummary = Pick<
   ReachRingVerdict,
@@ -286,8 +332,12 @@ export const FREE_TRANSPORT_DETAIL =
  * other ring it returns the input UNCHANGED (same array contents), so it is safe
  * to call unconditionally.
  *
- * NOT yet wired: `sendCustomProposalCore` is another track's file. Wiring it
- * there is a tracked cross-track dependency — until then the lock is UI-only.
+ * WIRED AT: `sendCustomProposalCore` (lib/proposal-send.ts), immediately after
+ * `gateVendorProposalThread` + `sanitizeCustomLineItems` and before the row is
+ * inserted — the single server-side chokepoint every vendor-authored quote goes
+ * through, web action and native endpoint alike. The caller recomputes the
+ * total from the returned lines. If you find this function with no call sites
+ * again, the ₱0 lock is NOT enforced and the changelog must stop saying it is.
  */
 export function enforceFreeTransport<T extends TransportEnforceableLine>(
   lines: readonly T[],
@@ -316,10 +366,83 @@ export function enforceFreeTransport<T extends TransportEnforceableLine>(
   return out;
 }
 
+/**
+ * `enforceFreeTransport` + a RE-SUM, as one step.
+ *
+ * The re-sum is the half that is easy to forget and impossible to see: zeroing a
+ * ₱15,000 transportation line without re-totalling persists `total_centavos =
+ * 15000_00` against an itemization that adds up to ₱0 more — the couple accepts
+ * a quote whose lines and total disagree, and the total is the number the
+ * booking-fee and payment-schedule maths read. Keeping the two operations in one
+ * pure function means a caller cannot do one without the other.
+ *
+ * `ring == null` (always, while the flag is dark) → the lines pass through and
+ * the total is the plain sum, i.e. exactly what `sanitizeCustomLineItems`
+ * already produced.
+ */
+export function applyFreeTransportToQuote<T extends TransportEnforceableLine>(
+  lines: readonly T[],
+  ring: Pick<ReachRingVerdict, 'transportLocked'> | null | undefined,
+): { lineItems: TransportEnforceableLine[]; totalCentavos: number } {
+  const lineItems = enforceFreeTransport(lines, ring).map((li) => ({
+    label: li.label,
+    detail: li.detail ?? null,
+    amount_centavos: li.amount_centavos,
+  }));
+  const totalCentavos = Math.max(
+    0,
+    lineItems.reduce((s, li) => s + (li.amount_centavos ?? 0), 0),
+  );
+  return { lineItems, totalCentavos };
+}
+
 /* ── Vendor-settings helpers ─────────────────────────────────────────────── */
 
+/**
+ * Decide the tier to save ring settings against, from the narrow `tier_state`
+ * read — or REFUSE the save.
+ *
+ * Pure so the fail direction is testable without a Supabase client, because the
+ * fail direction is the whole point. `asVendorTier(null)` is `'free'`, whose
+ * Ring-2 cap (30 km) is the SMALLEST on the ladder. Treating an errored or empty
+ * read as "no tier" would therefore clamp an Enterprise vendor's 100 km to 30
+ * and then persist that 30 — a transient PostgREST blip permanently confiscating
+ * 70 km of reach they are still paying for. Abort instead; a retry is cheap.
+ */
+export type RingSaveTierRead =
+  | { ok: true; tier: string | null }
+  | { ok: false; error: string };
+
+export function resolveTierForRingSave(
+  row: { tier_state?: unknown } | null | undefined,
+  error: unknown,
+): RingSaveTierRead {
+  if (error || row === null || row === undefined) {
+    return {
+      ok: false,
+      error: 'Couldn’t read your plan just now — please try saving again.',
+    };
+  }
+  return {
+    ok: true,
+    tier: typeof row.tier_state === 'string' ? row.tier_state : null,
+  };
+}
+
 export type RingSettingsParse =
-  | { ok: true; ring1Km: number; ring2Km: number }
+  | {
+      ok: true;
+      /** Effective (clamped) Ring 1 — what the card should display after saving. */
+      ring1Km: number;
+      /** Effective (clamped) Ring 2 — what the card should display after saving. */
+      ring2Km: number;
+      /**
+       * What to WRITE to `vendor_profiles.reach_ring2_km`. **NULL when the
+       * vendor chose their tier cap** — see `ring2ColumnValue`. Writers MUST
+       * persist this, never `ring2Km`, or a later upgrade delivers nothing.
+       */
+      ring2Store: number | null;
+    }
   | { ok: false; error: string };
 
 /**
@@ -352,10 +475,22 @@ export function parseRingSettings(
   if (n1 < 0 || n2 < 0) {
     return { ok: false, error: 'Distances can’t be negative.' };
   }
+  // A Ring 2 under RING2_MIN_KM means "no couple anywhere can see me". Refuse it
+  // rather than clamp it: clamping to 1 km is barely less of a delisting, and
+  // the vendor deserves to be told, not silently corrected. Visibility belongs
+  // to `public_visibility`, not to this slider.
+  if (Math.round(n2) < RING2_MIN_KM) {
+    return {
+      ok: false,
+      error: `Willing-to-travel has to be at least ${RING2_MIN_KM} km — at 0 km no couple can find you. Hide your shop from Profile → Visibility instead.`,
+    };
+  }
   const { ring1Km, ring2Km } = resolveRingRadii(
     tier,
     Math.round(n1),
     Math.round(n2),
   );
-  return { ok: true, ring1Km, ring2Km };
+  // ring2Store, NOT ring2Km — writing the derived cap back destroys the NULL
+  // "follow my plan" sentinel and freezes the vendor at today's cap forever.
+  return { ok: true, ring1Km, ring2Km, ring2Store: ring2ColumnValue(tier, ring2Km) };
 }

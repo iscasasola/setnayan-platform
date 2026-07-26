@@ -11,10 +11,6 @@ import {
 } from '@/lib/package-line-pricing';
 import { formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
-  FREE_TRANSPORT_DETAIL,
-  type TransportRingSummary,
-} from '@/lib/vendor-reach-rings';
-import {
   resolveSchedule,
   type InstallmentDraft,
   type InstallmentDue,
@@ -168,7 +164,6 @@ export function ProposalMaker({
   coupleCrewProvider = null,
   paymentMethods = [],
   viewerPromo = null,
-  transportRing = null,
 }: {
   threadId: string;
   /** Seeded from thread.pax_at_inquiry so the opening quote is sized to what they asked for. */
@@ -189,20 +184,6 @@ export function ProposalMaker({
    * amount (terms are freeform text; Setnayan never computes the discount).
    */
   viewerPromo?: { terms: string; creatorName?: string | null } | null;
-  /**
-   * Two-ring reach (owner-locked model 2026-07-25 § 6) — which of THIS vendor's
-   * reach rings the event venue falls in, resolved server-side by
-   * `resolveThreadTransportRing`.
-   *
-   * `null` (the default, and always the case while
-   * NEXT_PUBLIC_VENDOR_REACH_RINGS_V1 is dark) = no ring opinion → the
-   * transportation control below behaves EXACTLY as it does today.
-   *
-   * `ring === 'ring_1'` = the venue is inside the vendor's own free-travel ring
-   * → the transportation line is FORCED to ₱0 and the field is DISABLED, and the
-   * couple's quote carries a "Free Transportation" line.
-   */
-  transportRing?: TransportRingSummary | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pax, setPax] = useState(requestedPax);
@@ -237,28 +218,6 @@ export function ProposalMaker({
 
   const atRequest = pax === requestedPax && hours === requestedHours;
 
-  // ── Two-ring reach · ENFORCED free transport (model 2026-07-25 § 6) ───────
-  // The venue is inside this vendor's Ring 1, so the transportation line is
-  // locked to ₱0 and the control is disabled.
-  //
-  // The lock is DERIVED, never written into state: forcing `setTransport` from
-  // an effect would fight the vendor's own edits and would silently destroy the
-  // flat fee they had typed if the prop ever flipped back. Deriving it means the
-  // vendor's draft is preserved untouched underneath, and the instant the lock
-  // lifts (out-of-ring venue, flag off) their previous choice is back.
-  //
-  // `transportRing == null` — always true while the flag is dark — makes
-  // `effectiveTransport` identical to `transport`, so every downstream
-  // computation and the composed line items are byte-identical to today.
-  const freeTravelLocked = transportRing?.transportLocked === true;
-  // Memoised so the locked branch keeps a STABLE object identity — otherwise a
-  // fresh `{ mode: 'included', flatPhp: 0 }` every render would defeat the
-  // pricing useMemo below.
-  const effectiveTransport = useMemo<Transport>(
-    () => (freeTravelLocked ? { mode: 'included', flatPhp: 0 } : transport),
-    [freeTravelLocked, transport],
-  );
-
   // Everything numeric flows through the shared resolver. Rebuilds only when a
   // pricing input changes.
   const { subtotal, gross, credit, netPayable, lineItems } = useMemo(() => {
@@ -268,8 +227,8 @@ export function ProposalMaker({
       crew_per_head_centavos: toCentavos(crew.perHeadPhp),
     };
     const transportRow: PackageLinePricingRow = {
-      transport_mode: effectiveTransport.mode,
-      transport_flat_centavos: toCentavos(effectiveTransport.flatPhp),
+      transport_mode: transport.mode,
+      transport_flat_centavos: toCentavos(transport.flatPhp),
     };
 
     const resolved = items.map((l) => ({ l, c: resolveLineCentavos(l, pax, hours) }));
@@ -299,18 +258,9 @@ export function ProposalMaker({
         amount_centavos: charge,
       });
     }
-    if (freeTravelLocked) {
-      // Ring 1 — the couple's quote states the promise explicitly. ₱0, so it
-      // adds nothing to the total; it is there so "Free Transportation" is on
-      // the record the couple accepts, not just in the vendor's UI.
-      li.push({
-        label: 'Transportation',
-        detail: FREE_TRANSPORT_DETAIL,
-        amount_centavos: 0,
-      });
-    } else if (effectiveTransport.mode === 'flat' && trans > 0) {
+    if (transport.mode === 'flat' && trans > 0) {
       li.push({ label: 'Transportation', detail: 'Flat fee', amount_centavos: trans });
-    } else if (effectiveTransport.mode === 'distance') {
+    } else if (transport.mode === 'distance') {
       li.push({ label: 'Transportation', detail: 'Quoted after site check', amount_centavos: null });
     }
     if (discountC > 0) {
@@ -342,7 +292,7 @@ export function ProposalMaker({
       });
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, crew, effectiveTransport, freeTravelLocked, discountPhp, pax, hours, viewerPromo]);
+  }, [items, crew, transport, discountPhp, pax, hours, viewerPromo]);
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
   // crew credit) so the downpayment is a % of the full contract; the credit then
@@ -802,37 +752,22 @@ export function ProposalMaker({
           )}
         </div>
 
-        {/* Transportation — LOCKED to ₱0 when the venue sits inside this
-            vendor's Ring 1 "free travel" radius (model 2026-07-25 § 6). The
-            select is disabled rather than hidden so the vendor can see WHY they
-            can't add a travel fee, and the couple's quote carries the matching
-            "Free Transportation" line. */}
+        {/* Transportation */}
         <div className="rounded-xl border border-ink/10 bg-white p-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-ink/70">Transportation</span>
             <select
-              value={effectiveTransport.mode}
+              value={transport.mode}
               onChange={(e) => setTransport({ ...transport, mode: e.target.value as TransportMode })}
               aria-label="Transportation handling"
-              disabled={freeTravelLocked}
-              aria-describedby={freeTravelLocked ? 'transport-free-note' : undefined}
-              className={`${field} ml-auto${freeTravelLocked ? ' cursor-not-allowed opacity-60' : ''}`}
+              className={`${field} ml-auto`}
             >
-              <option value="included">{freeTravelLocked ? 'Free — included' : 'Included'}</option>
+              <option value="included">Included</option>
               <option value="flat">Flat fee</option>
               <option value="distance">By distance</option>
             </select>
           </div>
-          {freeTravelLocked ? (
-            <p
-              id="transport-free-note"
-              className="mt-2 pl-1 text-xs text-success-700"
-            >
-              Free Transportation — this venue is inside your{' '}
-              {transportRing?.ring1Km ?? 0} km free-travel ring, so no travel fee
-              can be added. Change your free-travel range in My Shop → Coverage.
-            </p>
-          ) : effectiveTransport.mode === 'flat' ? (
+          {transport.mode === 'flat' ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
               ₱
               <input
@@ -847,17 +782,11 @@ export function ProposalMaker({
                 {formatCentavos(transportChargeCentavos({ transport_mode: 'flat', transport_flat_centavos: toCentavos(transport.flatPhp) }))}
               </span>
             </div>
-          ) : effectiveTransport.mode === 'distance' ? (
+          ) : transport.mode === 'distance' ? (
             <p className="mt-2 pl-1 text-xs text-ink/45">Quoted after site check.</p>
           ) : (
             <p className="mt-2 pl-1 text-xs text-ink/45">In the line price.</p>
           )}
-          {!freeTravelLocked && transportRing?.ring === 'ring_2' ? (
-            <p className="mt-2 pl-1 text-xs text-ink/45">
-              Outside your {transportRing.ring1Km} km free-travel ring — the
-              couple was told a travel fee may apply.
-            </p>
-          ) : null}
         </div>
       </div>
 

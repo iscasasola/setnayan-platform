@@ -305,15 +305,27 @@ test('a real out-of-ring verdict never triggers the rewrite', () => {
 
 test('parseRingSettings clamps rather than rejects an over-tier submission', () => {
   const r = parseRingSettings('solo', '10', '90');
-  assert.deepEqual(r, { ok: true, ring1Km: 10, ring2Km: 30 });
+  // Clamped to the Solo cap — and stored as NULL, because "the cap" must stay a
+  // RELATIVE choice that follows a later upgrade (see the ring2Store block).
+  assert.deepEqual(r, { ok: true, ring1Km: 10, ring2Km: 30, ring2Store: null });
 });
 
 test('parseRingSettings pulls Ring 1 in when it exceeds Ring 2', () => {
-  assert.deepEqual(parseRingSettings('pro', '55', '20'), { ok: true, ring1Km: 20, ring2Km: 20 });
+  assert.deepEqual(parseRingSettings('pro', '55', '20'), {
+    ok: true,
+    ring1Km: 20,
+    ring2Km: 20,
+    ring2Store: 20,
+  });
 });
 
 test('parseRingSettings rounds and accepts numeric strings from the form', () => {
-  assert.deepEqual(parseRingSettings('pro', '9.6', '40.2'), { ok: true, ring1Km: 10, ring2Km: 40 });
+  assert.deepEqual(parseRingSettings('pro', '9.6', '40.2'), {
+    ok: true,
+    ring1Km: 10,
+    ring2Km: 40,
+    ring2Store: 40,
+  });
 });
 
 test('parseRingSettings rejects junk and negatives', () => {
@@ -324,5 +336,10 @@ test('parseRingSettings rejects junk and negatives', () => {
 });
 
 test('parseRingSettings on an unknown tier uses the FREE cap (no privilege by typo)', () => {
-  assert.deepEqual(parseRingSettings('platinum', '5', '100'), { ok: true, ring1Km: 5, ring2Km: 30 });
+  assert.deepEqual(parseRingSettings('platinum', '5', '100'), {
+    ok: true,
+    ring1Km: 5,
+    ring2Km: 30,
+    ring2Store: null,
+  });
 });

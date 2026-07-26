@@ -30,12 +30,28 @@ export type { TransportRingSummary };
  *    deploy that lands ahead of the migration. An isolated query can only ever
  *    fail itself, and it fails soft to null.
  *
- * 3. THE VENUE PIN NEVER LEAVES THE SERVER. `resolveThreadTransportRing`
- *    returns only the RING (and the vendor's own radii) — not the venue
- *    coordinates and not the distance. The vendor is quoting an inquiry; they
- *    are entitled to know "this is inside your free-travel ring", not to the
- *    couple's exact venue coordinates. Keeping the pin server-side is also why
- *    the Proposal Maker takes a resolved summary prop instead of raw lat/lng.
+ * 3. THE RING VERDICT NEVER REACHES THE VENDOR'S BROWSER — not the pin, not the
+ *    distance, and not the ring itself.
+ *
+ *    The weaker earlier rule ("return the ring but not the coordinates") was
+ *    WRONG, and this is the one invariant on this file worth reading twice. The
+ *    vendor controls BOTH inputs to the comparison: the threshold (their own
+ *    Ring-1 slider) and the origin (their own HQ pin). Handing them the boolean
+ *    "is the venue inside?" and letting them re-query it freely turns the
+ *    settings card into a binary-search probe — ~6 saves pins the distance from
+ *    one origin, and two more HQ moves trilaterate the couple's venue to ~1 km.
+ *    The couple never disclosed that, and no amount of "we only return a
+ *    boolean" fixes it, because the boolean IS the oracle.
+ *
+ *    So `resolveThreadTransportRing` has exactly ONE caller —
+ *    `sendCustomProposalCore` — and its result is consumed to rewrite line items
+ *    and then discarded. A vendor can still infer one bit per SENT proposal (the
+ *    ₱0 Transportation line on a quote the couple also receives), which is
+ *    costly, visible to the couple and auditable, rather than free and silent.
+ *    DO NOT re-introduce a live ring readout in the thread UI, a `transportRing`
+ *    prop on the Proposal Maker, or any endpoint that answers this question
+ *    on demand. Making the ring safe to SHOW needs a different design — snapshot
+ *    it once at accept time from inputs the vendor can no longer move.
  */
 
 /** Vendor half of a ring resolution — HQ pin + stored radii + tier. */

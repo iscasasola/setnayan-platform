@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorReachRingsEnabled } from '@/lib/vendor-reach-rings-flag';
-import { parseRingSettings, ring2CapKm } from '@/lib/vendor-reach-rings';
+import {
+  parseRingSettings,
+  resolveTierForRingSave,
+  ring2CapKm,
+} from '@/lib/vendor-reach-rings';
 
 /**
  * Server action behind the My Shop "Coverage — free travel & willing to travel"
@@ -47,15 +51,24 @@ export async function updateVendorReachRings(
   // The tier is NOT on the profile projection (and must not be added to it —
   // see lib/vendor-profile.ts FULL_VENDOR_PROFILE_SELECT). Read it on its own so
   // a column/deploy skew can only fail this one narrow query.
-  const { data: tierRow } = await supabase
+  //
+  // ABORT, NEVER DEGRADE, on a failed tier read. `asVendorTier(null)` is 'free',
+  // whose Ring-2 cap is the SMALLEST on the ladder (30 km) — so treating a
+  // transient PostgREST hiccup as "no tier" would clamp an Enterprise vendor's
+  // 100 km down to 30 km and then WRITE that 30 to the column. A read failure
+  // would durably confiscate 70 km of purchased reach. Refusing the save costs
+  // the vendor one retry; guessing costs them the plan they paid for.
+  const { data: tierRow, error: tierErr } = await supabase
     .from('vendor_profiles')
     .select('tier_state')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  const tier =
-    tierRow && typeof (tierRow as { tier_state?: unknown }).tier_state === 'string'
-      ? (tierRow as { tier_state: string }).tier_state
-      : null;
+  const tierRead = resolveTierForRingSave(
+    tierRow as { tier_state?: unknown } | null,
+    tierErr,
+  );
+  if (!tierRead.ok) return { ok: false, error: tierRead.error };
+  const tier = tierRead.tier;
 
   const parsed = parseRingSettings(
     tier,
@@ -64,11 +77,17 @@ export async function updateVendorReachRings(
   );
   if (!parsed.ok) return parsed;
 
+  // `parsed.ring2Store`, NOT `parsed.ring2Km`. NULL in reach_ring2_km means
+  // "follow my plan's cap", and the card is seeded with the DERIVED radius — so
+  // persisting the effective number turns an untouched vendor's relative
+  // "whatever my plan allows" into an absolute freeze at today's cap. They then
+  // buy Pro for the advertised 60 km and the read-side clamp hands them back the
+  // Solo 30 they accidentally wrote. See `ring2ColumnValue`.
   const { error } = await supabase
     .from('vendor_profiles')
     .update({
       reach_ring1_km: parsed.ring1Km,
-      reach_ring2_km: parsed.ring2Km,
+      reach_ring2_km: parsed.ring2Store,
     })
     .eq('vendor_profile_id', profile.vendor_profile_id);
 

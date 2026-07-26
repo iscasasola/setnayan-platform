@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { RING2_MIN_KM } from '@/lib/vendor-reach-rings';
 import { ReachMap } from './reach-map';
 import { updateVendorReachRings } from '../reach-actions';
 
@@ -158,7 +159,11 @@ export function ReachRingsCard({
           <input
             id="reach-ring2"
             type="range"
-            min={0}
+            // RING2_MIN_KM, not 0: Ring 2 is the bound BEYOND which couples
+            // don't see this vendor, so 0 km is a silent self-delisting. The
+            // server rejects it too (`parseRingSettings`); this just keeps the
+            // slider from ever offering it.
+            min={RING2_MIN_KM}
             max={capKm}
             step={1}
             value={ring2}

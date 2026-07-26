@@ -22,7 +22,6 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
-import { resolveThreadTransportRing } from '@/lib/vendor-reach-rings.server';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -117,17 +116,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Voice/video calling is a paid-vendor capability (gate-dark by default).
   // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
   const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
-
-  // Two-ring reach (owner-locked model 2026-07-25 § 6) — which of this vendor's
-  // reach rings the EVENT VENUE falls in. Ring 1 ⇒ the Proposal Maker's
-  // transportation line is forced to ₱0 with the field disabled. Returns null
-  // (and issues zero queries) while NEXT_PUBLIC_VENDOR_REACH_RINGS_V1 is dark,
-  // and null on any error — null means "no ring opinion", i.e. today's fully
-  // editable transportation control.
-  const transportRing = await resolveThreadTransportRing({
-    vendorProfileId: thread.vendor_profile_id,
-    eventId: thread.event_id,
-  });
 
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
@@ -631,7 +619,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               coupleName={coupleLabel}
               packages={proposalPackages}
               paymentMethods={proposalPaymentMethods}
-              transportRing={transportRing}
               // PR-C — quoting an attributed thread surfaces the promised
               // audience rate and labels the discount line "Viewer promo" so
               // the customer quote (/proposals/[publicId]) reflects it.

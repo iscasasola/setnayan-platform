@@ -27,6 +27,8 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
+import { vendorSeoPlanForVendor } from '@/lib/vendor-seo-tier';
+import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
   fetchVendorServices,
@@ -223,6 +225,13 @@ type PublicVendorRow = {
   // `?? null` everywhere so a missing column degrades to free (safe:
   // name stays hidden, reviews stay gated).
   tier_state?: string | null;
+  // Subscription expiry for the tier above. Read on this PUBLIC page because
+  // tier lapse is LOGIN-DRIVEN (`sweep_vendor_tier_expiry` fires from the
+  // vendor dashboard layout) and nobody is logged in here — so a vendor whose
+  // subscription ended months ago still carries a paid `tier_state` in this
+  // row. Anything gating a paid entitlement off `tier_state` on a public
+  // surface MUST pair it with this column. NULL = never expires (admin comp).
+  tier_expires_at?: string | null;
   // PR-B public-visibility verification gate. `verification_state` is a
   // public.vendor_verification_state enum on vendor_profiles with FIVE values
   // (unverified | pending_review | verified | demoted | rejected, NOT NULL
@@ -324,7 +333,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -335,7 +344,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|user_id)/i.test(
       error.message,
     )
   ) {
@@ -1303,6 +1312,25 @@ export async function renderVendorBySlug({
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
 
+  // External-visibility ladder (Vendor_Monetization_Model_LOCKED_2026-07-25 § 8)
+  // — FLAG-DARK. The IDENTITY graph below + the BreadcrumbList are "basic
+  // indexability", free for every tier and never gated. Only the two paid
+  // enrichments read the plan: `entityGraph` (knowsAbout · Solo+) and
+  // `offerGraph` (hasOfferCatalog · makesOffer · priceRange · Pro+). With
+  // NEXT_PUBLIC_VENDOR_SEO_TIER_GATE unset, the plan is the legacy all-true one
+  // → this page's JSON-LD is byte-identical to today.
+  //
+  // The whole ROW goes in, not just `tier_state`: this is a PUBLIC render, so
+  // nobody is logged in and the login-driven `sweep_vendor_tier_expiry` has not
+  // run. `vendorSeoPlanForVendor` checks `tier_expires_at` itself and collapses
+  // a lapsed paid tier to free. It also treats an ABSENT `tier_state` (the
+  // legacy-select fallback below) as UNKNOWN rather than free, so a schema skew
+  // cannot silently de-enrich a currently paying vendor.
+  const seoPlan = vendorSeoPlanForVendor(
+    { tier_state: vendor.tier_state, tier_expires_at: vendor.tier_expires_at },
+    isVendorSeoTierGateEnabled(),
+  );
+
   const vendorJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'ProfessionalService'],
@@ -1333,7 +1361,9 @@ export async function renderVendorBySlug({
   // Vendor services — surface canonical_service strings as `knowsAbout`
   // entries so AI engines can match the vendor against category queries.
   // Maps the enum key to its human-readable label when recognized.
-  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+  // GEO enrichment → Solo+ (seoPlan.entityGraph); always on while the gate is
+  // dark.
+  if (seoPlan.entityGraph && Array.isArray(vendor.services) && vendor.services.length > 0) {
     vendorJsonLd.knowsAbout = vendor.services.map((s: string) =>
       isCanonicalService(s) ? displayServiceLabel(s) : s,
     );
@@ -1367,7 +1397,10 @@ export async function renderVendorBySlug({
   // not leak a peso figure the visible page hides — so makesOffer + priceRange
   // are omitted entirely (the OfferCatalog of service NAMES below stays, as it
   // carries no prices).
-  const offerPackages = hidePricesPublicly
+  // AEO offer graph → Pro+ (seoPlan.offerGraph). Stacks with — never overrides —
+  // the two existing suppressions: the vendor's own hide-prices choice and the
+  // "no ₱0 phantom offers" price filter.
+  const offerPackages = hidePricesPublicly || !seoPlan.offerGraph
     ? []
     : vendorPackages.filter(
         (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
@@ -1403,7 +1436,10 @@ export async function renderVendorBySlug({
   // OfferCatalog → Offer → Service, each linked back to the vendor as
   // provider. Lets Google + AI engines answer "does {vendor} do X?" with
   // structured precision instead of fuzzy string match.
-  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+  // AEO offer graph → Pro+ (seoPlan.offerGraph). The lighter `knowsAbout` array
+  // above still carries the same service names at Solo, so a Solo vendor stays
+  // matchable — Pro buys the OfferCatalog's structured precision, not the facts.
+  if (seoPlan.offerGraph && Array.isArray(vendor.services) && vendor.services.length > 0) {
     vendorJsonLd.hasOfferCatalog = {
       '@type': 'OfferCatalog',
       /* Hybrid-anonymity (V2.1 amendment #2): the OfferCatalog's

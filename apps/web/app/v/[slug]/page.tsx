@@ -70,10 +70,12 @@ import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
 import type {
+  VendorPackageItemOptionRow,
   VendorPackageItemRow,
   VendorPackageRow,
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { PACKAGE_ITEM_OPTION_SELECT } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
@@ -3257,15 +3259,42 @@ async function fetchVendorPackagesWithItems(
     const { data: items } = await admin
       .from('vendor_package_items')
       .select(
-        'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at',
+        // `is_required` drives the "Always included" lock in the customize
+        // modal. It was missing here, so on this page every required line
+        // rendered as a normal unticking checkbox — the server still refused
+        // the removal, but the UI said otherwise.
+        'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
       )
       .in('package_id', packageIds)
       .order('display_order', { ascending: true });
 
+    // CHOICE lines. A line is a choice iff it has options, so this join is what
+    // makes them visible at all — without it the couple saw an inclusion with
+    // no way to pick, and the vendor's alternatives may as well not exist.
+    const itemIds = (items ?? []).map((i) => i.item_id);
+    const { data: options } = itemIds.length
+      ? await admin
+          .from('vendor_package_item_options')
+          .select(PACKAGE_ITEM_OPTION_SELECT)
+          .in('item_id', itemIds)
+          .eq('is_available', true)
+          .order('display_order', { ascending: true })
+      : { data: [] as VendorPackageItemOptionRow[] };
+
+    const optionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
+    for (const row of (options ?? []) as VendorPackageItemOptionRow[]) {
+      const list = optionsByItem.get(row.item_id) ?? [];
+      list.push(row);
+      optionsByItem.set(row.item_id, list);
+    }
+
     const itemsByPackage = new Map<string, VendorPackageItemRow[]>();
     for (const row of items ?? []) {
       const list = itemsByPackage.get(row.package_id) ?? [];
-      list.push(row as VendorPackageItemRow);
+      list.push({
+        ...(row as VendorPackageItemRow),
+        options: optionsByItem.get(row.item_id) ?? [],
+      });
       itemsByPackage.set(row.package_id, list);
     }
     return (pkgs as VendorPackageRow[]).map((p) => ({

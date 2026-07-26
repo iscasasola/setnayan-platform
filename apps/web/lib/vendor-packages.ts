@@ -176,6 +176,16 @@ export type VendorPackageItemRow = {
    * by default" and never stopped anyone unticking the line.
    */
   is_required?: boolean;
+  /**
+   * The alternatives on this line. **A line is a CHOICE iff this is non-empty**
+   * — there is no `is_choice` column, and adding one would be a second source
+   * of truth that could disagree with the rows.
+   *
+   * OPTIONAL because most SELECTs do not join the options table; `undefined`
+   * means "not fetched", which reads the same as "not a choice" everywhere it
+   * matters. Only fetch it where a couple can actually pick.
+   */
+  options?: ReadonlyArray<VendorPackageItemOptionRow>;
 };
 
 /**
@@ -259,6 +269,19 @@ export type EventVendorPackageRow = {
 export type PackageCustomizations = {
   removed_item_ids?: string[];
   consumable_allocations?: Record<string, number>;
+  /**
+   * The option the host picked on each CHOICE line — a flat list of
+   * `vendor_package_item_options.option_id`, at most one per line, matching
+   * `computePackageCredit`'s `chosenOptionIds`.
+   *
+   * Absent means "every choice line stays on its default", which is what the
+   * package price already assumes (the DB pins the default's delta to 0).
+   *
+   * Rides inside the existing `customizations_json JSONB` column — **no
+   * migration needed.** Never trust the price attached to one of these ids:
+   * the server re-reads every `price_delta_centavos` from the DB.
+   */
+  chosen_option_ids?: string[];
 };
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -320,6 +343,72 @@ export function formatCentavosPhp(centavos: number | null | undefined): string {
  */
 export function isRemovableItem(item: VendorPackageItemRow): boolean {
   return item.is_default_included === true && item.is_required !== true;
+}
+
+/**
+ * A line is a CHOICE iff it carries at least one alternative. Mirrors
+ * `isChoiceLine` in ./package-credit, which types the same rule for the credit
+ * engine's own structural item type.
+ */
+export function isChoiceLine(item: VendorPackageItemRow): boolean {
+  return Array.isArray(item.options) && item.options.length > 0;
+}
+
+/**
+ * The option a choice line falls back to when the host has picked nothing: the
+ * one the vendor marked standard, which `total_price_centavos` already pays for.
+ *
+ * `undefined` for a plain line, and also for the malformed case of a choice line
+ * with no available default. The authoring validator refuses to save that
+ * (`choice_needs_exactly_one_default` + `choice_default_unavailable`) and the DB
+ * enforces at-most-one via a partial unique index — but the DB does NOT enforce
+ * *at least* one, so a row written outside the validator can still land here.
+ * Callers must treat `undefined` as "unresolved", never as "free".
+ */
+export function defaultOptionFor(
+  item: VendorPackageItemRow,
+): VendorPackageItemOptionRow | undefined {
+  return item.options?.find((o) => o.is_default && o.is_available);
+}
+
+/**
+ * The option actually in force on a line, given what the host picked.
+ *
+ * Resolution order: the picked id (only if it belongs to THIS line and is still
+ * available) → the standard option → `undefined`. Scoping the lookup to the
+ * line's own options is what stops a client sending some other line's cheaper
+ * option id and being priced by it.
+ */
+export function resolveChosenOption(
+  item: VendorPackageItemRow,
+  chosenOptionIds: ReadonlyArray<string>,
+): VendorPackageItemOptionRow | undefined {
+  const picked = item.options?.find(
+    (o) => chosenOptionIds.includes(o.option_id) && o.is_available,
+  );
+  return picked ?? defaultOptionFor(item);
+}
+
+/**
+ * What the host's choices ADD to the package price, in centavos.
+ *
+ * Only lines that are still kept can add anything — a removed line's upgrade is
+ * not charged. Prices come from the item rows the CALLER fetched, so on the
+ * server this must be called with DB-read options, never client-supplied ones.
+ */
+export function chosenOptionsSurchargeCentavos(
+  pkg: VendorPackageWithItems,
+  removedItemIds: ReadonlyArray<string>,
+  chosenOptionIds: ReadonlyArray<string>,
+): number {
+  const removedSet = new Set(removedItemIds);
+  return pkg.items.reduce((sum, item) => {
+    if (removedSet.has(item.item_id) && isRemovableItem(item)) return sum;
+    if (!item.is_default_included) return sum;
+    if (!isChoiceLine(item)) return sum;
+    const chosen = resolveChosenOption(item, chosenOptionIds);
+    return sum + (chosen?.price_delta_centavos ?? 0);
+  }, 0);
 }
 
 export function computeCustomization(

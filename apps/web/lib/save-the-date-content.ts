@@ -58,7 +58,9 @@ export type StdFilmContent = {
    * Presigned URL of the couple's uploaded closing VIDEO — plays as a locked
    * real-time island beat (plays to the end with sound) in place of the photo
    * gallery. null → no video beat (the gallery beat shows instead). On the live
-   * page this is set ONLY when the video is NSFW-approved (stdVideoIsLive).
+   * page this is set ONLY when the video carries an NSFW verdict that is
+   * `approved` AND still bound to it — same R2 keys, same bytes (SEC-6 ·
+   * stdVideoServeUrls). Stale or unknown ⇒ null, and the gallery beat shows.
    */
   videoUrl?: string | null;
   /** Poster still of the closing video — for the blurred letterbox fill behind

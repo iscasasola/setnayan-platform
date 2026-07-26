@@ -260,6 +260,16 @@ export type R2HeadResult = {
   contentType: string | null;
   /** When the object was last written to R2, or null if absent. */
   lastModified: Date | null;
+  /**
+   * The object's ETag with its surrounding quotes stripped, or null if absent.
+   * For a single (non-multipart) PUT — which is every upload `/api/upload`
+   * presigns — R2 sets this to the MD5 of the body, so it changes whenever the
+   * bytes change. That makes it a CONTENT identity for a key, which is what the
+   * Save-the-Date NSFW verdict binds to (lib/std-video-gate.ts): a key alone is
+   * not enough, because a host can re-PUT different bytes to the same key with
+   * a presigned URL they already hold.
+   */
+  etag: string | null;
 };
 
 /**
@@ -282,6 +292,7 @@ export async function r2Head(args: {
       size: typeof res.ContentLength === 'number' ? res.ContentLength : Number.NaN,
       contentType: res.ContentType ?? null,
       lastModified: res.LastModified ?? null,
+      etag: typeof res.ETag === 'string' ? res.ETag.replace(/^"|"$/g, '') || null : null,
     };
   } catch {
     // Missing object, 403, network blip — all resolve to "cannot prove custody".
@@ -294,11 +305,21 @@ export async function r2Head(args: {
  * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
  * special encoding. Throws if R2 isn't configured or the source is missing —
  * callers MUST treat a throw as "did not relocate" and leave the row untouched.
+ *
+ * `sourceIfMatch` sets `x-amz-copy-source-if-match`: the copy is REFUSED (412)
+ * unless the source still carries that ETag. Pass it whenever the copy is meant
+ * to capture bytes you already inspected — without it there is a window between
+ * "we checked these bytes" and "we copied them" in which the source can be
+ * re-PUT, and the copy would faithfully preserve the swap. Used by the SEC-6
+ * Save-the-Date seal (lib/std-video-gate.ts), which additionally HEADs the
+ * destination afterwards, so a backend that ignored the condition still fails
+ * closed rather than sealing unverified bytes.
  */
 export async function r2Copy(args: {
   bucket: R2BucketName;
   fromKey: string;
   toKey: string;
+  sourceIfMatch?: string;
 }): Promise<void> {
   const client = requireR2Client();
   await client.send(
@@ -306,6 +327,7 @@ export async function r2Copy(args: {
       Bucket: args.bucket,
       CopySource: `${args.bucket}/${args.fromKey}`,
       Key: args.toKey,
+      CopySourceIfMatch: args.sourceIfMatch,
     }),
   );
 }

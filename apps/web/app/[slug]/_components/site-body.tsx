@@ -65,6 +65,7 @@ import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
+  OwnerCapability,
   SiteIdentity,
 } from '../_lib/site-identity';
 import type {
@@ -303,6 +304,17 @@ type SiteBodyProps = {
    *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
    *  visitor (and absent → false), so their HTML is unchanged byte-for-byte. */
   editorMode?: boolean;
+  /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
+   *  server-verified this viewer's host membership of THIS event via
+   *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
+   *  BESIDE `identity`, never on it — neither identity tier may carry owner
+   *  keys (compile-time assertion in _lib/site-identity.ts).
+   *
+   *  DELIBERATELY NOT CONSUMED YET. This PR is the gate + its firewall only;
+   *  nothing here reads it, so the rendered tree is byte-identical for every
+   *  visitor including the owner. The PR that mounts owner controls consumes
+   *  it — and must keep the gate here on the server, never by hiding UI. */
+  ownerCapability?: OwnerCapability | null;
 };
 
 export function SiteBody({

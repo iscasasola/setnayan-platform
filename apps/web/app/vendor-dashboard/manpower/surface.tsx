@@ -3,6 +3,7 @@ import { HardHat, Clock, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * V2 Phase F · Vendor-side manpower surface.
@@ -63,7 +64,12 @@ export default async function VendorManpowerPage() {
   // id and don't consume each other — one parallel batch instead of two serial
   // round-trips. The open-gigs read below stays sequential (it needs
   // eligibleEventIds).
-  const [{ data: myGigs }, { data: eventLinks }] = await Promise.all([
+  // ⚠ Both gig SELECTs below name `posted_by_user_id`, which was DECLARED NOT
+  // NULL by 20260704020000 but never landed in prod (that migration's
+  // CREATE TABLE IF NOT EXISTS no-op'd against a pre-existing table).
+  // Reconciled by 20271011120000. Until then both 42703'd, so this whole
+  // surface — my gigs AND open gigs — was permanently empty.
+  const [{ data: myGigs, error: myGigsError }, { data: eventLinks }] = await Promise.all([
     // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
     supabase
       .from('manpower_gigs')
@@ -78,6 +84,12 @@ export default async function VendorManpowerPage() {
       .select('event_id')
       .eq('marketplace_vendor_id', vendor.vendor_profile_id),
   ]);
+
+  if (myGigsError) {
+    logQueryError('vendor-manpower:myGigs', myGigsError, {
+      vendorProfileId: vendor.vendor_profile_id,
+    });
+  }
 
   const eligibleEventIds = Array.from(
     new Set((eventLinks ?? []).map((row) => row.event_id)),

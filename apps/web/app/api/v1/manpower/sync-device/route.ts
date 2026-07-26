@@ -79,22 +79,33 @@ export async function POST(req: Request) {
     if (!userId) return err(401, 'unauthenticated', 'Sign in required.');
 
     const admin = createAdminClient();
+    // ⚠ REWRITTEN 2026-07-26. The old check read
+    // `vendor_service_agents.member_id` filtered by `.eq('vendor_id', …)` —
+    // BOTH columns are imaginary. That table is (created_at,
+    // vendor_service_id, vendor_team_member_id): it maps a team member to a
+    // SERVICE and carries no vendor id and no user id at all. Team membership
+    // lives in `vendor_team_members`, which is what lib/vendor-team.ts uses.
     const { data: vendorMembership } = await admin
-      .from('vendor_service_agents')
-      .select('member_id')
-      .eq('vendor_id', vendorId)
-      .eq('member_id', userId)
+      .from('vendor_team_members')
+      .select('vendor_team_member_id')
+      .eq('vendor_profile_id', vendorId)
+      .eq('user_id', userId)
+      .is('deactivated_at', null)
       .maybeSingle();
 
     // Also accept the case where userId is the vendor's owner.
+    // ⚠ `user_id`, NOT `owner_user_id` — vendor_profiles has no
+    // `owner_user_id`. Both reads 42703'd, so `allowed` could never become
+    // true and this endpoint returned 403 to its own vendor team, always.
+    // (Fail-CLOSED, so no security exposure — the route was simply dead.)
     let allowed = !!vendorMembership;
     if (!allowed) {
       const { data: vendorOwner } = await admin
         .from('vendor_profiles')
-        .select('owner_user_id')
+        .select('user_id')
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
-      allowed = vendorOwner?.owner_user_id === userId;
+      allowed = !!vendorOwner?.user_id && vendorOwner.user_id === userId;
     }
 
     if (!allowed) {
@@ -132,14 +143,20 @@ export async function POST(req: Request) {
 
   // INSERT into registered_crew_devices · 5-cap trigger raises
   // CREW_SEAT_LIMIT_EXCEEDED if event already has 5 devices.
+  // ⚠ `vendor_profile_id` / `device_id`, NOT `vendor_id` / `id` — see
+  // migration 20260704000000: the table is (device_id PK, event_id,
+  // vendor_profile_id, device_fingerprint, …) with
+  // UNIQUE (event_id, vendor_profile_id, device_fingerprint). Writing
+  // `vendor_id` and selecting `id` made this INSERT a guaranteed 42703, so
+  // the handshake could only ever return 500 device_insert_error.
   const { data: inserted, error: insertErr } = await admin
     .from('registered_crew_devices')
     .insert({
       event_id: eventId,
-      vendor_id: vendorId,
+      vendor_profile_id: vendorId,
       device_fingerprint: fingerprint,
     })
-    .select('id, registered_at')
+    .select('device_id, registered_at')
     .single();
 
   if (insertErr) {
@@ -150,15 +167,19 @@ export async function POST(req: Request) {
     }
     // UNIQUE(event_id, device_fingerprint) collision → idempotent path
     if (insertErr.code === '23505') {
+      // Match the REAL unique key (event_id, vendor_profile_id,
+      // device_fingerprint) — filtering on only two of the three could
+      // resolve another vendor's device on the same event.
       const { data: existing } = await admin
         .from('registered_crew_devices')
-        .select('id, registered_at')
+        .select('device_id, registered_at')
         .eq('event_id', eventId)
+        .eq('vendor_profile_id', vendorId)
         .eq('device_fingerprint', fingerprint)
         .maybeSingle();
       if (existing) {
         return ok({
-          device_id: existing.id,
+          device_id: existing.device_id,
           event_id: eventId,
           vendor_id: vendorId,
           device_fingerprint: redactFingerprint(fingerprint),
@@ -196,11 +217,11 @@ export async function POST(req: Request) {
   // Recount seats to return accurate current_seat_count.
   const { count: seatCount } = await admin
     .from('registered_crew_devices')
-    .select('id', { count: 'exact', head: true })
+    .select('device_id', { count: 'exact', head: true })
     .eq('event_id', eventId);
 
   return ok({
-    device_id: inserted.id,
+    device_id: inserted.device_id,
     event_id: eventId,
     vendor_id: vendorId,
     device_fingerprint: redactFingerprint(fingerprint),

@@ -83,6 +83,12 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
 
   const [pendingFlagsRes, recentClearedRes, recentConfirmedRes, enforcementRes] =
     await Promise.all([
+      // ⚠ `admin_notes` was DECLARED by 20260518000000 but never landed in
+      // prod (that migration's CREATE TABLE IF NOT EXISTS no-op'd against a
+      // pre-existing table). Reconciled by 20271011120000. Until then this
+      // query 42703'd, so the pending-flag queue was permanently empty AND
+      // both review actions — which UPDATE the same column and `throw` on
+      // error — would have 500'd the console for any real flag.
       admin
         .from('concierge_abuse_flags')
         .select(

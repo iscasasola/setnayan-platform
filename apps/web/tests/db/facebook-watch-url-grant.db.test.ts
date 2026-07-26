@@ -12,21 +12,27 @@
  * `GRANT UPDATE (col), INSERT (col) … TO authenticated` and this file proves it.
  *
  * ── WHY THE `before` BLOCK REBUILDS THE PRIVILEGE STATE ─────────────────────
- * Two harness facts would otherwise make this suite pass vacuously:
+ * Re-executing 20271005100000 on its own does NOT restore prod: it recomputes
+ * its allow-list from the LIVE catalog, which by then already contains
+ * panood_watch_url_facebook, so it would grant the very column under test and
+ * the migration's own GRANT would go untested.
  *
- *   1. replay-migrations.ts runs `GRANT ALL ON ALL TABLES IN SCHEMA public TO
- *      anon, authenticated, service_role` AFTER the replay loop (it emulates the
- *      Supabase default privileges that fire at CREATE TABLE time). That blanket
- *      grant restores the table-level UPDATE 20271005100000 revoked — so every
- *      column, granted or not, would be writable.
- *   2. Simply re-executing 20271005100000 does NOT restore prod either: it
- *      recomputes its allow-list from the LIVE catalog, which by then contains
- *      panood_watch_url_facebook, so it would grant the very column under test
- *      and the migration's own GRANT would be untested.
+ * So we reproduce the real ORDERING with the REAL migration files, never a
+ * reconstruction: drop the column → re-run 20271005100000 (UPDATE/INSERT
+ * snapshot taken WITHOUT it, exactly as on the day it ran) → run 20271006100000
+ * (re-adds the column and carries its UPDATE/INSERT grant) → re-run
+ * 20271007100000 (the SELECT allow-list, which in prod ran AFTER the column
+ * existed and therefore covers it).
  *
- * So we reproduce the real ORDERING: drop the column, re-run 20271005100000
- * (snapshot taken WITHOUT it, exactly as in prod), then run 20271006100000. Both
- * are the REAL migration files, never a reconstruction.
+ * That last step is not optional. 20271006100000 grants UPDATE and INSERT only;
+ * SELECT on the column comes from 20271007100000. Verified against prod
+ * 2026-07-26: `has_column_privilege('authenticated', 'public.events',
+ * 'panood_watch_url_facebook', 'SELECT')` is TRUE there. It used to be possible
+ * to omit this step because replay-migrations.ts ended with a blanket
+ * `GRANT ALL ON ALL TABLES ... TO anon, authenticated`, which silently undid
+ * every REVOKE the migrations performed. That blanket grant is gone (Supabase's
+ * real behaviour is ALTER DEFAULT PRIVILEGES at CREATE time, now declared in the
+ * harness bootstrap), so the read-back below needs the genuine SELECT grant.
  *
  * ── WHY IT IS NOT VACUOUS ───────────────────────────────────────────────────
  *   • A META test asserts current_user is literally 'authenticated' and cannot
@@ -50,6 +56,8 @@ import { MIGRATIONS_DIR, createReplayedDb, setAuthUid, type ReplayResult } from 
 
 const PRIVILEGE_MIGRATION = '20271005100000_events_column_update_privileges.sql';
 const FACEBOOK_MIGRATION = '20271006100000_events_facebook_watch_url.sql';
+/** SELECT allow-list — ran AFTER the column existed in prod, so it covers it. */
+const SELECT_PRIVILEGE_MIGRATION = '20271007100000_events_column_select_privileges.sql';
 
 /** A column added after the privilege snapshot that is deliberately NOT granted. */
 const TRAP_PROBE = 'facebook_grant_trap_probe';
@@ -127,6 +135,13 @@ before(async () => {
 
   // …and now the migration under test.
   await db.exec(readFileSync(join(MIGRATIONS_DIR, FACEBOOK_MIGRATION), 'utf8'));
+
+  // Finally the SELECT allow-list, which in prod ran after the column existed.
+  // Without it the host can WRITE the column but not read it back, and this
+  // suite's read-back would fail on a permission error rather than on content.
+  // (The TRAP_PROBE only ever asserts UPDATE, so re-granting SELECT broadly
+  // here does not weaken the control.)
+  await db.exec(readFileSync(join(MIGRATIONS_DIR, SELECT_PRIVILEGE_MIGRATION), 'utf8'));
 
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email) VALUES ('fbwatch-host@example.com') RETURNING id`,

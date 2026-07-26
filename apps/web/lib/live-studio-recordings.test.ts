@@ -286,6 +286,41 @@ test('teardown refuses an empty event id', async (t) => {
   assert.deepEqual(touched, []);
 });
 
+/* ── 4b · The card ships on BOTH couple-facing setup surfaces ─────────────── */
+
+test('⭐ recordings reach the couple on EVERY Live Studio setup surface', () => {
+  // Which surface a couple uses depends on a flag they cannot see: OFF → the legacy
+  // /studio/panood/setup page, ON → the Wave 8 controller's SetupSheet. A recording
+  // present on only one of them is a recording they LOSE at the flag flip. Same rule
+  // and same reason as FACEBOOK_REPLAY_WARNING's own both-surfaces test.
+  const card = repoFile('app/_components/live-studio-recordings-card.tsx');
+  assert.match(card, /RECORDINGS_HEADING/, 'the card must render the shared heading');
+  assert.match(card, /rec\.watchUrl/, 'the card must render the resolved watch URL');
+
+  for (const surface of [
+    'app/dashboard/[eventId]/studio/panood/setup/page.tsx',
+    'app/panood/control/[eventId]/page.tsx',
+  ]) {
+    const src = repoFile(surface);
+    assert.match(
+      src,
+      /<LiveStudioRecordingsCard/,
+      `${surface} does not show the couple their recordings`,
+    );
+    assert.match(
+      src,
+      /fetchEventRecordings\(/,
+      `${surface} renders the card but never fetches anything to put in it`,
+    );
+  }
+});
+
+test('the card renders NOTHING for an event with no recordings', () => {
+  // A couple mid-planning must not see a section about a video that does not exist.
+  const card = repoFile('app/_components/live-studio-recordings-card.tsx');
+  assert.match(card, /if \(recordings\.length === 0\) return null;/);
+});
+
 /* ── 5 · No deletes, anywhere ─────────────────────────────────────────────── */
 
 test('🔒 nothing in the recording path can DELETE a broadcast', () => {

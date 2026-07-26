@@ -45,6 +45,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { fetchEventRecordings } from '@/lib/live-studio-recordings';
 import {
   LIVE_STUDIO_SKU,
   PROGRAM_CHANNEL_LABEL,
@@ -91,6 +92,7 @@ import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
+import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
@@ -378,6 +380,18 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const cameras = await fetchChannelCameras(admin, eventId, zoneBase, appUrl).catch(
     () => new Map<number, ChannelCameraView>(),
   );
+
+  // ⭐ THE RECORDING HANDOFF (09_Panood § 6) on the surface that SURVIVES the flag
+  // flip. The legacy /studio/panood/setup page carries the same card; which one a
+  // couple uses depends on a flag they cannot see, so a recording present on only
+  // one of them is a recording they lose at the flip. Same rule, same reason as
+  // FACEBOOK_REPLAY_WARNING rendering on both couple-facing setup surfaces.
+  //
+  // Reuses the `admin` client above (both source tables carry stream keys and are
+  // RLS-policy-less; this page is already behind isLiveStudioSetupHost). Fail-soft:
+  // returns [] on a pre-migration DB and never throws, and the card renders nothing
+  // for an event that has not finished a broadcast.
+  const recordings = await fetchEventRecordings(admin, eventId).catch(() => []);
 
   const now = new Date();
   const zones: ChannelRow[] = await Promise.all(
@@ -1925,6 +1939,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </div>
         </div>
       </section>
+
+      {/* AFTER the "On the day" note, deliberately: the sheet reads in event order
+          — set up, go live on the day, then collect the recording. Compact because
+          Wave 8 made vertical space the scarce resource in this sheet. */}
+      <LiveStudioRecordingsCard recordings={recordings} compact />
       </SetupSheet>
     </div>
   );

@@ -43,7 +43,11 @@ export default async function BudgetPage({ params }: Props) {
   // missing columns at runtime (returns undefined) for any caller.
   const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description, share_budget_band',
       )

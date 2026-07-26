@@ -108,6 +108,12 @@ test('ADD COLUMN NOT NULL DEFAULT FALSE populates PRE-EXISTING events with FALSE
   const r0 = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.events`);
   assert.ok(r0.rows[0]!.n > 0, 'at least one pre-existing event stands in for prod’s rows');
 
+  // SEC-2b (20271008731642) added public.events_host, a view projecting EVERY
+  // column of public.events, so this DROP now fails 2BP01 unless the view goes
+  // first. Dropping it is safe here: the simulated rewind predates the view,
+  // no assertion in this file reads events_host, and the ADD COLUMN below
+  // restores the column the rest of the file uses.
+  await db.exec(`DROP VIEW IF EXISTS public.events_host`);
   await db.exec(`ALTER TABLE public.events DROP COLUMN website_open_browse`);
   await db.exec(
     `ALTER TABLE public.events

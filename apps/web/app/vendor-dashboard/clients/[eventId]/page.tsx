@@ -120,6 +120,7 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -634,12 +635,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const authorIds = Array.from(new Set(rawNotes.map((n) => n.author_user_id)));
   const authorLabels = new Map<string, string>();
   if (authorIds.length > 0) {
-    const { data: authors } = await admin
+    // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
+    // PostgREST 42703s the whole query, so `authors` was always null and every
+    // teammate's CRM note rendered with a blank author instead of their name
+    // (only the caller's own notes showed, via the hardcoded 'You' branch).
+    const { data: authors, error: authorsError } = await admin
       .from('users')
-      .select('user_id, full_name')
+      .select('user_id, display_name')
       .in('user_id', authorIds);
-    for (const a of (authors ?? []) as Array<{ user_id: string; full_name: string | null }>) {
-      if (a.full_name) authorLabels.set(a.user_id, a.full_name);
+    if (authorsError) {
+      logQueryError('vendor-dashboard/clients:noteAuthors', authorsError, { eventId });
+    }
+    for (const a of (authors ?? []) as Array<{ user_id: string; display_name: string | null }>) {
+      if (a.display_name) authorLabels.set(a.user_id, a.display_name);
     }
   }
   const notes: ClientNote[] = rawNotes.map((n) => ({

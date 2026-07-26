@@ -9,6 +9,7 @@ import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { enrichTeamWithUsers, fetchVendorTeam } from '@/lib/vendor-team';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 export const metadata = {
   title: 'Grant tokens · Admin',
   robots: { index: false, follow: false },
@@ -104,14 +105,26 @@ export default async function AdminVendorTokensPage({
 
   // Recent grants · last 10 rows from token_grants_log for this vendor,
   // newest first. Used to show admin what's already been granted (and by whom).
-  const { data: recentGrants } = await admin
+  // ⚠ `grant_id`, NOT `log_id` — public.token_grants_log has no `log_id`.
+  // PostgREST fails the WHOLE query on an unknown column (42703), so this list
+  // was permanently empty and the admin saw "no grants yet" for vendors that
+  // DO have grant history (prod: 6 rows in the table).
+  const { data: recentGrants, error: recentGrantsError } = await admin
     .from('token_grants_log')
     .select(
-      'log_id, grant_source, tokens_granted, rationale, granted_at, granted_by_admin_id',
+      'grant_id, grant_source, tokens_granted, rationale, granted_at, granted_by_admin_id',
     )
     .eq('vendor_id', vendorProfileId)
     .order('granted_at', { ascending: false })
     .limit(10);
+  // A read failure and "no grants yet" must not render identically — that is
+  // exactly how the 42703 above survived. Still degrades to an empty list
+  // rather than 500ing the console.
+  if (recentGrantsError) {
+    logQueryError('admin/vendors/tokens:recentGrants', recentGrantsError, {
+      vendorProfileId,
+    });
+  }
 
   const earned = wallet?.earned_tokens ?? 0;
   const purchased = wallet?.purchased_tokens ?? 0;
@@ -389,7 +402,7 @@ export default async function AdminVendorTokensPage({
         ) : (
           <ul className="divide-y divide-ink/10">
             {recentGrants.map((g) => (
-              <li key={g.log_id} className="flex items-start justify-between gap-3 py-2.5">
+              <li key={g.grant_id} className="flex items-start justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-ink">
                     {g.tokens_granted.toLocaleString('en-PH')} tokens

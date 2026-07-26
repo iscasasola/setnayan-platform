@@ -64,16 +64,17 @@ export function DressCodeWidget({
     // wedding friction. See INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
     if (ceremonyType === 'inc') {
       return (
-        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
-          <header>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-              Dress code
+        <section className="space-y-4">
+          <header className="space-y-2">
+            <p className="pahina-eyebrow">
+              <span aria-hidden>№ 05</span>
+              <span>Dress code</span>
             </p>
-            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
               Modest &amp; formal
             </h3>
           </header>
-          <p className="text-sm text-ink/70">
+          <p className="max-w-prose text-base leading-relaxed text-ink/70">
             Our ceremony is held in the INC chapel, so we kindly ask everyone to
             dress modestly and formally — please avoid sleeveless tops and short
             dresses or skirts. Thank you for honoring the occasion with us.
@@ -86,37 +87,39 @@ export function DressCodeWidget({
     // dress code — it spares guests the most common Nikah/walima friction.
     if (ceremonyType === 'muslim') {
       return (
-        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
-          <header>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-              Dress code
+        <section className="space-y-4">
+          <header className="space-y-2">
+            <p className="pahina-eyebrow">
+              <span aria-hidden>№ 05</span>
+              <span>Dress code</span>
             </p>
-            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
               Modest dress
             </h3>
           </header>
-          <p className="text-sm text-ink/70">
+          <p className="max-w-prose text-base leading-relaxed text-ink/70">
             We warmly ask everyone to dress modestly — shoulders and knees
             covered. Ladies, please feel free to bring a scarf for the ceremony.
             Thank you for honoring the occasion with us.
           </p>
           {genderNote ? (
-            <p className="text-sm font-medium text-ink/75">{genderNote}</p>
+            <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p>
           ) : null}
         </section>
       );
     }
     return (
-      <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
-        <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-            Dress code
+      <section className="space-y-4">
+        <header className="space-y-2">
+          <p className="pahina-eyebrow">
+            <span aria-hidden>№ 05</span>
+            <span>Dress code</span>
           </p>
-          <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
             Coming together
           </h3>
         </header>
-        <p className="text-sm text-ink/65">
+        <p className="max-w-prose text-base leading-relaxed text-ink/65">
           Your hosts haven&rsquo;t shared the dress code yet — check back closer to
           the wedding.
         </p>
@@ -124,37 +127,42 @@ export function DressCodeWidget({
     );
   }
 
+  // Pahina (design 2026-07-25 §5/§7): chapter № 05, the palette rendered as SILK
+  // SWATCHES (tall fabric chips with inner shading + a gild pin, not flat color
+  // dots), and the Do/Don't boxes recoloured off the app's success/danger greens
+  // and reds onto palette-derived tones — the functional-color exile (§4). The
+  // two lists stay distinguishable by their key and rule, not by hue.
   return (
-    <section className="space-y-5 rounded-xl border border-ink/10 bg-cream p-6">
-      <header>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Dress code</p>
-        <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+    <section className="space-y-5">
+      <header className="space-y-2">
+        <p className="pahina-eyebrow">
+          <span aria-hidden>№ 05</span>
+          <span>Dress code</span>
+        </p>
+        <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
           {title || 'Dress with us'}
         </h3>
       </header>
-      {description ? <p className="text-sm text-ink/70">{description}</p> : null}
+      {description ? (
+        <p className="max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
+      ) : null}
       {palette.length > 0 ? (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-4">
           {palette.map((p, i) => (
-            <div
-              key={`${p.hex}-${i}`}
-              className="flex items-center gap-2 text-xs text-ink/70"
-            >
-              <span
-                aria-hidden
-                className="inline-block h-6 w-6 rounded-full ring-1 ring-ink/10"
-                style={{ backgroundColor: p.hex }}
-              />
-              {p.name}
-            </div>
+            <figure key={`${p.hex}-${i}`} className="w-[3.25rem]">
+              <span aria-hidden className="pahina-swatch" style={{ backgroundColor: p.hex }} />
+              <figcaption className="mt-2 text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
+                {p.name}
+              </figcaption>
+            </figure>
           ))}
         </div>
       ) : null}
       {dos.length > 0 || donts.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {dos.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
-              <p className="font-mono text-xs uppercase tracking-[0.15em]">Do</p>
+            <div className="space-y-2 border-l-2 border-gild bg-veil/50 p-4 text-sm text-ink/80">
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
                   <li key={i}>· {row}</li>
@@ -163,8 +171,8 @@ export function DressCodeWidget({
             </div>
           ) : null}
           {donts.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
-              <p className="font-mono text-xs uppercase tracking-[0.15em]">
+            <div className="space-y-2 border-l-2 border-ink/30 bg-paper-deep p-4 text-sm text-ink/75">
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
                 Don&rsquo;t
               </p>
               <ul className="space-y-1">
@@ -177,7 +185,7 @@ export function DressCodeWidget({
         </div>
       ) : null}
       {genderNote ? (
-        <p className="text-sm font-medium text-ink/75">{genderNote}</p>
+        <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p>
       ) : null}
     </section>
   );

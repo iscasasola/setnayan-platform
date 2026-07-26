@@ -874,9 +874,15 @@ export function SiteBody({
                   can decouple if a host wants the wedding page to skip the
                   personalized welcome. */}
               {plan.greetingShouldRender ? (
-                <section className="space-y-4 text-center">
-                  <p className="font-serif text-3xl italic leading-tight text-ink">Hi, {guest.first_name}.</p>
-                  <p className="mx-auto max-w-prose text-base text-ink/70">
+                /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
+                   the display face with the guest's name in gild — the
+                   personalization (nobody else in the market has it) is
+                   unchanged, only its setting. */
+                <section className="space-y-3">
+                  <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
+                    Hi, <span className="text-gild">{guest.first_name}</span>.
+                  </p>
+                  <p className="max-w-prose text-base leading-relaxed text-ink/70">
                     We&rsquo;d love to celebrate with you on{' '}
                     <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
                     {event.venue_name ? (
@@ -901,11 +907,13 @@ export function SiteBody({
                   Spec §7.5: remote guests first. */}
               {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} /> : null}
 
+              {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
+                  promotion used to wrap the whole widget in an app-green box.
+                  The emphasis now lives inside the programme rail — the live
+                  row carries an accent left rule + veil wash + "Happening now"
+                  tag. Same promotion, same gating, no green on a wedding page. */}
               {isLive && scheduleBlocks.length > 0 ? (
-                <section
-                  aria-label="Day-of schedule"
-                  className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
-                >
+                <section aria-label="Day-of schedule">
                   <ScheduleWidget
                     blocks={scheduleBlocks}
                     eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}

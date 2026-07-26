@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6151
+# facts: 6152
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     719
-#   col       4398
+#   col       4399
 #   policy    806
 #   view      10
 #   func      214
@@ -401,8 +401,8 @@ tpriv	public.papic_seat_day_usage|anon	SIUD
 tpriv	public.papic_seat_day_usage|authenticated	SIUD
 tpriv	public.papic_tier_config|anon	SIUD
 tpriv	public.papic_tier_config|authenticated	SIUD
-tpriv	public.patiktok_oauth_grants|anon	SIUD
-tpriv	public.patiktok_oauth_grants|authenticated	SIUD
+tpriv	public.patiktok_oauth_grants|anon	IUD
+tpriv	public.patiktok_oauth_grants|authenticated	IUD
 tpriv	public.patiktok_oauth_state|anon	SIUD
 tpriv	public.patiktok_oauth_state|authenticated	SIUD
 tpriv	public.patiktok_render_job_clips|anon	SIUD
@@ -435,8 +435,8 @@ tpriv	public.platform_compliance_facts|anon	SIUD
 tpriv	public.platform_compliance_facts|authenticated	SIUD
 tpriv	public.platform_expenses|anon	SIUD
 tpriv	public.platform_expenses|authenticated	SIUD
-tpriv	public.platform_integration_secrets|anon	SIUD
-tpriv	public.platform_integration_secrets|authenticated	SIUD
+tpriv	public.platform_integration_secrets|anon	IUD
+tpriv	public.platform_integration_secrets|authenticated	IUD
 tpriv	public.platform_package_catalog|anon	SIUD
 tpriv	public.platform_package_catalog|authenticated	SIUD
 tpriv	public.platform_retail_catalog_v2|anon	SIUD
@@ -603,7 +603,7 @@ tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
 tpriv	public.vendor_guest_deliveries|anon	SIUD
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
-tpriv	public.vendor_ig_connections|anon	SIUD
+tpriv	public.vendor_ig_connections|anon	IUD
 tpriv	public.vendor_ig_media|anon	SIUD
 tpriv	public.vendor_ig_media|authenticated	SIUD
 tpriv	public.vendor_ig_oauth_state|anon	SIUD
@@ -3061,13 +3061,13 @@ col	public.papic_tier_config.sort_order	anon=SIU authenticated=SIU
 col	public.papic_tier_config.tier_code	anon=SIU authenticated=SIU
 col	public.papic_tier_config.updated_at	anon=SIU authenticated=SIU
 col	public.papic_tier_config.wedding_day_cap_php	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.access_token	anon=SIU authenticated=SIU
+col	public.patiktok_oauth_grants.access_token	anon=IU authenticated=IU
 col	public.patiktok_oauth_grants.created_at	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.event_id	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.expires_at	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.grant_id	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.granted_by	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.refresh_token	anon=SIU authenticated=SIU
+col	public.patiktok_oauth_grants.refresh_token	anon=IU authenticated=IU
 col	public.patiktok_oauth_grants.refreshed_at	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.revoked_at	anon=SIU authenticated=SIU
 col	public.patiktok_oauth_grants.revoked_reason	anon=SIU authenticated=SIU
@@ -3306,18 +3306,18 @@ col	public.platform_expenses.receipt_uploaded_at	anon=SIU authenticated=SIU
 col	public.platform_expenses.recurs_monthly	anon=SIU authenticated=SIU
 col	public.platform_expenses.updated_at	anon=SIU authenticated=SIU
 col	public.platform_expenses.vendor_name	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.google_drive_oauth_client_secret_enc	anon=SIU authenticated=SIU
+col	public.platform_integration_secrets.google_drive_oauth_client_secret_enc	anon=IU authenticated=IU
 col	public.platform_integration_secrets.id	anon=SIU authenticated=SIU
 col	public.platform_integration_secrets.last_verified_at	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.maya_public_api_key_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.maya_secret_api_key_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.meta_page_access_token_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.openai_api_key_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.resend_api_key_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.tiktok_access_token_enc	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.tiktok_client_secret_enc	anon=SIU authenticated=SIU
+col	public.platform_integration_secrets.maya_public_api_key_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.maya_secret_api_key_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.meta_page_access_token_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.openai_api_key_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.resend_api_key_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.tiktok_access_token_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.tiktok_client_secret_enc	anon=IU authenticated=IU
 col	public.platform_integration_secrets.updated_at	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.youtube_oauth_client_secret_enc	anon=SIU authenticated=SIU
+col	public.platform_integration_secrets.youtube_oauth_client_secret_enc	anon=IU authenticated=IU
 col	public.platform_package_catalog.created_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.description	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.is_active	anon=SIU authenticated=SIU
@@ -4252,7 +4252,7 @@ col	public.vendor_guest_deliveries.guest_id	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.item_label	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.voided_at	anon=SIU authenticated=SIU
-col	public.vendor_ig_connections.access_token_enc	anon=SIU authenticated=-
+col	public.vendor_ig_connections.access_token_enc	anon=IU authenticated=-
 col	public.vendor_ig_connections.connected_at	anon=SIU authenticated=S
 col	public.vendor_ig_connections.created_at	anon=SIU authenticated=S
 col	public.vendor_ig_connections.ig_user_id	anon=SIU authenticated=S

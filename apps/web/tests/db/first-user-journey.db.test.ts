@@ -250,10 +250,65 @@ test('4 · the couple can lock the package and the money is right', async () => 
 
 /* ── 5. The fee ────────────────────────────────────────────────────────────*/
 
-test('5 · the booking fee is based on the WHOLE package, via the anchor', () => {
-  // §6.4's number, now reachable: the anchor carries ₱145,000, so the taper
-  // gives ₱5,000 + 1% of ₱45,000 = ₱5,450 — not 5% of one ₱90,000 line.
+test('5 · the fee is charged ONCE, on the whole package, via the anchor', async () => {
+  // §6.4. Until this landed, lockPackage never called the fee collector at all,
+  // so a package booked for ₱0 in fees no matter its size.
   assert.equal(bookingFeePhp(145000), 5450, 'the taper on the agreed package total');
+
+  // Push this vendor past their five free bookings so a real charge computes.
+  for (let i = 1; i <= 5; i++) {
+    const ev = await db.query<{ event_id: string }>(
+      `INSERT INTO public.events (display_name, event_type)
+       VALUES ($1,'birthday') RETURNING event_id`, [`warm-${i}`],
+    );
+    const warmEvent = ev.rows[0]!.event_id;
+    await db.query(
+      `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+       VALUES ($1,$2,'explore')`, [warmEvent, ids.vendor],
+    );
+    const r = await db.query<{ vendor_id: string }>(
+      `INSERT INTO public.event_vendors
+         (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
+       VALUES ($1,'photographer','Journey Photo Co','contracted',1000,$2)
+       RETURNING vendor_id`, [warmEvent, ids.vendor],
+    );
+    await db.query(`SELECT public.booking_fee_open_lock_charge($1)`, [r.rows[0]!.vendor_id]);
+  }
+
+  // THE ANCHOR — the 6th booking, so it actually bills.
+  const res = await db.query<{ r: Record<string, unknown> }>(
+    `SELECT public.booking_fee_open_lock_charge($1) AS r`, [ids.anchor],
+  );
+  const r = res.rows[0]!.r;
+
+  assert.equal(r.status, 'pending', 'the 6th booking bills');
+  assert.equal(
+    Number(r.computed_fee_centavos),
+    545000,
+    'the fee is the taper on ₱145,000 — the number the couple agreed to, not one line',
+  );
+
+  // AND a covered row must be refused outright. Calling the RPC per covered row
+  // would burn a free-5 slot per service and freeze a ledger ordinal that is
+  // only ever computed once.
+  const covered = await db.query<{ vendor_id: string }>(
+    `SELECT vendor_id FROM public.event_vendors
+      WHERE event_vendor_package_id=$1 AND package_role='covered' LIMIT 1`,
+    [ids.booking],
+  );
+  const cres = await db.query<{ r: Record<string, unknown> }>(
+    `SELECT public.booking_fee_open_lock_charge($1) AS r`, [covered.rows[0]!.vendor_id],
+  );
+  assert.equal(cres.rows[0]!.r.skipped, 'covered_row_no_fee', 'a covered row must never be billed');
+
+  // Exactly ONE charge for this whole package booking.
+  const charges = await db.query<{ c: number }>(
+    `SELECT count(*)::int c FROM public.booking_fee_charges bfc
+       JOIN public.event_vendors ev ON ev.vendor_id = bfc.event_vendor_id
+      WHERE ev.event_vendor_package_id = $1`,
+    [ids.booking],
+  );
+  assert.equal(charges.rows[0]!.c, 1, 'a package takes ONE fee, not one per service');
 });
 
 /* ── 6. The couple's own gallery / delivery side is untouched by all this ──*/

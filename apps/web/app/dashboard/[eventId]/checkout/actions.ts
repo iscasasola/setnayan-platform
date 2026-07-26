@@ -50,17 +50,15 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { AI_SUB_SKU } from '@/lib/setnayan-ai-subscription';
 import {
-  resolvePaxPricedOrderCentavos,
-  resolveBundleChargeCentavos,
-  resolveServiceSellability,
-} from '@/lib/v2-catalog';
-import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
-import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
-import {
-  SETNAYAN_AI_SKU,
-  resolveSetnayanAiTypeChargeCentavos,
-} from '@/lib/setnayan-ai-event-pricing';
+  resolveOrderChargeCentavos,
+  refusalMessage,
+  chargeOverchargesDisplayedPrice,
+  orderTotalToPhp,
+  type OrderTotalCentavos,
+} from '@/lib/order-charge-authority';
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
@@ -262,36 +260,38 @@ export async function submitOrderAction(
   if (
     typeof serviceKey !== 'string' ||
     typeof displayName !== 'string' ||
-    typeof originalRaw !== 'string' ||
     typeof channel !== 'string'
   ) {
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
   }
 
   // Per-USER Setnayan AI subscription term pass — the ONE eventless SKU. It is
-  // bought per account (covers all the buyer's events), so it has no event_id
-  // and is charged unit × cycles (₱499 × 28-day cycles). Every other SKU stays
-  // strictly event-scoped exactly as before — this branch is inert for them.
+  // bought per account (covers all the buyer's events), so it has no event_id.
+  // Every other SKU stays strictly event-scoped exactly as before.
   const isAiSub = serviceKey === AI_SUB_SKU;
   const eventIdClean =
     typeof eventId === 'string' && eventId.trim().length > 0 ? eventId.trim() : null;
   if (!isAiSub && !eventIdClean) {
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
   }
-  const cycles = isAiSub ? parseCycles(formData.get('cycles')) : null;
-  if (isAiSub && cycles === null) {
-    return { ok: false, reason: 'Pick how many cycles to subscribe for.' };
-  }
 
-  // Parse + validate the original price.
-  let originalCentavos: bigint;
-  try {
-    originalCentavos = BigInt(originalRaw);
-  } catch {
-    return { ok: false, reason: 'Price did not look right. Please refresh and try again.' };
-  }
-  if (originalCentavos < 0n) {
-    return { ok: false, reason: 'Price did not look right. Please refresh and try again.' };
+  // ⭐ SEC-7 · `original_centavos` IS NO LONGER A PRICE.
+  //
+  // It used to seed the charge and survive whenever no catalog row resolved —
+  // which is every key in NEITHER catalog, SETNAYAN_AI_SUB included. It is now
+  // parsed for ONE purpose: the one-way overcharge tripwire further down (the
+  // customer consented to the figure their screen showed, so resolving HIGHER is
+  // a refusal). It never becomes the charge, and a malformed / absent value is
+  // simply "no display reference" rather than an error — there is nothing left
+  // for it to break.
+  let displayedCentavos: bigint | null = null;
+  if (typeof originalRaw === 'string' && originalRaw.trim().length > 0) {
+    try {
+      const parsed = BigInt(originalRaw.trim());
+      displayedCentavos = parsed >= 0n ? parsed : null;
+    } catch {
+      displayedCentavos = null;
+    }
   }
 
   const supabase = await createClient();
@@ -365,10 +365,19 @@ export async function submitOrderAction(
   // value"). Filtering inside the resolver would turn a retired SKU from
   // "charged its real price" into "charged whatever the browser sent".
   //
-  // 'unknown' (in neither catalog) deliberately ALLOWS: PAPIC_CAMERAS,
-  // SETNAYAN_AI_SUB, 'save-the-date:<slug>' and 'vendor_additional_branch__<uuid>'
-  // are all legitimate keys with no catalog row. A "must map to an active row"
-  // rule would break every one of them.
+  // 'unknown' (in neither catalog) deliberately ALLOWS keys with no catalog
+  // row: SETNAYAN_AI_SUB, setnayan_service__{category}, PAPIC_CAMERAS and
+  // vendor_additional_branch__<uuid>. A "must map to an active row" rule would
+  // break them. Sellability is NOT the price gate — resolveOrderChargeCentavos
+  // is, and it refuses anything it cannot price server-side.
+  //
+  // ⚠ This list was WRONG until 2026-07-26 and the error was load-bearing: it
+  // named 'save-the-date:<slug>', which DOES NOT EXIST anywhere in the codebase
+  // (the real SKU is STD_PREMIUM_OPENINGS, an ordinary retail row), and it
+  // OMITTED setnayan_service__{category}, which is genuinely drawer-mounted and
+  // was genuinely undefended. A confident, inaccurate comment is worse than no
+  // comment: it was read as an inventory during the SEC-7 review. Verify before
+  // trusting a list like this.
   //
   // Fails CLOSED on a read error. This knowingly reverses the older "a transient
   // read failure NEVER blocks an order" stance for THIS check only: a checkout
@@ -388,72 +397,100 @@ export async function submitOrderAction(
     };
   }
 
-  // ---- Catalog is the single source of truth for the charged price ----
+  // ── ⭐ SEC-7 · THE SERVER RESOLVES THE CHARGE, OR THERE IS NO SALE ─────────
   //
-  // The base price originates client-side (the add-on page passes
-  // original_centavos for DISPLAY only). We DO NOT trust it for the actual
-  // charge: re-resolve the authoritative amount from platform_retail_catalog_v2
-  // server-side and override originalCentavos BEFORE the voucher math, so any
-  // discount applies to the correct base. This makes the charged amount ALWAYS
-  // equal the admin-set catalog price — flat SKUs (retail_price_php) and the
-  // pax-curve SKU (PAPIC_GUEST · keyed to events.estimated_pax) both resolve
-  // through the same engine (lib/v2-catalog.ts). A tampered or stale client
-  // price can never change what's billed, and a per-page hardcoded fallback can
-  // never over/under-charge. Only SKUs with NO catalog row (vendor / bundle /
-  // legacy · resolved === null) keep the client value.
-  // Owner 2026-06-14: "every price is admin-managed · never hardcoded in code."
+  // ONE call, TOTAL-OR-NOTHING. `lib/order-charge-authority.ts` runs every
+  // authoritative resolver in order (retail catalog → package catalog → the AI
+  // per-event-type ladder → the AI subscription's unit × validated cycles → the
+  // booked first-party `setnayan_service__{category}` deal) and either hands back
+  // a fully-multiplied total or REFUSES.
   //
-  // NOTE: two catalogs back the charge, checked in order. (1) the retail catalog
-  // above covers the 19 retail SKUs (flat + the pax curve). (2) the 4-tier paywall
-  // BUNDLES (GUIDED_PACK = Essentials · MEDIA_PACK = Complete) live in a SEPARATE
-  // table (platform_package_catalog · keyed by package_code, flat-priced), so the
-  // retail resolve returns null for them and the bundle order would otherwise fall
-  // back to the tamperable client price. resolveBundleChargeCentavos re-resolves
-  // the authoritative bundle price from the admin-set retail_price_php, identical
-  // to how flat retail SKUs are made authoritative. Only SKUs in NEITHER catalog
-  // (vendor / legacy · both resolves null) keep the client value.
-  const resolved = await resolvePaxPricedOrderCentavos(eventIdClean ?? '', serviceKey);
+  // What changed, and why it is the whole bug:
+  //
+  //   BEFORE  originalCentavos = BigInt(formData.get('original_centavos'))
+  //           …overwritten ONLY IF a catalog row resolved.
+  //           → every key in neither catalog kept the browser's number, and a
+  //             transient read error did too. SETNAYAN_AI_SUB is such a key, and
+  //             its branch skips the event_members check, so ₱0.01 bought a
+  //             28-day AI subscription from any signed-in account.
+  //
+  //   AFTER   the client value is not an input to the charge AT ALL. A key with
+  //           no resolver fails the sale; a resolver that ERRORS fails the sale.
+  //
+  // ⚠ ORDERING IS LOAD-BEARING and unchanged: `resolveServiceSellability` above
+  // is a REJECT that runs BEFORE this, never an `is_active` filter inside a
+  // resolver. `is_active=false` is OVERLOADED (on SETNAYAN_AI_RENEW it means "not
+  // independently sellable", not "retired"), and filtering inside a resolver used
+  // to demote "retired SKU charged its real price" into "charged whatever the
+  // browser sent". Both properties survive.
+  //
+  // ⚠ `cycles` IS NOT PARSED HERE ANYMORE. The authority owns `parseCycles` and
+  // performs `unit × cycles` in exactly one place, returning a BRANDED
+  // `OrderTotalCentavos`. Any arithmetic on that brand yields a plain bigint that
+  // will not type-check back into a total — so re-multiplying by `cycles` (the
+  // 36× overcharge the client already pre-multiplies for) is a COMPILE ERROR
+  // rather than a review item. See the module header.
+  const authority = await resolveOrderChargeCentavos({
+    serviceKey,
+    eventId: isAiSub ? null : eventIdClean,
+    cyclesRaw: formData.get('cycles'),
+  });
+  if (!authority.ok) {
+    await insertFaultLog({
+      event_type: 'OTHER',
+      element_name: 'Checkout charge authority refused',
+      file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+      error_message: `${authority.refusal}: ${authority.detail ?? ''}`,
+      payload_snapshot: {
+        eventId: eventIdClean,
+        serviceKey,
+        displayedCentavos: displayedCentavos?.toString() ?? null,
+      },
+    });
+    return { ok: false, reason: refusalMessage(authority.refusal) };
+  }
+
+  // The ONE authoritative amount for this order. `const` + the brand means it
+  // cannot be reassigned or re-multiplied downstream.
+  const chargeTotal: OrderTotalCentavos = authority.total;
   // SEC-3: the pax this order is PRICED at, frozen onto the order row below.
   // events.estimated_pax is legitimately host-writable and stays that way, so
   // the billed pax must never be re-derivable from it after the fact. Same
   // idea as the orders.setnayan_fee_bps snapshot. Null for every non-pax SKU.
-  let paxSnapshot: number | null = null;
-  if (resolved) {
-    originalCentavos = BigInt(resolved.centavos);
-    if (resolved.is_pax_priced) paxSnapshot = resolved.pax;
-  } else {
-    const bundleCentavos = await resolveBundleChargeCentavos(serviceKey);
-    if (bundleCentavos != null) {
-      originalCentavos = BigInt(bundleCentavos);
-    }
+  const paxSnapshot: number | null = authority.paxSnapshot;
+
+  // ── The one-way overcharge tripwire ───────────────────────────────────────
+  // The buyer consented to the peso figure their screen showed. Resolving HIGHER
+  // than that is refused rather than billed — this is the structural guard
+  // against the 36× cycles² class (the AI subscribe card already ships
+  // unit × cycles as `original_centavos`; a second multiply would resolve 36× the
+  // displayed total and this stops it dead). Resolving LOWER is allowed on
+  // purpose: the vendor-unlocked 3D Plan discount does exactly that, and the
+  // server figure wins either way, so a posted value tampered DOWN only blocks
+  // the tamperer's own checkout. Pax-priced totals are exempt — they legitimately
+  // rise after render, because SEC-3 prices them off live headcount rather than
+  // the host-writable estimate.
+  if (
+    chargeOverchargesDisplayedPrice({
+      total: chargeTotal,
+      displayedCentavos,
+      volatile: authority.volatile,
+    })
+  ) {
+    await insertFaultLog({
+      event_type: 'OTHER',
+      element_name: 'Checkout would overcharge the displayed price',
+      file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+      error_message: `resolved ${chargeTotal.toString()} > displayed ${displayedCentavos?.toString()}`,
+      payload_snapshot: { eventId: eventIdClean, serviceKey, source: authority.source },
+    });
+    return {
+      ok: false,
+      reason: 'The price for this changed. Please refresh the page and try again.',
+    };
   }
 
-  // Per-EVENT-TYPE Setnayan AI (owner-locked 2026-07-22): the authoritative
-  // charge is set by the event's TYPE on the load-based ladder (₱1,499 Wedding ·
-  // ₱999 Debut/Corporate · ₱499 standard · ₱99 light · ₱0 no-vendors), resolved
-  // server-side from the event's STORED type so a tampered client can't force a
-  // cheaper tier. Gated by the per-event-pricing flag: inert while off — the
-  // helper is never called and the flat SETNAYAN_AI catalog resolve above stands,
-  // byte-identical. (Supersedes the intro/renew cadence formerly resolved here.)
-  if (serviceKey === SETNAYAN_AI_SKU && eventIdClean) {
-    if (await resolveSetnayanAiPerEventPricingEnabled()) {
-      const perTypeCentavos = await resolveSetnayanAiTypeChargeCentavos(
-        createAdminClient(),
-        eventIdClean,
-      );
-      if (perTypeCentavos != null) {
-        originalCentavos = BigInt(perTypeCentavos);
-      }
-    }
-  }
-
-  // Per-user subscription: the catalog row is the ₱499 UNIT (per 28-day cycle);
-  // the charge is unit × the validated cycle count. cycles is non-null here
-  // because the isAiSub guard above already rejected a missing/invalid count,
-  // and the unit comes from the authoritative catalog resolve (never the client).
-  if (isAiSub && cycles !== null) {
-    originalCentavos = originalCentavos * BigInt(cycles);
-  }
+  const originalCentavos: bigint = chargeTotal;
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already
   // checked. Two reasons: (a) defence-in-depth · the client could lie about
@@ -556,7 +593,8 @@ export async function submitOrderAction(
     typeof premintedRaw === 'string' && /^SN[0-9A-F]{8}$/.test(premintedRaw.trim())
       ? premintedRaw.trim()
       : generateReferenceCode();
-  const originalPriceForOrderTotal = Number(originalCentavos) / 100;
+  // The stored pre-VAT base IS the server-resolved total — never the posted one.
+  const originalPriceForOrderTotal = orderTotalToPhp(chargeTotal);
   // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
   // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross
   // the stored pre-VAT base, so the amount we INSTRUCT the couple to pay here

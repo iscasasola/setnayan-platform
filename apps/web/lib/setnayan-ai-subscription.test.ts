@@ -44,8 +44,31 @@ test('cyclesFromAmount: guards zero/invalid inputs', () => {
   assert.equal(cyclesFromAmount(0, 499), 0);
   assert.equal(cyclesFromAmount(-100, 499), 0);
   assert.equal(cyclesFromAmount(null, 499), 0);
-  assert.equal(cyclesFromAmount(499, 0), 1); // can't divide → one cycle
-  assert.equal(cyclesFromAmount(499, null), 1);
+});
+
+/**
+ * ⭐ SEC-7 · the back half of the ₱0.01-buys-28-days exploit.
+ *
+ * This function used to `return 1` when it could not divide — "can't divide →
+ * grant one cycle". `SETNAYAN_AI_SUB` has no `platform_retail_catalog_v2` row in
+ * prod, so the unit read came back null on EVERY approval, so ANY paid amount —
+ * ₱0.01 included — was handed a full 28-day cycle. Stacking, repeatably.
+ *
+ * The contract is now: unknown unit ⇒ `null` ⇒ the caller REFUSES and alarms.
+ * If this test ever goes back to expecting 1, the exploit is back with it.
+ */
+test('cyclesFromAmount REFUSES (null) when the unit price is unknowable — never grants 1', () => {
+  assert.equal(cyclesFromAmount(499, 0), null, 'zero unit price must refuse, not grant a cycle');
+  assert.equal(cyclesFromAmount(499, null), null, 'missing unit price must refuse');
+  assert.equal(cyclesFromAmount(499, undefined), null);
+  assert.equal(cyclesFromAmount(499, -1), null);
+  assert.equal(cyclesFromAmount(499, Number.NaN), null);
+  // The exact exploit payload: one centavo.
+  assert.equal(
+    cyclesFromAmount(0.01, null),
+    null,
+    '₱0.01 with an unknown unit price is THE SEC-7 exploit — it must never resolve to a cycle',
+  );
 });
 
 test('extend: no existing window → now + cycles × 28 days', () => {

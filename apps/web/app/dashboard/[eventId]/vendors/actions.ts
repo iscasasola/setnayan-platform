@@ -1723,6 +1723,10 @@ export async function finalizeVendor(
     .from('event_vendors')
     .update({
       archived_at: new Date().toISOString(),
+      // Stamp WHO displaced these, so revertVendorToConsidering can un-archive
+      // exactly this set. Without it the undo left every displaced pick
+      // archived forever and the couple lost their research on a mis-tap.
+      archived_by_lock_of: vendorId,
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)
@@ -2259,6 +2263,38 @@ export async function revertVendorToConsidering(
     .eq('event_id', eventId);
   if (revertErr) {
     return { status: 'error', message: revertErr.message };
+  }
+
+  // ── UN-ARCHIVE the picks THIS lock displaced ─────────────────────────────
+  // finalizeVendor archives every other considering/shortlisted pick in the
+  // won category. Until 2026-07-26 nothing reversed that, so undoing a lock
+  // left the couple's whole shortlist for that category archived — a mis-tap
+  // silently destroyed their research with no path back but re-adding each
+  // vendor by hand.
+  //
+  // Scoped by `archived_by_lock_of = vendorId`, so this restores EXACTLY what
+  // this lock hid and never resurrects a row the host archived deliberately.
+  // Rows archived before the column existed carry NULL and are left alone —
+  // they are indistinguishable from a manual archive, and guessing would
+  // un-hide picks the couple meant to hide.
+  //
+  // Best-effort, like the sweep itself: the revert has already committed, and
+  // a failure here must not roll it back. It surfaces in logging instead.
+  const { error: unarchiveErr } = await supabase
+    .from('event_vendors')
+    .update({
+      archived_at: null,
+      archived_by_lock_of: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('archived_by_lock_of', vendorId);
+  if (unarchiveErr) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[revertVendorToConsidering] un-archive failed for event_id=${eventId} vendor_id=${vendorId}:`,
+      unarchiveErr.message,
+    );
   }
 
   // ── REVIVE displaced inquiries (fairness · payment-gated) ────────────────

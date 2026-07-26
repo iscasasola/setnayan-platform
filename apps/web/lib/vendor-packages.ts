@@ -331,7 +331,18 @@ export type PackageCustomizations = {
    * service's committed `credit_price_centavos`; a price that arrived from the
    * browser must never be what credit is debited at.
    */
-  credit_additions?: Array<{ service_id: string; quantity: number }>;
+  credit_additions?: Array<{
+    service_id: string;
+    quantity: number;
+    /**
+     * The committed price this was actually charged at, FROZEN at lock.
+     * `vendor_services.credit_price_centavos` is live and vendor-editable, so
+     * storing only a pointer would let a later edit rewrite what the couple
+     * spent. Absent on the way IN (the client never sends money); always
+     * present on the way OUT.
+     */
+    unit_price_centavos?: number;
+  }>;
 };
 
 /* ──────────────────────────────────────────────────────────────────────── */

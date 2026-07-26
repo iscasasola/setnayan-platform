@@ -277,9 +277,35 @@ export async function lockPackage(
     ...(chosenOptionIds.length > 0
       ? { chosen_option_ids: chosenOptionIds }
       : { chosen_option_ids: undefined }),
+    // Same rule as the option ids, and for the same reason: spreading
+    // `customizations` carries the BROWSER's `credit_additions` verbatim, so an
+    // id we refused to price (another vendor's service, or one with no
+    // committed credit price) would still be written into the record and read
+    // as truth by everyone downstream — including whoever tells the vendor what
+    // to deliver. Persist only what actually resolved.
+    //
+    // The unit price is FROZEN here, not just referenced: `credit_price_centavos`
+    // is a live vendor-editable number, so a later edit would otherwise rewrite
+    // history and make this record disagree with the credit that was spent.
+    // Same reasoning as `orders.pax_snapshot`.
+    ...(creditAdditions.length > 0
+      ? {
+          credit_additions: creditAdditions.map((a) => {
+            const priced = creditCatalogue.find((c) => c.addition_id === a.addition_id);
+            return {
+              service_id: a.addition_id,
+              quantity: a.quantity,
+              unit_price_centavos: priced?.unit_price_centavos ?? 0,
+            };
+          }),
+        }
+      : { credit_additions: undefined }),
   };
   if (persistedCustomizations.chosen_option_ids === undefined) {
     delete persistedCustomizations.chosen_option_ids;
+  }
+  if (persistedCustomizations.credit_additions === undefined) {
+    delete persistedCustomizations.credit_additions;
   }
 
   // 5. Fetch vendor info for the cascaded event_vendors row metadata.
@@ -643,12 +669,44 @@ export async function removeItemFromPackage(formData: FormData) {
   // recorded the pick — and the booking fee rides on that total.
   const survivingOptionIds = newCustom.chosen_option_ids ?? [];
   const removePax = (await resolveLivePax(supabase, eventId)) ?? 0;
+
+  // Credit already spent on the vendor's other services survives a line removal
+  // — the couple still bought those things. Re-pricing without them would hand
+  // the pool back and overstate the credit still available, the same divergence
+  // that hid a paid upgrade before the two write sites shared one pricer.
+  //
+  // The FROZEN unit price is used, not a fresh read: the vendor may have edited
+  // `credit_price_centavos` since, and a removal must not silently re-rate a
+  // purchase the couple already made.
+  const bought = newCustom.credit_additions ?? [];
+  const withFrozenPrice = bought.filter(
+    (a) => typeof a.unit_price_centavos === 'number' && a.unit_price_centavos > 0,
+  );
+  if (withFrozenPrice.length !== bought.length) {
+    // A purchase with no frozen price cannot be re-priced without guessing, and
+    // guessing is how credit gets spent at a number nobody committed to. Refuse
+    // the removal rather than quietly re-rating or silently dropping it.
+    throw new Error(
+      'This package has a credit purchase with no recorded price. Ask support to re-price it before removing a line.',
+    );
+  }
+  const survivingAdditions = withFrozenPrice.map((a) => ({
+    addition_id: a.service_id,
+    quantity: a.quantity,
+  }));
+  const survivingCatalogue = withFrozenPrice.map((a) => ({
+    addition_id: a.service_id,
+    unit_price_centavos: a.unit_price_centavos as number,
+  }));
+
   const totals = priceCustomizedPackage(
     pkg,
     newRemoved,
     survivingOptionIds,
     packageCreditEnabled(),
     removePax,
+    survivingAdditions,
+    survivingCatalogue,
   );
   if (!totals) throw new Error('Package pricing could not be computed.');
   const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =

@@ -35,12 +35,14 @@ export function YourSeatBlock({
   firstName,
   arrived,
 }: Props) {
+  // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
+  // numbered — a gild ✦ marks "this belongs to you" while editorial chapters
+  // keep their №. Rendered as a recessed plate with the printed inner hairline;
+  // the arrival bloom warms it with gild instead of champagne-gold.
   return (
     <section
-      className={`rounded-2xl border bg-cream p-5 shadow-sm sm:p-6 ${
-        arrived
-          ? 'border-champagne-gold/40 bg-gradient-to-br from-cream to-champagne-gold/10'
-          : 'border-ink/10'
+      className={`pahina-plate sm:p-6 ${
+        arrived ? 'border-gild/40 bg-gradient-to-br from-paper-deep to-gild/10' : ''
       }`}
     >
       {/* Day-of arrival: once the guest has checked in at the door, the header
@@ -58,11 +60,12 @@ export function YourSeatBlock({
         </header>
       ) : (
         <header className="space-y-1.5 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            Your seat
+          <p className="pahina-eyebrow justify-center">
+            <span aria-hidden>✦</span>
+            <span>Your seat</span>
           </p>
-          <h2 className="font-serif text-2xl italic leading-tight tracking-tight text-ink sm:text-3xl">
-            You&rsquo;re at <span className="text-emerald-700">{tableLabel}</span>
+          <h2 className="font-pahina text-2xl font-light italic leading-tight tracking-tight text-ink sm:text-3xl">
+            You&rsquo;re at <span className="text-gild">{tableLabel}</span>
           </h2>
           {venueName ? (
             <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
@@ -76,7 +79,7 @@ export function YourSeatBlock({
         <WayfindingMap tables={tables} entrance={entrance} targetTableId={targetTableId} />
       </div>
       <p className="mt-4 flex items-center justify-center gap-2 text-center text-sm text-ink/65">
-        <DoorOpen aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+        <DoorOpen aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
         {arrived
           ? 'Follow the dotted path to your table — see you there.'
           : 'Walk in from the entrance and follow the dotted path to your table.'}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import {
   SCHEDULE_BLOCK_LABEL,
   formatBlockTimeRange,
@@ -151,12 +151,13 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
-            Day-of schedule
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <p className="pahina-eyebrow">
+            <span aria-hidden>№ 04</span>
+            <span>The programme</span>
           </p>
-          <h2 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
+          <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
             The run of show
           </h2>
           {estimated && !triggerPick ? (
@@ -165,7 +166,7 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
                Suppressed the moment the host actually starts the run of show
                (early start edge) — a live pointer and an "Estimated" label
                would contradict each other. */
-            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
               Estimated program · times may shift on the day
             </p>
           ) : null}
@@ -175,10 +176,10 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
             pct={progressPct}
             size={54}
             stroke={5}
-            color="rgb(var(--color-terracotta))"
+            color="rgb(var(--color-gild))"
             className="shrink-0"
           >
-            <span className="font-serif text-sm leading-none text-ink">
+            <span className="font-pahina text-sm leading-none text-ink">
               {completed}
               <span className="text-ink/40">/{total}</span>
             </span>
@@ -188,65 +189,66 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
       {showRunOfShow && eventId ? (
         <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
       ) : null}
-      <ol className="space-y-3">
+      {/* Programme rail (Pahina §7): a mono gild time column baseline-aligned to
+          the entries, separated by hairlines instead of stacked boxes. The live
+          row is marked by an accent left rule + veil wash + a pulsing "· Now"
+          tag under its time — replacing the filled terracotta pill. All
+          now/next LOGIC above is untouched; this is markup + classes only. */}
+      <ol className="border-t border-ink/12">
         {ordered.map((b, i) => {
           const isNow = i === currentIndex;
           const isNext = i === upNextIndex;
           return (
             <li
               key={b.block_id}
-              className={`relative rounded-xl border p-4 transition-colors ${
-                isNow
-                  ? 'border-terracotta bg-terracotta/10'
-                  : isNext
-                    ? 'border-terracotta/30 bg-cream'
-                    : 'border-ink/10 bg-cream'
+              className={`grid grid-cols-[4.75rem_1fr] gap-x-4 border-b border-ink/12 py-5 transition-colors sm:grid-cols-[7rem_1fr] ${
+                isNow ? 'border-l-2 border-l-terracotta bg-veil/60 pl-3 sm:pl-4' : ''
               }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 space-y-0.5">
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-                    {SCHEDULE_BLOCK_LABEL[b.block_type]}
+              <div className="min-w-0">
+                <p className="font-mono text-[0.7rem] uppercase leading-relaxed tracking-[0.14em] text-gild">
+                  {(() => {
+                    // Viewer-local only after mount (now != null) so SSR (server tz)
+                    // and the first client render agree — no hydration flip.
+                    const viewer = now ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
+                    return viewer ?? formatBlockTimeRange(b.start_at, b.end_at);
+                  })()}
+                </p>
+                {now ? (
+                  <p className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-ink/40">
+                    your time
                   </p>
-                  <p className="font-serif text-lg italic leading-snug text-ink">{b.label}</p>
-                </div>
+                ) : null}
                 {isNow ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-cream">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-cream" />
+                  <span className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.18em] text-terracotta">
+                    <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-terracotta" />
                     Happening now
                   </span>
                 ) : isNext ? (
-                  <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
+                  <span className="mt-1.5 inline-block font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/45">
                     Up next
                   </span>
                 ) : null}
               </div>
-              <p className="mt-2 inline-flex flex-wrap items-center gap-x-1.5 text-sm text-ink/70">
-                <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                {(() => {
-                  // Viewer-local only after mount (now != null) so SSR (server tz)
-                  // and the first client render agree — no hydration flip.
-                  const viewer = now ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
-                  return viewer ? (
-                    <>
-                      {viewer} <span className="text-ink/45">· your time</span>
-                    </>
-                  ) : (
-                    formatBlockTimeRange(b.start_at, b.end_at)
-                  );
-                })()}
-              </p>
-              {b.location ? (
-                <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-ink/65">
-                  <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {b.location}
+              <div className="min-w-0">
+                <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
+                  {SCHEDULE_BLOCK_LABEL[b.block_type]}
                 </p>
-              ) : null}
-              {b.notes ? (
-                <p className="mt-2 whitespace-pre-wrap rounded-md bg-cream/70 p-3 text-xs text-ink/70">
-                  {b.notes}
+                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+                  {b.label}
                 </p>
-              ) : null}
+                {b.location ? (
+                  <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-ink/65">
+                    <MapPin aria-hidden className="h-3.5 w-3.5 text-gild" strokeWidth={1.5} />
+                    {b.location}
+                  </p>
+                ) : null}
+                {b.notes ? (
+                  <p className="mt-2.5 whitespace-pre-wrap border-l border-ink/12 pl-3 text-xs leading-relaxed text-ink/70">
+                    {b.notes}
+                  </p>
+                ) : null}
+              </div>
             </li>
           );
         })}

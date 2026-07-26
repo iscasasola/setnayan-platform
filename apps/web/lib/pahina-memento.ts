@@ -61,7 +61,9 @@ export type AfterEventMemento = {
  *     would double the keepsake;
  *   - a guest with neither proof of presence.
  *
- * PROOF OF PRESENCE IS EITHER SIGNAL, NOT BOTH. `arrived` (a `guest_checkins`
+ * PROOF OF PRESENCE IS EITHER SIGNAL, NOT BOTH — OWNER-LOCKED 2026-07-27. The
+ * owner was offered the stricter door-scan-only rule and chose to keep this as
+ * it stands, so do not tighten it without a fresh ruling. `arrived` (a `guest_checkins`
  * row, surfaced on `guestHubData`) is the harder evidence and is honoured on
  * its own — including for a guest who declined and then came anyway, which is
  * a real and common PH wedding outcome. But door-scanning is optional and most

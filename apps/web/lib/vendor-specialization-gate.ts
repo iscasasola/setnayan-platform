@@ -47,16 +47,15 @@ import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
 import { MUSIC_CANONICALS } from '@/lib/songs';
 
 /**
- * ⚠ THE TIER FLOOR — AN OPEN OWNER DECISION, NOT A RULING. ⚠
+ * THE TIER FLOOR — OWNER-LOCKED 2026-07-27: **Solo and up**, i.e. ANY paid tier.
  *
- * The owner has locked THAT specializations are subscription-gated. The owner
- * has NOT yet decided WHERE the floor sits: any paid tier (Solo and up) or only
- * Pro and up. This constant is that decision, and it is the ONLY place the
- * floor is expressed — moving it is a one-line change, here, and every gate in
- * the app follows.
+ * The owner had already locked THAT specializations are subscription-gated;
+ * this settles WHERE the floor sits. Asked "your cheapest paid plan, or only the
+ * higher one?", the owner answered "solo and up". This constant is that ruling,
+ * and it is the ONLY place the floor is expressed — every gate in the app
+ * follows it.
  *
- * CURRENT VALUE IS A DEFAULT, NOT A RULING: `'solo'` — any paid tier.
- * Reasoning to hand the owner when they settle it:
+ * The reasoning behind the recommendation the owner accepted:
  *   • Specializations are what make a solo emcee or a small band USEFUL AT ALL.
  *     A host with no script/cues desk is not a lesser host desk — it is no host
  *     desk. Putting the floor at Pro would price the smallest operators out of

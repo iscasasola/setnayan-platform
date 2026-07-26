@@ -103,14 +103,123 @@ export const ARCHIVE_WARN_AT_HOURS = 10;
 const MS_PER_HOUR = 3_600_000;
 const MS_PER_MINUTE = 60_000;
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   ⭐ GRANT KINDS — WHICH FREE UNLOCKS ARE METERED (owner-locked 2026-07-26)
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Wave 7 shipped ONE rule for every non-purchase unlock: owned with zero day-orders
+   → `unmetered`, unlimited broadcast days, forever. The owner reviewed that and split
+   it, because the four routes are not the same promise:
+
+     • FOUNDER — a row in `founder_seats` (owner-granted, cap 10). The seat IS
+       "permanent free access to all services". Metering it would contradict the
+       grant itself.                                                     → UNMETERED
+     • COMP — an admin deliberately gifted this SKU to this account. Someone made a
+       decision and can revoke it.                                       → UNMETERED
+     • INTERNAL — a §10a staff/team account. `is_internal` exists so showcase and
+       demo events RENDER fully; it was never a promise of unlimited broadcast days,
+       and staff accounts are numerous and self-assignable in a way founder seats are
+       not. Staff get the same one-event-day clock a paying customer gets.  → METERED
+     • PROMO — a marketing free-window giveaway of the SKU. The giveaway is ONE
+       event-day, exactly what ₱2,999 buys; a promo that quietly conferred unlimited
+       days would be a different, much larger offer than the one advertised. → METERED
+
+   ⚠ ORDER MATTERS AND IT IS NOT ALPHABETICAL. A founder account is very likely ALSO
+   `is_internal` (the owner's own account is both). Founder is therefore resolved
+   FIRST — see `resolveLiveStudioGrantKind` in lib/live-studio-window-server.ts — so
+   the internal rule can never demote a founder, and the founder rule can never
+   promote a plain staff account.
+
+   ⚠ FAIL-CLOSED. This is money. Only kinds explicitly listed below are unmetered;
+   everything else — 'unknown', a route nobody has named yet, a resolver that errored,
+   an omitted field — is METERED. A new grant route added later is metered until
+   someone deliberately adds it here, which is the safe direction: the failure mode is
+   "a grant holder is asked to add a day", not "a ₱2,999 product is given away". */
+
+/** How a zero-day-order event came to own Live Studio. Resolved server-side. */
+export type GrantKind =
+  /** Row in `founder_seats` — permanent free access to every service. */
+  | 'founder'
+  /** Admin-issued comp grant covering LIVE_STUDIO (all_services or scoped). */
+  | 'comp'
+  /** §10a internal/staff-hosted event (`is_internal`). */
+  | 'internal'
+  /** A live admin promo free-window covering LIVE_STUDIO. */
+  | 'promo'
+  /** Owned, but through no route this module recognises. Always metered. */
+  | 'unknown';
+
+/**
+ * The ALLOWLIST — the only grant kinds that broadcast without a clock.
+ * Everything absent from this set is metered. See the block comment above.
+ */
+export const UNMETERED_GRANT_KINDS: ReadonlySet<GrantKind> = new Set<GrantKind>([
+  'founder',
+  'comp',
+]);
+
+/**
+ * Does this grant broadcast unmetered? Fail-closed by construction: null, undefined
+ * and any unrecognised value answer `false` (= metered), so a caller that forgets to
+ * resolve the kind gets the paying-customer clock rather than a free product.
+ */
+export function grantIsUnmetered(kind: GrantKind | null | undefined): boolean {
+  return kind != null && UNMETERED_GRANT_KINDS.has(kind);
+}
+
+/** The four overlapping signals a zero-day-order event can carry at once. */
+export type GrantSignals = {
+  /** Row in `founder_seats` for a host of this event. */
+  founder: boolean;
+  /** Active admin comp grant covering LIVE_STUDIO for a host of this event. */
+  comp: boolean;
+  /** §10a `is_internal` host. */
+  internal: boolean;
+  /** A live promo free-window covering LIVE_STUDIO right now. */
+  promo: boolean;
+};
+
+/**
+ * PRECEDENCE — the owner's 2026-07-26 ruling, written as code.
+ *
+ * PURE and separate from the reads on purpose: the signals OVERLAP (the owner's own
+ * account is a founder seat AND `is_internal`; a promo window is global, so it is
+ * live for founder and staff accounts alike), and "which one wins" is the entire
+ * correctness question. Keeping it here means all sixteen combinations are testable
+ * without a database, and the server reader (resolveLiveStudioGrantKind) shrinks to
+ * "gather four booleans".
+ *
+ *   1. founder   UNMETERED — owner-granted seat = all services, free, permanently.
+ *   2. comp      UNMETERED — an admin deliberately gave this away.
+ *   3. internal  METERED   — staff/showcase account; `is_internal` was never a
+ *                            promise of unlimited broadcast days.
+ *   4. promo     METERED   — a marketing giveaway of ONE event-day.
+ *   5. unknown   METERED   — owned via a route nobody named. Fail-closed.
+ *
+ * What is LOAD-BEARING is that the unmetered pair is tested BEFORE the metered pair:
+ * a founder who is also internal must read 'founder', or the one account the owner
+ * said must never be metered gets metered. (Within each pair the order is arbitrary —
+ * both members reach the same metering answer.)
+ */
+export function classifyGrant(signals: GrantSignals): GrantKind {
+  if (signals.founder) return 'founder';
+  if (signals.comp) return 'comp';
+  if (signals.internal) return 'internal';
+  if (signals.promo) return 'promo';
+  return 'unknown';
+}
+
 export type WindowReason =
   /** No paid unlock (and no grant). The free tier — one camera, always available. */
   | 'not-owned'
   /**
-   * Owned through a route that was never denominated in DAYS — an admin comp grant,
-   * a §10a internal event, a founder seat, or a live promo free-window. There are no
-   * day-orders to count, so there is no clock: metering a grant nobody sold by the
-   * day would be inventing a limit out of thin air.
+   * Owned through a grant that is NOT denominated in days AND is on the unmetered
+   * allowlist — a founder seat or an admin comp grant. There are no day-orders to
+   * count and none are implied, so there is no clock.
+   *
+   * ⚠ An INTERNAL or PROMO grant does NOT land here (owner-locked 2026-07-26). It
+   * gets exactly one event-day, metered from first go-live, and therefore reports
+   * the ordinary `awaiting-go-live` / `open` / `expired` reasons like any purchase.
    */
   | 'unmetered'
   /** Days bought, never gone live. The clock has not started — buying early is free. */
@@ -128,6 +237,13 @@ export type WindowDecision = {
   reason: WindowReason;
   /** Event-days actually purchased (paid/fulfilled orders). 0 for free and for grants. */
   days: number;
+  /**
+   * Event-days the window is actually running on — purchased days, or the single
+   * day a METERED grant (internal / promo) confers. Distinct from `days` so the
+   * "how much did they pay for" fact stays honest while the clock is correct.
+   * 0 whenever no clock is running (free tier, unmetered grant).
+   */
+  meteredDays: number;
   /** When the current window closes (ISO), or null when no clock is running. */
   expiresAt: string | null;
   /** Whole minutes left; null when not applicable. Negative is clamped to 0. */
@@ -162,6 +278,17 @@ export type WindowInput = {
    * unreadable start time must never be the reason a ceremony loses its cameras.
    */
   broadcastStartedAt?: string | Date | null;
+  /**
+   * HOW this event owns Live Studio when it holds ZERO day-orders — the founder /
+   * comp / internal / promo split (owner-locked 2026-07-26). Read only on that
+   * branch; irrelevant once a day has been bought, because a purchase is metered
+   * regardless of who the buyer is.
+   *
+   * OPTIONAL, and omitting it is SAFE: `grantIsUnmetered(undefined)` is false, so a
+   * caller that does not resolve the kind gets the metered one-event-day window, not
+   * a free unlimited one.
+   */
+  grantKind?: GrantKind | null;
   /** Server time. Always injected — the client clock is not trusted. */
   now: Date;
   /** Override for tests. Defaults to the locked 24 hours. */
@@ -224,10 +351,17 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
   const dayHours = input.dayHours ?? LIVE_STUDIO_DAY_HOURS;
   const days = input.dayStarts.filter((d) => toDate(d) !== null).length;
 
+  // A METERED grant (internal / promo / unknown) is worth exactly ONE event-day —
+  // the same thing ₱2,999 buys. `days` keeps meaning "days actually purchased"; this
+  // is what the clock runs on.
+  const grantedDay = days === 0;
+  const meteredDays = grantedDay ? 1 : days;
+
   const closed = (reason: WindowReason, expiresAt: string | null): WindowDecision => ({
     multiCam: false,
     reason,
     days,
+    meteredDays: expiresAt ? meteredDays : 0,
     expiresAt,
     minutesRemaining: expiresAt ? 0 : null,
     endingSoon: false,
@@ -238,13 +372,16 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
   // → the free tier, which is a real working product, not a punishment.
   if (!owned) return closed('not-owned', null);
 
-  // Owned with zero day-orders = a grant, not a purchase (comp / internal / founder
-  // seat / promo window). Nothing was sold by the day, so nothing is metered by it.
-  if (days === 0) {
+  // Owned with zero day-orders = a GRANT, not a purchase. WHICH grant decides whether
+  // it is metered (owner-locked 2026-07-26 — see the GRANT KINDS block above).
+  // Founder + comp broadcast without a clock; internal + promo + anything
+  // unrecognised fall through to the ordinary one-event-day window below.
+  if (grantedDay && grantIsUnmetered(input.grantKind)) {
     return {
       multiCam: true,
       reason: 'unmetered',
       days: 0,
+      meteredDays: 0,
       expiresAt: null,
       minutesRemaining: null,
       endingSoon: false,
@@ -254,12 +391,14 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
 
   const firstLiveAt = toDate(input.firstLiveAt);
   if (!firstLiveAt) {
-    // Paid, never pressed live. The clock has not started — and an UNREADABLE anchor
-    // lands here too, which is the deliberate fail-OPEN for a host who already paid.
+    // Paid (or granted a metered day), never pressed live. The clock has not started
+    // — and an UNREADABLE anchor lands here too, the deliberate fail-OPEN for a host
+    // who already paid.
     return {
       multiCam: true,
       reason: 'awaiting-go-live',
       days,
+      meteredDays,
       expiresAt: null,
       minutesRemaining: null,
       endingSoon: false,
@@ -267,7 +406,11 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
     };
   }
 
-  const expires = foldWindowEnd(firstLiveAt, input.dayStarts, dayHours);
+  // A metered GRANT has no purchase timestamp to fold, so its single day starts at
+  // the anchor itself: foldWindowEnd(firstLiveAt, [firstLiveAt]) = firstLiveAt + 24h.
+  // Exactly one event-day from first go-live — the paying customer's clock.
+  const effectiveDayStarts = grantedDay ? [firstLiveAt] : input.dayStarts;
+  const expires = foldWindowEnd(firstLiveAt, effectiveDayStarts, dayHours);
   const expiresAt = expires.toISOString();
   const msLeft = expires.getTime() - now.getTime();
 
@@ -277,6 +420,7 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
       multiCam: true,
       reason: 'open',
       days,
+      meteredDays,
       expiresAt,
       minutesRemaining,
       endingSoon: minutesRemaining <= WINDOW_WARN_MINUTES,
@@ -295,6 +439,7 @@ export function decideBroadcastWindow(input: WindowInput): WindowDecision {
         multiCam: true,
         reason: 'expired-broadcasting',
         days,
+        meteredDays,
         expiresAt,
         minutesRemaining: 0,
         endingSoon: false,

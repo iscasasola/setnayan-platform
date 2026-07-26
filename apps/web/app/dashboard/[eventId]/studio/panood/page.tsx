@@ -25,6 +25,7 @@ import { liveStudioControllerHref } from '@/lib/live-studio-control';
 //   • PR #594 + PR #595 voucher schema substrate
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 
 // Iteration 0011 — Live Studio App Store-style detail surface.
 //
@@ -91,11 +92,26 @@ export default async function PanoodAppStorePage({ params }: Props) {
   // resolved 'launch' href routes there, not to the free ./setup relay. Which
   // room that is now depends on the unified flag (controlRoomHref above), never
   // on a path written here.
-  const [stats, stateCtx, settings, panoodSku] = await Promise.all([
+  const [stats, stateCtx, settings, panoodSku, sellability] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
     resolveAddOnState(supabase, eventId, 'panood', 'couple', controlRoomHref),
     fetchPlatformSettings(supabase),
     formatV2Sku(PANOOD_SKU_CODE).catch(() => null),
+    // ⭐ NO FAKE DOOR (owner-directed retirement 2026-07-26). PANOOD_SYSTEM is being
+    // retired (is_active=false · migration 20271005100000) because the Wave 6
+    // grandfather alias LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the
+    // ₱2,999 unified Live Studio entitlement — a ₱500 arbitrage on a live buy button.
+    // Checkout already REFUSES a retired SKU (submitOrderAction →
+    // resolveServiceSellability → 'retired'), so the money is safe either way; what is
+    // not safe is leaving an "Upgrade to multicam" button that dead-ends at the drawer.
+    //
+    // Reads DB is_active rather than hardcoding the retirement, exactly like the LED
+    // Background page's bundle-only guard: it self-heals through the migration-push
+    // window (the button stays while the SKU is genuinely sellable) and it reverses
+    // itself if the owner ever reactivates the row — no second code change needed.
+    // ⚠ formatV2Sku does NOT filter is_active, so it keeps returning ₱2,500 after the
+    // retirement; the price label alone can't be the signal.
+    resolveServiceSellability(PANOOD_SKU_CODE).catch(() => 'error' as const),
   ]);
 
   // Multicam controller SKU, priced live from the admin catalog. The charge
@@ -105,6 +121,11 @@ export default async function PanoodAppStorePage({ params }: Props) {
   const multicamCentavos = panoodSku?.price_centavos ?? 0;
   const multicamPriceLabel = panoodSku ? formatPhp(panoodSku.price_php) : '—';
   const multicamFromLabel = `${multicamPriceLabel} / day`;
+
+  // Only 'sellable' shows the buy path. 'retired' hides it (the point of the guard);
+  // 'error' and 'unknown' hide it too — the same direction checkout fails, so the
+  // page can never offer a purchase checkout would then refuse.
+  const multicamSellable = sellability === 'sellable' && panoodSku != null;
 
   // Adoption share — the same figure the "% of events" stat tile already
   // derives, re-expressed as a wine ProgressRing in the preview rail for a
@@ -175,7 +196,9 @@ export default async function PanoodAppStorePage({ params }: Props) {
     {
       eyebrow: 'Pricing',
       value: 'Free',
-      caption: `+ multicam from ${multicamPriceLabel}`,
+      caption: multicamSellable
+        ? `+ multicam from ${multicamPriceLabel}`
+        : 'Single camera, every event',
     },
   ];
 
@@ -215,6 +238,14 @@ export default async function PanoodAppStorePage({ params }: Props) {
     />
   );
 
+  // ⚠ HIDE THE BUY, NEVER THE LAUNCH. `AddOnStateCta` is BOTH controls in one: in the
+  // 'add' state it is the purchase sheet, in every other state it is the owner's
+  // "Open control room" / "Request sent" / "Blocked" chip. Dropping the whole element
+  // when the SKU is retired would strand an existing Cast buyer with no way into the
+  // room they paid for — a worse failure than the fake door we are closing. So only
+  // the 'add' (buy) state is gated on sellability.
+  const showMulticamCta = stateCtx.state !== 'add' || multicamSellable;
+
   // PRIMARY hero CTA = the FREE single-cam livestream. Leads the page so Live Studio
   // reads as "free to use, with an optional upgrade" — never as a paywall.
   const freeGoLiveCta = (
@@ -241,7 +272,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         // FREE single-cam is the lead. The PAID multicam upgrade sits beside it
         // (or, once owned, becomes the "Open control room" launch button).
         cta: freeGoLiveCta,
-        secondary: multicamCta,
+        secondary: showMulticamCta ? multicamCta : undefined,
       }}
       stats={stats4}
       justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
@@ -343,11 +374,14 @@ export default async function PanoodAppStorePage({ params }: Props) {
       description={{
         paragraphs: [
           'Half the people who love you can’t fit in the room — or can’t make the trip at all. Live Studio brings them in. The single-camera livestream is free for every couple: go live on your own YouTube, from a phone or a laptop, and it plays right on your event page, in your colors. The whole celebration auto-archives, so you can rewatch the vows, the first dance, the speeches, any time you want.',
-          `Want a real broadcast? The multicam control room is the premium upgrade (${multicamPriceLabel} / day), and it unlocks everything below for the day. Cameras: connect any camera — phone or DSLR — switch between them live, and tap a single camera switch; the camera bridge is included, with no per-camera fee. Streaming: multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream so the show plays even when the venue Wi-Fi can’t. Screens: route Photowall content and LED-Wall content straight to the venue screens, with extended screen control across multiple screens at once. Production: overlays in your colors and a live highlight generator that builds replays during the broadcast. The four capabilities, in one line: connect multiple cameras · control multiple screens · broadcast via YouTube · also run an in-house offline stream.`,
+          `Want a real broadcast? The multicam control room is the premium upgrade${multicamSellable ? ` (${multicamPriceLabel} / day)` : ''}, and it unlocks everything below for the day. Cameras: connect any camera — phone or DSLR — switch between them live, and tap a single camera switch; the camera bridge is included, with no per-camera fee. Streaming: multi-cam YouTube live, live streaming, plus an in-house (offline/local) stream so the show plays even when the venue Wi-Fi can’t. Screens: route Photowall content and LED-Wall content straight to the venue screens, with extended screen control across multiple screens at once. Production: overlays in your colors and a live highlight generator that builds replays during the broadcast. The four capabilities, in one line: connect multiple cameras · control multiple screens · broadcast via YouTube · also run an in-house offline stream.`,
           'Two notes so nothing surprises you. The highlight generator here makes LIVE replays during the broadcast — your post-event edits (AI Highlight, the Thank-You video) are still their own separate services. And Live Studio routes Photowall and LED-Wall content onto your screens — the standalone PhotoWall and Live-Background (LED) content services stay separate; the control room is what puts them on the venue screens.',
           'Both tiers cover one event-day. Filipino weddings often run across a few days — prep, ceremony, reception — so go live free on each, and add a multicam control-room day wherever you want the full production.',
         ],
-        plans: [freePlanRow, multicamPlanRow],
+        // The plans table is a PRICE table with an "Upgrade" badge. A retired SKU must
+        // not appear in it — quoting ₱/day for something checkout refuses is the same
+        // fake door as the button, minus the click.
+        plans: multicamSellable ? [freePlanRow, multicamPlanRow] : [freePlanRow],
         notIncluded: [
           'Your camera people are friends or family with phones — not a hired crew.',
           'The free tier is single-camera. Multi-cam switching, multi-cam YouTube, the in-house offline stream, Photowall/LED routing, multi-screen control, overlays, and the live highlight generator are the paid control-room upgrade.',

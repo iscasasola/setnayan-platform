@@ -162,7 +162,17 @@ export async function getHomePricingData(): Promise<PricingData> {
   const seating3d = priceOf(catalog, 'SEATING_3D', 2999);
   const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 1000); // Monogram PRO — now includes Live Background
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
-  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2500); // Desktop Controller ₱2,500/day (Mobile ₱1,500/day is a separate SKU)
+  // Live Studio multicam — the ONLY row here that must DISAPPEAR rather than fall back.
+  // PANOOD_SYSTEM is retired (is_active=false · migration 20271005100000 · the ₱500
+  // grandfather-alias arbitrage), so it drops out of `catalog`; a `priceOf(..., 2500)`
+  // fallback would keep printing "₱2,500/day" for a product checkout now refuses —
+  // the loudest fake door on the marketing site. Resolved straight off the catalog
+  // instead, and the row is omitted when absent (the same "drops out automatically"
+  // treatment /pricing gives LIVE_BACKGROUND). It returns the day the owner flips
+  // NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED and the unified LIVE_STUDIO row stops being
+  // name-excluded from fetchV2CustomerCatalog — no code change needed here.
+  const liveStudioSku = catalog.find((s) => s.service_code === 'PANOOD_SYSTEM');
+  const liveStudioRate = liveStudioSku ? Number(liveStudioSku.retail_price_php) : null;
 
   // Papic rungs — DERIVED from papic_tier_config (title · daily capture-POINT
   // budget · wedding cap) priced from the live catalog. This file must never
@@ -235,13 +245,17 @@ export async function getHomePricingData(): Promise<PricingData> {
         { n: '3D Plan · full 3D + site integration', v: seating3d.v },
         { n: 'Animated Monogram · includes Live Background', v: monogram.v },
         { n: 'Pakanta', v: pakanta.v },
-        {
-          n: 'Live Studio · multicam',
-          note: '· single-cam free',
-          v: `${peso(liveStudio.rate)}/day`,
-          model: 'perDay',
-          rate: liveStudio.rate,
-        },
+        ...(liveStudioRate != null && Number.isFinite(liveStudioRate)
+          ? [
+              {
+                n: 'Live Studio · multicam',
+                note: '· single-cam free',
+                v: `${peso(liveStudioRate)}/day`,
+                model: 'perDay' as const,
+                rate: liveStudioRate,
+              },
+            ]
+          : []),
       ],
     },
   ];

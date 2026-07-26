@@ -18,12 +18,17 @@ import assert from 'node:assert/strict';
 import {
   ARCHIVE_WARN_AT_HOURS,
   LIVE_STUDIO_DAY_HOURS,
+  UNMETERED_GRANT_KINDS,
   WINDOW_WARN_MINUTES,
   YOUTUBE_ARCHIVE_HOURS,
+  classifyGrant,
   decideArchiveGuard,
   decideBroadcastWindow,
   foldWindowEnd,
+  grantIsUnmetered,
   windowPhaseAt,
+  type GrantKind,
+  type GrantSignals,
   type WindowInput,
 } from './live-studio-window';
 
@@ -225,11 +230,156 @@ test('fail-closed: an entitlement that resolved to false gets the free tier, not
   assert.equal(d.multiCam, false);
 });
 
-test('owned with ZERO day-orders is UNMETERED (comp grant / internal / founder / promo)', () => {
-  const d = decideBroadcastWindow(input({ dayStarts: [], now: at(9000) }));
+/* ── ⭐ THE GRANT-KIND SPLIT (owner-locked 2026-07-26) ───────────────────────────
+
+   Wave 7 gave EVERY zero-day-order unlock unlimited broadcast days. The owner
+   reviewed and split it: founder + comp are unmetered; internal + promo get the
+   ordinary one-event-day window a paying customer gets. These tests are the ruling.
+
+   The expensive failure is not "a founder gets metered" — it is the reverse: an
+   `is_internal` staff account, of which there can be many, silently holding an
+   unlimited ₱2,999 multi-cam broadcast entitlement forever.                        */
+
+const ALL_KINDS: GrantKind[] = ['founder', 'comp', 'internal', 'promo', 'unknown'];
+
+/** A grant: owned, ZERO day-orders, went live at T0. */
+function grant(kind: GrantKind | null | undefined, over: Partial<WindowInput> = {}) {
+  return decideBroadcastWindow(input({ dayStarts: [], grantKind: kind, ...over }));
+}
+
+test('THE MAPPING — founder + comp unmetered; internal + promo + unknown METERED', () => {
+  assert.deepEqual(
+    ALL_KINDS.map((k) => [k, grantIsUnmetered(k)]),
+    [
+      ['founder', true],
+      ['comp', true],
+      ['internal', false],
+      ['promo', false],
+      ['unknown', false],
+    ],
+  );
+  // The allowlist itself, pinned — a fifth unmetered kind must be a deliberate edit
+  // here, reviewed against the owner ruling, not a side effect of a refactor.
+  assert.deepEqual([...UNMETERED_GRANT_KINDS].sort(), ['comp', 'founder']);
+});
+
+test('FOUNDER — a founder seat broadcasts with NO clock, however long it runs', () => {
+  const d = grant('founder', { now: at(9000) });
   assert.equal(d.multiCam, true);
   assert.equal(d.reason, 'unmetered');
-  assert.equal(d.expiresAt, null, 'nothing was sold by the day, so nothing is metered by it');
+  assert.equal(d.expiresAt, null, 'a founder seat is all services, free, permanently');
+  assert.equal(d.meteredDays, 0);
+});
+
+test('COMP — an admin gift broadcasts with NO clock (someone decided to give it away)', () => {
+  const d = grant('comp', { now: at(9000) });
+  assert.equal(d.multiCam, true);
+  assert.equal(d.reason, 'unmetered');
+  assert.equal(d.expiresAt, null);
+});
+
+test('⭐ INTERNAL — a §10a staff event is METERED: one event-day, then the free tier', () => {
+  // Inside the day: multi-cam, on the ordinary paid-customer clock.
+  const open = grant('internal', { now: at(1) });
+  assert.equal(open.multiCam, true);
+  assert.equal(open.reason, 'open', 'not "unmetered" — a staff grant runs a real clock');
+  assert.equal(open.expiresAt, at(LIVE_STUDIO_DAY_HOURS).toISOString());
+  assert.equal(open.days, 0, 'nothing was PURCHASED…');
+  assert.equal(open.meteredDays, 1, '…but exactly one event-day is being metered');
+
+  // Past the day, off air: back to the free single camera.
+  const done = grant('internal', { now: at(LIVE_STUDIO_DAY_HOURS + 0.5) });
+  assert.equal(done.multiCam, false, 'THE CORRECTION — Wave 7 left this true forever');
+  assert.equal(done.reason, 'expired');
+});
+
+test('PROMO — a marketing free-window is worth ONE event-day, not unlimited days', () => {
+  const open = grant('promo', { now: at(1) });
+  assert.equal(open.reason, 'open');
+  assert.equal(open.meteredDays, 1);
+  assert.equal(grant('promo', { now: at(25) }).multiCam, false);
+});
+
+test('FAIL-CLOSED — an unrecognised / missing / null grant kind is METERED', () => {
+  for (const kind of ['unknown', undefined, null] as const) {
+    const d = grant(kind, { now: at(25) });
+    assert.equal(d.multiCam, false, `grantKind=${String(kind)} must not be unmetered`);
+    assert.equal(d.reason, 'expired');
+  }
+  // …and the same input INSIDE the day still works: metered means metered, not denied.
+  assert.equal(grant(undefined, { now: at(1) }).multiCam, true);
+});
+
+test('a metered grant that never went live is awaiting-go-live, exactly like a purchase', () => {
+  const d = grant('internal', { firstLiveAt: null, now: at(9000) });
+  assert.equal(d.multiCam, true, 'buying — or being granted — early costs nothing');
+  assert.equal(d.reason, 'awaiting-go-live');
+  assert.equal(d.expiresAt, null);
+});
+
+test('🔒 the never-interrupt rule still outranks the paywall for a metered grant', () => {
+  // A staff/promo ceremony that is ON AIR when the day lapses is NOT cut to one camera.
+  const d = grant('internal', { isLive: true, broadcastStartedAt: T0, now: at(30) });
+  assert.equal(d.multiCam, true);
+  assert.equal(d.reason, 'expired-broadcasting');
+  assert.equal(d.runningLong, true);
+});
+
+test('a metered grant that BUYS a day gets two days, not one plus a grant', () => {
+  // days ≥ 1 means the grant branch is not taken at all — the purchase is the clock.
+  const d = decideBroadcastWindow(
+    input({ grantKind: 'internal', dayStarts: ['2026-07-20T00:00:00.000Z'], now: at(1) }),
+  );
+  assert.equal(d.days, 1);
+  assert.equal(d.meteredDays, 1);
+  assert.equal(d.expiresAt, at(LIVE_STUDIO_DAY_HOURS).toISOString());
+});
+
+/* ── PRECEDENCE: the overlaps, exhaustively ─────────────────────────────────── */
+
+function signals(over: Partial<GrantSignals> = {}): GrantSignals {
+  return { founder: false, comp: false, internal: false, promo: false, ...over };
+}
+
+test('⭐ THE OVERLAP TRAP — internal AND founder resolves FOUNDER (unmetered)', () => {
+  // The owner's own account is both. If `internal` were tested first, the one account
+  // that must never be metered would be metered.
+  assert.equal(classifyGrant(signals({ founder: true, internal: true })), 'founder');
+  assert.equal(grantIsUnmetered(classifyGrant(signals({ founder: true, internal: true }))), true);
+});
+
+test('⭐ THE OVERLAP TRAP, other way — internal and NOT a founder resolves INTERNAL (metered)', () => {
+  assert.equal(classifyGrant(signals({ internal: true })), 'internal');
+  assert.equal(grantIsUnmetered(classifyGrant(signals({ internal: true }))), false);
+  // And a live promo window (which is GLOBAL — it covers staff accounts too) must not
+  // upgrade a staff account either: promo is metered as well.
+  assert.equal(
+    grantIsUnmetered(classifyGrant(signals({ internal: true, promo: true }))),
+    false,
+  );
+});
+
+test('PRECEDENCE is exhaustive over all 16 signal combinations', () => {
+  const expected = (s: GrantSignals): GrantKind =>
+    s.founder ? 'founder' : s.comp ? 'comp' : s.internal ? 'internal' : s.promo ? 'promo' : 'unknown';
+  for (const founder of [false, true])
+    for (const comp of [false, true])
+      for (const internal of [false, true])
+        for (const promo of [false, true]) {
+          const s = { founder, comp, internal, promo };
+          assert.equal(classifyGrant(s), expected(s), JSON.stringify(s));
+          // The invariant that actually costs money: unmetered ⟺ founder OR comp.
+          assert.equal(
+            grantIsUnmetered(classifyGrant(s)),
+            founder || comp,
+            `unmetered must require a founder seat or a comp grant · ${JSON.stringify(s)}`,
+          );
+        }
+});
+
+test('no signals at all = unknown = metered (fail-closed)', () => {
+  assert.equal(classifyGrant(signals()), 'unknown');
+  assert.equal(grantIsUnmetered(classifyGrant(signals())), false);
 });
 
 /* ── THE TICKING SURFACE AGREES WITH THE SERVER ─────────────────────────────── */

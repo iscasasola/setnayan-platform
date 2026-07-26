@@ -26,7 +26,6 @@ import {
   extendUserAiSubscription,
   reverseUserAiSubscriptionWindow,
 } from '@/lib/setnayan-ai-subscription';
-import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
   isVendorAiAddonActive,
@@ -776,63 +775,45 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // front via the manual apply-then-pay rails and this boolean is the gate.
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
-    const update: Record<string, unknown> = { setnayan_ai_active: true };
-    // Per-EVENT pricing (owner 2026-07-02): mark the ₱499 intro consumed + stamp
-    // the 28-day access window, so this event's NEXT purchase is a ₱799 renewal.
-    // Flag-gated → inert (just the setnayan_ai_active boolean, exactly as today)
-    // while per-event pricing is off.
-    let stampedUntil: string | null = null;
-    if (await resolveSetnayanAiPerEventPricingEnabled()) {
-      update.setnayan_ai_intro_used = true;
-      // Idempotency: extend the window only ONCE per order (a re-approval must not
-      // add another 28 days). A prior 'service_activated' ledger row for this order
-      // means the window was already stamped — keep intro_used true (a no-op) but
-      // skip the extension. Mirrors the SETNAYAN_AI_SUB guard.
-      const { data: prior } = await ctx.admin
-        .from('order_ledger')
-        .select('order_id')
-        .eq('order_id', ctx.orderId)
-        .eq('event_type', 'service_activated')
-        .limit(1)
-        .maybeSingle();
-      if (!prior) {
-        const { data: ev } = await ctx.admin
-          .from('events')
-          .select('setnayan_ai_active_until')
-          .eq('event_id', ctx.eventId)
-          .maybeSingle();
-        // Stacks from the later of now / current expiry (early re-up keeps the
-        // remaining time). One 28-day cycle per SETNAYAN_AI order.
-        stampedUntil = extendUserAiSubscription(
-          (ev as { setnayan_ai_active_until?: string | null } | null)?.setnayan_ai_active_until ?? null,
-          1,
-          new Date(),
-        ).toISOString();
-        update.setnayan_ai_active_until = stampedUntil;
-      }
-    }
+    // ── ONE-TIME PER EVENT. NO WINDOW. (owner-locked 2026-07-26) ─────────────
+    // "this is per event. no time duration. just one time payment per event."
+    //
+    // A paid Setnayan AI is a PERMANENT unlock on the event: `setnayan_ai_active`
+    // and nothing else. Price varies by event TYPE (₱1,499 wedding · ₱899 debut /
+    // corporate / gala · ₱499 standard · ₱99 light · free simple_event) and is
+    // resolved server-side at checkout by resolveSetnayanAiTypeChargeCentavos;
+    // WHAT they pay is a tier question, HOW LONG they keep it is not.
+    //
+    // ⚠ WHAT WAS REMOVED, AND WHY IT MATTERED. Behind
+    // `setnayan_ai_per_event_pricing_enabled` this hook used to also set
+    // `setnayan_ai_intro_used = true` and stamp a 28-day
+    // `setnayan_ai_active_until` via extendUserAiSubscription(…, 1, …), so "this
+    // event's NEXT purchase is a ₱799 renewal". That belonged to a RETIRED
+    // intro/renewal model: `SETNAYAN_AI_RENEW` is is_active=false and its
+    // resolver (resolveSetnayanAiEventChargeCentavos) has NO callers — the live
+    // charge path is the event-TYPE ladder. So the stamp bought nothing and cost
+    // everything: eventOwnsSetnayanAi treats a non-NULL window as AUTHORITATIVE,
+    // so a couple paid once and lost AI 28 days later with no way to renew.
+    //
+    // That is why PR #3035 (mig 20270714262264) turned the flag OFF rather than
+    // fixing it — which left the per-event PRICE ladder switched off too, since
+    // one flag gated both. Removing the stamp decouples them: the flag now means
+    // only "price by event type", and can be turned on safely.
+    //
+    // Nothing to migrate: 0 events carry a window and 0 have intro_used (verified
+    // in prod 2026-07-26). Rows with a NULL window already read as permanent.
     const { error } = await ctx.admin
       .from('events')
-      .update(update)
+      .update({ setnayan_ai_active: true })
       .eq('event_id', ctx.eventId);
     // Surface a write failure so activateOrderSku's outer catch logs it —
     // otherwise the paid AI silently never provisions with no retry signal.
     // Throwing is safe: the order is already 'paid', the dispatcher swallows +
     // logs and never rolls back the approval.
     if (error) throw new Error(`SETNAYAN_AI activation write failed: ${error.message}`);
-    // Record the activation so a re-approval doesn't re-extend the window (mirrors
-    // the SETNAYAN_AI_SUB idempotency guard). Best-effort — the window is already
-    // written; a missed ledger row only risks a re-extend on a rare re-approval,
-    // never a lost grant. Only when per-event pricing stamped a fresh window.
-    if (stampedUntil) {
-      await appendLedger(ctx.admin, {
-        order_id: ctx.orderId,
-        event_type: 'service_activated',
-        actor_user_id: ctx.actorUserId,
-        actor_role: 'admin',
-        metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, active_until: stampedUntil },
-      });
-    }
+    // No ledger row and no idempotency probe are needed any more: the write is a
+    // plain idempotent boolean set, so a re-approval is a no-op. (The probe only
+    // ever existed to stop a second approval adding another 28 days.)
   },
 
   // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,

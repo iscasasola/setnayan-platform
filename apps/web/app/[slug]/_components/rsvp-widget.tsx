@@ -5,6 +5,9 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { SelfieCapture } from './selfie-capture';
+// Shared with the keepsake ticket so the reply card and the keepsake always
+// print the SAME Nº for a given guest.
+import { stubNo } from './pahina-keepsake';
 
 export function RsvpWidget({
   guest,
@@ -156,19 +159,6 @@ export function RsvpWidget({
       </SubmitButton>
     </form>
   );
-}
-
-/**
- * Display-only stub number for the reply card's ticket corner. A short stable
- * digest of the guest id — per build plan §4 the Nº is flavor and must NEVER
- * expose a raw internal id, so the id is never rendered, only this 3-digit fold.
- */
-function stubNo(guestId: string): string {
-  let h = 0;
-  for (let i = 0; i < guestId.length; i++) {
-    h = (h * 31 + guestId.charCodeAt(i)) % 997;
-  }
-  return String(h).padStart(3, '0');
 }
 
 function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {

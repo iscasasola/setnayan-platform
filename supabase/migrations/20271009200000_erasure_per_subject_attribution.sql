@@ -91,3 +91,180 @@ COMMENT ON COLUMN public.oauth_grants.granted_by_user_id IS
 CREATE INDEX IF NOT EXISTS oauth_grants_granted_by_user_id_idx
   ON public.oauth_grants(granted_by_user_id)
   WHERE granted_by_user_id IS NOT NULL;
+
+-- ============================================================================
+-- LOCK THE TWO NEW COLUMNS AGAINST THE BROWSER — in the SAME file that creates
+-- them, so the column and its lockdown can never be cherry-picked apart.
+--
+-- ⚠ THE TRAP THIS CLOSES. This project carries
+--     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated
+--   so a column added by `ADD COLUMN` ships with `arwdDxtm` for BOTH browser
+--   roles. New columns are OPEN by default; `GRANT` is additive and subtracts
+--   nothing. Without this block the exposure freeze reports exactly:
+--     col public.event_paperwork.subject_user_id  anon=SIU authenticated=SIU
+--     col public.oauth_grants.granted_by_user_id  anon=SIU authenticated=SIU
+--   (verified — that is the CI failure this block was written against). The
+--   same trap broke a different migration earlier the same day.
+--
+-- ⚠ POSTGRES RULE THAT MAKES THE NAIVE FIX A NO-OP. From the REVOKE docs: "if a
+--   role has been granted privileges on a table, then revoking the same
+--   privileges from individual columns will have no effect." Both roles hold
+--   TABLE-level SELECT/INSERT/UPDATE here, so
+--     REVOKE SELECT (subject_user_id) ON public.event_paperwork FROM authenticated;
+--   would apply cleanly, change nothing, and leave the column readable. The
+--   table-level privilege must be revoked FIRST and an explicit column list
+--   granted back — the same REVOKE-then-GRANT shape as SEC-2b
+--   (20271008731642). The allow-list is computed from LIVE privileges rather
+--   than from the full catalog, so it is a UNION with every earlier revoke on
+--   these tables instead of a silent undo of one.
+--
+-- ── WHY *ALL THREE* PRIVILEGES, NOT JUST SELECT ─────────────────────────────
+-- SELECT · nothing in apps/web reads either column from a browser client.
+--   Every reader of `subject_user_id` and `granted_by_user_id` is the purge
+--   (lib/erasure/purge.ts), which runs as service_role by design; the only
+--   writer of `granted_by_user_id` is the three OAuth callback routes, all on
+--   createAdminClient(). Denying costs nothing.
+-- UPDATE · this is the load-bearing one, and it is the SEC-6 shape (a
+--   host-writable field feeding a server decision). `event_paperwork`'s host
+--   policies are TO PUBLIC with cmd=UPDATE, so a host really can PATCH their
+--   own paperwork rows through the anon key. Leaving `subject_user_id`
+--   writable would let a host stamp the CO-PARTNER'S user id onto their own
+--   rows — and erasure would then destroy the co-partner's PSA/CENOMAR scan on
+--   the attacker's say-so. That is precisely the harm the column was added to
+--   prevent, handed back through the front door. An erasure-control input must
+--   be server-attributed or it controls nothing.
+-- INSERT · same reasoning at row-creation time; `seedPaperworkForEvent` posts
+--   an explicit four-column payload and never names this column.
+-- ============================================================================
+DO $$
+DECLARE
+  -- (table, column-that-must-not-reach-the-browser)
+  targets TEXT[][] := ARRAY[
+    ARRAY['event_paperwork', 'subject_user_id'],
+    ARRAY['oauth_grants',    'granted_by_user_id']
+  ];
+  pair    TEXT[];
+  tbl     TEXT;
+  denied  TEXT;
+  qname   TEXT;
+  priv    TEXT;
+  rle     TEXT;
+  allowed TEXT;
+BEGIN
+  FOREACH pair SLICE 1 IN ARRAY targets LOOP
+    tbl    := pair[1];
+    denied := pair[2];
+    qname  := format('public.%I', tbl);
+
+    -- Fail loudly on a typo: a misspelled column would deny nothing and the
+    -- migration would "pass" vacuously.
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = tbl AND column_name = denied
+    ) THEN
+      RAISE EXCEPTION 'deny-set names a non-existent column: %.%', tbl, denied;
+    END IF;
+
+    FOREACH priv IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE'] LOOP
+      FOREACH rle IN ARRAY ARRAY['authenticated', 'anon'] LOOP
+        SELECT string_agg(quote_ident(c.column_name), ', ' ORDER BY c.ordinal_position)
+          INTO allowed
+        FROM information_schema.columns c
+        WHERE c.table_schema = 'public'
+          AND c.table_name   = tbl
+          AND c.column_name <> denied
+          AND has_column_privilege(rle, qname, c.column_name, priv);
+
+        -- Table-level must go first — Postgres cannot subtract a column from a
+        -- table-level grant (see the header).
+        EXECUTE format('REVOKE %s ON %s FROM %I', priv, qname, rle);
+
+        -- NULL means the role held nothing of this kind to begin with (or held
+        -- it only on the denied column). Granting an empty list is a syntax
+        -- error, and re-granting would be a widening — so skip.
+        IF allowed IS NOT NULL THEN
+          EXECUTE format('GRANT %s (%s) ON %s TO %I', priv, allowed, qname, rle);
+        END IF;
+      END LOOP;
+    END LOOP;
+
+    -- Restate service_role's full access explicitly. Already true in prod via
+    -- Supabase default privileges, so a no-op there — but it makes the
+    -- migration self-sufficient on a freshly-built database and keeps the
+    -- post-condition below meaningful rather than accidentally satisfied.
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO service_role', qname);
+  END LOOP;
+END $$;
+
+-- ── Post-conditions — assert against the REAL catalog, so a silently ────────
+--    ineffective grant fails the migration instead of shipping.
+DO $$
+DECLARE
+  bad TEXT[] := ARRAY[]::TEXT[];
+  c   TEXT;
+BEGIN
+  -- (a) neither new column may be reachable by either browser role, in any of
+  --     the three privileges. This is the assertion that would have caught the
+  --     no-op column-REVOKE described in the header.
+  FOREACH c IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE'] LOOP
+    IF has_column_privilege('authenticated', 'public.event_paperwork', 'subject_user_id', c)
+       OR has_column_privilege('anon', 'public.event_paperwork', 'subject_user_id', c) THEN
+      bad := array_append(bad, 'event_paperwork.subject_user_id still has ' || c);
+    END IF;
+    IF has_column_privilege('authenticated', 'public.oauth_grants', 'granted_by_user_id', c)
+       OR has_column_privilege('anon', 'public.oauth_grants', 'granted_by_user_id', c) THEN
+      bad := array_append(bad, 'oauth_grants.granted_by_user_id still has ' || c);
+    END IF;
+  END LOOP;
+
+  -- (b) the couple's OWN paperwork surface must survive intact. These are the
+  --     exact columns the host UI reads and writes through the session client:
+  --     the dashboard's explicit select list (_components/event-dashboard.tsx),
+  --     lib/paperwork.ts, and the four-column seed upsert + status/notes
+  --     updates in paperwork/actions.ts. If any of them lost SELECT or UPDATE,
+  --     the paperwork checklist breaks.
+  FOREACH c IN ARRAY ARRAY[
+    'id','event_id','document_type','status','requested_at','received_at',
+    'expected_completion_date','expires_at','tracking_reference',
+    'document_r2_key','notes','created_at','updated_at'
+  ] LOOP
+    IF NOT has_column_privilege('authenticated', 'public.event_paperwork', c, 'SELECT') THEN
+      bad := array_append(bad, 'lost host SELECT on event_paperwork.' || c);
+    END IF;
+    IF NOT has_column_privilege('authenticated', 'public.event_paperwork', c, 'UPDATE') THEN
+      bad := array_append(bad, 'lost host UPDATE on event_paperwork.' || c);
+    END IF;
+  END LOOP;
+  FOREACH c IN ARRAY ARRAY['event_id','document_type','status','expected_completion_date'] LOOP
+    IF NOT has_column_privilege('authenticated', 'public.event_paperwork', c, 'INSERT') THEN
+      bad := array_append(bad, 'lost host INSERT on event_paperwork.' || c);
+    END IF;
+  END LOOP;
+
+  -- (c) the couple-facing oauth_grants read (the Panood setup page's
+  --     grant_id / external_account_* / granted_at / metadata projection, plus
+  --     connection_health on the Papic + Photo-Delivery panels) must survive.
+  FOREACH c IN ARRAY ARRAY[
+    'grant_id','event_id','provider','external_account_id',
+    'external_account_display','granted_at','revoked_at','metadata',
+    'connection_health'
+  ] LOOP
+    IF NOT has_column_privilege('authenticated', 'public.oauth_grants', c, 'SELECT') THEN
+      bad := array_append(bad, 'lost couple SELECT on oauth_grants.' || c);
+    END IF;
+  END LOOP;
+
+  -- (d) service_role — the purge, the OAuth callbacks and the refresh cron all
+  --     run here — must be entirely unaffected on both tables.
+  IF NOT has_column_privilege('service_role', 'public.event_paperwork', 'subject_user_id', 'SELECT')
+     OR NOT has_column_privilege('service_role', 'public.event_paperwork', 'subject_user_id', 'UPDATE')
+     OR NOT has_column_privilege('service_role', 'public.oauth_grants', 'granted_by_user_id', 'SELECT')
+     OR NOT has_column_privilege('service_role', 'public.oauth_grants', 'granted_by_user_id', 'UPDATE') THEN
+    bad := array_append(bad, 'service_role lost access to an attribution column');
+  END IF;
+
+  IF array_length(bad, 1) > 0 THEN
+    RAISE EXCEPTION 'erasure-attribution column lockdown post-condition failed: %',
+      array_to_string(bad, '; ');
+  END IF;
+END $$;

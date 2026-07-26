@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import {
   BRANCH_LABEL_MAX,
   BRANCH_CITY_MAX,
@@ -62,7 +62,19 @@ async function requireBranchManager(): Promise<
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { error: err('No vendor profile found.') };
 
-  const role = await resolveVendorRole(supabase, user.id);
+  // ⚠ SEC-4b FIX (F2): this was `resolveVendorRole(supabase, user.id)` — the
+  // GLOBAL-HIGHEST role across every vendor the user sits on — which is the
+  // byte-identical bug fixed in subscription/custom/actions.ts in this PR. An
+  // agent/viewer on THIS shop who happens to be owner/admin on some OTHER shop
+  // passed the global check. Scope it to the profile actually being acted upon,
+  // matching deep-search / ai-addon / booth-addon / photo-challenge / custom.
+  //
+  // Not exploitable today — `vendor_branches` RLS
+  // (`parent_vendor_profile_id IN current_vendor_profile_ids()`) blocks the
+  // session-client branch INSERT/SELECT first — but that is a DIFFERENT table's
+  // RLS holding this file's gate up, and the money mint below now runs as
+  // service_role. The role check has to be right on its own.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, profile.vendor_profile_id);
   if (!canManageVendor(role)) {
     return { error: err('Only the owner or an admin can manage branches.') };
   }

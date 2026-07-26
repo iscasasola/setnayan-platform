@@ -19,11 +19,14 @@ import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/ven
  *     (orders_owner_read · user_id = auth.uid()) already scopes the SELECT, and
  *     we additionally assert the service_key is a booking-fee key so this action
  *     can only ever touch fee orders.
- *   • the vendor NEVER marks the fee paid. This only INSERTs a payment row; the
- *     DB write-guard (payments_insert_status_guard, migration 20270920010000)
- *     forces a non-admin insert to status='pending'. Promotion to paid stays
- *     the admin-only /admin/payments approve path (approvePaymentCore →
- *     activateOrderSku → the booking-fee settle bridge). So logging proof here
+ *   • the vendor NEVER marks the fee paid. This only INSERTs a payment row, and
+ *     `paymentRowFor` (lib/order-mint-identity.ts) STAMPS status='pending' and
+ *     forbids the call site from passing one. That is what pins the status
+ *     post-SEC-4b — NOT the DB write-guard: payments_insert_status_guard
+ *     (20270920010000) is RESTRICTIVE `TO authenticated` and exempts
+ *     service_role, which is the role this insert now runs as. Promotion to
+ *     paid stays the admin-only /admin/payments approve path (approvePaymentCore
+ *     → activateOrderSku → the booking-fee settle bridge). So logging proof here
  *     speeds reconciliation but grants the vendor no self-approval.
  */
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -90,9 +93,17 @@ export async function logBookingFeePayment(formData: FormData) {
       ? idempotencyKeyRaw.trim().slice(0, 64)
       : null;
 
-  // Insert the payment. NO status set → defaults to 'pending' (and the
-  // write-guard rejects anything else from a non-admin), so the vendor cannot
-  // self-approve.
+  // Insert the payment at status 'pending', so the vendor cannot self-approve.
+  //
+  // ⚠ WHAT ENFORCES THAT, POST-SEC-4b: `paymentRowFor` STAMPS `status:
+  // 'pending'` and makes `status` a forbidden field, so this call site cannot
+  // set one at all. It is NOT the RLS write-guard any more — this insert runs
+  // as service_role (below), and `payments_insert_status_guard`
+  // (20270920010000) is RESTRICTIVE `TO authenticated` whose first branch is
+  // `auth.role() = 'service_role'`, so it no longer evaluates on this path. The
+  // previous wording here ("the write-guard rejects anything else from a
+  // non-admin") described a check that stopped running when this site moved to
+  // the admin client.
   //
   // ── SEC-4b · service-role write, ownership already proven above ────────────
   // `payments` INSERT is revoked from `authenticated` (migration

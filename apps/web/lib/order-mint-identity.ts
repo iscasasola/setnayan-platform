@@ -95,7 +95,36 @@ export type MintIdentity = {
 
 /** Columns this module owns. A call site may not set them. */
 type OrderIdentityColumn = 'user_id' | 'event_id' | 'vendor_profile_id';
-type PaymentIdentityColumn = 'user_id' | 'order_id';
+type PaymentIdentityColumn = 'user_id' | 'order_id' | 'status';
+
+/**
+ * SEC-4b · F1 — THE STATUS ALLOW-LIST THAT REPLACES `orders_insert_status_guard`.
+ *
+ * `orders_insert_status_guard` (20270920010000) is RESTRICTIVE `TO authenticated`
+ * and reads
+ *
+ *     auth.role() = 'service_role' OR public.is_admin()
+ *       OR status = ANY (ARRAY['draft','submitted','awaiting_payment','cancelled'])
+ *
+ * Its FIRST branch is a blanket `service_role` exemption, so the moment a call
+ * site moved to `createAdminClient()` the policy stopped constraining it. The
+ * status ladder is the difference between "queued for the admin to reconcile"
+ * and "activated, no money required": a path that can write `'paid'` can hand
+ * itself a SKU. That constraint has to come back somewhere, and under
+ * service_role the only place left is the type system.
+ *
+ * These are EXACTLY the four the dropped policy permitted — not one more. New
+ * values do not get added here to make a call site compile; see
+ * `compOrderRowFor` for the separate, deliberately narrower comp path.
+ */
+export type OrderMintStatus = 'draft' | 'submitted' | 'awaiting_payment' | 'cancelled';
+
+/**
+ * Constrains `status` WITHOUT requiring it, mirroring the policy: the guard
+ * checked the VALUE, never the presence. Omitting it lets `orders.status`
+ * default to `'submitted'` (20260513150000:55), which is itself on the list.
+ */
+type OrderStatusField = { status?: OrderMintStatus };
 
 /** `Partial<Record<K, never>>` makes supplying any of those keys a type error. */
 type Forbid<K extends string> = Partial<Record<K, never>>;
@@ -125,9 +154,14 @@ function requireNonBlank(value: string | null | undefined, fault: MintIdentityFa
  * source-scanning for a PostgREST insert chain on the orders table, and this
  * module builds payloads — it is not itself a minter.)
  *
+ * `status`, when supplied, is constrained to {@link OrderMintStatus} — the four
+ * values `orders_insert_status_guard` allowed a non-admin session to write.
+ * `'paid'` / `'refunded'` are therefore a COMPILE ERROR here; a ₱0 comp grant
+ * uses {@link compOrderRowFor}, which cannot express a non-zero amount.
+ *
  * @throws {MintIdentityRefused} when no server user could be resolved.
  */
-export function orderRowFor<T extends Record<string, unknown>>(
+export function orderRowFor<T extends Record<string, unknown> & OrderStatusField>(
   identity: MintIdentity,
   fields: T & Forbid<OrderIdentityColumn>,
 ): T & { user_id: string; event_id: string | null; vendor_profile_id: string | null } {
@@ -137,6 +171,60 @@ export function orderRowFor<T extends Record<string, unknown>>(
     user_id: userId,
     event_id: identity.eventId ?? null,
     vendor_profile_id: identity.vendorProfileId ?? null,
+  };
+}
+
+/**
+ * Mint a ₱0 COMP order — already `status='paid'`, no money ever expected.
+ *
+ * # Why this is a second door and not a fifth allow-list entry
+ *
+ * Three vendor self-serve paths hand out a free cycle and mint the order
+ * already settled:
+ *
+ *   • `subscription/ai-addon-actions.ts`      — Vendor AI, first cycle free
+ *   • `subscription/booth-addon-actions.ts`   — 3D Booth, first cycle / first 5
+ *   • `clients/[eventId]/photo-challenge-actions.ts` — Papic Challenges, first 5
+ *
+ * All three were ALREADY on `createAdminClient()` before SEC-4b, so they were
+ * always taking `orders_insert_status_guard`'s `service_role` branch and never
+ * lost a check — they are not among the converted paths F1 is restoring. Adding
+ * `'paid'` to {@link OrderMintStatus} to make them compile would hand the
+ * *converted* paths the one status that skips reconciliation entirely, which is
+ * the opposite of the fix.
+ *
+ * So they get their own narrower door. This helper STAMPS `status`,
+ * `requested_total_php` and `confirmed_total_php` and forbids all three, so a
+ * comp mint is structurally incapable of being a non-zero charge — strictly
+ * tighter than the hand-written literals it replaces, where a later edit could
+ * quietly turn `requested_total_php: 0` into `5000` beside `status: 'paid'`.
+ *
+ * ⚠ This is NOT a general escape hatch from {@link OrderMintStatus}. It mints
+ * one shape and one shape only: a free grant. A path that needs to charge money
+ * uses `orderRowFor`.
+ *
+ * @throws {MintIdentityRefused} when no server user could be resolved.
+ */
+export function compOrderRowFor<T extends Record<string, unknown>>(
+  identity: MintIdentity,
+  fields: T & Forbid<OrderIdentityColumn | 'status' | 'requested_total_php' | 'confirmed_total_php'>,
+): T & {
+  user_id: string;
+  event_id: string | null;
+  vendor_profile_id: string | null;
+  status: 'paid';
+  requested_total_php: 0;
+  confirmed_total_php: 0;
+} {
+  const userId = requireNonBlank(identity.userId, 'no-server-user');
+  return {
+    ...(fields as T),
+    user_id: userId,
+    event_id: identity.eventId ?? null,
+    vendor_profile_id: identity.vendorProfileId ?? null,
+    status: 'paid',
+    requested_total_php: 0,
+    confirmed_total_php: 0,
   };
 }
 
@@ -155,13 +243,31 @@ export function orderRowFor<T extends Record<string, unknown>>(
  * prevent; `amount_php` is a CLAIM the admin reconciles against the real bank
  * message at /admin/payments.
  *
+ * # SEC-4b · F1 — the restored `payments_insert_status_guard`
+ *
+ * `status` is STAMPED `'pending'` and is a forbidden field, restoring
+ * `payments_insert_status_guard` (20270920010000), which was RESTRICTIVE
+ * `TO authenticated` and read
+ *
+ *     auth.role() = 'service_role' OR public.is_admin() OR status = 'pending'
+ *
+ * — and therefore stopped constraining anything the moment these sites moved to
+ * service_role. `'pending'` is the value every converted site was already
+ * getting from the column default (20260513150000:96), so this changes no
+ * behaviour; it makes the value unforgeable rather than merely unforged.
+ *
+ * This matters more than the orders half: promotion to `'paid'` is the
+ * admin-only /admin/payments approve path (approvePaymentCore →
+ * activateOrderSku). A payer who could write their own `status` would settle
+ * their own order.
+ *
  * @throws {MintIdentityRefused} when no server user or no verified order id.
  */
 export function paymentRowFor<T extends Record<string, unknown>>(
   identity: { userId: string; verifiedOrderId: string },
   fields: T & Forbid<PaymentIdentityColumn>,
-): T & { user_id: string; order_id: string } {
+): T & { user_id: string; order_id: string; status: 'pending' } {
   const userId = requireNonBlank(identity.userId, 'no-server-user');
   const orderId = requireNonBlank(identity.verifiedOrderId, 'no-verified-order');
-  return { ...(fields as T), user_id: userId, order_id: orderId };
+  return { ...(fields as T), user_id: userId, order_id: orderId, status: 'pending' };
 }

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -241,14 +241,15 @@ export async function sponsorPhotoChallenge(
     const { data: freeOrder, error: foErr } = await admin
       .from('orders')
       .insert(
-        orderRowFor(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
           { userId: user.id, eventId: eventId, vendorProfileId },
           {
             service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
             description: 'Papic Challenges (per event · free · first 5 bookings)',
-            requested_total_php: 0,
-            confirmed_total_php: 0,
-            status: 'paid',
             reference_code: referenceCode,
           },
         ),

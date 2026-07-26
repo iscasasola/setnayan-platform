@@ -485,7 +485,10 @@ test('every converted mint stamps its identity columns through order-mint-identi
     // working; there is no "the caller's own id" to stamp (see note d).
     if (/\bassertAdmin\s*\(/.test(src)) continue;
     for (const payload of orderInsertPayloads(src)) {
-      if (/\borderRowFor\s*\(/.test(payload)) continue;
+      // `compOrderRowFor` is the ₱0-comp sibling — it stamps the SAME three
+      // identity columns (plus status / requested / confirmed), so a payload
+      // built by it satisfies this test for the same reason.
+      if (/\b(orderRowFor|compOrderRowFor)\s*\(/.test(payload)) continue;
       if (!/\buser_id\s*:/.test(payload)) continue;
       offenders.push(`${rel} → orders insert sets user_id by hand`);
     }

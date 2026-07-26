@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
@@ -276,16 +276,17 @@ export async function activateVendor3dBooth(
     const { data: orderRow } = await admin
       .from('orders')
       .insert(
-        orderRowFor(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
           { userId: user.id, eventId: null, vendorProfileId },
           {
             service_key: VENDOR_3D_BOOTH_SKU_CODE,
             description: first5Free
             ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
             : '3D Booth — Branded Virtual Booth (first cycle · free)',
-            requested_total_php: 0,
-            confirmed_total_php: 0,
-            status: 'paid',
             reference_code: referenceCode,
             // Stamp the order's window so the renewal-reminder job nudges the vendor
             // before the free cycle lapses (subscriptions_due_for_renewal_reminder

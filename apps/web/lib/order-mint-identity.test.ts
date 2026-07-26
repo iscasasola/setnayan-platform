@@ -24,6 +24,7 @@ import {
   MINT_IDENTITY_REFUSED,
   MintIdentityRefused,
   orderRowFor,
+  compOrderRowFor,
   paymentRowFor,
 } from './order-mint-identity';
 
@@ -198,5 +199,102 @@ test('the compile-time forbid is in force on every identity column', () => {
       _paymentRejectsOrderId,
     ],
     [false, false, false, false, false],
+  );
+});
+
+/* ── 5 · SEC-4b · F1 — THE RESTORED STATUS GUARDS ───────────────────────────── */
+
+/**
+ * `orders_insert_status_guard` / `payments_insert_status_guard` (20270920010000)
+ * are RESTRICTIVE `TO authenticated` and both begin `auth.role() =
+ * 'service_role' OR …`, so they stopped constraining these paths the moment
+ * SEC-4b moved them to `createAdminClient()`. The constraint is re-expressed in
+ * the type system, and these `= true/false` bindings are the assertion — same
+ * mechanism as § 4.
+ *
+ * The four accepted order statuses are EXACTLY the policy's allow-list. If
+ * someone adds a fifth to make a call site compile, `_orderRejectsPaid` (or its
+ * sibling) stops being `false` and tsc fails here.
+ */
+const _orderAcceptsDraft: Accepts<OrderFields['status'], 'draft'> = true;
+const _orderAcceptsSubmitted: Accepts<OrderFields['status'], 'submitted'> = true;
+const _orderAcceptsAwaiting: Accepts<OrderFields['status'], 'awaiting_payment'> = true;
+const _orderAcceptsCancelled: Accepts<OrderFields['status'], 'cancelled'> = true;
+/** The two that skip /admin/payments reconciliation entirely. */
+const _orderRejectsPaid: Accepts<OrderFields['status'], 'paid'> = false;
+const _orderRejectsRefunded: Accepts<OrderFields['status'], 'refunded'> = false;
+/** payments has no allow-list at all — the helper stamps 'pending' itself. */
+const _paymentRejectsStatus: Accepts<PaymentFields['status'], 'pending'> = false;
+const _paymentRejectsPaid: Accepts<PaymentFields['status'], 'paid'> = false;
+
+test('orderRowFor accepts exactly the four statuses the dropped policy allowed', () => {
+  assert.deepEqual(
+    [_orderAcceptsDraft, _orderAcceptsSubmitted, _orderAcceptsAwaiting, _orderAcceptsCancelled],
+    [true, true, true, true],
+  );
+  assert.deepEqual([_orderRejectsPaid, _orderRejectsRefunded], [false, false]);
+});
+
+test('paymentRowFor stamps status=pending and forbids the call site setting one', () => {
+  const row = paymentRowFor(
+    { userId: 'user-1', verifiedOrderId: 'order-1' },
+    { amount_php: 1500 },
+  );
+  assert.equal(row.status, 'pending');
+  assert.deepEqual([_paymentRejectsStatus, _paymentRejectsPaid], [false, false]);
+});
+
+test("paymentRowFor's pending stamp wins over a smuggled status", () => {
+  // The compile-time forbid is the real control; this proves the runtime
+  // fallback too, for a caller that reaches the function through an `any`.
+  const smuggled = { amount_php: 1500, status: 'paid' } as unknown as { amount_php: number };
+  const row = paymentRowFor({ userId: 'user-1', verifiedOrderId: 'order-1' }, smuggled);
+  assert.equal(row.status, 'pending');
+});
+
+test('compOrderRowFor mints a ₱0 paid comp and cannot express a charge', () => {
+  const row = compOrderRowFor(
+    { userId: 'user-1', eventId: null, vendorProfileId: 'vp-1' },
+    { service_key: 'VENDOR_AI_ADDON', reference_code: 'SNDEADBEEF' },
+  );
+  assert.equal(row.status, 'paid');
+  assert.equal(row.requested_total_php, 0);
+  assert.equal(row.confirmed_total_php, 0);
+  assert.equal(row.user_id, 'user-1');
+  assert.equal(row.vendor_profile_id, 'vp-1');
+  assert.equal(row.event_id, null);
+});
+
+test('compOrderRowFor overrides a smuggled non-zero amount', () => {
+  const smuggled = {
+    service_key: 'VENDOR_AI_ADDON',
+    requested_total_php: 5000,
+    confirmed_total_php: 5000,
+  } as unknown as { service_key: string };
+  const row = compOrderRowFor(
+    { userId: 'user-1', eventId: null, vendorProfileId: 'vp-1' },
+    smuggled,
+  );
+  assert.equal(row.requested_total_php, 0);
+  assert.equal(row.confirmed_total_php, 0);
+});
+
+test('compOrderRowFor REFUSES when no server user could be resolved', () => {
+  assert.throws(
+    () => compOrderRowFor({ userId: '', eventId: null, vendorProfileId: null }, { service_key: 'X' }),
+    (e: unknown) => e instanceof MintIdentityRefused && e.fault === 'no-server-user',
+  );
+});
+
+/** The comp helper forbids the three columns it stamps. */
+type CompFields = Parameters<typeof compOrderRowFor>[1];
+const _compRejectsStatus: Accepts<CompFields['status'], 'paid'> = false;
+const _compRejectsRequested: Accepts<CompFields['requested_total_php'], number> = false;
+const _compRejectsConfirmed: Accepts<CompFields['confirmed_total_php'], number> = false;
+
+test('compOrderRowFor forbids the call site setting status or either amount', () => {
+  assert.deepEqual(
+    [_compRejectsStatus, _compRejectsRequested, _compRejectsConfirmed],
+    [false, false, false],
   );
 });

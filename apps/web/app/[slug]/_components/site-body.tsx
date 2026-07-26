@@ -1392,6 +1392,7 @@ export function SiteBody({
   return (
     <InvitationShell
       monogramText={event.monogram_text}
+      artDirection={event.site_art_direction ?? null}
       backdrop={backdrop}
       rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}

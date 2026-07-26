@@ -67,10 +67,12 @@ export function toCreditPackage(pkg: VendorPackageWithItems): CreditPackage {
     total_price_centavos: pkg.total_price_centavos,
     consumable_budget_centavos: pkg.consumable_budget_centavos,
     is_consumable_flexible: pkg.is_consumable_flexible === true,
+    // 'refundable' is RETIRED (owner 2026-07-26: credit shifts, never
+    // discounts). Anything that is not 'expiring' — including a stored
+    // 'refundable' — normalises here, and the engine refuses it if it somehow
+    // reaches that far. Both directions land on "the couple pays full price".
     unspent_credit_policy:
-      policy === 'expiring' || policy === 'refundable'
-        ? policy
-        : DEFAULT_UNSPENT_CREDIT_POLICY,
+      policy === 'expiring' ? policy : DEFAULT_UNSPENT_CREDIT_POLICY,
     items: pkg.items.map(toCreditItem),
   };
 }

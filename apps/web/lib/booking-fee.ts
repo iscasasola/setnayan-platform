@@ -1,7 +1,21 @@
 /**
  * Setnayan vendor BOOKING FEE — the pure, deterministic fee schedule.
  *
- * Owner-directed 2026-07-24 (final): a SINGLE FLAT RATE of 5%, floored at ₱50,
+ * ⚠ SUPERSEDED IN PLAN, NOT YET IN CODE. What this module computes today is the
+ * 2026-07-24 flat 5%. The owner-locked model dated 2026-07-25 —
+ * `Vendor_Monetization_Model_LOCKED_2026-07-25.md` § 54 — is a TAPER: 5% up to
+ * ₱100,000, then 1% above it. That reprice is scoped to the payment session
+ * (owner: "the fee taper is the payment session's job"), so this file is
+ * deliberately unchanged. Implementing it means editing `BOOKING_FEE` +
+ * `bookingFeePhp` and bumping `BOOKING_FEE_SCHEDULE_VERSION`, which is exactly
+ * what the version stamp on every charge exists for.
+ *
+ * The word "(final)" below refers to the 2026-07-24 decision at the time it was
+ * made; it is NOT the current model, and reading it as such has already cost one
+ * session an hour. Do not treat this header as the source of truth for pricing —
+ * the corpus is.
+ *
+ * Owner-directed 2026-07-24: a SINGLE FLAT RATE of 5%, floored at ₱50,
  * with NO cap. Supersedes the 2026-07-23 "flat 2%, ₱50 floor, ₱4,000 cap" schedule
  * (the ₱4,000 cap is REMOVED and the rate is raised 2% → 5%). The owner was flagged
  * that a flat 5% with no cap makes large bookings expensive (₱1M → ₱50,000) and

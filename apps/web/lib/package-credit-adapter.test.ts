@@ -103,11 +103,13 @@ test('an unrecognised policy value also reads as expiring', () => {
   assert.equal(toCreditPackage(pkg).unspent_credit_policy, 'expiring');
 });
 
-test('a real policy value is carried through', () => {
+test('the RETIRED refundable policy normalises to expiring, never through', () => {
+  // Owner-locked 2026-07-26: credit shifts, it never discounts. A stored
+  // 'refundable' must not reach the engine as a discount instruction.
   const pkg = pkgWith([item('a')], {
     unspent_credit_policy: 'refundable',
-  } as Partial<VendorPackageWithItems>);
-  assert.equal(toCreditPackage(pkg).unspent_credit_policy, 'refundable');
+  } as unknown as Partial<VendorPackageWithItems>);
+  assert.equal(toCreditPackage(pkg).unspent_credit_policy, 'expiring');
 });
 
 test('a missing is_required reads as FALSE, not TRUE', () => {

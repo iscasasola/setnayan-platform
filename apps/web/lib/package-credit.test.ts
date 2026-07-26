@@ -11,7 +11,7 @@
  *     available-credit pool, asserted both directly and by exhaustion (the
  *     pool can never exceed the sum of the OPTIONAL lines);
  *   • the three credit thresholds — surplus / exactly zero / overspent;
- *   • both unspent-credit policies — expiring and refundable;
+ *   • the single unspent-credit policy — expiring (refundable is RETIRED);
  *   • the fail-closed cases — unknown ids, duplicate selections, removing a
  *     required line, un-picked required choices, negative / absurd money.
  *
@@ -376,23 +376,23 @@ test('SURPLUS · expiring: leftover is forfeited, price unchanged', () => {
   assert.equal(r.bookingTotalCentavos, TOTAL_PRICE);
 });
 
-test('SURPLUS · refundable: leftover comes off the price', () => {
+test('SURPLUS: leftover credit is FORFEITED — it never comes off the price', () => {
+  // Owner-locked 2026-07-26: "credits can be shifted to other services, but
+  // will not discount the price." Previously this asserted the opposite under
+  // policy 'refundable', which is now retired.
   const r = ok(
-    computePackageCredit({
-      pkg: pkg({ unspent_credit_policy: 'refundable' }),
-      chosenOptionIds: [MAIN_PREMIUM],
-    }),
+    computePackageCredit({ pkg: pkg(), chosenOptionIds: [MAIN_PREMIUM] }),
   );
   const leftover = CONSUMABLE - DELTA_MAIN_PREMIUM;
-  assert.equal(r.creditRefundCentavos, leftover);
-  assert.equal(r.forfeitedCreditCentavos, 0);
-  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE - leftover);
+  assert.equal(r.creditRefundCentavos, 0, 'credit must never be refunded as money');
+  assert.equal(r.forfeitedCreditCentavos, leftover, 'unspent credit is forfeited');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE, 'the price does not move');
 });
 
 test('EXACTLY ZERO: spend meets credit — no leftover, no overspend, either policy', () => {
   // Budget tuned so the premium main exactly consumes the pool.
   const exact = pkg({ consumable_budget_centavos: DELTA_MAIN_PREMIUM });
-  for (const policy of ['expiring', 'refundable'] as const) {
+  for (const policy of ['expiring'] as const) {
     const r = ok(
       computePackageCredit({
         pkg: { ...exact, unspent_credit_policy: policy },
@@ -417,8 +417,8 @@ test('OVERSPENT: the excess is added to the booking total (existing pay rail)', 
   assert.equal(r.bookingTotalCentavos, TOTAL_PRICE + overspend);
 });
 
-test('OVERSPENT · refundable: nothing to refund, overspend still bills', () => {
-  const tiny = pkg({ consumable_budget_centavos: 5_000, unspent_credit_policy: 'refundable' });
+test('OVERSPENT: the excess bills, and nothing is ever refunded', () => {
+  const tiny = pkg({ consumable_budget_centavos: 5_000 });
   const r = ok(computePackageCredit({ pkg: tiny, chosenOptionIds: [MAIN_PREMIUM] }));
   assert.equal(r.creditRefundCentavos, 0);
   assert.equal(r.bookingTotalCentavos, TOTAL_PRICE + (DELTA_MAIN_PREMIUM - 5_000));
@@ -436,18 +436,19 @@ test('removed credit funds a premium pick — the price never moves (expiring)',
   assert.equal(r.bookingTotalCentavos, TOTAL_PRICE); // "changes WHAT you get, not what you pay"
 });
 
-test('refundable + huge credit vs a tiny price clamps the total at zero', () => {
+test('a pool larger than the price can NEVER drive the total below the price', () => {
+  // The old 'refundable' path clamped the booking total at ₱0 here. With credit
+  // barred from discounting, a huge pool is simply a huge amount of spending
+  // power inside the package — the couple still pays the sticker price.
   const r = ok(
     computePackageCredit({
-      pkg: pkg({
-        unspent_credit_policy: 'refundable',
-        total_price_centavos: 1_000,
-        consumable_budget_centavos: 900_000,
-      }),
+      pkg: pkg({ total_price_centavos: 1_000, consumable_budget_centavos: 900_000 }),
       ...BASELINE,
     }),
   );
-  assert.equal(r.bookingTotalCentavos, 0);
+  assert.equal(r.bookingTotalCentavos, 1_000, 'the price stands');
+  assert.equal(r.creditRefundCentavos, 0);
+  assert.equal(r.forfeitedCreditCentavos, 900_000, 'the whole unused pool is forfeited');
 });
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -943,14 +944,14 @@ test('RECONCILES: a refund is never larger than the price it comes off', () => {
         total_price_centavos: 1_000_000,
         consumable_budget_centavos: 5_000_000,
         is_consumable_flexible: true,
-        unspent_credit_policy: 'refundable',
+        unspent_credit_policy: 'expiring',
         items: [],
       },
     }),
   );
-  assert.equal(r.bookingTotalCentavos, 0);
-  assert.equal(r.creditRefundCentavos, 1_000_000, 'only what the price could absorb');
-  assert.equal(r.forfeitedCreditCentavos, 4_000_000, 'the residue is LOST, and says so');
+  assert.equal(r.bookingTotalCentavos, 1_000_000, 'the price stands — credit never discounts');
+  assert.equal(r.creditRefundCentavos, 0, 'nothing is ever refunded');
+  assert.equal(r.forfeitedCreditCentavos, 5_000_000, 'the WHOLE unused pool is LOST, and says so');
   // The identity, stated directly.
   assert.equal(
     r.bookingTotalCentavos,
@@ -970,7 +971,7 @@ test('RECONCILES: both identities hold across a matrix of shapes and policies', 
   const prices = [1_000, 100_000, TOTAL_PRICE];
   let checked = 0;
 
-  for (const policy of ['expiring', 'refundable'] as const) {
+  for (const policy of ['expiring'] as const) {
     for (const flexible of [true, false]) {
       for (const budget of budgets) {
         for (const price of prices) {
@@ -1031,29 +1032,36 @@ test('RECONCILES: both identities hold across a matrix of shapes and policies', 
 });
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* 'refundable' semantics — PINNED, pending owner confirmation              */
+/* CREDIT NEVER DISCOUNTS — owner-locked 2026-07-26                         */
 /*                                                                          */
-/* Read literally, 'refundable' refunds the WHOLE unspent pool including the */
-/* base consumable budget the sticker price already charged for. That is     */
-/* what the owner's wording says, so it is implemented as written and pinned */
-/* here rather than quietly reinterpreted. If the owner confirms the other   */
-/* reading (refund only what a REMOVAL freed), these two tests are the ones  */
-/* that change — deliberately loud.                                          */
+/* "Credits can be shifted to other services, but will not discount the      */
+/* price." This block used to PIN the opposite under policy 'refundable',    */
+/* with a note that these are the tests that change if the owner confirms    */
+/* the other reading. The owner confirmed. They changed.                     */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-test("PINNED: 'refundable' discounts the untouched base budget on a zero-customization booking", () => {
+test('a zero-customization booking pays the FULL sticker price', () => {
   // The real seeded Sofitel shape: ₱1,400,000 package, ₱200,000 consumable.
+  // Under the retired 'refundable' this returned ₱1,200,000 — ₱200,000 given
+  // away to a couple who customized nothing and still received every inclusion.
   const sofitel = pkg({
     total_price_centavos: 140_000_000,
     consumable_budget_centavos: 20_000_000,
-    unspent_credit_policy: 'refundable',
   });
   const r = ok(computePackageCredit({ pkg: sofitel, ...BASELINE }));
-  assert.equal(
-    r.bookingTotalCentavos,
-    120_000_000,
-    'a couple who customizes NOTHING pays ₱200,000 less and still gets every inclusion — owner must confirm this is intended',
-  );
+  assert.equal(r.bookingTotalCentavos, 140_000_000, 'the pool is spending power, not a discount');
+  assert.equal(r.creditRefundCentavos, 0);
+});
+
+test('the retired policy REFUSES rather than quietly discounting', () => {
+  // A row still carrying 'refundable' must fail closed. Silently honouring it
+  // would reintroduce the giveaway on exactly the packages nobody re-saved.
+  const r = computePackageCredit({
+    pkg: { ...pkg(), unspent_credit_policy: 'refundable' as never },
+    ...BASELINE,
+  });
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.errors.some((e) => e.code === 'invalid_package'));
 });
 
 test("PINNED: 'expiring' (the DEFAULT) charges the full sticker price for the same booking", () => {

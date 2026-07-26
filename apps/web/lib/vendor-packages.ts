@@ -159,7 +159,7 @@ export type VendorPackageRow = {
    * sticker price already charged for. See the warning header in
    * ./package-credit.
    */
-  unspent_credit_policy?: 'expiring' | 'refundable';
+  unspent_credit_policy?: 'expiring';
 };
 
 /**

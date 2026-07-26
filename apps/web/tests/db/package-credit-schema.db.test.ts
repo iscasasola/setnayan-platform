@@ -10,8 +10,8 @@
  *   • vendor_package_items.is_required defaults FALSE — the flag-OFF hold.
  *     If it ever defaulted TRUE, every existing line would become
  *     un-removable the moment the migration landed;
- *   • vendor_packages.unspent_credit_policy defaults 'expiring' (today's
- *     behaviour) and its CHECK rejects anything else;
+ *   • vendor_packages.unspent_credit_policy is 'expiring' and NOTHING else —
+ *     'refundable' is RETIRED (owner 2026-07-26: credit shifts, never discounts);
  *   • an option's price delta cannot be negative — a negative delta is the
  *     one shape that would let a REQUIRED line mint credit;
  *   • the DEFAULT option is free (the package price already includes it);
@@ -110,16 +110,24 @@ test('is_required defaults FALSE — the flag-OFF hold on every existing line', 
   );
 });
 
-test("unspent_credit_policy defaults 'expiring' (today's behaviour) and the CHECK is closed", async () => {
+test("unspent_credit_policy is 'expiring' and NOTHING else — credit never discounts", async () => {
+  // Owner-locked 2026-07-26: "credits can be shifted to other services, but
+  // will not discount the price." 'refundable' is RETIRED at the DB, not merely
+  // unused — it took unspent budget off the total, so a couple who customized
+  // nothing paid less and still received everything.
   const r = await db.query<{ unspent_credit_policy: string }>(
     `SELECT unspent_credit_policy FROM public.vendor_packages WHERE package_id = $1`,
     [packageId],
   );
   assert.equal(r.rows[0]!.unspent_credit_policy, 'expiring');
 
-  await db.exec(
-    `UPDATE public.vendor_packages SET unspent_credit_policy = 'refundable'
-     WHERE package_id = '${packageId}'`,
+  await assert.rejects(
+    db.query(
+      `UPDATE public.vendor_packages SET unspent_credit_policy = 'refundable' WHERE package_id = $1`,
+      [packageId],
+    ),
+    /check/i,
+    'refundable is retired — a discount policy must be impossible to store',
   );
   await assert.rejects(
     db.query(
@@ -127,12 +135,7 @@ test("unspent_credit_policy defaults 'expiring' (today's behaviour) and the CHEC
       [packageId],
     ),
     /check/i,
-    'only expiring|refundable — an unknown policy has no defined money behaviour',
-  );
-  // Restore for later assertions.
-  await db.exec(
-    `UPDATE public.vendor_packages SET unspent_credit_policy = 'expiring'
-     WHERE package_id = '${packageId}'`,
+    'an unknown policy has no defined money behaviour',
   );
 });
 

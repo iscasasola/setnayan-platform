@@ -101,8 +101,21 @@ export const MAX_ADDITION_QUANTITY = 10_000;
 /* row types in ./vendor-packages (same convention as ./package-line-pricing) */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-/** Vendor's per-package decision about leftover credit. */
-export type UnspentCreditPolicy = 'expiring' | 'refundable';
+/**
+ * What happens to leftover credit.
+ *
+ * ONE value, deliberately. Owner-locked 2026-07-26: **"credits can be shifted to
+ * other services, but will not discount the price."** Credit changes WHAT the
+ * couple gets, never what they pay, so there is no policy under which unspent
+ * credit becomes money off the price.
+ *
+ * ⚠ 'refundable' was RETIRED. It was implemented as-written and flagged as an
+ * unverified semantic; read literally it refunded the whole unspent pool —
+ * INCLUDING `consumable_budget_centavos`, money the sticker price already
+ * charged for. On the seeded ₱1,400,000 / ₱200,000-budget package a couple who
+ * customized NOTHING paid ₱1,200,000 and still received every inclusion.
+ */
+export type UnspentCreditPolicy = 'expiring';
 
 /** One alternative on a CHOICE line (`vendor_package_item_options` row). */
 export type CreditOption = {
@@ -351,8 +364,9 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
   if (!isMoney(pkg.consumable_budget_centavos)) {
     fail('invalid_money', `consumable_budget_centavos is not a sane centavo amount: ${String(pkg.consumable_budget_centavos)}`);
   }
-  if (pkg.unspent_credit_policy !== 'expiring' && pkg.unspent_credit_policy !== 'refundable') {
-    // Unknown policy => we cannot say what happens to leftover money. Refuse.
+  if (pkg.unspent_credit_policy !== 'expiring') {
+    // 'refundable' lands here on purpose: a stored row still carrying the
+    // retired value must REFUSE rather than quietly discount the price.
     fail('invalid_package', `unknown unspent_credit_policy: ${String(pkg.unspent_credit_policy)}`);
   }
   if (typeof pkg.is_consumable_flexible !== 'boolean') {
@@ -698,19 +712,12 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
     ? pkg.total_price_centavos
     : Math.max(0, pkg.total_price_centavos - removedTotalCentavos);
 
-  const refundable = pkg.unspent_credit_policy === 'refundable';
-
-  // A refund can only ever be as large as the price it comes off. Reporting
-  // the full remaining pool while the booking total floors at 0 would put a
-  // number on a receipt that was never actually applied — the result tuple
-  // has to reconcile:
+  // CREDIT NEVER DISCOUNTS THE PRICE (owner-locked 2026-07-26). Unspent credit
+  // is forfeited, never returned as money off the total — the pillar is that
+  // credit changes WHAT you get, not what you pay. Kept in the result shape,
+  // pinned at 0, so every consumer still reconciles:
   //     bookingTotal === basePrice + overspend − creditRefund
-  // and every centavo of pool is accounted for as spent, refunded, or
-  // forfeited. Whatever the price cannot absorb is FORFEITED, including
-  // under 'refundable'.
-  const creditRefundCentavos = refundable
-    ? Math.min(remainingCreditCentavos, basePriceCentavos)
-    : 0;
+  const creditRefundCentavos = 0;
   const forfeitedCreditCentavos = remainingCreditCentavos - creditRefundCentavos;
 
   const bookingTotalCentavos = basePriceCentavos + overspendCentavos - creditRefundCentavos;

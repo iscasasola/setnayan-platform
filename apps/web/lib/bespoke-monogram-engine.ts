@@ -15,6 +15,7 @@
  */
 
 import type { BespokeStyleKey } from '@/lib/bespoke-monogram-shared';
+import { HOSTILE_SVG_PATTERNS } from '@/lib/monogram-svg-safe';
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Prompt engineering
@@ -95,6 +96,14 @@ const FORBIDDEN = [
   // blocks external loads anyway (secure static mode) — defense-in-depth.
   /url\s*\(\s*(?!#)/i,
   /data:/i, // no nested data URIs
+  // SEC-3 (2026-07-26): the list above is \s-separator-only and namespace-blind,
+  // so `<circle/onload=…>`, `<circle fill="x"onload=…>`, `<svg:script>` and
+  // `<desc><img/onerror=…>` all walked straight through it — which means the
+  // stored XSS did not even need the PostgREST column bypass, a crafted .svg
+  // through the upload button was enough. HOSTILE_SVG_PATTERNS is the hardened
+  // set the READ-time gate enforces; write and read must agree, or a couple
+  // saves a mark that then silently never renders. See lib/monogram-svg-safe.ts.
+  ...HOSTILE_SVG_PATTERNS,
 ];
 
 /**

@@ -56,6 +56,7 @@ import {
   HomeCommandBar,
   type HomeCommandItem,
 } from './_components/home-command-bar';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = {
   title: 'Your events',
@@ -1204,8 +1205,8 @@ function GlassEventCard({
         <EventMonogram
           event={{
             ...event,
-            monogram_custom_svg:
-              event.monogram_uploaded_svg ?? event.monogram_custom_svg,
+            // SEC-3: gated on read — both columns are host-writable via PostgREST.
+            monogram_custom_svg: resolveEventMonogramSvg(event),
           }}
           size="lg"
           shape="square"

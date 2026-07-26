@@ -256,6 +256,28 @@ export function formatCentavosPhp(centavos: number | null | undefined): string {
  * consumable pool stays at vendor_packages.consumable_budget_centavos
  * (no flex; host saves money instead).
  */
+/**
+ * Can the host drop this line?
+ *
+ * Two INDEPENDENT reasons a line is not removable, and both must hold for a
+ * removal to be worth money:
+ *
+ *   • `is_required` — the vendor marked it mandatory. Owner-locked 2026-07-26:
+ *     "the vendor can place required so this is something they have to pick and
+ *     cannot be unpicked."
+ *   • `!is_default_included` — the line is an optional ADD-ON that was never
+ *     inside `total_price_centavos`. "Removing" it must refund nothing, because
+ *     nothing was ever charged for it. Treating it as removable is how the
+ *     pre-fix code paid the host for a line the vendor never billed.
+ *
+ * `is_required` is optional on the row type only because the column post-dates
+ * it; every SELECT on the lock path now includes it, and the DB default is
+ * FALSE, so it is a real boolean in practice.
+ */
+export function isRemovableItem(item: VendorPackageItemRow): boolean {
+  return item.is_default_included === true && item.is_required !== true;
+}
+
 export function computeCustomization(
   pkg: VendorPackageWithItems,
   removedItemIds: ReadonlyArray<string>,
@@ -265,8 +287,11 @@ export function computeCustomization(
   removedTotalCentavos: number;
 } {
   const removedSet = new Set(removedItemIds);
+  // Only removals the host was actually ALLOWED to make move money. An id for a
+  // required or never-included line is ignored rather than rejected, so a stale
+  // client cannot both crash the lock and cannot profit from it.
   const removedTotalCentavos = pkg.items
-    .filter((item) => removedSet.has(item.item_id))
+    .filter((item) => removedSet.has(item.item_id) && isRemovableItem(item))
     .reduce((sum, item) => sum + item.replacement_value_centavos, 0);
 
   if (pkg.is_consumable_flexible) {
@@ -297,5 +322,13 @@ export function keptItems(
   removedItemIds: ReadonlyArray<string>,
 ): ReadonlyArray<VendorPackageItemRow> {
   const removedSet = new Set(removedItemIds);
-  return pkg.items.filter((item) => !removedSet.has(item.item_id));
+  return pkg.items.filter((item) => {
+    // Never inside the price → never cascades into an event_vendors row. There
+    // is no purchase path for add-ons yet, so shipping them as booked services
+    // would hand the host a vendor they did not pay for.
+    if (!item.is_default_included) return false;
+    // A required line survives regardless of what the client sent.
+    if (item.is_required) return true;
+    return !removedSet.has(item.item_id);
+  });
 }

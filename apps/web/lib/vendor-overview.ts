@@ -7,6 +7,7 @@ import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { resolveRegion } from '@/lib/region-source';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   buildInquiryCard,
   type InquiryWhatsNewCard,
@@ -422,23 +423,33 @@ async function fetchEventMeta(
 ): Promise<Map<string, EventMeta>> {
   const out = new Map<string, EventMeta>();
   if (eventIds.length === 0) return out;
-  const { data } = await admin
+  // ⚠ `venue_name`, NOT `venue` — public.events has no `venue` column (it has
+  // venue_name / venue_address / venue_setting / venue_latitude / …).
+  // PostgREST 42703s on ONE unknown column and fails the WHOLE row, so this map
+  // was permanently empty and every vendor-overview card lost its couple name,
+  // event date, region, venue AND event type — not just the venue line.
+  const { data, error } = await admin
     .from('events')
-    .select('event_id, display_name, event_date, region, venue, event_type')
+    .select('event_id, display_name, event_date, region, venue_name, event_type')
     .in('event_id', eventIds);
+  if (error) {
+    logQueryError('vendor-overview:fetchEventMeta', error, {
+      eventCount: eventIds.length,
+    });
+  }
   for (const row of (data ?? []) as Array<{
     event_id: string;
     display_name: string | null;
     event_date: string | null;
     region: string | null;
-    venue: string | null;
+    venue_name: string | null;
     event_type: string | null;
   }>) {
     out.set(row.event_id, {
       displayName: row.display_name ?? 'A couple',
       eventDate: row.event_date,
       region: row.region,
-      venue: row.venue,
+      venue: row.venue_name,
       eventType: row.event_type,
     });
   }

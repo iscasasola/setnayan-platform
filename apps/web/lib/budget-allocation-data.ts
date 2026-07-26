@@ -19,6 +19,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LeafInput, AllocationConfig } from './budget-allocation';
+import { logQueryError } from './supabase/error-detect';
 
 /** Map each benchmark leaf (plan_group_id) to the vendor `canonical_service`
  *  keys whose solo prices feed its median. Mirrors
@@ -172,10 +173,16 @@ async function fetchLeafMedians(
   }
   if (allCanon.length === 0) return out;
   try {
+    // ⚠ `category`, NOT `canonical_service` — public.vendor_services stores the
+    // canonical taxonomy key in `category` (UNIQUE (vendor_profile_id, category),
+    // migration 20260514010000) and has never had a `canonical_service` column.
+    // Named in BOTH the select and the .in() filter, so PostgREST 42703'd the
+    // whole query and this map was permanently empty: the budget allocator has
+    // been showing NO market median / min / p25 / p75 for any leaf.
     const { data, error } = await client
       .from('vendor_services')
-      .select('canonical_service, starting_price_php, is_active')
-      .in('canonical_service', allCanon)
+      .select('category, starting_price_php, is_active')
+      .in('category', allCanon)
       .eq('is_active', true)
       // Linked-only rows are auto-covered components with no standalone market
       // price — including them depresses the leaf's SOLO-price median (and the
@@ -183,11 +190,16 @@ async function fetchLeafMedians(
       // 20261014000000_vendor_service_links.sql § 2.
       .eq('is_linked_only', false)
       .not('starting_price_php', 'is', null);
+    if (error) {
+      logQueryError('budget-allocation:leafMarketStats', error, {
+        leafCount: leafIds.length,
+      });
+    }
     if (error || !data) return out;
     const byLeaf = new Map<string, number[]>();
-    for (const row of data as Array<{ canonical_service: string | null; starting_price_php: number | null }>) {
-      if (row.canonical_service == null || row.starting_price_php == null) continue;
-      const leaf = canonToLeaf.get(row.canonical_service);
+    for (const row of data as Array<{ category: string | null; starting_price_php: number | null }>) {
+      if (row.category == null || row.starting_price_php == null) continue;
+      const leaf = canonToLeaf.get(row.category);
       if (!leaf) continue;
       const price = Number(row.starting_price_php);
       if (!Number.isFinite(price) || price <= 0) continue;

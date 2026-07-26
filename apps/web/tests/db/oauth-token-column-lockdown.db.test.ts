@@ -45,29 +45,50 @@
  *            that would break the refresh cron, both OAuth callbacks and all
  *            three disconnect routes.
  *
- * ── NEUTRALISATION PROOF (run 2026-07-26, reverted and re-verified) ─────────
- *   Baseline: 8 subtests, 8 pass.
- *   N1 · delete the whole SEC-8 DO block from 20271009210000 (the REVOKE
- *        SELECT → GRANT SELECT(allow-list) cycle) and its post-conditions.
- *        → 2 of 8 FAIL: "authenticated cannot SELECT the Google credentials"
- *          and "the deny-set is exactly the two credential columns".
- *        → the exposure freeze does NOT catch this one: removing a revoke is a
- *          WIDENING relative to the branch but the baseline is regenerated in
- *          the same PR, so only this test speaks for it.
- *   N2 · replace the REVOKE-then-GRANT cycle with the naive
- *          REVOKE SELECT (refresh_token, access_token) ... FROM anon, authenticated;
- *        which is what a reasonable person writes first. Postgres accepts it and
- *        it changes NOTHING ("if a role has been granted privileges on a table,
- *        then revoking the same privileges from individual columns will have no
- *        effect").
- *        → the migration's own post-condition (a) RAISEs, so the replay throws
- *          and all 8 subtests fail before asserting anything. The no-op cannot
- *          ship even if this file were deleted.
- *   N3 · drop the `granted_by_user_id` / `subject_user_id` lockdown block from
- *        20271009200000.
- *        → 1 of 8 FAILS: "the erasure-attribution columns are server-only".
- *        → and the exposure freeze goes red with the two `anon=SIU
- *          authenticated=SIU` lines this PR was blocked on.
+ * ── NEUTRALISATION PROOF (run 2026-07-26; each mutation reverted + re-verified) ─
+ *   Baseline: 9 subtests, 9 pass.
+ *
+ *   N1 · Delete the whole SEC-8 body from 20271009210000 — the REVOKE-then-
+ *        GRANT cycle AND its post-conditions — leaving only the header.
+ *        → 3 of 9 FAIL: "authenticated CANNOT SELECT the Google credentials",
+ *          "anon CANNOT SELECT the Google credentials either", and "the
+ *          deny-set is EXACTLY the two credential columns".
+ *        → the six META / survival subtests stay green, which is the point:
+ *          they are controls, and a control that fails when the fix is removed
+ *          would not be one.
+ *
+ *   N2 · Replace the REVOKE-then-GRANT cycle with the naive one-liner
+ *          REVOKE SELECT (refresh_token, access_token) ON public.oauth_grants
+ *            FROM anon, authenticated;
+ *        — what a reasonable person writes first, and a silent no-op wherever a
+ *        table-level grant exists.
+ *        → 9 of 9 PASS. **The mutation was not caught**, and the reason is
+ *          worth writing down: 20271009200000 runs first in this same PR and
+ *          already converts oauth_grants to a column-list grant, so on a
+ *          freshly-replayed database there is no table-level grant left for the
+ *          one-liner to fail against. CI would have been green over a fix that
+ *          is inert in production.
+ *
+ *   N2b · The honest version of N2: the naive one-liner AND the 20271009200000
+ *        lockdown removed, so the table-level grant is intact exactly as it is
+ *        in prod.
+ *        → the migration's own post-condition (a) RAISEs during replay —
+ *          "authenticated can still SELECT refresh_token; anon can still SELECT
+ *          refresh_token; authenticated can still SELECT access_token; anon can
+ *          still SELECT access_token" — so all 9 subtests fail before asserting
+ *          anything. The no-op cannot ship even if this whole file were deleted.
+ *          N2/N2b together are why the migration uses REVOKE-then-GRANT rather
+ *          than depending on what another file did first.
+ *
+ *   N3 · Drop only the `granted_by_user_id` / `subject_user_id` lockdown block
+ *        from 20271009200000, leaving SEC-8 intact.
+ *        → all 9 FAIL, via 20271009210000's UNION post-condition (b):
+ *          "regressed the 20271009200000 granted_by_user_id denial". The
+ *          allow-list in SEC-8 is computed from LIVE privileges, so with the
+ *          earlier denial gone it grants the column straight back — and (b) is
+ *          the assertion that notices.
+ *        → the exposure freeze independently goes red with the two
+ *          `anon=SIU authenticated=SIU` lines this PR was originally blocked on.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

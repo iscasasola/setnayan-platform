@@ -46,13 +46,24 @@
 -- same rows. The row policy is correct; only two columns are wrong. A
 -- column-level denial is the minimum cut.
 --
--- ⚠ THE NAIVE FIX IS A NO-OP. Postgres: "if a role has been granted privileges
---   on a table, then revoking the same privileges from individual columns will
---   have no effect." Both roles hold TABLE-level SELECT here, so
+-- ⚠ THE NAIVE FIX IS A NO-OP AGAINST PRODUCTION. Postgres: "if a role has been
+--   granted privileges on a table, then revoking the same privileges from
+--   individual columns will have no effect." In prod TODAY both roles hold
+--   TABLE-level SELECT on this table, so
 --     REVOKE SELECT (refresh_token, access_token) ON public.oauth_grants
 --       FROM anon, authenticated;
---   applies without error and changes nothing. Table-level SELECT must be
---   revoked FIRST and an explicit column list granted back — the shape SEC-2b
+--   applies without error and changes nothing at all. Measured, not assumed:
+--   substituting that one-liner and replaying makes post-condition (a) below
+--   report all four columns still readable and RAISE.
+--
+--   ⚠⚠ AND IT WOULD HAVE LOOKED FINE IN CI. 20271009200000 runs minutes earlier
+--   in this same PR and, for its own reasons, already converts `oauth_grants`
+--   from a table-level grant to an explicit column list. So by the time THIS
+--   file runs on a freshly-replayed database there is no table-level grant left
+--   to override, and the naive one-liner passes — green in the harness,
+--   inert against the production it was written for. That divergence is the
+--   whole argument for REVOKE-then-GRANT here as well as there: it is correct
+--   in BOTH worlds and depends on the ordering of neither. Same shape SEC-2b
 --   (20271008731642) established on `events`.
 --
 -- ── EVERY TOKEN READER WAS CHECKED, AND EVERY ONE IS ALREADY service_role ───

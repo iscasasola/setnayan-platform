@@ -410,26 +410,84 @@ test('the snapshot is never re-baselined by a later re-activation', async () => 
   );
 });
 
+/* ── The snapshot is defended by TWO independent layers ─────────────────────
+ * LAYER 1, the column GRANT: 20271005100000 keeps setnayan_ai_tier_at_purchase
+ *   out of the UPDATE/INSERT allow-list, so `authenticated` has no privilege on
+ *   it at all and the statement is refused before any trigger runs.
+ * LAYER 2, the guard TRIGGER: guard_events_ai_entitlement fires only when
+ *   current_user is 'authenticated' or 'anon'.
+ *
+ * The two tests below exercise them SEPARATELY, because layer 1 masks layer 2 —
+ * once the grant is missing, the trigger is unreachable through the very role it
+ * targets. Testing only the outer layer would let the trigger rot unnoticed.
+ *
+ * Verified against prod 2026-07-26:
+ * has_column_privilege('authenticated','public.events',
+ * 'setnayan_ai_tier_at_purchase', 'UPDATE'|'INSERT'|'SELECT') is FALSE for all
+ * three — so layer 1 really is what refuses a host in production.            */
+
 test('the snapshot column is not writable by the host', async () => {
+  // LAYER 1 — the grant. No column privilege, so this never reaches the trigger.
   await asHost();
+  const priv = await db.query<{ u: boolean; i: boolean }>(
+    `SELECT has_column_privilege('authenticated','public.events','setnayan_ai_tier_at_purchase','UPDATE') AS u,
+            has_column_privilege('authenticated','public.events','setnayan_ai_tier_at_purchase','INSERT') AS i`,
+  );
+  assert.equal(priv.rows[0]!.u, false, 'authenticated holds UPDATE on the tier snapshot — a host can forge it');
+  assert.equal(priv.rows[0]!.i, false, 'authenticated holds INSERT on the tier snapshot — a host can pre-load it');
+
   const err = await tryQuery(
     `UPDATE public.events SET setnayan_ai_tier_at_purchase = 'E' WHERE event_id = $1`,
     [eventId],
   );
   assert.notEqual(err, null, 'a host could forge the tier they "bought at" and unlock every re-type');
-  assert.match(String(err), /not writable by the couple/i);
+  assert.match(String(err), /permission denied/i);
+});
+
+test('the snapshot guard trigger still refuses even if the column grant is widened', async () => {
+  // LAYER 2 — defence in depth. Hand `authenticated` the grant that prod
+  // withholds, so the trigger becomes reachable, and prove it still refuses.
+  // Without this, deleting the stamp trigger would break nothing visible.
+  await reset();
+  await db.exec(
+    `GRANT UPDATE (setnayan_ai_tier_at_purchase), INSERT (setnayan_ai_tier_at_purchase)
+       ON public.events TO authenticated`,
+  );
+  try {
+    await asHost();
+    const updateErr = await tryQuery(
+      `UPDATE public.events SET setnayan_ai_tier_at_purchase = 'E' WHERE event_id = $1`,
+      [eventId],
+    );
+    assert.notEqual(updateErr, null, 'with the grant present, nothing stopped the host forging the snapshot');
+    assert.match(String(updateErr), /not writable by the couple/i);
+
+    // …and the same guard must cover the INSERT path, or the UPDATE guard is
+    // simply bypassed by writing the snapshot at creation time.
+    const insertErr = await tryQuery(
+      `INSERT INTO public.events (display_name, event_type, setnayan_ai_tier_at_purchase)
+       VALUES ('SEC-5 Forged Insert', 'birthday', 'E')`,
+    );
+    assert.notEqual(insertErr, null, 'the UPDATE guard is bypassed by writing the snapshot at INSERT time');
+    assert.match(String(insertErr), /not writable by the couple/i);
+  } finally {
+    await reset();
+    await db.exec(
+      `REVOKE UPDATE (setnayan_ai_tier_at_purchase), INSERT (setnayan_ai_tier_at_purchase)
+         ON public.events FROM authenticated`,
+    );
+  }
 });
 
 test('the snapshot cannot be pre-loaded at INSERT time', async () => {
+  // LAYER 1 again, on the INSERT path.
   await asHost();
   const err = await tryQuery(
     `INSERT INTO public.events (display_name, event_type, setnayan_ai_tier_at_purchase)
      VALUES ('SEC-5 Forged Insert', 'birthday', 'E')`,
   );
   assert.notEqual(err, null, 'the UPDATE guard is bypassed by writing the snapshot at INSERT time');
-  // Assert the GUARD refused it, not some unrelated CHECK — otherwise this case
-  // would keep passing with the stamp trigger deleted.
-  assert.match(String(err), /not writable by the couple/i);
+  assert.match(String(err), /permission denied/i);
 });
 
 test('a STRANGER cannot freeze a victim event by pointing an order at it', async () => {

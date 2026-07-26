@@ -11,6 +11,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bookingFeePhp } from '../../lib/booking-fee';
+import { SOURCED_INQUIRY_SOURCES } from '../../lib/booking-fee-gate';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -47,6 +48,40 @@ async function newEvent(name: string): Promise<string> {
   return r.rows[0]!.event_id;
 }
 
+
+/**
+ * Mark a (event, vendor) pair as SETNAYAN-SOURCED by stamping the thread the
+ * couple would have opened from a marketplace surface.
+ *
+ * Needed since 20271009140000: the fee now charges ONLY clients Setnayan
+ * sourced, and "no thread at all" correctly reads as a client the vendor
+ * brought (free). A billable fixture must therefore say so explicitly — which
+ * is the point, not an inconvenience.
+ */
+async function markSourced(eventId: string, vendorProfileId: string): Promise<void> {
+  await db.query(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+     VALUES ($1, $2, 'explore')`,
+    [eventId, vendorProfileId],
+  );
+}
+
+/** Same as newContractedBooking but WITHOUT stamping a sourced thread. */
+async function newContractedBookingNoThread(
+  eventId: string,
+  vendorProfileId: string,
+  totalCostPhp: number,
+): Promise<string> {
+  const r = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
+     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', $2, $3)
+     RETURNING vendor_id`,
+    [eventId, totalCostPhp, vendorProfileId],
+  );
+  return r.rows[0]!.vendor_id;
+}
+
 /** A CONTRACTED event_vendors row linked to a verified vendor (the lock anchor). */
 async function newContractedBooking(
   eventId: string,
@@ -60,10 +95,15 @@ async function newContractedBooking(
      RETURNING vendor_id`,
     [eventId, totalCostPhp, vendorProfileId],
   );
+  // A marketplace-linked booking in these fixtures represents a SOURCED client;
+  // the import case is asserted explicitly by its own test below.
+  if (vendorProfileId) await markSourced(eventId, vendorProfileId);
   return r.rows[0]!.vendor_id;
 }
 
 type LockChargeResult = {
+  /** sourced | import — added 20271009140000 (the sourced-only gate). */
+  attribution?: 'sourced' | 'import';
   skipped?: string;
   charge_id?: string;
   status?: string;
@@ -256,4 +296,73 @@ test('settle bridge: settling a pending charge → paid + ledger rolled; second 
     [vendorProfileId, eventId],
   );
   assert.equal(ledger2.rows[0]!.fee_paid_total_centavos, 500_000, 'no double roll-in');
+});
+
+/* ── SOURCED-ONLY: the vendor's own clients are never billed ────────────────*/
+
+test('a client the VENDOR brought is never billed — no thread at all', async () => {
+  // Owner 2026-07-26: "bringing in clients will give them free access."
+  // Before 20271009140000 the lock RPC hardcoded attribution='sourced', so this
+  // vendor would have been charged a percentage of a deal Setnayan had no part
+  // in — the single worst first impression the fee could make.
+  const { vendorProfileId } = await newVendor('byo@fee.test');
+  // No free-5 warm-up needed: the import gate runs BEFORE the ordinal and
+  // returns a DISTINCT status, so `waived_import` proves which gate fired.
+  const eventId = await newEvent('byo-6');
+  const evId = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
+     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', 200000, $2)
+     RETURNING vendor_id`,
+    [eventId, vendorProfileId],
+  );
+  // NO markSourced() — the couple never came through the marketplace.
+  const res = await openLockCharge(evId.rows[0]!.vendor_id);
+
+  assert.equal(res.attribution, 'import', 'a vendor-brought client must be an import');
+  assert.equal(res.status, 'waived_import', 'and it must be waived, not charged');
+  assert.equal(res.amount_charged_centavos, 0, 'a BYO client must cost the vendor ₱0');
+
+  // And no payable order is ever minted for it.
+  const ord = await db.query<{ c: number }>(
+    `SELECT count(*)::int c FROM public.orders WHERE service_key LIKE 'vendor_booking_fee__%'
+       AND service_key = 'vendor_booking_fee__' || $1`,
+    [res.charge_id],
+  );
+  assert.equal(ord.rows[0]!.c, 0, 'an import must never produce a bill');
+});
+
+test("a couple arriving via the vendor's OWN link is also free", async () => {
+  // #3d-iv, closed by the owner 2026-07-26. `website` is the vendor's own
+  // site/socials — their audience, not Setnayan's.
+  const { vendorProfileId } = await newVendor('ownlink@fee.test');
+  const eventId = await newEvent('ownlink-6');
+  await db.query(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+     VALUES ($1, $2, 'website')`,
+    [eventId, vendorProfileId],
+  );
+  const evId = await newContractedBookingNoThread(eventId, vendorProfileId, 200000);
+  const res = await openLockCharge(evId);
+  assert.equal(res.attribution, 'import', "the vendor's own link is an import");
+  assert.equal(res.amount_charged_centavos, 0);
+});
+
+test('the SQL sourced-set and the TS SOURCED_INQUIRY_SOURCES agree exactly', async () => {
+  // Anti-drift. SQL decides what is actually charged; TS decides what the app
+  // believes. If they disagree, the UI and the bill disagree.
+  const candidates = [
+    'explore', 'search', 'shortlist', 'first_pick', 'favorites', 'auto_build',
+    'editorial', 'influencer', 'website', 'host_manual', 'invite_claim', 'degree',
+  ];
+  for (const c of candidates) {
+    const r = await db.query<{ b: boolean }>(
+      `SELECT public.booking_fee_is_sourced_surface($1) AS b`, [c],
+    );
+    assert.equal(
+      r.rows[0]!.b,
+      SOURCED_INQUIRY_SOURCES.has(c),
+      `SQL and TS disagree on "${c}"`,
+    );
+  }
 });

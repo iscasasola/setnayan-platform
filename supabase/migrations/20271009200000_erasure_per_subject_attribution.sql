@@ -1,6 +1,14 @@
 -- ============================================================================
 -- RA 10173 right-to-erasure — PER-SUBJECT ATTRIBUTION for two event-keyed tables
 --
+-- ⚠ NUMBERING (2026-07-26). Originally written as 20271009100000 and renumbered
+-- before merge: two OTHER branches landed 20271009120000 and 20271009140000 in
+-- prod while this one was in review, and Supabase SILENTLY SKIPS a migration
+-- numbered below one already applied — it would have appeared to merge cleanly
+-- and never run, leaving the purge scoping on columns that do not exist. Check
+-- `supabase_migrations.schema_migrations` (not just `ls supabase/migrations/`)
+-- before picking a timestamp; the local directory lags prod on a busy day.
+--
 -- WHY (owner ruling 2026-07-26: "a leaver deletes only their OWN paperwork; the
 -- remaining partner keeps theirs").
 --

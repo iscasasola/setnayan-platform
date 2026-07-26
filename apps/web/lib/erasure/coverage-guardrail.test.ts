@@ -63,7 +63,7 @@
  *
  *      ⚠ Moving the other way, same date: `event_paperwork` and `oauth_grants`
  *      LEFT this list. They gained `subject_user_id` / `granted_by_user_id`
- *      (migration 20271009100000) so the purge could scope per-partner instead
+ *      (migration 20271009200000) so the purge could scope per-partner instead
  *      of event-wide, and the side effect is that the detector can now see them.
  *      Attribution columns shrink the blind spot as well as preventing
  *      over-deletion — worth knowing next time a table lands in this list.
@@ -141,7 +141,7 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   'patiktok_oauth_state',
   'live_studio_channel_oauth_state',
   // ⚠ REMOVED 2026-07-26: `event_paperwork` and `oauth_grants`. Migration
-  // 20271009100000 gave them `subject_user_id` / `granted_by_user_id` so the
+  // 20271009200000 gave them `subject_user_id` / `granted_by_user_id` so the
   // purge could stop deleting event-wide, and that makes them visible to the
   // detector — they are now in the ENFORCED tier, not this one.
 ]);

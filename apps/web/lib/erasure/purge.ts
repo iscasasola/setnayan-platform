@@ -190,7 +190,7 @@ function makeAuditFail(
  * with no standing to request it, and unlike over-retention it cannot be undone.
  *
  * Both steps are now scoped to a nullable attribution column added by migration
- * `20271009100000_erasure_per_subject_attribution.sql`
+ * `20271009200000_erasure_per_subject_attribution.sql`
  * (`event_paperwork.subject_user_id`, `oauth_grants.granted_by_user_id`), and the
  * rule is: DELETE ONLY WHAT IS PROVABLY THE LEAVER'S. A row whose attribution is
  * NULL is left untouched — never guessed at, never swept up by an event-wide

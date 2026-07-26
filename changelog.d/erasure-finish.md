@@ -81,7 +81,7 @@ Follow-up to the entry above, landing the two items the review left open.
 
 `event_paperwork` and `oauth_grants` are both keyed by `event_id` and had **no per-user column**, so the purge scoped them `.in('event_id', eventIds)` — **event-wide**. One partner deleting their account destroyed the **other partner's** PSA birth certificate, CENOMAR and baptismal/confirmation scans (DB row *and* the R2 object), and revoked a Google credential that may well be the co-partner's own account. That is a third party's sensitive personal information under §3(l), destroyed by someone with no standing to request its erasure — and unlike over-retention, it does not come back.
 
-Migration `20271009100000` adds two nullable attribution columns: `event_paperwork.subject_user_id` and `oauth_grants.granted_by_user_id`, both `REFERENCES public.users(user_id) ON DELETE SET NULL`.
+Migration `20271009200000` adds two nullable attribution columns: `event_paperwork.subject_user_id` and `oauth_grants.granted_by_user_id`, both `REFERENCES public.users(user_id) ON DELETE SET NULL`.
 
 - **Not `CASCADE`** — a paperwork row is the *couple's* shared checklist entry, so cascading would rebuild the same defect one level down.
 - **Not `NO ACTION`/`RESTRICT`** — that would add a 42nd FK to the set that already makes a hard `DELETE FROM auth.users` throw, the very reason `eraseUserAccount` stopped issuing one.

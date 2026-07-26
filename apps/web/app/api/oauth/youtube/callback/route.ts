@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
         access_token_expires_at: expiresAt,
         external_account_id: channel?.id ?? null,
         external_account_display: channel?.title ?? 'Connected channel',
-        // RA 10173 erasure attribution (migration 20271009100000) — the account
+        // RA 10173 erasure attribution (migration 20271009200000) — the account
         // that completed this consent. This grant is the clearest case for the
         // column: `external_account_display` here is a YouTube CHANNEL TITLE,
         // which identifies no Setnayan account at all, so nothing else on the

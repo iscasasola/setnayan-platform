@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
         access_token_expires_at: expiresAt,
         external_account_id: userInfo?.id ?? null,
         external_account_display: userInfo?.email ?? 'Connected Drive',
-        // RA 10173 erasure attribution (migration 20271009100000). Neither
+        // RA 10173 erasure attribution (migration 20271009200000). Neither
         // external_account_id (a Google `sub`) nor external_account_display (an
         // email here, but a CHANNEL NAME on the YouTube grant) identifies a
         // Setnayan account, so without this column account deletion cannot tell

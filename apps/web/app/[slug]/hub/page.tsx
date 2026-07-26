@@ -38,7 +38,6 @@ import {
   MapPin,
   PartyPopper,
   QrCode,
-  Radio,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
@@ -59,7 +58,11 @@ import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { eventSkuActive } from '@/lib/entitlements';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
-import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import {
+  readEventWatchUrls,
+  resolveWatchLinks,
+  type WatchLiveLinks,
+} from '@/lib/watch-live-links';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
@@ -69,6 +72,7 @@ import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
 import { resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
+import { WatchLiveBlock } from '../_components/watch-live-block';
 import { HubShell } from '../_components/hub/hub-shell';
 
 type Props = {
@@ -97,11 +101,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // Focused event read — only the columns the hub panels need (a far smaller
   // select than the full /[slug] page, since the hub has no hero/STD/widget
   // chrome). landing_page_visibility + scheduled_launch_at drive the privacy
-  // gate; panood_watch_url is for the Watch panel.
+  // gate. The watch URLs are NOT selected here: they come from their own
+  // tolerant read (readEventWatchUrls) so a not-yet-migrated Facebook column
+  // cannot 42703 this select and 404 the whole hub.
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, panood_watch_url, landing_page_visibility, scheduled_launch_at',
+      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, landing_page_visibility, scheduled_launch_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -239,16 +245,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     }));
 
   // ── Watch (Panood) — single-cam live is free; the staged URL is the only
-  // condition, mirroring /[slug]. Live window only. ──────────────────────────
-  let watchEmbed: { embedUrl: string; watchUrl: string } | null = null;
-  if (isLive && event.panood_watch_url) {
-    const videoId = parseYouTubeVideoId(event.panood_watch_url);
-    if (videoId) {
-      watchEmbed = {
-        embedUrl: youTubeEmbedUrl(videoId),
-        watchUrl: event.panood_watch_url,
-      };
-    }
+  // condition, mirroring /[slug]. Live window only.
+  //
+  // DUAL-STREAM (2026-07-26): the Facebook link comes from its own tolerant read
+  // rather than the big event select above — a missing column (42703) would fail
+  // that select outright and 404 the whole hub. One extra query, live window only.
+  // resolveWatchLinks re-validates both values, so a PATCHed value renders
+  // nothing instead of reaching the iframe or the href. ──────────────────────
+  let watchEmbed: WatchLiveLinks | null = null;
+  if (isLive) {
+    watchEmbed = resolveWatchLinks(await readEventWatchUrls(admin, event.event_id));
   }
 
   // ── Candid camera (PAPIC_GUEST) ownership — ONE read, reused for the camera
@@ -573,36 +579,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     </div>
   ) : null;
 
+  // Reuses /[slug]'s WatchLiveBlock rather than keeping a near-identical copy of
+  // its markup: the "YouTube / Facebook / both" decision now lives in one place,
+  // so the hub and the wedding page can never disagree about which doors show.
   const watchPanel = watchEmbed ? (
     <div className="mx-auto max-w-md">
-      <section
-        aria-label="Watch the celebration live"
-        className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
-      >
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-            <Radio aria-hidden className="h-3.5 w-3.5 animate-pulse" strokeWidth={2} />
-            Watch live
-          </p>
-          <a
-            href={watchEmbed.watchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-cream/65 underline-offset-4 hover:text-cream hover:underline"
-          >
-            Open on YouTube
-          </a>
-        </div>
-        <div className="aspect-video w-full">
-          <iframe
-            title="Live broadcast of the celebration"
-            src={watchEmbed.embedUrl}
-            className="h-full w-full border-0"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      </section>
+      <WatchLiveBlock watchLive={watchEmbed} />
     </div>
   ) : null;
 

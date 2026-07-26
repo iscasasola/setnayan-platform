@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
+import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
 // ⭐ WAVE 8: the unified controller moved to a chrome-less top-level route (§ 4g),
@@ -102,6 +103,61 @@ export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath('/[slug]', 'page');
   redirect(`/dashboard/${eventId}/studio/panood/setup?watch_url_saved=1`);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  DUAL-STREAM — the couple's simultaneous Facebook Live link                 */
+/* -------------------------------------------------------------------------- */
+//
+// Owner-approved 2026-07-26: a couple may push the SAME OBS program output to
+// YouTube and Facebook at once (the free obs-multi-rtmp plugin does the fan-out
+// on their laptop). Setnayan sends no video bytes to either, so the entire
+// server-side of "dual stream" is this: a second pasted URL, normalized-or-
+// rejected exactly like the YouTube one, on its own column
+// (events.panood_watch_url_facebook, migration 20271006100000).
+//
+// Separate from savePanoodWatchUrl on purpose — the YouTube validator must not
+// learn about Facebook, and clearing one must never clear the other.
+
+export async function savePanoodFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const urlRaw = formData.get('facebook_url');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (typeof urlRaw !== 'string') return;
+
+  const normalized = normalizeFacebookWatchUrl(urlRaw);
+  if (!normalized) {
+    redirect(`/dashboard/${eventId}/studio/panood/setup?facebook_url_error=1`);
+  }
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: normalized })
+    .eq('event_id', eventId);
+
+  revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath('/[slug]', 'page');
+  redirect(`/dashboard/${eventId}/studio/panood/setup?facebook_url_saved=1`);
+}
+
+export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: null })
+    .eq('event_id', eventId);
+
+  revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath('/[slug]', 'page');
+  redirect(`/dashboard/${eventId}/studio/panood/setup`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -348,6 +404,16 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   // the age of the checkout is on screen next to the button.
 
   // Clear the embed so the event page stops showing a finished broadcast.
+  //
+  // 🚫 THE DUAL-STREAM FACEBOOK LINK IS DELIBERATELY *NOT* CLEARED HERE.
+  // This action ends the YouTube broadcast SETNAYAN created (it transitions that
+  // specific broadcastId to 'complete'); it has no authority over — and no
+  // knowledge of — the couple's own Facebook Live, which their encoder is
+  // pushing independently and which may still be running. Deleting a URL the
+  // couple typed because a different service's broadcast ended is the more
+  // surprising behaviour, and it would cost them a re-paste on any
+  // end-then-restart. The Facebook link is host-removable above and stops
+  // rendering on its own when the live window closes.
   const supabase = await createClient();
   await supabase
     .from('events')

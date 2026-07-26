@@ -90,6 +90,8 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
+import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
+import { readEventWatchUrls } from '@/lib/watch-live-links';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import { ProgramBridgeHost } from './_components/program-bridge';
@@ -107,6 +109,8 @@ import {
   reissueChannelJoinLink,
   saveControlWatchUrl,
   clearControlWatchUrl,
+  saveControlFacebookUrl,
+  clearControlFacebookUrl,
   setMonogramOverlay,
   setLowerThird,
   setEventQrOverlay,
@@ -279,6 +283,8 @@ type Props = {
     zone_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    facebook_url_saved?: string;
+    facebook_url_error?: string;
     overlay_saved?: string;
     overlay_error?: string;
     guest_pick?: string;
@@ -305,6 +311,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     zone_error,
     watch_url_saved,
     watch_url_error,
+    facebook_url_saved,
+    facebook_url_error,
     overlay_saved,
     overlay_error,
     guest_pick,
@@ -423,15 +431,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant;
 
   let youtubeWatchUrl: string | null = null;
+  // DUAL-STREAM (2026-07-26): the couple's simultaneous Facebook Live link.
+  let facebookWatchUrl: string | null = null;
   try {
-    const { data: watchRow, error: watchErr } = await supabase
-      .from('events')
-      .select('panood_watch_url')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if (!watchErr && watchRow?.panood_watch_url) {
-      youtubeWatchUrl = watchRow.panood_watch_url as string;
-    }
+    // readEventWatchUrls falls back to a YouTube-only select on 42703, so adding
+    // the Facebook column can never take the live YouTube field off this screen
+    // in an environment where migration 20271006100000 has not landed yet.
+    const urls = await readEventWatchUrls(supabase, eventId);
+    youtubeWatchUrl = urls.youtubeWatchUrl;
+    facebookWatchUrl = urls.facebookWatchUrl;
   } catch {
     // pre-migration env — keep null
   }
@@ -1879,6 +1887,19 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </SubmitButton>
           </form>
         )}
+
+        {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door.
+            Same section as the YouTube link because it is the same question
+            ("how do guests watch?"), and because the 30-day warning inside the
+            card has to sit next to the permanent copy it is contrasting with. */}
+        <FacebookDualStreamCard
+          eventId={eventId}
+          facebookUrl={facebookWatchUrl}
+          saveAction={saveControlFacebookUrl}
+          clearAction={clearControlFacebookUrl}
+          saved={Boolean(facebook_url_saved)}
+          error={Boolean(facebook_url_error)}
+        />
       </section>
 
       {/* Going live note (owner-OAuth gated). */}

@@ -41,11 +41,15 @@ export function isBookingFeeEnforced(): boolean {
 /**
  * The fee schedule in force. Stamped on every charge (the app always passes this
  * value explicitly to the ledger RPC — see booking-fee-charge.ts) so a future
- * reprice cannot silently rewrite history. Bumped 2026-07-24 for the flat-5%/no-cap
- * reprice; the ledger migration's SQL DEFAULT ('2026-07-23-flat2') is the historical
- * fallback and is never used on the app path.
+ * reprice cannot silently rewrite history. Bumped 2026-07-25 for the owner-locked
+ * TAPER (5% on the first ₱100,000, then 1% above; floor ₱50; no cap —
+ * `Vendor_Monetization_Model_LOCKED_2026-07-25.md` § 3), which supersedes the
+ * 2026-07-24 flat-5%/no-cap reprice. Charges written under an older string stay
+ * readable as such; nothing is re-priced retroactively. The ledger migration's
+ * SQL DEFAULT ('2026-07-23-flat2') is the historical fallback and is never used
+ * on the app path.
  */
-export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-24-flat5-nocap';
+export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-25-taper5-1-over-100k';
 
 export type BookingFeeAttribution = 'sourced' | 'import';
 

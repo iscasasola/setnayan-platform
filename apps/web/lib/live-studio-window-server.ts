@@ -1,7 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SKU_OWNERSHIP_ALIASES, eventSkuActive } from '@/lib/entitlements';
+import {
+  SKU_OWNERSHIP_ALIASES,
+  eventHasCompGrant,
+  eventHostHoldsFounderSeat,
+  eventHostIsInternal,
+  eventSkuActive,
+} from '@/lib/entitlements';
+import { isSkuFreeForCouplesNow } from '@/lib/promo-free-windows';
 import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
-import { decideBroadcastWindow, type WindowDecision } from '@/lib/live-studio-window';
+import {
+  classifyGrant,
+  decideBroadcastWindow,
+  type GrantKind,
+  type WindowDecision,
+} from '@/lib/live-studio-window';
 
 /**
  * apps/web/lib/live-studio-window-server.ts
@@ -159,6 +171,42 @@ export async function fetchActiveBroadcast(
 }
 
 /**
+ * ⭐ WHICH GRANT unlocked Live Studio for an event that bought ZERO days.
+ *
+ * The owner's 2026-07-26 split (see the GRANT KINDS block in lib/live-studio-window.ts)
+ * needs the ROUTE, not just the boolean `eventSkuActive` returns. This is that read —
+ * and ONLY the read. The precedence ruling that makes it correct is `classifyGrant`,
+ * a pure function next to the doc block, so all sixteen signal combinations are
+ * testable without a database and this function cannot quietly re-order them.
+ *
+ * The four signals are the SAME four `eventSkuActive` already ORs together, read
+ * through the SAME helpers, so "is it owned?" and "how is it owned?" cannot disagree.
+ * Each helper graceful-degrades to `false` on any RPC error (pre-migration PGRST202
+ * included), so a degraded read lands on 'unknown' → METERED. The failure mode is
+ * "a grant holder is asked to add a day", never "a ₱2,999 product is given away
+ * because an RPC blipped".
+ *
+ * ── COST ───────────────────────────────────────────────────────────────────────
+ * Four reads, issued in PARALLEL, and only ever on the rare `owned && days === 0`
+ * branch. A paying customer (days ≥ 1) and the free tier (!owned) never reach it, so
+ * the common paths pay nothing for this. `isSkuFreeForCouplesNow` short-circuits
+ * before touching the DB while PROMO_FREE_WINDOWS_ENABLED is off (the prod default).
+ */
+export async function resolveLiveStudioGrantKind(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<GrantKind> {
+  if (!eventId) return 'unknown';
+  const [founder, comp, internal, promo] = await Promise.all([
+    eventHostHoldsFounderSeat(supabase, eventId).catch(() => false),
+    eventHasCompGrant(supabase, eventId, LIVE_STUDIO_SKU).catch(() => false),
+    eventHostIsInternal(supabase, eventId).catch(() => false),
+    isSkuFreeForCouplesNow(LIVE_STUDIO_SKU).catch(() => false),
+  ]);
+  return classifyGrant({ founder, comp, internal, promo });
+}
+
+/**
  * THE ONE RESOLUTION. Everything that asks "may this host broadcast multi-cam?"
  * comes through here — the manifest write gate, the public read gate, the program
  * output, and the controller — so there is exactly one rule and it cannot fork.
@@ -206,6 +254,13 @@ export async function resolveBroadcastWindow(
     fetchWindowAnchor(supabase, eventId),
   ]);
 
+  // Owned but nothing was bought BY THE DAY → a grant. Which grant decides whether it
+  // is metered (owner-locked 2026-07-26). Resolved ONLY here, so the paid path never
+  // pays for these reads. A comp grant that happens to sit on an event which ALSO has
+  // paid days is irrelevant: days ≥ 1 is already the metered answer.
+  const grantKind: GrantKind | null =
+    dayStarts.length === 0 ? await resolveLiveStudioGrantKind(supabase, eventId) : null;
+
   // A caller that already read the active broadcast (the controller does, for its
   // tally) hands both facts in rather than paying for the query twice. Supplying
   // `isLive` WITHOUT a start time is treated as "protected" by decideBroadcastWindow,
@@ -227,6 +282,7 @@ export async function resolveBroadcastWindow(
     firstLiveAt,
     isLive,
     broadcastStartedAt,
+    grantKind,
     now,
   });
 }

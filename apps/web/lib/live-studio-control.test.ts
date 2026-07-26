@@ -32,6 +32,13 @@
  *   9. CAP        — 12 configured cameras render 12 channels, and the cap closes.
  *  10. READY      — the tile states the channel's REAL join state; no faked preview.
  *
+ * Plus WAVE 6 "one controller" (owner 2026-07-25 · §§ 4b–4d):
+ *
+ *  11. ROUTER     — every doorway resolves its control-room href through ONE
+ *                   flag-aware function, so the legacy Cast room and the unified
+ *                   controller can never be half-switched. Flag off = the legacy
+ *                   room, exactly as today; flag on = the unified controller.
+ *
  * Run: `pnpm test:unit`  (CI: the "unit tests" step).
  */
 import { test } from 'node:test';
@@ -53,7 +60,11 @@ import {
   formatChannel,
   liveStudioDetailPath,
   liveStudioControlPath,
+  liveStudioControlLegacyPath,
   liveStudioControlLock,
+  liveStudioControllerHref,
+  liveStudioControllerHrefFor,
+  panoodBroadcastPath,
   rehearseFreeNotice,
   showRehearsalUnlockNotice,
   type ControlZone,
@@ -79,10 +90,40 @@ test('ROUTE — control paths use the renamed segment', () => {
     liveStudioDetailPath('S89E-abc'),
     '/dashboard/S89E-abc/studio/live-studio-control',
   );
+  // ⭐ WAVE 8 (§ 4g): the CONTROLLER left /dashboard so it can render chrome-less
+  // (an App Router page cannot opt out of an ancestor layout). The detail/buy page
+  // above is unchanged — it is a normal dashboard surface and keeps its chrome.
+  assert.equal(liveStudioControlPath('S89E-abc'), '/panood/control/S89E-abc');
   assert.equal(
-    liveStudioControlPath('S89E-abc'),
+    liveStudioControlLegacyPath('S89E-abc'),
     '/dashboard/S89E-abc/studio/live-studio-control/setup',
   );
+});
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   ⭐ WAVE 8 — the chrome-less escape (owner-locked 2026-07-25 · § 4g)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+test('WAVE 8 — the controller is NOT under /dashboard (that is the whole escape)', () => {
+  // `/dashboard/[eventId]/layout.tsx` mounts the SidebarShell top bar, the
+  // CustomerBottomNav, the nav FAB and the section sub-nav, and a page cannot opt
+  // out of an ancestor layout. Living under /dashboard IS the chrome. If this
+  // assertion ever fails, the masthead and bottom nav are back.
+  const href = liveStudioControlPath('S89E-abc');
+  assert.ok(!href.startsWith('/dashboard'), href);
+  assert.ok(href.startsWith('/panood/'), href);
+});
+
+test('WAVE 8 — it reuses the /panood namespace the program pop-out already escapes through', () => {
+  // Same precedent, not a second mechanism: /panood/program/[eventId] is already a
+  // top-level chrome-less route, and `panood` is already a RESERVED top-level slug,
+  // so this can never shadow a vendor or event slug.
+  assert.match(liveStudioControlPath('S89E-abc'), /^\/panood\/control\//);
+});
+
+test('WAVE 8 — the OLD dashboard URL is still addressable, for the redirect only', () => {
+  // The stub at the old path redirects here. Nothing links to it.
+  assert.notEqual(liveStudioControlLegacyPath('E1'), liveStudioControlPath('E1'));
 });
 
 test('ROUTE — the internal data key is unchanged by the rename', () => {
@@ -352,4 +393,76 @@ test('CAP — a full 12-camera grid renders 12 channels and closes the cap', () 
   assert.equal(tiles[MAX_ROAM_ZONES - 1]!.channel, MAX_ROAM_ZONES + 1);
   assert.equal(new Set(tiles.map((t) => t.key)).size, MAX_ROAM_ZONES, 'keys are unique');
   assert.equal(canAddZone(zones.length), false, 'the Add-camera tile must not render');
+});
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   WAVE 6 · ONE CONTROLLER — the flag-aware doorway router
+   (owner 2026-07-25 · Live_Studio_Unified_Spec §§ 4b–4d.)
+
+   Two control rooms exist in the tree while the consolidation is dark: the LEGACY
+   Cast room (/studio/panood/broadcast — live and selling) and the UNIFIED
+   controller (/panood/control/[eventId] since Wave 8). Six doorways link to "the
+   control room", and the switchover has to be ATOMIC — a doorway left pointing at
+   a room that now redirects, or a host mid-show landing on the wrong screen, is
+   the failure that matters. These lock the single router every doorway calls.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+test('ROUTER — flag OFF resolves to the LEGACY Cast control room, unchanged', () => {
+  assert.equal(
+    liveStudioControllerHrefFor('S89E-abc', false),
+    '/dashboard/S89E-abc/studio/panood/broadcast',
+  );
+  assert.equal(liveStudioControllerHrefFor('S89E-abc', false), panoodBroadcastPath('S89E-abc'));
+});
+
+test('ROUTER — flag ON resolves to the UNIFIED controller', () => {
+  assert.equal(liveStudioControllerHrefFor('S89E-abc', true), '/panood/control/S89E-abc');
+  assert.equal(liveStudioControllerHrefFor('S89E-abc', true), liveStudioControlPath('S89E-abc'));
+});
+
+test('ROUTER — the two rooms are never the same URL (no accidental self-redirect)', () => {
+  // The legacy page redirects to liveStudioControlPath when the flag is on. If
+  // these ever collided, that redirect would be a loop.
+  assert.notEqual(panoodBroadcastPath('E1'), liveStudioControlPath('E1'));
+});
+
+test('ROUTER — the env wrapper reads the launch flag, and only "true" flips it', () => {
+  const prior = process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+  try {
+    delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    assert.equal(
+      liveStudioControllerHref('E1'),
+      panoodBroadcastPath('E1'),
+      'unset = today = the legacy room',
+    );
+
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'false';
+    assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
+
+    // Anything that isn't exactly 'true' must NOT retire a live, selling surface.
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'TRUE';
+    assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
+
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'true';
+    assert.equal(liveStudioControllerHref('E1'), liveStudioControlPath('E1'));
+  } finally {
+    if (prior === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prior;
+  }
+});
+
+test('ROUTER — the resolved room is always a real route scoped to this event', () => {
+  for (const enabled of [false, true]) {
+    const href = liveStudioControllerHrefFor('S89E-zzz', enabled);
+    // ⭐ WAVE 8: the invariant is EVENT SCOPING, not the /dashboard prefix. The
+    // unified controller deliberately lives outside /dashboard so it can render
+    // chrome-less (§ 4g); the legacy Cast room still lives inside it. Both must
+    // carry this event's id and neither may be the sales page.
+    assert.ok(href.includes('S89E-zzz'), href);
+    assert.ok(href.startsWith('/'), href);
+    assert.ok(!href.includes('undefined'), href);
+    // Never the DETAIL/buy page — a doorway labelled "control room" must open the
+    // control room, not the sales surface.
+    assert.notEqual(href, liveStudioDetailPath('S89E-zzz'));
+  }
 });

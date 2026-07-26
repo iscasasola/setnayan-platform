@@ -19,7 +19,11 @@ import {
 } from '@/lib/live-studio-roam-zones';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { eventSkuActive } from '@/lib/entitlements';
-import { LIVE_STUDIO_SKU, channelForZoneIndex } from '@/lib/live-studio-control';
+import {
+  LIVE_STUDIO_SKU,
+  channelForZoneIndex,
+  liveStudioControlPath,
+} from '@/lib/live-studio-control';
 import {
   LOWER_THIRD_SUBTITLE_MAX,
   LOWER_THIRD_TITLE_MAX,
@@ -32,6 +36,7 @@ import {
 } from '@/lib/live-studio-overlays';
 import { getActivePanoodBroadcast } from '@/lib/panood-broadcast';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
+import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 
 /**
  * Server actions for the Live Studio ROAM controller — the host-facing surface that
@@ -76,8 +81,11 @@ import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-const SETUP_PATH = (eventId: string) =>
-  `/dashboard/${eventId}/studio/live-studio-control/setup`;
+// ⭐ WAVE 8: resolved through the shared helper, not a literal — the controller
+// moved OUT of /dashboard to escape the shell chrome (§ 4g), and a hardcoded
+// redirect target here would have quietly bounced every action back to the old,
+// chrome'd URL. One source of truth: lib/live-studio-control.ts.
+const SETUP_PATH = (eventId: string) => liveStudioControlPath(eventId);
 
 // The Live Studio detail/buy surface — where a locked (free) host is bounced if
 // they somehow POST a multi-camera action without owning LIVE_STUDIO.
@@ -731,6 +739,62 @@ export async function clearControlWatchUrl(formData: FormData): Promise<void> {
   await requireHostMembership(eventId);
   const supabase = await createClient();
   await supabase.from('events').update({ panood_watch_url: null }).eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(SETUP_PATH(eventId));
+}
+
+/* -------------------------------------------------------------------------- */
+/*  DUAL-STREAM — the simultaneous Facebook link (also FREE, also host-gated)  */
+/* -------------------------------------------------------------------------- */
+//
+// Owner-approved 2026-07-26. The couple's encoder pushes the same program output
+// to a second RTMP destination (obs-multi-rtmp); Setnayan just stores the public
+// watch link so the event page can offer both doors. Mirrors the two actions
+// above exactly — same host gate, same normalize-or-reject posture, its own
+// column so clearing one never clears the other. No requireLiveStudioOwned():
+// like the single-cam watch link, this is free for every host.
+
+/** Save the couple's Facebook Live link (free, dual-stream). Host-gated. */
+export async function saveControlFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const urlRaw = formData.get('facebook_url');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (typeof urlRaw !== 'string') return;
+
+  const normalized = normalizeFacebookWatchUrl(urlRaw);
+  if (!normalized) {
+    redirect(`${SETUP_PATH(eventId)}?facebook_url_error=1`);
+  }
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: normalized })
+    .eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(`${SETUP_PATH(eventId)}?facebook_url_saved=1`);
+}
+
+/** Clear the saved Facebook Live link. Host-gated, not paid. */
+export async function clearControlFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: null })
+    .eq('event_id', eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');

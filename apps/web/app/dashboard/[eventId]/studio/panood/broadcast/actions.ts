@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { canStartBroadcast } from '@/lib/panood-watermark';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
 import { resolvePanoodTier } from '@/lib/panood-camera-seats';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -172,6 +173,13 @@ export async function setLive(
       firstLiveAt: control?.first_live_at ?? null,
       isLive: false,
       now: new Date(),
+      // 🚫 WAVE 7 — this gate retires WITH the overlay it protected (owner 2026-07-25 · § 4f ①).
+      // It existed to stop a free host starting a broadcast the full-screen mark would have
+      // ruined; with the mark gone there is nothing behind it, and an armed gate with no paywall
+      // is just an invisible refusal to go live. The replacement rule
+      // (lib/live-studio-window.ts) gates MULTI-CAM and never go-live, because the live /pricing
+      // page promises a free single-camera stream. Flag-off = today, unchanged.
+      retired: liveStudioRoamEnabled(),
     });
     if (!allowed) {
       return {

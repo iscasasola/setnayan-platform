@@ -7,6 +7,7 @@ import {
 } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -88,10 +89,10 @@ export function EventMonogram({
   // as the website hero / QR center (owner 2026-06-15 "show the custom SVG
   // everywhere"). Rendered as an inert <img> data-URI (no script context),
   // object-contain inside the round chip so the full mark reads, never clipped.
-  const customSvg =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null;
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  // (This site already renders via an inert data-URI <img>; the gate is the
+  // second layer, and it also stops a poisoned mark reaching the data URI.)
+  const customSvg = safeMonogramSvg(event.monogram_custom_svg);
   if (customSvg) {
     return (
       <span

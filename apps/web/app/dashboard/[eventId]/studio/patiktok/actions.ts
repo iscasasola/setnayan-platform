@@ -10,6 +10,7 @@ import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
 import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
+import { parseClientRef, patiktokClipPolicy } from '@/lib/r2-client-ref';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
 
@@ -152,6 +153,16 @@ export async function recordPatiktokClip(input: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // SEC-1: r2Bucket + r2Key are raw client input that gets presigned later
+  // (claimPatiktokRenderJob → presignDisplayUrl on r2_object_key). Storing them
+  // unvalidated made this a write-now/read-later cross-tenant oracle. Pin to
+  // the prefix /api/patiktok/upload actually mints for this event.
+  const clipRef = parseClientRef(
+    `r2://${input.r2Bucket || R2_BUCKETS.media}/${input.r2Key}`,
+    patiktokClipPolicy(input.eventId),
+  );
+  if (!clipRef) throw new Error('That clip reference isn’t valid for this event.');
+
   // Resolve the tag. guest_id / table_id are validated against THIS event via
   // the RLS-scoped client so a clip can never be attributed to a guest/table
   // from another event (the .eq('event_id') is belt-and-braces over RLS).
@@ -196,8 +207,8 @@ export async function recordPatiktokClip(input: {
       event_id: input.eventId,
       template_slug: input.templateSlug ?? null,
       captured_by: user.id,
-      r2_bucket: input.r2Bucket || 'setnayan-media',
-      r2_object_key: input.r2Key,
+      r2_bucket: clipRef.bucket,
+      r2_object_key: clipRef.key,
       mime_type: input.mimeType || 'video/webm',
       duration_sec:
         typeof input.durationSec === 'number' && input.durationSec > 0
@@ -490,11 +501,21 @@ export async function finalizePatiktokRenderJob(input: {
     .maybeSingle();
   if (!job) throw new Error('Render job not found.');
 
-  // Patiktok reels live in the public media bucket. Presigned GET for
-  // immediate download (max 7-day TTL); the durable pointer is
-  // output_object_key, resolved fresh by the delivery surface in PR4.
+  // SEC-1: `input.key` used to be signed verbatim — membership was checked on
+  // `input.jobId` and then a completely unrelated, caller-chosen key was signed
+  // for SEVEN DAYS. Any signed-in user with one render job of their own could
+  // name any object and get a URL back.
+  //
+  // The key is fully derivable server-side: /api/patiktok/upload mints exactly
+  // `patiktok/renders/{eventId}/{jobId}.mp4`, and BOTH ids come from the job
+  // row we just read under RLS — never from `input`. So we derive the key and
+  // ignore the client's value entirely: nothing to validate, nothing to bypass.
   const bucket = R2_BUCKETS.media;
-  const downloadUrl = await presignDisplayUrl(bucket, input.key, 60 * 60 * 24 * 7);
+  const objectKey = `patiktok/renders/${job.event_id as string}/${job.job_id as string}.mp4`;
+  // TTL cut 7d → 1h: this URL is for the download that happens right now, and
+  // it gets persisted in `output_url`. The durable pointer is
+  // output_object_key, which the delivery surface re-presigns on demand.
+  const downloadUrl = await presignDisplayUrl(bucket, objectKey, 60 * 60);
 
   const admin = createAdminClient();
   const { error: updErr } = await admin
@@ -502,7 +523,11 @@ export async function finalizePatiktokRenderJob(input: {
     .update({
       status: 'completed',
       output_bucket: bucket,
-      output_object_key: input.key,
+      // SEC-1: persist the DERIVED key, not `input.key`. Storing the client's
+      // value would launder it — the delivery surface re-presigns
+      // output_object_key on demand, so a foreign key written here would be
+      // signed again later, outside this function's gate.
+      output_object_key: objectKey,
       output_bytes: Number.isFinite(input.bytes) ? Math.round(input.bytes) : null,
       output_url: downloadUrl,
       render_mode: input.renderMode,

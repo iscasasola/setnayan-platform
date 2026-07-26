@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicSeatsActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { RevealList } from '@/app/_components/reveal-list';
 
 export const metadata = { title: 'Galleries · Setnayan' };
@@ -117,7 +118,10 @@ export default async function GalleriesHubPage({ params }: Props) {
       state: 'ready',
       count: null,
       viewLabel: 'Watch the recording',
-      viewHref: `${base}/studio/panood/broadcast`,
+      // ONE CONTROLLER (Wave 6): resolves to the unified Live Studio controller
+      // once the flag is on, the legacy Cast control room until then. Never a
+      // hardcoded path — see lib/live-studio-control.ts.
+      viewHref: liveStudioControllerHref(eventId),
       Icon: Radio,
     });
   }

@@ -12,6 +12,7 @@ import {
   vendorAiLevelForServiceKey,
 } from './vendor-ai-level';
 import { resolveVendorAddonPricePhp } from './vendor-addon-tier-pricing';
+import { isVendorAiAddonActive } from './vendor-addon-pricing';
 
 /**
  * The Vendor AI ladder. These tests pin the four things that decide money or
@@ -118,4 +119,31 @@ test('Advanced always costs MORE than Basic on the same tier', () => {
 
 test('the rung list is exactly the two CHECKed values', () => {
   assert.deepEqual([...VENDOR_AI_LEVELS], ['basic', 'advanced']);
+});
+
+// ── the LAPSE rule — the caller contract on nextVendorAiLevel ───────────────
+// REGRESSION (shipped in #3710, fixed here): activateVendorAiAddonOrder read the
+// stored level with NO window check. Because nextVendorAiLevel takes the higher
+// rung and nothing clears the marker on lapse, a vendor could buy Advanced once,
+// let it lapse, then renew on BASIC and keep Advanced forever (~₱1,000/cycle).
+// The fix is at the CALLER: pass null once the window is dead.
+
+test('a LAPSED advanced rung must NOT survive into a new Basic purchase', () => {
+  const lapsed = '2020-01-01T00:00:00Z';
+  const live = '2099-01-01T00:00:00Z';
+
+  // What the caller must compute, both ways round.
+  const carry = (expiry: string, stored: string) =>
+    nextVendorAiLevel(isVendorAiAddonActive(expiry) ? stored : null, 'basic');
+
+  assert.equal(carry(lapsed, 'advanced'), 'basic', 'lapsed Advanced is SPENT');
+  assert.equal(carry(live, 'advanced'), 'advanced', 'a LIVE Advanced window is not demoted');
+});
+
+test('buying Advanced still promotes regardless of window state', () => {
+  const lapsed = '2020-01-01T00:00:00Z';
+  const carry = (expiry: string, stored: string) =>
+    nextVendorAiLevel(isVendorAiAddonActive(expiry) ? stored : null, 'advanced');
+  assert.equal(carry(lapsed, 'basic'), 'advanced');
+  assert.equal(carry(lapsed, 'advanced'), 'advanced');
 });

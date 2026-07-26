@@ -90,6 +90,7 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -169,15 +170,8 @@ function stdAccentColor(event: EventRow): string {
  * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
  */
 function revealMarkSvg(event: EventRow): string | null {
-  const uploaded =
-    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null;
-  const custom =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null;
-  return uploaded ?? custom;
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  return resolveEventMonogramSvg(event);
 }
 
 /**

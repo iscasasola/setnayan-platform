@@ -18,6 +18,11 @@ import {
   type DocUploadMap,
 } from '@/lib/vendor-verification';
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
+import {
+  parseClientRef,
+  vendorOwnedMediaPolicy,
+  vendorVerificationDocPolicy,
+} from '@/lib/r2-client-ref';
 
 /**
  * Vendor-side server actions for /vendor-dashboard/verify.
@@ -155,6 +160,31 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
   const meetScheduledAt = String(formData.get('scheduled_at') ?? '').trim();
 
   const currentUploads = (app.doc_uploads ?? {}) as DocUploadMap;
+
+  // SEC-1: `r2_ref` is a raw form field that lands in `doc_uploads` JSONB and
+  // is presigned back later (verify/page.tsx + the admin review surface) out of
+  // the PRIVATE vendor-verification bucket. Unpinned, it would sign another
+  // vendor's DTI / BIR 2303 / Mayor's Permit. Pin it to this vendor's own
+  // folder; grandfather a ref already stored on this slot, which the edit form
+  // echoes back. Mirrors the shop-side sibling in shop/inline-docs-actions.ts.
+  if (r2Ref) {
+    const storedSlot = currentUploads[slotKey];
+    const storedRef =
+      storedSlot && typeof storedSlot === 'object' && 'r2_key' in storedSlot
+        ? (storedSlot.r2_key as string | null)
+        : null;
+    const owned =
+      !r2Ref.startsWith('r2://') ||
+      r2Ref === storedRef ||
+      parseClientRef(r2Ref, vendorVerificationDocPolicy(profile.vendor_profile_id)) !== null ||
+      parseClientRef(r2Ref, vendorOwnedMediaPolicy(profile.vendor_profile_id)) !== null;
+    if (!owned) {
+      redirect(
+        `/vendor-dashboard/verify?error=${encodeURIComponent('That file reference isn’t valid — re-upload and try again.')}`,
+      );
+    }
+  }
+
   const nextSlot = buildSlotValue(slotKey, {
     r2Ref: r2Ref || null,
     url: url || null,

@@ -8,6 +8,7 @@ import {
   getDriveOAuthConfig,
   refreshDriveAccessToken,
 } from '@/lib/papic-drive';
+import { refreshPoolChannelGrants } from '@/lib/live-studio-channel-grants';
 
 // OAuth refresh worker — shared by Panood (youtube) + Papic (drive).
 //
@@ -190,5 +191,14 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(summary, { status: 200 });
+  // ── WAVE 9 · the PLATFORM (Setnayan channel pool) grants ────────────────────
+  // Reused rather than forked: same worker, same cadence, same secret. A second
+  // cron route would be a second thing to schedule and a second thing to forget —
+  // and a pool channel whose access token silently went stale is a wedding that
+  // cannot provision its broadcasts. Its own module owns the sweep; it never
+  // throws and reports zeroes on a pre-migration database, so it cannot break the
+  // existing oauth_grants pass above.
+  const poolChannels = await refreshPoolChannelGrants(admin);
+
+  return NextResponse.json({ ...summary, poolChannels }, { status: 200 });
 }

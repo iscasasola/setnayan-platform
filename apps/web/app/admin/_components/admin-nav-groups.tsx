@@ -14,6 +14,7 @@
 
 import {
   Clapperboard,
+  RadioTower,
   Activity,
   AlertOctagon,
   BadgeCheck,
@@ -427,6 +428,24 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Video,
         matchPrefix: '/admin/hero-video',
       },
+      // Live Studio channel pool (WAVE 9 · Live_Studio_Unified_Spec § 4h) — the
+      // Setnayan-owned YouTube channels every event streams on, so couples never
+      // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:
+      // the route itself notFound()s when the flag is off, and a nav row pointing at
+      // a 404 is worse than no row. Flag off ⇒ this surface does not exist at all.
+      // Uses the inlined NEXT_PUBLIC_ literal rather than lib/live-studio-roam's
+      // helper because this module is imported by the 'use client' sidebar.
+      ...(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true'
+        ? [
+            {
+              key: 'live-studio-channels',
+              label: 'Live Studio channels',
+              href: '/admin/live-studio-channels',
+              icon: RadioTower,
+              matchPrefix: '/admin/live-studio-channels',
+            },
+          ]
+        : []),
       {
         // Background videos — the LIVE upload tool feeding the production
         // homepage hero + pillar loop videos (lib/background-videos.ts →

@@ -1,18 +1,31 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   readConsent,
   writeConsent,
   OPEN_CONSENT_EVENT,
 } from '@/lib/cookie-consent';
+import { isConsentSuppressedRoute } from './capture-safe-routes';
 
 // Site-wide cookie-consent banner under RA 10173. Mounted once in the root
 // layout so it appears on every route, including the homepage. Reads/writes
 // consent via lib/cookie-consent and gates PostHog analytics. "Cookie
 // settings" links anywhere re-open it via OPEN_CONSENT_EVENT.
+//
+// "Every route" now carries exactly two documented exceptions, both operator
+// surfaces behind a signed-in control-room membership — see below.
+//
+// SELF-GATED, same idiom as SiteChrome's `isMarketingRoute`: `usePathname()` +
+// one pure predicate, so the root layout keeps mounting this unconditionally and
+// the route policy lives in exactly one testable place. The gate is a DENY-list
+// of two Live Studio surfaces — the OBS-captured program output and the host's
+// full-screen controller — and nothing else; see capture-safe-routes.ts for
+// why each is excluded and why `/panood/cam/` deliberately is not.
 export function CookieConsentBanner() {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [decided, setDecided] = useState(true);
   const [manage, setManage] = useState(false);
@@ -32,6 +45,9 @@ export function CookieConsentBanner() {
   }, []);
 
   if (!mounted || decided) return null;
+  // A banner drawn here would be composited into the couple's live broadcast
+  // (program output) or land on top of the on-air controls (controller).
+  if (isConsentSuppressedRoute(pathname)) return null;
 
   const choose = (a: boolean) => {
     writeConsent(a);

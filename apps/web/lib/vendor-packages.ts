@@ -145,7 +145,43 @@ export type VendorPackageRow = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). The vendor's per-package
+   * decision about leftover credit: 'expiring' (use it or lose it — today's
+   * behaviour, and the column default) or 'refundable' (unspent credit comes
+   * off the price). OPTIONAL because older SELECTs predate the column.
+   * Honoured only by ./package-credit, behind ./package-credit-flag.
+   *
+   * ⚠ NOTHING WRITES THIS. There is no authoring control for it, so every
+   * package in existence is the DB default 'expiring'. Keep it that way until
+   * the owner confirms what 'refundable' means — read literally it refunds the
+   * whole unspent pool INCLUDING `consumable_budget_centavos`, i.e. money the
+   * sticker price already charged for. See the warning header in
+   * ./package-credit.
+   */
+  unspent_credit_policy?: 'expiring' | 'refundable';
 };
+
+/**
+ * The PostgREST select list for a package. Use this, never a literal.
+ *
+ * Centralised for the same reason as {@link PACKAGE_ITEM_OPTION_SELECT}: this
+ * list was copy-pasted across four call sites, and the one time a name in a
+ * list like this was wrong (`label` for `option_label`) every copy was wrong
+ * together and every test stayed green.
+ */
+export const VENDOR_PACKAGE_SELECT =
+  'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, unspent_credit_policy, primary_canonical_service, is_active, created_at, updated_at';
+
+/**
+ * The PostgREST select list for a package line.
+ *
+ * `is_required` is load-bearing twice over: `isRemovableItem` refuses to price
+ * a removal without it, and the credit engine's whole invariant is that a
+ * required line's value never enters the pool. Omitting it reads as FALSE.
+ */
+export const VENDOR_PACKAGE_ITEM_SELECT =
+  'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at';
 
 export type VendorPackageItemRow = {
   item_id: string;
@@ -156,7 +192,73 @@ export type VendorPackageItemRow = {
   replacement_value_centavos: number;
   display_order: number;
   created_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). TRUE = the line cannot
+   * be removed AND its replacement value never enters the available-credit
+   * pool. OPTIONAL here because no shipped SELECT requests the column yet —
+   * `computeCustomization` below deliberately ignores it, so today's flag-OFF
+   * behaviour is unchanged. The credit engine that honours it lives in
+   * ./package-credit and is gated by ./package-credit-flag.
+   *
+   * ⚠ NOT the same thing as `is_default_included`, which only means "ticked
+   * by default" and never stopped anyone unticking the line.
+   */
+  is_required?: boolean;
+  /**
+   * The alternatives on this line. **A line is a CHOICE iff this is non-empty**
+   * — there is no `is_choice` column, and adding one would be a second source
+   * of truth that could disagree with the rows.
+   *
+   * OPTIONAL because most SELECTs do not join the options table; `undefined`
+   * means "not fetched", which reads the same as "not a choice" everywhere it
+   * matters. Only fetch it where a couple can actually pick.
+   */
+  options?: ReadonlyArray<VendorPackageItemOptionRow>;
 };
+
+/**
+ * One alternative on a CHOICE line (migration 20271006413374). A line is a
+ * choice iff it carries at least one of these.
+ *
+ * ⚠ The DB column is `option_label`, NOT `label`. The authoring surface asked
+ * for `label` in two SELECTs and wrote `label` in its INSERT; PostgREST 400s on
+ * an unknown column, so no vendor could save or reload a choice option at all.
+ * This type and {@link PACKAGE_ITEM_OPTION_COLUMNS} exist so the name is
+ * written down once, in one place, instead of in free-text query strings —
+ * `vendor-packages.columns.test.ts` checks it against the migration.
+ */
+export type VendorPackageItemOptionRow = {
+  option_id: string;
+  item_id: string;
+  option_label: string;
+  /** EXTRA over the default. The DB pins the default option to 0. */
+  price_delta_centavos: number;
+  is_default: boolean;
+  is_available: boolean;
+  display_order: number;
+};
+
+/**
+ * The columns of `vendor_package_item_options` this app reads or writes, spelled
+ * as the database spells them. NOT the full table — `option_description`,
+ * `created_at` and `updated_at` exist in the migration and are deliberately
+ * absent here because nothing consumes them yet.
+ *
+ * Every name in this list is asserted to be a real column by the columns test.
+ */
+export const PACKAGE_ITEM_OPTION_COLUMNS = [
+  'option_id',
+  'item_id',
+  'option_label',
+  'price_delta_centavos',
+  'is_default',
+  'is_available',
+  'display_order',
+] as const;
+
+/** The PostgREST select list for a choice option. Use this, never a literal. */
+export const PACKAGE_ITEM_OPTION_SELECT =
+  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available';
 
 export type VendorPackageWithItems = VendorPackageRow & {
   items: ReadonlyArray<VendorPackageItemRow>;
@@ -195,6 +297,19 @@ export type EventVendorPackageRow = {
 export type PackageCustomizations = {
   removed_item_ids?: string[];
   consumable_allocations?: Record<string, number>;
+  /**
+   * The option the host picked on each CHOICE line — a flat list of
+   * `vendor_package_item_options.option_id`, at most one per line, matching
+   * `computePackageCredit`'s `chosenOptionIds`.
+   *
+   * Absent means "every choice line stays on its default", which is what the
+   * package price already assumes (the DB pins the default's delta to 0).
+   *
+   * Rides inside the existing `customizations_json JSONB` column — **no
+   * migration needed.** Never trust the price attached to one of these ids:
+   * the server re-reads every `price_delta_centavos` from the DB.
+   */
+  chosen_option_ids?: string[];
 };
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -236,6 +351,94 @@ export function formatCentavosPhp(centavos: number | null | undefined): string {
  * consumable pool stays at vendor_packages.consumable_budget_centavos
  * (no flex; host saves money instead).
  */
+/**
+ * Can the host drop this line?
+ *
+ * Two INDEPENDENT reasons a line is not removable, and both must hold for a
+ * removal to be worth money:
+ *
+ *   • `is_required` — the vendor marked it mandatory. Owner-locked 2026-07-26:
+ *     "the vendor can place required so this is something they have to pick and
+ *     cannot be unpicked."
+ *   • `!is_default_included` — the line is an optional ADD-ON that was never
+ *     inside `total_price_centavos`. "Removing" it must refund nothing, because
+ *     nothing was ever charged for it. Treating it as removable is how the
+ *     pre-fix code paid the host for a line the vendor never billed.
+ *
+ * `is_required` is optional on the row type only because the column post-dates
+ * it; every SELECT on the lock path now includes it, and the DB default is
+ * FALSE, so it is a real boolean in practice.
+ */
+export function isRemovableItem(item: VendorPackageItemRow): boolean {
+  return item.is_default_included === true && item.is_required !== true;
+}
+
+/**
+ * A line is a CHOICE iff it carries at least one alternative. Mirrors
+ * `isChoiceLine` in ./package-credit, which types the same rule for the credit
+ * engine's own structural item type.
+ */
+export function isChoiceLine(item: VendorPackageItemRow): boolean {
+  return Array.isArray(item.options) && item.options.length > 0;
+}
+
+/**
+ * The option a choice line falls back to when the host has picked nothing: the
+ * one the vendor marked standard, which `total_price_centavos` already pays for.
+ *
+ * `undefined` for a plain line, and also for the malformed case of a choice line
+ * with no available default. The authoring validator refuses to save that
+ * (`choice_needs_exactly_one_default` + `choice_default_unavailable`) and the DB
+ * enforces at-most-one via a partial unique index — but the DB does NOT enforce
+ * *at least* one, so a row written outside the validator can still land here.
+ * Callers must treat `undefined` as "unresolved", never as "free".
+ */
+export function defaultOptionFor(
+  item: VendorPackageItemRow,
+): VendorPackageItemOptionRow | undefined {
+  return item.options?.find((o) => o.is_default && o.is_available);
+}
+
+/**
+ * The option actually in force on a line, given what the host picked.
+ *
+ * Resolution order: the picked id (only if it belongs to THIS line and is still
+ * available) → the standard option → `undefined`. Scoping the lookup to the
+ * line's own options is what stops a client sending some other line's cheaper
+ * option id and being priced by it.
+ */
+export function resolveChosenOption(
+  item: VendorPackageItemRow,
+  chosenOptionIds: ReadonlyArray<string>,
+): VendorPackageItemOptionRow | undefined {
+  const picked = item.options?.find(
+    (o) => chosenOptionIds.includes(o.option_id) && o.is_available,
+  );
+  return picked ?? defaultOptionFor(item);
+}
+
+/**
+ * What the host's choices ADD to the package price, in centavos.
+ *
+ * Only lines that are still kept can add anything — a removed line's upgrade is
+ * not charged. Prices come from the item rows the CALLER fetched, so on the
+ * server this must be called with DB-read options, never client-supplied ones.
+ */
+export function chosenOptionsSurchargeCentavos(
+  pkg: VendorPackageWithItems,
+  removedItemIds: ReadonlyArray<string>,
+  chosenOptionIds: ReadonlyArray<string>,
+): number {
+  const removedSet = new Set(removedItemIds);
+  return pkg.items.reduce((sum, item) => {
+    if (removedSet.has(item.item_id) && isRemovableItem(item)) return sum;
+    if (!item.is_default_included) return sum;
+    if (!isChoiceLine(item)) return sum;
+    const chosen = resolveChosenOption(item, chosenOptionIds);
+    return sum + (chosen?.price_delta_centavos ?? 0);
+  }, 0);
+}
+
 export function computeCustomization(
   pkg: VendorPackageWithItems,
   removedItemIds: ReadonlyArray<string>,
@@ -245,8 +448,11 @@ export function computeCustomization(
   removedTotalCentavos: number;
 } {
   const removedSet = new Set(removedItemIds);
+  // Only removals the host was actually ALLOWED to make move money. An id for a
+  // required or never-included line is ignored rather than rejected, so a stale
+  // client cannot both crash the lock and cannot profit from it.
   const removedTotalCentavos = pkg.items
-    .filter((item) => removedSet.has(item.item_id))
+    .filter((item) => removedSet.has(item.item_id) && isRemovableItem(item))
     .reduce((sum, item) => sum + item.replacement_value_centavos, 0);
 
   if (pkg.is_consumable_flexible) {
@@ -277,5 +483,13 @@ export function keptItems(
   removedItemIds: ReadonlyArray<string>,
 ): ReadonlyArray<VendorPackageItemRow> {
   const removedSet = new Set(removedItemIds);
-  return pkg.items.filter((item) => !removedSet.has(item.item_id));
+  return pkg.items.filter((item) => {
+    // Never inside the price → never cascades into an event_vendors row. There
+    // is no purchase path for add-ons yet, so shipping them as booked services
+    // would hand the host a vendor they did not pay for.
+    if (!item.is_default_included) return false;
+    // A required line survives regardless of what the client sent.
+    if (item.is_required) return true;
+    return !removedSet.has(item.item_id);
+  });
 }

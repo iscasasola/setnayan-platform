@@ -339,3 +339,99 @@ test('an edit that RE-STATES an add-on column at its current value is allowed', 
   );
   assert.equal(r.rows[0]!.n, 'Echo Studio');
 });
+
+// ── TRUST columns: verification badge + admin visibility freeze (20271004444950)
+// A vendor marking themselves "verified" is a TRUST/SAFETY failure, not just a
+// revenue one — the badge is what tells a couple this business was checked. The
+// same PATCH also reverses the visibility freeze applied to a suspended vendor.
+
+test('a vendor CANNOT self-verify (verification_state)', async () => {
+  const { uid, vendorProfileId } = await newVendor('selfverify@guard.test');
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET verification_state = 'verified'
+          WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /self-grant blocked/,
+  );
+  await reset();
+  const r = await db.query<{ v: string }>(
+    `SELECT verification_state::text AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.notEqual(r.rows[0]!.v, 'verified', 'the trust badge must not be self-granted');
+});
+
+test('a vendor CANNOT reverse an admin visibility freeze (public_visibility)', async () => {
+  const { uid, vendorProfileId } = await newVendor('unfreeze@guard.test');
+  // Admin freezes them out of the marketplace (the suspension shape).
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles SET public_visibility = 'hidden'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET public_visibility = 'verified'
+          WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /self-grant blocked/,
+  );
+  await reset();
+  const r = await db.query<{ v: string }>(
+    `SELECT public_visibility::text AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.v, 'hidden', 'the freeze must hold');
+});
+
+test('the ADMIN path can still verify and un-hide a vendor', async () => {
+  const { vendorProfileId } = await newVendor('adminverify@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET verification_state = 'verified', public_visibility = 'verified'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ v: string; p: string }>(
+    `SELECT verification_state::text AS v, public_visibility::text AS p
+       FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.v, 'verified');
+  assert.equal(r.rows[0]!.p, 'verified');
+});
+
+test('ordinary vendor REGISTRATION still succeeds (the INSERT branch defaults)', async () => {
+  // The INSERT guard compares against the real column DEFAULTS ('unverified' /
+  // 'coming_soon'). Get either literal wrong and every self-registration 500s.
+  await reset();
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    ['register-ok@guard.test'],
+  );
+  const uid = u.rows[0]!.id;
+  await asVendor(uid);
+  await db.query(
+    `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Honest Shop')`,
+    [uid],
+  );
+  await reset();
+  const r = await db.query<{ v: string; p: string }>(
+    `SELECT verification_state::text AS v, public_visibility::text AS p
+       FROM public.vendor_profiles WHERE user_id = $1`,
+    [uid],
+  );
+  assert.equal(r.rows[0]!.v, 'unverified');
+  assert.equal(r.rows[0]!.p, 'coming_soon');
+});

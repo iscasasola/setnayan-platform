@@ -613,9 +613,15 @@ export default async function RootLayout({
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />
-        {/* Site-wide cookie-consent banner (RA 10173). Self-hides on '/',
-            where HomeReskin renders its own bespoke pill — both share the
-            same consent state via lib/cookie-consent. */}
+        {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
+            it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
+            itself only on the two Live Studio surfaces where it would be
+            broadcast or cover the on-air controls — see
+            _components/capture-safe-routes.ts. Every other route, including
+            '/', still gets the ask. (The old note here claimed a '/' self-hide
+            for a bespoke HomeReskin pill; no such pill exists — the only consent
+            UI in the tree is this banner plus the "Cookie settings" re-open
+            links, which all share state via lib/cookie-consent.) */}
         <CookieConsentBanner />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for

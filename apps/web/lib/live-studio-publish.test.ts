@@ -31,7 +31,10 @@ import {
   FREE_PUBLISHED_CHANNEL_LIMIT,
   canPublishMultiCam,
   decidePublish,
+  decideProgramAir,
   limitPublishedManifest,
+  programSourceAllowed,
+  type ProgramChannel,
 } from './live-studio-publish';
 import { applyGuestPick, type RoamManifest } from './live-studio-roam';
 
@@ -217,7 +220,7 @@ test('WIRING — the PUBLIC read re-applies the gate (permission does not persis
 });
 
 test('WIRING — the rehearsal actions have NOT had the old entitlement gate re-added', () => {
-  const actions = read('../app/dashboard/[eventId]/studio/live-studio-control/setup/actions.ts');
+  const actions = read('../app/panood/control/[eventId]/actions.ts');
 
   // The gate may still guard the ⚡ highlight actions (paid, on-air) and nothing
   // else. Two call sites, both inside markHighlight / deleteHighlight.
@@ -268,8 +271,15 @@ test('WIRING — the surface that actually reaches air resolves overlays from th
   // into the program page would hand a free host the paid overlays on air.
   const program = read('../app/panood/program/[eventId]/page.tsx');
   assert.ok(
-    /const owned = await eventSkuActive\(supabase, eventId, LIVE_STUDIO_SKU\)/.test(program),
-    'the program surface must resolve the real LIVE_STUDIO entitlement',
+    /const owned = await canPublishMultiCam\(admin, eventId\)/.test(program),
+    'the program surface must resolve the real entitlement through the shared helper',
+  );
+  // Service-role, not the operator's session: `orders` RLS is purchaser-scoped, so a
+  // coordinator running the encoder for a couple who paid would otherwise read
+  // "not owned" and be downgraded to the free bar and one camera, mid-wedding.
+  assert.ok(
+    /const admin = createAdminClient\(\);/.test(program),
+    'the program surface must resolve the entitlement with the service-role client',
   );
   assert.ok(
     !/owned:\s*true/.test(program),
@@ -298,5 +308,266 @@ test('WIRING — the free tier’s Setnayan bar is still unstrippable by constru
   assert.ok(
     !/lower_third_enabled/.test(resolver),
     'resolveOverlays must not read the raw column — the free branch has to ignore it',
+  );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   5. ⭐ WAVE 5 — THE PROGRAM OUTPUT (the third publication path)
+
+   The pop-out the host's own encoder captures. Everything above gates a
+   Setnayan-hosted page; this gates a pipe we do not own, and it is the difference
+   between "rehearse free" and "broadcast free via OBS". Same money-code standard.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/** A camera channel as the program gate sees it. Bound by default — unbound is the exception. */
+function chan(over: Partial<ProgramChannel> & { slot: string | null }): ProgramChannel {
+  return { featured: false, mainStage: false, status: 'live', ...over };
+}
+
+/** Three joined cameras: CH 2 is the ★ default, CH 3 is what the host has cut up. */
+const THREE_CHANNELS: ProgramChannel[] = [
+  chan({ slot: 'cam1', featured: true }),
+  chan({ slot: 'cam2', mainStage: true }),
+  chan({ slot: 'cam3' }),
+];
+
+test('PROGRAM — an entitled host puts every joined camera on air, and their cut is what goes out', () => {
+  const air = decideProgramAir({ owned: true, channels: THREE_CHANNELS });
+  assert.deepEqual(air.permittedSlots, ['cam1', 'cam2', 'cam3']);
+  assert.equal(air.airSlot, 'cam2', 'the cut is what airs');
+  assert.equal(air.withheld, null);
+  assert.equal(
+    air.enforced,
+    false,
+    'a paid broadcast must never be restricted by this gate — no path can block it',
+  );
+});
+
+test('PROGRAM — ⭐ a FREE host cannot get a multi-cam program frame', () => {
+  const air = decideProgramAir({ owned: false, channels: THREE_CHANNELS });
+  assert.equal(air.permittedSlots.length, 1, 'THE PAYWALL: one camera, never two');
+  assert.deepEqual(air.permittedSlots, ['cam1'], 'the ★ default channel, not the cut');
+  assert.equal(air.airSlot, 'cam1');
+  assert.equal(air.withheld, 'multi_cam_locked');
+  assert.equal(air.publish.reason, 'multi_cam_locked', 'reuses the ONE count decision');
+});
+
+test('PROGRAM — ⭐ the free pin is CUT-BLIND: switching cameras cannot move what airs', () => {
+  // The whole bypass in one test. If the pin followed `mainStage`, a free host would
+  // have a live vision mixer: cut → the encoder follows → a full multi-cam broadcast
+  // for ₱0. Every cut below must leave the aired slot exactly where it was.
+  const aired = new Set<string | null>();
+  for (const cut of ['cam1', 'cam2', 'cam3']) {
+    const channels = THREE_CHANNELS.map((c) => ({ ...c, mainStage: c.slot === cut }));
+    aired.add(decideProgramAir({ owned: false, channels }).airSlot);
+  }
+  assert.deepEqual([...aired], ['cam1'], 'the free program output must not follow the cut');
+});
+
+test('PROGRAM — the free tier still gets a REAL single-camera broadcast', () => {
+  // The /pricing promise. One camera, entitled or not, is never withheld.
+  const one = decideProgramAir({ owned: false, channels: [chan({ slot: 'cam1', mainStage: true })] });
+  assert.deepEqual(one.permittedSlots, ['cam1']);
+  assert.equal(one.airSlot, 'cam1');
+  assert.equal(one.withheld, null, 'nothing is withheld when the cut IS the free channel');
+  assert.equal(one.publish.allowed, true);
+});
+
+test('PROGRAM — the host chooses WHICH camera is their free one (the ★ default control)', () => {
+  const moved = THREE_CHANNELS.map((c) => ({ ...c, featured: c.slot === 'cam3' }));
+  assert.deepEqual(decideProgramAir({ owned: false, channels: moved }).permittedSlots, ['cam3']);
+});
+
+test('PROGRAM — nothing cut is nothing on air, free tier included', () => {
+  // The pin decides WHICH camera goes out, never WHETHER one does. A controller
+  // reading "Nothing on Channel 1 yet" while the encoder quietly sends a camera is
+  // exactly the silent mismatch this gate exists to prevent.
+  const noCut = THREE_CHANNELS.map((c) => ({ ...c, mainStage: false }));
+  for (const owned of [true, false]) {
+    const air = decideProgramAir({ owned, channels: noCut });
+    assert.equal(air.airSlot, null, `owned=${owned}: an uncut Channel 1 must air nothing`);
+    assert.equal(air.withheld, null, 'nothing was asked for, so nothing was withheld');
+  }
+  // The permitted list is unchanged — the paywall is about what MAY air, not whether
+  // the host has got round to cutting yet.
+  assert.deepEqual(decideProgramAir({ owned: false, channels: noCut }).permittedSlots, ['cam1']);
+});
+
+test('PROGRAM — cutting a channel no phone has joined still reports the real on-air camera', () => {
+  // Compared by CHANNEL, not slot: the host put an empty channel on Channel 1, so
+  // their controller shows "waiting for this camera's picture" while the encoder is
+  // still sending the pinned one. That difference has to be reported, not swallowed.
+  const channels = [
+    chan({ slot: 'cam1', featured: true }),
+    chan({ slot: null, mainStage: true }),
+  ];
+  const air = decideProgramAir({ owned: false, channels });
+  assert.equal(air.airSlot, 'cam1');
+  assert.equal(air.requestedSlot, null);
+  assert.equal(air.withheld, 'multi_cam_locked');
+});
+
+test('PROGRAM — a channel with no camera joined is not a source, and does not count', () => {
+  const channels = [chan({ slot: null, featured: true }), chan({ slot: 'cam2' })];
+  const air = decideProgramAir({ owned: false, channels });
+  assert.deepEqual(air.permittedSlots, ['cam2'], 'the empty ★ channel cannot air');
+  assert.equal(air.publish.requested, 1, 'unbound channels must not inflate the channel count');
+
+  const none = decideProgramAir({ owned: false, channels: [chan({ slot: null })] });
+  assert.deepEqual(none.permittedSlots, []);
+  assert.equal(none.airSlot, null, 'nothing joined = nothing on air, stated not faked');
+});
+
+test('PROGRAM — with no ★ default, the free pin falls back to a channel that is actually live', () => {
+  const channels = [
+    chan({ slot: 'cam1', status: 'offline' }),
+    chan({ slot: 'cam2', status: 'live' }),
+  ];
+  assert.deepEqual(decideProgramAir({ owned: false, channels }).permittedSlots, ['cam2']);
+});
+
+test('ATTACK — ⭐ a direct PostgREST PATCH of the host-writable columns cannot widen the gate', () => {
+  // `live_studio_roam_zones` UPDATE RLS is ROW-level (couple_can_update_event's
+  // sibling) and the anon key is public, so a host can absolutely rewrite their own
+  // `is_featured` / `is_main_stage` / `status` columns straight through PostgREST.
+  // They may: those columns only choose WHICH channel the pin lands on. The COUNT
+  // comes from `orders`, which the same host cannot forge (orders_insert_status_guard
+  // / orders_update_status_guard, migration 20270920010000 — a non-admin writer is
+  // restricted to draft/submitted/awaiting_payment/cancelled).
+  const patched: ProgramChannel[] = [
+    chan({ slot: 'cam1', featured: true, mainStage: true, status: 'live' }),
+    chan({ slot: 'cam2', featured: true, mainStage: true, status: 'live' }),
+    chan({ slot: 'cam3', featured: true, mainStage: true, status: 'live' }),
+  ];
+  const air = decideProgramAir({ owned: false, channels: patched });
+  assert.equal(air.permittedSlots.length, 1, 'every flag set on every row still yields ONE camera');
+  assert.equal(air.enforced, true);
+});
+
+test('ATTACK — ⭐ a tampered console cannot paint a forbidden camera on the capture surface', () => {
+  // The bridge is a plain `window` property in the host's own browser, so a host with
+  // devtools can publish whatever they like onto it. `programSourceAllowed` is what the
+  // pop-out applies to the frame that ARRIVES, against a list resolved server-side on
+  // its own render — so the answer does not depend on the sender being honest.
+  const air = decideProgramAir({ owned: false, channels: THREE_CHANNELS });
+  assert.equal(programSourceAllowed(air, 'cam1'), true, 'the permitted channel still airs');
+  for (const forged of ['cam2', 'cam3', 'cam9', 'photos', 'live_bg']) {
+    assert.equal(programSourceAllowed(air, forged), false, `${forged} must be refused`);
+  }
+});
+
+test('ATTACK — a lapsed entitlement bites on the NEXT render, not "whenever something rewrites a column"', () => {
+  // Same reasoning as the public read gate: permission is re-asked at the point of
+  // render, so a refund/revocation reduces the program output on the next paint
+  // rather than leaving a paid-shaped frame up until some unrelated write happens.
+  const before = decideProgramAir({ owned: true, channels: THREE_CHANNELS });
+  const after = decideProgramAir({ owned: false, channels: THREE_CHANNELS });
+  assert.equal(before.permittedSlots.length, 3);
+  assert.equal(after.permittedSlots.length, 1);
+});
+
+test('PROGRAM — an entitled host is never blocked, whatever source arrives', () => {
+  // The failure mode that would matter most on the day: a gate that fights a paid
+  // console. `enforced: false` short-circuits every check, including legacy wall
+  // sources the unified controller does not know about.
+  const air = decideProgramAir({ owned: true, channels: THREE_CHANNELS });
+  for (const src of ['cam1', 'cam9', 'photos', 'live_bg', null]) {
+    assert.equal(programSourceAllowed(air, src), true, `${src} must not be blocked for a paid host`);
+  }
+});
+
+/* ── 6. WIRING — the path to air exists, and it is gated at both ends ───────── */
+
+test('WIRING — ⭐ the UNIFIED controller installs the program bridge (the path to air)', () => {
+  // The Wave 4 gap: `installProgramBridge` had exactly one caller (the legacy control
+  // room), so a cut on the unified controller reached the monitor and stopped.
+  const bridge = read(
+    '../app/panood/control/[eventId]/_components/program-bridge.tsx',
+  );
+  assert.ok(bridge.includes('installProgramBridge('), 'the unified controller stopped installing the bridge');
+  assert.ok(
+    bridge.includes("`/panood/program/${eventId}`"),
+    'the controller must open the real program route, not a new surface',
+  );
+  // ONE bridge, not a fork: it must come from the shipped module.
+  assert.ok(
+    /from '@\/lib\/panood-program-bridge'/.test(bridge),
+    'the controller must reuse lib/panood-program-bridge — a second bridge would split the surface',
+  );
+  // And ONE WebRTC viewer: opening its own would steal the phones from the host's own
+  // monitor mid-ceremony (the transport is one-publisher → one-viewer per slot).
+  assert.ok(
+    !/from '@\/lib\/panood-webrtc'/.test(bridge) && !/watchPanoodCameras\s*\(/.test(bridge),
+    'the bridge host must subscribe to Wave 4’s shared viewer, never open its own',
+  );
+
+  const page = read('../app/panood/control/[eventId]/page.tsx');
+  assert.ok(page.includes('<ProgramBridgeHost'), 'the controller page must mount the bridge host');
+});
+
+test('WIRING — ⭐ the controller publishes the PERMITTED slot, never the raw cut', () => {
+  const bridge = read(
+    '../app/panood/control/[eventId]/_components/program-bridge.tsx',
+  );
+  // The single most important line in the file: what goes onto the bridge.
+  assert.ok(
+    /source:\s*allowed\s*\?\s*air\.airSlot\s*:\s*null/.test(bridge),
+    'the published source must be the server-decided air slot',
+  );
+  assert.ok(
+    /stream:\s*allowed\s*\?\s*stream\s*:\s*null/.test(bridge),
+    'the published stream must be gated by the same decision',
+  );
+  assert.ok(
+    !/source:\s*mainStageSlot/.test(bridge),
+    'publishing the host’s cut directly is the bypass this wave exists to close',
+  );
+  // The subscription itself must be to the permitted slot, so a free host's other
+  // cameras are never even handed to the bridge.
+  assert.ok(
+    /useCameraFeed\(air\.airSlot\)/.test(bridge),
+    'the bridge host must subscribe to the permitted slot, not the cut',
+  );
+
+  const page = read('../app/panood/control/[eventId]/page.tsx');
+  assert.ok(page.includes('decideProgramAir('), 'the controller must resolve the air decision server-side');
+});
+
+test('WIRING — ⭐ the CAPTURE SURFACE re-decides server-side and refuses a forbidden frame', () => {
+  // The enforcement point. The controller half runs in the host's browser and is
+  // advisory by nature; this one is not.
+  const page = read('../app/panood/program/[eventId]/page.tsx');
+  assert.ok(page.includes('decideProgramAir('), 'the program route must resolve its own air decision');
+  assert.ok(
+    page.indexOf('decideProgramAir(') > page.indexOf('canPublishMultiCam('),
+    'the decision must be made from the resolved entitlement',
+  );
+
+  const surface = read('../app/panood/program/[eventId]/program-surface.tsx');
+  assert.ok(surface.includes('programSourceAllowed('), 'the capture surface stopped checking the source');
+  // The gated values, not the raw frame, are what reach the <video> elements.
+  assert.ok(
+    /const stream = sourceAllowed \? frame\.stream : null/.test(surface),
+    'the surface must paint the gated stream, never frame.stream directly',
+  );
+  assert.ok(
+    !/<StreamLayer stream=\{frame\.stream\}/.test(surface),
+    'a raw frame.stream render is a hole straight through the gate',
+  );
+  // Honest states only: a refused source gets a named card, not a black rectangle.
+  assert.ok(surface.includes('<WithheldCard />'), 'a refused source must say so on the picture');
+});
+
+test('WIRING — the flag keeps this dark, and the legacy Cast product untouched', () => {
+  const page = read('../app/panood/program/[eventId]/page.tsx');
+  assert.ok(
+    page.indexOf('liveStudioRoamEnabled()') < page.indexOf('decideProgramAir('),
+    'the program gate must sit inside the NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED branch',
+  );
+  // An event with no Live Studio channels is a legacy Cast broadcast: nothing to gate,
+  // and its own paywall (lib/panood-watermark.ts) is left exactly as it is.
+  assert.ok(
+    /if \(channels\.length > 0\) \{\s*\n\s*air = decideProgramAir\(/.test(page),
+    'a channel-less legacy event must not be gated by the unified paywall',
   );
 });

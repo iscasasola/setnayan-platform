@@ -1405,7 +1405,25 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
-    .neq('business_name', '');
+    .neq('business_name', '')
+    // ── Setnayan's own services are NOT marketplace vendors (owner 2026-07-26)
+    // "remove setnayan from Explore" · "all setnayan in app services are either
+    // on their exact location on the dashboard or on suites".
+    //
+    // ⚠ REVERSES the 2026-05-22 PM directive that floated first-party
+    // canonicals ABOVE everything else here. Explore is the VENDOR
+    // marketplace — a place to find and book a third-party supplier. Setnayan's
+    // own offerings (Papic, Animated Monogram, Setnayan AI, Live Studio,
+    // Patiktok, Pakanta …) are ordinary catalog SKUs in
+    // platform_retail_catalog_v2, bought from the suite or from their own
+    // dashboard surface. Listing them as vendors made them look bookable
+    // through a supplier flow they never used.
+    //
+    // Same predicate the date-selection surface already uses
+    // (dashboard/[eventId]/date-selection/page.tsx) — NULL-safe, because
+    // is_setnayan_service is a computed view column that is null for rows
+    // whose `services` array is null.
+    .or('is_setnayan_service.is.null,is_setnayan_service.eq.false');
 
   // PR-B verification gate (ALWAYS ON). An UNVERIFIED vendor is private — it
   // never appears on Explore / the public marketplace and has no public
@@ -1588,13 +1606,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
-  // Sort chain (PR #6 updated — quality_score added as step 2):
-  //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
-  //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
-  //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
-  //      Save-the-Date Video, AI Highlights) float ABOVE everything else.
-  //      Vendor's services[] is checked at view-compute time via the
-  //      10-canonical array in migration 20260607020000.
+  // Sort chain:
+  //   1. ~~is_setnayan_service DESC (owner directive 2026-05-22 PM)~~ REMOVED
+  //      2026-07-26. First-party canonicals no longer appear here at all (see
+  //      the filter on the query above), so floating them was dead ordering on
+  //      an empty set. Setnayan's own services are catalog SKUs bought from the
+  //      suite or their own dashboard surface, not marketplace vendors.
   //   2. quality_score DESC (PR #6, 2026-06-17) — vendors with a higher
   //      precomputed quality composite float above unscored or lower-quality
   //      vendors. vendor_activity_stats rows are LEFT JOIN'd in-memory
@@ -1607,7 +1624,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   //   3. User-chosen sort below.
   // vendor_market_stats columns drive the SQL ORDER BY; quality_score is
   // applied in-memory after the activity-stats enrichment loop.
-  query = query.order('is_setnayan_service', { ascending: false });
   switch (filters.sort) {
     case 'highest_rated':
       query = query
@@ -2435,9 +2451,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // 0. Preserve existing relationship-depth precedence (depth wins all).
       const depthDiff = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
       if (depthDiff !== 0) return depthDiff;
-      // 1. is_setnayan_service DESC (first-party float — unchanged).
-      const setnayanDiff = (b.is_setnayan_service ? 1 : 0) - (a.is_setnayan_service ? 1 : 0);
-      if (setnayanDiff !== 0) return setnayanDiff;
+      // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
+      //    first-party rows are filtered out of the query entirely, so this
+      //    tiebreak could only ever compare false-to-false.
       // 2. Partnership priority DESC (sponsored_included → sponsored_discounted → accredited).
       const partDiff = partnershipPriority(b) - partnershipPriority(a);
       if (partDiff !== 0) return partDiff;
@@ -2455,10 +2471,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // whose tier can't count stars sorts as rating 0 / count 0), so the visible
   // order matches the visible numbers. This is a POST-PAGINATION re-sort —
   // acceptable for the founder-only marketplace; the fuller fix is a
-  // tier-aware ORDER BY in a view that exposes tier_state (deferred). The
-  // primary is_setnayan_service precedence is preserved (compared first); only
-  // the rating/review tiebreak uses gated values. Array#sort is stable in V8 so
-  // equal-key rows keep their SQL order.
+  // tier-aware ORDER BY in a view that exposes tier_state (deferred).
+  // Array#sort is stable in V8 so equal-key rows keep their SQL order.
   if (filters.sort === 'highest_rated' || filters.sort === 'most_reviews') {
     const gatedRatingOf = (v: VendorCardRow): number =>
       tierCaps(v.tier_state ?? null).reviewStarsCounted
@@ -2466,11 +2480,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         : 0;
     const gatedReviewsOf = (v: VendorCardRow): number =>
       tierCaps(v.tier_state ?? null).reviewStarsCounted ? (v.review_count ?? 0) : 0;
-    const setnayanRank = (v: VendorCardRow): number => (v.is_setnayan_service ? 1 : 0);
     visible = [...visible].sort((a, b) => {
-      // 1. is_setnayan_service DESC (first-party float — unchanged).
-      const setnayanDiff = setnayanRank(b) - setnayanRank(a);
-      if (setnayanDiff !== 0) return setnayanDiff;
+      // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
+      //    first-party rows never reach this array (filtered in the query).
       // 2. GATED rating / review sort.
       if (filters.sort === 'highest_rated') {
         const r = gatedRatingOf(b) - gatedRatingOf(a);

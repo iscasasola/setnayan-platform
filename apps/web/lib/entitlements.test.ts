@@ -645,14 +645,83 @@ test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased can
 test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () => {
   // 2026-07-22 bundle restructure: EDITORIAL_PRO + STD_PREMIUM_OPENINGS via the
   // Website PRO umbrella; LIVE_BACKGROUND via Monogram PRO (ANIMATED_MONOGRAM).
+  // 2026-07-25 Live Studio consolidation: LIVE_STUDIO via either Cast device tier.
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'EDITORIAL_PRO',
     'LIVE_BACKGROUND',
+    'LIVE_STUDIO',
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_BACKGROUND, ['ANIMATED_MONOGRAM']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
+    'PANOOD_SYSTEM',
+    'PANOOD_SYSTEM_MOBILE',
+  ]);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// ⭐ THE GRANDFATHER CLAUSE (Live Studio "one controller" consolidation,
+// 2026-07-25). Cast is live and SELLING; the consolidation retires its control
+// room in favour of the unified Live Studio controller, whose every paid
+// decision reads LIVE_STUDIO. Without the alias, flipping the flag would
+// silently downgrade every couple who already paid for Cast — on a day that
+// cannot be redone. These tests are the standing proof that it does not.
+// ──────────────────────────────────────────────────────────────────────────
+
+test('GRANDFATHER — a paid PANOOD_SYSTEM (Cast) order confers LIVE_STUDIO', async () => {
+  assert.equal(
+    await eventSkuActive(makeOwnedSupabase(new Set(['PANOOD_SYSTEM']), 'paid'), 'evt_cast', 'LIVE_STUDIO'),
+    true,
+    'a Cast buyer must not be asked to buy the same capability twice',
+  );
+  // The legacy Mobile device tier too — same room, same unlock (PANOOD_PAID_SKUS).
+  assert.equal(
+    await eventSkuActive(
+      makeOwnedSupabase(new Set(['PANOOD_SYSTEM_MOBILE']), 'paid'),
+      'evt_cast_mobile',
+      'LIVE_STUDIO',
+    ),
+    true,
+  );
+});
+
+test('GRANDFATHER — a REFUNDED Cast order confers nothing', async () => {
+  assert.equal(
+    await eventSkuActive(
+      makeOwnedSupabase(new Set(['PANOOD_SYSTEM']), 'refunded'),
+      'evt_refunded',
+      'LIVE_STUDIO',
+    ),
+    false,
+    'the alias inherits the status filter — a reversed purchase reverses the grant',
+  );
+});
+
+test('GRANDFATHER is ONE-DIRECTIONAL — LIVE_STUDIO does not confer Cast', async () => {
+  assert.equal(
+    await eventSkuActive(
+      makeOwnedSupabase(new Set(['LIVE_STUDIO']), 'paid'),
+      'evt_unified',
+      'PANOOD_SYSTEM',
+    ),
+    false,
+    'the legacy Cast surfaces stay keyed to the SKU they actually sell',
+  );
+});
+
+test('GRANDFATHER — the alias query asks for BOTH Cast codes alongside LIVE_STUDIO', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'LIVE_STUDIO');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  assert.deepEqual(skuIn?.args[1], [
+    'LIVE_STUDIO',
+    'PANOOD_SYSTEM',
+    'PANOOD_SYSTEM_MOBILE',
+  ]);
 });
 
 // ──────────────────────────────────────────────────────────────────────────

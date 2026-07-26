@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { parseClientRef, walkthroughVideoPolicy } from '@/lib/r2-client-ref';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -179,6 +180,13 @@ export async function saveWalkthroughZoneVideo(
   if (!user) throw new Error('Sign in to continue.');
   const supabase = await createClient();
   await authorize(supabase, eventId, user.id);
+  // SEC-1: `startsWith('r2://')` was the ONLY check on a ref that is presigned
+  // later by /api/seat-lookup/[slug] — an ANONYMOUS endpoint. So any event
+  // member could store another tenant's key here and then read the signed URL
+  // back with no session at all. Pin it to this event+zone's own upload prefix.
+  if (!parseClientRef(r2Ref, walkthroughVideoPolicy(eventId, zoneId))) {
+    throw new Error('That video reference isn’t valid for this zone.');
+  }
   const { error } = await supabase
     .from('event_walkthrough_zones')
     .update({

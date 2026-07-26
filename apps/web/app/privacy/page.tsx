@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-23 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-26 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -296,6 +296,73 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Live video connections (calls and event cameras)">
+          <p>
+            A few Setnayan features connect two devices{' '}
+            <strong>directly to each other</strong>, so that live audio and video
+            travel between them rather than through us. That is how a voice or
+            video <strong>call</strong> inside a vendor conversation works; how a
+            camera operator&rsquo;s phone sends its feed to the couple&rsquo;s Live
+            Studio control room; how a guest who taps a side camera on an event
+            page receives that angle (the operator&rsquo;s phone sends it straight
+            to them); and how the live demo on our homepage works.
+          </p>
+          <p className="pt-2">
+            <strong>
+              A direct connection means each device learns the other&rsquo;s IP
+              address.
+            </strong>{' '}
+            An IP address is the number your internet provider gives your
+            connection so that other computers know where to send data — it
+            broadly indicates your provider and general area, not your street
+            address. Two devices cannot send video straight to each other without
+            each knowing where to send it, so on a direct connection the other
+            person&rsquo;s device receives your IP address and yours receives
+            theirs. This is inherent to how direct video connections work
+            everywhere on the internet; it is not something we add, and not
+            something we can switch off while still offering the feature. Your
+            device also briefly contacts a public address-discovery (STUN) server
+            run by Google or Cloudflare to learn which address to advertise.
+          </p>
+          <p className="pt-2">
+            <strong>We do not store these addresses.</strong> To introduce the two
+            devices to each other, Setnayan carries the setup messages between
+            them, and those messages contain the candidate addresses — so the
+            addresses do pass through our infrastructure in transit. We do not
+            write them to our database, keep them in a log, or use them for
+            anything else. What we do keep for each connection is whether it ended
+            up direct or relayed and the general type of network path it used, so
+            that we can size the relay costs described below; that record contains
+            no IP address and none of the audio or video.
+          </p>
+          <p className="pt-2">
+            <strong>When a direct connection is not possible, media is relayed.</strong>{' '}
+            Some networks — Philippine mobile data and shared venue or guest Wi-Fi
+            especially — will not let two devices reach each other directly. Those
+            connections instead route the audio and video through a relay server
+            operated by <strong>Cloudflare</strong>, using short-lived credentials
+            we issue for that one connection. The relay is transit, not storage:
+            it forwards the stream, and Setnayan keeps none of it. On a relayed
+            connection the two devices see the relay instead of each other.
+          </p>
+          <p className="pt-2">
+            <strong>Tapping a side camera creates a session for you.</strong> If
+            you choose a side camera on an event page while signed out, we create
+            an anonymous sign-in for your browser at that moment — a session
+            identifier with no name, email, or password attached — because the
+            connection can only be set up under a signed-in session. We create it
+            only when you actually tap a camera, never merely for visiting the
+            page.
+          </p>
+          <p className="pt-2">
+            <strong>Calls are never recorded.</strong> Setnayan does not record,
+            store, or listen to the audio or video of a call — the media never
+            reaches our servers at all. We keep only the fact that a call took
+            place on a conversation: who started it, whether it was voice or
+            video, when it began, and when it ended.
+          </p>
+        </Section>
+
         <Section title="Featuring your event on Setnayan&rsquo;s own social channels">
           <p>
             Setnayan may feature finished work from real events — such as a
@@ -361,6 +428,7 @@ export default function PrivacyPage() {
           <ul className="ml-5 list-disc space-y-1">
             <li>Precise location for advertising, profiling, or cross-site tracking (photo/clip GPS is described above and stripped from outbound shares)</li>
             <li>Advertising identifiers, third-party cookies, or cross-site tracking signals</li>
+            <li>Stored IP addresses from live calls and camera feeds — the two devices exchange these to connect, and they pass through our signaling in transit, but we never log or keep them (explained under &ldquo;Live video connections&rdquo; above)</li>
           </ul>
         </Section>
 
@@ -980,7 +1048,11 @@ export default function PrivacyPage() {
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth · Singapore region)</li>
             <li>Vercel (web hosting)</li>
-            <li>Cloudflare (CDN + R2 object storage · APAC region)</li>
+            <li>
+              Cloudflare (CDN + R2 object storage · APAC region; also the relay
+              server that carries live call and camera video when a direct
+              connection is not possible — transit only, nothing stored)
+            </li>
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics — opt-out available in your profile)</li>
@@ -990,7 +1062,10 @@ export default function PrivacyPage() {
               Google (YouTube Data API — only for couples who purchase Live Studio
               and explicitly connect their YouTube channel via OAuth; Google
               Drive API — only for couples who use Photo Delivery or Papic
-              and explicitly connect a Drive account via OAuth)
+              and explicitly connect a Drive account via OAuth; Google&rsquo;s
+              public STUN server — contacted briefly by your device when starting
+              a live call or camera connection, to discover its own network
+              address)
             </li>
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly

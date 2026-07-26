@@ -516,6 +516,38 @@ html.guests-subnav-docked [data-shell-main],
 html.subnav-docked [data-shell-main] {
   padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
 }
+
+/*
+ * ⭐ LIVE STUDIO CONTROLLER · WAVE 8 (§ 4g) — THE MONITOR YIELDS TO A WARNING.
+ *
+ * The controller is a fixed, scroll-free viewport: every row is `shrink-0` except
+ * the camera grid, so anything that appears has to come out of the grid's height.
+ * The Wave 7 broadcast-window strip is exactly that — it materialises mid-show on
+ * a time crossing, and two of them can be up at once (day ending + 12-hour archive
+ * cap). MEASURED at 360×640 with both up, the grid fell to 27px: still scrolling,
+ * still not overflowing, but too small to be a camera grid.
+ *
+ * So the CH 1 monitor gives the space back for as long as a warning is showing. It
+ * is the right thing to shrink: the picture is `object-cover` and every overlay is
+ * positioned against the box, so a shorter monitor crops rather than breaks, while
+ * a squeezed grid costs the operator the ability to cut.
+ *
+ * Written here rather than as a utility because it needs `:has()` on a PREVIOUS
+ * sibling's ancestor — the warning renders after the monitor, and CSS has no
+ * previous-sibling combinator. Degrades safely: a browser without `:has()` simply
+ * keeps the 34dvh cap (the pre-Wave-8 measured behaviour), and nothing overflows
+ * either way. Scoped to `[data-lsc-*]`, which only the controller emits.
+ */
+[data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+  max-height: 20dvh;
+}
+@media (min-width: 1024px) {
+  /* Desktop has the height to spare — the two-column layout puts the grid in its
+     own column, so a warning does not compete with it. */
+  [data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+    max-height: 40dvh;
+  }
+}
 @media (min-width: 1024px) {
   html.guests-subnav-docked [data-shell-main],
   html.subnav-docked [data-shell-main] {

@@ -27,17 +27,23 @@ import { redirect } from 'next/navigation';
  *       2026-05-28 § cross-doorway hand-offs).
  *
  *       Self-comp (CLAUDE.md 2026-05-15 § 3.1a) is also NOT in the
- *       drawer for pilot · vendors needing self-comp during pilot
- *       polish can use the legacy createOrder server action directly
- *       via admin tooling. V1.x adds self-comp to the drawer.
+ *       drawer. ⛔ CORRECTED 2026-07-26 (SEC-4): this note used to say
+ *       "vendors needing self-comp can use the legacy createOrder
+ *       server action directly via admin tooling." No such tooling was
+ *       ever built, and `createOrder` took its charge straight from the
+ *       submitted form — no catalog resolve, no sellability gate — so
+ *       it has been DELETED. Self-comp, when it returns, gets re-added
+ *       on the `submitOrderAction` path (which re-resolves the price
+ *       server-side); the authority rule is preserved in
+ *       `lib/self-comp-authority.ts`. Do not resurrect the old action.
  *
  * Cross-references:
  *   • CLAUDE.md 2026-05-29 Day 2 row (this retirement)
  *   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
  *     (the replacement)
  *   • apps/web/app/dashboard/[eventId]/checkout/actions.ts (submit/apply)
- *   • apps/web/app/dashboard/[eventId]/orders/actions.ts (legacy
- *     createOrder retained for the self-comp branch + admin tooling)
+ *   • apps/web/app/dashboard/[eventId]/orders/actions.ts (createOrder
+ *     DELETED 2026-07-26 · SEC-4 · see the tombstone comment there)
  *   • PR #594 + PR #595 (Day 1 + Day 1.5 schema substrate)
  */
 

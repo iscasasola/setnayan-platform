@@ -3,8 +3,10 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import {
   computeCustomQuote,
   CUSTOM_BASE,
@@ -114,7 +116,17 @@ export async function requestCustomPlan(formData: FormData) {
   // Owner + admin of the org only (multi-admin governance). It's a sales path —
   // NOT hard-gated to a tier — but must be a VERIFIED store (same gate as
   // subscribe / buy-tokens: "they can only subscribe when they are verified").
-  const role = await resolveVendorRole(supabase, user.id);
+  //
+  // ⚠ SEC-4b FIX: this was `resolveVendorRole(supabase, user.id)` — the
+  // GLOBAL-HIGHEST role across every vendor the user sits on — while every
+  // sibling add-on action uses the PROFILE-scoped variant, each carrying a
+  // comment explaining why: an agent/viewer on THIS shop who happens to be
+  // owner/admin on some OTHER shop passed the global check. The blast radius
+  // used to be capped by `orders_owner_write` + the fact that vendorProfileId
+  // comes from `fetchOwnVendorProfile`; with the row now minted through
+  // service_role this is the file's ONLY role gate, so it is brought in line
+  // with deep-search / ai-addon / booth-addon / photo-challenge.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     backErr('Only the owner or an admin can request a Custom plan.');
   }
@@ -189,18 +201,37 @@ export async function requestCustomPlan(formData: FormData) {
   }
 
   // 2) Apply-then-pay order + pending payment (mirrors buyExtraSeat EXACTLY).
-  const { data: orderRow, error: oErr } = await supabase
+  //
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())` — RLS's only check here; it never tied
+  // the order to vendorProfileId or to the vendor_custom_plans row above.
+  //
+  // AUTHORIZATION: authenticated → `fetchOwnVendorProfile` (server-resolved id)
+  // → `resolveVendorRoleForProfile` + canManageVendor (PROFILE-scoped as of this
+  // PR — see the note at the role gate) → `verification_state === 'verified'`.
+  // The amount is recomputed server-side from `fetchCustomUnitPrices` +
+  // `computeCustomQuote` with a `> 0` sanity check, and `parseComposition`
+  // clamps every knob, so the form carries the COMPOSITION and never a peso
+  // figure. The `vendor_custom_plans` write above stays on the SESSION client so
+  // RLS keeps scoping it — only the money rows are elevated.
+  const moneyWriter = createAdminClient();
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: customPlanServiceKey(vendorProfileId),
-      description: 'Custom Plan (28-day)',
-      requested_total_php: final28,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId: null, vendorProfileId },
+        {
+          service_key: customPlanServiceKey(vendorProfileId),
+          description: 'Custom Plan (28-day)',
+          requested_total_php: final28,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -208,17 +239,22 @@ export async function requestCustomPlan(formData: FormData) {
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: final28,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: final28,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     backErr('Could not start your Custom plan request. Please try again.');
   }
 

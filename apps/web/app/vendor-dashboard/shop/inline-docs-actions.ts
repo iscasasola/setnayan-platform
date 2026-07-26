@@ -8,6 +8,11 @@ import {
   type VendorProfileRow,
 } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  parseClientRef,
+  vendorOwnedMediaPolicy,
+  vendorVerificationDocPolicy,
+} from '@/lib/r2-client-ref';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   CLIENT_REFERENCES_MAX,
@@ -407,6 +412,37 @@ export async function updateDocUploadInline(
   const portfolioRefs = parsePortfolioField(formData.get('portfolio_json'));
 
   const currentUploads = (app.doc_uploads ?? {}) as DocUploadMap;
+
+  // SEC-1: `r2_ref` and every portfolio entry are client-supplied r2 refs that
+  // land in `doc_uploads` JSONB unvalidated and are presigned back later
+  // (buildSeedDisplayUrls in this file, plus the admin review surface). This is
+  // the one client-ref flow that legitimately targets a PRIVATE bucket
+  // (vendor-verification), so an unpinned ref here would sign another vendor's
+  // DTI / BIR 2303 / Mayor's Permit. Accept only this vendor's own folders —
+  // the private verification folder or their public-media folder.
+  //
+  // Grandfather clause: a ref already stored on THIS slot is echoed back by the
+  // edit form, so it stays acceptable even if it predates this policy.
+  const vendorDocPolicy = vendorVerificationDocPolicy(auth.vendorProfileId);
+  const vendorMediaPolicy = vendorOwnedMediaPolicy(auth.vendorProfileId);
+  const storedSlot = currentUploads[slotKey];
+  const alreadyStored = new Set<string>(
+    Array.isArray(storedSlot)
+      ? parsePortfolioRefs(storedSlot)
+      : storedSlot && typeof storedSlot === 'object' && 'r2_key' in storedSlot && storedSlot.r2_key
+        ? [storedSlot.r2_key as string]
+        : [],
+  );
+  const refIsOwned = (ref: string): boolean =>
+    !ref.startsWith('r2://') ||
+    alreadyStored.has(ref) ||
+    parseClientRef(ref, vendorDocPolicy) !== null ||
+    parseClientRef(ref, vendorMediaPolicy) !== null;
+
+  if (r2Ref && !refIsOwned(r2Ref)) {
+    return { ok: false, error: 'That file reference isn’t valid — re-upload and try again.' };
+  }
+  const safePortfolioRefs = portfolioRefs.filter(refIsOwned);
   const nextUploads: DocUploadMap = {
     ...currentUploads,
     // buildSlotValue now stores the FULL array for portfolio/client_references
@@ -418,7 +454,7 @@ export async function updateDocUploadInline(
       scheduledAt: null,
       references,
       social,
-      portfolioRefs,
+      portfolioRefs: safePortfolioRefs,
     }),
   };
   const completeCount = countCompleteSlots(nextUploads);

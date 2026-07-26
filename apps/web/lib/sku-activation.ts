@@ -29,6 +29,7 @@ import {
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
+  isVendorAiAddonActive,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
 import {
@@ -388,8 +389,19 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   // both service-role; vendor self-writes are blocked by
   // trg_guard_vendor_profiles_entitlement.
   if (ladder) {
-    const currentLevel =
-      (vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null;
+    // ⚠ Carry the existing rung forward ONLY while the window is still LIVE.
+    //
+    // nextVendorAiLevel takes the HIGHER rung so a Basic re-up mid-cycle cannot
+    // strip Advanced time the vendor already paid for. That is right INSIDE a
+    // live window and WRONG across a lapse: the marker is never cleared on lapse
+    // (expiry is evaluated at read time, there is no cron), so a stale
+    // 'advanced' would otherwise re-arm on the next BASIC purchase — buy
+    // Advanced once, then renew on Basic forever (~₱1,000/cycle × 13/yr).
+    // A lapsed rung is SPENT: pass null and let this purchase decide the level.
+    const windowLive = isVendorAiAddonActive(currentExpiry);
+    const currentLevel = windowLive
+      ? ((vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null)
+      : null;
     update.ai_addon_level = nextVendorAiLevel(
       currentLevel,
       vendorAiLevelForServiceKey(ctx.serviceKey),
@@ -858,6 +870,24 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       .eq('service_code', AI_SUB_SKU)
       .maybeSingle();
     const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
+    // ⭐ SEC-7 · `null` = the unit price is unknowable, so how many cycles this
+    // payment bought is unknowable too. REFUSE — the old behaviour was
+    // `cyclesFromAmount` silently returning 1, which is how a ₱0.01 order bought
+    // a full 28-day subscription (SETNAYAN_AI_SUB has no catalog row in prod).
+    // Raise the alarm instead of guessing: an admin can grant the window by hand
+    // once someone has seeded the SKU's admin-managed price.
+    if (cycles === null) {
+      reportActivationFault(
+        'activate:SETNAYAN_AI_SUB:no-unit-price',
+        ctx,
+        new Error(
+          `SETNAYAN_AI_SUB has no admin-managed retail_price_php — refusing to grant ` +
+            `cycles for a ₱${amountPhp} payment (order ${ctx.orderId}). Seed the catalog row, ` +
+            `then re-approve.`,
+        ),
+      );
+      return;
+    }
     if (cycles <= 0) return;
 
     // (4) Current window (one row per user) → extend, with a second idempotency

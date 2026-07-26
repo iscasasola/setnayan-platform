@@ -38,6 +38,13 @@ jobs:
       # not the old 2-test curated list (which silently let migration/schema
       # regressions through: PR4/PR5 db tests were never CI-run until now).
       # Gap audit 2026-07-23 · Batch B7.
+      #
+      # This glob ALSO carries the exposure-surface freeze
+      # (tests/db/exposure-freeze.db.test.ts), which fails the build when anon /
+      # authenticated gain reach they did not have in
+      # supabase/security/exposure-surface.baseline.txt. Do not narrow this glob
+      # to a curated list again — that is how the last set of db tests stopped
+      # running.
       - name: Data-layer guards (DB replay)
         run: pnpm --filter @setnayan/web test:db:ci
 
@@ -369,6 +376,35 @@ jobs:
 
       - name: Unit-test the migration doctor classifier
         run: node --test scripts/migration-doctor.test.mjs
+
+  lint-exposure-baseline:
+    name: lint exposure baseline
+    runs-on: ubuntu-latest
+    # Structural half of THE FREEZE (supabase/security/README.md). The real
+    # comparison — live schema vs committed baseline — runs inside the
+    # "typecheck + lint" job via test:db:ci, because it needs the migration
+    # replay. THIS job needs nothing but the files, so it runs everywhere and
+    # closes the two ways a file-based guard dies quietly:
+    #   1. the baseline gets truncated/emptied, so the differ compares nothing
+    #      against nothing and reports "no widenings";
+    #   2. the guard gets unwired — test file deleted, renamed out of the
+    #      tests/db/*.db.test.ts glob, or the CI step dropped — and the suite
+    #      still goes green. That is the worst failure mode available, because
+    #      it manufactures confidence.
+    # So it asserts: header fact-count matches the body, per-kind floors are
+    # met, ordering is canonical, keys are unique, the mirrored constants have
+    # not drifted from exposure-surface.ts, and the freeze test is still wired
+    # into both package.json and this workflow.
+    # Pure node, no install. See scripts/lint-exposure-baseline.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint exposure baseline
+        run: node scripts/lint-exposure-baseline.mjs
 
   lint-vendor-layout-revalidate:
     name: lint vendor layout revalidate

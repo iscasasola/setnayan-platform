@@ -6,6 +6,7 @@
 // module stays value-free for the client components that import from it.
 import type { GuestRole } from '@/lib/guests';
 import type { RoamManifest } from '@/lib/live-studio-roam';
+import type { GuestPickCamera } from '@/lib/live-studio-guest-pick';
 import type { WallTile } from '@/lib/live-wall-logic';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
@@ -22,8 +23,29 @@ import type { EntrancePos } from '@/lib/indoor-blueprint';
 import type { GuestHubData } from '../_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
- *  staged — single-cam Panood live is free for every host). */
-export type WatchLiveData = { embedUrl: string; watchUrl: string; roam?: RoamManifest };
+ *  staged — single-cam Panood live is free for every host).
+ *
+ *  DUAL-STREAM (2026-07-26): a couple may also be live on Facebook. `embedUrl` /
+ *  `watchUrl` are NULLABLE because Facebook can be the only destination they
+ *  published — in that case there is no player, just the link. `facebookUrl` is
+ *  a LINK-OUT ONLY: facebook.com is deliberately absent from next.config.ts
+ *  frame-src, so it is never an iframe src. Both values come out of
+ *  lib/watch-live-links.ts, which re-validates them on every render. */
+export type WatchLiveData = {
+  embedUrl: string | null;
+  watchUrl: string | null;
+  roam?: RoamManifest;
+  facebookUrl?: string | null;
+  /**
+   * Wave 10 · side cameras a guest may switch to, served PEER-TO-PEER from the
+   * operator's phone rather than broadcast to YouTube. Populated only when the flag
+   * is on, the host enabled guest-pick, and `canPublishMultiCam` says the event is
+   * entitled — so an un-entitled event's browser is never told these exist.
+   * `eventId` rides along because the WebRTC signaling topic is keyed on it.
+   */
+  guestCameras?: GuestPickCamera[];
+  eventId?: string;
+};
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 export type LiveWallData = {
   tiles: WallTile[];

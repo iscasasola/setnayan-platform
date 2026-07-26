@@ -3,7 +3,20 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
+import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
+// ⭐ WAVE 8: the unified controller moved to a chrome-less top-level route (§ 4g),
+// so its revalidate target comes from the shared helper, never a literal path.
+import { liveStudioControlPath } from '@/lib/live-studio-control';
+import {
+  getHeldChannelAccessToken,
+  provisionRoamBroadcasts,
+  releasePoolChannelIfIdle,
+  resolveEventBroadcastToken,
+} from '@/lib/live-studio-roam-provision';
 import {
   getEventYoutubeAccessToken,
   createPanoodBroadcast,
@@ -93,6 +106,61 @@ export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  DUAL-STREAM — the couple's simultaneous Facebook Live link                 */
+/* -------------------------------------------------------------------------- */
+//
+// Owner-approved 2026-07-26: a couple may push the SAME OBS program output to
+// YouTube and Facebook at once (the free obs-multi-rtmp plugin does the fan-out
+// on their laptop). Setnayan sends no video bytes to either, so the entire
+// server-side of "dual stream" is this: a second pasted URL, normalized-or-
+// rejected exactly like the YouTube one, on its own column
+// (events.panood_watch_url_facebook, migration 20271006100000).
+//
+// Separate from savePanoodWatchUrl on purpose — the YouTube validator must not
+// learn about Facebook, and clearing one must never clear the other.
+
+export async function savePanoodFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const urlRaw = formData.get('facebook_url');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (typeof urlRaw !== 'string') return;
+
+  const normalized = normalizeFacebookWatchUrl(urlRaw);
+  if (!normalized) {
+    redirect(`/dashboard/${eventId}/studio/panood/setup?facebook_url_error=1`);
+  }
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: normalized })
+    .eq('event_id', eventId);
+
+  revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath('/[slug]', 'page');
+  redirect(`/dashboard/${eventId}/studio/panood/setup?facebook_url_saved=1`);
+}
+
+export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('events')
+    .update({ panood_watch_url_facebook: null })
+    .eq('event_id', eventId);
+
+  revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath('/[slug]', 'page');
+  redirect(`/dashboard/${eventId}/studio/panood/setup`);
+}
+
+/* -------------------------------------------------------------------------- */
 /*  One-tap "Go live" — auto-create the YouTube broadcast + OBS stream         */
 /* -------------------------------------------------------------------------- */
 //
@@ -123,12 +191,40 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
 
   const supabase = await createClient();
 
-  // (b) Per-event YouTube access token. null when the channel isn't connected,
-  //     the OAuth env/config is unset, or the verified-app review hasn't cleared
-  //     for this account — never throw, just prompt the couple to connect.
-  const accessToken = await getEventYoutubeAccessToken(eventId);
+  // (b) ⭐ WAVE 9 · THE SETNAYAN-OWNED CHANNEL COMES FIRST
+  //     (owner-confirmed 2026-07-26 · Live_Studio_Unified_Spec § 4h)
+  //
+  // The whole point of Wave 9 is that a couple never connects a Google account.
+  // That promise is NOT delivered by the ROAM picker alone — this action creates
+  // the single directed broadcast the program output actually feeds, and until
+  // now it hard-stopped at "Connect your YouTube channel first". So when the flag
+  // is on we check a Setnayan channel out of the pool and use ITS token.
+  //
+  // BYO is kept as the FALLBACK, not removed: the legacy Cast room is live and
+  // selling on it, and a host who already connected their own channel must keep
+  // working. Flag OFF → this block is skipped entirely and the line below is the
+  // byte-identical original behaviour.
+  let accessToken: string | null = null;
+  let usedPoolChannel = false;
+  if (liveStudioRoamEnabled()) {
+    const pooled = await resolveEventBroadcastToken(createAdminClient(), eventId);
+    if (pooled) {
+      accessToken = pooled.accessToken;
+      usedPoolChannel = true;
+    }
+  }
   if (!accessToken) {
-    return { error: 'Connect your YouTube channel first' };
+    accessToken = await getEventYoutubeAccessToken(eventId);
+  }
+  if (!accessToken) {
+    // Flag-aware copy. Telling a host to "connect your YouTube channel" under the
+    // Wave 9 model would be asking them for the exact thing the model removed —
+    // and they cannot fix it, because the missing piece is on Setnayan's side.
+    return {
+      error: liveStudioRoamEnabled()
+        ? 'No Setnayan broadcast channel is available for your event yet. This is on our side — please contact Setnayan.'
+        : 'Connect your YouTube channel first',
+    };
   }
 
   // (d) Create + wire the broadcast on the couple's own channel. Any YouTube
@@ -157,6 +253,16 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
     stream = await createYoutubeStream(accessToken, { title });
     await bindYoutubeBroadcast(accessToken, broadcastId, stream.streamId);
   } catch {
+    // Wave 9: a pool-channel failure is not the host's to fix, and the channel
+    // must go back so the next event is not blocked behind a broken one. Only
+    // released when nothing is riding on it (releasePoolChannelIfIdle).
+    if (usedPoolChannel) {
+      await releasePoolChannelIfIdle(createAdminClient(), eventId);
+      return {
+        error:
+          'YouTube could not create the broadcast on the Setnayan channel. This is on our side — please contact Setnayan.',
+      };
+    }
     return {
       error:
         'YouTube could not create the broadcast. This usually means the YouTube connection needs reconnecting, or live streaming is not yet enabled on your channel. Try reconnecting in step 1.',
@@ -196,11 +302,53 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
       .eq('event_id', eventId);
   }
 
-  // (g) Refresh the setup page (so the OBS card appears) + the public page embed.
+  // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
+  //     (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
+  //
+  // ₱2,999 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on FIRST GO-LIVE rather than a
+  // calendar day — no timezone ambiguity, and buying early costs the couple nothing because the
+  // clock does not start until this line runs. Wave 5 noted that the unified go-live path never
+  // wrote `first_live_at`; this is that gap closed.
+  //
+  // AFTER the broadcast is persisted, deliberately: every failure above returns early, so a
+  // go-live that never reached YouTube cannot burn a day the couple paid for. Write-once by DB
+  // trigger (trg_panood_first_live_at_immutable), so pressing live again can never move, restart
+  // or extend the window. Admin client because `panood_control_state` is couple-RLS and a
+  // coordinator running the controller must still be able to start the show.
+  //
+  // FLAG-GATED. `first_live_at` is ALSO read by the legacy 24-hour watermark model
+  // (lib/panood-watermark.ts), which is untouched while the flag is off — stamping it there would
+  // start that clock for a host pressing go-live on the setup page, which is a live behaviour
+  // change on a selling product. Flag on, the legacy model is retired (§ 4f ①) and this anchor is
+  // the only thing reading the column.
+  if (liveStudioRoamEnabled()) {
+    const admin = createAdminClient();
+    await stampFirstLiveAt(admin, eventId);
+
+    // ⭐ WAVE 9 · provision the per-camera ROAM broadcasts on the same pool channel
+    // and re-mirror the public picker manifest.
+    //
+    // THIS IS THE FIRST CALLER `mirrorRoamManifest` HAS EVER HAD. Spec § 4c noted
+    // that guest-pick enforcement was real but "not yet observable because nothing
+    // writes live_studio_roam_streams" — this is that gap closed, and it is why the
+    // publish gate inside the mirror starts biting from here on.
+    //
+    // Best-effort and AFTER the single-camera broadcast is already persisted: the
+    // free single-cam livestream is a published promise, and a multi-cam
+    // provisioning hiccup must never be the reason it did not go out. A failure
+    // returns a reason object; it does not throw and it does not change this
+    // action's result.
+    await provisionRoamBroadcasts(admin, eventId, {
+      titlePrefix: 'Setnayan Live',
+      scheduledStartTime: scheduledStartAt,
+    });
+  }
+
+  // (h) Refresh the setup page (so the OBS card appears) + the public page embed.
   // Also refresh the unified Live Studio controller, which mounts this same
   // GoLiveCard (2026-07-25) — so its live monitor reflects the new broadcast.
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
-  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
+  revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }
@@ -221,7 +369,17 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   const broadcastId = closed?.broadcastId ?? active?.broadcast_id ?? null;
 
   if (broadcastId) {
-    const accessToken = await getEventYoutubeAccessToken(eventId);
+    // WAVE 9 · a broadcast created on a Setnayan pool channel must be ENDED with
+    // that channel's token, not the couple's (which under the pool model does not
+    // exist). READ-ONLY lookup — `getHeldChannelAccessToken` never claims a
+    // channel, so pressing End cannot consume pool inventory.
+    // `createAdminClient()` is constructed only behind the flag — it throws when
+    // SUPABASE_SERVICE_ROLE_KEY is absent, and a flag-off End must not acquire a
+    // new way to fail.
+    const pooled = liveStudioRoamEnabled()
+      ? await getHeldChannelAccessToken(createAdminClient(), eventId)
+      : null;
+    const accessToken = pooled ?? (await getEventYoutubeAccessToken(eventId));
     if (accessToken) {
       try {
         await transitionYoutubeBroadcast(accessToken, broadcastId, 'complete');
@@ -232,7 +390,30 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     }
   }
 
+  // 🚫 THE POOL CHANNEL IS DELIBERATELY *NOT* RELEASED HERE.
+  //
+  // The obvious move — "broadcast over, give the channel back" — would be a bug.
+  // § 4h has Setnayan handing the RECORDING back to the couple (VOD pull →
+  // dashboard / Alaala) and only then wiping and reusing the channel. That pull is
+  // not built. Releasing on End would let the next wedding claim a channel while
+  // this couple's ceremony recording is still the only copy sitting on it — and
+  // "wipe + reuse" is exactly what happens next to a released channel.
+  //
+  // It also would not survive a host who ends and restarts mid-day. Release is
+  // therefore an explicit admin act (/admin/live-studio-channels → Release), where
+  // the age of the checkout is on screen next to the button.
+
   // Clear the embed so the event page stops showing a finished broadcast.
+  //
+  // 🚫 THE DUAL-STREAM FACEBOOK LINK IS DELIBERATELY *NOT* CLEARED HERE.
+  // This action ends the YouTube broadcast SETNAYAN created (it transitions that
+  // specific broadcastId to 'complete'); it has no authority over — and no
+  // knowledge of — the couple's own Facebook Live, which their encoder is
+  // pushing independently and which may still be running. Deleting a URL the
+  // couple typed because a different service's broadcast ended is the more
+  // surprising behaviour, and it would cost them a re-paste on any
+  // end-then-restart. The Facebook link is host-removable above and stops
+  // rendering on its own when the live window closes.
   const supabase = await createClient();
   await supabase
     .from('events')
@@ -240,7 +421,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
-  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
+  revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }

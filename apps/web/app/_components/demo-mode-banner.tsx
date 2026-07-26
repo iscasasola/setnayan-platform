@@ -19,15 +19,24 @@
  *
  * The per-session dismiss flag + editorial copy live in DemoModeBannerClient.
  * (Perf sweep 2026-07-02, homepage ISR.)
+ *
+ * ROUTE GATE (2026-07-26): this banner renders in normal flow ABOVE {children},
+ * so on `/panood/program/[eventId]` — the chrome-less window a couple's OBS
+ * window-captures — an admin running demo mode would push the 100dvh program
+ * surface down and put a yellow "Demo mode active" bar into the live broadcast.
+ * Same one-line class of bug as the cookie banner; same predicate.
  */
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { DEMO_MODE_HINT_COOKIE_NAME } from '@/lib/demo-mode-constants';
+import { isBroadcastCaptureRoute } from './capture-safe-routes';
 import { DemoModeBannerClient } from './demo-mode-banner-client';
 
 type Status = { show: boolean; deadlineLabel?: string };
 
 export function DemoModeBanner() {
+  const pathname = usePathname();
   const [status, setStatus] = useState<Status | null>(null);
 
   useEffect(() => {
@@ -53,5 +62,7 @@ export function DemoModeBanner() {
   }, []);
 
   if (!status?.show) return null;
+  // Never paint into a window an encoder is capturing (see capture-safe-routes).
+  if (isBroadcastCaptureRoute(pathname)) return null;
   return <DemoModeBannerClient deadlineLabel={status.deadlineLabel ?? ''} />;
 }

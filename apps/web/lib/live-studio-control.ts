@@ -22,8 +22,12 @@
  * `live-studio-roam` substrate — the data key / SKU wiring is unchanged; only the
  * URL moved, with a redirect from the old path so nothing 404s). These helpers are
  * PURE (no I/O) so the controller, its server actions, and the unit tests share one
- * source of truth for the route paths and the lock decision.
+ * source of truth for the route paths and the lock decision. The ONE exception is
+ * `liveStudioControllerHref()` — the Wave 6 doorway router, which reads the launch
+ * flag; its decision is factored out as a pure function taking the flag as an
+ * argument, so the testable core stays I/O-free.
  */
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 /** Unified customer-facing SKU that unlocks the multi-camera controller. */
 export const LIVE_STUDIO_SKU = 'LIVE_STUDIO';
@@ -46,9 +50,106 @@ export function liveStudioDetailPath(eventId: string): string {
   return `/dashboard/${eventId}/studio/${LIVE_STUDIO_CONTROL_SEGMENT}`;
 }
 
-/** The unified controller (the single-screen operating surface). */
+/* ══════════════════════════════════════════════════════════════════════════════
+   ⭐ WAVE 8 · THE CONTROLLER LIVES OUTSIDE /dashboard
+   (owner-locked 2026-07-25 · § 4g: "scroll free controller. nothing under and
+   above it.")
+
+   The controller has to render with NO masthead above and NO bottom nav below.
+   In the App Router an ancestor layout cannot be opted out of — a page under
+   `/dashboard/[eventId]/…` always renders inside `[eventId]/layout.tsx`, which
+   mounts the SidebarShell top bar, the CustomerBottomNav, the nav FAB and the
+   section sub-nav. There is no per-route escape from a parent layout.
+
+   Covering that chrome from inside the tree is not an option either, and this is
+   not a guess: `/panood/program/[eventId]`'s own header records that it used to
+   sit under /dashboard and render a `fixed inset-0` layer, and that the layer
+   rendered NOTHING — the shell's `<main>` carries `.sn-vt-page`
+   (`view-transition-name`), which establishes containment and therefore becomes
+   the containing block for fixed descendants, so `inset-0` resolved against a
+   zero-height box.
+
+   So the controller follows the SAME escape the program pop-out already uses: a
+   TOP-LEVEL route under `/panood`, which inherits only the root layout — no
+   sidebar, no top bar, no bottom nav, no view transitions, nothing to escape
+   from. `panood` is already a reserved top-level slug (lib/reserved-slugs.ts),
+   already the namespace for the camera-join (`/panood/cam/[token]`) and the
+   program output (`/panood/program/[eventId]`), so this adds no new namespace
+   and can never shadow a vendor or event slug.
+
+   ⚠ The route loses the dashboard layout's membership check by moving, and does
+   NOT lose authorization: the page has always done its own, stricter gate
+   (`isLiveStudioSetupHost`, the same predicate its server actions use) — exactly
+   as `/panood/program/[eventId]` does.
+
+   The OLD path stays as a permanent redirect (see the `setup/page.tsx` stub) so
+   no bookmark, email or stale link 404s — the same courtesy the
+   `live-studio-roam` → `live-studio-control` rename shipped with.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/** The unified controller (the single-screen operating surface). Chrome-less. */
 export function liveStudioControlPath(eventId: string): string {
+  return `/panood/control/${eventId}`;
+}
+
+/**
+ * Where the controller USED to live. Kept only so the old URL can redirect
+ * instead of 404ing; never link to it.
+ */
+export function liveStudioControlLegacyPath(eventId: string): string {
   return `/dashboard/${eventId}/studio/${LIVE_STUDIO_CONTROL_SEGMENT}/setup`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   WAVE 6 · ONE CONTROLLER — the single flag-aware router
+   (owner 2026-07-25 · Live_Studio_Unified_Spec_2026-07-25 §§ 4b–4d.)
+
+   TWO control rooms exist in the tree:
+
+     • LEGACY — /dashboard/[id]/studio/panood/broadcast. Live today, and what the
+       Cast SKU (PANOOD_SYSTEM) currently sells. Reached from six doorways across
+       the dashboard: the Studio hub tile, its setup relay, the camera-seat page,
+       the Launch checklist, the Galleries hub, and the direct URL.
+     • UNIFIED — /dashboard/[id]/studio/live-studio-control/setup. The owner's
+       chosen main controller, dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
+
+   Consolidation has to be ATOMIC, because a half-switched state is the failure
+   mode that matters: a doorway still pointing at a room that now redirects, or a
+   host mid-show landing on the wrong screen. So EVERY doorway resolves its href
+   through the ONE function below rather than carrying its own ternary — flip the
+   flag and all six move together, in the same request, with no deploy.
+
+   ⚠ DO NOT hardcode either path in a link. Add doorways here, not there. The
+   legacy route ALSO redirects here when the flag is on (its page.tsx), so even a
+   bookmark or a stale email lands on the unified controller.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The LEGACY Cast control room. Still the real, working room while the flag is
+ * off — it is not dead code and must not be deleted until the cutover is verified.
+ */
+export function panoodBroadcastPath(eventId: string): string {
+  return `/dashboard/${eventId}/studio/panood/broadcast`;
+}
+
+/**
+ * PURE core of the router — which control room is THE control room, given the
+ * unified-Live-Studio flag. Separated from the env read so the decision is
+ * exhaustively unit-testable without touching process.env.
+ */
+export function liveStudioControllerHrefFor(
+  eventId: string,
+  unifiedEnabled: boolean,
+): string {
+  return unifiedEnabled ? liveStudioControlPath(eventId) : panoodBroadcastPath(eventId);
+}
+
+/**
+ * THE control-room href every doorway links to. Flag ON → the unified controller;
+ * flag OFF → the legacy Cast control room, byte-identical to today.
+ */
+export function liveStudioControllerHref(eventId: string): string {
+  return liveStudioControllerHrefFor(eventId, liveStudioRoamEnabled());
 }
 
 /**

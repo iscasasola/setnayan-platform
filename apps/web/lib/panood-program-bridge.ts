@@ -26,6 +26,17 @@ import type { WatermarkReason } from './panood-watermark';
 export type ProgramFrame = {
   /** On-air source key (`cam{n}` or a wall key), or null when nothing is cut up. */
   source: string | null;
+  /**
+   * What the host CUT onto Channel 1, which is not always what is being sent
+   * (Wave 5). On the free tier the program output is pinned to the one channel the
+   * event may broadcast, so a cut to any other camera is rehearsal — it moves the
+   * controller's monitor and this field, and deliberately not `source`.
+   *
+   * Optional: the legacy control room does not set it, and there `source` IS the cut.
+   * Its only job is to let the capture surface NAME the difference instead of quietly
+   * airing a camera the controller says is not on.
+   */
+  requestedSource?: string | null;
   /** Human label for the on-air source — shown only in the no-signal state. */
   label: string;
   /** Control-plane live flag. The pop-out shows NO on-air chrome (it's a capture surface). */
@@ -62,6 +73,7 @@ type BridgeHost = Window & { [BRIDGE_KEY]?: ProgramBridge };
 
 export const EMPTY_FRAME: ProgramFrame = {
   source: null,
+  requestedSource: null,
   label: 'Nothing on program yet',
   live: false,
   stream: null,

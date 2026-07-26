@@ -1,6 +1,7 @@
 'use server';
 
 import { readGuestSession } from '@/lib/guest-session';
+import { guestSelfiePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
 import {
@@ -45,6 +46,16 @@ export async function enrollGuestFace(
     const admin = createAdminClient();
     const guestId = session.guest_id;
     const eventId = session.event_id;
+
+    // SEC-1: `selfie_ref` is a raw form field. It becomes `guests.photo_url`,
+    // which is presigned by /api/venue-scene/[slug] (ANONYMOUS) and by the
+    // couple's guest/seating surfaces — so an unvalidated ref parked here is a
+    // cross-tenant read oracle with a public delivery channel. /api/guest-selfie
+    // derives its key from the SESSION, so the legitimate shape is exactly this
+    // guest's own folder.
+    if (!parseClientRef(selfieRef, guestSelfiePolicy(eventId, guestId))) {
+      return { ok: false };
+    }
 
     // Minor safeguard (DPIA BV-8, 2026-07-05): never enrol a guest the host has
     // excluded from face recognition (typically a minor), regardless of consent.
@@ -130,7 +141,13 @@ export async function enrollGuestFace(
         return [];
       }
     };
-    const refsArr = parseStrArray(clean(formData.get('selfie_refs')));
+    // SEC-1: same gate as the single `selfie_ref` above — the multi-shot array
+    // feeds the same guests.photo_url / face_enrollments rows, which are
+    // presigned by the ANONYMOUS /api/venue-scene endpoint. Drop any ref that
+    // isn't this guest's own selfie rather than enrolling it.
+    const refsArr = parseStrArray(clean(formData.get('selfie_refs'))).filter(
+      (ref) => parseClientRef(ref, guestSelfiePolicy(eventId, guestId)) !== null,
+    );
     let shots: Shot[];
     if (refsArr.length > 0) {
       const vecArr = parseJsonArray(clean(formData.get('selfie_vectors')));

@@ -67,16 +67,55 @@
 --
 -- ── THE ONE-ROW DATA CHANGE ─────────────────────────────────────────────────
 -- The legacy `nsfw` key is STRIPPED out of every existing std_media blob. Prod
--- holds exactly 1 video row (verified before writing this file: 1 video, 1
--- 'approved', 1 with a poster). Nothing reads that key any more, but leaving an
--- attacker-writable field literally named `nsfw: "approved"` sitting in the blob
--- is how it gets re-wired by mistake later.
+-- holds exactly 1 video row (verified immediately before writing this file:
+-- 1 video, 1 'approved', 1 with a poster). Nothing reads that key any more, but
+-- leaving an attacker-writable field literally named `nsfw: "approved"` sitting
+-- in the blob is how it gets re-wired by mistake later.
 --
--- No verdict is backfilled — deliberately. Backfilling `approved` would bless a
--- forgery if one had already happened, and the row cannot tell you which it is.
--- The single prod video therefore falls back to the couple's photo gallery until
--- it is re-screened, which happens automatically the next time either the couple
--- opens their Save-the-Date builder or an admin opens the Reveal Studio queue.
+-- ── THE GRANDFATHER, AND WHAT IT HONESTLY CLAIMS ────────────────────────────
+-- That one row is `cale-ice` — a real couple's live, public Save-the-Date page
+-- whose video is serving right now. Enforcing the new rule with no transition
+-- would take it down to their photo gallery for a rule they did not break, so it
+-- is CARRIED ACROSS rather than reset.
+--
+-- It is carried across HONESTLY. The verdict written below is not dressed up as
+-- a review. It records:
+--
+--     "grandfathered": { "reason": "pre-SEC-6 poster-only screen …", "at": … }
+--
+-- and the examination the application will attach to it is stamped
+-- `by: 'legacy-poster-screen'` — a name that says, in the data, that a still
+-- frame is all that was ever looked at. Nobody reading this row later can
+-- mistake it for a human sign-off. It is queryable in one line:
+--
+--     SELECT slug FROM public.events WHERE std_media_nsfw ? 'grandfathered';
+--
+-- and the Reveal Studio deliberately keeps the row in the review queue —
+-- badged "Live, but never actually watched" — even though it is serving. An
+-- admin Approve replaces the carry-over with a real `human-review` examination
+-- and drops the marker. The exception is designed to expire.
+--
+-- THE TRADE-OFF, STATED PLAINLY. This is a decision to keep one unexamined video
+-- on a public page rather than interrupt a real customer. It is defensible only
+-- because it is bounded to a single named row, is visible in the data and in the
+-- admin UI, cannot be minted again (nothing but this file writes the marker, and
+-- the column is host-unwritable in two independent ways), and dies the moment
+-- anyone reviews it. If that trade is not wanted, delete the one UPDATE below:
+-- the row then parks at 'pending', the page shows the couple's photo gallery,
+-- and an admin can approve it properly within a minute.
+--
+-- ── WHY THE MARKER DOES NOT SERVE ON ITS OWN ────────────────────────────────
+-- The serve path requires an examination naming a SEALED object plus its
+-- `<etag>:<bytes>`, and SQL cannot HEAD an R2 object — so this file physically
+-- cannot write a serving verdict, which is the right kind of inability. The row
+-- lands NOT serving and one pass of the screen (fingerprint → classify the
+-- poster → seal) completes it. `stdVideoNeedsGrandfatherHeal` fires that pass
+-- from the public loader for marker rows only, so the page heals itself within a
+-- render instead of waiting for someone to log in.
+--
+-- No OTHER verdict is backfilled — deliberately. Backfilling `approved` in
+-- general would bless a forgery if one had already happened, and a row cannot
+-- tell you which it is.
 --
 -- ── WHAT IS UNAFFECTED ──────────────────────────────────────────────────────
 --   • std_media itself keeps its host UPDATE/INSERT grant — the couple must be
@@ -107,6 +146,40 @@ COMMENT ON COLUMN public.events.std_media_nsfw IS
   '"approved". A verdict whose keys or content fingerprints no longer match the current media is '
   'STALE and the video is not shown (lib/std-video-gate.ts stdVideoIsServable). Binding is what '
   'replaces a preserve-the-old-verdict trigger, which would pin an approval onto swapped media.';
+
+-- ── Carry the already-serving rows across (see the header) ──────────────────
+-- Runs BEFORE the strip below, because it reads the legacy key it is about to
+-- delete. Scoped to rows that are (a) a video, (b) carrying both R2 refs the new
+-- binding needs, and (c) already publicly approved under the old rule. In prod
+-- that is exactly one row; on a fresh database it is zero.
+--
+-- `videoFingerprint` / `posterFingerprint` / `sealed` / `video` / `poster` are
+-- all NULL — SQL cannot HEAD R2 — so this verdict does NOT serve as written. It
+-- is a marker plus a binding, and the application completes it.
+UPDATE public.events
+   SET std_media_nsfw = jsonb_build_object(
+         'status',            'approved',
+         'videoKey',          std_media->>'videoKey',
+         'posterKey',         std_media->>'posterKey',
+         'videoFingerprint',  NULL,
+         'posterFingerprint', NULL,
+         'sealed',            NULL,
+         'video',             NULL,
+         'poster',            NULL,
+         'grandfathered',     jsonb_build_object(
+                                'reason',
+                                'pre-SEC-6 poster-only screen (events.std_media.nsfw = "approved"); '
+                                'the video''s own bytes were never examined by anything',
+                                'at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                              ),
+         'screenedAt',        NULL,
+         'attemptedAt',       NULL
+       )
+ WHERE std_media->>'type'      = 'video'
+   AND std_media->>'nsfw'      = 'approved'
+   AND std_media->>'videoKey'  IS NOT NULL
+   AND std_media->>'posterKey' IS NOT NULL
+   AND std_media_nsfw IS NULL;  -- idempotent: never overwrite a real verdict
 
 -- The verdict is no longer read from std_media. Strip the untrustworthy key so
 -- it cannot be mistaken for authority by a future reader.
@@ -173,6 +246,35 @@ BEGIN
   -- (e) no legacy nsfw key is left in any std_media blob.
   IF EXISTS (SELECT 1 FROM public.events WHERE std_media ? 'nsfw') THEN
     bad := array_append(bad, 'legacy-nsfw-key-survived');
+  END IF;
+
+  -- (f) the grandfather is BOUNDED. A marker may exist only on a video row, and
+  --     it must name that row's own current media — otherwise the carry-over is
+  --     authorising something other than what is there, which is the whole bug.
+  IF EXISTS (
+    SELECT 1 FROM public.events
+     WHERE std_media_nsfw ? 'grandfathered'
+       AND (
+            std_media->>'type' IS DISTINCT FROM 'video'
+         OR std_media_nsfw->>'videoKey'  IS DISTINCT FROM std_media->>'videoKey'
+         OR std_media_nsfw->>'posterKey' IS DISTINCT FROM std_media->>'posterKey'
+       )
+  ) THEN
+    bad := array_append(bad, 'grandfather-does-not-bind-its-media');
+  END IF;
+
+  -- (g) a marker must NOT ship pre-authorised. It carries no examination and no
+  --     seal on purpose: the serve path needs both, so a marker row cannot play
+  --     until the application has fingerprinted, classified and frozen it. If
+  --     this ever fails, something wrote a servable verdict from SQL, which it
+  --     cannot honestly do (SQL cannot read an R2 ETag).
+  IF EXISTS (
+    SELECT 1 FROM public.events
+     WHERE std_media_nsfw ? 'grandfathered'
+       AND (jsonb_typeof(std_media_nsfw->'video')  <> 'null'
+         OR jsonb_typeof(std_media_nsfw->'sealed') <> 'null')
+  ) THEN
+    bad := array_append(bad, 'grandfather-shipped-pre-authorised');
   END IF;
 
   IF array_length(bad, 1) IS NOT NULL THEN

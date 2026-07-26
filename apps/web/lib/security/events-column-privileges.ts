@@ -46,7 +46,7 @@
  * grant cannot close those without breaking the product, and they need their own
  * fixes. See the PR body.
  *
- * ⚠ `std_media_nsfw` (SEC-6, migration 20271007493007) is ALSO absent, and that
+ * ⚠ `std_media_nsfw` (SEC-6, migration 20271010090000) is ALSO absent, and that
  * is deliberate rather than an oversight: this list is the deny-set the
  * 20271005100000 baseline subtracts, and that baseline recomputes its allow-list
  * from the LIVE catalog. Adding the verdict column here without re-ordering that

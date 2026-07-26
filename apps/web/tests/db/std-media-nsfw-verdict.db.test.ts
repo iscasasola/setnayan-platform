@@ -64,7 +64,7 @@ import { MIGRATIONS_DIR, createReplayedDb, setAuthUid, type ReplayResult } from 
 
 const UPDATE_PRIVILEGE_MIGRATION = '20271005100000_events_column_update_privileges.sql';
 const SELECT_PRIVILEGE_MIGRATION = '20271007100000_events_column_select_privileges.sql';
-const VERDICT_MIGRATION = '20271007493007_events_std_media_nsfw_verdict.sql';
+const VERDICT_MIGRATION = '20271010090000_events_std_media_nsfw_verdict.sql';
 
 /** Columns added after the privilege snapshots that are deliberately NOT granted. */
 const WRITE_TRAP_PROBE = 'sec6_write_trap_probe';
@@ -72,6 +72,8 @@ const READ_TRAP_PROBE = 'sec6_read_trap_probe';
 
 const VIDEO_KEY = 'r2://setnayan-media/events/std-video/clean.mp4';
 const POSTER_KEY = 'r2://setnayan-media/events/std-video-poster/poster.jpg';
+const LEGACY_VIDEO_KEY = 'r2://setnayan-media/events/std-video/legacy.mp4';
+const LEGACY_POSTER_KEY = 'r2://setnayan-media/events/std-video-poster/legacy.jpg';
 
 const FORGED_VERDICT = JSON.stringify({
   status: 'approved',
@@ -87,7 +89,15 @@ let replay: ReplayResult;
 let db: PGlite;
 
 let hostUid: string;
+/** The ordinary row: a video the old code had NOT approved. Verdict starts NULL. */
 let eventId: string;
+/**
+ * The cale-ice analogue: a video the pre-SEC-6 poster-only screen had already
+ * published (`std_media.nsfw = 'approved'`). The migration must carry it across
+ * with an honest `grandfathered` marker rather than silently resetting it — and
+ * must NOT ship it pre-authorised.
+ */
+let legacyEventId: string;
 
 async function setAuthRole(role: string | null): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role ?? '']);
@@ -160,13 +170,32 @@ before(async () => {
         type: 'video',
         videoKey: VIDEO_KEY,
         posterKey: POSTER_KEY,
-        // The forgery: a host-writable "approved" sitting inside std_media.
-        nsfw: 'approved',
+        // A host-writable verdict sitting inside std_media — the forgery vector.
+        // 'pending' here so this row does NOT meet the grandfather's
+        // `nsfw = 'approved'` condition; the carry-over is proven on its own row
+        // below, and this one stays the clean subject for the privilege tests.
+        nsfw: 'pending',
         fit: 'fill',
       }),
     ],
   );
   eventId = ev.rows[0]!.event_id;
+
+  // The already-published row the cutover has to keep live.
+  const legacy = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, std_media)
+     VALUES ('SEC-6 Legacy Event', 'birthday', $1::jsonb) RETURNING event_id`,
+    [
+      JSON.stringify({
+        type: 'video',
+        videoKey: LEGACY_VIDEO_KEY,
+        posterKey: LEGACY_POSTER_KEY,
+        nsfw: 'approved',
+        fit: 'fill',
+      }),
+    ],
+  );
+  legacyEventId = legacy.rows[0]!.event_id;
 
   await db.query(
     `INSERT INTO public.event_members (event_id, user_id, member_type)
@@ -370,6 +399,109 @@ test('the migration STRIPPED the legacy std_media.nsfw key and backfilled no ver
     `SELECT count(*)::int AS n FROM public.events WHERE std_media ? 'nsfw'`,
   );
   assert.equal(leftovers.rows[0]!.n, 0, 'some events row still carries a host-writable nsfw verdict');
+});
+
+// ── 3b. The cutover carry-over: honest, bounded, and NOT pre-authorised ─────
+
+test('the already-published row is CARRIED ACROSS with an honest grandfather marker', async () => {
+  await reset();
+  const r = await db.query<{ v: Record<string, unknown> | null; had: boolean }>(
+    `SELECT std_media_nsfw AS v, (std_media ? 'nsfw') AS had
+       FROM public.events WHERE event_id = $1`,
+    [legacyEventId],
+  );
+  const v = r.rows[0]!.v;
+  assert.ok(v, 'the live pre-SEC-6 video was reset instead of carried across — a real couple page went dark');
+  assert.equal(r.rows[0]!.had, false, 'the legacy in-blob key survived on the carried-across row');
+
+  // Carried across as approved…
+  assert.equal(v!.status, 'approved');
+  // …but BOUND to the media it is about, so a key swap invalidates it.
+  assert.equal(v!.videoKey, LEGACY_VIDEO_KEY);
+  assert.equal(v!.posterKey, LEGACY_POSTER_KEY);
+
+  // …and HONEST about where the approval came from. This is the whole point of
+  // the marker: a reader must never mistake it for a human sign-off.
+  const g = v!.grandfathered as Record<string, unknown> | null;
+  assert.ok(g, 'the carry-over is unmarked — it would read as a genuine review');
+  assert.match(
+    String(g!.reason),
+    /poster-only/i,
+    'the marker does not say what actually approved this row',
+  );
+  assert.ok(String(g!.at).length > 0, 'the marker has no timestamp');
+});
+
+test('the carry-over does NOT ship pre-authorised — SQL cannot fake an examination', async () => {
+  await reset();
+  const r = await db.query<{ v: Record<string, unknown> }>(
+    `SELECT std_media_nsfw AS v FROM public.events WHERE event_id = $1`,
+    [legacyEventId],
+  );
+  const v = r.rows[0]!.v;
+  // The serve path needs an examination naming a SEALED object plus its
+  // <etag>:<bytes>. A migration cannot HEAD R2, so it must not pretend to.
+  assert.equal(v.video, null, 'the migration wrote a video EXAMINATION it could not have performed');
+  assert.equal(v.poster, null, 'the migration wrote a poster examination it could not have performed');
+  assert.equal(v.sealed, null, 'the migration named sealed objects that do not exist');
+  assert.equal(v.videoFingerprint, null, 'the migration invented a content fingerprint');
+  assert.equal(v.posterFingerprint, null, 'the migration invented a content fingerprint');
+});
+
+test('the grandfather is BOUNDED — only already-approved video rows got one', async () => {
+  await reset();
+  // The ordinary row carried `nsfw: 'pending'`, so it must NOT be marked.
+  const ordinary = await db.query<{ v: unknown }>(
+    `SELECT std_media_nsfw AS v FROM public.events WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(
+    ordinary.rows[0]!.v,
+    null,
+    'a row that was never published got grandfathered — the carry-over is over-broad',
+  );
+
+  // …and across the whole table, a marker may only sit on a video row whose own
+  // current media it names.
+  const bad = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.events
+      WHERE std_media_nsfw ? 'grandfathered'
+        AND (std_media->>'type' IS DISTINCT FROM 'video'
+          OR std_media_nsfw->>'videoKey'  IS DISTINCT FROM std_media->>'videoKey'
+          OR std_media_nsfw->>'posterKey' IS DISTINCT FROM std_media->>'posterKey')`,
+  );
+  assert.equal(bad.rows[0]!.n, 0, 'a grandfather marker does not bind its own row media');
+});
+
+test('a HOST cannot forge a grandfather marker (the carry-over is not a host primitive)', async () => {
+  // The marker is what lets a `legacy-poster-screen` examination authorise a
+  // video. If a host could write one, they could hand themselves the exception.
+  await asHost();
+  const err = await tryQuery(
+    `UPDATE public.events
+        SET std_media_nsfw = jsonb_build_object(
+              'status','approved',
+              'grandfathered', jsonb_build_object('reason','mine','at','2026-07-26T00:00:00Z'))
+      WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.ok(err, 'a host minted their own grandfather marker');
+  assert.match(err as string, /permission denied/i);
+  assert.equal(await storedVerdict(), null, 'the forged marker landed anyway');
+
+  // DIFFERENTIAL — the identical statement must work as service_role.
+  await asService();
+  const svcErr = await tryQuery(
+    `UPDATE public.events
+        SET std_media_nsfw = jsonb_build_object(
+              'status','approved',
+              'grandfathered', jsonb_build_object('reason','mine','at','2026-07-26T00:00:00Z'))
+      WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(svcErr, null, `service_role also failed (${svcErr}) — the denial above proves nothing`);
+  await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
+  await reset();
 });
 
 // ── 4. Re-applying the migration is safe ────────────────────────────────────

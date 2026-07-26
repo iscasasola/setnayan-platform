@@ -19,7 +19,7 @@
  * layer, and PostgREST is reachable without it.
  *
  * The verdict therefore moved OUT of this blob into `events.std_media_nsfw`, a
- * column withheld from `authenticated` + `anon` (migration 20271007493007) and
+ * column withheld from `authenticated` + `anon` (migration 20271010090000) and
  * written only by the service-role screen. `StdMedia` below has NO `nsfw` field
  * on purpose: a forged one is not merely ignored, it is unrepresentable.
  *

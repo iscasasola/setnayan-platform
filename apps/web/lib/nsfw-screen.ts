@@ -539,7 +539,7 @@ export async function screenEditorialVendorMedia(opts: {
 // column. Postgres RLS is row-level, so a host could PATCH `std_media` with
 // `nsfw:"approved"` through PostgREST and publish an unscreened video. The
 // verdict now lands in events.std_media_nsfw, a column withheld from
-// authenticated + anon (migration 20271007493007).
+// authenticated + anon (migration 20271010090000).
 //
 // And it is BOUND to the media it judged: both R2 keys plus a CONTENT
 // fingerprint (`<etag>:<bytes>`) of each object. This is deliberately NOT the

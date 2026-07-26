@@ -19,6 +19,7 @@
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
 import { cache } from 'react';
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
@@ -46,7 +47,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
-import { resolveStdMedia } from '@/lib/std-media';
+import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
@@ -329,14 +330,44 @@ export const loadMedia = cache(
     // The verdict is read in its OWN query (loadStdNsfwVerdict) so a deploy that
     // lands ahead of the migration degrades to "gallery beat", not a 404.
     const stdMedia = resolveStdMedia(event.std_media, event.event_id);
+    const stdVerdict =
+      stdMedia.type === 'video' ? await loadStdNsfwVerdict(admin, event.event_id) : null;
     const stdServe =
-      stdMedia.type === 'video'
-        ? await stdVideoServeUrls(
-            stdMedia,
-            await loadStdNsfwVerdict(admin, event.event_id),
-            event.event_id,
-          )
+      stdMedia.type === 'video' && stdVerdict
+        ? await stdVideoServeUrls(stdMedia, stdVerdict, event.event_id)
         : null;
+    /**
+     * CUTOVER HEAL — the narrowest possible public-path trigger, and a decaying
+     * one.
+     *
+     * The SEC-6 migration carries the one already-serving production video
+     * across as approved, but SQL cannot HEAD an R2 object, so it cannot know a
+     * fingerprint and cannot write the sealed refs the serve path requires. The
+     * marker row therefore lands NOT serving (fail-closed by construction) and
+     * needs one pass of the screen to fingerprint, classify the poster and seal.
+     *
+     * Every other heal in this feature fires from a dashboard, which would mean
+     * a real couple's live page sits on their photo gallery until somebody logs
+     * in. `stdVideoNeedsGrandfatherHeal` is true ONLY for a row carrying the
+     * service-role marker that is not yet serving, so this fires for exactly one
+     * row in the world, at most once per throttle window, and never again once
+     * that row is sealed. It runs in after(), so it costs this response nothing.
+     */
+    if (
+      stdMedia.type === 'video' &&
+      stdVerdict &&
+      stdVideoNeedsGrandfatherHeal(stdMedia, stdVerdict, event.event_id) &&
+      stdMedia.videoKey &&
+      stdMedia.posterKey
+    ) {
+      const healEventId = event.event_id as string;
+      const videoKey = stdMedia.videoKey;
+      const posterR2Key = stdMedia.posterKey;
+      after(async () => {
+        const { screenStdVideo } = await import('@/lib/nsfw-screen');
+        await screenStdVideo({ eventId: healEventId, videoKey, posterR2Key }).catch(() => {});
+      });
+    }
     const stdVideoUrl = stdServe?.videoUrl ?? null;
     // The video's poster frame (client-extracted on upload, then sealed with it).
     // Resolved ONLY in "fit to screen" mode (std_media.fit === 'fit'), where the

@@ -131,8 +131,17 @@ export type StdNsfwStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
  * When server-side frame extraction lands it joins this union as
  * `'frame-extract'` and is added to `COMPETENT_EXAMINERS.video` — one line, same
  * rule, and the human gate can come back off.
+ *
+ *  • `legacy-poster-screen` — ⚠ NOT AN EXAMINATION OF THE VIDEO. The name is the
+ *                      warning. It records that a row was serving on the strength
+ *                      of the pre-SEC-6 poster-only screen when this release
+ *                      landed, and was carried across rather than taken off the
+ *                      air. It authorises a video ONLY on a row that carries the
+ *                      service-role `grandfathered` marker (see
+ *                      `GRANDFATHERED_VIDEO_EXAMINERS`), which one migration
+ *                      wrote for one row. Nothing can mint another.
  */
-export type StdExaminer = 'nsfwjs-image' | 'human-review';
+export type StdExaminer = 'nsfwjs-image' | 'human-review' | 'legacy-poster-screen';
 
 /**
  * WHICH examiners may authorise WHICH artifact. This table is the round-three
@@ -155,6 +164,40 @@ export const COMPETENT_EXAMINERS: Readonly<
   poster: new Set<StdExaminer>(['nsfwjs-image', 'human-review']),
   video: new Set<StdExaminer>(['human-review']),
 };
+
+/**
+ * ⚠ THE ONE DELIBERATE EXCEPTION, AND ITS FENCE.
+ *
+ * When this release lands, exactly one production row is already serving a video
+ * on the strength of the defect being fixed — a poster-only screen whose verdict
+ * lived in the host-writable blob. Enforcing the new rule with no transition
+ * would take a real couple's live Save-the-Date page down to their photo gallery
+ * for the sake of a rule they did not break.
+ *
+ * So the row is carried across as `approved`, and the thing that carried it is
+ * NAMED: `legacy-poster-screen`. It is deliberately absent from
+ * `COMPETENT_EXAMINERS.video` above — the general model still says an image
+ * classifier cannot authorise a video, and that stays true. This set is consulted
+ * ONLY for a verdict that carries the `grandfathered` marker.
+ *
+ * That marker is the fence, and it is a real one:
+ *   • `events.std_media_nsfw` is withheld from `authenticated` + `anon` by both a
+ *     column REVOKE and a guard trigger, so no host can write a marker.
+ *   • The only writer that ever emits one is a single migration, `WHERE
+ *     event_id = <one uuid>`. The screen carries an existing marker forward; it
+ *     cannot create one.
+ *   • The marker is a column a human can grep for (`std_media_nsfw ? 'grandfathered'`),
+ *     the Reveal Studio lists the row as needing re-review even though it is
+ *     serving, and a real `human-review` approval REPLACES the examination and
+ *     DROPS the marker.
+ *
+ * It is therefore a decaying exception with a visible expiry, not a hole. When
+ * the last marker is gone, delete this set and the `'legacy-poster-screen'` arm
+ * of `StdExaminer`; nothing else references them.
+ */
+export const GRANDFATHERED_VIDEO_EXAMINERS: ReadonlySet<StdExaminer> = new Set<StdExaminer>([
+  'legacy-poster-screen',
+]);
 
 /**
  * The record that ONE artifact's own bytes were examined.
@@ -197,6 +240,19 @@ export type StdSealedPair = {
   posterRef: string;
   /** `<etag>:<bytes>` the sealed poster must still carry. */
   posterFingerprint: string;
+};
+
+/**
+ * The marker that one row predates the examination rule and was carried across
+ * rather than taken off the air. Purely descriptive — it grants nothing on its
+ * own; it only unlocks `GRANDFATHERED_VIDEO_EXAMINERS` for the examination that
+ * sits beside it.
+ */
+export type StdGrandfather = {
+  /** Free-text provenance, e.g. 'pre-SEC-6 poster-only screen (std_media.nsfw)'. */
+  reason: string;
+  /** When the cutover migration recorded it. */
+  at: string;
 };
 
 export type StdMedia = {
@@ -267,6 +323,14 @@ export type StdNsfwVerdict = {
    * for the poster the examined bytes and the served bytes are one object.
    */
   poster: StdExamination | null;
+  /**
+   * ⚠ Present ONLY on a row carried across the SEC-6 cutover (see
+   * `GRANDFATHERED_VIDEO_EXAMINERS`). Service-role written; one migration wrote
+   * it for one event. Its presence is what lets a `legacy-poster-screen`
+   * examination authorise a video, and its presence is also what keeps the row
+   * in the admin re-review queue. A real `human-review` approval clears it.
+   */
+  grandfathered: StdGrandfather | null;
   /** When a terminal decision was reached (null while undecided). */
   screenedAt: string | null;
   /**
@@ -286,6 +350,7 @@ export const NO_STD_NSFW_VERDICT: StdNsfwVerdict = {
   sealed: null,
   video: null,
   poster: null,
+  grandfathered: null,
   screenedAt: null,
   attemptedAt: null,
 };
@@ -356,9 +421,20 @@ export function resolveStdNsfwVerdict(raw: unknown): StdNsfwVerdict {
     sealed: resolveSealedPair(o.sealed),
     video: resolveExamination(o.video),
     poster: resolveExamination(o.poster),
+    grandfathered: resolveGrandfather(o.grandfathered),
     screenedAt: nonEmpty(o.screenedAt),
     attemptedAt: nonEmpty(o.attemptedAt),
   };
+}
+
+/** Parse the cutover marker. Both fields or nothing — a half-marker is no marker. */
+function resolveGrandfather(raw: unknown): StdGrandfather | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const reason = nonEmpty(o.reason);
+  const at = nonEmpty(o.at);
+  if (!reason || !at) return null;
+  return { reason, at };
 }
 
 /** Parse the sealed-candidate pair. All four fields or nothing (fail closed). */
@@ -416,7 +492,9 @@ function resolveExamination(raw: unknown): StdExamination | null {
   const at = nonEmpty(o.at);
   const by = o.by;
   if (!ref || !fingerprint || !at) return null;
-  if (by !== 'nsfwjs-image' && by !== 'human-review') return null;
+  if (by !== 'nsfwjs-image' && by !== 'human-review' && by !== 'legacy-poster-screen') {
+    return null;
+  }
   return { ref, fingerprint, digest: nonEmpty(o.digest), by, at };
 }
 
@@ -491,9 +569,23 @@ export function examinationAuthorises(
   examination: StdExamination | null,
   role: 'video' | 'poster',
   eventId: string,
+  opts?: {
+    /**
+     * Whether the VERDICT this examination belongs to carries the service-role
+     * `grandfathered` marker. Only then may a `GRANDFATHERED_VIDEO_EXAMINERS`
+     * examiner authorise a video. Defaults to false, so every caller that does
+     * not deliberately opt in gets the strict rule.
+     */
+    grandfathered?: boolean;
+  },
 ): boolean {
   if (!examination) return false;
-  if (!COMPETENT_EXAMINERS[role].has(examination.by)) return false;
+  const competent =
+    COMPETENT_EXAMINERS[role].has(examination.by) ||
+    (role === 'video' &&
+      opts?.grandfathered === true &&
+      GRANDFATHERED_VIDEO_EXAMINERS.has(examination.by));
+  if (!competent) return false;
   // Belt-and-braces: the ref came out of a service-role-only column, but it is
   // checked with the same parser the write side used, so an operator paste or a
   // future writer bug fails closed rather than presigning an arbitrary key.
@@ -526,7 +618,12 @@ export function stdVideoServeRefs(
   if (verdict.status !== 'approved') return null;
   if (!verdictBindsMedia(media, verdict)) return null;
   const { video, poster } = verdict;
-  if (!examinationAuthorises(video, 'video', eventId)) return null;
+  // The grandfather unlock applies to the VIDEO role only, and only while the
+  // service-role marker is on the row. The poster is judged strictly either way:
+  // its examined bytes and its served bytes are the same object, so there has
+  // never been a reason to relax it.
+  const grandfathered = verdict.grandfathered !== null;
+  if (!examinationAuthorises(video, 'video', eventId, { grandfathered })) return null;
   if (!examinationAuthorises(poster, 'poster', eventId)) return null;
   // Non-null after the guards above; TypeScript cannot see through the helper.
   const v = video as StdExamination;
@@ -602,6 +699,42 @@ export function stdVideoAwaitsReview(verdict: StdNsfwVerdict, eventId: string): 
   return !examinationAuthorises(verdict.video, 'video', eventId);
 }
 
+/**
+ * Is this row still carrying the SEC-6 cutover marker — i.e. serving (or about
+ * to serve) on a `legacy-poster-screen` examination rather than a real one?
+ *
+ * The admin queue uses this to keep the row VISIBLE even though
+ * `stdNsfwDisplayStatus` says 'approved'. A grandfathered row is exactly the row
+ * an operator should look at, and filtering the queue on 'approved' alone is how
+ * it would hide.
+ */
+export function verdictIsGrandfathered(verdict: StdNsfwVerdict): boolean {
+  return verdict.grandfathered !== null;
+}
+
+/**
+ * A grandfathered row lands from the migration with the marker but NO seal and
+ * NO examinations, because SQL cannot HEAD an R2 object and therefore cannot
+ * know a fingerprint. So it does not serve yet — fail-closed by construction —
+ * and it needs one pass of the automatic screen to fingerprint, classify the
+ * poster and seal, after which the carried-over authorisation applies and the
+ * couple's page is live again.
+ *
+ * True exactly during that window. The public loader fires the heal on it so a
+ * real couple's page comes back on its own rather than waiting for someone to
+ * open a dashboard.
+ */
+export function stdVideoNeedsGrandfatherHeal(
+  media: StdMedia,
+  verdict: StdNsfwVerdict,
+  eventId: string,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!verdictIsGrandfathered(verdict)) return false;
+  if (stdVideoServeRefs(media, verdict, eventId)) return false; // already live
+  return stdVideoNeedsScreen(media, verdict, eventId, nowMs);
+}
+
 /** How long before a failed / never-finished screen may be retried. */
 export const STD_SCREEN_RETRY_MS = 10 * 60_000; // 10 min
 
@@ -636,14 +769,14 @@ export function stdVideoNeedsScreen(
   if (!nonEmpty(media.videoKey) || !nonEmpty(media.posterKey)) return false;
   const bound = verdictBindsMedia(media, verdict);
   if (bound) {
-    // Terminal, or the screen already did everything it can do.
+    // Terminal.
     if (verdict.status === 'rejected') return false;
-    if (
-      verdict.sealed &&
-      examinationAuthorises(verdict.poster, 'poster', eventId)
-    ) {
-      return false;
-    }
+    // Already sealed — by this screen, or by an admin preparing a re-review. The
+    // screen's whole job is "freeze the bytes, classify the poster"; once frozen
+    // bytes exist the row is waiting on a human, and re-running would only reload
+    // the 4.4 MB model to reach the same conclusion (and, on an admin-prepared
+    // row, would undo the preparation).
+    if (verdict.sealed) return false;
   }
   if (verdict.attemptedAt) {
     const attempted = Date.parse(verdict.attemptedAt);

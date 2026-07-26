@@ -195,6 +195,26 @@ export async function stdSourceFingerprints(
 }
 
 /**
+ * Fingerprint the two SEALED objects a verdict names.
+ *
+ * The admin approval path needs this and must NOT reuse
+ * `stdSourceFingerprints`: the source is the couple's mutable upload key, and
+ * pinning a human approval to it is precisely the round-two mistake (watch one
+ * object, authorise another). Null on either side is a refusal, never a pass.
+ */
+export async function stdSealedFingerprints(
+  sealed: StdSealedPair,
+  eventId: string,
+): Promise<{ video: string | null; poster: string | null }> {
+  const policy = stdSealedPolicy(eventId);
+  const [video, poster] = await Promise.all([
+    r2ContentFingerprint(sealed.videoRef, policy),
+    r2ContentFingerprint(sealed.posterRef, policy),
+  ]);
+  return { video, poster };
+}
+
+/**
  * The live R2 bindings for `lib/std-seal.ts`'s injected operations.
  *
  * `warn` goes to Sentry as well as the console on purpose. Every failure inside

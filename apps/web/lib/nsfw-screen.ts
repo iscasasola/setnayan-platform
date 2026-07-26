@@ -633,34 +633,6 @@ export async function screenStdVideo(opts: {
     const { parseClientRef, stdVideoPosterPolicy } = await import('@/lib/r2-client-ref');
     const admin = createAdminClient();
 
-    /**
-     * UPDATE the verdict only while the row still holds this exact media, then
-     * delete any sealed objects the outgoing verdict owned and the new one does
-     * not. Sealing writes a second permanent copy into the public media bucket;
-     * without this it would be write-only, so a rejected video would stay
-     * fetchable forever and every re-screen would strand a 200 MB orphan.
-     *
-     * Deletion is gated on the UPDATE actually landing (`.select()` returns the
-     * affected rows) — a conditional write that matched nothing must not take
-     * the live seals down with it.
-     */
-    const writeVerdict = async (verdict: Record<string, unknown>) => {
-      const { data } = await admin
-        .from('events')
-        .update({ std_media_nsfw: verdict })
-        .eq('event_id', opts.eventId)
-        .filter('std_media->>videoKey', 'eq', opts.videoKey)
-        .filter('std_media->>posterKey', 'eq', opts.posterR2Key)
-        .select('event_id');
-      if (!data || data.length === 0) return false;
-      await retireSupersededSeals({
-        eventId: opts.eventId,
-        previous: verdict0,
-        next: resolveStdNsfwVerdict(verdict),
-      });
-      return true;
-    };
-
     const { data: row, error: rowError } = await admin
       .from('events')
       .select('std_media, std_media_nsfw')
@@ -671,27 +643,68 @@ export async function screenStdVideo(opts: {
     // Strict resolve — a ref that is not this event's own r2:// upload is not a
     // video at all, so nothing below can be tricked into screening a decoy.
     const media = resolveStdMedia(record.std_media, opts.eventId);
-    const verdict = resolveStdNsfwVerdict(record.std_media_nsfw);
+    let current = resolveStdNsfwVerdict(record.std_media_nsfw);
     // Only screen the video this call was fired for…
     if (media.videoKey !== opts.videoKey || media.posterKey !== opts.posterR2Key) return;
     // …and only when it actually needs one (undecided, outside the retry window).
-    if (!stdVideoNeedsScreen(media, verdict, opts.eventId)) return;
+    if (!stdVideoNeedsScreen(media, current, opts.eventId)) return;
+
+    /**
+     * The SEC-6 cutover marker, if this row carries one. Service-role written by
+     * one migration for one event; the screen can CARRY IT FORWARD but has no
+     * way to mint one, which is what keeps `legacy-poster-screen` from becoming
+     * a general-purpose approval. See GRANDFATHERED_VIDEO_EXAMINERS.
+     */
+    const grandfathered = current.grandfathered;
+
+    /**
+     * UPDATE the verdict only while the row still holds this exact media, then
+     * delete any sealed objects the OUTGOING verdict owned and the incoming one
+     * does not. Sealing writes a second permanent copy into the public media
+     * bucket; without this it would be write-only, so a rejected video would stay
+     * fetchable forever and every re-screen would strand a 200 MB orphan.
+     *
+     * Deletion is gated on the UPDATE actually landing (`.select()` returns the
+     * affected rows) — a conditional write that matched nothing must not take the
+     * live seals down with it — and `current` advances on every success so a
+     * two-step screen (pending → decision) diffs against what is really there.
+     */
+    const writeVerdict = async (verdict: Record<string, unknown>): Promise<boolean> => {
+      const { data } = await admin
+        .from('events')
+        .update({ std_media_nsfw: verdict })
+        .eq('event_id', opts.eventId)
+        .filter('std_media->>videoKey', 'eq', opts.videoKey)
+        .filter('std_media->>posterKey', 'eq', opts.posterR2Key)
+        .select('event_id');
+      if (!data || data.length === 0) return false;
+      const next = resolveStdNsfwVerdict(verdict);
+      await retireSupersededSeals({ eventId: opts.eventId, previous: current, next });
+      current = next;
+      return true;
+    };
+
+    // Fields every verdict this function writes carries identically.
+    const base = {
+      videoKey: opts.videoKey,
+      posterKey: opts.posterR2Key,
+    };
 
     // Record the ATTEMPT first, so a crash / timeout past this point still
     // throttles the opportunistic heal instead of re-loading the model forever.
     const attemptedAt = new Date().toISOString();
-    const pending = {
-      status: 'pending' as const,
-      videoKey: opts.videoKey,
-      posterKey: opts.posterR2Key,
+    await writeVerdict({
+      ...base,
+      status: 'pending',
       videoFingerprint: null,
       posterFingerprint: null,
-      servedVideoKey: null,
-      servedPosterKey: null,
+      sealed: null,
+      video: null,
+      poster: null,
+      grandfathered,
       screenedAt: null,
       attemptedAt,
-    };
-    await writeVerdict(pending);
+    });
 
     // Fingerprint the poster, read it, fingerprint it again. If the bytes moved
     // under us mid-read we do not know what we classified — bail (stays pending).
@@ -715,13 +728,18 @@ export async function screenStdVideo(opts: {
 
     if (decision !== 'clean') {
       await writeVerdict({
+        ...base,
         status: 'rejected',
-        videoKey: opts.videoKey,
-        posterKey: opts.posterR2Key,
         videoFingerprint: before.video,
         posterFingerprint: before.poster,
-        servedVideoKey: null,
-        servedPosterKey: null,
+        sealed: null,
+        video: null,
+        poster: null,
+        // A rejection RETIRES the cutover marker. The row was carried across on
+        // the strength of a poster that now classifies dirty; there is nothing
+        // left to grandfather, and leaving the marker on would let a later
+        // re-screen resurrect the legacy authorisation.
+        grandfathered: null,
         screenedAt: new Date().toISOString(),
         attemptedAt,
       });
@@ -729,10 +747,10 @@ export async function screenStdVideo(opts: {
     }
 
     // CLEAN → seal the exact bytes we judged into the un-writable prefix, and
-    // only then record an approval. If the seal fails (source moved under us,
-    // R2 refused the conditional copy, the copy landed with different bytes) the
-    // verdict stays at the `pending` we wrote above and the heal retries after
-    // the throttle window. An unsealed approval is never written.
+    // only then record what was examined. If the seal fails (source moved under
+    // us, R2 refused the conditional copy, the copy landed with different bytes)
+    // the verdict stays at the `pending` written above and the heal retries after
+    // the throttle window. An unsealed decision is never recorded.
     const sealed = await sealScreenedMedia({
       eventId: opts.eventId,
       media,
@@ -741,15 +759,66 @@ export async function screenStdVideo(opts: {
     });
     if (!sealed) return;
 
+    const at = new Date().toISOString();
+
+    /**
+     * The POSTER's examination — legitimate, and the only one this function may
+     * write. `classifyImageBytes` ran over `bytes`, and `sealObject` refused to
+     * return unless the sealed copy read back the identical `<etag>:<bytes>`, so
+     * the SHA-256 of what we classified is also the SHA-256 of what a guest gets.
+     * It is recorded because the fingerprint's ETag is body MD5 for a single PUT
+     * (lib/r2.ts) and MD5 is not collision-resistant — where we hold the bytes we
+     * should not be leaning on it.
+     */
+    const { createHash } = await import('node:crypto');
+    const posterExamination = {
+      ref: sealed.posterRef,
+      fingerprint: sealed.posterFingerprint,
+      digest: createHash('sha256').update(bytes).digest('hex'),
+      by: 'nsfwjs-image' as const,
+      at,
+    };
+
+    /**
+     * The VIDEO's examination — NULL, except on the one grandfathered row.
+     *
+     * This function cannot examine a video. nsfwjs is image-only, there is no
+     * ffmpeg on Vercel, and `posterKey` arrives from the client with no
+     * derivation proof, so "dirty video + clean unrelated poster" is a real and
+     * trivial input. A clean poster therefore parks the row at `in_review` and a
+     * human examines the SEALED video in the Reveal Studio.
+     *
+     * The single exception carries an existing marker forward and NAMES what
+     * authorised it — `legacy-poster-screen`, which is not in
+     * COMPETENT_EXAMINERS.video and only counts while the marker is on the row.
+     * It cannot be reached without a marker, and nothing here writes one.
+     */
+    const videoExamination = grandfathered
+      ? {
+          ref: sealed.videoRef,
+          fingerprint: sealed.videoFingerprint,
+          digest: null,
+          by: 'legacy-poster-screen' as const,
+          at,
+        }
+      : null;
+
     await writeVerdict({
-      status: 'approved',
-      videoKey: opts.videoKey,
-      posterKey: opts.posterR2Key,
+      ...base,
+      status: videoExamination ? 'approved' : 'in_review',
       videoFingerprint: before.video,
       posterFingerprint: before.poster,
-      servedVideoKey: sealed.servedVideoKey,
-      servedPosterKey: sealed.servedPosterKey,
-      screenedAt: new Date().toISOString(),
+      sealed: {
+        videoRef: sealed.videoRef,
+        videoFingerprint: sealed.videoFingerprint,
+        posterRef: sealed.posterRef,
+        posterFingerprint: sealed.posterFingerprint,
+      },
+      video: videoExamination,
+      poster: posterExamination,
+      grandfathered,
+      // `in_review` is not a terminal decision, so it does not stamp screenedAt.
+      screenedAt: videoExamination ? at : null,
       attemptedAt,
     });
   } catch (err) {

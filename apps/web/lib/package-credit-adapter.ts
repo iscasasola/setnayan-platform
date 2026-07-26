@@ -15,10 +15,13 @@
  * payload.
  */
 import {
+  chosenOptionsSurchargeCentavos,
+  computeCustomization,
   isRemovableItem,
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from './vendor-packages';
+import { computePackageCredit } from './package-credit';
 import type { CreditItem, CreditPackage, UnspentCreditPolicy } from './package-credit';
 
 /**
@@ -69,6 +72,69 @@ export function toCreditPackage(pkg: VendorPackageWithItems): CreditPackage {
         ? policy
         : DEFAULT_UNSPENT_CREDIT_POLICY,
     items: pkg.items.map(toCreditItem),
+  };
+}
+
+/**
+ * THE ONE PRICER for a customized package. Both write sites on the lock path
+ * must go through this.
+ *
+ * Why it exists: `lockPackage` and `removeItemFromPackage` each compute
+ * `total_locked_centavos` independently. They drifted the moment choices
+ * shipped — the lock path became credit-aware while the remove path kept
+ * calling `computeCustomization` alone, so removing any line from a package
+ * that carried a paid upgrade silently dropped the upgrade from the stored
+ * total while `chosen_option_ids` still recorded the couple's pick. The vendor
+ * would deliver the upgrade against a total that no longer contained it, and
+ * because the booking fee is based on that total, the fee would quietly shrink
+ * with it. One function, both callers, no room to diverge.
+ *
+ * Pure: the flag arrives as an argument rather than being read here, so this
+ * stays testable with nothing mocked and both flag states are assertable.
+ *
+ * Returns `null` when the credit engine refuses — callers must surface that,
+ * never substitute a number.
+ */
+export function priceCustomizedPackage(
+  pkg: VendorPackageWithItems,
+  removedItemIds: ReadonlyArray<string>,
+  chosenOptionIds: ReadonlyArray<string>,
+  creditEnabled: boolean,
+): {
+  bookingTotalCentavos: number;
+  remainingConsumableCentavos: number;
+  availableCreditCentavos: number;
+  overspendCentavos: number;
+} | null {
+  const legacy = computeCustomization(pkg, removedItemIds);
+
+  if (!creditEnabled) {
+    // Flag OFF: the shipped math, plus any option surcharge. On a package with
+    // no choices this is byte-identical to what shipped before choices existed,
+    // and a choice line sits on its standard option, whose delta the DB pins
+    // to 0 — so this cannot quote below what the vendor charges either.
+    return {
+      bookingTotalCentavos:
+        legacy.totalLockedCentavos +
+        chosenOptionsSurchargeCentavos(pkg, removedItemIds, chosenOptionIds),
+      remainingConsumableCentavos: legacy.remainingConsumableCentavos,
+      availableCreditCentavos: legacy.remainingConsumableCentavos,
+      overspendCentavos: 0,
+    };
+  }
+
+  const credit = computePackageCredit({
+    pkg: toCreditPackage(pkg),
+    removedItemIds: allowedRemovals(pkg, removedItemIds),
+    chosenOptionIds,
+  });
+  if (!credit.ok) return null;
+
+  return {
+    bookingTotalCentavos: credit.bookingTotalCentavos,
+    remainingConsumableCentavos: credit.remainingCreditCentavos,
+    availableCreditCentavos: credit.availableCreditCentavos,
+    overspendCentavos: credit.overspendCentavos,
   };
 }
 

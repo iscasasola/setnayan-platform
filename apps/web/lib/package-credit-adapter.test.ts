@@ -308,3 +308,102 @@ test('an upgrade is the ONLY thing that moves the total off parity', () => {
     computeCustomization(pkg, []).totalLockedCentavos + 4_000,
   );
 });
+
+/* ── THE ONE PRICER — both write sites must agree ─────────────────────────── */
+
+import { priceCustomizedPackage } from './package-credit-adapter';
+
+const UPGRADE_LINE = () =>
+  item('dessert', {
+    replacement_value_centavos: 9_000,
+    options: [
+      opt('cake', 'dessert', { is_default: true }),
+      opt('halo', 'dessert', { price_delta_centavos: 4_000 }),
+    ],
+  });
+
+test('an upgrade with NO pool to absorb it is charged, under either flag', () => {
+  // The half that must hold in both worlds: nothing makes a picked upgrade free.
+  const pkg = pkgWith([item('a'), UPGRADE_LINE()], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 0,
+  });
+  for (const creditEnabled of [false, true]) {
+    const base = priceCustomizedPackage(pkg, [], [], creditEnabled)!;
+    const up = priceCustomizedPackage(pkg, [], ['halo'], creditEnabled)!;
+    assert.equal(
+      up.bookingTotalCentavos - base.bookingTotalCentavos,
+      4_000,
+      `a picked upgrade was free (creditEnabled=${creditEnabled})`,
+    );
+  }
+});
+
+test('the remove path SEES choices at all — the actual regression', () => {
+  // THE BUG THIS PINS. `removeItemFromPackage` fetched no options and priced
+  // with `computeCustomization` alone, so a choice line read as a plain line
+  // and the upgrade was invisible to it. Pricing the post-removal state must
+  // therefore differ from the options-blind computation whenever an upgrade is
+  // picked and there is no pool to absorb it.
+  // `a` frees NOTHING, so no credit can absorb the upgrade and the difference
+  // has to show up in the total under either flag. (With a line that frees
+  // credit, the pool legitimately absorbs it — asserted separately below.)
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 0 }), UPGRADE_LINE()], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 0,
+  });
+  const optionsBlind = computeCustomization(pkg, ['a']).totalLockedCentavos;
+  for (const creditEnabled of [false, true]) {
+    const priced = priceCustomizedPackage(pkg, ['a'], ['halo'], creditEnabled)!;
+    assert.notEqual(
+      priced.bookingTotalCentavos,
+      optionsBlind,
+      `the remove path is blind to choices again (creditEnabled=${creditEnabled})`,
+    );
+  }
+});
+
+test('under CREDIT, freed credit absorbs the upgrade instead of raising the total', () => {
+  // Not a bug — the owner rule is "credit offsets upgrades; the couple pays the
+  // difference only if they overspend". Pinned so nobody later "fixes" it into
+  // double-charging: the upgrade is still recorded as SPEND, it just is not
+  // billed on top when the pool covers it.
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 10_000 }), UPGRADE_LINE()], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 0,
+  });
+  const withoutUpgrade = priceCustomizedPackage(pkg, ['a'], [], true)!;
+  const withUpgrade = priceCustomizedPackage(pkg, ['a'], ['halo'], true)!;
+
+  assert.equal(withUpgrade.overspendCentavos, 0, 'a 10,000 pool covers a 4,000 upgrade');
+  assert.equal(
+    withUpgrade.bookingTotalCentavos,
+    withoutUpgrade.bookingTotalCentavos,
+    'the pool absorbed it, so the price must not move',
+  );
+  assert.equal(
+    withoutUpgrade.remainingConsumableCentavos - withUpgrade.remainingConsumableCentavos,
+    4_000,
+    'the upgrade must still be DEDUCTED from the pool — otherwise it was free',
+  );
+});
+
+test('the pricer returns null rather than a number when the engine refuses', () => {
+  // Fail closed: a required choice line with nothing picked has no total, and
+  // substituting one would charge a couple for a decision they never made.
+  const required = item('main', {
+    is_required: true,
+    options: [opt('chicken', 'main', { is_default: true }), opt('beef', 'main', { price_delta_centavos: 8_000 })],
+  });
+  assert.equal(priceCustomizedPackage(pkgWith([required]), [], [], true), null);
+});
+
+test('flag OFF still charges a picked upgrade — it is never free', () => {
+  const pkg = pkgWith([UPGRADE_LINE()], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 0,
+  });
+  const base = priceCustomizedPackage(pkg, [], [], false)!.bookingTotalCentavos;
+  const up = priceCustomizedPackage(pkg, [], ['halo'], false)!.bookingTotalCentavos;
+  assert.equal(up - base, 4_000);
+});

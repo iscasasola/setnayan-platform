@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { isVendorAiLadderEnabled } from '@/lib/vendor-ai-ladder-flag';
 import { vendorAiAdvancedActive } from '@/lib/vendor-ai-level';
 import { isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
@@ -25,9 +26,15 @@ export async function VoiceMatchSection({ vendorProfileId }: { vendorProfileId: 
   let profile = { ...HOUSE_VOICE };
   let mode = 'free';
   let learn = true;
+  // Mirror the server action's THIRD gate. `voiceGate()` refuses when the
+  // owner's `vendor_ai_autoreply` control is not active; without reading it here
+  // the panel rendered fully editable and only failed on Save. Fail-closed: a
+  // read error leaves this true, i.e. the locked/honest state.
+  let privacyPending = true;
 
   try {
     const supabase = await createClient();
+    privacyPending = !(await isDataPrivacyControlActive('vendor_ai_autoreply'));
 
     if (isVendorAiLadderEnabled()) {
       const { data } = await supabase
@@ -65,6 +72,7 @@ export async function VoiceMatchSection({ vendorProfileId }: { vendorProfileId: 
     <section id="voice-match" aria-labelledby="voice-match-heading" className="mt-4">
       <VoiceMatchCard
         advancedActive={advancedActive}
+        privacyPending={privacyPending}
         initialProfile={profile}
         initialMode={mode}
         initialLearnFromPastMessages={learn}

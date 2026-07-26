@@ -54,7 +54,15 @@ export async function voicedReplyText(input: VoicedReplyInput): Promise<VoiceSer
   } as const);
 
   // Gate 1 — the flag. Zero queries, zero column names, byte-identical output.
-  if (!vendorVoiceMatchEnabled()) return off('flag_off');
+  //
+  // Read ONCE and threaded into `serveVoicedReply` below, rather than passing a
+  // `true` literal. A hardcoded literal made the pure gate's `flagEnabled:false`
+  // branch UNREACHABLE from production — its 36 assertions were pinning a value
+  // no call site could produce, so deleting this line changed nothing red.
+  // `voice-runtime.test.ts` now asserts flag-off issues ZERO queries, which is
+  // what actually pins this early return.
+  const flagEnabled = vendorVoiceMatchEnabled();
+  if (!flagEnabled) return off('flag_off');
   // The ADVANCED rung only exists when the ladder is on; without it every vendor
   // reads Basic anyway, and naming `ai_addon_level` under schema skew would be
   // the 42703 footgun for nothing.
@@ -91,7 +99,7 @@ export async function voicedReplyText(input: VoicedReplyInput): Promise<VoiceSer
     );
 
     return serveVoicedReply({
-      flagEnabled: true,
+      flagEnabled,
       advancedActive: vendorAiAdvancedActive({
         level: (levelRow as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null,
         windowActive: input.addonActive,

@@ -37,10 +37,21 @@ import {
  *
  * The preview's numbers are a fixed EXAMPLE sentence: voice never carries facts
  * (`assertFactFree`), so the panel must not imply it does.
+ *
+ * ⚠ PREVIEW_ANSWER must stay SHAPED LIKE `buildAnswer('price', …)` — the card
+ * claims "what you see is what couples get", and it earns that only if the
+ * example is the real builder's own sentence structure. It was previously a
+ * hand-written single-service line, which hid the fact that the multi-service
+ * answer opens with its OWN "Our starting rates —" signpost right after a
+ * lead-in that also ends in an em-dash. Showing the real shape means the vendor
+ * sees that echo before they save (and can pick "Straight to the point", which
+ * drops lead-ins entirely) instead of discovering it in a couple's inbox.
+ * Mirrors `buildPrice()` in `lib/vendor-autoreply/answer.ts`.
  */
 
 const PREVIEW_ANSWER =
-  'Our Full-Day Coverage starts at ₱48,000 (covers 8 hrs). Our Signature package is ₱85,000.';
+  'Our starting rates — Full-Day Coverage from ₱48,000; Half-Day Coverage from ₱28,000. ' +
+  'Our Signature package is ₱85,000.';
 
 const LANGUAGE_LABEL: Record<string, string> = {
   english: 'English',
@@ -61,11 +72,19 @@ const WARMTH_LABEL: Record<string, string> = {
 
 export function VoiceMatchCard({
   advancedActive,
+  privacyPending = false,
   initialProfile,
   initialMode,
   initialLearnFromPastMessages,
 }: {
   advancedActive: boolean;
+  /**
+   * The owner's `vendor_ai_autoreply` privacy control is not active yet. The
+   * server action refuses on exactly this condition, so rendering an editable
+   * panel would invite the vendor to fill a form that can only fail on Save.
+   * Say so up front instead.
+   */
+  privacyPending?: boolean;
   initialProfile: VoiceProfile;
   initialMode: string;
   initialLearnFromPastMessages: boolean;
@@ -79,6 +98,13 @@ export function VoiceMatchCard({
   const [learn, setLearn] = useState(initialLearnFromPastMessages);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The panel is editable only when BOTH server-side conditions the save action
+  // enforces are already true: the Advanced entitlement AND the owner's
+  // `vendor_ai_autoreply` privacy control. Rendering an editable form while
+  // either is missing invites a vendor to fill in a voice that can only fail
+  // on Save.
+  const editable = advancedActive && !privacyPending;
 
   const dirty = useMemo(
     () => JSON.stringify(profile) !== JSON.stringify(saved),
@@ -161,13 +187,15 @@ export function VoiceMatchCard({
               Your voice
             </h3>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-              {advancedActive
-                ? 'Replies go out sounding like you — the facts still come straight from your catalog.'
-                : 'Included with Vendor AI — Advanced.'}
+              {privacyPending
+                ? 'Not switched on for your account yet.'
+                : advancedActive
+                  ? 'Replies go out sounding like you — the facts still come straight from your catalog.'
+                  : 'Included with Vendor AI — Advanced.'}
             </p>
           </div>
         </div>
-        {advancedActive ? (
+        {editable ? (
           <Switch
             on={smart}
             onClick={() => setSmart((v) => !v)}
@@ -176,7 +204,14 @@ export function VoiceMatchCard({
         ) : null}
       </div>
 
-      {!advancedActive ? (
+      {privacyPending ? (
+        <p className="mt-4 text-xs" style={{ color: 'var(--m-slate)' }}>
+          Your assistant is answering in Setnayan&rsquo;s neutral voice. Voice-match
+          is waiting on our data-privacy sign-off before it can be switched on for
+          any shop — nothing to do on your side, and we&rsquo;ll let you know the
+          moment it opens.
+        </p>
+      ) : !advancedActive ? (
         <p className="mt-4 text-xs" style={{ color: 'var(--m-slate)' }}>
           Right now your assistant answers in Setnayan&rsquo;s neutral voice. Upgrade
           to Vendor AI — Advanced to have it greet, phrase and sign off the way you
@@ -212,7 +247,10 @@ export function VoiceMatchCard({
           ) : null}
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Greeting" hint={`How you open. Up to ${VOICE_FRAGMENT_MAX} characters, no numbers or links.`}>
+            <Field
+              label="Greeting"
+              hint={`How you open. Up to ${VOICE_FRAGMENT_MAX} characters — no numbers, links, or other apps to message you on.`}
+            >
               <input
                 type="text"
                 value={profile.greeting}

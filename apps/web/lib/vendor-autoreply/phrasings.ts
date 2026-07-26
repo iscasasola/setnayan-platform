@@ -27,11 +27,15 @@
 // quoting last month's price) by construction. Flagged for owner sign-off.
 //
 // ── THE NO-FACTS INVARIANT ──────────────────────────────────────────────────
-// `assertFactFree()` drops any envelope containing a digit, ₱, '@' or a URL.
-// It re-asserts what `sanitizeVoiceFragment` already enforces on stored
-// fragments, so even a hand-edited DB row cannot make the bot state a fact it
-// did not read from the catalog, or route a couple off-platform.
+// `assertFactFree()` drops any envelope containing a digit, ₱, '@' or a URL,
+// AND any envelope that trips the off-platform-contact filter. It re-asserts
+// what `sanitizeVoiceFragment` already enforces on stored fragments, so even a
+// hand-edited `voice_profile` / `vendor_reply_templates` row cannot make the bot
+// state a fact it did not read from the catalog, or route a couple off-platform.
+// This is the check on the SERVE path (`coercePhrasings` + `renderPhrasing`), so
+// it is the one that actually decides what a couple receives.
 
+import { evaluateMessage } from '../chat-contact-filter';
 import {
   isHouseVoice,
   type VoiceLanguageMix,
@@ -69,11 +73,19 @@ const FACTUAL = /[0-9₱@]|https?:\/\/|www\./i;
  * Also requires EXACTLY ONE `{{answer}}` slot: zero would post pure decoration
  * with no facts at all, and two would leave a literal `{{answer}}` in the
  * message (or repeat the answer) — both are broken replies, not styling.
+ *
+ * ⚠ Only the ENVELOPE is screened, never the answer: the deterministic answer
+ * legitimately carries ₱ and digits from live catalog rows, and running the
+ * contact filter over it would block the bot's own correct quote.
  */
 export function assertFactFree(envelope: string): boolean {
   if (envelope.split(ANSWER_SLOT).length !== 2) return false;
   const withoutSlot = envelope.split(ANSWER_SLOT).join(' ');
-  return !FACTUAL.test(withoutSlot);
+  if (FACTUAL.test(withoutSlot)) return false;
+  // The off-platform-contact lock — "Add us on Viber" carries no digit, no ₱,
+  // no '@' and no URL, so FACTUAL alone waves it through. Same engine the
+  // chatroom runs on a human vendor's own message.
+  return !evaluateMessage(withoutSlot).blocked;
 }
 
 /**

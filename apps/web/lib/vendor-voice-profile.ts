@@ -18,6 +18,23 @@
 //     off-platform-contact filter) inside an AI-authored message.
 // The rule is re-asserted independently at phrasing-build time
 // (`vendor-autoreply/phrasings.ts`), so a bypass here still cannot ship text.
+//
+// ── THE OFF-PLATFORM-CONTACT LOCK (2026-07-26) ──────────────────────────────
+// The character screen above is NOT sufficient. "Add us on Viber", "Message us
+// on Messenger", "Text us on WhatsApp" carry no digit, no ₱, no '@' and no URL,
+// yet they are exactly the disintermediation the chat filter exists to stop.
+// A HUMAN vendor typing those into chat is BLOCKED by `chat-contact-filter.ts`
+// (PR #3606) — but the auto-reply bot inserts via the service-role client and
+// never passes through that gate, so a voice fragment would be a laundering
+// route: set once, shipped on every auto-reply to every couple, in an
+// AI-AUTHORED message. So every vendor-typed fragment is run through the SAME
+// `evaluateMessage()` engine, unconditionally — deliberately NOT behind
+// `chatContactFilterEnabled()`, because a bot-authored contact route is our own
+// output, not a vendor's message, and must never depend on another feature's
+// launch flag. Re-asserted on the built envelope in `phrasings.ts` so a
+// hand-edited `voice_profile` / `vendor_reply_templates` row cannot ship either.
+
+import { evaluateMessage } from './chat-contact-filter';
 
 export const VOICE_LANGUAGE_MIXES = [
   'english',
@@ -82,6 +99,14 @@ export function sanitizeVoiceFragment(raw: unknown, label: string): VoiceFragmen
     return {
       ok: false,
       error: `${label} can't contain numbers, ₱, an email address or a link — those belong in your catalog, not your greeting.`,
+    };
+  }
+  // The off-platform-contact lock. Same engine the chatroom uses on a human
+  // vendor's own message, so the bot cannot say what its author may not.
+  if (evaluateMessage(s).blocked) {
+    return {
+      ok: false,
+      error: `${label} can't point couples to another app or an outside contact — keep the conversation here on Setnayan.`,
     };
   }
   return { ok: true, value: s };

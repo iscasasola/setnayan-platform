@@ -62,6 +62,8 @@ import {
   type LifecyclePhase,
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
+import { buildOwnerRibbon } from '@/lib/owner-ribbon';
+import { OwnerRibbon } from './owner-ribbon';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
@@ -347,8 +349,23 @@ export function SiteBody({
   proWatermarkHidden,
   siteColorVars,
   editorMode = false,
+  ownerCapability = null,
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
+
+  // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
+  // anonymous visitor — `buildOwnerRibbon` returns a model ONLY for the
+  // server-verified capability, so `<OwnerRibbon>` renders nothing and their
+  // DOM is byte-identical to before this PR. Read-only: links only.
+  const ownerRibbon = buildOwnerRibbon({
+    ownerCapability,
+    eventId: event.event_id,
+    slug: event.slug ?? null,
+    phasesEnabled,
+    // The phase the body is ACTUALLY being built from on this render — the
+    // same value `plan` is computed with, so `?phase=` overrides are reflected.
+    lifecyclePhase,
+  });
 
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
@@ -1407,6 +1424,15 @@ export function SiteBody({
       customColorVars={siteColorVars}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
+          identity trees, for three reasons: (1) it is chrome, not a chapter,
+          so it must not be a direct child of `<article data-pahina-chapters>`
+          where the §6 scroll observer would keep it hidden until scrolled to;
+          (2) one mount point serves the guest tree, the anonymous tree and
+          every lifecycle phase (including the full-bleed Save-the-Date film);
+          (3) it renders `null` for a null model, so a guest's DOM is unchanged
+          byte-for-byte. */}
+      <OwnerRibbon model={ownerRibbon} />
       {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
           the event is effectively public (couple launched their Save-the-Date);
           the abuse-report entry (target_type='event') is present on any listed

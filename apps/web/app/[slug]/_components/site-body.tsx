@@ -80,6 +80,7 @@ import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
+import { PahinaKeepsake } from './pahina-keepsake';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
 import {
@@ -1227,15 +1228,74 @@ export function SiteBody({
 
               {/* RSVP — always-on per the editor contract. The wedding's
                   load-bearing form: the editor blocks hiding it, but the gate
-                  below is the runtime enforcement point. */}
+                  below is the runtime enforcement point.
+
+                  RSVPed FORK (design §11 · build plan §4): once THIS guest has
+                  replied "attending", the ask stops shouting and the keepsake
+                  ticket takes its place. This is a per-GUEST render fork inside
+                  the existing `rsvp` phase — NOT a new LifecyclePhase, and
+                  `plan.rsvpShouldRender` (the golden-locked plan) is untouched.
+                  Anonymous visitors have no guest identity, so the fork is
+                  structurally unreachable for them.
+
+                  ⚠ The design says the ask is "gone" once answered. Taken
+                  literally that would DROP the guest's ability to change their
+                  reply, meal preference or dietary notes — a functional
+                  regression the reskin-never-drop rule forbids. So the form
+                  stays, demoted into a quiet disclosure beneath the keepsake:
+                  the ask no longer competes with the reward, but nothing the
+                  guest could do before is lost. */}
               {plan.rsvpShouldRender ? (
-                <RsvpWidget
-                  guest={guest}
-                  eventId={event.event_id}
-                  eventPublicId={event.public_id}
-                  limited={isLimitedPlusOne}
-                  faceMode={faceMode}
-                />
+                guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined' ? (
+                  <>
+                    {guest.rsvp_status === 'attending' ? (
+                      <PahinaKeepsake
+                        variant="accepted"
+                        displayName={guestHubData.displayName}
+                        guestId={guest.guest_id}
+                        tableLabel={guestHubData.tableLabel}
+                        venueName={event.venue_name}
+                        eventDate={event.event_date}
+                      />
+                    ) : (
+                      /* Declined: a quiet line, never a keepsake — the ticket is
+                         for people who are coming (design §11). */
+                      <section className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+                        <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
+                          We&rsquo;ll miss you.
+                        </p>
+                        <p className="mt-1.5 text-sm leading-relaxed text-ink/60">
+                          Thank you for letting us know.
+                        </p>
+                      </section>
+                    )}
+                    <details className="group">
+                      <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
+                        Need to change your reply?
+                      </summary>
+                      <div className="mt-4">
+                        <RsvpWidget
+                          guest={guest}
+                          eventId={event.event_id}
+                          eventPublicId={event.public_id}
+                          limited={isLimitedPlusOne}
+                          faceMode={faceMode}
+                        />
+                      </div>
+                    </details>
+                  </>
+                ) : (
+                  /* pending + maybe: the ask stays exactly as it is. "Maybe"
+                     deliberately keeps the full card visible (design §11) — an
+                     undecided guest still has a question to answer. */
+                  <RsvpWidget
+                    guest={guest}
+                    eventId={event.event_id}
+                    eventPublicId={event.public_id}
+                    limited={isLimitedPlusOne}
+                    faceMode={faceMode}
+                  />
+                )
               ) : null}
 
               {guest.photo_source === 'selfie' ? (

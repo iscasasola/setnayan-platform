@@ -30,12 +30,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as orderChargeMath from './order-charge-math';
 import {
   resolveAiSubTotal,
   chargeOverchargesDisplayedPrice,
   orderTotalToPhp,
   refusalMessage,
-  setnayanServiceCategoryFromKey,
   type CatalogChargeResolution,
 } from './order-charge-math';
 import { AI_SUB_MAX_CYCLES, parseCycles } from './setnayan-ai-subscription';
@@ -187,15 +187,45 @@ test('SEC-7 · the tripwire is ONE-WAY and exempts volatile (pax) totals', () =>
   );
 });
 
-/* ── 3 · THE NON-CATALOG KEY SHAPES ─────────────────────────────────────────── */
+/* ── 3 · THE REMOVED KEY SHAPE ──────────────────────────────────────────────── */
 
-test('setnayan_service__{category} parses to its category, and nothing else does', () => {
-  assert.equal(setnayanServiceCategoryFromKey('setnayan_service__photography'), 'photography');
-  assert.equal(setnayanServiceCategoryFromKey('setnayan_service__'), null);
-  assert.equal(setnayanServiceCategoryFromKey('PAPIC_CAMERAS'), null);
-  assert.equal(setnayanServiceCategoryFromKey('vendor_additional_branch__abc'), null);
-  assert.equal(setnayanServiceCategoryFromKey('SETNAYAN_AI_SUB'), null);
+test('`setnayan_service__{category}` stays REMOVED — no parser, no prefix', () => {
+  // Owner ruling 2026-07-26: "all setnayan in app services are either on their
+  // exact location on the dashboard or on suites". The second way to buy from
+  // Setnayan — book Setnayan as a VENDOR, synthesise `setnayan_service__{cat}`
+  // at runtime, and price it from a precedence chain ending at
+  // `event_vendors.total_cost_php` — was DELETED, not repriced. That last tier
+  // let the buying couple type the number they would be charged, which is the
+  // same defect class as SEC-5 (`events.event_type`).
+  //
+  // This test is the tripwire: two exports carried the key shape, and if either
+  // reappears the purchase path is being rebuilt. Read the tombstone comment in
+  // `order-charge-math.ts` before deleting this assertion.
+  const exported = Object.keys(orderChargeMath);
+  assert.ok(
+    !exported.includes('SETNAYAN_SERVICE_KEY_PREFIX'),
+    'SETNAYAN_SERVICE_KEY_PREFIX is back — the removed first-party buy path is being rebuilt',
+  );
+  assert.ok(
+    !exported.includes('setnayanServiceCategoryFromKey'),
+    'setnayanServiceCategoryFromKey is back — its only caller was the removed resolver',
+  );
 });
+
+// The audit-source union lost its `'event_vendor_setnayan_service'` member with
+// the resolver. A runtime assertion cannot see that — `ChargeSource` is a TYPE —
+// so the tripwire is type-level and fires in `pnpm typecheck`: adding ANY member
+// back makes `UnexpectedChargeSource` non-`never`, the conditional resolve to
+// `false`, and `const _: false = true` a compile error.
+type UnexpectedChargeSource = Exclude<
+  orderChargeMath.ChargeSource,
+  | 'retail_catalog'
+  | 'package_catalog'
+  | 'setnayan_ai_event_type'
+  | 'setnayan_ai_subscription_unit'
+>;
+const _noBookedDealChargeSource: [UnexpectedChargeSource] extends [never] ? true : false = true;
+void _noBookedDealChargeSource;
 
 test('every refusal has buyer-facing copy that leaks nothing', () => {
   for (const r of ['no_price_source', 'read_error', 'cycles_required'] as const) {

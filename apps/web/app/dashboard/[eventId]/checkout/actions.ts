@@ -366,18 +366,23 @@ export async function submitOrderAction(
   // "charged its real price" into "charged whatever the browser sent".
   //
   // 'unknown' (in neither catalog) deliberately ALLOWS keys with no catalog
-  // row: SETNAYAN_AI_SUB, setnayan_service__{category}, PAPIC_CAMERAS and
-  // vendor_additional_branch__<uuid>. A "must map to an active row" rule would
-  // break them. Sellability is NOT the price gate — resolveOrderChargeCentavos
-  // is, and it refuses anything it cannot price server-side.
+  // row: SETNAYAN_AI_SUB, PAPIC_CAMERAS and vendor_additional_branch__<uuid>.
+  // A "must map to an active row" rule would break them. Sellability is NOT the
+  // price gate — resolveOrderChargeCentavos is, and it refuses anything it
+  // cannot price server-side.
   //
-  // ⚠ This list was WRONG until 2026-07-26 and the error was load-bearing: it
-  // named 'save-the-date:<slug>', which DOES NOT EXIST anywhere in the codebase
-  // (the real SKU is STD_PREMIUM_OPENINGS, an ordinary retail row), and it
-  // OMITTED setnayan_service__{category}, which is genuinely drawer-mounted and
-  // was genuinely undefended. A confident, inaccurate comment is worse than no
-  // comment: it was read as an inventory during the SEC-7 review. Verify before
-  // trusting a list like this.
+  // ⚠ This list has been wrong twice, in opposite directions, and both errors
+  // were load-bearing. Verify before trusting a list like this.
+  //   • It named 'save-the-date:<slug>', which DOES NOT EXIST anywhere in the
+  //     codebase (the real SKU is STD_PREMIUM_OPENINGS, an ordinary retail row).
+  //     Corrected 2026-07-26.
+  //   • It OMITTED setnayan_service__{category}, which was genuinely
+  //     drawer-mounted and genuinely undefended. Added 2026-07-26 during the
+  //     SEC-7 review — and REMOVED from the list again later the same day, when
+  //     the owner deleted that purchase path outright rather than repricing it.
+  //     Nothing mounts a drawer against that key now and no resolver owns it, so
+  //     it is no longer a legitimate 'unknown': it reaches
+  //     resolveOrderChargeCentavos only via a forged POST, and is refused there.
   //
   // Fails CLOSED on a read error. This knowingly reverses the older "a transient
   // read failure NEVER blocks an order" stance for THIS check only: a checkout
@@ -400,10 +405,11 @@ export async function submitOrderAction(
   // ── ⭐ SEC-7 · THE SERVER RESOLVES THE CHARGE, OR THERE IS NO SALE ─────────
   //
   // ONE call, TOTAL-OR-NOTHING. `lib/order-charge-authority.ts` runs every
-  // authoritative resolver in order (retail catalog → package catalog → the AI
-  // per-event-type ladder → the AI subscription's unit × validated cycles → the
-  // booked first-party `setnayan_service__{category}` deal) and either hands back
-  // a fully-multiplied total or REFUSES.
+  // authoritative resolver in order (the AI subscription's unit × validated
+  // cycles → retail catalog → the AI per-event-type ladder → package catalog)
+  // and either hands back a fully-multiplied total or REFUSES. A fifth resolver,
+  // for the booked first-party `setnayan_service__{category}` deal, was removed
+  // 2026-07-26 with the purchase path it served.
   //
   // What changed, and why it is the whole bug:
   //

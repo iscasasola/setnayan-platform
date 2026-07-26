@@ -67,13 +67,19 @@ export type BundleChargeResolution =
 // The authority result
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Which authoritative source produced the price. Recorded for audits. */
+/**
+ * Which authoritative source produced the price. Recorded for audits.
+ *
+ * `'event_vendor_setnayan_service'` was a sixth member until 2026-07-26; it went
+ * with the `setnayan_service__{category}` resolver (see below). This union is
+ * TS-only — it is never persisted and has no DB enum or CHECK behind it — so
+ * dropping the member is safe.
+ */
 export type ChargeSource =
   | 'retail_catalog'
   | 'package_catalog'
   | 'setnayan_ai_event_type'
-  | 'setnayan_ai_subscription_unit'
-  | 'event_vendor_setnayan_service';
+  | 'setnayan_ai_subscription_unit';
 
 export type ChargeRefusal =
   /** No resolver owns this service_key. A NEW key must fail the sale, never fall
@@ -141,23 +147,26 @@ export function refusalMessage(refusal: ChargeRefusal): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Non-catalog key shapes
+// 🚫 Non-catalog key shapes — REMOVED 2026-07-26
+//
+// `SETNAYAN_SERVICE_KEY_PREFIX = 'setnayan_service__'` and its
+// `setnayanServiceCategoryFromKey` parser used to live here. They existed for
+// exactly ONE caller: `resolveOrderChargeCentavos` step (5), which priced a
+// "Setnayan booked as a vendor" order off the couple's own `event_vendors` row.
+// Its last precedence tier was `event_vendors.total_cost_php` — a number the
+// BUYER types into the Costing form — which is the same shape of bug as SEC-5
+// (`events.event_type`). The owner deleted the purchase path rather than
+// repricing it (2026-07-26: "all setnayan in app services are either on their
+// exact location on the dashboard or on suites"), so the parser has no caller
+// and no reason to exist. Setnayan services are ordinary admin-priced rows in
+// `platform_retail_catalog_v2` and resolve at step (2).
+//
+// DO NOT reintroduce a key shape whose price comes from a customer-writable
+// column. `lib/vendor-branches.ts` keeps a superficially similar convention
+// (`vendor_additional_branch__{branch_id}`), but that one prices from
+// `vendor_billing_catalog` — an admin table — which is the difference that
+// matters.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * `setnayan_service__{category}` — a FIRST-PARTY Setnayan service the couple
- * booked as an `event_vendors` row and pays Setnayan for through the same
- * apply-then-pay drawer (owner 2026-06-04). No catalog row, because its price is
- * the booked deal rather than a list price — so the authoritative source is the
- * event_vendors row, re-read server-side.
- */
-export const SETNAYAN_SERVICE_KEY_PREFIX = 'setnayan_service__';
-
-export function setnayanServiceCategoryFromKey(serviceKey: string): string | null {
-  if (!serviceKey.startsWith(SETNAYAN_SERVICE_KEY_PREFIX)) return null;
-  const category = serviceKey.slice(SETNAYAN_SERVICE_KEY_PREFIX.length);
-  return category.length > 0 ? category : null;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The SEC-7 key itself

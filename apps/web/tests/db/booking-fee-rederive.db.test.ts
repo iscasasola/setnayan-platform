@@ -186,10 +186,10 @@ test('PENDING fee raised → charge + its QR order updated to the new 5%', async
   const c = await charges(evId);
   assert.equal(c.length, 1, 'still one charge — updated in place, not stacked');
   assert.equal(c[0]!.status, 'pending');
-  assert.equal(c[0]!.amount, 1_000_000, 'charge → 5% of ₱200k = ₱10k');
+  assert.equal(c[0]!.amount, 600_000, 'charge → taper on ₱200k = ₱6k (5% of 100k + 1% of 100k)');
   const ord = await orderFor(charge.charge_id!);
   assert.equal(ord?.status, 'submitted');
-  assert.equal(ord?.total, 10_000, 'QR order synced to ₱10k');
+  assert.equal(ord?.total, 6_000, 'QR order synced to the tapered ₱6k');
 });
 
 test('PENDING fee lowered (still positive) → charge lowered', async () => {
@@ -232,7 +232,7 @@ test('PAID fee raised → supplementary delta charge + delta order, primary UNTO
   await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
   assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000);
 
-  await setTotal(evId, 200_000); // amendment raises to ₱200k → fee ₱10k
+  await setTotal(evId, 200_000); // amendment raises to ₱200k → fee ₱6k (tapered)
 
   const c = await charges(evId);
   const primary = c.find((x) => x.kind === 'primary')!;
@@ -241,7 +241,7 @@ test('PAID fee raised → supplementary delta charge + delta order, primary UNTO
   assert.equal(primary.amount, 500_000, 'primary stays at the ₱5k already paid');
   assert.ok(delta, 'a supplementary delta was opened');
   assert.equal(delta.status, 'pending');
-  assert.equal(delta.amount, 500_000, 'delta = ₱10k new − ₱5k paid = ₱5k');
+  assert.equal(delta.amount, 100_000, 'delta = ₱6k new − ₱5k paid = ₱1k');
   // The delta mints its OWN vendor order.
   const deltaChargeId = (
     await db.query<{ charge_id: string }>(
@@ -250,12 +250,12 @@ test('PAID fee raised → supplementary delta charge + delta order, primary UNTO
     )
   ).rows[0]!.charge_id;
   const ord = await orderFor(deltaChargeId);
-  assert.equal(ord?.total, 5_000, 'delta order for ₱5k');
+  assert.equal(ord?.total, 1_000, 'delta order for ₱1k (₱6k due − ₱5k paid)');
   assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000, 'ledger unchanged until delta settles');
 
   // Settle the delta → ledger rolls to the full ₱10k.
   await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-D')`, [deltaChargeId]);
-  assert.equal(await ledgerPaid(vendorProfileId, eventId), 1_000_000, 'now ₱10k total collected');
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000, 'now ₱6k total collected');
   assert.ok(userId);
 });
 
@@ -266,16 +266,16 @@ test('PAID fee lowered → audit credit recorded, NO refund, primary + ledger UN
   const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
   const charge = await openLockCharge(evId);
   await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
-  assert.equal(await ledgerPaid(vendorProfileId, eventId), 1_000_000); // ₱10k paid
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000); // ₱6k paid (tapered)
 
   await setTotal(evId, 100_000); // amendment DROPS to ₱100k → fee would be ₱5k
 
   const c = await charges(evId);
   const primary = c.find((x) => x.kind === 'primary')!;
   const credit = c.find((x) => x.kind === 'amendment_credit')!;
-  assert.equal(primary.amount, 1_000_000, 'settled primary untouched');
+  assert.equal(primary.amount, 600_000, 'settled primary untouched');
   assert.ok(credit, 'a credit note was recorded');
-  assert.equal(credit.credit, 500_000, 'overpaid ₱5k recorded');
+  assert.equal(credit.credit, 100_000, 'overpaid ₱1k recorded (₱6k paid − ₱5k now due)');
   assert.equal(credit.amount, 0, 'credit moves no money');
   // No refund order exists for the credit row.
   const creditChargeId = (
@@ -285,7 +285,7 @@ test('PAID fee lowered → audit credit recorded, NO refund, primary + ledger UN
     )
   ).rows[0]!.charge_id;
   assert.equal(await orderFor(creditChargeId), null, 'no order / no refund for a credit');
-  assert.equal(await ledgerPaid(vendorProfileId, eventId), 1_000_000, 'ledger unchanged — no clawback');
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000, 'ledger unchanged — no clawback');
 });
 
 test('FREE-5 booking stays free at ANY amended total', async () => {
@@ -344,7 +344,7 @@ test('idempotent: re-updating to the SAME total never double-charges', async () 
   await db.query(`UPDATE public.event_vendors SET total_cost_php = 200000, updated_at = NOW() WHERE vendor_id=$1`, [evId]);
   let c = await charges(evId);
   assert.equal(c.length, 1, 'still exactly one charge across repeated identical updates');
-  assert.equal(c[0]!.amount, 1_000_000);
+  assert.equal(c[0]!.amount, 600_000);
 
   // (b) paid path — repeated identical raise keeps ONE delta
   const eventId2 = await newEvent('idem-paid');
@@ -356,7 +356,7 @@ test('idempotent: re-updating to the SAME total never double-charges', async () 
   c = await charges(evId2);
   const deltas = c.filter((x) => x.kind === 'amendment_delta');
   assert.equal(deltas.length, 1, 'exactly one delta despite repeated identical updates');
-  assert.equal(deltas[0]!.amount, 1_000_000, '5% of ₱300k − ₱5k paid = ₱10k'); // 15000 - 5000
+  assert.equal(deltas[0]!.amount, 200_000, 'taper on ₱300k (₱7k) − ₱5k paid = ₱2k'); // 7000 - 5000
 });
 
 test('₱50 floor holds after an amendment down to a tiny total', async () => {

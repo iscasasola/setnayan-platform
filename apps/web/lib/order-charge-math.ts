@@ -163,9 +163,6 @@ export function setnayanServiceCategoryFromKey(serviceKey: string): string | nul
 // The SEC-7 key itself
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** One billing cycle = 28 days. Mirrors lib/setnayan-ai-subscription.ts. */
-export const AI_SUB_CYCLE_DAYS = 28;
-
 /**
  * `SETNAYAN_AI_SUB` — total = admin-managed UNIT × validated cycle count.
  *

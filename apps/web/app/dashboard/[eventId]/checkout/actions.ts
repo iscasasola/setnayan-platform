@@ -408,7 +408,7 @@ export async function submitOrderAction(
   //   AFTER   the client value is not an input to the charge AT ALL. A key with
   //           no resolver fails the sale; a resolver that ERRORS fails the sale.
   //
-  // ⚠ ORDERING IS LOad-BEARING and unchanged: `resolveServiceSellability` above
+  // ⚠ ORDERING IS LOAD-BEARING and unchanged: `resolveServiceSellability` above
   // is a REJECT that runs BEFORE this, never an `is_active` filter inside a
   // resolver. `is_active=false` is OVERLOADED (on SETNAYAN_AI_RENEW it means "not
   // independently sellable", not "retired"), and filtering inside a resolver used

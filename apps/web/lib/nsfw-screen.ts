@@ -526,7 +526,7 @@ export async function screenEditorialVendorMedia(opts: {
 // The couple may close their STD film on an uploaded video. Per the platform
 // NSFW lock ("on by default and CANNOT be disabled") a video plays on the
 // PUBLIC /[slug] page ONLY when an `approved` verdict is BOUND to that exact
-// media (stdVideoIsServable). This is what computes that verdict.
+// media (stdVideoServeUrls). This is what computes that verdict.
 //
 // nsfwjs is image-only and the lambda has no ffmpeg, so — exactly like a Papic
 // clip — the video is screened by its POSTER FRAME: one JPEG the browser
@@ -542,14 +542,34 @@ export async function screenEditorialVendorMedia(opts: {
 // authenticated + anon (migration 20271007493007).
 //
 // And it is BOUND to the media it judged: both R2 keys plus a CONTENT
-// fingerprint (`<etag>:<bytes>`) of each object. Changing either key invalidates
-// it; re-PUTting different bytes to the same key invalidates it too (the public
-// read re-HEADs and compares — lib/std-video-gate.ts). This is deliberately NOT
-// the "preserve the old verdict on UPDATE" trigger, which would PIN an approval
-// onto swapped media and make a one-off bypass permanent.
+// fingerprint (`<etag>:<bytes>`) of each object. This is deliberately NOT the
+// "preserve the old verdict on UPDATE" trigger, which would PIN an approval onto
+// swapped media and make a one-off bypass permanent.
 //
 // The poster is fingerprinted on BOTH sides of the byte read and the two must
 // agree, so the fingerprint we store always describes the bytes we classified.
+//
+// ── ROUND TWO: A CLEAN DECISION *SEALS* THE BYTES ───────────────────────────
+// Binding a verdict to a MUTABLE key is not enough, because the key stays
+// writable: the couple holds a 5-minute presigned PUT and can re-PUT different
+// bytes seconds after approval, and a presigned GET cannot be conditioned on an
+// ETag. So on 'clean' this function COPIES the classified objects, server-side
+// and conditioned on their ETags, into events/{id}/std-screened/… — a prefix
+// /api/upload refuses to presign — and records those sealed keys in the verdict.
+// The public page is served the seal. A later swap of the couple's upload lands
+// on an object no guest reads.
+//
+// A seal that cannot be completed is NOT an approval: the verdict stays
+// undecided and the opportunistic heal retries. There is no "approved but
+// unsealed" state that shows anything to a guest.
+//
+// ── WHAT THIS STILL DOES NOT DO (stated, not hidden) ────────────────────────
+// The classifier reads the POSTER, never the video's own frames. Sealing makes
+// the verdict cover exactly the bytes the guest receives; it does not make a
+// poster-derived verdict a statement about the video's content. A host who
+// uploads a dirty video with a clean, unrelated poster still gets an approval —
+// bound, sealed, and wrong. Closing THAT needs server-side frame extraction and
+// belongs to the platform-wide nsfw-screen sweep, not here. See the PR body.
 //
 // Verdict mapping: 'clean' → 'approved' (goes live) · 'nsfw_blocked' →
 // 'rejected' (never live). FAIL-OPEN in the sense that an error never throws
@@ -579,7 +599,10 @@ export async function screenStdVideo(opts: {
     const { resolveStdMedia, resolveStdNsfwVerdict, stdVideoNeedsScreen } = await import(
       '@/lib/std-media'
     );
-    const { r2ContentFingerprint } = await import('@/lib/std-video-gate');
+    const { sealScreenedMedia, stdSourceFingerprints } = await import(
+      '@/lib/std-video-gate'
+    );
+    const { parseClientRef, stdVideoPosterPolicy } = await import('@/lib/r2-client-ref');
     const admin = createAdminClient();
 
     /** UPDATE the verdict only while the row still holds this exact media. */
@@ -599,12 +622,14 @@ export async function screenStdVideo(opts: {
       .maybeSingle();
     if (rowError || !row) return; // event gone / pre-migration env
     const record = row as Record<string, unknown>;
-    const media = resolveStdMedia(record.std_media);
+    // Strict resolve — a ref that is not this event's own r2:// upload is not a
+    // video at all, so nothing below can be tricked into screening a decoy.
+    const media = resolveStdMedia(record.std_media, opts.eventId);
     const verdict = resolveStdNsfwVerdict(record.std_media_nsfw);
     // Only screen the video this call was fired for…
     if (media.videoKey !== opts.videoKey || media.posterKey !== opts.posterR2Key) return;
     // …and only when it actually needs one (undecided, outside the retry window).
-    if (!stdVideoNeedsScreen(media, verdict)) return;
+    if (!stdVideoNeedsScreen(media, verdict, opts.eventId)) return;
 
     // Record the ATTEMPT first, so a crash / timeout past this point still
     // throttles the opportunistic heal instead of re-loading the model forever.
@@ -615,6 +640,8 @@ export async function screenStdVideo(opts: {
       posterKey: opts.posterR2Key,
       videoFingerprint: null,
       posterFingerprint: null,
+      servedVideoKey: null,
+      servedPosterKey: null,
       screenedAt: null,
       attemptedAt,
     };
@@ -622,32 +649,60 @@ export async function screenStdVideo(opts: {
 
     // Fingerprint the poster, read it, fingerprint it again. If the bytes moved
     // under us mid-read we do not know what we classified — bail (stays pending).
-    const posterBefore = await r2ContentFingerprint(opts.posterR2Key);
-    if (!posterBefore) return;
+    const before = await stdSourceFingerprints(media, opts.eventId);
+    if (!before.poster || !before.video) return;
 
+    // Read through the SAME parse the fingerprint used — one parser, one object.
+    const posterObj = parseClientRef(media.posterKey, stdVideoPosterPolicy(opts.eventId));
+    if (!posterObj) return;
     const { readR2Object } = await import('@/lib/drive-upload');
-    const { R2_BUCKETS } = await import('@/lib/r2');
-    const { bucket, key } = parseR2Ref(opts.posterR2Key);
-    const bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
+    const bytes = await readR2Object(posterObj.key, posterObj.bucket);
 
-    const posterAfter = await r2ContentFingerprint(opts.posterR2Key);
-    if (!posterAfter || posterAfter !== posterBefore) return;
-
+    const after = await stdSourceFingerprints(media, opts.eventId);
+    if (after.poster !== before.poster) return;
     // The VIDEO is never downloaded (it can be hundreds of MB) but it IS
-    // fingerprinted — it is the object that actually plays, so a later swap of
-    // its bytes has to invalidate the verdict.
-    const videoFingerprint = await r2ContentFingerprint(opts.videoKey);
-    if (!videoFingerprint) return;
+    // fingerprinted, and the seal below is conditioned on that same ETag.
+    if (after.video !== before.video) return;
 
     const scores = await classifyImageBytes(bytes);
     const decision = decideNsfw(scores);
 
+    if (decision !== 'clean') {
+      await writeVerdict({
+        status: 'rejected',
+        videoKey: opts.videoKey,
+        posterKey: opts.posterR2Key,
+        videoFingerprint: before.video,
+        posterFingerprint: before.poster,
+        servedVideoKey: null,
+        servedPosterKey: null,
+        screenedAt: new Date().toISOString(),
+        attemptedAt,
+      });
+      return;
+    }
+
+    // CLEAN → seal the exact bytes we judged into the un-writable prefix, and
+    // only then record an approval. If the seal fails (source moved under us,
+    // R2 refused the conditional copy, the copy landed with different bytes) the
+    // verdict stays at the `pending` we wrote above and the heal retries after
+    // the throttle window. An unsealed approval is never written.
+    const sealed = await sealScreenedMedia({
+      eventId: opts.eventId,
+      media,
+      videoFingerprint: before.video,
+      posterFingerprint: before.poster,
+    });
+    if (!sealed) return;
+
     await writeVerdict({
-      status: decision === 'clean' ? 'approved' : 'rejected',
+      status: 'approved',
       videoKey: opts.videoKey,
       posterKey: opts.posterR2Key,
-      videoFingerprint,
-      posterFingerprint: posterAfter,
+      videoFingerprint: before.video,
+      posterFingerprint: before.poster,
+      servedVideoKey: sealed.servedVideoKey,
+      servedPosterKey: sealed.servedPosterKey,
       screenedAt: new Date().toISOString(),
       attemptedAt,
     });

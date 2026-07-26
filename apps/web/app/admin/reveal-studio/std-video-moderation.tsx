@@ -26,6 +26,12 @@ export type PendingStdVideo = {
   status: 'pending' | 'rejected';
   videoUrl: string | null;
   posterUrl: string | null;
+  /** `<etag>:<bytes>` of the exact objects presigned into the player below.
+   *  SEC-6: Approve is PINNED to these, so a decision can only ever cover the
+   *  bytes the reviewer was shown — not whatever sits at the key when they
+   *  click. A mismatch comes back as `stale-media`. */
+  videoFingerprint: string | null;
+  posterFingerprint: string | null;
 };
 
 export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) {
@@ -41,14 +47,23 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
     setError(null);
     setBusyId(eventId);
     startTransition(async () => {
-      const r = await save.run(() => setStdVideoModeration(eventId, decision), {
-        steps: ['Recording your decision'],
-        hint: 'Saving',
-      });
+      const row = rows.find((x) => x.eventId === eventId);
+      const r = await save.run(
+        () =>
+          setStdVideoModeration(eventId, decision, {
+            videoFingerprint: row?.videoFingerprint ?? null,
+            posterFingerprint: row?.posterFingerprint ?? null,
+          }),
+        { steps: ['Recording your decision'], hint: 'Saving' },
+      );
       if (r.ok) {
-        setRows((prev) => prev.filter((row) => row.eventId !== eventId));
+        setRows((prev) => prev.filter((x) => x.eventId !== eventId));
       } else {
-        setError(r.error || 'Could not save — try again.');
+        setError(
+          r.error === 'stale-media'
+            ? 'This video changed since the page loaded — reload and watch it again before approving.'
+            : r.error || 'Could not save — try again.',
+        );
       }
       setBusyId(null);
     });

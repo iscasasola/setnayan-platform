@@ -1,7 +1,7 @@
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStdMedia, resolveStdNsfwVerdict, stdNsfwDisplayStatus } from '@/lib/std-media';
+import { stdVideoReviewMedia } from '@/lib/std-video-gate';
 import { RevealStudio } from '@/app/admin/reveal-studio/studio';
 import {
   StdVideoModeration,
@@ -56,22 +56,36 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
 
     const needing = rows
       // A verdict naming a video the couple has since replaced is stale, so its
-      // event belongs back in this queue.
+      // event belongs back in this queue. So is an `approved` verdict that never
+      // produced a sealed copy — it shows nothing to a guest, and filtering on
+      // the raw status would hide it from the ONE surface that can fix it
+      // (SEC-6 round two: fail-closed must not also mean invisible).
       .map((r) => {
-        const m = resolveStdMedia(r.std_media);
-        const verdict = resolveStdNsfwVerdict(verdicts.get(r.event_id as string));
-        return { r, m, s: stdNsfwDisplayStatus(m, verdict) };
+        const eventId = r.event_id as string;
+        const m = resolveStdMedia(r.std_media, eventId);
+        const verdict = resolveStdNsfwVerdict(verdicts.get(eventId));
+        return { r, m, s: stdNsfwDisplayStatus(m, verdict, eventId) };
       })
       .filter(({ m, s }) => m.type === 'video' && m.videoKey && s !== 'approved');
     return Promise.all(
-      needing.map(async ({ r, m, s }) => ({
-        eventId: r.event_id as string,
-        publicId: (r.public_id as string) ?? '',
-        name: (r.display_name as string) || 'Untitled wedding',
-        status: s as 'pending' | 'rejected',
-        videoUrl: m.videoKey ? await displayUrlForStoredAsset(m.videoKey) : null,
-        posterUrl: m.posterKey ? await displayUrlForStoredAsset(m.posterKey) : null,
-      })),
+      needing.map(async ({ r, m, s }) => {
+        // The reviewer watches the couple's SOURCE objects (the bytes under
+        // judgement) through the same strict parser the gate uses — never
+        // displayUrlForStoredAsset, whose legacy passthrough could point the
+        // player at a foreign origin while the fingerprint covered an R2 decoy.
+        // The fingerprints ride along so Approve can be pinned to them.
+        const review = await stdVideoReviewMedia(m, r.event_id as string);
+        return {
+          eventId: r.event_id as string,
+          publicId: (r.public_id as string) ?? '',
+          name: (r.display_name as string) || 'Untitled wedding',
+          status: s as 'pending' | 'rejected',
+          videoUrl: review.videoUrl,
+          posterUrl: review.posterUrl,
+          videoFingerprint: review.videoFingerprint,
+          posterFingerprint: review.posterFingerprint,
+        };
+      }),
     );
   } catch {
     // Pre-migration env / read error → empty queue (panel hides). Never break the page.

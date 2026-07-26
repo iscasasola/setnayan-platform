@@ -45,8 +45,9 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { resolveStdMedia } from '@/lib/std-media';
-import { loadStdNsfwVerdict, stdVideoIsServable } from '@/lib/std-video-gate';
+import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -278,8 +279,13 @@ export const loadMedia = cache(
     // (the photo becomes its poster). Music resolves only when the couple has
     // both enabled it AND set a track. Both resolve to presigned 24h URLs here
     // and thread into the render paths like heroPhotoUrl.
+    //
+    // SEC-6 (D16): the hero video is a couple-uploaded clip that NOTHING screens
+    // — no poster, no verdict, no gate — so it does not reach a guest until it
+    // goes through the same screen-and-seal spine as std_media. The still photo
+    // (already its poster) shows instead. See lib/guest-hero-video.ts.
     const heroVideoUrl = await displayUrlForStoredAsset(
-      event.landing_page_hero_video_r2_key,
+      heroVideoRefForGuests(event.landing_page_hero_video_r2_key),
     );
     // The couple's song plays whenever they've ENABLED it + set a track
     // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
@@ -306,33 +312,39 @@ export const loadMedia = cache(
           : null;
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
-    // either their photo gallery (default) or an uploaded video. The video plays
-    // on this PUBLIC page ONLY when the service-role screen produced an
-    // `approved` verdict BOUND to this exact media — same two R2 keys AND the
-    // same content fingerprints (SEC-6 · stdVideoIsServable). The verdict lives
-    // in events.std_media_nsfw, which the host cannot write; a verdict that no
-    // longer matches the media is STALE and the gallery beat shows instead.
-    // Unknown or stale ⇒ not shown. PR-B (0024 · 2026-06-19).
-    // The verdict is read in its OWN query (loadStdNsfwVerdict), and only when a
-    // video is actually configured — see that helper for why it is not folded
-    // into the select above.
-    const stdMedia = resolveStdMedia(event.std_media);
-    const stdVideoUrl =
-      stdMedia.type === 'video' &&
-      stdMedia.videoKey &&
-      (await stdVideoIsServable(stdMedia, await loadStdNsfwVerdict(admin, event.event_id)))
-        ? await displayUrlForStoredAsset(stdMedia.videoKey)
+    // either their photo gallery (default) or an uploaded video.
+    //
+    // SEC-6 — ONE function decides AND emits. `stdVideoServeUrls` resolves the
+    // row strictly (a ref that is not this event's own r2:// upload is not a
+    // video), requires an `approved` verdict from the host-unwritable
+    // events.std_media_nsfw column, and then presigns the SEALED copies the
+    // screen made of the bytes it classified — never `std_media.videoKey`.
+    //
+    // That last part is the round-two fix. `displayUrlForStoredAsset` returns any
+    // non-`r2://` value VERBATIM as a URL, so calling it with a host-writable ref
+    // let a URL-shaped R2 key ("http:/evil.example/…") be fingerprinted as an
+    // object here and resolved as a foreign origin by the browser. Nothing on
+    // this path may pass std_media through that helper again.
+    //
+    // The verdict is read in its OWN query (loadStdNsfwVerdict) so a deploy that
+    // lands ahead of the migration degrades to "gallery beat", not a 404.
+    const stdMedia = resolveStdMedia(event.std_media, event.event_id);
+    const stdServe =
+      stdMedia.type === 'video'
+        ? await stdVideoServeUrls(
+            stdMedia,
+            await loadStdNsfwVerdict(admin, event.event_id),
+            event.event_id,
+          )
         : null;
-    // The video's poster frame (client-extracted on upload). Resolved ONLY in
-    // "fit to screen" mode (std_media.fit === 'fit'), where the full-screen video
-    // beat fills the letterbox bars with a BLURRED STILL of it — a 2nd <video> for
-    // that backdrop won't play on iOS (one-video-at-a-time), so a static image is
-    // the iOS-safe fill (owner 2026-06-21 "still black screens on top and bottom").
-    // "fill" (the default) needs no poster: the clip plays object-cover, edge-to-edge.
-    const stdVideoPosterUrl =
-      stdVideoUrl && stdMedia.fit === 'fit' && stdMedia.posterKey
-        ? await displayUrlForStoredAsset(stdMedia.posterKey)
-        : null;
+    const stdVideoUrl = stdServe?.videoUrl ?? null;
+    // The video's poster frame (client-extracted on upload, then sealed with it).
+    // Resolved ONLY in "fit to screen" mode (std_media.fit === 'fit'), where the
+    // full-screen video beat fills the letterbox bars with a BLURRED STILL of it
+    // — a 2nd <video> for that backdrop won't play on iOS (one-video-at-a-time),
+    // so a static image is the iOS-safe fill (owner 2026-06-21 "still black
+    // screens on top and bottom"). "fill" (the default) needs no poster.
+    const stdVideoPosterUrl = stdServe && stdMedia.fit === 'fit' ? stdServe.posterUrl : null;
 
     // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
     // from the couple's FINALIZED vendor bookings (event_vendors); the reception

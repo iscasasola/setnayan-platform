@@ -305,11 +305,21 @@ export async function r2Head(args: {
  * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
  * special encoding. Throws if R2 isn't configured or the source is missing —
  * callers MUST treat a throw as "did not relocate" and leave the row untouched.
+ *
+ * `sourceIfMatch` sets `x-amz-copy-source-if-match`: the copy is REFUSED (412)
+ * unless the source still carries that ETag. Pass it whenever the copy is meant
+ * to capture bytes you already inspected — without it there is a window between
+ * "we checked these bytes" and "we copied them" in which the source can be
+ * re-PUT, and the copy would faithfully preserve the swap. Used by the SEC-6
+ * Save-the-Date seal (lib/std-video-gate.ts), which additionally HEADs the
+ * destination afterwards, so a backend that ignored the condition still fails
+ * closed rather than sealing unverified bytes.
  */
 export async function r2Copy(args: {
   bucket: R2BucketName;
   fromKey: string;
   toKey: string;
+  sourceIfMatch?: string;
 }): Promise<void> {
   const client = requireR2Client();
   await client.send(
@@ -317,6 +327,7 @@ export async function r2Copy(args: {
       Bucket: args.bucket,
       CopySource: `${args.bucket}/${args.fromKey}`,
       Key: args.toKey,
+      CopySourceIfMatch: args.sourceIfMatch,
     }),
   );
 }

@@ -16,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { mergeRevealConfig } from '@/lib/reveal-config';
 import { resolveStdMedia } from '@/lib/std-media';
-import { r2ContentFingerprint } from '@/lib/std-video-gate';
+import { sealScreenedMedia, stdSourceFingerprints } from '@/lib/std-video-gate';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -72,10 +72,24 @@ export async function saveRevealStudio(input: unknown): Promise<Result> {
  *
  * An 'approved' decision REQUIRES both fingerprints. If R2 cannot identify the
  * objects we refuse rather than write an approval we cannot bind (fail closed).
+ *
+ * ── ROUND TWO: APPROVAL IS PINNED TO THE BYTES THAT WERE ON SCREEN ──────────
+ * The reviewer watches at T0 and clicks Approve at T1. Fingerprinting at T1 —
+ * which is what the first cut did — approves whatever is at the key when the
+ * button is pressed, and the couple still holds a presigned PUT for that key.
+ * So the queue now hands the reviewer the fingerprints of the exact objects it
+ * presigned for their player, and this action REFUSES unless the live bytes
+ * still match them (`stale-media`). The reviewer then re-opens the refreshed
+ * queue and watches the new bytes, which is the only honest resolution.
+ *
+ * And an approval SEALS: the approved bytes are copied into the un-writable
+ * `std-screened/` prefix and it is that copy the guest page serves, so the
+ * admin's decision cannot be undone by a later re-PUT either.
  */
 export async function setStdVideoModeration(
   eventId: string,
   decision: 'approved' | 'rejected',
+  expect?: { videoFingerprint?: string | null; posterFingerprint?: string | null },
 ): Promise<Result> {
   try {
     await assertAdmin();
@@ -91,16 +105,37 @@ export async function setStdVideoModeration(
       .maybeSingle();
     if (readErr) return { ok: false, error: readErr.message };
     if (!row) return { ok: false, error: 'not-found' };
-    const media = resolveStdMedia((row as Record<string, unknown>).std_media);
+    const media = resolveStdMedia((row as Record<string, unknown>).std_media, eventId);
     if (media.type !== 'video' || !media.videoKey) return { ok: false, error: 'no-video' };
     if (!media.posterKey) return { ok: false, error: 'no-poster' };
 
-    const [videoFingerprint, posterFingerprint] = await Promise.all([
-      r2ContentFingerprint(media.videoKey),
-      r2ContentFingerprint(media.posterKey),
-    ]);
+    const { video: videoFingerprint, poster: posterFingerprint } =
+      await stdSourceFingerprints(media, eventId);
     if (decision === 'approved' && (!videoFingerprint || !posterFingerprint)) {
       return { ok: false, error: 'media-unreadable' };
+    }
+    // The pin. An approval must cover the bytes the reviewer was shown; a
+    // rejection is safe either way (it only ever withholds), so it is not pinned
+    // — refusing to reject stale media would leave a video un-blockable.
+    if (
+      decision === 'approved' &&
+      (videoFingerprint !== (expect?.videoFingerprint ?? null) ||
+        posterFingerprint !== (expect?.posterFingerprint ?? null))
+    ) {
+      return { ok: false, error: 'stale-media' };
+    }
+
+    // Seal BEFORE writing the approval — an approval with no sealed copy shows
+    // nothing to a guest, so writing one would just create a confusing dead row.
+    let sealed: { servedVideoKey: string; servedPosterKey: string } | null = null;
+    if (decision === 'approved') {
+      sealed = await sealScreenedMedia({
+        eventId,
+        media,
+        videoFingerprint: videoFingerprint as string,
+        posterFingerprint: posterFingerprint as string,
+      });
+      if (!sealed) return { ok: false, error: 'media-unreadable' };
     }
 
     const now = new Date().toISOString();
@@ -113,6 +148,8 @@ export async function setStdVideoModeration(
           posterKey: media.posterKey,
           videoFingerprint,
           posterFingerprint,
+          servedVideoKey: sealed?.servedVideoKey ?? null,
+          servedPosterKey: sealed?.servedPosterKey ?? null,
           screenedAt: now,
           attemptedAt: now,
         },

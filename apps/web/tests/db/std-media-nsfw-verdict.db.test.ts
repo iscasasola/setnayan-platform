@@ -394,3 +394,171 @@ test('the migration is idempotent (db push may re-run it)', async () => {
   assert.ok(after, 're-applying the migration wiped a legitimate verdict');
   await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
 });
+
+// ── 5. D18 — the grant-independent lock ─────────────────────────────────────
+//
+// The REVOKE is the primary control, and the tests above prove it. But it is a
+// GRANT, and 20271005100000 recomputes the grants on this table from the LIVE
+// catalog as "every column MINUS a hard-coded deny-set". std_media_nsfw cannot
+// be added to that deny-set (the file predates the column; its typo guard RAISEs
+// on a name that does not exist yet), so RE-APPLYING that baseline hands UPDATE
+// straight back and re-opens SEC-6 in silence.
+//
+// So the migration also installs guard_events_std_media_nsfw_trg. These tests
+// restore the grant on purpose — reproducing the regression exactly — and assert
+// the write STILL fails, with the service_role differential to prove the
+// statement itself is fine.
+
+test('D18 REGRESSION: even WITH the column grant restored, a host cannot write the verdict', async () => {
+  await reset();
+  // Reproduce the trap: hand authenticated + anon the privilege back.
+  await db.exec(
+    `GRANT UPDATE (std_media_nsfw), INSERT (std_media_nsfw) ON public.events TO authenticated, anon;`,
+  );
+
+  await asHost();
+  // The grant really landed — otherwise this test would be the earlier one again.
+  const priv = await db.query<{ u: boolean }>(
+    `SELECT has_column_privilege('authenticated','public.events','std_media_nsfw','UPDATE') AS u`,
+  );
+  assert.equal(
+    priv.rows[0]!.u,
+    true,
+    'the re-GRANT did not take — this test is not reproducing the D18 regression',
+  );
+
+  const err = await tryQuery(
+    `UPDATE public.events SET std_media_nsfw = $2::jsonb WHERE event_id = $1`,
+    [eventId, FORGED_VERDICT],
+  );
+  assert.ok(err, 'a re-applied privilege baseline re-opened SEC-6');
+  assert.match(
+    err as string,
+    /written only by the screening service/i,
+    `expected the trigger to refuse, got: ${err}`,
+  );
+  assert.equal(await storedVerdict(), null, 'the forged verdict landed anyway');
+
+  // INSERT vector, same conditions.
+  await asHost();
+  const insErr = await tryQuery(
+    `INSERT INTO public.events (display_name, event_type, std_media_nsfw)
+     VALUES ('Pre-approved despite grant', 'birthday', $1::jsonb)`,
+    [FORGED_VERDICT],
+  );
+  assert.ok(insErr, 'a host created a pre-approved event once the grant was back');
+  assert.match(insErr as string, /written only by the screening service/i);
+
+  // ANON too. Note the DIFFERENT mechanism: anon sees no rows on public.events
+  // (RLS), so its UPDATE matches nothing and "succeeds" against zero rows rather
+  // than reaching the trigger. Assert the OUTCOME — no verdict lands — which is
+  // the property that matters and is true either way.
+  await asAnon();
+  await tryQuery(`UPDATE public.events SET std_media_nsfw = $2::jsonb WHERE event_id = $1`, [
+    eventId,
+    FORGED_VERDICT,
+  ]);
+  assert.equal(
+    await storedVerdict(),
+    null,
+    'the public anon key wrote a verdict once the grant was back',
+  );
+  // …and the INSERT vector, which anon CAN reach (no row to be hidden by RLS),
+  // is stopped by the trigger itself.
+  await asAnon();
+  const anonInsErr = await tryQuery(
+    `INSERT INTO public.events (display_name, event_type, std_media_nsfw)
+     VALUES ('Anon pre-approved', 'birthday', $1::jsonb)`,
+    [FORGED_VERDICT],
+  );
+  assert.ok(anonInsErr, 'anon inserted an event with a verdict baked in');
+
+  // DIFFERENTIAL — service_role, same statement, must succeed. Without this the
+  // refusals above could be a broken statement rather than an enforced guard.
+  await asService();
+  const svcErr = await tryQuery(
+    `UPDATE public.events SET std_media_nsfw = $2::jsonb WHERE event_id = $1`,
+    [eventId, FORGED_VERDICT],
+  );
+  assert.equal(svcErr, null, `service_role also failed (${svcErr}) — the refusals prove nothing`);
+
+  // NON-VACUITY of the trigger itself: drop it, re-run the identical host
+  // statement under the identical grant, and watch it SUCCEED. If this write
+  // were failing for any other reason, it would fail here too.
+  await reset();
+  await db.exec(`DROP TRIGGER IF EXISTS guard_events_std_media_nsfw_trg ON public.events;`);
+  await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
+  await asHost();
+  const unguarded = await tryQuery(
+    `UPDATE public.events SET std_media_nsfw = $2::jsonb WHERE event_id = $1`,
+    [eventId, FORGED_VERDICT],
+  );
+  assert.equal(
+    unguarded,
+    null,
+    'with the trigger dropped AND the grant restored the write still failed — the assertions above are not measuring the trigger',
+  );
+  assert.ok(await storedVerdict(), 'the unguarded write did not land — non-vacuity unproven');
+
+  // Restore prod state for anything that runs after this file.
+  await reset();
+  await db.exec(`
+    CREATE TRIGGER guard_events_std_media_nsfw_trg
+      BEFORE INSERT OR UPDATE ON public.events
+      FOR EACH ROW EXECUTE FUNCTION public.guard_events_std_media_nsfw();
+    REVOKE UPDATE (std_media_nsfw), INSERT (std_media_nsfw)
+      ON public.events FROM authenticated, anon;
+  `);
+  await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
+});
+
+test('D18 the guard does NOT preserve an old verdict — it refuses the statement', async () => {
+  // The rejected design was "on UPDATE, keep the OLD nsfw value", which PINS an
+  // approval onto media swapped underneath it. Prove this trigger is the other
+  // thing: with a verdict present, a host UPDATE that touches it ERRORS (the
+  // whole statement is lost), and a host UPDATE that does not touch it succeeds
+  // with the verdict untouched — no silent carry-forward, no pinning.
+  await reset();
+  await db.query(`UPDATE public.events SET std_media_nsfw = $2::jsonb WHERE event_id = $1`, [
+    eventId,
+    FORGED_VERDICT,
+  ]);
+  await db.exec(
+    `GRANT UPDATE (std_media_nsfw) ON public.events TO authenticated;`,
+  );
+
+  await asHost();
+  const err = await tryQuery(
+    `UPDATE public.events
+        SET display_name = 'Renamed', std_media_nsfw = '{"status":"approved"}'::jsonb
+      WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.ok(err, 'the multi-column write slipped a forged verdict through');
+  await reset();
+  const name = await db.query<{ n: string }>(
+    `SELECT display_name AS n FROM public.events WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.notEqual(
+    name.rows[0]!.n,
+    'Renamed',
+    'the statement was NOT rejected — the guard silently preserved the column instead, which is the pinning design this migration refuses',
+  );
+
+  // An ordinary host edit that leaves the verdict alone still works.
+  await asHost();
+  const ok = await tryQuery(
+    `UPDATE public.events SET display_name = 'Ordinary Edit' WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(ok, null, `an ordinary host edit was blocked by the guard: ${ok}`);
+
+  await reset();
+  const kept = await storedVerdict();
+  assert.ok(kept, 'the ordinary edit dropped the verdict');
+  await db.exec(
+    `REVOKE UPDATE (std_media_nsfw) ON public.events FROM authenticated;`,
+  );
+  await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
+});

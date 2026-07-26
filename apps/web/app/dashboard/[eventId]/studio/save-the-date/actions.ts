@@ -240,7 +240,7 @@ export async function saveAllStdContent(
   // back to the saved one when the video is unchanged.
   let screenAfterSave: { videoKey: string; posterR2Key: string } | null = null;
   if (data.media !== undefined && data.media !== null) {
-    const incoming = resolveStdMedia(data.media);
+    const incoming = resolveStdMedia(data.media, eventId);
     // SEC-1: videoKey / posterKey are client-supplied refs that get presigned
     // later on the PUBLIC wedding site (app/[slug]/_lib/loaders.ts) and read
     // server-side by screenStdVideo(). Pin both to this event's own uploads.
@@ -252,7 +252,7 @@ export async function saveAllStdContent(
         .eq('event_id', eventId)
         .maybeSingle();
       const currentRow = (cur as Record<string, unknown> | null) ?? null;
-      const current = resolveStdMedia(currentRow?.std_media);
+      const current = resolveStdMedia(currentRow?.std_media, eventId);
       // Same grandfather clause as the background above: a ref identical to the
       // one already stored may be echoed back, anything NEW must pass policy.
       if (
@@ -283,7 +283,11 @@ export async function saveAllStdContent(
       // about to save. `stdVideoNeedsScreen` is the SAME predicate the screen
       // itself re-checks, so this is a hint, never an authorisation.
       if (
-        stdVideoNeedsScreen(nextMedia, resolveStdNsfwVerdict(currentRow?.std_media_nsfw)) &&
+        stdVideoNeedsScreen(
+          nextMedia,
+          resolveStdNsfwVerdict(currentRow?.std_media_nsfw),
+          eventId,
+        ) &&
         posterKey
       ) {
         screenAfterSave = { videoKey: incoming.videoKey, posterR2Key: posterKey };

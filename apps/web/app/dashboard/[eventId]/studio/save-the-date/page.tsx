@@ -137,14 +137,14 @@ export default async function SaveTheDatePage({ params }: Props) {
   const stdBackground = resolveStdBackground(event?.std_background, veilColor);
   const stdBackgroundUploadUrl =
     stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
-  const stdMedia = resolveStdMedia(event?.std_media);
+  const stdMedia = resolveStdMedia(event?.std_media, eventId);
   // SEC-6 — the screening verdict is a SEPARATE, host-unwritable column bound to
   // the media it judged. The couple sees its status; they cannot set it. A
   // verdict that no longer binds (they swapped the video) reads as 'pending'.
   // Own query (see loadStdNsfwVerdict) so a deploy that lands ahead of the
   // migration degrades to "being reviewed" instead of blanking the builder.
   const stdNsfwVerdict = await loadStdNsfwVerdict(supabase, eventId);
-  const stdNsfwStatus = stdNsfwDisplayStatus(stdMedia, stdNsfwVerdict);
+  const stdNsfwStatus = stdNsfwDisplayStatus(stdMedia, stdNsfwVerdict, eventId);
   // OPPORTUNISTIC HEAL (cron-free, the repo idiom). screenStdVideo is fired
   // fire-and-forget from saveAllStdContent, so a dropped screen — a cold lambda,
   // an R2 hiccup, a killed request — would otherwise leave a legitimate video
@@ -153,7 +153,11 @@ export default async function SaveTheDatePage({ params }: Props) {
   // where someone is asking "why isn't my video showing yet?". Bounded by
   // stdVideoNeedsScreen's 10-minute attempt throttle and idempotent (the screen
   // re-checks the same predicate and writes conditionally on the media).
-  if (stdVideoNeedsScreen(stdMedia, stdNsfwVerdict) && stdMedia.videoKey && stdMedia.posterKey) {
+  if (
+    stdVideoNeedsScreen(stdMedia, stdNsfwVerdict, eventId) &&
+    stdMedia.videoKey &&
+    stdMedia.posterKey
+  ) {
     const videoKey = stdMedia.videoKey;
     const posterR2Key = stdMedia.posterKey;
     after(async () => {

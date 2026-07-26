@@ -181,27 +181,84 @@ BEGIN
   END IF;
 END $$;
 
+-- ----------------------------------------------------------------------------
+-- A SECOND, GRANT-INDEPENDENT LOCK
+--
+-- The REVOKE above is the primary control and it holds today. But it is a GRANT,
+-- and grants on this table are recomputed by a migration that snapshots the live
+-- catalog: 20271005100000 builds its allow-list as "every column of public.events
+-- MINUS a hard-coded deny-set". std_media_nsfw cannot be added to that deny-set
+-- (the file predates the column and its typo guard RAISEs on a name that does not
+-- exist yet, breaking every fresh replay), so RE-APPLYING that baseline after
+-- this file hands UPDATE back to `authenticated` and re-opens SEC-6 in silence.
+-- `db push` will not do it on its own; a deliberate re-apply will.
+--
+-- So the verdict is ALSO defended by a trigger, which no GRANT can undo.
+--
+-- ⚠ THIS IS NOT THE "PRESERVE THE OLD VERDICT" TRIGGER THIS MIGRATION REJECTS.
+-- That one silently keeps the previous value, which PINS an approval onto media
+-- that was swapped underneath it. This one REFUSES THE STATEMENT. It never
+-- carries a verdict forward, so it cannot make an approval outlive its media —
+-- the binding + seal in the application layer remain the only thing that decides
+-- whether a verdict still applies.
+--
+-- Scope: `authenticated` and `anon` only. service_role, postgres and every
+-- migration are untouched, and an ordinary host edit (display_name, std_media,
+-- …) leaves the column IS NOT DISTINCT FROM its old value and no-ops through.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.guard_events_std_media_nsfw()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.std_media_nsfw IS NOT NULL THEN
+        RAISE EXCEPTION
+          'events.std_media_nsfw is written only by the screening service'
+          USING ERRCODE = 'insufficient_privilege',
+                HINT = 'The Save-the-Date NSFW verdict is set by the service-role screen (lib/nsfw-screen.ts) or the admin override, never by a client.';
+      END IF;
+    ELSIF NEW.std_media_nsfw IS DISTINCT FROM OLD.std_media_nsfw THEN
+      RAISE EXCEPTION
+        'events.std_media_nsfw is written only by the screening service'
+        USING ERRCODE = 'insufficient_privilege',
+              HINT = 'The Save-the-Date NSFW verdict is set by the service-role screen (lib/nsfw-screen.ts) or the admin override, never by a client.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.guard_events_std_media_nsfw() IS
+  'SEC-6 · defence-in-depth for events.std_media_nsfw. The column REVOKE is the primary lock; this trigger survives a re-application of the 20271005100000 privilege baseline, which recomputes its allow-list from the live catalog and would otherwise GRANT the verdict back to authenticated. REFUSES the statement — it never preserves the old value, because a preserve-on-update trigger would pin an approval onto swapped media (the exact failure mode this migration was written to avoid).';
+
+DROP TRIGGER IF EXISTS guard_events_std_media_nsfw_trg ON public.events;
+CREATE TRIGGER guard_events_std_media_nsfw_trg
+  BEFORE INSERT OR UPDATE ON public.events
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_events_std_media_nsfw();
+
 COMMIT;
 
 -- ============================================================================
--- ⚠ MAINTENANCE NOTE — the one way to re-open SEC-6
+-- ⚠ MAINTENANCE NOTE — how SEC-6 could still be re-opened
 --
 -- 20271005100000 computes its allow-list as "every column of public.events MINUS
 -- its hard-coded deny-set", from the LIVE catalog. std_media_nsfw is not in that
 -- deny-set (it could not be: the file predates the column, and its typo guard
 -- RAISEs on a name that does not exist yet, which would break every fresh
--- replay). So RE-RUNNING 20271005100000 *after* this file would GRANT UPDATE on
--- std_media_nsfw back to authenticated and re-open the hole.
+-- replay). So RE-RUNNING 20271005100000 *after* this file GRANTs UPDATE on
+-- std_media_nsfw back to authenticated.
 --
--- `supabase db push` never re-runs an applied migration, so this cannot happen
--- by itself. It happens if someone deliberately re-applies the privilege
--- baseline. If you ever do:
+-- Since 2026-07-26 that alone is no longer enough to publish a forged verdict —
+-- guard_events_std_media_nsfw_trg still refuses the write, and
+-- tests/db/std-media-nsfw-verdict.db.test.ts proves it by RE-GRANTING the column
+-- and re-running the identical statement. But belt and braces: if you ever do
+-- re-apply the baseline, also run
 --     REVOKE UPDATE (std_media_nsfw), INSERT (std_media_nsfw)
 --       ON public.events FROM authenticated, anon;
--- must run after it — or, better, add 'std_media_nsfw' to that migration's
--- locked_columns AND to apps/web/lib/security/events-column-privileges.ts in the
--- same change (both are asserted identical by that module's unit test), and
--- re-order it to land after this file.
+-- and do NOT drop the trigger.
 --
--- tests/db/std-media-nsfw-verdict.db.test.ts proves the shipped ordering.
+-- The same test proves the shipped ordering end to end.
 -- ============================================================================

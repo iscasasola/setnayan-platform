@@ -60,7 +60,7 @@ export type StdFilmContent = {
    * gallery. null → no video beat (the gallery beat shows instead). On the live
    * page this is set ONLY when the video carries an NSFW verdict that is
    * `approved` AND still bound to it — same R2 keys, same bytes (SEC-6 ·
-   * stdVideoIsServable). Stale or unknown ⇒ null, and the gallery beat shows.
+   * stdVideoServeUrls). Stale or unknown ⇒ null, and the gallery beat shows.
    */
   videoUrl?: string | null;
   /** Poster still of the closing video — for the blurred letterbox fill behind

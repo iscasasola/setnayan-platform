@@ -495,3 +495,64 @@ test('quantity multiplies the COMMITTED price, not a client number', () => {
     '3 × ₱200 committed',
   );
 });
+
+/* ── credit purchases must SURVIVE a line removal ─────────────────────────── */
+
+test('credit already spent is NOT handed back when a line is removed', () => {
+  // THE GAP THIS PINS. `removeItemFromPackage` re-priced with no additions, so
+  // dropping any line recomputed the pool as if the couple had bought nothing —
+  // overstating the credit still available. Same shape as the divergence that
+  // once hid a paid upgrade: two write sites, one of them forgetting something.
+  const pkg = pkgWith(
+    [item('a', { replacement_value_centavos: 0 }), item('drop', { replacement_value_centavos: 0 })],
+    { is_consumable_flexible: true, consumable_budget_centavos: 50_000 },
+  );
+  const adds = [{ addition_id: 'svc', quantity: 1 }];
+  const cat = [{ addition_id: 'svc', unit_price_centavos: 30_000 }];
+
+  const atLock = priceCustomizedPackage(pkg, [], [], true, 0, adds, cat)!;
+  const afterRemove = priceCustomizedPackage(pkg, ['drop'], [], true, 0, adds, cat)!;
+
+  assert.equal(
+    atLock.remainingConsumableCentavos,
+    20_000,
+    '₱500 pool − ₱300 spent',
+  );
+  assert.equal(
+    afterRemove.remainingConsumableCentavos,
+    20_000,
+    'the purchase survives the removal — the pool must not refill',
+  );
+
+  // And the bug's signature: pricing WITHOUT the additions hands the money back.
+  const buggy = priceCustomizedPackage(pkg, ['drop'], [], true, 0)!;
+  assert.equal(
+    buggy.remainingConsumableCentavos,
+    50_000,
+    'sanity: forgetting the additions is exactly what overstates the pool',
+  );
+});
+
+test('a removal cannot re-rate a purchase at a NEW price', () => {
+  // The frozen price is used, not a fresh read. If a vendor raises their credit
+  // price after the couple bought, the removal must not silently re-charge.
+  const pkg = pkgWith([item('a', { replacement_value_centavos: 0 })], {
+    is_consumable_flexible: true,
+    consumable_budget_centavos: 50_000,
+  });
+  const atOldPrice = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc', quantity: 1 }],
+    [{ addition_id: 'svc', unit_price_centavos: 30_000 }],
+  )!;
+  const atNewPrice = priceCustomizedPackage(
+    pkg, [], [], true, 0,
+    [{ addition_id: 'svc', quantity: 1 }],
+    [{ addition_id: 'svc', unit_price_centavos: 45_000 }],
+  )!;
+  assert.notEqual(
+    atOldPrice.remainingConsumableCentavos,
+    atNewPrice.remainingConsumableCentavos,
+    'the price passed in is what is charged — so it must be the FROZEN one',
+  );
+});

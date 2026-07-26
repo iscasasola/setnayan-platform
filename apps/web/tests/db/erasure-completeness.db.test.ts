@@ -58,7 +58,8 @@
  *            tables in question.
  *
  * ── NEUTRALISATION PROOF (run 2026-07-26; each mutation reverted + re-verified) ─
- *   Baseline: 25 subtests, 25 pass (and 286/286 for the whole test:db suite).
+ *   Baseline: 32 subtests, 32 pass (and 293/293 for the whole test:db suite).
+ *   N1–N4 were run against the 25-subtest baseline; N5–N8 against 32.
  *
  *   N1 · THE WHOLE POINT — re-create the shipped bug. Put all five phantom
  *        columns back: `owner_email` + `owner_display_name` into
@@ -96,8 +97,46 @@
  *          exactly why META-2 has to exist: a swallow-everything adapter would
  *          make assertion [1] green forever and this whole file worthless.
  *
- * If N1 ever passes, this suite has gone vacuous — stop and fix the harness
- * before touching the purge.
+ *   ── added 2026-07-26 with per-partner scoping ──
+ *
+ *   N5 · Re-create the OVER-DELETION bug: drop
+ *        `.eq('subject_user_id', targetUserId)` from both the paperwork lookup
+ *        and the paperwork update, leaving `.in('event_id', eventIds)` — the
+ *        shipped filter.
+ *        → 3 of 32 FAIL, and all three are SURVIVAL assertions: [3g] the
+ *          co-partner's CENOMAR reference and scan pointer are destroyed
+ *          (expected 'PSA-CENOMAR-2026-0044556', actual null), [3h] the
+ *          unattributed PSA row is destroyed, [3i] the couple's joint marriage
+ *          licence is destroyed. Every DELETION assertion still passes — which
+ *          is the point: the old code looked completely correct to a suite that
+ *          only checks that the leaver's data is gone.
+ *
+ *   N6 · Re-create the same bug on credentials: move the grant delete back
+ *        below the owned-event lookup and scope it `.in('event_id', eventIds)`.
+ *        → 2 of 32 FAIL: [3j] the co-partner's Google refresh token is revoked
+ *          (expected 'PARTNER-REFRESH-TOKEN', actual null), and [3l], because
+ *          with every grant deleted there is no unattributed row left to report
+ *          as retained — the audit note and the survival it describes are the
+ *          same fact seen twice.
+ *
+ *   N7 · Remove the `purgeVendorVerificationDocuments` call from
+ *        `eraseUserAccount`.
+ *        → 1 of 32 FAILS: [2n]. This is the state the codebase shipped in — a
+ *          vendor's government ID, DTI certificate and BIR 2303 surviving
+ *          account deletion in the private bucket — and it is worth noting that
+ *          the erasure GUARDRAIL stays green under N7. It cannot see this
+ *          table (no subject column), so this db test is the only layer that
+ *          catches it.
+ *
+ *   N8 · Neuter `collectStoredAssetRefs` to the obvious implementation: read
+ *        `r2_key` off each top-level slot object.
+ *        → 1 of 32 FAILS: [2n], naming portfolio-1.jpg. The nested array slots
+ *          (`portfolio_samples`) are exactly what a known-key read misses, and
+ *          the missed refs are R2 objects left in the private bucket with the
+ *          row that named them wiped.
+ *
+ * If N1 or N5 ever passes, this suite has gone vacuous — stop and fix the
+ * harness before touching the purge.
  *
  * Run: npm run test:db  (or npx tsx --test tests/db/erasure-completeness.db.test.ts)
  */

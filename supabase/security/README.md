@@ -218,6 +218,7 @@ credentials, and it is the right trade, but it has two consequences worth knowin
   `undo_guest_delivery`, `get_vendor_mood_board`, `rls_auto_enable`) exist in
   production but are created by **no migration**. They were applied out of band.
   Back-filling migrations for them would bring them under this guard.
+  **This is no longer discovered by hand** — see "The companion guard" below.
 - **Everything else matched.** Views matched prod byte-for-byte, including
   `security_invoker` state. Every other difference was fully accounted for by
   those out-of-band objects. See the pull request that introduced this file for
@@ -235,3 +236,40 @@ Storage's own table/column grants are deliberately excluded — `storage.objects
 is Supabase-platform-managed and the replay harness stubs a simplified version
 of it, so privileges reported for it would be fiction. `realtime` and `cron`
 policies are platform-managed and out of scope for the same reason.
+
+---
+
+## The companion guard: schema drift
+
+The gap named above — "the baseline describes what the repo declares, not what
+prod has" — is now itself guarded, by
+`apps/web/tests/db/schema-drift.db.test.ts` against
+[`prod-schema.snapshot.txt`](./prod-schema.snapshot.txt).
+
+**The bug it catches.** `CREATE TABLE IF NOT EXISTS` silently no-ops when the
+table already exists in a different shape. The columns inside never land, but
+the statement SUCCEEDS, `supabase db push` reports success, and the version is
+written to `schema_migrations`. The ledger says applied; the schema disagrees;
+nothing goes red. Found 2026-07-26 in `20260628000000_v2_additive_phase_a.sql`.
+
+**How it differs from the freeze.** The freeze asks *"has the reachable surface
+widened?"* and compares the replay to a baseline **derived from the same
+replay**. The drift check asks *"does the repository's story match reality?"* and
+compares the replay to a snapshot **read from production**. Neither subsumes the
+other: the freeze cannot see a column prod has and the repo does not, and the
+drift check cannot see a policy loosened in both.
+
+**Refresh** (needs prod credentials — run locally, never from a PR):
+
+```bash
+pnpm --filter @setnayan/web schema:snapshot
+```
+
+**They are coupled in one direction, so expect it.** Back-filling a prod-only
+object into a migration makes it appear in the replay, which the freeze reads as
+a **widening**. That is correct and expected — the object was always reachable in
+prod; the baseline simply could not see it. Regenerate the baseline in the same
+commit and check the diff is exactly the back-filled objects and nothing else.
+That happened on 2026-07-26: six out-of-band columns were back-filled, and the
+baseline gained seven `col` facts — including four `users.concierge_banned*` at
+`anon=SIU` that the freeze had never known existed.

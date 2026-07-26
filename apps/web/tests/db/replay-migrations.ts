@@ -241,8 +241,28 @@ export type ReplayResult = {
   skipped: Array<{ file: string; reason: string }>;
 };
 
-/** Replay every migration into a fresh in-memory PGlite. ~10 s on a laptop. */
-export async function createReplayedDb(): Promise<ReplayResult> {
+export type ReplayOptions = {
+  /**
+   * Replay ONLY the migrations whose version (the leading numeric field of the
+   * filename) is in this set. Omit to replay everything — the default, and what
+   * every existing caller wants.
+   *
+   * Added for the schema-drift check, which replays exactly the migrations
+   * production's ledger says it has applied. Without that filter, a migration
+   * added in an open pull request — correctly absent from prod — would show up
+   * as drift on every schema PR, and a guard that cries wolf on every schema PR
+   * is a guard that gets deleted.
+   */
+  only?: ReadonlySet<string>;
+};
+
+/** The leading numeric field of a migration filename, e.g. `20271011120000`. */
+export function versionOf(filename: string): string {
+  return filename.split('_')[0] ?? '';
+}
+
+/** Replay every migration into a fresh in-memory PGlite. ~6 s on a laptop. */
+export async function createReplayedDb(opts: ReplayOptions = {}): Promise<ReplayResult> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(`CREATE SCHEMA IF NOT EXISTS extensions;`);
   await db.exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;`);
@@ -251,6 +271,7 @@ export async function createReplayedDb(): Promise<ReplayResult> {
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
+    .filter((f) => !opts.only || opts.only.has(versionOf(f)))
     .sort();
 
   async function applyOne(f: string): Promise<void> {

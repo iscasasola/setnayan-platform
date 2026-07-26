@@ -2626,17 +2626,11 @@ col	public.manpower_gigs.status	anon=SIU authenticated=SIU
 col	public.manpower_gigs.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.amount_php	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.created_at	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.customer_user_id	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.event_id	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.expires_at	anon=SIU authenticated=SIU
+col	public.manual_payment_logs.id	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.items_ordered	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.manual_payment_id	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.payment_status	anon=SIU authenticated=SIU
 col	public.manual_payment_logs.reference_number	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.rejection_reason	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.updated_at	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.verified_at	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.verified_by_admin_id	anon=SIU authenticated=SIU
 col	public.market_funnel_bands.category	anon=SIU authenticated=SIU
 col	public.market_funnel_bands.computed_at	anon=SIU authenticated=SIU
 col	public.market_funnel_bands.conversion_p25	anon=SIU authenticated=SIU
@@ -3390,6 +3384,7 @@ col	public.platform_settings.maya_checkout_endpoint	anon=SIU authenticated=SIU
 col	public.platform_settings.meta_page_id	anon=SIU authenticated=SIU
 col	public.platform_settings.onboarding_bg_music_enabled	anon=SIU authenticated=SIU
 col	public.platform_settings.onboarding_bg_music_r2_key	anon=SIU authenticated=SIU
+col	public.platform_settings.onboarding_bg_music_r2_keys	anon=SIU authenticated=SIU
 col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=SIU authenticated=SIU
 col	public.platform_settings.radar_enabled	anon=SIU authenticated=SIU
 col	public.platform_settings.radar_min_n_floor	anon=SIU authenticated=SIU
@@ -3882,6 +3877,10 @@ col	public.users.birth_date	anon=SIU authenticated=SIU
 col	public.users.civil_status	anon=SIU authenticated=SIU
 col	public.users.civil_status_consent_at	anon=SIU authenticated=SIU
 col	public.users.concierge_abuse_strike_count	anon=SIU authenticated=SIU
+col	public.users.concierge_banned	anon=SIU authenticated=SIU
+col	public.users.concierge_banned_at	anon=SIU authenticated=SIU
+col	public.users.concierge_banned_by	anon=SIU authenticated=SIU
+col	public.users.concierge_banned_reason	anon=SIU authenticated=SIU
 col	public.users.concierge_enforcement_at	anon=SIU authenticated=SIU
 col	public.users.concierge_enforcement_by	anon=SIU authenticated=SIU
 col	public.users.concierge_enforcement_level	anon=SIU authenticated=SIU
@@ -4900,6 +4899,7 @@ col	public.vendor_services.last_minute_surcharge_pct	anon=SIU authenticated=SIU
 col	public.vendor_services.min_hours	anon=SIU authenticated=SIU
 col	public.vendor_services.min_pax	anon=SIU authenticated=SIU
 col	public.vendor_services.package_inclusions	anon=SIU authenticated=SIU
+col	public.vendor_services.per_guest_delivery	anon=SIU authenticated=SIU
 col	public.vendor_services.per_pax_price_php	anon=SIU authenticated=SIU
 col	public.vendor_services.pricing_basis	anon=SIU authenticated=SIU
 col	public.vendor_services.primary_photo_r2_key	anon=SIU authenticated=SIU

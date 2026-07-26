@@ -59,7 +59,7 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           Watch live
         </p>
         <span className="flex items-center gap-3">
@@ -111,7 +111,7 @@ function FacebookWatchCard({ href }: { href: string }) {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           Live on Facebook
         </p>
         <a

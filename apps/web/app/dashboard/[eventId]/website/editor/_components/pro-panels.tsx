@@ -67,12 +67,15 @@ export function ColorsPanel({
   rowKey,
   bgColor,
   buttonColor,
+  artDirection,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   rowKey: string;
   bgColor: string | null;
   buttonColor: string | null;
+  /** Pahina art direction (PR-5b) — 'candlelight' is the dark direction. */
+  artDirection: 'daylight' | 'candlelight' | null;
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
@@ -98,6 +101,39 @@ export function ColorsPanel({
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
         Leave blank to use your Mood Board palette.
       </p>
+
+      {/* Candlelight (design spec §4) — the second half of the Pro colour row.
+          A radio pair rather than a checkbox so the form ALWAYS posts one of the
+          two values: the action treats an absent field as "leave unchanged", and
+          an unchecked checkbox posts nothing, which would make the dark
+          direction impossible to turn back off from this panel. */}
+      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
+        <legend className="sr-only">Art direction</legend>
+        <p className="text-[0.72rem] font-semibold text-ink/80">Art direction</p>
+        <div className="mt-1.5 flex gap-4">
+          {(
+            [
+              ['daylight', 'Daylight', 'Light paper — the default.'],
+              ['candlelight', 'Candlelight', 'Dark, warm, evening.'],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <label key={value} className="flex cursor-pointer items-start gap-1.5">
+              <input
+                type="radio"
+                name="site_art_direction"
+                value={value}
+                defaultChecked={(artDirection ?? 'daylight') === value}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block text-[0.72rem] font-medium text-ink">{label}</span>
+                <span className="block text-[0.66rem] leading-tight text-ink/45">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <SaveButton />
     </form>
   );

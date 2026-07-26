@@ -1,6 +1,7 @@
 import { Logo } from '@/app/_components/logo';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
+import { PahinaMotionObserver, PahinaMotionRootFlag } from './pahina-motion';
 
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
@@ -14,14 +15,23 @@ import { buildSitePaletteVars } from '@/lib/site-palette';
  * The footer goes transparent over the backdrop's bottom vignette.
  */
 export function InvitationShell({
+  artDirection,
   children,
   backdrop,
   rolePalette,
+  monogramText,
   fullBleed = false,
   hideWatermark = false,
   customColorVars,
 }: {
+  /** Pahina art direction (PR-5b). Only 'candlelight' stamps an attribute —
+   *  daylight renders exactly today's DOM, so every existing event is
+   *  byte-stable. The dark recipe is a var block in globals.css. */
+  artDirection?: 'daylight' | 'candlelight' | null;
   children: React.ReactNode;
+  /** Pahina (wave A PR-2): couple's monogram text for the header right slot —
+   *  gild Fraunces italic. Falls back to the mono "Invitation" label. */
+  monogramText?: string | null;
   backdrop?: React.ReactNode;
   // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
   // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
@@ -57,6 +67,7 @@ export function InvitationShell({
     return (
       <main
         className="min-h-dvh bg-cream text-ink"
+        data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
         style={themeVars ? (themeVars as React.CSSProperties) : undefined}
       >
         {children}
@@ -66,8 +77,16 @@ export function InvitationShell({
   return (
     <main
       className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
+      data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
       style={themeVars ? (themeVars as React.CSSProperties) : undefined}
     >
+      {/* Scroll choreography (design §6). Deliberately NOT on the fullBleed
+          path above — the veil reveal and STD film own their own motion and the
+          build plan leaves them untouched. Must sit above the content: the flag
+          arms the hidden state before first paint, and its partner below the
+          content builds the observer. See pahina-motion.tsx for why a failure
+          in either one leaves the page fully visible. */}
+      <PahinaMotionRootFlag />
       {backdrop}
       <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
@@ -77,9 +96,13 @@ export function InvitationShell({
               Setnayan
             </span>
           </span>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
-            Invitation
-          </span>
+          {monogramText ? (
+            <span className="font-pahina text-lg italic text-gild">{monogramText}</span>
+          ) : (
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+              Invitation
+            </span>
+          )}
         </div>
       </header>
       <div
@@ -97,6 +120,7 @@ export function InvitationShell({
       >
         {children}
       </div>
+      <PahinaMotionObserver />
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the
@@ -108,8 +132,8 @@ export function InvitationShell({
         }`}
       >
         <p
-          className={`font-serif text-lg italic ${
-            backdrop ? 'text-cream/90' : 'text-terracotta'
+          className={`font-pahina text-lg italic ${
+            backdrop ? 'text-cream/90' : 'text-gild'
           }`}
         >
           See you soon.

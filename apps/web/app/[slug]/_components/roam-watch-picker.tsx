@@ -139,7 +139,7 @@ export function RoamWatchPicker({
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           {activeGuestCamera
             ? `Watch live · ${activeGuestCamera.label}`
             : onMain
@@ -214,7 +214,7 @@ export function RoamWatchPicker({
                 onMain ? 'bg-terracotta text-cream' : 'bg-cream/10 text-cream/80 hover:bg-cream/20',
               ].join(' ')}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-danger-400" aria-hidden />
+              <span className="h-1.5 w-1.5 rounded-full bg-cream" aria-hidden />
               <span>Main Stage</span>
               <span className="font-mono text-[0.6rem] uppercase tracking-wider opacity-70">
                 directed
@@ -247,7 +247,7 @@ export function RoamWatchPicker({
                       ].join(' ')}
                     >
                       {zone.status === 'live' ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-danger-400" aria-hidden />
+                        <span className="h-1.5 w-1.5 rounded-full bg-cream" aria-hidden />
                       ) : isOffline ? (
                         <span className="h-1.5 w-1.5 rounded-full bg-cream/30" aria-hidden />
                       ) : null}
@@ -289,7 +289,7 @@ export function RoamWatchPicker({
                           : 'bg-cream/10 text-cream/80 hover:bg-cream/20',
                       ].join(' ')}
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-danger-400" aria-hidden />
+                      <span className="h-1.5 w-1.5 rounded-full bg-cream" aria-hidden />
                       <span>{cam.label}</span>
                       {cam.venueLabel ? (
                         <span className="font-mono text-[0.6rem] uppercase tracking-wider opacity-70">

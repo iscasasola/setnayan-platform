@@ -42,6 +42,7 @@ export function PrivateLanding({
   return (
     <InvitationShell
       rolePalette={event.role_palette}
+      artDirection={event.site_art_direction ?? null}
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
     >

@@ -98,38 +98,56 @@ export function OurStory({
     const opener = paragraphs[0];
     if (!opener) return null;
     return (
-      <section className="space-y-2 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">Our story</p>
-        <p className="mx-auto max-w-prose font-serif text-lg italic text-ink/80">{opener}</p>
+      <section className="space-y-3">
+        <p className="pahina-eyebrow">
+          <span aria-hidden>№ 02</span>
+          <span>Our story</span>
+        </p>
+        <p className="max-w-prose font-pahina text-lg italic leading-snug text-ink/80">{opener}</p>
       </section>
     );
   }
 
+  // Pahina chapter grammar (design 2026-07-25 §7): the opener carries the drop
+  // cap, and when the composer produced a second paragraph it is set as the
+  // gild-ruled pull quote. Purely typographic — the composed copy is unchanged
+  // and never duplicated between the two treatments.
+  const [opener, ...rest] = paragraphs;
+  const pullQuote = rest.length ? rest[rest.length - 1] : null;
+  const middle = rest.slice(0, Math.max(0, rest.length - 1));
+
   return (
-    <section className="space-y-6 text-center">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">Our story</p>
-      {paragraphs.length ? (
-        <div className="mx-auto max-w-prose space-y-4">
-          {paragraphs.map((p, i) => (
-            <p key={i} className="text-base leading-relaxed text-ink/80">
-              {p}
-            </p>
-          ))}
-        </div>
+    <section className="space-y-6">
+      <p className="pahina-eyebrow">
+        <span aria-hidden>№ 02</span>
+        <span>Our story</span>
+      </p>
+      {opener ? (
+        <p className="pahina-dropcap max-w-prose text-base leading-relaxed text-ink/80">{opener}</p>
+      ) : null}
+      {middle.map((p, i) => (
+        <p key={i} className="max-w-prose text-base leading-relaxed text-ink/80">
+          {p}
+        </p>
+      ))}
+      {pullQuote ? (
+        <p className="pahina-quote max-w-prose text-[1.35rem] text-ink/85">{pullQuote}</p>
       ) : null}
       {milestones.length ? (
-        <ol className="mx-auto max-w-prose space-y-4 pt-2 text-left">
+        <ol className="max-w-prose space-y-5 pt-2">
           {milestones.map((m, i) => (
-            <li key={i} className="border-l border-ink/15 pl-4">
+            <li key={i} className="border-l border-ink/12 pl-5">
               {clean(m.year) ? (
-                <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+                <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
                   {clean(m.year)}
                 </p>
               ) : null}
               {clean(m.title) ? (
-                <p className="font-serif text-lg italic text-ink">{clean(m.title)}</p>
+                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+                  {clean(m.title)}
+                </p>
               ) : null}
-              {clean(m.note) ? <p className="text-sm text-ink/70">{clean(m.note)}</p> : null}
+              {clean(m.note) ? <p className="mt-1 text-sm text-ink/70">{clean(m.note)}</p> : null}
             </li>
           ))}
         </ol>

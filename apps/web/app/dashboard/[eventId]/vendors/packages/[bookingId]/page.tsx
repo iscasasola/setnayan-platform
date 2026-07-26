@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   formatCentavosPhp,
   resolveVendorCategory,
+  VENDOR_PACKAGE_SELECT,
   type EventVendorPackageRow,
   type PackageCustomizations,
   type VendorPackageItemRow,
@@ -51,9 +52,7 @@ export default async function PackageBookingPage({ params }: Props) {
 
   const { data: pkgRow } = await supabase
     .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-    )
+    .select(VENDOR_PACKAGE_SELECT)
     .eq('package_id', typedBooking.package_id)
     .maybeSingle();
   if (!pkgRow) notFound();

@@ -13,6 +13,7 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
+import { unresolvedRequiredChoices } from '@/lib/package-credit-adapter';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
@@ -89,6 +90,19 @@ export function LockPackageModal({
     setChosenByItem((prev) => ({ ...prev, [itemId]: optionId }));
   }
 
+  /**
+   * Required choice lines still waiting on the couple. The server refuses to
+   * lock while any remain (`choice_required`), so the button blocks rather than
+   * letting them submit into a rejection.
+   */
+  const pendingRequiredChoices = useMemo(
+    () =>
+      choicesEnabled
+        ? unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds)
+        : [],
+    [choicesEnabled, pkg, removedIds, chosenOptionIds],
+  );
+
   function close() {
     setOpen(false);
     setError(null);
@@ -132,6 +146,16 @@ export function LockPackageModal({
       if (result.status === 'vendor_not_verified') {
         setError(
           `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to lock this package once they're verified.`,
+        );
+        return;
+      }
+      if (result.status === 'choice_required') {
+        // The button blocks this, so getting here means the page is stale —
+        // the vendor made a line required after it loaded. Say what to do.
+        setError(
+          result.itemIds.length === 1
+            ? 'One of these lines now needs you to pick an option. Reload the page to see it.'
+            : `${result.itemIds.length} of these lines now need you to pick an option. Reload the page to see them.`,
         );
         return;
       }
@@ -205,6 +229,8 @@ export function LockPackageModal({
                   .map((item) => {
                   const removed = removedIds.includes(item.item_id);
                   const locked = item.is_required === true;
+                  // Required AND a choice: the couple must pick explicitly.
+                  const requiredChoice = locked && isChoiceLine(item);
                   return (
                     <li key={item.item_id}>
                       <label
@@ -260,13 +286,28 @@ export function LockPackageModal({
                           clicking the radio also toggle the checkbox. */}
                       {choicesEnabled && !removed && isChoiceLine(item) ? (
                         <fieldset className="mt-1.5 ml-8 space-y-1.5">
-                          <legend className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                            Pick one
+                          <legend
+                            className={`mb-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                              requiredChoice && !chosenByItem[item.item_id]
+                                ? 'text-terracotta'
+                                : 'text-ink/45'
+                            }`}
+                          >
+                            {requiredChoice && !chosenByItem[item.item_id]
+                              ? 'Pick one to continue'
+                              : 'Pick one'}
                           </legend>
                           {(item.options ?? []).map((opt) => {
-                            const active =
-                              resolveChosenOption(item, chosenOptionIds)?.option_id ===
-                              opt.option_id;
+                            // A REQUIRED choice line starts genuinely
+                            // UNSELECTED. The engine refuses to apply its
+                            // default (owner rule: "must pick a main course"
+                            // is the couple's decision), so showing the
+                            // standard as preselected would be the UI
+                            // claiming a choice the server will reject.
+                            const active = requiredChoice
+                              ? chosenByItem[item.item_id] === opt.option_id
+                              : resolveChosenOption(item, chosenOptionIds)?.option_id ===
+                                opt.option_id;
                             return (
                               <label
                                 key={opt.option_id}
@@ -353,10 +394,20 @@ export function LockPackageModal({
                 </p>
               ) : null}
 
+              {pendingRequiredChoices.length > 0 ? (
+                <p className="mb-3 text-center text-xs text-ink/65">
+                  Pick an option on{' '}
+                  {pendingRequiredChoices.length === 1
+                    ? 'the highlighted line'
+                    : `${pendingRequiredChoices.length} highlighted lines`}{' '}
+                  to continue.
+                </p>
+              ) : null}
+
               <button
                 type="button"
                 onClick={onLock}
-                disabled={isPending}
+                disabled={isPending || pendingRequiredChoices.length > 0}
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />

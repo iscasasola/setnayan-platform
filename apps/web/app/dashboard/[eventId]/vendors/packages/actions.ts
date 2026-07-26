@@ -5,6 +5,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { computePackageCredit } from '@/lib/package-credit';
+import { packageCreditEnabled } from '@/lib/package-credit-flag';
+import {
+  allowedRemovals,
+  toCreditPackage,
+  unresolvedRequiredChoices,
+} from '@/lib/package-credit-adapter';
 import {
   chosenOptionsSurchargeCentavos,
   computeCustomization,
@@ -13,6 +20,9 @@ import {
   resolveChosenOption,
   resolveVendorCategory,
   PACKAGE_ITEM_OPTION_SELECT,
+  VENDOR_PACKAGE_SELECT,
+  VENDOR_PACKAGE_ITEM_SELECT,
+  type VendorPackageRow,
   type PackageCustomizations,
   type VendorPackageItemOptionRow,
   type VendorPackageItemRow,
@@ -49,6 +59,10 @@ export type LockPackageResult =
   // inserts contracted event_vendors rows for pkg.vendor_profile_id, so it's
   // gated the same as finalizeVendor. The DB trigger is the hard guard.
   | { status: 'vendor_not_verified'; vendorName: string }
+  // A REQUIRED choice line was left unpicked. Owner rule: the couple must
+  // choose, and the engine refuses to apply the default on their behalf. The
+  // modal blocks the button, so this is the stale-client backstop.
+  | { status: 'choice_required'; itemIds: ReadonlyArray<string> }
   | { status: 'error'; message: string };
 
 /**
@@ -86,9 +100,7 @@ export async function lockPackage(
   // 2. Load the package + its items. Active-only.
   const { data: pkgRow, error: pkgErr } = await supabase
     .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-    )
+    .select(VENDOR_PACKAGE_SELECT)
     .eq('package_id', packageId)
     .maybeSingle();
   if (pkgErr) return { status: 'error', message: pkgErr.message };
@@ -101,7 +113,7 @@ export async function lockPackage(
       // `is_required` is load-bearing: `isRemovableItem` refuses to price a
       // removal without it, so omitting it here silently let a host drop a
       // line the vendor marked mandatory.
-      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
+      VENDOR_PACKAGE_ITEM_SELECT,
     )
     .eq('package_id', packageId)
     .order('display_order', { ascending: true });
@@ -172,7 +184,67 @@ export async function lockPackage(
     removedIds,
     chosenOptionIds,
   );
-  const bookingTotalCentavos = totalLockedCentavos + surchargeCentavos;
+
+  // ── The CREDIT engine (flag-dark) ────────────────────────────────────────
+  //
+  // With the flag ON, ./package-credit becomes the single authority for every
+  // number on this booking. It is a strict superset of the shipped math: with
+  // policy 'expiring' and no upgrades it reproduces `computeCustomization` to
+  // the centavo (the DB default is 'expiring', and nothing can write anything
+  // else), so flipping the flag on a plain package is a no-op by construction.
+  //
+  // It FAILS CLOSED. The removal list is narrowed first — see `allowedRemovals`
+  // for why that specific forgiveness is preserved and why it can only ever
+  // hand out LESS credit — and anything the engine still refuses is a real
+  // problem, so we surface it instead of quietly falling back to a number. A
+  // silent fallback here would be the worst of both: the couple is charged by
+  // one model while being shown another.
+  let creditTotals: {
+    bookingTotalCentavos: number;
+    remainingConsumableCentavos: number;
+    availableCreditCentavos: number;
+    overspendCentavos: number;
+  } = {
+    bookingTotalCentavos: totalLockedCentavos + surchargeCentavos,
+    remainingConsumableCentavos,
+    availableCreditCentavos: remainingConsumableCentavos,
+    overspendCentavos: 0,
+  };
+
+  if (packageCreditEnabled()) {
+    const unresolved = unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds);
+    if (unresolved.length > 0) {
+      // Owner rule: a required choice line must be PICKED, never defaulted.
+      // The modal blocks this, so reaching here means a stale or hand-rolled
+      // client — answer it as the product question it is, not as an error code.
+      return {
+        status: 'choice_required',
+        itemIds: unresolved,
+      };
+    }
+
+    const credit = computePackageCredit({
+      pkg: toCreditPackage(pkg),
+      removedItemIds: allowedRemovals(pkg, removedIds),
+      chosenOptionIds,
+    });
+    if (!credit.ok) {
+      return {
+        status: 'error',
+        message: `Package pricing could not be computed: ${credit.errors
+          .map((e) => e.code)
+          .join(', ')}`,
+      };
+    }
+    creditTotals = {
+      bookingTotalCentavos: credit.bookingTotalCentavos,
+      remainingConsumableCentavos: credit.remainingCreditCentavos,
+      availableCreditCentavos: credit.availableCreditCentavos,
+      overspendCentavos: credit.overspendCentavos,
+    };
+  }
+
+  const bookingTotalCentavos = creditTotals.bookingTotalCentavos;
 
   // Persist the SANITISED set, not the raw client object — otherwise a bogus id
   // survives in customizations_json and reads as truth to every later consumer.
@@ -220,7 +292,10 @@ export async function lockPackage(
       package_id: packageId,
       status: 'locked',
       customizations_json: persistedCustomizations,
-      remaining_consumable_centavos: remainingConsumableCentavos,
+      // Credit left in the pool after upgrades. Flag OFF: the shipped
+      // consumable figure, unchanged. Flag ON: the engine's remaining credit,
+      // which is the same number for a package with no upgrades.
+      remaining_consumable_centavos: creditTotals.remainingConsumableCentavos,
       // Includes any picked upgrades — this is the number the couple agreed to,
       // and §6.4 makes it the package booking-fee base.
       total_locked_centavos: bookingTotalCentavos,
@@ -423,9 +498,7 @@ export async function removeItemFromPackage(formData: FormData) {
 
   const { data: pkgRow } = await supabase
     .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-    )
+    .select(VENDOR_PACKAGE_SELECT)
     .eq('package_id', booking.package_id)
     .maybeSingle();
   if (!pkgRow) throw new Error('Package not found');
@@ -436,7 +509,7 @@ export async function removeItemFromPackage(formData: FormData) {
       // `is_required` is load-bearing: `isRemovableItem` refuses to price a
       // removal without it, so omitting it here silently let a host drop a
       // line the vendor marked mandatory.
-      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
+      VENDOR_PACKAGE_ITEM_SELECT,
     )
     .eq('package_id', booking.package_id)
     .order('display_order', { ascending: true });

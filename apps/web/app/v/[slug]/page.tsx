@@ -75,7 +75,11 @@ import type {
   VendorPackageRow,
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
-import { PACKAGE_ITEM_OPTION_SELECT } from '@/lib/vendor-packages';
+import {
+  PACKAGE_ITEM_OPTION_SELECT,
+  VENDOR_PACKAGE_SELECT,
+  VENDOR_PACKAGE_ITEM_SELECT,
+} from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
@@ -3247,9 +3251,7 @@ async function fetchVendorPackagesWithItems(
   try {
     const { data: pkgs, error: pkgsErr } = await admin
       .from('vendor_packages')
-      .select(
-        'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-      )
+      .select(VENDOR_PACKAGE_SELECT)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .order('created_at', { ascending: true });
@@ -3263,7 +3265,7 @@ async function fetchVendorPackagesWithItems(
         // modal. It was missing here, so on this page every required line
         // rendered as a normal unticking checkbox — the server still refused
         // the removal, but the UI said otherwise.
-        'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
+        VENDOR_PACKAGE_ITEM_SELECT,
       )
       .in('package_id', packageIds)
       .order('display_order', { ascending: true });

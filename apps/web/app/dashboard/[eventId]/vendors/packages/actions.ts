@@ -6,11 +6,16 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
+  chosenOptionsSurchargeCentavos,
   computeCustomization,
   isRemovableItem,
   keptItems,
+  resolveChosenOption,
   resolveVendorCategory,
+  PACKAGE_ITEM_OPTION_SELECT,
   type PackageCustomizations,
+  type VendorPackageItemOptionRow,
+  type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 
@@ -102,9 +107,33 @@ export async function lockPackage(
     .order('display_order', { ascending: true });
   if (itemsErr) return { status: 'error', message: itemsErr.message };
 
+  // CHOICE options. Read here, from the DB, on purpose: the browser sends only
+  // option IDs, and every peso attached to one is resolved server-side. A price
+  // that arrived from the client must never be what the host is charged.
+  const itemIds = (itemsRows ?? []).map((i) => i.item_id);
+  const { data: optionRows, error: optionsErr } = itemIds.length
+    ? await supabase
+        .from('vendor_package_item_options')
+        .select(PACKAGE_ITEM_OPTION_SELECT)
+        .in('item_id', itemIds)
+        .eq('is_available', true)
+        .order('display_order', { ascending: true })
+    : { data: [] as VendorPackageItemOptionRow[], error: null };
+  if (optionsErr) return { status: 'error', message: optionsErr.message };
+
+  const optionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
+  for (const row of (optionRows ?? []) as VendorPackageItemOptionRow[]) {
+    const list = optionsByItem.get(row.item_id) ?? [];
+    list.push(row);
+    optionsByItem.set(row.item_id, list);
+  }
+
   const pkg: VendorPackageWithItems = {
     ...pkgRow,
-    items: itemsRows ?? [],
+    items: (itemsRows ?? []).map((row) => ({
+      ...(row as VendorPackageItemRow),
+      options: optionsByItem.get(row.item_id) ?? [],
+    })),
   };
 
   // 3. Idempotency guard — if this event already has an active locked
@@ -124,6 +153,38 @@ export async function lockPackage(
   const { remainingConsumableCentavos, totalLockedCentavos } =
     computeCustomization(pkg, removedIds);
   const kept = keptItems(pkg, removedIds);
+
+  // Keep only option ids that really belong to a KEPT choice line on THIS
+  // package. Anything else — another package's option, a retired one, an id for
+  // a line the host just dropped — is discarded rather than rejected, matching
+  // how `computeCustomization` already treats a bogus removal: a stale or
+  // hostile client can neither crash the lock nor profit from it.
+  const requestedOptionIds = customizations.chosen_option_ids ?? [];
+  const chosenOptionIds = kept
+    .map((item) => resolveChosenOption(item, requestedOptionIds))
+    .filter((opt): opt is VendorPackageItemOptionRow => opt !== undefined)
+    .filter((opt) => requestedOptionIds.includes(opt.option_id))
+    .map((opt) => opt.option_id);
+
+  // Upgrades the host picked, priced from the DB rows above.
+  const surchargeCentavos = chosenOptionsSurchargeCentavos(
+    pkg,
+    removedIds,
+    chosenOptionIds,
+  );
+  const bookingTotalCentavos = totalLockedCentavos + surchargeCentavos;
+
+  // Persist the SANITISED set, not the raw client object — otherwise a bogus id
+  // survives in customizations_json and reads as truth to every later consumer.
+  const persistedCustomizations: PackageCustomizations = {
+    ...customizations,
+    ...(chosenOptionIds.length > 0
+      ? { chosen_option_ids: chosenOptionIds }
+      : { chosen_option_ids: undefined }),
+  };
+  if (persistedCustomizations.chosen_option_ids === undefined) {
+    delete persistedCustomizations.chosen_option_ids;
+  }
 
   // 5. Fetch vendor info for the cascaded event_vendors row metadata.
   //    business_name carries onto event_vendors.vendor_name so the
@@ -158,9 +219,11 @@ export async function lockPackage(
       event_id: eventId,
       package_id: packageId,
       status: 'locked',
-      customizations_json: customizations,
+      customizations_json: persistedCustomizations,
       remaining_consumable_centavos: remainingConsumableCentavos,
-      total_locked_centavos: totalLockedCentavos,
+      // Includes any picked upgrades — this is the number the couple agreed to,
+      // and §6.4 makes it the package booking-fee base.
+      total_locked_centavos: bookingTotalCentavos,
       locked_at: new Date().toISOString(),
     })
     .select('booking_id')
@@ -175,23 +238,29 @@ export async function lockPackage(
   //    marketplace_vendor_id link so the compatibility-check + finalized-
   //    card-photo flows (PR #341 + PR B 2026-05-22) work out-of-the-box.
   if (kept.length > 0) {
-    const eventVendorRows = kept.map((item) => ({
-      event_id: eventId,
-      category: resolveVendorCategory(item.canonical_service),
-      vendor_name: vendor.business_name || pkg.package_name,
-      contact_email: vendor.contact_email ?? null,
-      contact_phone: vendor.contact_phone ?? null,
-      status: 'contracted' as const,
-      total_cost_php: item.replacement_value_centavos > 0
-        ? item.replacement_value_centavos / 100
-        : null,
-      marketplace_vendor_id: pkg.vendor_profile_id,
-      event_vendor_package_id: bookingId,
-      // Provenance. Without it the only link back was (booking, category), and
-      // that mapping is many-to-one — see migration 20271007240000.
-      package_item_id: item.item_id,
-      notes: `From package: ${pkg.package_name} — ${item.service_description}`,
-    }));
+    const eventVendorRows = kept.map((item) => {
+      // A picked upgrade belongs to the line it upgrades. Without this the
+      // surcharge exists only on the booking total, and every per-row consumer
+      // — planning cards, the budget, and the §6.4 fee base — under-reports it.
+      const chosen = resolveChosenOption(item, chosenOptionIds);
+      const lineCentavos =
+        item.replacement_value_centavos + (chosen?.price_delta_centavos ?? 0);
+      return {
+        event_id: eventId,
+        category: resolveVendorCategory(item.canonical_service),
+        vendor_name: vendor.business_name || pkg.package_name,
+        contact_email: vendor.contact_email ?? null,
+        contact_phone: vendor.contact_phone ?? null,
+        status: 'contracted' as const,
+        total_cost_php: lineCentavos > 0 ? lineCentavos / 100 : null,
+        marketplace_vendor_id: pkg.vendor_profile_id,
+        event_vendor_package_id: bookingId,
+        // Provenance. Without it the only link back was (booking, category), and
+        // that mapping is many-to-one — see migration 20271007240000.
+        package_item_id: item.item_id,
+        notes: `From package: ${pkg.package_name} — ${item.service_description}`,
+      };
+    });
 
     const { data: insertedRows, error: cascadeErr } = await supabase
       .from('event_vendors')

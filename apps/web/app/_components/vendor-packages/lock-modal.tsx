@@ -4,11 +4,15 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package as PackageIcon, X, Check, AlertCircle } from 'lucide-react';
 import {
+  chosenOptionsSurchargeCentavos,
   computeCustomization,
   formatCentavosPhp,
+  isChoiceLine,
+  resolveChosenOption,
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
@@ -35,15 +39,54 @@ export function LockPackageModal({
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * CHOICE lines are gated on the credit flag, because the surcharge they can
+   * add is only priced by the credit engine. With the flag OFF a choice line
+   * still renders — as a plain line at its standard option — and that total is
+   * CORRECT, not a degraded fallback: the DB pins the default option's
+   * `price_delta_centavos` to 0. So there is no flag state in which the modal
+   * can quote a price below what the vendor would charge.
+   */
+  const choicesEnabled = packageCreditEnabled();
+
+  /** item_id → option_id the host picked. Only ever holds kept choice lines. */
+  const [chosenByItem, setChosenByItem] = useState<Record<string, string>>({});
+  const chosenOptionIds = useMemo(() => Object.values(chosenByItem), [chosenByItem]);
+
   const { remainingConsumableCentavos, totalLockedCentavos, removedTotalCentavos } =
     useMemo(() => computeCustomization(pkg, removedIds), [pkg, removedIds]);
 
+  /** What the picked upgrades add. Zero when every line sits on its standard. */
+  const surchargeCentavos = useMemo(
+    () =>
+      choicesEnabled
+        ? chosenOptionsSurchargeCentavos(pkg, removedIds, chosenOptionIds)
+        : 0,
+    [choicesEnabled, pkg, removedIds, chosenOptionIds],
+  );
+
   function toggle(item: VendorPackageItemRow) {
+    const nowRemoved = !removedIds.includes(item.item_id);
     setRemovedIds((prev) =>
       prev.includes(item.item_id)
         ? prev.filter((id) => id !== item.item_id)
         : [...prev, item.item_id],
     );
+    // Dropping a line must drop its upgrade too. The credit engine rejects an
+    // option id on a removed line outright (`option_on_removed_item`), so
+    // leaving it behind would turn an untick into a failed lock.
+    if (nowRemoved && isChoiceLine(item)) {
+      setChosenByItem((prev) => {
+        if (!(item.item_id in prev)) return prev;
+        const next = { ...prev };
+        delete next[item.item_id];
+        return next;
+      });
+    }
+  }
+
+  function chooseOption(itemId: string, optionId: string) {
+    setChosenByItem((prev) => ({ ...prev, [itemId]: optionId }));
   }
 
   function close() {
@@ -58,6 +101,11 @@ export function LockPackageModal({
     startTransition(async () => {
       const result: LockPackageResult = await lockPackage(eventId, pkg.package_id, {
         removed_item_ids: removedIds,
+        // Ids only. The server re-reads every price from the DB — a delta that
+        // arrived from the browser must never be what the host is charged.
+        ...(choicesEnabled && chosenOptionIds.length > 0
+          ? { chosen_option_ids: chosenOptionIds }
+          : {}),
       });
       if (result.status === 'ok' || result.status === 'already_locked') {
         setOpen(false);
@@ -205,6 +253,54 @@ export function LockPackageModal({
                           ) : null}
                         </div>
                       </label>
+
+                      {/* CHOICE line — the vendor offered alternatives, so the
+                          host picks one. Rendered OUTSIDE the parent <label>:
+                          nesting a radio inside a checkbox's label makes
+                          clicking the radio also toggle the checkbox. */}
+                      {choicesEnabled && !removed && isChoiceLine(item) ? (
+                        <fieldset className="mt-1.5 ml-8 space-y-1.5">
+                          <legend className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                            Pick one
+                          </legend>
+                          {(item.options ?? []).map((opt) => {
+                            const active =
+                              resolveChosenOption(item, chosenOptionIds)?.option_id ===
+                              opt.option_id;
+                            return (
+                              <label
+                                key={opt.option_id}
+                                className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                                  active
+                                    ? 'border-terracotta bg-terracotta/[0.06]'
+                                    : 'border-ink/10 hover:border-ink/25 hover:bg-ink/[0.02]'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`opt-${item.item_id}`}
+                                  value={opt.option_id}
+                                  checked={active}
+                                  onChange={() =>
+                                    chooseOption(item.item_id, opt.option_id)
+                                  }
+                                  className="mt-0.5 h-5 w-5 shrink-0 border-ink/20 text-terracotta focus:ring-terracotta"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-ink/85">
+                                    {opt.option_label}
+                                  </p>
+                                  <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                                    {opt.price_delta_centavos > 0
+                                      ? `+${formatCentavosPhp(opt.price_delta_centavos)}`
+                                      : 'Included'}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </fieldset>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -216,9 +312,17 @@ export function LockPackageModal({
                 <div className="flex items-center justify-between">
                   <dt className="text-ink/70">Total package</dt>
                   <dd className="font-mono text-ink">
-                    {formatCentavosPhp(totalLockedCentavos)}
+                    {formatCentavosPhp(totalLockedCentavos + surchargeCentavos)}
                   </dd>
                 </div>
+                {surchargeCentavos > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-ink/70">Upgrades picked</dt>
+                    <dd className="font-mono text-ink/80">
+                      +{formatCentavosPhp(surchargeCentavos)}
+                    </dd>
+                  </div>
+                ) : null}
                 {pkg.is_consumable_flexible &&
                 (pkg.consumable_budget_centavos > 0 || removedTotalCentavos > 0) ? (
                   <div className="flex items-center justify-between">

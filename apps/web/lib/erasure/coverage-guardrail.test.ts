@@ -159,7 +159,17 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',
-  manual_payment_logs: 'Manual-reconciliation evidence for the QR/bank rail — the audit trail behind a retained payment.',
+  // ⚠ CORRECTED 2026-07-26. This previously read "the audit trail behind a
+  // retained payment" — describing a table that does not exist. The richer
+  // shape was declared by 20260628000000 but never landed (CREATE TABLE IF NOT
+  // EXISTS no-opped against an out-of-band table); prod has SEVEN columns and
+  // none of them is `verified_at`, `verified_by_admin_id`, `rejection_reason`
+  // or `customer_user_id`. So there is no reconciliation trail to retain, and
+  // no direct subject key on the row at all — it links to a person only
+  // indirectly, through `event_id`. Retention basis restated to match the
+  // columns that are actually there. See 20271011873973 and
+  // apps/web/tests/db/schema-drift.db.test.ts.
+  manual_payment_logs: 'Financial record for the manual QR/bank rail: reference_number + amount_php + payment_status against an event_id. No direct subject key (attribution is via event_id) and no staff-authored fields — the reconciliation trail the old note claimed was never built.',
   vendor_2307_filings: 'BIR Form 2307 artifact — a statutory filing.',
   vendor_token_purchases: 'Financial record (token pack purchase).',
   comp_grants: 'Comp/discount grant — the money-side record of a waived charge.',

@@ -312,8 +312,15 @@ const KNOWN_GAPS: Record<string, string> = {
   kwento_assignments: 'TODO(RA10173-backlog): assignments naming the subject.',
   lead_token_holds: 'TODO(RA10173-backlog): token holds tied to the subject’s vendor account.',
   manpower_gigs: 'TODO(RA10173-backlog): gigs the subject posted or accepted.',
+  // ⚠ CORRECTED 2026-07-26. Previously said "staff-authored fields need
+  // stripping first" — naming fields that do not exist. The richer shape was
+  // declared by 20260628000000 and never landed (CREATE TABLE IF NOT EXISTS
+  // no-opped); prod has no `verified_by_admin_id`, no `rejection_reason`, and
+  // no `customer_user_id`. There is nothing staff-authored to strip, and the
+  // row has no direct subject key — it reaches a person only via `event_id`.
+  // See 20271011873973 and apps/web/tests/db/schema-drift.db.test.ts.
   manual_payment_logs:
-    'TODO(RA10173-backlog): manual reconciliation entries about the subject’s payments (staff-authored fields need stripping first).',
+    'TODO(RA10173-backlog): manual QR/bank payment rows for the subject’s events (reference_number + amount + status). Reachable only via event_id — there is no direct subject key and nothing staff-authored on the row.',
   notifications: 'TODO(RA10173-backlog): the subject’s notification history — a real omission.',
   panood_camera_operators: 'TODO(RA10173-backlog): operator assignments naming the subject.',
   paparazzi_seats: 'TODO(RA10173-backlog): seats claimed by the subject.',

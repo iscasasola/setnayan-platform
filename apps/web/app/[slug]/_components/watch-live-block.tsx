@@ -26,10 +26,21 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
   // Live Studio ROAM: when a multi-camera manifest is present, render the
   // camera/zone/venue picker instead of the single directed embed. Reuses this
   // block's existing render sites (day-of + landing), so no prop-threading change.
-  if (watchLive.roam && watchLive.roam.length > 0) {
+  // WAVE 10: side cameras are peer-to-peer and have NO YouTube id, so an event can
+  // have them while its roam manifest is empty (the common shape — the director's cut
+  // is the CAST single embed). Mount the picker for either, and hand it the plain
+  // embed so "Main Stage" still points at the director's cut in that case.
+  const guestCameras = watchLive.guestCameras ?? [];
+  if ((watchLive.roam && watchLive.roam.length > 0) || guestCameras.length > 0) {
     return (
       <div className="space-y-2">
-        <RoamWatchPicker manifest={watchLive.roam} />
+        <RoamWatchPicker
+          manifest={watchLive.roam ?? []}
+          eventId={watchLive.eventId}
+          guestCameras={guestCameras}
+          mainEmbedUrl={watchLive.embedUrl}
+          mainWatchUrl={watchLive.watchUrl}
+        />
         {facebookUrl ? <FacebookWatchCard href={facebookUrl} /> : null}
       </div>
     );

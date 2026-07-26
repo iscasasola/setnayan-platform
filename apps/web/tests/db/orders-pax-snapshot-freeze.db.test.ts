@@ -209,10 +209,26 @@ test('DIFFERENTIAL CONTROL: the same statement SUCCEEDS as service_role', async 
 
 /* ── 3. WHAT MUST KEEP WORKING ──────────────────────────────────────────────*/
 
-test('checkout is untouched: `authenticated` can still INSERT an order carrying pax_snapshot', async () => {
-  // submitOrderAction inserts through the session-bound (authenticated) client,
-  // so an INSERT refusal here would reject every pax-priced order at the till.
-  await asUser(PAYER);
+test('checkout is untouched: the SERVICE-ROLE money writer can INSERT an order carrying pax_snapshot', async () => {
+  // ⚠ CORRECTED 2026-07-26. This test used to assert the opposite — that
+  // `authenticated` must keep INSERT on orders — on the premise that
+  // "submitOrderAction inserts through the session-bound (authenticated)
+  // client". That premise is STALE and the two halves of the security wave
+  // contradicted each other on it:
+  //
+  //   • migration 20271008178212 (revoke_orders_payments_insert_from_session_roles)
+  //     deliberately took INSERT on orders away from the session roles, and it
+  //     is APPLIED IN PROD;
+  //   • checkout does not use a session client for money. `submitOrderAction`
+  //     builds `const moneyWriter = createAdminClient()` and inserts through
+  //     that (app/dashboard/[eventId]/checkout/actions.ts), and
+  //     lib/order-price-authority.test.ts independently ENFORCES that every
+  //     `from('orders').insert(` goes through the admin client.
+  //
+  // So the revoke never touched the till, and asserting authenticated-can-INSERT
+  // was asserting the very hole the migration closed. What "checkout is
+  // untouched" actually means is: the writer checkout really uses still works.
+  await asService();
   const err = await errOf(
     `INSERT INTO public.orders
        (user_id, status, description, requested_total_php, reference_code, public_id, pax_snapshot)
@@ -220,7 +236,25 @@ test('checkout is untouched: `authenticated` can still INSERT an order carrying 
     [PAYER],
   );
   await reset();
-  assert.equal(err, null, `the guard is BEFORE UPDATE only — INSERT must remain open. Got: ${err}`);
+  assert.equal(err, null, `the service-role money writer must stay open. Got: ${err}`);
+});
+
+test('and `authenticated` CANNOT INSERT an order — that revoke is the point', async () => {
+  // The other half of the correction, so the file can never drift back to
+  // treating a session-role INSERT on orders as something to preserve.
+  await asUser(PAYER);
+  const err = await errOf(
+    `INSERT INTO public.orders
+       (user_id, status, description, requested_total_php, reference_code, public_id, pax_snapshot)
+     VALUES ($1, 'submitted', 'session role must not mint orders', 280000, 'PAXFRZ03', 'S89O00PAXFRZ3', 250)`,
+    [PAYER],
+  );
+  await reset();
+  assert.notEqual(
+    err,
+    null,
+    'authenticated regained INSERT on orders — migration 20271008178212 has been undone',
+  );
 });
 
 /* ── 4. RLS still carries its own weight ────────────────────────────────────*/

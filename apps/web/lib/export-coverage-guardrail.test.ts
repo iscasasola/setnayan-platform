@@ -75,123 +75,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readSchema, type TableSchema } from './security/migration-schema';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const MIGRATIONS = path.resolve(HERE, '..', '..', '..', 'supabase', 'migrations');
 const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route.ts');
 
 // ── Parser ───────────────────────────────────────────────────────────────────
-
-/** Trailing table-constraint keywords that look like a column name at line start. */
-const NOT_A_COLUMN = /^(constraint|primary|unique|foreign|check|exclude|like)$/i;
-
-export type TableSchema = {
-  /** union of every column name seen across ALL migrations */
-  cols: Set<string>;
-  /** subset of `cols` that carries `REFERENCES public.users(user_id)` */
-  userFks: Set<string>;
-};
-
-/** Split a CREATE TABLE body on top-level commas — one entry per column/constraint. */
-function splitTopLevel(body: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const ch of body) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-    } else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-
-const USER_FK = /REFERENCES\s+public\.users\s*\(\s*user_id/i;
-
-/**
- * table -> columns + which of them FK to public.users(user_id). Union (not
- * last-write) because several migrations DROP+CREATE the same table for
- * idempotency, and later ALTERs add columns.
- *
- * Segment-oriented, NOT line-oriented: a column declaration is frequently
- * wrapped across lines with its REFERENCES clause on the next one, e.g.
- *   customer_id    UUID NOT NULL
- *                  REFERENCES public.users(user_id) ON DELETE CASCADE,
- * (marketing_share_consents, 20261203000000_social_sharing_program.sql:72-73).
- * A line-oriented parser sees the name but never the FK.
- */
-function readSchema(): Map<string, TableSchema> {
-  const schema = new Map<string, TableSchema>();
-  const files = fs
-    .readdirSync(MIGRATIONS)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
-
-    const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.([a-z0-9_]+)\s*\(/gi;
-    let m: RegExpExecArray | null;
-    while ((m = createRe.exec(sql))) {
-      const table = m[1] ?? '';
-      if (!table) continue;
-      // Walk forward from the opening paren, balancing parens, to find the
-      // matching close — the column body can contain nested parens (CHECK,
-      // numeric(10,2), …) so a lazy regex would truncate it.
-      let depth = 0;
-      let end = -1;
-      for (let i = createRe.lastIndex - 1; i < sql.length; i++) {
-        if (sql[i] === '(') depth++;
-        else if (sql[i] === ')') {
-          depth--;
-          if (depth === 0) {
-            end = i;
-            break;
-          }
-        }
-      }
-      if (end < 0) continue;
-
-      const entry = schema.get(table) ?? { cols: new Set<string>(), userFks: new Set<string>() };
-      // Strip `--` comments to END OF LINE, not just whole comment LINES.
-      // A trailing inline comment routinely contains a comma:
-      //   … ON DELETE SET NULL,  -- the rite (kasal/binyag/kumpil), if any
-      // (20270514787557_phase2_person_connections_schema.sql:39). Under a
-      // whole-line filter that comma survives, splitTopLevel breaks the segment
-      // there, and the NEXT real column is swallowed into a segment starting
-      // with leftover comment text — so the ^-anchored column regex never sees
-      // it. Measured: the whole-line filter dropped 161 columns across 55
-      // tables and silently pushed `people` and `vendor_meetings` OUT of the
-      // enforced tier while the suite stayed green. T10 now makes that class of
-      // silent narrowing impossible to ship.
-      const body = sql.slice(createRe.lastIndex, end).replace(/--[^\n]*/g, '');
-      for (const seg of splitTopLevel(body)) {
-        const s = seg.trim();
-        const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(s)?.[1];
-        if (!col || NOT_A_COLUMN.test(col)) continue;
-        entry.cols.add(col);
-        if (USER_FK.test(s)) entry.userFks.add(col);
-      }
-      schema.set(table, entry);
-    }
-
-    const alterRe = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?public\.([a-z0-9_]+)([\s\S]*?);/gi;
-    while ((m = alterRe.exec(sql))) {
-      const entry = schema.get(m[1] ?? '');
-      if (!entry) continue;
-      const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)([^,;]*)/gi;
-      let a: RegExpExecArray | null;
-      while ((a = addRe.exec(m[2] ?? ''))) {
-        if (!a[1]) continue;
-        entry.cols.add(a[1]);
-        if (USER_FK.test(a[2] ?? '')) entry.userFks.add(a[1]);
-      }
-    }
-  }
-  return schema;
-}
+// Extracted 2026-07-26 to lib/security/migration-schema.ts so the RA 10173
+// ERASURE guardrail reuses this exact parser instead of growing a second one.
+// The honesty notes in the docblock above still describe its limits.
 
 /** `user_id` or anything ending `_user_id` — the account holder's own handle. */
 const SUBJECT_COL = /^([a-z0-9_]*_)?user_id$/;
@@ -297,6 +190,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
   vendor_admin_motion_votes: 'Admin decision record — the uid on it is a staff actor, not the subject.',
+  oauth_grants:
+    'Live credential material — refresh_token / access_token to the subject’s Google account. Same rule as api_keys: a bearer secret is never exported, and a subject-access download is a file that lands in Downloads and gets emailed around. Newly VISIBLE 2026-07-26, not newly excluded: `granted_by_user_id` was added so ERASURE could stop deleting the co-partner’s grant event-wide (migration 20271009200000), and the attribution column is what made this table detectable at all. The non-secret fact of the connection (which account, connected when) is mirrored onto `events.photo_delivery_account_email` / `photo_delivery_status`.',
 
   // ── Newly VISIBLE 2026-07-21 (second pass) ────────────────────────────────
   // These 21 became visible when STAFF_ACTOR_FK was DELETED (see the
@@ -349,6 +244,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
  * exactly what this map exists to make visible.
  */
 const KNOWN_GAPS: Record<string, string> = {
+  // ── Newly VISIBLE 2026-07-26, not newly created ──────────────────────────
+  event_paperwork:
+    'TODO(RA10173-backlog): the subject’s own PSA / CENOMAR / baptismal reference numbers and the scanned documents behind them — squarely subject data, and not exported today. It became DETECTABLE only on 2026-07-26, when `subject_user_id` was added so ERASURE could stop destroying the co-partner’s civil-registry documents event-wide (migration 20271009200000). Nothing populates that column yet (no user↔partner-slot mapping exists), so an attribution-scoped export would currently return zero rows; wire it into the export route in the same PR that lands the mapping. Only the 8 per-partner document_type values can ever have a subject — the 7 joint ones (marriage_license, pre_cana_certificate, banns_posted, the counselling records) belong to both partners and need their own disclosure decision.',
+
   // ── Newly VISIBLE 2026-07-21, not newly created ──────────────────────────
   // These three were always gaps. They were invisible because STAFF_ACTOR
   // wrongly claimed `accessed_user_id` / `target_user_id` name an operator; on
@@ -494,8 +393,24 @@ const KNOWN_GAPS: Record<string, string> = {
  * coverage got worse. Refusing the raise would have meant keeping the heuristic
  * wrong to protect a number — precisely the false confidence this file exists
  * to prevent. Every future movement must be downward.
+ *
+ *   88 → 89  2026-07-26 · `event_paperwork`. Same shape as every raise above:
+ *            the gap is not new, the VISIBILITY is. The table holds the
+ *            subject's PSA / CENOMAR references and was never exported, but it
+ *            is keyed by event_id and had no user column at all, so this
+ *            detector was structurally incapable of counting it. Adding
+ *            `subject_user_id` — for ERASURE, so one partner deleting their
+ *            account would stop destroying the OTHER partner's civil-registry
+ *            documents — is what made it countable. (`oauth_grants` became
+ *            visible in the same migration and went to DELIBERATE_EXCLUSIONS
+ *            instead: it is credential material.)
+ *
+ *            Worth stating plainly, because it is the reusable lesson: an
+ *            attribution column improves BOTH sides at once. It let erasure
+ *            stop over-deleting, and it dragged a silent export gap into the
+ *            count. Tables with no user column are not clean; they are unread.
  */
-const KNOWN_GAP_CEILING = 88;
+const KNOWN_GAP_CEILING = 89;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

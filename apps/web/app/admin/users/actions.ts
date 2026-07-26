@@ -43,10 +43,21 @@ function erasureIo(): ErasureIo {
       if (asset?.kind === 'r2') await r2Delete({ bucket: asset.bucket, key: asset.key });
     },
     // Chat attachments store a PUBLIC R2 URL rather than an `r2://` ref, so they
-    // need the URL-shaped round-trip. deletePublicAsset no-ops on anything that
-    // doesn't parse as one of our buckets.
+    // need the URL-shaped round-trip.
+    //
+    // ⚠ THROW ON A REPORTED NON-DELETION (2026-07-26). `deletePublicAsset`
+    // never throws — by design, for the settings callers that just want a
+    // best-effort cleanup. That silently disabled erasure's whole audit path:
+    // `purgeUserAuthoredChat` wraps this in try/catch to write a
+    // `chat-attachment-r2-delete` failure row, and with a function that cannot
+    // fail, the catch was unreachable and every miss went unrecorded. Now the
+    // outcome comes back as data and this adapter converts it into the throw
+    // the purge is already written to audit — matching `r2Delete` above, which
+    // throws and is audited correctly. The adapter is the right place for the
+    // conversion: erasure needs the failure, the other five callers do not.
     deletePublicAssetUrl: async (url) => {
-      await deletePublicAsset({ publicUrl: url });
+      const res = await deletePublicAsset({ publicUrl: url });
+      if (!res.ok) throw new Error(`${res.reason}: ${res.message}`);
     },
     revokeAllSessions,
   };

@@ -193,6 +193,17 @@ export const EVENTS_COMPUTED_COLUMNS = ['wizard_state'] as const;
  * `document_type` and `status` stay (both NOT NULL): they are the co-partner's
  * shared checklist progress, the exact analogue of `completed_at` in
  * wizard_state. Same payload-vs-progress split, applied twice.
+ *
+ * ⚠ WHICH ROWS this is applied to changed 2026-07-26 (owner ruling): only rows
+ * with `subject_user_id = <leaver>`, never the whole event. See
+ * ERASURE_FILTER_COLUMNS and the per-partner scoping block in
+ * `purge.ts › purgeOwnedEventData`. Eight of the fifteen `document_type` values
+ * are per-partner (psa_birth_cert / cenomar / baptismal_cert /
+ * confirmation_cert × partner_1|partner_2) and seven are joint (marriage_license,
+ * pre_cana_certificate, banns_posted, canonical_interview_complete,
+ * inc_counseling_complete, sharia_counseling_complete, cfo_counseling_complete);
+ * a joint document has no single subject and so can never be attributed, which
+ * means it is never erased while the event still has a remaining partner.
  */
 export const EVENT_PAPERWORK_PII_NULLS = {
   tracking_reference: null,
@@ -339,6 +350,83 @@ export const SCAN_EVENT_SCANNER_NULLS = {
   ip_anon: null,
 } as const;
 
+/**
+ * `public.vendor_verification_applications` — the government-ID payload.
+ *
+ * ── WHY THIS TABLE HAD NO ERASURE CODE AT ALL ───────────────────────────────
+ * `doc_uploads` (JSONB) is where a vendor's uploaded GOVERNMENT ID, DTI/SEC
+ * certificate, BIR 2303 and Mayor's Permit land — the heaviest identity
+ * documents anywhere in the product — in the PRIVATE `setnayan-vendor-verification`
+ * bucket. Account deletion never touched it, and could not be made to notice:
+ * the table is keyed by `vendor_profile_id`, its only `*_user_id` column is
+ * `admin_user_id` (a STAFF actor, which the guardrail's detector correctly
+ * ignores), so `coverage-guardrail.test.ts`'s "unclassified subject-bearing
+ * table" check was STRUCTURALLY incapable of ever flagging it. It is now pinned
+ * in that file's `PURGED_WITHOUT_SUBJECT_COLUMN` so the blind spot stays counted
+ * rather than being mistaken for coverage.
+ *
+ * ── WHY SCRUB THE JSONB RATHER THAN DELETE THE ROW ──────────────────────────
+ * The row is also the verification DECISION record — `admin_user_id`,
+ * `decision`, `decision_reason`, `decided_at`, the SLA timestamps. Deleting it
+ * would destroy an admin accountability trail (the same reason
+ * `vendor_verifications` sits in DELIBERATE_EXCLUSIONS), and it would do so to
+ * satisfy a request that only concerns the documents. So: the documents go, the
+ * decision stays. Identical shape to the `vendor_profiles` call — scrub the PII,
+ * keep the shell.
+ *
+ * `docs_complete` is reset alongside because it is a cached derivative of
+ * `doc_uploads`; leaving it TRUE over an empty map would put the application in
+ * the admin's "ready to review" queue with nothing to review.
+ */
+export const VENDOR_VERIFICATION_DOC_SCRUB = {
+  doc_uploads: {} as unknown as null,
+  docs_complete: false,
+} as const;
+
+/**
+ * Pull every R2 object reference out of a `doc_uploads` JSONB value.
+ *
+ * ── WHY A RECURSIVE WALK AND NOT A KNOWN-KEY LOOKUP ─────────────────────────
+ * `DocUpload` (lib/vendor-verification.ts) is a SEVEN-MEMBER UNION and the shape
+ * differs per slot: most slots are `{ r2_key, uploaded_at, notes }`, but
+ * `portfolio_samples` is an ARRAY of `{ r2_key }`, `client_references` is an
+ * array of structured objects, `social_media` is an open platform→link map with
+ * an index signature, and `government_id` carries third-party verification ids.
+ * Reading one fixed key off the top level would silently miss the array slots —
+ * and a missed ref means the government ID stays in R2 with the row that named
+ * it wiped, i.e. unreachable-but-retained, the worst of both outcomes (the same
+ * failure the chat-attachment purge exists to avoid).
+ *
+ * So the walk is shape-agnostic: recurse the whole value and collect any string
+ * that is an `r2://bucket/key` ref, whatever key or nesting depth it sits at.
+ * That fails SAFE as the union grows — a slot shape added next year is covered
+ * on the day it ships. Non-R2 strings (social links, Veriff session ids, ISO
+ * timestamps) are ignored, and the storage adapter is the final arbiter of what
+ * is deletable anyway.
+ *
+ * Deduplicated and depth-capped; defensive about shape because this is erasure
+ * and a purge that throws on a malformed row is a purge that doesn't happen.
+ */
+export function collectStoredAssetRefs(raw: unknown, maxDepth = 8): string[] {
+  const found = new Set<string>();
+  const walk = (value: unknown, depth: number): void => {
+    if (depth > maxDepth || value === null || value === undefined) return;
+    if (typeof value === 'string') {
+      if (value.startsWith('r2://') && value.length > 'r2://'.length) found.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const v of value) walk(v, depth + 1);
+      return;
+    }
+    if (typeof value === 'object') {
+      for (const v of Object.values(value as Record<string, unknown>)) walk(v, depth + 1);
+    }
+  };
+  walk(raw, 0);
+  return [...found];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3 · Whole-row deletes, keyed by the subject's own FK
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,6 +541,7 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
   events: [...Object.keys(EVENTS_OWNER_PII_NULLS), ...EVENTS_COMPUTED_COLUMNS],
   event_paperwork: Object.keys(EVENT_PAPERWORK_PII_NULLS),
   vendor_profiles: Object.keys(VENDOR_PROFILE_PII_SCRUB),
+  vendor_verification_applications: Object.keys(VENDOR_VERIFICATION_DOC_SCRUB),
   users: [...Object.keys(USERS_ANONYMIZE_NULLS), ...USERS_COMPUTED_COLUMNS],
   people: [...Object.keys(PEOPLE_ANONYMIZE_NULLS), ...PEOPLE_COMPUTED_COLUMNS],
   event_moderators: Object.keys(EVENT_MODERATOR_SELF_NULLS),
@@ -473,7 +562,31 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   dependents: ['owner_user_id'],
   godparents: ['owner_user_id'],
   guest_face_enrollments: ['guest_id'],
-  oauth_grants: ['event_id'],
+  // ⚠ Was `event_id` — event-wide, which revoked the CO-PARTNER's Google
+  // credential. Now the account that actually completed the consent.
+  oauth_grants: ['granted_by_user_id'],
   ...Object.fromEntries(OWN_ROW_DELETES.map((d) => [d.table, [d.column]])),
   ...Object.fromEntries(OWN_ROW_DELETES_BY_EMAIL.map((d) => [d.table, ['email']])),
+};
+
+/**
+ * Columns erasure FILTERS an UPDATE on, per table — the scoping half of a
+ * column write.
+ *
+ * A third list is needed because G1/G2 only see what is WRITTEN and what
+ * row-DELETES filter on. A phantom name in an `.eq()` on an update is the same
+ * class of bug with the same blast radius: Postgres rejects the whole statement
+ * (`column "x" does not exist`), the best-effort handler logs it, and the purge
+ * quietly stops purging. `subject_user_id` is a brand-new column that exists in
+ * exactly one migration, which is precisely the shape of name that goes stale
+ * first — so it is checked rather than trusted.
+ *
+ * Only non-obvious scoping columns belong here; `user_id`-style filters are
+ * already covered by the row-delete map.
+ */
+export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  // Per-partner paperwork scoping (owner ruling 2026-07-26) — fail closed.
+  event_paperwork: ['event_id', 'subject_user_id'],
+  // The fail-closed residue probe reads oauth_grants by event + attribution.
+  oauth_grants: ['event_id', 'granted_by_user_id'],
 };

@@ -44,7 +44,8 @@ type SingleResult<T = Record<string, unknown>> = {
 type Filter =
   | { kind: 'eq'; column: string; value: unknown }
   | { kind: 'in'; column: string; values: unknown[] }
-  | { kind: 'notNull'; column: string };
+  | { kind: 'notNull'; column: string }
+  | { kind: 'isNull'; column: string };
 
 /** column -> postgres data_type, per table. Drives jsonb / array casting. */
 type ColumnTypes = Map<string, Map<string, string>>;
@@ -105,6 +106,7 @@ function whereClause(
   if (filters.length === 0) return '';
   const parts = filters.map((f) => {
     if (f.kind === 'notNull') return `"${f.column}" IS NOT NULL`;
+    if (f.kind === 'isNull') return `"${f.column}" IS NULL`;
     if (f.kind === 'eq') return `"${f.column}" = ${bind(types, table, f.column, f.value, params)}`;
     // `.in()` with an empty list must match NOTHING, as PostgREST does.
     if (f.values.length === 0) return 'FALSE';
@@ -135,6 +137,20 @@ class Builder implements PromiseLike<PgResult> {
 
   in(column: string, values: unknown[]): this {
     this.filters.push({ kind: 'in', column, values: values ?? [] });
+    return this;
+  }
+
+  /**
+   * `.is(col, null)` — the fail-closed purge's "which rows can I NOT attribute
+   * to this subject?" probe. Modelled only for null, which is the only value
+   * supabase-js's `.is()` is used with in `lib/erasure/purge.ts`; anything else
+   * fails loudly rather than being silently coerced into an `=` comparison
+   * (`col = NULL` is never true in SQL, so a wrong model here would make the
+   * unattributed-retained audit report zero forever and look green doing it).
+   */
+  is(column: string, value: unknown): this {
+    assertSupported(value === null, `.is('${column}', …) — only .is(col, null) is modelled`);
+    this.filters.push({ kind: 'isNull', column });
     return this;
   }
 

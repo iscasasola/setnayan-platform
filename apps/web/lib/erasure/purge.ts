@@ -53,6 +53,8 @@ import {
   SCAN_EVENT_SCANNER_NULLS,
   USERS_ANONYMIZE_NULLS,
   VENDOR_PROFILE_PII_SCRUB,
+  VENDOR_VERIFICATION_DOC_SCRUB,
+  collectStoredAssetRefs,
   scrubWizardState,
 } from '@/lib/erasure/coverage';
 
@@ -81,6 +83,38 @@ export type ErasureIo = {
   /** Injectable clock — lets the tests assert exact tombstone values. */
   now?: () => Date;
 };
+
+/**
+ * Build the per-purge recorder for data erasure DELIBERATELY LEFT BEHIND.
+ *
+ * Distinct from `makeAuditFail`: nothing went wrong here. A row was skipped
+ * because the purge could not PROVE it belongs to the leaving subject, and the
+ * fail-closed rule (see `purgeOwnedEventData`) says an unprovable row is not
+ * ours to destroy. That is a correct outcome and a residual obligation at the
+ * same time, so it has to be visible rather than silent — otherwise "erasure
+ * completed" would quietly mean "erasure completed except for the rows nobody
+ * counted".
+ *
+ * Records COUNTS and ids only, never payload: an audit row must not become a
+ * second copy of the CENOMAR number the purge exists to remove.
+ */
+function makeAuditRetained(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  logPrefix: string,
+) {
+  return async (stage: string, extra: Record<string, unknown>) => {
+    console.warn(`[${logPrefix}] ${stage} — rows retained (subject not attributable)`, extra);
+    const { error } = await admin.from('admin_audit_log').insert({
+      action: 'erasure_unattributed_retained',
+      target_id: targetUserId,
+      actor_user_id: actorUserId,
+      metadata: { stage, ...extra },
+    });
+    if (error) console.error(`[${logPrefix}] audit-log write failed`, error.message);
+  };
+}
 
 /** Build the per-purge audit-failure recorder shared by every step below. */
 function makeAuditFail(
@@ -111,24 +145,30 @@ function makeAuditFail(
  * sensitive per-partner birth date/time captured for the BaZi date-check —
  * survives untouched. That's a right-to-erasure violation for sensitive data.
  *
- * On every event the deleted user OWNS (member_type='couple') this now clears
- * FOUR things, as four independent best-effort steps:
+ * This clears FOUR things, as four independent best-effort steps:
  *
- *   1. the 5 birth/consent columns + the photo-delivery account email and the
+ *   1. `oauth_grants` — where the photo-delivery Google credential ACTUALLY
+ *      lives today. Nulling `events.photo_delivery_oauth_token_encrypted` while
+ *      leaving a live, cron-refreshed refresh token in `oauth_grants` erased the
+ *      pointer and kept the key. Scoped to the grants the SUBJECT consented to
+ *      (see the per-partner scoping block below); whether Setnayan must ALSO
+ *      call Google's revoke endpoint is a DPO question (see the PR). Runs
+ *      BEFORE the owned-event lookup on purpose: a credential is provably the
+ *      consenting account's own, so it must be reachable even for a subject who
+ *      owns no events at all.
+ *
+ * …and then, on every event the deleted user OWNS (member_type='couple'):
+ *
+ *   2. the 5 birth/consent columns + the photo-delivery account email and the
  *      LIVE encrypted photo-delivery OAuth token (EVENTS_OWNER_PII_NULLS);
- *   2. `wizard_state` (jsonb) — the SECOND COPY. Surgically: the personal
+ *   3. `wizard_state` (jsonb) — the SECOND COPY. Surgically: the personal
  *      payload is stripped and the progress stamps are kept, via an allow-list
  *      (see `scrubWizardState`). Its `meta` passthrough targets the
  *      cenomar_bride / cenomar_groom / church_paperwork / marriage_license task
  *      ids, i.e. slots designed for PSA and CENOMAR reference numbers;
- *   3. `event_paperwork` — the purpose-built home for those same civil-registry
+ *   4. `event_paperwork` — the purpose-built home for those same civil-registry
  *      references, plus the scanned document in R2. Payload nulled, checklist
- *      progress kept;
- *   4. `oauth_grants` — where the photo-delivery Google credential ACTUALLY
- *      lives today. Nulling `events.photo_delivery_oauth_token_encrypted` while
- *      leaving a live, cron-refreshed refresh token in `oauth_grants` erased the
- *      pointer and kept the key. This deletes the grant row; whether Setnayan
- *      must ALSO call Google's revoke endpoint is a DPO question (see the PR).
+ *      progress kept — and scoped per-partner (below).
  *
  * The SHARED fields (bride/groom names, venue) are left intact — a wedding can
  * have two partners + coordinators; we purge the leaving user's own data, not
@@ -136,6 +176,47 @@ function makeAuditFail(
  * is a DPO/counsel ruling). Best-effort: a purge failure is logged but does not
  * block the deletion (a stuck purge must never trap an account in an undeletable
  * state).
+ *
+ * ── PER-PARTNER SCOPING · FAIL CLOSED (owner ruling 2026-07-26) ─────────────
+ * "A leaver deletes only their OWN paperwork; the remaining partner keeps
+ * theirs."
+ *
+ * Steps 1 and 4 used to be scoped `.in('event_id', eventIds)` — EVENT-WIDE.
+ * `event_paperwork` and `oauth_grants` are both keyed by event_id and had no
+ * per-user column, so one partner deleting their account destroyed the OTHER
+ * partner's PSA birth certificate, CENOMAR and baptismal/confirmation scans, and
+ * revoked a Google credential that may well be the co-partner's account. That is
+ * a third party's sensitive personal information (§3(l)) destroyed by someone
+ * with no standing to request it, and unlike over-retention it cannot be undone.
+ *
+ * Both steps are now scoped to a nullable attribution column added by migration
+ * `20271009100000_erasure_per_subject_attribution.sql`
+ * (`event_paperwork.subject_user_id`, `oauth_grants.granted_by_user_id`), and the
+ * rule is: DELETE ONLY WHAT IS PROVABLY THE LEAVER'S. A row whose attribution is
+ * NULL is left untouched — never guessed at, never swept up by an event-wide
+ * filter.
+ *
+ * ⚠ THE COST, STATED PLAINLY. This can leave SOME OF THE LEAVER'S OWN PAPERWORK
+ * BEHIND — every row written before the attribution column existed is NULL, and
+ * `event_paperwork` has no writer that populates it today, so in practice the
+ * paperwork step currently erases nothing at all. That is a deliberate trade,
+ * not an oversight: retaining a document too long is a fixable compliance miss
+ * (and every such row is audit-logged below as `erasure_unattributed_retained`
+ * so an operator sweep can still act on it), whereas destroying a co-partner's
+ * civil-registry documents is irreversible and harms someone who never asked for
+ * anything. When the two failure modes are not symmetric, fail toward the
+ * reversible one.
+ *
+ * ⚠ THE REAL FIX IS NOT BUILT HERE, ON PURPOSE. What is actually missing is a
+ * user↔partner-slot link. Nothing in the schema maps an account to "partner 1"
+ * or "partner 2": `event_members.role` is only 'host' or NULL, `events` carries
+ * bride_name / groom_name / partner_a_birth_date / partner_b_birth_date but no
+ * partner_a_user_id, and the second partner frequently has no account at all. So
+ * "is this leaver partner_1 or partner_2" is UNANSWERABLE with today's data, and
+ * inventing an answer inside an erasure path — the one place a wrong guess
+ * destroys someone else's documents — would be the wrong place to invent it.
+ * That mapping is a product-model change (it decides who a wedding "belongs to"
+ * in a dozen other surfaces), and it is deliberately left to its own PR.
  *
  * Uses the service-role admin client (passed in) so it isn't subject to the
  * leaving user's RLS, which may already be partially torn down.
@@ -160,6 +241,30 @@ export async function purgeOwnedEventData(
     'purgeOwnedEventData',
     'erasure_purge_failed',
   );
+  const recordRetained = makeAuditRetained(admin, targetUserId, actorUserId, 'purgeOwnedEventData');
+
+  // ── 1 · oauth_grants: the live Google credential ───────────────────────────
+  // Scoped to `granted_by_user_id` — the account that completed the consent —
+  // and NOT to event_id. Deliberate, and the reason this step runs before the
+  // owned-event lookup: a grant attributed to the subject is provably their own
+  // credential wherever it hangs, and an event-wide filter is exactly what used
+  // to revoke the co-partner's Google account.
+  //
+  // Already-revoked rows are deleted too. `revoked_at` only marks the token as
+  // no longer usable BY US; the row still carries external_account_display (an
+  // email address), external_account_id (the provider subject id) and a
+  // metadata blob with the account's display name and avatar URL. Those are the
+  // subject's personal data whether or not the credential still works, so the
+  // filter deliberately does not exclude them.
+  const { error: grantErr } = await admin
+    .from('oauth_grants')
+    .delete()
+    .eq('granted_by_user_id', targetUserId);
+  if (grantErr) {
+    await recordErasureFailure('oauth-grants-delete', grantErr.message, {
+      kind: 'live_oauth_credential',
+    });
+  }
 
   const { data: owned, error: lookupErr } = await admin
     .from('event_members')
@@ -175,7 +280,7 @@ export async function purgeOwnedEventData(
     .filter((v): v is string => typeof v === 'string' && v.length > 0);
   if (eventIds.length === 0) return;
 
-  // ── 1 · birth/consent + photo-delivery columns ─────────────────────────────
+  // ── 2 · birth/consent + photo-delivery columns ─────────────────────────────
   const { error: purgeErr } = await admin
     .from('events')
     .update({ ...EVENTS_OWNER_PII_NULLS })
@@ -225,11 +330,16 @@ export async function purgeOwnedEventData(
     }
   }
 
-  // ── 3 · event_paperwork: PSA / CENOMAR references + the scanned document ───
+  // ── 4 · event_paperwork: PSA / CENOMAR references + the scanned document ───
+  // ⚠ `.eq('subject_user_id', targetUserId)` is the whole point — see the
+  // per-partner scoping block in the docstring. The `.in('event_id', …)` filter
+  // is kept alongside it, not as the gate (subject_user_id is the gate) but so
+  // this step stays inside the scope its function name claims.
   const { data: paperwork, error: paperErr } = await admin
     .from('event_paperwork')
     .select('id, document_r2_key')
-    .in('event_id', eventIds);
+    .in('event_id', eventIds)
+    .eq('subject_user_id', targetUserId);
   if (paperErr) {
     await recordErasureFailure('paperwork-lookup', paperErr.message, {
       event_ids: eventIds,
@@ -253,7 +363,8 @@ export async function purgeOwnedEventData(
     const { error: pwErr } = await admin
       .from('event_paperwork')
       .update({ ...EVENT_PAPERWORK_PII_NULLS })
-      .in('event_id', eventIds);
+      .in('event_id', eventIds)
+      .eq('subject_user_id', targetUserId);
     if (pwErr) {
       await recordErasureFailure('paperwork-purge', pwErr.message, {
         event_ids: eventIds,
@@ -262,18 +373,53 @@ export async function purgeOwnedEventData(
     }
   }
 
-  // ── 4 · oauth_grants: the live Google credential ───────────────────────────
-  // No user FK on this table — it is keyed by event_id, which is exactly why
-  // nothing reached it. Scoped to the owner's events, matching the decision
-  // already made for events.photo_delivery_oauth_token_encrypted.
-  const { error: grantErr } = await admin
+  // ── 5 · fail-closed residue: what per-partner scoping deliberately kept ────
+  // Counting is not optional bookkeeping. Without it "erasure completed" would
+  // silently also mean "…except for N documents and M credentials on your own
+  // events that nobody could attribute", and the DPO would have no way to tell
+  // the difference between a clean run and a run that skipped everything. These
+  // are the rows the OLD event-wide filter would have destroyed.
+  // Row ids are read and counted in JS rather than asked for as an exact count:
+  // the sets are single-digit (one couple's own events) and `.select(cols, {
+  // count })` is a call shape the erasure test's PostgREST adapter does not
+  // model. A count the test harness cannot execute is a count nobody verifies.
+  const { data: unattributedPaperwork, error: pwCountErr } = await admin
+    .from('event_paperwork')
+    .select('id')
+    .in('event_id', eventIds)
+    .is('subject_user_id', null);
+  if (pwCountErr) {
+    await recordErasureFailure('paperwork-unattributed-count', pwCountErr.message, {
+      event_ids: eventIds,
+      kind: 'civil_registry_documents',
+    });
+  } else if ((unattributedPaperwork ?? []).length > 0) {
+    await recordRetained('paperwork-unattributed', {
+      event_ids: eventIds,
+      kind: 'civil_registry_documents',
+      retained_count: (unattributedPaperwork ?? []).length,
+      reason:
+        'subject_user_id IS NULL — the document may be the co-partner’s, and no user↔partner-slot mapping exists to decide',
+    });
+  }
+
+  const { data: unattributedGrants, error: grCountErr } = await admin
     .from('oauth_grants')
-    .delete()
-    .in('event_id', eventIds);
-  if (grantErr) {
-    await recordErasureFailure('oauth-grants-delete', grantErr.message, {
+    .select('grant_id')
+    .in('event_id', eventIds)
+    .is('granted_by_user_id', null);
+  if (grCountErr) {
+    await recordErasureFailure('oauth-grants-unattributed-count', grCountErr.message, {
       event_ids: eventIds,
       kind: 'live_oauth_credential',
+    });
+  } else if ((unattributedGrants ?? []).length > 0) {
+    await recordRetained('oauth-grants-unattributed', {
+      event_ids: eventIds,
+      kind: 'live_oauth_credential',
+      retained_count: (unattributedGrants ?? []).length,
+      reason:
+        'granted_by_user_id IS NULL — a pre-attribution grant; the connected account may be the co-partner’s',
     });
   }
 }
@@ -296,10 +442,23 @@ export async function purgeOwnedEventData(
  * (which denies DELETE to authenticated).
  *
  * ⚠ ATTACHMENTS (added 2026-07-26). Deleting the row without deleting the R2
- * object is strictly WORSE than leaving both: the file stays in
- * setnayan-thread-files, still addressable by URL, and the row that recorded it
- * is gone — unreachable-but-retained, the worst of both. So the attachment URLs
- * are collected BEFORE the delete and handed to storage afterwards.
+ * object is strictly WORSE than leaving both: the file stays addressable by URL
+ * and the row that recorded it is gone — unreachable-but-retained, the worst of
+ * both. So the attachment URLs are collected BEFORE the delete and handed to
+ * storage afterwards.
+ *
+ * ⚠⚠ AND THE BUCKET IS PUBLIC. An earlier version of this note said the file
+ * "stays in setnayan-thread-files" — the PRIVATE bucket, readable only via a
+ * short-lived presigned GET. That is wrong, and the correction raises the
+ * stakes rather than lowering them. `sendChatMessageCore` (lib/chat-send.ts)
+ * uploads with `pathPrefix: chat/<thread_id>`, which `bucketForPrefix`
+ * (lib/bucket-routing.ts) does not special-case, so it takes the default:
+ * **setnayan-media, the PUBLIC bucket** — the chat-send code says as much
+ * ("Public URL is acceptable for v1 … signed-URL access control is a tracked
+ * follow-up"). A missed delete therefore leaves the subject's uploaded contract
+ * or ID scan at a permanently public URL, not behind a signature. Nothing here
+ * depends on the bucket name, but the next person reasoning about the residual
+ * risk does.
  *
  * Best-effort, matching the other purges: a failure is logged to admin_audit_log
  * (so the erasure miss is recoverable via a manual sweep) but does NOT block the
@@ -519,6 +678,110 @@ export async function purgeUserOwnedRecords(
         admin.from(table).delete().eq('email', opts.originalEmail as string),
       );
     }
+  }
+}
+
+/**
+ * RA 10173 right-to-erasure — the vendor's uploaded GOVERNMENT IDENTITY
+ * DOCUMENTS (added 2026-07-26).
+ *
+ * `vendor_verification_applications.doc_uploads` is a JSONB map of verification
+ * slots holding R2 refs to the vendor's government ID, DTI / SEC certificate,
+ * BIR 2303 and Mayor's Permit, in the PRIVATE `setnayan-vendor-verification`
+ * bucket. Before this there was NO erasure code for it at all: the identity
+ * documents — the most sensitive PI a vendor ever hands over — survived account
+ * deletion in full, both the DB refs and the objects behind them.
+ *
+ * ⚠ WHY NOTHING CAUGHT IT. The erasure guardrail's "unclassified subject-bearing
+ * table" check keys on a `*_user_id` column. This table has exactly one,
+ * `admin_user_id`, and that is the REVIEWING STAFF MEMBER — correctly treated as
+ * a staff actor and skipped. Everything else is keyed by `vendor_profile_id`. So
+ * the detector could never have flagged this table, no matter how long it went
+ * uncovered: the miss is STRUCTURAL, not an oversight in the list. It is now
+ * pinned in `PURGED_WITHOUT_SUBJECT_COLUMN` (coverage-guardrail.test.ts) so the
+ * blind spot is counted, and this docstring exists so the next person reads the
+ * guard's limits rather than its green tick.
+ *
+ * Resolution path mirrors `vendor_push_tokens` in `purgeUserOwnedRecords`:
+ * `vendor_profiles.user_id` is UNIQUE, so the subject is the SOLE owner of at
+ * most one shop, and every application under it is theirs. There is no
+ * co-partner analogue here and therefore no fail-closed problem — unlike
+ * `event_paperwork`, a vendor application cannot belong to a second data
+ * subject.
+ *
+ * R2 objects are dropped FIRST, then the JSONB is emptied — same ordering rule
+ * as the paperwork and chat-attachment purges, because clearing the pointer
+ * before the object leaves the file addressable with nothing left to say it was
+ * theirs. The row itself SURVIVES, scrubbed: it is also the admin verification
+ * decision record (see VENDOR_VERIFICATION_DOC_SCRUB for why).
+ *
+ * Best-effort per step, like every purge above: failures are audit-logged, never
+ * thrown, so one bad step can't trap the account in an undeletable state.
+ */
+export async function purgeVendorVerificationDocuments(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  io: ErasureIo,
+): Promise<void> {
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'purgeVendorVerificationDocuments',
+    'erasure_step_failed',
+    { kind: 'vendor_identity_documents' },
+  );
+
+  const { data: shops, error: shopErr } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id')
+    .eq('user_id', targetUserId);
+  if (shopErr) {
+    await auditFail('vendor-verification-shop-lookup', shopErr.message);
+    return;
+  }
+  const vendorProfileIds = (shops ?? [])
+    .map((r) => (r as { vendor_profile_id?: string }).vendor_profile_id)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (vendorProfileIds.length === 0) return;
+
+  const { data: applications, error: appErr } = await admin
+    .from('vendor_verification_applications')
+    .select('application_id, doc_uploads')
+    .in('vendor_profile_id', vendorProfileIds);
+  if (appErr) {
+    await auditFail('vendor-verification-application-lookup', appErr.message);
+    return;
+  }
+  if ((applications ?? []).length === 0) return;
+
+  // Drop the private-bucket objects first. `collectStoredAssetRefs` walks the
+  // whole JSONB rather than reading a known key — the slot shapes are a
+  // seven-member union and two of them are arrays (see its docstring).
+  for (const row of applications ?? []) {
+    const refs = collectStoredAssetRefs((row as { doc_uploads?: unknown }).doc_uploads);
+    for (const ref of refs) {
+      try {
+        await io.deleteStoredAsset(ref);
+      } catch (e) {
+        await auditFail(
+          'vendor-verification-r2-delete',
+          e instanceof Error ? e.message : String(e),
+          { vendor_profile_ids: vendorProfileIds },
+        );
+      }
+    }
+  }
+
+  const { error: scrubErr } = await admin
+    .from('vendor_verification_applications')
+    .update({ ...VENDOR_VERIFICATION_DOC_SCRUB })
+    .in('vendor_profile_id', vendorProfileIds);
+  if (scrubErr) {
+    await auditFail('vendor-verification-docs-scrub', scrubErr.message, {
+      vendor_profile_ids: vendorProfileIds,
+    });
   }
 }
 
@@ -807,10 +1070,17 @@ export async function eraseUserAccount(
 
   // 4. Domain PII purges (owned-event owner data + wizard_state + civil-registry
   //    paperwork + the live OAuth grant · authored chat bodies + attachments ·
-  //    the user's other owner-scoped records · the subject's per-event GUEST-side
+  //    the user's uploaded vendor-verification identity documents · the user's
+  //    other owner-scoped records · the subject's per-event GUEST-side
   //    biometrics + selfies).
   await purgeOwnedEventData(admin, targetUserId, actorUserId, io);
   await purgeUserAuthoredChat(admin, targetUserId, actorUserId, io);
+  // Ordering note: BEFORE purgeUserOwnedRecords on purpose. That step scrubs
+  // vendor_profiles, and although it does not currently touch `user_id` (the
+  // link this resolves through), depending on that is a needless coupling —
+  // running first means the vendor-document purge cannot be broken by a future
+  // widening of the profile scrub.
+  await purgeVendorVerificationDocuments(admin, targetUserId, actorUserId, io);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId, { originalEmail, now });
   await purgeUserGuestBiometrics(admin, targetUserId, actorUserId, io, now);
 

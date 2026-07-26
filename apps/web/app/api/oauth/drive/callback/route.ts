@@ -210,6 +210,11 @@ export async function GET(req: NextRequest) {
         access_token_expires_at: expiresAt,
         external_account_id: userInfo?.id ?? null,
         external_account_display: userInfo?.email ?? 'Connected Drive',
+        // RA 10173 erasure attribution (migration 20271009100000) — the account
+        // that completed this consent. Without it, account deletion cannot
+        // prove whose Google credential this is and fails closed, leaving a
+        // live cron-refreshed refresh token behind. See the column COMMENT.
+        granted_by_user_id: (stateRow.initiated_by as string | null) ?? null,
         granted_at: new Date().toISOString(),
         revoked_at: null,
         last_refreshed_at: new Date().toISOString(),

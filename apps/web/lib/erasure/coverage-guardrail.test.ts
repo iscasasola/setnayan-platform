@@ -43,15 +43,30 @@
  *      `lib/erasure/coverage.ts`. A key typed inline into a `.update({ … })`
  *      literal in `purge.ts` is INVISIBLE here — the db test is the backstop.
  *   3. ⚠ THE ENFORCED TIER IS NOT A SUPERSET OF WHAT ERASURE MUST COVER.
- *      Nine tables this purge reaches carry NO subject column at all and are
- *      therefore invisible to the detector: event_paperwork, oauth_grants,
- *      guest_face_enrollments, vendor_push_tokens, couple_waitlist_signups and
- *      the four *_oauth_state tables. They are keyed by event_id /
- *      vendor_profile_id / guest_id / email. So a future table shaped like
- *      `oauth_grants` — personal data hung off an event with no user FK — will
- *      NOT be flagged by G3. That is the residual blind spot, it is structural,
- *      and no amount of regex fixes it. `PURGED_WITHOUT_SUBJECT_COLUMN` below
- *      pins the ones we know about so at least the count stays visible.
+ *      Eight tables this purge reaches carry NO subject column at all and are
+ *      therefore invisible to the detector: guest_face_enrollments,
+ *      vendor_push_tokens, vendor_verification_applications,
+ *      couple_waitlist_signups and the four *_oauth_state tables. They are keyed
+ *      by event_id / vendor_profile_id / guest_id / email. So a future table
+ *      shaped like the old `oauth_grants` — personal data hung off an event with
+ *      no user FK — will NOT be flagged by G3. That is the residual blind spot,
+ *      it is structural, and no amount of regex fixes it.
+ *      `PURGED_WITHOUT_SUBJECT_COLUMN` below pins the ones we know about so at
+ *      least the count stays visible.
+ *
+ *      ⚠ The proof that this blind spot is not academic:
+ *      `vendor_verification_applications` — the vendor's GOVERNMENT ID, DTI/SEC
+ *      certificate and BIR 2303 in a private R2 bucket — had NO erasure code at
+ *      all until 2026-07-26, and this guardrail could never have said so. Its
+ *      one `*_user_id` column is `admin_user_id`, a STAFF actor the detector
+ *      deliberately ignores. It was found by reading, not by CI.
+ *
+ *      ⚠ Moving the other way, same date: `event_paperwork` and `oauth_grants`
+ *      LEFT this list. They gained `subject_user_id` / `granted_by_user_id`
+ *      (migration 20271009100000) so the purge could scope per-partner instead
+ *      of event-wide, and the side effect is that the detector can now see them.
+ *      Attribution columns shrink the blind spot as well as preventing
+ *      over-deletion — worth knowing next time a table lands in this list.
  *   4. The parser's own limits (DO blocks, dynamic SQL, non-public schemas,
  *      changes applied straight to prod) are inherited verbatim — see
  *      `lib/security/migration-schema.ts`.
@@ -68,6 +83,7 @@ import { fileURLToPath } from 'node:url';
 import { readSchema, type TableSchema } from '../security/migration-schema';
 import {
   ERASURE_COLUMN_WRITES,
+  ERASURE_FILTER_COLUMNS,
   ERASURE_ROW_DELETES,
   WIZARD_STATE_ALLOWED_KEYS,
 } from './coverage';
@@ -110,15 +126,24 @@ const PURGED: ReadonlySet<string> = new Set([
  * the blind spot in note 3 above stays honest and countable.
  */
 const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
-  'event_paperwork', // keyed by event_id
-  'oauth_grants', // keyed by event_id
   'guest_face_enrollments', // keyed by (event_id, guest_id)
   'vendor_push_tokens', // keyed by vendor_profile_id
+  // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
+  // the reviewing staff member, which the detector correctly treats as a staff
+  // actor and skips. So the table holding vendors' government IDs / DTI / BIR
+  // 2303 in the private setnayan-vendor-verification bucket was invisible here
+  // for its entire uncovered life. Purged as of 2026-07-26
+  // (purgeVendorVerificationDocuments); pinned so the blind spot stays counted.
+  'vendor_verification_applications',
   'couple_waitlist_signups', // keyed by email only — no FK at all
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',
   'live_studio_channel_oauth_state',
+  // ⚠ REMOVED 2026-07-26: `event_paperwork` and `oauth_grants`. Migration
+  // 20271009100000 gave them `subject_user_id` / `granted_by_user_id` so the
+  // purge could stop deleting event-wide, and that makes them visible to the
+  // detector — they are now in the ENFORCED tier, not this one.
 ]);
 
 /**
@@ -206,6 +231,12 @@ const PARTIALLY_PURGED: Record<string, string> = {
     'PURGED: scanner_user_id, user_agent, ip_anon. DEFERRED: the scan row itself, which is the host’s per-guest attendance record.',
   people:
     'PURGED: the subject’s claimed identity node (7 PII columns + deleted_at). DEFERRED: claimed_by_user_id, retained on purpose so the biometric purge can still resolve through the person spine, and nodes the subject CREATED for third parties.',
+  event_paperwork:
+    'PURGED: tracking_reference, document_r2_key, notes — but ONLY on rows with subject_user_id = the leaver (owner ruling 2026-07-26). DEFERRED, fail-closed: every row with a NULL subject, which today is ALL of them (nothing populates the column yet, and no user↔partner-slot mapping exists to populate it honestly). Destroying the co-partner’s PSA/CENOMAR scan is the worse failure; the retained rows are audit-logged as erasure_unattributed_retained.',
+  oauth_grants:
+    'PURGED: grants with granted_by_user_id = the leaver, deleted whole (a live credential must not outlive the account). DEFERRED, fail-closed: NULL-attributed grants — the connected Google/YouTube account may be the co-partner’s. Also DEFERRED: calling the provider’s own revoke endpoint (a DPO question, see the PR).',
+  vendor_verification_applications:
+    'PURGED: doc_uploads (the R2 objects behind the government ID / DTI / BIR 2303 / Mayor’s Permit, plus the JSONB refs) and the docs_complete derivative. DEFERRED: the row itself and its decision fields (admin_user_id, decision, decision_reason, decided_at) — the admin verification accountability trail, excluded by the same rule as vendor_verifications.',
 };
 
 /**
@@ -319,6 +350,34 @@ test('G2 · every column erasure FILTERS row-deletes on exists', () => {
   assert.deepEqual(missing, [], `Row-delete filters on non-existent columns: ${missing.join(', ')}`);
 });
 
+test('G2b · every column erasure SCOPES an update on exists', () => {
+  // The scoping half of G1. A phantom name in the `.eq()` of an UPDATE fails the
+  // whole statement exactly as a phantom name in its payload does — Postgres
+  // rejects it, best-effort logs it, and the purge stops purging. This matters
+  // most for the newest names: `event_paperwork.subject_user_id` and
+  // `oauth_grants.granted_by_user_id` exist in ONE migration each, and they are
+  // the only thing standing between the leaver's documents and the
+  // co-partner's.
+  const schema = readSchema();
+  const missing: string[] = [];
+  for (const [table, cols] of Object.entries(ERASURE_FILTER_COLUMNS)) {
+    const entry = schema.get(table);
+    if (!entry) {
+      missing.push(`${table} (table not found in migrations)`);
+      continue;
+    }
+    for (const col of cols) {
+      if (!entry.cols.has(col)) missing.push(`${table}.${col}`);
+    }
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    'Erasure scopes an UPDATE on columns that do not exist. The statement will be rejected in ' +
+      `full and the purge will silently do nothing. Missing: ${missing.join(', ')}`,
+  );
+});
+
 test('G3 · every subject-bearing table is classified (a NEW table fails here)', () => {
   const inScope = inScopeTables(readSchema());
   const unclassified = inScope.filter(
@@ -403,6 +462,14 @@ test('G9 · every table where the own-vs-shared line runs THROUGH it is document
     'event_moderators',
     'scan_events',
     'people',
+    // Added 2026-07-26. The first two are partial in a NEW way — not "some
+    // columns deferred" but "some ROWS deferred", because per-partner scoping
+    // fails closed on anything it cannot attribute. Same requirement either
+    // way: "we purged that table" must never be readable as "that table is
+    // clean".
+    'event_paperwork',
+    'oauth_grants',
+    'vendor_verification_applications',
   ];
   const undocumented = partialByDesign.filter((t) => !(t in PARTIALLY_PURGED));
   assert.deepEqual(

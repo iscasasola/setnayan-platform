@@ -159,6 +159,13 @@ export async function GET(req: NextRequest) {
         access_token_expires_at: expiresAt,
         external_account_id: userInfo?.id ?? null,
         external_account_display: userInfo?.email ?? 'Connected Drive',
+        // RA 10173 erasure attribution (migration 20271009100000). Neither
+        // external_account_id (a Google `sub`) nor external_account_display (an
+        // email here, but a CHANNEL NAME on the YouTube grant) identifies a
+        // Setnayan account, so without this column account deletion cannot tell
+        // whose credential this is and must fail closed and KEEP it. The
+        // consenting account is exactly `oauth_state.initiated_by`.
+        granted_by_user_id: (stateRow.initiated_by as string | null) ?? null,
         granted_at: new Date().toISOString(),
         revoked_at: null,
         last_refreshed_at: new Date().toISOString(),

@@ -5,16 +5,12 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import { computePackageCredit } from '@/lib/package-credit';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
-  allowedRemovals,
-  toCreditPackage,
+  priceCustomizedPackage,
   unresolvedRequiredChoices,
 } from '@/lib/package-credit-adapter';
 import {
-  chosenOptionsSurchargeCentavos,
-  computeCustomization,
   isRemovableItem,
   keptItems,
   resolveChosenOption,
@@ -162,8 +158,6 @@ export async function lockPackage(
 
   // 4. Compute the cascade math.
   const removedIds = customizations.removed_item_ids ?? [];
-  const { remainingConsumableCentavos, totalLockedCentavos } =
-    computeCustomization(pkg, removedIds);
   const kept = keptItems(pkg, removedIds);
 
   // Keep only option ids that really belong to a KEPT choice line on THIS
@@ -177,13 +171,6 @@ export async function lockPackage(
     .filter((opt): opt is VendorPackageItemOptionRow => opt !== undefined)
     .filter((opt) => requestedOptionIds.includes(opt.option_id))
     .map((opt) => opt.option_id);
-
-  // Upgrades the host picked, priced from the DB rows above.
-  const surchargeCentavos = chosenOptionsSurchargeCentavos(
-    pkg,
-    removedIds,
-    chosenOptionIds,
-  );
 
   // ── The CREDIT engine (flag-dark) ────────────────────────────────────────
   //
@@ -199,18 +186,6 @@ export async function lockPackage(
   // problem, so we surface it instead of quietly falling back to a number. A
   // silent fallback here would be the worst of both: the couple is charged by
   // one model while being shown another.
-  let creditTotals: {
-    bookingTotalCentavos: number;
-    remainingConsumableCentavos: number;
-    availableCreditCentavos: number;
-    overspendCentavos: number;
-  } = {
-    bookingTotalCentavos: totalLockedCentavos + surchargeCentavos,
-    remainingConsumableCentavos,
-    availableCreditCentavos: remainingConsumableCentavos,
-    overspendCentavos: 0,
-  };
-
   if (packageCreditEnabled()) {
     const unresolved = unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds);
     if (unresolved.length > 0) {
@@ -222,25 +197,20 @@ export async function lockPackage(
         itemIds: unresolved,
       };
     }
+  }
 
-    const credit = computePackageCredit({
-      pkg: toCreditPackage(pkg),
-      removedItemIds: allowedRemovals(pkg, removedIds),
-      chosenOptionIds,
-    });
-    if (!credit.ok) {
-      return {
-        status: 'error',
-        message: `Package pricing could not be computed: ${credit.errors
-          .map((e) => e.code)
-          .join(', ')}`,
-      };
-    }
-    creditTotals = {
-      bookingTotalCentavos: credit.bookingTotalCentavos,
-      remainingConsumableCentavos: credit.remainingCreditCentavos,
-      availableCreditCentavos: credit.availableCreditCentavos,
-      overspendCentavos: credit.overspendCentavos,
+  // ONE pricer, shared with removeItemFromPackage — see priceCustomizedPackage
+  // for why computing this in two places was a live money bug.
+  const creditTotals = priceCustomizedPackage(
+    pkg,
+    removedIds,
+    chosenOptionIds,
+    packageCreditEnabled(),
+  );
+  if (!creditTotals) {
+    return {
+      status: 'error',
+      message: 'Package pricing could not be computed.',
     };
   }
 
@@ -520,6 +490,28 @@ export async function removeItemFromPackage(formData: FormData) {
   };
 
   // Update the customizations payload + recompute the math.
+  // Options, so a choice line is still a choice line when we re-price. Without
+  // this every line reads as plain and the surcharge vanishes.
+  const removeItemIds = (itemsRows ?? []).map((i) => i.item_id);
+  const { data: removeOptionRows } = removeItemIds.length
+    ? await supabase
+        .from('vendor_package_item_options')
+        .select(PACKAGE_ITEM_OPTION_SELECT)
+        .in('item_id', removeItemIds)
+        .eq('is_available', true)
+        .order('display_order', { ascending: true })
+    : { data: [] as VendorPackageItemOptionRow[] };
+  const removeOptionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
+  for (const row of (removeOptionRows ?? []) as VendorPackageItemOptionRow[]) {
+    const list = removeOptionsByItem.get(row.item_id) ?? [];
+    list.push(row);
+    removeOptionsByItem.set(row.item_id, list);
+  }
+  pkg.items = pkg.items.map((i) => ({
+    ...i,
+    options: removeOptionsByItem.get(i.item_id) ?? [],
+  }));
+
   const existingCustom = (booking.customizations_json ?? {}) as PackageCustomizations;
   const existingRemoved = existingCustom.removed_item_ids ?? [];
   if (existingRemoved.includes(itemId)) {
@@ -533,8 +525,20 @@ export async function removeItemFromPackage(formData: FormData) {
     ...existingCustom,
     removed_item_ids: newRemoved,
   };
-  const { remainingConsumableCentavos, totalLockedCentavos } =
-    computeCustomization(pkg, newRemoved);
+  // Choices matter here too. This path used to price with `computeCustomization`
+  // alone, so removing ANY line from a package carrying a paid upgrade silently
+  // dropped the upgrade from the stored total while `chosen_option_ids` still
+  // recorded the pick — and the booking fee rides on that total.
+  const survivingOptionIds = newCustom.chosen_option_ids ?? [];
+  const totals = priceCustomizedPackage(
+    pkg,
+    newRemoved,
+    survivingOptionIds,
+    packageCreditEnabled(),
+  );
+  if (!totals) throw new Error('Package pricing could not be computed.');
+  const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =
+    totals;
 
   const removedItem = pkg.items.find((i) => i.item_id === itemId);
   if (!removedItem) throw new Error('Item not found in package');

@@ -25,6 +25,13 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  * Renders inline as a CTA button + drawer. Mobile = bottom sheet,
  * desktop = right-side drawer. Both share the same content.
  */
+/**
+ * What Lock actually promises. Owner ruling 2026-07-26 — a lock becomes real
+ * when the VENDOR approves payment, so the couple is told that plainly rather
+ * than being left to assume the date is held.
+ */
+const vendorConfirmsLabel = 'Your vendor confirms once payment is approved.';
+
 export function LockPackageModal({
   eventId,
   pkg,
@@ -413,8 +420,17 @@ export function LockPackageModal({
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
                 {isPending ? 'Locking…' : 'Lock this package'}
               </button>
+              {/* ⚠ TRUTHFUL BY OWNER RULING (2026-07-26): "lock will only be
+                  locked when the vendor approves their payment." Locking
+                  records the couple's choice and puts it on their event home;
+                  it does NOT hold the date. Capacity is consumed only at
+                  `deposit_paid` (owner lock 2026-06-12, vendors/actions.ts:255)
+                  — until then two couples can both lock the same vendor for the
+                  same day. Never imply the date is secured here, and do not
+                  copy a "the date is yours" line onto the service-card Lock
+                  button when it ships (§6.8). */}
               <p className="mt-2 text-center text-[10px] text-ink/45">
-                Everything in this package will lock on your event home.
+                This goes on your event home. {vendorConfirmsLabel}
               </p>
             </footer>
           </div>

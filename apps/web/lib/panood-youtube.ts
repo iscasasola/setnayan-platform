@@ -31,8 +31,8 @@
 import 'server-only';
 import { resolveOAuthClientConfig } from '@/lib/integration-config';
 import { OAUTH_SPECS } from '@/lib/integrations/registry';
+import { buildGoogleAuthorizeUrl } from '@/lib/google-oauth-authorize';
 
-const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const YOUTUBE_CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels';
@@ -96,23 +96,36 @@ export async function getYoutubeOAuthConfig(): Promise<PanoodYoutubeConfigStatus
  * refresh_token — Google reuses the prior grant and only returns
  * access_token, which is useless to us since we discarded the prior refresh
  * token on disconnect).
+ *
+ * ⚠ `include_granted_scopes` is deliberately NOT set. Incremental
+ * authorization asks Google to fold every scope the user previously granted
+ * into THIS consent — and a user who already connected Papic's Google Drive
+ * has `drive.file`, which Google refuses to issue alongside a YouTube scope:
+ *
+ *   Access blocked: Authorization Error
+ *   This request contains scopes that cannot be requested together:
+ *   [.../auth/youtube, .../auth/drive.file]   (Error 400: invalid_request)
+ *
+ * Observed live 2026-07-25 on an account with both integrations. It is
+ * order-dependent and therefore easy to miss: whichever integration is
+ * connected SECOND is the one that breaks, so a fresh account tests clean.
+ *
+ * We never needed it. Drive and YouTube keep INDEPENDENT grants (separate
+ * `oauth_grants` rows, separate refresh tokens, separate OAuth clients) — this
+ * token only ever has to carry `auth/youtube`. Dropping the flag also matches
+ * the minimum-scope posture Google reviews. Do not re-add it.
  */
 export function buildYoutubeAuthorizeUrl(input: {
   clientId: string;
   redirectUri: string;
   state: string;
 }): string {
-  const params = new URLSearchParams({
-    client_id: input.clientId,
-    redirect_uri: input.redirectUri,
-    response_type: 'code',
-    scope: YOUTUBE_OAUTH_SCOPES.join(' '),
-    access_type: 'offline',
-    prompt: 'consent',
-    include_granted_scopes: 'true',
+  return buildGoogleAuthorizeUrl({
+    clientId: input.clientId,
+    redirectUri: input.redirectUri,
+    scopes: YOUTUBE_OAUTH_SCOPES,
     state: input.state,
   });
-  return `${GOOGLE_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 export type YoutubeTokenResponse = {

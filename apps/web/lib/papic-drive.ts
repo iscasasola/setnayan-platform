@@ -48,8 +48,8 @@
 import 'server-only';
 import { resolveOAuthClientConfig } from '@/lib/integration-config';
 import { OAUTH_SPECS } from '@/lib/integrations/registry';
+import { buildGoogleAuthorizeUrl } from '@/lib/google-oauth-authorize';
 
-const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -125,17 +125,18 @@ export function buildDriveAuthorizeUrl(input: {
   // account" link would appear to do nothing.
   forceAccountChooser?: boolean;
 }): string {
-  const params = new URLSearchParams({
-    client_id: input.clientId,
-    redirect_uri: input.redirectUri,
-    response_type: 'code',
-    scope: DRIVE_OAUTH_SCOPES.join(' '),
-    access_type: 'offline',
-    prompt: input.forceAccountChooser ? 'select_account consent' : 'consent',
-    include_granted_scopes: 'true',
+  // Shares the pure builder with the YouTube side so the
+  // no-`include_granted_scopes` rule is enforced in ONE place — Google refuses
+  // to issue `drive.file` alongside a YouTube scope, and the break is
+  // order-dependent (whichever integration is connected SECOND fails), so the
+  // two builders must never drift apart. See lib/google-oauth-authorize.ts.
+  return buildGoogleAuthorizeUrl({
+    clientId: input.clientId,
+    redirectUri: input.redirectUri,
+    scopes: DRIVE_OAUTH_SCOPES,
     state: input.state,
+    prompt: input.forceAccountChooser ? 'select_account consent' : 'consent',
   });
-  return `${GOOGLE_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 export type DriveTokenResponse = {

@@ -48,9 +48,46 @@
 -- has is_pax_priced = TRUE). Writers set it only when the resolver reports a
 -- pax-priced SKU.
 --
--- No RLS change: `orders` policies are unchanged and this column inherits
--- them. It is deliberately NOT granted to `authenticated` for write — only the
--- service-role checkout insert sets it.
+-- No RLS change: `orders` policies are unchanged and this column inherits them.
+--
+-- ── WHY THERE IS NO COLUMN REVOKE HERE (corrected before merge) ─────────────
+-- An earlier revision of this file tried to strip write on this one column:
+--
+--     REVOKE UPDATE (pax_snapshot) ON public.orders FROM authenticated;
+--
+-- That is wrong twice over, and both were verified rather than assumed:
+--
+--   1. IT IS A NO-OP. Postgres cannot subtract a column from a table-level
+--      grant. `authenticated` holds table-level INSERT/UPDATE on public.orders
+--      via Supabase's platform default privileges, so after the column REVOKE
+--      has_column_privilege('authenticated','public.orders','pax_snapshot',
+--      'UPDATE') is STILL true. This is the same trap documented at the top of
+--      20271006100000_events_facebook_watch_url.sql, and it is exactly why
+--      20271005100000 had to REVOKE the table-level privilege first and GRANT
+--      an explicit column list back. A snapshot the payer can still rewrite is
+--      not a snapshot — so this file must not claim to have frozen it.
+--
+--   2. IF IT WORKED IT WOULD BREAK CHECKOUT. The only writer of this column,
+--      app/dashboard/[eventId]/checkout/actions.ts:602 (submitOrderAction),
+--      inserts through `createClient()` — the session-bound AUTHENTICATED
+--      client, not `createAdminClient()`. Denying `authenticated` INSERT on
+--      pax_snapshot would reject every pax-priced order at the till.
+--
+-- So this column is an AUDIT/LINEAGE record, exactly as the note above says
+-- ("not load-bearing for correctness TODAY"). The behavioural money fix for
+-- SEC-3 ② is in application code — resolvePaxPricedOrderCentavos now charges
+-- against resolveLivePax() instead of the raw host-writable estimate — and it
+-- is unaffected by any of this.
+--
+-- ⚠ OPEN ITEM, DELIBERATELY NOT TAKEN HERE (needs owner + coordination):
+-- making pax_snapshot genuinely un-forgeable means restructuring the grants on
+-- public.orders the way 20271005100000 did for public.events (table-level
+-- REVOKE + explicit column re-GRANT), and/or moving the order INSERT to the
+-- service-role client. Both land squarely in the checkout/orders work in
+-- flight, and the row already has a strictly larger hole in the same place —
+-- requested_total_php is client-supplied on this very INSERT (see the PR body,
+-- "createOrder takes the price straight from the client"). Hardening one audit
+-- column while the amount beside it is still client-typed would buy nothing.
 -- ============================================================================
 
 ALTER TABLE public.orders
@@ -68,32 +105,23 @@ COMMENT ON COLUMN public.orders.pax_snapshot IS
   'non-pax-priced orders. Never recomputed — events.estimated_pax stays '
   'host-writable, so the billed pax must not be re-derivable from it.';
 
--- ── Revoke write from the client roles ──────────────────────────────────────
--- 20271005100000 revoked table-level UPDATE/INSERT on `events` and granted back
--- an explicit column list. `orders` is not column-granted, so a fresh column
--- inherits whatever table-level privilege the roles hold. Strip this one
--- explicitly: a snapshot the payer can rewrite is not a snapshot.
-DO $$
-BEGIN
-  IF has_table_privilege('authenticated', 'public.orders', 'UPDATE') THEN
-    EXECUTE 'REVOKE UPDATE (pax_snapshot) ON public.orders FROM authenticated';
-  END IF;
-  IF has_table_privilege('authenticated', 'public.orders', 'INSERT') THEN
-    EXECUTE 'REVOKE INSERT (pax_snapshot) ON public.orders FROM authenticated';
-  END IF;
-  IF has_table_privilege('anon', 'public.orders', 'UPDATE') THEN
-    EXECUTE 'REVOKE UPDATE (pax_snapshot) ON public.orders FROM anon';
-  END IF;
-  IF has_table_privilege('anon', 'public.orders', 'INSERT') THEN
-    EXECUTE 'REVOKE INSERT (pax_snapshot) ON public.orders FROM anon';
-  END IF;
-END $$;
-
 -- ── Post-condition: prove the migration actually did something ──────────────
 -- A DB test that connects as the table OWNER skips RLS and passes vacuously;
 -- this repo has been bitten by that twice. These assertions run as the
 -- migration role and check catalog state, not policy behaviour, so they cannot
 -- pass vacuously.
+--
+-- They assert CATALOG SHAPE ONLY — deliberately no has_*_privilege() checks.
+-- Role grants are environment state, not something this file establishes:
+-- Supabase's platform default privileges grant the API roles ALL on public
+-- tables, while the migration-replay harness (apps/web/tests/db/replay-
+-- migrations.ts) mirrors that GRANT only AFTER the whole corpus has replayed.
+-- A privilege assertion here therefore reads a different world in each
+-- environment and asserts nothing about what this migration did. The earlier
+-- revision failed exactly that way in both directions: 'service_role-lost-
+-- insert' under replay (no grants yet, which reds the entire DB-replay test
+-- suite), and 'authenticated-can-still-update' against prod (grants present,
+-- column REVOKE a no-op), which would have aborted `supabase db push`.
 DO $$
 DECLARE
   bad TEXT[] := '{}';
@@ -102,6 +130,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'orders'
       AND column_name = 'pax_snapshot'
+      AND data_type = 'integer'
   ) THEN
     bad := array_append(bad, 'column-missing');
   END IF;
@@ -110,21 +139,9 @@ BEGIN
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.orders'::regclass
       AND conname = 'orders_pax_snapshot_sane'
+      AND contype = 'c'
   ) THEN
     bad := array_append(bad, 'check-missing');
-  END IF;
-
-  -- service_role must still be able to write it (checkout runs as service_role).
-  IF NOT has_column_privilege('service_role', 'public.orders', 'pax_snapshot', 'INSERT') THEN
-    bad := array_append(bad, 'service_role-lost-insert');
-  END IF;
-
-  -- …and the client roles must NOT.
-  IF has_column_privilege('authenticated', 'public.orders', 'pax_snapshot', 'UPDATE') THEN
-    bad := array_append(bad, 'authenticated-can-still-update');
-  END IF;
-  IF has_column_privilege('anon', 'public.orders', 'pax_snapshot', 'UPDATE') THEN
-    bad := array_append(bad, 'anon-can-still-update');
   END IF;
 
   IF array_length(bad, 1) > 0 THEN

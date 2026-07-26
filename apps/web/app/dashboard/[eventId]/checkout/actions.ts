@@ -596,7 +596,7 @@ export async function submitOrderAction(
     requested_total_php: originalPriceForOrderTotal,
     reference_code: referenceCode,
     platform: orderPlatform,
-    // SEC-3 · migration 20271007100000. Frozen at insert, never recomputed.
+    // SEC-3 · migration 20271008000839. Frozen at insert, never recomputed.
     // Omitted entirely when null so a stale env without the column still
     // accepts the insert (same defensive shape the rest of this payload uses).
     ...(paxSnapshot != null ? { pax_snapshot: paxSnapshot } : {}),

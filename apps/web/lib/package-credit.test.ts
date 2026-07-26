@@ -31,7 +31,7 @@ import {
   type PackageCreditOk,
   type PackageCreditResult,
 } from './package-credit';
-import { computeCustomization, type VendorPackageWithItems } from './vendor-packages';
+import { computeCustomization, keptItems, type VendorPackageWithItems } from './vendor-packages';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Fixtures — one package covering all four line states                     */
@@ -151,25 +151,64 @@ test('INVARIANT: required line values never enter the available-credit pool', ()
   assert.equal(r.availableCreditCentavos, CONSUMABLE);
   assert.notEqual(r.availableCreditCentavos, CONSUMABLE + V_REQ_FIXED);
   assert.notEqual(r.availableCreditCentavos, CONSUMABLE + V_REQ_CHOICE);
+
+  // ...and asking for those values must not produce them either. Without
+  // this half the test passes with the guard deleted (it only ever measured
+  // the no-removal baseline, which never touches the guard).
+  for (const id of [REQ_FIXED, REQ_CHOICE]) {
+    const attempt = computePackageCredit({ pkg: pkg(), removedItemIds: [id], ...BASELINE });
+    assert.equal(attempt.ok, false, `removing ${id} must be refused, got ${JSON.stringify(attempt)}`);
+  }
 });
 
-test('INVARIANT (by exhaustion): the pool can never exceed budget + the OPTIONAL lines', () => {
-  // Every subset of removals the engine will accept — required lines are
-  // refused outright, so the ceiling is budget + optional values.
+test('INVARIANT (by exhaustion): EVERY subset of removals — the pool can never exceed budget + the OPTIONAL lines', () => {
+  // This test previously enumerated only the OPTIONAL ids, so it passed with
+  // the required-removal guard deleted: it never asked the engine to do the
+  // one thing the invariant forbids. It now walks the full power set of ALL
+  // FOUR lines (16 subsets), which is the real exhaustion claim.
   const ceiling = CONSUMABLE + V_OPT_FIXED + V_OPT_CHOICE;
-  const subsets: string[][] = [
-    [],
-    [OPT_FIXED],
-    [OPT_CHOICE],
-    [OPT_FIXED, OPT_CHOICE],
-  ];
-  for (const removedItemIds of subsets) {
-    const r = ok(computePackageCredit({ pkg: pkg(), removedItemIds, ...BASELINE }));
+  const ALL = [REQ_FIXED, REQ_CHOICE, OPT_FIXED, OPT_CHOICE];
+  const required = new Set([REQ_FIXED, REQ_CHOICE]);
+
+  let acceptedCount = 0;
+  let refusedCount = 0;
+
+  for (let mask = 0; mask < 1 << ALL.length; mask += 1) {
+    const removedItemIds = ALL.filter((_, i) => (mask & (1 << i)) !== 0);
+    const touchesRequired = removedItemIds.some((id) => required.has(id));
+    const r = computePackageCredit({ pkg: pkg(), removedItemIds, ...BASELINE });
+
+    if (touchesRequired) {
+      // Not merely "bounded" — REFUSED. A subset naming a required line must
+      // never produce a credit figure at all.
+      assert.equal(
+        r.ok,
+        false,
+        `removing ${JSON.stringify(removedItemIds)} touches a required line and must be refused, got ${JSON.stringify(r)}`,
+      );
+      if (!r.ok) {
+        assert.ok(
+          r.errors.some((e) => e.code === 'required_item_removed'),
+          `expected required_item_removed for ${JSON.stringify(removedItemIds)}, got ${JSON.stringify(r.errors.map((e) => e.code))}`,
+        );
+      }
+      refusedCount += 1;
+      continue;
+    }
+
+    const okr = ok(r);
     assert.ok(
-      r.availableCreditCentavos <= ceiling,
-      `pool ${r.availableCreditCentavos} exceeded ceiling ${ceiling} for ${JSON.stringify(removedItemIds)}`,
+      okr.availableCreditCentavos <= ceiling,
+      `pool ${okr.availableCreditCentavos} exceeded ceiling ${ceiling} for ${JSON.stringify(removedItemIds)}`,
     );
+    acceptedCount += 1;
   }
+
+  // The walk really covered both halves — guards against a future refactor
+  // that makes every subset vacuously "accepted" or "refused".
+  assert.equal(acceptedCount, 4, 'exactly the 4 optional-only subsets are accepted');
+  assert.equal(refusedCount, 12, 'the other 12 subsets name a required line and are refused');
+
   // And the maximum really is that ceiling — the bound is tight, not vacuous.
   const maxed = ok(
     computePackageCredit({ pkg: pkg(), removedItemIds: [OPT_FIXED, OPT_CHOICE], ...BASELINE }),
@@ -420,7 +459,8 @@ test('credit spends on catalogue items outside the package', () => {
     computePackageCredit({
       pkg: pkg(),
       ...BASELINE,
-      additions: [{ addition_id: 'svc-extra-hour', unit_price_centavos: 8_000, quantity: 2 }],
+      additions: [{ addition_id: 'svc-extra-hour', quantity: 2 }],
+      catalogue: [{ addition_id: 'svc-extra-hour', unit_price_centavos: 8_000 }],
     }),
   );
   assert.equal(r.spentCreditCentavos, 16_000);
@@ -432,7 +472,8 @@ test('additions and option deltas draw on the same pool', () => {
     computePackageCredit({
       pkg: pkg(),
       chosenOptionIds: [MAIN_PREMIUM],
-      additions: [{ addition_id: 'svc-extra-hour', unit_price_centavos: 8_000, quantity: 1 }],
+      additions: [{ addition_id: 'svc-extra-hour', quantity: 1 }],
+      catalogue: [{ addition_id: 'svc-extra-hour', unit_price_centavos: 8_000 }],
     }),
   );
   assert.equal(r.spentCreditCentavos, DELTA_MAIN_PREMIUM + 8_000);
@@ -445,9 +486,10 @@ test('the same catalogue id twice is an error — use quantity', () => {
       pkg: pkg(),
       ...BASELINE,
       additions: [
-        { addition_id: 'svc-x', unit_price_centavos: 1_000, quantity: 1 },
-        { addition_id: 'svc-x', unit_price_centavos: 1_000, quantity: 1 },
+        { addition_id: 'svc-x', quantity: 1 },
+        { addition_id: 'svc-x', quantity: 1 },
       ],
+      catalogue: [{ addition_id: 'svc-x', unit_price_centavos: 1_000 }],
     }),
     'duplicate_addition',
   );
@@ -459,19 +501,64 @@ test('addition quantity must be a positive integer within bounds', () => {
       computePackageCredit({
         pkg: pkg(),
         ...BASELINE,
-        additions: [{ addition_id: 'svc-x', unit_price_centavos: 1_000, quantity }],
+        additions: [{ addition_id: 'svc-x', quantity }],
+        catalogue: [{ addition_id: 'svc-x', unit_price_centavos: 1_000 }],
       }),
       'invalid_addition',
     );
   }
 });
 
-test('a negative addition price cannot mint credit', () => {
+test('a negative catalogue price cannot mint credit', () => {
   failsWith(
     computePackageCredit({
       pkg: pkg(),
       ...BASELINE,
-      additions: [{ addition_id: 'svc-x', unit_price_centavos: -50_000, quantity: 1 }],
+      additions: [{ addition_id: 'svc-x', quantity: 1 }],
+      catalogue: [{ addition_id: 'svc-x', unit_price_centavos: -50_000 }],
+    }),
+    'invalid_addition',
+  );
+});
+
+/* ── The client cannot supply a price at all ─────────────────────────────── */
+
+test('an addition with no server-resolved price is REFUSED, not treated as free', () => {
+  // The whole point of splitting `additions` (ids + quantity) from
+  // `catalogue` (server-read prices): a client-named id the server did not
+  // price must not silently cost 0 and eat none of the pool.
+  failsWith(
+    computePackageCredit({
+      pkg: pkg(),
+      ...BASELINE,
+      additions: [{ addition_id: 'svc-not-in-catalogue', quantity: 3 }],
+      catalogue: [{ addition_id: 'svc-something-else', unit_price_centavos: 1_000 }],
+    }),
+    'unknown_addition',
+  );
+});
+
+test('an addition with no catalogue at all is refused', () => {
+  failsWith(
+    computePackageCredit({
+      pkg: pkg(),
+      ...BASELINE,
+      additions: [{ addition_id: 'svc-x', quantity: 1 }],
+    }),
+    'unknown_addition',
+  );
+});
+
+test('two prices for one catalogue id is ambiguous and refused', () => {
+  failsWith(
+    computePackageCredit({
+      pkg: pkg(),
+      ...BASELINE,
+      additions: [{ addition_id: 'svc-x', quantity: 1 }],
+      catalogue: [
+        { addition_id: 'svc-x', unit_price_centavos: 1_000 },
+        { addition_id: 'svc-x', unit_price_centavos: 9_000 },
+      ],
     }),
     'invalid_addition',
   );
@@ -745,4 +832,310 @@ test('legacy computeCustomization still ignores is_required (flag-OFF path uncha
   assert.equal(out.removedTotalCentavos, V_REQ_FIXED);
   assert.equal(out.remainingConsumableCentavos, CONSUMABLE + V_REQ_FIXED);
   assert.equal(out.totalLockedCentavos, TOTAL_PRICE);
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* REQUIRED implies INCLUDED                                                */
+/*                                                                          */
+/* is_required=TRUE + is_default_included=FALSE used to resolve as "keep it" */
+/* — the couple was DELIVERED a line they never bought, and (per the         */
+/* cascade, which prices event_vendors off replacement_value_centavos) the   */
+/* 5% platform-fee base was inflated by revenue nobody collected. Wrong in   */
+/* both directions, so the shape is refused outright.                       */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+function ghostPkg(): CreditPackage {
+  return pkg({
+    items: [
+      ...items(),
+      {
+        item_id: 'item-ghost',
+        is_required: true,
+        is_default_included: false,
+        replacement_value_centavos: 900_000,
+      },
+    ],
+  });
+}
+
+test('required + NOT included is refused — never silently delivered for free', () => {
+  failsWith(computePackageCredit({ pkg: ghostPkg(), ...BASELINE }), 'invalid_package');
+});
+
+test('required + NOT included never reaches keptItemIds (the cascade set)', () => {
+  const r = computePackageCredit({ pkg: ghostPkg(), ...BASELINE });
+  assert.equal(r.ok, false);
+  if (r.ok) return;
+  const refs = r.errors.map((e) => e.ref);
+  assert.ok(refs.includes('item-ghost'), `the offending line must be named, got ${JSON.stringify(refs)}`);
+});
+
+test('optional + NOT included is still fine — it is simply not in the booking', () => {
+  const r = ok(
+    computePackageCredit({
+      pkg: pkg({
+        items: [
+          ...items(),
+          {
+            item_id: 'item-upsell',
+            is_required: false,
+            is_default_included: false,
+            replacement_value_centavos: 900_000,
+          },
+        ],
+      }),
+      ...BASELINE,
+    }),
+  );
+  assert.ok(!r.keptItemIds.includes('item-upsell'), 'an unticked line is not in the booking');
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE);
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* An option chosen on an EXCLUDED line is an error, not a silent no-op      */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+test('choosing an option on a line that is not included is refused', () => {
+  // Previously this returned ok:true with the pick simply gone from
+  // `selections` — so a stored upgrade whose line the vendor later un-ticked
+  // would vanish with no error and the booking would be written without it.
+  const withExcludedChoice = pkg({
+    items: [
+      ...items(),
+      {
+        item_id: 'item-excluded-choice',
+        is_required: false,
+        is_default_included: false,
+        replacement_value_centavos: 0,
+        options: [
+          { option_id: 'opt-exc-std', price_delta_centavos: 0, is_default: true, is_available: true },
+          { option_id: 'opt-exc-prem', price_delta_centavos: 30_000, is_default: false, is_available: true },
+        ],
+      },
+    ],
+  });
+  failsWith(
+    computePackageCredit({ pkg: withExcludedChoice, chosenOptionIds: [MAIN_DEFAULT, 'opt-exc-prem'] }),
+    'option_on_excluded_item',
+  );
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* The result tuple RECONCILES — no phantom refunds                         */
+/*                                                                          */
+/* Two identities must hold for every accepted input, or a caller writing    */
+/* creditRefundCentavos onto a ledger books money that was never applied:    */
+/*   bookingTotal  === basePrice + overspend − creditRefund                  */
+/*   available     === spent + refund + forfeited   (when not overspent)     */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+test('RECONCILES: a refund is never larger than the price it comes off', () => {
+  // The exact shape that used to report a ₱40,000 phantom refund: pool far
+  // exceeds the price, total floors at 0, refund claimed the whole pool and
+  // forfeited claimed nothing was lost.
+  const r = ok(
+    computePackageCredit({
+      pkg: {
+        total_price_centavos: 1_000_000,
+        consumable_budget_centavos: 5_000_000,
+        is_consumable_flexible: true,
+        unspent_credit_policy: 'refundable',
+        items: [],
+      },
+    }),
+  );
+  assert.equal(r.bookingTotalCentavos, 0);
+  assert.equal(r.creditRefundCentavos, 1_000_000, 'only what the price could absorb');
+  assert.equal(r.forfeitedCreditCentavos, 4_000_000, 'the residue is LOST, and says so');
+  // The identity, stated directly.
+  assert.equal(
+    r.bookingTotalCentavos,
+    1_000_000 + r.overspendCentavos - r.creditRefundCentavos,
+  );
+  assert.equal(
+    r.creditRefundCentavos + r.forfeitedCreditCentavos,
+    r.remainingCreditCentavos,
+    'every centavo of leftover is either refunded or forfeited — never both, never neither',
+  );
+});
+
+test('RECONCILES: both identities hold across a matrix of shapes and policies', () => {
+  const removalSets: string[][] = [[], [OPT_FIXED], [OPT_CHOICE], [OPT_FIXED, OPT_CHOICE]];
+  const choiceSets: string[][] = [[MAIN_DEFAULT], [MAIN_PREMIUM], [MAIN_PREMIUM, DESSERT_PREMIUM]];
+  const budgets = [0, 5_000, CONSUMABLE, 900_000, 5_000_000];
+  const prices = [1_000, 100_000, TOTAL_PRICE];
+  let checked = 0;
+
+  for (const policy of ['expiring', 'refundable'] as const) {
+    for (const flexible of [true, false]) {
+      for (const budget of budgets) {
+        for (const price of prices) {
+          for (const removedItemIds of removalSets) {
+            for (const chosenOptionIds of choiceSets) {
+              const r = computePackageCredit({
+                pkg: pkg({
+                  unspent_credit_policy: policy,
+                  is_consumable_flexible: flexible,
+                  consumable_budget_centavos: budget,
+                  total_price_centavos: price,
+                }),
+                removedItemIds,
+                chosenOptionIds,
+              });
+              if (!r.ok) continue;
+              checked += 1;
+
+              const basePrice = flexible ? price : Math.max(0, price - r.removedTotalCentavos);
+
+              assert.equal(
+                r.bookingTotalCentavos,
+                basePrice + r.overspendCentavos - r.creditRefundCentavos,
+                `total identity broke for ${JSON.stringify({ policy, flexible, budget, price, removedItemIds, chosenOptionIds })}`,
+              );
+              assert.ok(r.bookingTotalCentavos >= 0, 'a booking total can never be negative');
+              assert.equal(
+                r.creditRefundCentavos + r.forfeitedCreditCentavos,
+                r.remainingCreditCentavos,
+                'leftover must be fully accounted for',
+              );
+              assert.ok(
+                r.creditRefundCentavos <= basePrice,
+                `refund ${r.creditRefundCentavos} exceeded the price ${basePrice} it comes off`,
+              );
+              // Spend + leftover reconstructs the pool whenever nothing was
+              // overspent (and the overspend case is its own mirror).
+              if (r.overspendCentavos === 0) {
+                assert.equal(
+                  r.spentCreditCentavos + r.remainingCreditCentavos,
+                  r.availableCreditCentavos,
+                  'pool identity broke',
+                );
+              } else {
+                assert.equal(r.remainingCreditCentavos, 0);
+                assert.equal(
+                  r.spentCreditCentavos - r.availableCreditCentavos,
+                  r.overspendCentavos,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  assert.ok(checked >= 300, `the matrix must actually exercise the engine, only ${checked} cases ran`);
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* 'refundable' semantics — PINNED, pending owner confirmation              */
+/*                                                                          */
+/* Read literally, 'refundable' refunds the WHOLE unspent pool including the */
+/* base consumable budget the sticker price already charged for. That is     */
+/* what the owner's wording says, so it is implemented as written and pinned */
+/* here rather than quietly reinterpreted. If the owner confirms the other   */
+/* reading (refund only what a REMOVAL freed), these two tests are the ones  */
+/* that change — deliberately loud.                                          */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+test("PINNED: 'refundable' discounts the untouched base budget on a zero-customization booking", () => {
+  // The real seeded Sofitel shape: ₱1,400,000 package, ₱200,000 consumable.
+  const sofitel = pkg({
+    total_price_centavos: 140_000_000,
+    consumable_budget_centavos: 20_000_000,
+    unspent_credit_policy: 'refundable',
+  });
+  const r = ok(computePackageCredit({ pkg: sofitel, ...BASELINE }));
+  assert.equal(
+    r.bookingTotalCentavos,
+    120_000_000,
+    'a couple who customizes NOTHING pays ₱200,000 less and still gets every inclusion — owner must confirm this is intended',
+  );
+});
+
+test("PINNED: 'expiring' (the DEFAULT) charges the full sticker price for the same booking", () => {
+  const sofitel = pkg({
+    total_price_centavos: 140_000_000,
+    consumable_budget_centavos: 20_000_000,
+    unspent_credit_policy: 'expiring',
+  });
+  const r = ok(computePackageCredit({ pkg: sofitel, ...BASELINE }));
+  assert.equal(r.bookingTotalCentavos, 140_000_000, 'the shipped default must not move money');
+  assert.equal(r.forfeitedCreditCentavos, 20_000_000);
+  assert.equal(r.creditRefundCentavos, 0);
+});
+
+test("PINNED: under 'expiring', removals never move the price (the model's pillar)", () => {
+  const r = ok(
+    computePackageCredit({ pkg: pkg(), removedItemIds: [OPT_FIXED, OPT_CHOICE], ...BASELINE }),
+  );
+  assert.equal(r.bookingTotalCentavos, TOTAL_PRICE);
+  assert.equal(r.availableCreditCentavos, CONSUMABLE + V_OPT_FIXED + V_OPT_CHOICE);
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* keptItemIds DIVERGES from the shipped keptItems() — documented, not a bug */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+test('DIVERGENCE: keptItems() includes un-ticked lines, keptItemIds does not', () => {
+  // keptItems() filters ONLY on removal, so a line the vendor never ticked
+  // still cascades into event_vendors today. The credit engine excludes it.
+  // Both behaviours are pinned here so the lock wave has to make a choice
+  // rather than silently inherit one — switching the cascade to keptItemIds
+  // would drop rows it creates on main right now.
+  const legacy: VendorPackageWithItems = {
+    package_id: 'pkg-div',
+    vendor_profile_id: 'vp-1',
+    package_name: 'Divergence',
+    description: null,
+    total_price_centavos: TOTAL_PRICE,
+    consumable_budget_centavos: 0,
+    is_consumable_flexible: true,
+    primary_canonical_service: 'reception_venue',
+    is_active: true,
+    created_at: '2026-07-26T00:00:00Z',
+    updated_at: '2026-07-26T00:00:00Z',
+    items: [
+      {
+        item_id: 'ticked',
+        package_id: 'pkg-div',
+        canonical_service: 'reception_venue',
+        service_description: 'Ballroom',
+        is_default_included: true,
+        replacement_value_centavos: 0,
+        display_order: 1,
+        created_at: '2026-07-26T00:00:00Z',
+      },
+      {
+        item_id: 'unticked',
+        package_id: 'pkg-div',
+        canonical_service: 'catering',
+        service_description: 'Optional upsell',
+        is_default_included: false,
+        replacement_value_centavos: 50_000,
+        display_order: 2,
+        created_at: '2026-07-26T00:00:00Z',
+      },
+    ],
+  };
+  assert.deepEqual(
+    keptItems(legacy, []).map((i) => i.item_id),
+    ['ticked', 'unticked'],
+    'shipped behaviour: an un-ticked line still cascades',
+  );
+
+  const r = ok(
+    computePackageCredit({
+      pkg: {
+        total_price_centavos: TOTAL_PRICE,
+        consumable_budget_centavos: 0,
+        is_consumable_flexible: true,
+        unspent_credit_policy: 'expiring',
+        items: [
+          { item_id: 'ticked', is_required: false, is_default_included: true, replacement_value_centavos: 0 },
+          { item_id: 'unticked', is_required: false, is_default_included: false, replacement_value_centavos: 50_000 },
+        ],
+      },
+    }),
+  );
+  assert.deepEqual(r.keptItemIds, ['ticked'], 'credit engine: an un-ticked line is NOT in the booking');
 });

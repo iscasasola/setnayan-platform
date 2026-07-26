@@ -43,6 +43,25 @@
  * server-derived rows: never a price, delta, or total taken from a client
  * payload. The client sends ids (`removedItemIds`, `chosenOptionIds`,
  * addition ids + quantities); the server re-reads every peso from the DB.
+ * The addition types enforce that structurally — `CreditAddition` carries no
+ * money at all, and prices arrive separately in `catalogue`.
+ *
+ * ⚠ 'refundable' IS AN UNVERIFIED SEMANTIC — OWNER DECISION OPEN
+ * -------------------------------------------------------------
+ * Read literally ("unspent credit comes off the price"), 'refundable' refunds
+ * the WHOLE unspent pool — which includes `consumable_budget_centavos`, money
+ * the sticker price already charged for. Consequence: on the seeded
+ * ₱1,400,000 / ₱200,000-consumable package, a couple who customizes NOTHING
+ * pays ₱1,200,000 and still receives every inclusion. It also means removals
+ * cut the price, which contradicts the model's own pillar ("changes WHAT you
+ * get, not what you pay") — under 'refundable' a flexible package behaves
+ * like the legacy non-flexible one.
+ *
+ * That is what the owner's wording says, so it is implemented as written and
+ * PINNED BY TEST rather than quietly reinterpreted. It is safe today: the
+ * column DEFAULTS to 'expiring', 'expiring' reproduces the shipped math to the
+ * centavo, and no surface can set 'refundable' (there is no vendor authoring
+ * UI). Owner must confirm the intended reading before any package uses it.
  *
  * FAIL CLOSED
  * -----------
@@ -95,7 +114,17 @@ export type CreditOption = {
    */
   price_delta_centavos: number;
   is_default: boolean;
-  /** A retired alternative: still referenced by old bookings, not newly choosable. */
+  /**
+   * FALSE = retired; the vendor no longer offers it.
+   *
+   * ⚠ This engine rejects ANY chosen option that is unavailable. It cannot
+   * tell a NEW pick from one already stored on a locked booking, so today
+   * retirement bricks a stored selection exactly as hard as deleting the row
+   * (`option_unavailable` vs `unknown_option`). Resolving stored selections
+   * regardless of availability needs an extra input and belongs to the
+   * booking/lock wave. The DB pins the DEFAULT option available so a vendor
+   * retiring an alternative can never brick a whole live package.
+   */
   is_available: boolean;
 };
 
@@ -104,7 +133,9 @@ export type CreditItem = {
   item_id: string;
   /**
    * TRUE = cannot be removed AND its value never enters the credit pool.
-   * NOT the same thing as is_default_included.
+   * NOT the same thing as is_default_included — but it IMPLIES it: a required
+   * line that is not included is refused as `invalid_package` (mirrored by the
+   * DB CHECK vendor_package_items_required_implies_included).
    */
   is_required: boolean;
   /** "Ticked by default." A line that is not included frees nothing. */
@@ -132,14 +163,28 @@ export type CreditPackage = {
 
 /**
  * Something bought from the vendor's wider catalogue with package credit.
- * `unit_price_centavos` MUST be re-read server-side from the catalogue row —
- * never accepted from the client.
+ *
+ * DELIBERATELY CARRIES NO MONEY. The couple's request is "this id, this many"
+ * and nothing else; the price comes from `PackageCreditInput.catalogue`, which
+ * the server reads from the vendor's catalogue rows. The rule "never trust a
+ * price from the client" used to live only in a doc comment — anyone spreading
+ * a request body into `additions` could have minted arbitrary credit spend.
+ * Now the shape makes that mistake unrepresentable.
  */
 export type CreditAddition = {
   /** Catalogue row id (vendor_services / vendor add-on). Used for de-duping. */
   addition_id: string;
-  unit_price_centavos: number;
   quantity: number;
+};
+
+/**
+ * A server-resolved catalogue price. MUST come from the DB row, never from a
+ * client payload — this is the only place a peso figure for an addition may
+ * enter the engine.
+ */
+export type CreditCatalogueEntry = {
+  addition_id: string;
+  unit_price_centavos: number;
 };
 
 export type PackageCreditInput = {
@@ -148,8 +193,14 @@ export type PackageCreditInput = {
   removedItemIds?: ReadonlyArray<string>;
   /** Option ids the couple picked. At most one per line. */
   chosenOptionIds?: ReadonlyArray<string>;
-  /** Catalogue buys funded by the credit pool. */
+  /** Catalogue buys funded by the credit pool — ids + quantities only. */
   additions?: ReadonlyArray<CreditAddition>;
+  /**
+   * Server-resolved prices for everything in `additions`. An addition with no
+   * entry here fails closed (`unknown_addition`) rather than being priced at
+   * zero — a missing price must never become free credit spend.
+   */
+  catalogue?: ReadonlyArray<CreditCatalogueEntry>;
 };
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -170,6 +221,8 @@ export type PackageCreditErrorCode =
   | 'required_item_removed'
   | 'remove_not_included'
   | 'option_on_removed_item'
+  | 'option_on_excluded_item'
+  | 'unknown_addition'
   | 'multiple_options_for_item'
   | 'option_unavailable'
   | 'required_choice_unselected'
@@ -203,15 +256,36 @@ export type PackageCreditOk = {
   remainingCreditCentavos: number;
   /** spent − available, floored at 0. Billed on the existing apply-then-pay rail. */
   overspendCentavos: number;
-  /** Remaining credit lost under the 'expiring' policy (0 under 'refundable'). */
+  /**
+   * Remaining credit that is LOST: all of it under 'expiring', and under
+   * 'refundable' whatever the price was too small to absorb.
+   * Always `remainingCredit − creditRefund`.
+   */
   forfeitedCreditCentavos: number;
-  /** Remaining credit taken off the price under 'refundable' (0 under 'expiring'). */
+  /**
+   * Remaining credit actually taken off the price under 'refundable' (0 under
+   * 'expiring'). Capped at the base price — never reports a discount larger
+   * than the one applied.
+   */
   creditRefundCentavos: number;
-  /** What the couple pays. */
+  /**
+   * What the couple pays. Exactly
+   * `basePrice + overspendCentavos − creditRefundCentavos`, and never negative.
+   */
   bookingTotalCentavos: number;
   /** Sum of removed lines' replacement values (all optional, by construction). */
   removedTotalCentavos: number;
-  /** Lines that survive — these are the ones that cascade into event_vendors. */
+  /**
+   * Lines that survive: included by default and not removed.
+   *
+   * ⚠ NOT the same set as the shipped `keptItems()` in ./vendor-packages,
+   * which filters ONLY on removal and therefore also returns lines with
+   * `is_default_included = FALSE`. This engine excludes those — an unticked
+   * line is not in the booking and must not cascade into event_vendors. The
+   * divergence is intentional and inert while the flag is off (nothing calls
+   * this), but the lock wave MUST pick one: switching the cascade to these
+   * ids silently drops rows it creates today.
+   */
   keptItemIds: ReadonlyArray<string>;
   /** One entry per kept CHOICE line. */
   selections: ReadonlyArray<ResolvedSelection>;
@@ -302,6 +376,21 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
     }
     if (typeof item.is_required !== 'boolean' || typeof item.is_default_included !== 'boolean') {
       fail('invalid_package', 'item is_required / is_default_included must be booleans', item.item_id);
+      continue;
+    }
+    if (item.is_required && !item.is_default_included) {
+      // REQUIRED implies INCLUDED. "You must keep this line" is meaningless
+      // for a line that is not in the package, and resolving it by precedence
+      // is a money bug either way: keep it and the couple is DELIVERED an
+      // inclusion they never paid for (and the cascade prices an
+      // event_vendors row off it, inflating the platform-fee base); drop it
+      // and "required" silently meant nothing. Refuse the row instead.
+      // Mirrored at the DB by vendor_package_items_required_implies_included.
+      fail(
+        'invalid_package',
+        'a required line must also be included by default (is_required=TRUE with is_default_included=FALSE is not a coherent line)',
+        item.item_id,
+      );
       continue;
     }
     if (!isMoney(item.replacement_value_centavos)) {
@@ -430,6 +519,16 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
       fail('option_on_removed_item', 'an option was chosen on a line that was removed', rawId);
       continue;
     }
+    if (!hit.item.is_default_included) {
+      // The line is not in the booking, so its options resolve to nothing.
+      // Silently dropping the pick (the old behaviour) is the dangerous
+      // choice: a stored selection whose line the vendor later un-included
+      // would vanish from `selections` with no error, and the lock wave
+      // would write a booking missing an upgrade the couple chose and may
+      // already have been quoted. Same class as option_on_removed_item.
+      fail('option_on_excluded_item', 'an option was chosen on a line that is not included in the package', rawId);
+      continue;
+    }
     if (!hit.option.is_available) {
       fail('option_unavailable', 'this alternative is no longer offered', rawId);
       continue;
@@ -449,9 +548,10 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
 
   for (const item of itemById.values()) {
     if (removed.has(item.item_id)) continue;
-    // A line that is neither required nor ticked by default simply is not in
-    // the booking; it is not "kept" and it carries no delta.
-    if (!item.is_default_included && !item.is_required) continue;
+    // A line that is not ticked by default simply is not in the booking; it
+    // is not "kept" and it carries no delta. (Required lines are always
+    // included — enforced above — so this single test covers both axes.)
+    if (!item.is_default_included) continue;
     keptItemIds.push(item.item_id);
 
     if (!isChoiceLine(item)) continue;
@@ -499,6 +599,34 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
     return { ok: false, errors: [{ code: 'invalid_package', detail: 'additions is not an array' }] };
   }
 
+  const catalogue = input.catalogue ?? [];
+  if (!Array.isArray(catalogue)) {
+    return { ok: false, errors: [{ code: 'invalid_package', detail: 'catalogue is not an array' }] };
+  }
+
+  /** addition_id → server-resolved unit price. */
+  const priceById = new Map<string, number>();
+  for (const entry of catalogue) {
+    if (!entry || typeof entry !== 'object' || !isNonEmptyId(entry.addition_id)) {
+      fail('invalid_addition', 'catalogue entry missing a usable addition_id');
+      continue;
+    }
+    if (priceById.has(entry.addition_id)) {
+      // Two prices for one id is ambiguous; picking either would be a guess.
+      fail('invalid_addition', 'the same catalogue id is priced twice', entry.addition_id);
+      continue;
+    }
+    if (!isMoney(entry.unit_price_centavos)) {
+      fail(
+        'invalid_addition',
+        `unit_price_centavos is not a sane centavo amount: ${String(entry.unit_price_centavos)}`,
+        entry.addition_id,
+      );
+      continue;
+    }
+    priceById.set(entry.addition_id, entry.unit_price_centavos);
+  }
+
   const seenAdditionIds = new Set<string>();
   let additionsTotal = 0;
   for (const addition of additions) {
@@ -511,10 +639,14 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
       continue;
     }
     seenAdditionIds.add(addition.addition_id);
-    if (!isMoney(addition.unit_price_centavos)) {
+    const unitPriceCentavos = priceById.get(addition.addition_id);
+    if (unitPriceCentavos === undefined) {
+      // No server-resolved price => we do not know what this costs. Refusing
+      // is the only safe answer; treating it as 0 would hand out free credit
+      // spend to anything the client can name.
       fail(
-        'invalid_addition',
-        `unit_price_centavos is not a sane centavo amount: ${String(addition.unit_price_centavos)}`,
+        'unknown_addition',
+        'no server-resolved catalogue price for this addition',
         addition.addition_id,
       );
       continue;
@@ -532,7 +664,7 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
       );
       continue;
     }
-    additionsTotal += addition.unit_price_centavos * addition.quantity;
+    additionsTotal += unitPriceCentavos * addition.quantity;
   }
 
   /* ---- 6. Nothing computes unless everything validated ------------------ */
@@ -560,20 +692,28 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
   const remainingCreditCentavos = Math.max(0, availableCreditCentavos - spentCreditCentavos);
   const overspendCentavos = Math.max(0, spentCreditCentavos - availableCreditCentavos);
 
-  const refundable = pkg.unspent_credit_policy === 'refundable';
-  const creditRefundCentavos = refundable ? remainingCreditCentavos : 0;
-  const forfeitedCreditCentavos = refundable ? 0 : remainingCreditCentavos;
-
   // BOOKING TOTAL. Flexible = the price is fixed ("changes WHAT you get, not
   // what you pay"); non-flexible keeps the legacy dollar-for-dollar cut.
   const basePriceCentavos = pkg.is_consumable_flexible
     ? pkg.total_price_centavos
     : Math.max(0, pkg.total_price_centavos - removedTotalCentavos);
 
-  const bookingTotalCentavos = Math.max(
-    0,
-    basePriceCentavos + overspendCentavos - creditRefundCentavos,
-  );
+  const refundable = pkg.unspent_credit_policy === 'refundable';
+
+  // A refund can only ever be as large as the price it comes off. Reporting
+  // the full remaining pool while the booking total floors at 0 would put a
+  // number on a receipt that was never actually applied — the result tuple
+  // has to reconcile:
+  //     bookingTotal === basePrice + overspend − creditRefund
+  // and every centavo of pool is accounted for as spent, refunded, or
+  // forfeited. Whatever the price cannot absorb is FORFEITED, including
+  // under 'refundable'.
+  const creditRefundCentavos = refundable
+    ? Math.min(remainingCreditCentavos, basePriceCentavos)
+    : 0;
+  const forfeitedCreditCentavos = remainingCreditCentavos - creditRefundCentavos;
+
+  const bookingTotalCentavos = basePriceCentavos + overspendCentavos - creditRefundCentavos;
 
   // Belt-and-braces: if any sum left exact-integer territory, refuse rather
   // than hand back a rounded peso figure.

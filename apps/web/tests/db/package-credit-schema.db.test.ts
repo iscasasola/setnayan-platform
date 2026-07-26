@@ -26,13 +26,18 @@
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
-import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, MIGRATIONS_DIR, type ReplayResult } from './replay-migrations';
+
+const MIGRATION_FILE = '20271006413374_vendor_package_credit_required_and_choice_options.sql';
 
 let replay: ReplayResult;
 let db: PGlite;
 let packageId: string;
 let itemId: string;
+let vendorProfileId: string;
 
 before(async () => {
   replay = await createReplayedDb();
@@ -52,7 +57,7 @@ before(async () => {
      VALUES ($1, 'Package Credit Test Hotel') RETURNING vendor_profile_id`,
     [userId],
   );
-  const vendorProfileId = vp.rows[0]!.vendor_profile_id;
+  vendorProfileId = vp.rows[0]!.vendor_profile_id;
 
   const p = await db.query<{ package_id: string }>(
     `INSERT INTO public.vendor_packages
@@ -234,6 +239,194 @@ test('RLS is enabled on the options table with the sibling public-read / owner-w
     'vendor_package_item_options_owner_write',
     'vendor_package_item_options_public_read',
   ]);
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* REQUIRED implies INCLUDED — the DB half of the money fix                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+test('required + NOT included is REFUSED at the DB (it would be delivered free)', async () => {
+  // Without this CHECK the combination is authorable, and the engine used to
+  // resolve it as "keep the line": the couple receives an inclusion nobody
+  // charged for, and the cascade prices an event_vendors row off its
+  // replacement_value_centavos, inflating the 5% platform-fee base.
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_items
+         (package_id, canonical_service, service_description,
+          replacement_value_centavos, display_order, is_required, is_default_included)
+       VALUES ($1, 'catering', 'Compulsory upsell nobody bought', 900000, 20, TRUE, FALSE)`,
+      [packageId],
+    ),
+    /check|required_implies_included/i,
+  );
+
+  // ...and it cannot be reached by UPDATE either.
+  const good = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description,
+        replacement_value_centavos, display_order, is_required, is_default_included)
+     VALUES ($1, 'catering', 'Legitimately required line', 0, 21, TRUE, TRUE)
+     RETURNING item_id`,
+    [packageId],
+  );
+  await assert.rejects(
+    db.query(
+      `UPDATE public.vendor_package_items SET is_default_included = FALSE WHERE item_id = $1`,
+      [good.rows[0]!.item_id],
+    ),
+    /check|required_implies_included/i,
+  );
+});
+
+test('optional + NOT included is still allowed (an un-ticked upsell is legitimate)', async () => {
+  const r = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description,
+        replacement_value_centavos, display_order, is_required, is_default_included)
+     VALUES ($1, 'photography', 'Optional extra', 50000, 22, FALSE, FALSE)
+     RETURNING item_id`,
+    [packageId],
+  );
+  assert.ok(r.rows[0]!.item_id, 'the CHECK must only bite the required+excluded shape');
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* The DEFAULT option may never be retired                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+test('the DEFAULT option cannot be marked unavailable (it would brick the whole package)', async () => {
+  // The engine falls back to the default for any kept OPTIONAL choice line
+  // the couple did not pick, and errors are all-or-nothing — so one retired
+  // default makes the ENTIRE package uncomputable for every couple, not just
+  // that line. A vendor doing the thing is_available exists for must not be
+  // able to take a live package down.
+  const item = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description, replacement_value_centavos, display_order)
+     VALUES ($1, 'cake_desserts', 'Dessert (choice)', 40000, 30) RETURNING item_id`,
+    [packageId],
+  );
+  const dessertId = item.rows[0]!.item_id;
+
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_item_options
+         (item_id, option_label, price_delta_centavos, is_default, is_available)
+       VALUES ($1, 'Retired default', 0, TRUE, FALSE)`,
+      [dessertId],
+    ),
+    /check|default_is_available/i,
+  );
+
+  const okOpt = await db.query<{ option_id: string }>(
+    `INSERT INTO public.vendor_package_item_options
+       (item_id, option_label, price_delta_centavos, is_default, is_available)
+     VALUES ($1, 'Halo-halo', 0, TRUE, TRUE) RETURNING option_id`,
+    [dessertId],
+  );
+  await assert.rejects(
+    db.query(
+      `UPDATE public.vendor_package_item_options SET is_available = FALSE WHERE option_id = $1`,
+      [okOpt.rows[0]!.option_id],
+    ),
+    /check|default_is_available/i,
+    'and it cannot be retired after the fact either',
+  );
+
+  // A NON-default alternative may of course still be retired.
+  const alt = await db.query<{ option_id: string }>(
+    `INSERT INTO public.vendor_package_item_options
+       (item_id, option_label, price_delta_centavos, display_order)
+     VALUES ($1, 'Gateau', 12000, 2) RETURNING option_id`,
+    [dessertId],
+  );
+  await db.query(
+    `UPDATE public.vendor_package_item_options SET is_available = FALSE WHERE option_id = $1`,
+    [alt.rows[0]!.option_id],
+  );
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* The §4 promote-to-required backfill — actually executed, not assumed       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+test('the §4 backfill promotes zero-value ANCHOR lines and touches nothing else', async () => {
+  // The replay corpus has no seeded vendor packages (the 20260604110000 seeds
+  // key off vendor_profiles rows that do not exist on a fresh DB), so the
+  // migration's UPDATE ran against zero rows and was previously unproven.
+  // Here the REAL statement is lifted out of the migration file and replayed
+  // against data shaped like the seed, so a future edit to its WHERE clause
+  // is caught rather than silently untested.
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRATION_FILE), 'utf8');
+  const match = sql.match(/UPDATE public\.vendor_package_items i[\s\S]*?;/);
+  assert.ok(match, 'the §4 backfill UPDATE must still exist in the migration');
+  const backfillSql = match![0];
+  assert.ok(
+    backfillSql.includes('is_required = TRUE'),
+    'the extracted statement must be the promote-to-required backfill',
+  );
+
+  const p = await db.query<{ package_id: string }>(
+    `INSERT INTO public.vendor_packages
+       (vendor_profile_id, package_name, total_price_centavos,
+        consumable_budget_centavos, is_consumable_flexible, primary_canonical_service)
+     VALUES ($1, 'Backfill Shape Package', 140000000, 20000000, TRUE, 'reception_venue')
+     RETURNING package_id`,
+    [vendorProfileId],
+  );
+  const pid = p.rows[0]!.package_id;
+
+  // (a) the seed's anchor shape — zero value, ticked, anchor service.
+  const anchor = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description, replacement_value_centavos, display_order)
+     VALUES ($1, 'reception_venue', 'Grand Ballroom', 0, 1) RETURNING item_id`,
+    [pid],
+  );
+  // (b) anchor service but carries REAL value — must NOT be promoted.
+  const valuedAnchor = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description, replacement_value_centavos, display_order)
+     VALUES ($1, 'reception_venue', 'Second hall', 500000, 2) RETURNING item_id`,
+    [pid],
+  );
+  // (c) zero value but NOT the anchor service — a free giveaway line that
+  //     must stay removable.
+  const freeGiveaway = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description, replacement_value_centavos, display_order)
+     VALUES ($1, 'catering', 'Free welcome drink', 0, 3) RETURNING item_id`,
+    [pid],
+  );
+
+  await db.exec(backfillSql);
+
+  const rows = await db.query<{ item_id: string; is_required: boolean }>(
+    `SELECT item_id, is_required FROM public.vendor_package_items WHERE package_id = $1`,
+    [pid],
+  );
+  const byId = new Map(rows.rows.map((r) => [r.item_id, r.is_required]));
+  assert.equal(byId.get(anchor.rows[0]!.item_id), true, 'the zero-value anchor line is promoted');
+  assert.equal(
+    byId.get(valuedAnchor.rows[0]!.item_id),
+    false,
+    'MONEY GUARD: a line carrying real value must never become un-removable',
+  );
+  assert.equal(
+    byId.get(freeGiveaway.rows[0]!.item_id),
+    false,
+    'a free non-anchor line stays removable',
+  );
+
+  // And re-running is a no-op (the AND i.is_required = FALSE guard).
+  await db.exec(backfillSql);
+  const again = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.vendor_package_items
+     WHERE package_id = $1 AND is_required = TRUE`,
+    [pid],
+  );
+  assert.equal(again.rows[0]!.n, 1, 'idempotent');
 });
 
 test('the seeded required-ness WORKAROUND still frees zero credit', async () => {

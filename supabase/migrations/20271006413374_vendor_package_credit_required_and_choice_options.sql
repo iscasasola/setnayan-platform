@@ -59,9 +59,20 @@
 -- option, the stored selection becomes unresolvable and the pure engine
 -- fails CLOSED (`unknown_option`) rather than inventing a price.
 --
+-- ⚠ WHAT STABLE IDENTITY DOES **NOT** BUY YOU (corrected 2026-07-26)
+-- ------------------------------------------------------------------
+-- Re-PRICING survives: the delta re-resolves in place. RETIREMENT does NOT:
+-- the engine rejects any chosen option with is_available = FALSE, and it has
+-- no way to distinguish a NEW pick from one already stored on a locked
+-- booking, so retirement bricks a stored selection exactly as hard as
+-- deletion does. Teaching the engine to resolve stored selections regardless
+-- of availability is a signature change that belongs to the booking/lock
+-- wave. Until then `is_available` only stops NEW picks.
+--
 -- COLUMNS ADDED
 -- -------------
 --   vendor_package_items.is_required           BOOLEAN NOT NULL DEFAULT FALSE
+--     + CHECK vendor_package_items_required_implies_included
 --   vendor_packages.unspent_credit_policy      TEXT NOT NULL DEFAULT 'expiring'
 --   NEW TABLE vendor_package_item_options
 --
@@ -102,7 +113,27 @@ ALTER TABLE public.vendor_package_items
   ADD COLUMN IF NOT EXISTS is_required BOOLEAN NOT NULL DEFAULT FALSE;
 
 COMMENT ON COLUMN public.vendor_package_items.is_required IS
-  'TRUE = line cannot be removed and its replacement_value_centavos never enters the credit pool (owner-locked package credit model, 2026-07-26). Distinct from is_default_included, which only means "ticked by default".';
+  'TRUE = line cannot be removed and its replacement_value_centavos never enters the credit pool (owner-locked package credit model, 2026-07-26). Distinct from is_default_included, which only means "ticked by default". REQUIRED implies INCLUDED - enforced by vendor_package_items_required_implies_included.';
+
+-- REQUIRED implies INCLUDED. Without this, `is_required = TRUE` +
+-- `is_default_included = FALSE` is authorable and is a MONEY BUG in both
+-- directions: the engine keeps the line (required wins), so the couple is
+-- DELIVERED an inclusion they never bought, and the cascade-lock writes an
+-- event_vendors row priced at replacement_value_centavos - inflating the 5%
+-- platform-fee base with revenue nobody collected. There is no coherent
+-- reading of "must keep this line" for a line that is not in the package, so
+-- the combination is refused at the DB rather than resolved by precedence.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'vendor_package_items_required_implies_included'
+  ) THEN
+    ALTER TABLE public.vendor_package_items
+      ADD CONSTRAINT vendor_package_items_required_implies_included
+      CHECK (is_required = FALSE OR is_default_included = TRUE);
+  END IF;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- 2. vendor_packages.unspent_credit_policy — the vendor decides, per package
@@ -144,9 +175,17 @@ CREATE TABLE IF NOT EXISTS public.vendor_package_item_options (
   -- Exactly one default per item (partial unique index below). The default
   -- is what total_price_centavos already pays for.
   is_default            BOOLEAN NOT NULL DEFAULT FALSE,
-  -- Vendor can retire an alternative without deleting it (which would
-  -- orphan stored selections). An unavailable option cannot be newly
-  -- chosen; the engine fails closed on it.
+  -- Vendor can retire an alternative so it is no longer offered.
+  --
+  -- ⚠ HONEST LIMIT (corrected 2026-07-26): retiring an option does NOT
+  -- currently protect an already-stored selection. The engine rejects ANY
+  -- chosen option that is unavailable - it has no way to tell "newly picked"
+  -- from "already on a locked booking" - so today retirement and deletion
+  -- brick a stored selection identically (`option_unavailable` vs
+  -- `unknown_option`). Retirement's only real advantage today is that the
+  -- ROW survives, so the label/price remain readable for reporting. Teaching
+  -- the engine to resolve stored selections regardless of availability is a
+  -- signature change owned by the booking/lock wave, not this foundation.
   is_available          BOOLEAN NOT NULL DEFAULT TRUE,
   display_order         INTEGER NOT NULL DEFAULT 0,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -156,7 +195,16 @@ CREATE TABLE IF NOT EXISTS public.vendor_package_item_options (
   -- default to +50,000 pesos and every untouched booking would silently
   -- carry a surcharge nobody chose.
   CONSTRAINT vendor_package_item_options_default_is_free
-    CHECK (is_default = FALSE OR price_delta_centavos = 0)
+    CHECK (is_default = FALSE OR price_delta_centavos = 0),
+  -- The DEFAULT may never be retired. The engine falls back to the default
+  -- for any kept OPTIONAL choice line the couple did not pick, and a choice
+  -- line with no available default is fail-closed - which takes down the
+  -- WHOLE package (errors are all-or-nothing), for every couple, not just
+  -- the one line. A vendor doing the thing this column exists for must not
+  -- be able to brick a live package, so the default is pinned available and
+  -- must be swapped rather than switched off.
+  CONSTRAINT vendor_package_item_options_default_is_available
+    CHECK (is_default = FALSE OR is_available = TRUE)
 );
 
 -- At most ONE default per line. Partial unique index (not a table

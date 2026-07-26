@@ -45,7 +45,8 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
-import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
+import { resolveStdMedia } from '@/lib/std-media';
+import { loadStdNsfwVerdict, stdVideoIsServable } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -306,11 +307,20 @@ export const loadMedia = cache(
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
     // either their photo gallery (default) or an uploaded video. The video plays
-    // on this PUBLIC page ONLY when NSFW-approved (stdVideoIsLive — the platform
-    // lock); otherwise the gallery beat shows. PR-B (0024 · 2026-06-19).
+    // on this PUBLIC page ONLY when the service-role screen produced an
+    // `approved` verdict BOUND to this exact media — same two R2 keys AND the
+    // same content fingerprints (SEC-6 · stdVideoIsServable). The verdict lives
+    // in events.std_media_nsfw, which the host cannot write; a verdict that no
+    // longer matches the media is STALE and the gallery beat shows instead.
+    // Unknown or stale ⇒ not shown. PR-B (0024 · 2026-06-19).
+    // The verdict is read in its OWN query (loadStdNsfwVerdict), and only when a
+    // video is actually configured — see that helper for why it is not folded
+    // into the select above.
     const stdMedia = resolveStdMedia(event.std_media);
     const stdVideoUrl =
-      stdVideoIsLive(stdMedia) && stdMedia.videoKey
+      stdMedia.type === 'video' &&
+      stdMedia.videoKey &&
+      (await stdVideoIsServable(stdMedia, await loadStdNsfwVerdict(admin, event.event_id)))
         ? await displayUrlForStoredAsset(stdMedia.videoKey)
         : null;
     // The video's poster frame (client-extracted on upload). Resolved ONLY in

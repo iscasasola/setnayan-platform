@@ -1,7 +1,7 @@
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolveStdMedia } from '@/lib/std-media';
+import { resolveStdMedia, resolveStdNsfwVerdict, stdNsfwDisplayStatus } from '@/lib/std-media';
 import { RevealStudio } from '@/app/admin/reveal-studio/studio';
 import {
   StdVideoModeration,
@@ -23,7 +23,8 @@ import {
  */
 
 /** Couple STD videos awaiting (pending) or failed (rejected) the auto-screen —
- *  the admin override queue. Auto-approved videos are presumed fine + omitted. */
+ *  the admin override queue. Videos carrying a BOUND `approved` verdict are
+ *  omitted; a verdict that no longer binds its media counts as pending (SEC-6). */
 async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
   try {
     const admin = createAdminClient();
@@ -33,15 +34,41 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
       .filter('std_media->>type', 'eq', 'video')
       .limit(200);
     const rows = (data ?? []) as Array<Record<string, unknown>>;
+    if (rows.length === 0) return [];
+
+    // SEC-6 — the verdict is a SEPARATE, host-unwritable column, fetched in its
+    // OWN query so a deploy that lands ahead of the migration degrades to "every
+    // video needs review" (a fuller queue) instead of an empty one. An empty
+    // review queue is the dangerous failure here, not a crowded one.
+    const verdicts = new Map<string, unknown>();
+    {
+      const { data: vRows } = await admin
+        .from('events')
+        .select('event_id, std_media_nsfw')
+        .in(
+          'event_id',
+          rows.map((r) => r.event_id as string),
+        );
+      for (const v of (vRows ?? []) as Array<Record<string, unknown>>) {
+        verdicts.set(v.event_id as string, v.std_media_nsfw);
+      }
+    }
+
     const needing = rows
-      .map((r) => ({ r, m: resolveStdMedia(r.std_media) }))
-      .filter(({ m }) => m.type === 'video' && m.videoKey && m.nsfw !== 'approved');
+      // A verdict naming a video the couple has since replaced is stale, so its
+      // event belongs back in this queue.
+      .map((r) => {
+        const m = resolveStdMedia(r.std_media);
+        const verdict = resolveStdNsfwVerdict(verdicts.get(r.event_id as string));
+        return { r, m, s: stdNsfwDisplayStatus(m, verdict) };
+      })
+      .filter(({ m, s }) => m.type === 'video' && m.videoKey && s !== 'approved');
     return Promise.all(
-      needing.map(async ({ r, m }) => ({
+      needing.map(async ({ r, m, s }) => ({
         eventId: r.event_id as string,
         publicId: (r.public_id as string) ?? '',
         name: (r.display_name as string) || 'Untitled wedding',
-        status: (m.nsfw === 'rejected' ? 'rejected' : 'pending') as 'pending' | 'rejected',
+        status: s as 'pending' | 'rejected',
         videoUrl: m.videoKey ? await displayUrlForStoredAsset(m.videoKey) : null,
         posterUrl: m.posterKey ? await displayUrlForStoredAsset(m.posterKey) : null,
       })),

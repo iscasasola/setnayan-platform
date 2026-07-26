@@ -260,6 +260,16 @@ export type R2HeadResult = {
   contentType: string | null;
   /** When the object was last written to R2, or null if absent. */
   lastModified: Date | null;
+  /**
+   * The object's ETag with its surrounding quotes stripped, or null if absent.
+   * For a single (non-multipart) PUT — which is every upload `/api/upload`
+   * presigns — R2 sets this to the MD5 of the body, so it changes whenever the
+   * bytes change. That makes it a CONTENT identity for a key, which is what the
+   * Save-the-Date NSFW verdict binds to (lib/std-video-gate.ts): a key alone is
+   * not enough, because a host can re-PUT different bytes to the same key with
+   * a presigned URL they already hold.
+   */
+  etag: string | null;
 };
 
 /**
@@ -282,6 +292,7 @@ export async function r2Head(args: {
       size: typeof res.ContentLength === 'number' ? res.ContentLength : Number.NaN,
       contentType: res.ContentType ?? null,
       lastModified: res.LastModified ?? null,
+      etag: typeof res.ETag === 'string' ? res.ETag.replace(/^"|"$/g, '') || null : null,
     };
   } catch {
     // Missing object, 403, network blip — all resolve to "cannot prove custody".

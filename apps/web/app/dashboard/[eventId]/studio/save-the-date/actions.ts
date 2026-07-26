@@ -9,7 +9,12 @@ import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
-import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
+import {
+  resolveStdMedia,
+  resolveStdNsfwVerdict,
+  stdVideoNeedsScreen,
+  type StdMedia,
+} from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
@@ -183,37 +188,49 @@ export async function saveAllStdContent(
   if (data.background !== undefined && data.background !== null) {
     patch.std_background = resolveStdBackground(data.background);
   }
-  // Step-3 media choice — validated to {type, videoKey?, posterKey?, nsfw?}.
+  // Step-3 media choice — validated to {type, videoKey?, posterKey?, fit?}.
   //
-  // SECURITY: the NSFW verdict is set by the SERVER-SIDE screen only — never
-  // trusted from the client (otherwise a couple could POST nsfw:'approved' and
-  // bypass the platform lock). So a new/changed video is forced to 'pending';
-  // an UNCHANGED video keeps the server's existing verdict. The poster frame
-  // (the screening proxy) is taken from the upload, falling back to the saved
-  // one for an unchanged video.
+  // SECURITY (SEC-6 · 2026-07-26): the NSFW verdict is NOT in this object any
+  // more. It used to be — and because `std_media` is a host-writable column and
+  // RLS is row-level, a couple could bypass this whole action with a PostgREST
+  // PATCH setting nsfw:'approved'. The verdict now lives in
+  // events.std_media_nsfw, which `authenticated` holds no UPDATE/INSERT on, and
+  // it is BOUND to the exact videoKey + posterKey + content fingerprints it was
+  // computed for. So this action no longer decides anything about approval: it
+  // just records the couple's media choice and schedules a screen when the
+  // stored verdict does not (or no longer) covers it.
+  //
+  // The poster frame (the screening proxy) is taken from the upload, falling
+  // back to the saved one when the video is unchanged.
   let screenAfterSave: { videoKey: string; posterR2Key: string } | null = null;
   if (data.media !== undefined && data.media !== null) {
     const incoming = resolveStdMedia(data.media);
     if (incoming.type === 'video' && incoming.videoKey) {
       const { data: cur } = await supabase
         .from('events')
-        .select('std_media')
+        .select('std_media, std_media_nsfw')
         .eq('event_id', eventId)
         .maybeSingle();
-      const current = resolveStdMedia((cur as Record<string, unknown> | null)?.std_media);
+      const currentRow = (cur as Record<string, unknown> | null) ?? null;
+      const current = resolveStdMedia(currentRow?.std_media);
       const sameVideo =
         current.type === 'video' && current.videoKey === incoming.videoKey;
-      const nsfw = sameVideo ? (current.nsfw ?? 'pending') : 'pending';
       const posterKey =
         incoming.posterKey ?? (sameVideo ? (current.posterKey ?? null) : null);
-      patch.std_media = {
-        type: 'video',
+      const nextMedia = {
+        type: 'video' as const,
         videoKey: incoming.videoKey,
         posterKey,
-        nsfw,
         fit: incoming.fit ?? 'fill',
       };
-      if (nsfw === 'pending' && posterKey) {
+      patch.std_media = nextMedia;
+      // Schedule a screen when the stored verdict does not bind to what we are
+      // about to save. `stdVideoNeedsScreen` is the SAME predicate the screen
+      // itself re-checks, so this is a hint, never an authorisation.
+      if (
+        stdVideoNeedsScreen(nextMedia, resolveStdNsfwVerdict(currentRow?.std_media_nsfw)) &&
+        posterKey
+      ) {
         screenAfterSave = { videoKey: incoming.videoKey, posterR2Key: posterKey };
       }
     } else {
@@ -248,8 +265,10 @@ export async function saveAllStdContent(
       .is('event_date', null);
   }
 
-  // Screen the uploaded video by its poster frame (background, fail-open). Only
-  // an 'approved' verdict ever lets the video play on the public page.
+  // Screen the uploaded video by its poster frame (background). Only an
+  // 'approved' verdict BOUND to this exact media ever lets the video play on the
+  // public page — if this fire-and-forget drops, the video simply stays dark and
+  // the builder page's opportunistic heal retries it.
   if (screenAfterSave) {
     const { videoKey, posterR2Key } = screenAfterSave;
     after(() => screenStdVideo({ eventId, videoKey, posterR2Key }).catch(() => {}));

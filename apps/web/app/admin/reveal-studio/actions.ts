@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { mergeRevealConfig } from '@/lib/reveal-config';
 import { resolveStdMedia } from '@/lib/std-media';
+import { r2ContentFingerprint } from '@/lib/std-video-gate';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -55,10 +56,22 @@ export async function saveRevealStudio(input: unknown): Promise<Result> {
 
 /**
  * Manually set the NSFW verdict on a couple's Save-the-Date video
- * (events.std_media.nsfw). The automatic poster-frame screen covers the normal
- * path; this is the admin override for a video stuck at 'pending' (a poster /
- * model hiccup left it never-screened, so it silently never goes live) or a
+ * (events.std_media_nsfw). The automatic poster-frame screen covers the normal
+ * path; this is the admin override for a video stuck unscreened (a poster /
+ * model hiccup left it never-decided, so it silently never goes live) or a
  * false-positive 'rejected'. Only an 'approved' video plays on the public page.
+ *
+ * SEC-6: the verdict is written into the host-UNWRITABLE column, and it is
+ * BOUND — it names the exact videoKey + posterKey it covers and records a
+ * content fingerprint of each object. An admin approval therefore covers the
+ * bytes that were there when they approved and nothing else: if the couple
+ * swaps the video afterwards (new key, or a re-PUT to the same key with the
+ * presigned URL they still hold), the approval stops applying and the film
+ * falls back to their photo gallery. That is the whole point — an override
+ * that could outlive its media would just be the original bug with extra steps.
+ *
+ * An 'approved' decision REQUIRES both fingerprints. If R2 cannot identify the
+ * objects we refuse rather than write an approval we cannot bind (fail closed).
  */
 export async function setStdVideoModeration(
   eventId: string,
@@ -80,10 +93,35 @@ export async function setStdVideoModeration(
     if (!row) return { ok: false, error: 'not-found' };
     const media = resolveStdMedia((row as Record<string, unknown>).std_media);
     if (media.type !== 'video' || !media.videoKey) return { ok: false, error: 'no-video' };
+    if (!media.posterKey) return { ok: false, error: 'no-poster' };
+
+    const [videoFingerprint, posterFingerprint] = await Promise.all([
+      r2ContentFingerprint(media.videoKey),
+      r2ContentFingerprint(media.posterKey),
+    ]);
+    if (decision === 'approved' && (!videoFingerprint || !posterFingerprint)) {
+      return { ok: false, error: 'media-unreadable' };
+    }
+
+    const now = new Date().toISOString();
     const { error } = await db
       .from('events')
-      .update({ std_media: { ...media, nsfw: decision } })
-      .eq('event_id', eventId);
+      .update({
+        std_media_nsfw: {
+          status: decision,
+          videoKey: media.videoKey,
+          posterKey: media.posterKey,
+          videoFingerprint,
+          posterFingerprint,
+          screenedAt: now,
+          attemptedAt: now,
+        },
+      })
+      .eq('event_id', eventId)
+      // Conditional on the row still holding this exact media, so an override
+      // can never land on something the couple changed mid-review.
+      .filter('std_media->>videoKey', 'eq', media.videoKey)
+      .filter('std_media->>posterKey', 'eq', media.posterKey);
     if (error) return { ok: false, error: error.message };
     revalidatePath('/[slug]', 'page');
     revalidatePath('/admin/reveal-studio', 'page');

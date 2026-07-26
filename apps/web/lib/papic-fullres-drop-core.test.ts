@@ -225,6 +225,9 @@ function head(over: Partial<R2HeadResult> = {}): R2HeadResult {
     contentType: 'video/mp4',
     // written well before the grace window → aged enough to drop.
     lastModified: new Date(NOW - (CLIP_WEB_DROP_GRACE_DAYS + 30) * 86_400_000),
+    // Content identity (SEC-6 added it to R2HeadResult); the custody check
+    // does not read it, so a fixed stub keeps these cases unchanged.
+    etag: 'stub-etag',
     ...over,
   };
 }

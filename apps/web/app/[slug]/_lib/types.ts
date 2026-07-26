@@ -127,8 +127,12 @@ export type EventRow = {
   std_theme?: string | null;
   // Step-1 background choice {kind, value} (events.std_background · 2026-06-19).
   std_background?: unknown;
-  // Step-3 media choice {type, videoKey?, posterKey?, nsfw?} (events.std_media · 2026-06-19).
+  // Step-3 media choice {type, videoKey?, posterKey?, fit?} (events.std_media · 2026-06-19).
   std_media?: unknown;
+  // The NSFW verdict for that media, BOUND to it (events.std_media_nsfw · SEC-6
+  // 2026-07-26). Host-unwritable; a verdict that no longer matches std_media is
+  // stale and the video does not play. See lib/std-media.ts.
+  std_media_nsfw?: unknown;
   // Manual STD venue override (reception fallback when no finalized booking).
   std_film_venue_name?: string | null;
   std_film_venue_city?: string | null;

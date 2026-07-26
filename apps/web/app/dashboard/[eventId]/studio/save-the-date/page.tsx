@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -20,7 +21,8 @@ import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground } from '@/lib/std-backgrounds';
-import { resolveStdMedia } from '@/lib/std-media';
+import { resolveStdMedia, stdNsfwDisplayStatus, stdVideoNeedsScreen } from '@/lib/std-media';
+import { loadStdNsfwVerdict } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
 import {
@@ -136,6 +138,29 @@ export default async function SaveTheDatePage({ params }: Props) {
   const stdBackgroundUploadUrl =
     stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
   const stdMedia = resolveStdMedia(event?.std_media);
+  // SEC-6 — the screening verdict is a SEPARATE, host-unwritable column bound to
+  // the media it judged. The couple sees its status; they cannot set it. A
+  // verdict that no longer binds (they swapped the video) reads as 'pending'.
+  // Own query (see loadStdNsfwVerdict) so a deploy that lands ahead of the
+  // migration degrades to "being reviewed" instead of blanking the builder.
+  const stdNsfwVerdict = await loadStdNsfwVerdict(supabase, eventId);
+  const stdNsfwStatus = stdNsfwDisplayStatus(stdMedia, stdNsfwVerdict);
+  // OPPORTUNISTIC HEAL (cron-free, the repo idiom). screenStdVideo is fired
+  // fire-and-forget from saveAllStdContent, so a dropped screen — a cold lambda,
+  // an R2 hiccup, a killed request — would otherwise leave a legitimate video
+  // dark forever, with nothing to retry it. Fail-CLOSED means "invisible", not
+  // "harmless". This re-fires it from the couple's own builder, which is exactly
+  // where someone is asking "why isn't my video showing yet?". Bounded by
+  // stdVideoNeedsScreen's 10-minute attempt throttle and idempotent (the screen
+  // re-checks the same predicate and writes conditionally on the media).
+  if (stdVideoNeedsScreen(stdMedia, stdNsfwVerdict) && stdMedia.videoKey && stdMedia.posterKey) {
+    const videoKey = stdMedia.videoKey;
+    const posterR2Key = stdMedia.posterKey;
+    after(async () => {
+      const { screenStdVideo } = await import('@/lib/nsfw-screen');
+      await screenStdVideo({ eventId, videoKey, posterR2Key }).catch(() => {});
+    });
+  }
   const stdMediaVideoUrl =
     stdMedia.type === 'video' && stdMedia.videoKey
       ? await displayUrlForStoredAsset(stdMedia.videoKey)
@@ -420,6 +445,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialBackground={stdBackground}
         initialUploadUrl={stdBackgroundUploadUrl}
         initialMedia={stdMedia}
+        initialNsfwStatus={stdNsfwStatus}
         initialVideoUrl={stdMediaVideoUrl}
         initialPosterUrl={stdMediaPosterUrl}
         galleryCount={ourPhotoUrls.length}

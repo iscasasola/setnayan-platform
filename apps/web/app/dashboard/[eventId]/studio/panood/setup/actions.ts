@@ -17,6 +17,7 @@ import {
   releasePoolChannelIfIdle,
   resolveEventBroadcastToken,
 } from '@/lib/live-studio-roam-provision';
+import { completeRoamBroadcasts } from '@/lib/live-studio-recordings';
 import {
   getEventYoutubeAccessToken,
   createPanoodBroadcast,
@@ -368,40 +369,63 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   const closed = await completePanoodBroadcast(eventId);
   const broadcastId = closed?.broadcastId ?? active?.broadcast_id ?? null;
 
-  if (broadcastId) {
-    // WAVE 9 · a broadcast created on a Setnayan pool channel must be ENDED with
-    // that channel's token, not the couple's (which under the pool model does not
-    // exist). READ-ONLY lookup — `getHeldChannelAccessToken` never claims a
-    // channel, so pressing End cannot consume pool inventory.
-    // `createAdminClient()` is constructed only behind the flag — it throws when
-    // SUPABASE_SERVICE_ROLE_KEY is absent, and a flag-off End must not acquire a
-    // new way to fail.
-    const pooled = liveStudioRoamEnabled()
-      ? await getHeldChannelAccessToken(createAdminClient(), eventId)
-      : null;
-    const accessToken = pooled ?? (await getEventYoutubeAccessToken(eventId));
-    if (accessToken) {
-      try {
-        await transitionYoutubeBroadcast(accessToken, broadcastId, 'complete');
-      } catch {
-        // Already complete on YouTube (autoStop), or a transient error — the
-        // local row is already 'complete', which is the source of truth.
-      }
+  // WAVE 9 · a broadcast created on a Setnayan pool channel must be ENDED with
+  // that channel's token, not the couple's (which under the pool model does not
+  // exist). READ-ONLY lookup — `getHeldChannelAccessToken` never claims a
+  // channel, so pressing End cannot consume pool inventory.
+  // `createAdminClient()` is constructed only behind the flag — it throws when
+  // SUPABASE_SERVICE_ROLE_KEY is absent, and a flag-off End must not acquire a
+  // new way to fail.
+  //
+  // HOISTED out of the `if (broadcastId)` below because the recording handoff
+  // needs the SAME token: an event can hold per-camera broadcasts whose directed
+  // row is already closed (End pressed twice, or a restart), and those still have
+  // to be completed. `needsToken` keeps a flag-off End with nothing to close
+  // exactly as cheap as it was — no lookup at all.
+  const admin = liveStudioRoamEnabled() ? createAdminClient() : null;
+  const needsToken = broadcastId !== null || admin !== null;
+  const pooled =
+    needsToken && admin ? await getHeldChannelAccessToken(admin, eventId) : null;
+  const accessToken = needsToken
+    ? (pooled ?? (await getEventYoutubeAccessToken(eventId)))
+    : null;
+
+  if (broadcastId && accessToken) {
+    try {
+      await transitionYoutubeBroadcast(accessToken, broadcastId, 'complete');
+    } catch {
+      // Already complete on YouTube (autoStop), or a transient error — the
+      // local row is already 'complete', which is the source of truth.
     }
   }
 
-  // 🚫 THE POOL CHANNEL IS DELIBERATELY *NOT* RELEASED HERE.
+  // ⭐ END MEANS ENDED — complete the PER-CAMERA broadcasts too, then re-mirror.
   //
-  // The obvious move — "broadcast over, give the channel back" — would be a bug.
-  // § 4h has Setnayan handing the RECORDING back to the couple (VOD pull →
-  // dashboard / Alaala) and only then wiping and reusing the channel. That pull is
-  // not built. Releasing on End would let the next wedding claim a channel while
-  // this couple's ceremony recording is still the only copy sitting on it — and
-  // "wipe + reuse" is exactly what happens next to a released channel.
+  // Until now this action closed only `panood_broadcasts` (the one directed
+  // broadcast). Nothing in the codebase had ever written a status update to
+  // `live_studio_roam_streams`, so every camera channel stayed 'ready' forever.
+  // Two live consequences once the flag flips: `releasePoolChannelIfIdle` could
+  // never succeed (it refuses while any stream is un-complete), and the guest
+  // picker kept advertising all N cameras after the wedding — as the ONLY watch
+  // block, since the line below clears `panood_watch_url`. `completeRoamBroadcasts`
+  // completes the rows, completes them on YouTube best-effort, and re-mirrors so
+  // the picker tears itself down through the § 4d publish gate.
   //
-  // It also would not survive a host who ends and restarts mid-day. Release is
-  // therefore an explicit admin act (/admin/live-studio-channels → Release), where
-  // the age of the checkout is on screen next to the button.
+  // Best-effort and non-fatal, like the provisioning call in goLivePanood: the
+  // couple's End must succeed even if YouTube or the mirror does not.
+  if (admin) await completeRoamBroadcasts(admin, eventId, accessToken);
+
+  // 🚫 THE POOL CHANNEL IS DELIBERATELY *NOT* RELEASED HERE — still.
+  //
+  // The recording handoff is now BUILT (the couple's recordings resolve on the
+  // Live Studio setup page via `fetchEventRecordings` — 09_Panood § 6), so the
+  // original reason ("that pull is not built") is spent. Release stays an explicit
+  // admin act anyway, for the two reasons that never depended on the pull:
+  //   · § 4h and Cast_and_Roam § 4 both follow release with WIPE + reuse, and the
+  //     wipe is not built (nor should it be silently: § 6 promises the archive
+  //     indefinite retention — see lib/live-studio-recordings.ts's header note).
+  //   · it would not survive a host who ends and restarts mid-day.
+  // /admin/live-studio-channels → Release shows the checkout age next to the button.
 
   // Clear the embed so the event page stops showing a finished broadcast.
   //

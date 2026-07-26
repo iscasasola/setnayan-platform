@@ -354,7 +354,21 @@ test('🚨 ENDING a broadcast never claims a channel, and never releases one', (
   const src = repoFile(GO_LIVE);
   const end = src.slice(src.indexOf('export async function endPanoodBroadcast'));
   // Read-only token lookup — the claiming variant must not appear here.
-  assert.match(end, /getHeldChannelAccessToken\(createAdminClient\(\), eventId\)/);
+  //
+  // 2026-07-26 (recording handoff): the client is now hoisted into `admin`, because
+  // completeRoamBroadcasts needs the same one. This assertion therefore pins the two
+  // PROPERTIES the old single literal encoded, rather than the literal — and pins
+  // them harder, because the flag gate is now named explicitly instead of being
+  // implied by where the call sat:
+  //   ① the admin client is constructed ONLY behind the flag (it throws without
+  //      SUPABASE_SERVICE_ROLE_KEY, and a flag-off End must not gain a way to fail);
+  //   ② the token comes from the READ-ONLY accessor.
+  assert.match(
+    end,
+    /const admin = liveStudioRoamEnabled\(\) \? createAdminClient\(\) : null/,
+    'the service-role client must stay flag-gated in End',
+  );
+  assert.match(end, /getHeldChannelAccessToken\(admin, eventId\)/);
   assert.ok(
     !/resolveEventBroadcastToken|checkoutPoolChannel/.test(codeOf(end)),
     'pressing End must not consume pool inventory',

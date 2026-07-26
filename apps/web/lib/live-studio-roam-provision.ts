@@ -1,7 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
-import type { RoamManifest, RoamZoneStatus } from '@/lib/live-studio-roam';
+import { liveStudioRoamEnabled, type RoamManifest, type RoamZoneStatus } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
+// ⚠ `lib/panood-youtube.ts` and `lib/live-studio-channel-grants.ts` are imported
+// DYNAMICALLY inside provisionRoamBroadcasts, not here. Both carry
+// `import 'server-only'`, and a static edge to either would drag it into this
+// module's graph — which would make `buildRoamManifest`, `checkoutPoolChannel`
+// and the rest of this file unrunnable under `tsx --test` (the repo's unit
+// runner does not resolve `server-only`). Same reason
+// lib/live-studio-window-server.ts documents for taking its client as a
+// parameter instead of constructing one. They are only needed on the real
+// provisioning path, which never executes in a unit test.
 
 /**
  * apps/web/lib/live-studio-roam-provision.ts
@@ -19,10 +28,12 @@ import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-pu
  *      exactly as CAST mirrors its watch URL into events.panood_watch_url. This is
  *      what makes the event-page picker light up.
  *   3. YOUTUBE BROADCAST creation (N per event) — see provisionRoamBroadcasts
- *      below: NOT wired yet. It reuses the CAST YouTube lifecycle
- *      (lib/panood-youtube.ts createYoutubeBroadcast/Stream/bind) but needs the
- *      POOL CHANNEL's own OAuth token, which is gated on G1 (a verified Setnayan
- *      channel exists) + the OAuth-path decision (Workspace-Internal vs External).
+ *      below. ⭐ WIRED IN WAVE 9 (2026-07-26). It reuses the CAST YouTube lifecycle
+ *      (lib/panood-youtube.ts createYoutubeBroadcast/Stream/bind) and draws the POOL
+ *      CHANNEL's own OAuth token from lib/live-studio-channel-grants.ts — the
+ *      platform-level, channel-keyed grant the owner confirmed at § 4h. Still inert
+ *      until the owner completes G1 (create + verify the Setnayan channel, enable
+ *      live streaming — the 24h wait applies to Setnayan, once) and connects it.
  *
  * DB functions take a SupabaseClient so they are testable and callable from either
  * a control-room session or the service-role admin client. buildRoamManifest is
@@ -186,30 +197,43 @@ export async function checkoutPoolChannel(
     if (existing) return existing as RoamChannelRow;
 
     // Claim the first available, verified channel.
-    const { data: free, error: freeErr } = await admin
-      .from('live_studio_roam_channel_pool')
-      .select(SELECT)
-      .eq('status', 'available')
-      .eq('verified', true)
-      .order('id', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (freeErr || !free) return null;
+    //
+    // BOUNDED RETRY (Wave 9). The lost-update guard below is correct — Postgres
+    // re-evaluates `status='available'` after the row lock, so the loser of a race
+    // updates zero rows and gets null — but on its own it made a LOSER report "no
+    // channel available" while other channels sat free. Two weddings starting in
+    // the same second is not exotic on a Saturday. Retrying re-reads the pool, so
+    // the loser takes the next free channel instead of being turned away.
+    // Bounded, not a spin: after 4 attempts the pool is genuinely contended and
+    // "none available" is the honest answer.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const { data: free, error: freeErr } = await admin
+        .from('live_studio_roam_channel_pool')
+        .select(SELECT)
+        .eq('status', 'available')
+        .eq('verified', true)
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (freeErr || !free) return null; // pool genuinely empty
 
-    const { data: claimed, error: claimErr } = await admin
-      .from('live_studio_roam_channel_pool')
-      .update({
-        status: 'checked_out',
-        checked_out_event_id: eventId,
-        checked_out_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', (free as RoamChannelRow).id)
-      .eq('status', 'available') // lost-update guard: only if still free
-      .select(SELECT)
-      .maybeSingle();
-    if (claimErr || !claimed) return null; // raced — caller may retry
-    return claimed as RoamChannelRow;
+      const { data: claimed, error: claimErr } = await admin
+        .from('live_studio_roam_channel_pool')
+        .update({
+          status: 'checked_out',
+          checked_out_event_id: eventId,
+          checked_out_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', (free as RoamChannelRow).id)
+        .eq('status', 'available') // lost-update guard: only if still free
+        .select(SELECT)
+        .maybeSingle();
+      if (claimErr) return null;
+      if (claimed) return claimed as RoamChannelRow;
+      // Lost the race for THIS channel — loop and look for another.
+    }
+    return null;
   } catch {
     return null;
   }
@@ -239,38 +263,356 @@ export async function returnPoolChannel(admin: SupabaseClient, eventId: string):
 }
 
 /**
- * ⛔ NOT WIRED YET — the YouTube broadcast-creation step (create N liveBroadcasts,
- * one per zone, on the checked-out pool channel; persist to live_studio_roam_streams;
- * then mirrorRoamManifest). It reuses the CAST lifecycle verbatim
- * (lib/panood-youtube.ts: createYoutubeBroadcast → createYoutubeStream →
- * bindYoutubeBroadcast → transitionYoutubeBroadcast), looping over zones instead
- * of the single CAST broadcast.
+ * Return the event's channel to the pool ONLY IF nothing is still riding on it.
  *
- * It is intentionally left unimplemented in this PR because it needs the POOL
- * CHANNEL's own OAuth access token, and that token model is gated on:
- *   • G1 — a verified Setnayan channel actually exists, and
- *   • the OAuth-path decision (Workspace-Internal vs External) — which determines
- *     where the pool channel's grant is stored (an oauth_grants row keyed by the
- *     pool channel rather than by event_id, unlike CAST's per-couple grant).
+ * The plain `returnPoolChannel` above is unconditional and correct after an event
+ * is over. This one is the SAFE release for a failure path: it refuses while any
+ * stream for the event is still `ready`/`testing`/`live`, so a partially-successful
+ * provisioning run cannot hand the channel to the next wedding while three live
+ * broadcasts of this one are still on it.
  *
- * ⚠ WHEN THIS IS WIRED, DO NOT ADD A SECOND PAYWALL HERE. The publish gate lives in
- * mirrorRoamManifest (§ 4d) — creating YouTube broadcasts is Setnayan's own cost, not
- * a guest-visible act, and the manifest mirror is what actually makes channels
- * watchable. Provisioning N broadcasts for a free host and publishing one of them is
- * the intended shape; a free host who has not paid simply never gets a second entry
- * into the manifest. (If per-broadcast cost later argues for refusing to CREATE N
- * broadcasts for a free host, gate on decidePublish() from lib/live-studio-publish.ts
- * so both places share one decision.)
- *
- * Wiring shape (for the follow-up PR):
- *   const channel = await checkoutPoolChannel(admin, eventId);
- *   const accessToken = await getPoolChannelAccessToken(channel.id);  // TODO (token model)
- *   for (const zone of zones) {
- *     const b = await createYoutubeBroadcast(accessToken, { title: zone.label, ... });
- *     const s = await createYoutubeStream(accessToken, { ... });
- *     await bindYoutubeBroadcast(accessToken, b.id, s.id);
- *     // insert { event_id, zone_id, channel_pool_id: channel.id, broadcast_id: b.id,
- *     //          stream_id: s.id, stream_key: s.streamKey, ingestion_url, status:'ready' }
- *   }
- *   await mirrorRoamManifest(admin, eventId);
+ * Returns true when the channel was released (or was never held).
  */
+export async function releasePoolChannelIfIdle(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  if (!eventId) return false;
+  try {
+    const { data, error } = await admin
+      .from('live_studio_roam_streams')
+      .select('id')
+      .eq('event_id', eventId)
+      .not('status', 'in', '("complete","errored")')
+      .limit(1);
+    if (error?.code === UNDEFINED_TABLE) return returnPoolChannel(admin, eventId);
+    if (error) return false; // unknown state → do NOT release; an admin can force it
+    if ((data ?? []).length > 0) return false; // still carrying traffic
+    return await returnPoolChannel(admin, eventId);
+  } catch {
+    return false;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ⭐ WAVE 9 — YOUTUBE BROADCAST PROVISIONING on a SETNAYAN-OWNED pool channel
+   (owner-confirmed 2026-07-26 · Live_Studio_Unified_Spec_2026-07-25.md § 4h)
+   ══════════════════════════════════════════════════════════════════════════════
+
+   WHAT CHANGED. The block that used to live here said "NOT WIRED YET — needs the
+   pool channel's own OAuth token, and that token model is gated on G1 + the
+   OAuth-path decision". The owner has now taken that decision: ONE Setnayan
+   account, Internal consent, `live_studio_channel_grants` keyed by pool channel
+   (lib/live-studio-channel-grants.ts). So this is wired.
+
+   🚫 NO SECOND PAYWALL HERE — the instruction the old block left, honoured.
+   `mirrorRoamManifest` (§ 4d) is the publish gate and it stays the ONLY one.
+   Creating a YouTube broadcast is a cost SETNAYAN pays; it is not a guest-visible
+   act. Provisioning N broadcasts for a free host and publishing ONE of them is the
+   intended shape — the free host simply never gets a second entry into the
+   manifest, because the mirror at the end of this function asks
+   `canPublishMultiCam` exactly as it does on every other write. A gate added here
+   would be a second rule that can disagree with the first, and the way it would
+   disagree is a paying couple's cameras missing on one surface and present on
+   another.
+
+   ⚠⚠ THE HONEST LIMIT, and it is not a detail. Provisioning creates the
+   broadcast CONTAINER and its RTMP ingestion endpoint. It does NOT put video into
+   it. Browsers cannot push RTMP and the native capture app was scoped but never
+   built (§ 4c), so something must still ENCODE the program output — today that is
+   the couple's own OBS window-capturing `/panood/program/[eventId]`. Wave 9
+   removes the requirement that the couple own or authorise a YOUTUBE ACCOUNT. It
+   does not remove the encoder. A provisioned broadcast with nothing pushing to it
+   shows as `ready`, never `live`, and the readiness copy
+   (lib/live-studio-readiness.ts) says exactly that in words.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The token for the channel this event ALREADY holds — READ-ONLY, claims nothing.
+ *
+ * The distinction from `resolveEventBroadcastToken` below matters: ending a
+ * broadcast must never be able to check a channel OUT of the pool. A host pressing
+ * "End" on an event that holds nothing would otherwise consume pool inventory as a
+ * side effect of stopping.
+ */
+export async function getHeldChannelAccessToken(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<string | null> {
+  if (!eventId || !liveStudioRoamEnabled()) return null;
+  try {
+    const { data, error } = await admin
+      .from('live_studio_roam_channel_pool')
+      .select('id')
+      .eq('checked_out_event_id', eventId)
+      .eq('status', 'checked_out')
+      .maybeSingle();
+    if (error || !data) return null;
+    const { getPoolChannelAccessToken } = await import('@/lib/live-studio-channel-grants');
+    return await getPoolChannelAccessToken(admin, (data as { id: number }).id);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ⭐ THE ONE THAT ACTUALLY REMOVES THE COUPLE'S GOOGLE ACCOUNT.
+ *
+ * Resolve an access token for this event's broadcast from the SETNAYAN pool —
+ * checking a channel out for the event if it does not already hold one.
+ *
+ * This is what `goLivePanood` consults before falling back to the couple's own
+ * BYO grant. Wave 9's headline promise ("the couple never connects a Google
+ * account") is not delivered by provisioning the ROAM picker alone: the single
+ * directed broadcast — the one the program output actually feeds — goes out
+ * through `goLivePanood`, and until this existed that path returned "Connect your
+ * YouTube channel first" and stopped.
+ *
+ * Returns null when the flag is off, the pool is empty, or the channel is not
+ * connected — and in the last case it RELEASES the channel again, so a pool
+ * misconfiguration cannot quietly consume its own inventory one go-live at a time.
+ * A null means "fall back to BYO", never "fail".
+ */
+export async function resolveEventBroadcastToken(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<{ accessToken: string; channelPoolId: number; source: 'pool' } | null> {
+  if (!eventId || !liveStudioRoamEnabled()) return null;
+  const channel = await checkoutPoolChannel(admin, eventId);
+  if (!channel) return null;
+  const { getPoolChannelAccessToken } = await import('@/lib/live-studio-channel-grants');
+  const accessToken = await getPoolChannelAccessToken(admin, channel.id);
+  if (!accessToken) {
+    await releasePoolChannelIfIdle(admin, eventId);
+    return null;
+  }
+  return { accessToken, channelPoolId: channel.id, source: 'pool' };
+}
+
+export type ProvisionFailure =
+  | 'flag_off'
+  | 'no_zones'
+  | 'no_channel_available'
+  | 'channel_not_connected'
+  | 'youtube_error';
+
+export type ProvisionResult = {
+  ok: boolean;
+  /** Null when nothing could be claimed. */
+  channelPoolId: number | null;
+  /** Broadcasts created by THIS run (0 on a fully idempotent re-run). */
+  created: number;
+  /** Zones that already had an active stream and were left alone. */
+  reused: number;
+  /** Zones skipped because the pool channel's concurrent_cap was reached. */
+  skippedOverCap: number;
+  /** Entries in the manifest AFTER the § 4d publish gate. 1 for a free host. */
+  published: number;
+  reason: ProvisionFailure | null;
+  /** Human-readable, safe to show an admin. Never contains a token or stream key. */
+  detail: string | null;
+};
+
+function failure(reason: ProvisionFailure, detail: string, channelPoolId: number | null = null): ProvisionResult {
+  return {
+    ok: false,
+    channelPoolId,
+    created: 0,
+    reused: 0,
+    skippedOverCap: 0,
+    published: 0,
+    reason,
+    detail,
+  };
+}
+
+/**
+ * ⭐ Provision one YouTube broadcast per camera zone on a Setnayan-owned pool
+ * channel, then re-mirror the public manifest through the § 4d publish gate.
+ *
+ * END TO END:
+ *   1. flag check — dark unless NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED=true.
+ *   2. read the event's non-disabled zones (the host's camera channels).
+ *   3. check a channel out of the pool (idempotent — an event that already holds
+ *      one keeps it; a partial unique index stops two events sharing a channel).
+ *   4. get THAT CHANNEL's access token. No token → nothing is created and the
+ *      channel is released again, so a mis-configured pool cannot silently eat
+ *      its own inventory.
+ *   5. for each zone with no active stream: liveBroadcasts.insert →
+ *      liveStreams.insert → liveBroadcasts.bind → row in live_studio_roam_streams.
+ *      Zones that already have one are REUSED, not duplicated.
+ *   6. mirrorRoamManifest → the publish gate decides how many of them guests see.
+ *
+ * IDEMPOTENT BY CONSTRUCTION at three layers: the pool checkout is a no-op for an
+ * event that already holds a channel; each zone is skipped when it already has a
+ * non-complete stream; and `live_studio_roam_streams_one_active_per_zone` (a
+ * partial unique index) is the database backstop if two runs race — a 23505 is
+ * caught and counted as `reused`, not as an error. A double-clicked provision
+ * cannot double-spend YouTube quota.
+ *
+ * Pass a SERVICE-ROLE client: it reads the secret-bearing streams + grants tables
+ * and `orders` (whose RLS is purchaser-scoped).
+ */
+export async function provisionRoamBroadcasts(
+  admin: SupabaseClient,
+  eventId: string,
+  opts?: { titlePrefix?: string; scheduledStartTime?: string },
+): Promise<ProvisionResult> {
+  if (!eventId) return failure('no_zones', 'No event id.');
+  if (!liveStudioRoamEnabled()) {
+    return failure('flag_off', 'Live Studio is not enabled (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED).');
+  }
+
+  // ── 2. zones ──────────────────────────────────────────────────────────────
+  let zones: RoamZoneRow[] = [];
+  try {
+    const { data, error } = await admin
+      .from('live_studio_roam_zones')
+      .select('id, zone_index, label, venue_label, is_featured, is_main_stage, status')
+      .eq('event_id', eventId)
+      .neq('status', 'disabled')
+      .order('zone_index', { ascending: true });
+    if (error) return failure('no_zones', 'Could not read camera channels for this event.');
+    zones = (data ?? []) as RoamZoneRow[];
+  } catch {
+    return failure('no_zones', 'Could not read camera channels for this event.');
+  }
+  if (zones.length === 0) {
+    return failure('no_zones', 'This event has no camera channels yet.');
+  }
+
+  // ── 3. pool channel ───────────────────────────────────────────────────────
+  const channel = await checkoutPoolChannel(admin, eventId);
+  if (!channel) {
+    return failure(
+      'no_channel_available',
+      'No verified Setnayan channel is free right now. Connect or release one in Admin → Live Studio channels.',
+    );
+  }
+
+  // ── 4. that channel's token ───────────────────────────────────────────────
+  // Loaded here rather than at module scope — see the import block at the top.
+  const [{ getPoolChannelAccessToken }, { bindYoutubeBroadcast, createYoutubeBroadcast, createYoutubeStream }] =
+    await Promise.all([
+      import('@/lib/live-studio-channel-grants'),
+      import('@/lib/panood-youtube'),
+    ]);
+
+  const accessToken = await getPoolChannelAccessToken(admin, channel.id);
+  if (!accessToken) {
+    // Nothing was created, so releasing is safe AND necessary: leaving the channel
+    // checked out on a credential failure would strand pool inventory behind a
+    // problem that has nothing to do with this event.
+    await releasePoolChannelIfIdle(admin, eventId);
+    return failure(
+      'channel_not_connected',
+      'The Setnayan channel for this event is not connected to YouTube (or its access needs renewing).',
+      channel.id,
+    );
+  }
+
+  // Which zones already have a live-able stream? Those are reused verbatim.
+  const existingZoneIds = new Set<number>();
+  try {
+    const { data } = await admin
+      .from('live_studio_roam_streams')
+      .select('zone_id, status')
+      .eq('event_id', eventId);
+    for (const row of (data ?? []) as RoamStreamRow[]) {
+      if (row.zone_id != null && isLiveableStream(row)) existingZoneIds.add(row.zone_id);
+    }
+  } catch {
+    // A read failure here only costs idempotency, and the unique index below is
+    // the real backstop — so continue rather than refusing to provision.
+  }
+
+  const cap = Number.isFinite(channel.concurrent_cap) && channel.concurrent_cap > 0
+    ? channel.concurrent_cap
+    : zones.length;
+
+  let created = 0;
+  let reused = 0;
+  let skippedOverCap = 0;
+  let youtubeError: string | null = null;
+  const scheduledStartTime = opts?.scheduledStartTime ?? new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const prefix = opts?.titlePrefix?.trim();
+
+  for (const zone of zones) {
+    if (existingZoneIds.has(zone.id)) {
+      reused += 1;
+      continue;
+    }
+    // The pool channel's soft concurrency cap counts EVERY stream that will be on
+    // it for this event, reused ones included — the cap is about the channel, not
+    // about this run.
+    if (created + reused >= cap) {
+      skippedOverCap += 1;
+      continue;
+    }
+
+    const title = prefix ? `${prefix} · ${zone.label}` : zone.label;
+    try {
+      const broadcast = await createYoutubeBroadcast(accessToken, {
+        title,
+        scheduledStartTime,
+        // UNLISTED, always. These broadcasts live on a SETNAYAN channel that other
+        // couples' weddings also use, and guest-pick enforcement is by omission
+        // (lib/live-studio-roam.ts applyGuestPick) — a `public` broadcast would be
+        // discoverable from the channel page regardless of what we omit, which is
+        // the one hole omission cannot close.
+        privacyStatus: 'unlisted',
+      });
+      const stream = await createYoutubeStream(accessToken, { title });
+      await bindYoutubeBroadcast(accessToken, broadcast.broadcastId, stream.streamId);
+
+      const { error: insErr } = await admin.from('live_studio_roam_streams').insert({
+        event_id: eventId,
+        zone_id: zone.id,
+        channel_pool_id: channel.id,
+        broadcast_id: broadcast.broadcastId,
+        stream_id: stream.streamId,
+        stream_key: stream.streamName,
+        ingestion_url: stream.ingestionAddress,
+        status: 'ready',
+      });
+      if (insErr) {
+        // 23505 = the partial unique index fired: a concurrent run already
+        // provisioned this zone. That is the idempotency backstop doing its job,
+        // not a failure.
+        if (insErr.code === '23505') {
+          reused += 1;
+          continue;
+        }
+        youtubeError = 'Broadcast created but could not be recorded.';
+        break;
+      }
+      created += 1;
+    } catch (e) {
+      // Never surface the raw YouTube body — it can echo request parameters.
+      youtubeError = `YouTube refused a broadcast for "${zone.label}".`;
+      void e;
+      break;
+    }
+  }
+
+  // ── 6. THE PUBLISH GATE. Not bypassed, not duplicated — the same single writer
+  //       every other path uses, which asks canPublishMultiCam for itself.
+  const published = await mirrorRoamManifest(admin, eventId);
+
+  if (youtubeError && created === 0 && reused === 0) {
+    // Total failure with nothing riding on the channel → give it back.
+    await releasePoolChannelIfIdle(admin, eventId);
+    return { ...failure('youtube_error', youtubeError, channel.id), published };
+  }
+
+  return {
+    ok: youtubeError === null,
+    channelPoolId: channel.id,
+    created,
+    reused,
+    skippedOverCap,
+    published,
+    reason: youtubeError ? 'youtube_error' : null,
+    detail: youtubeError,
+  };
+}

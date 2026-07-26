@@ -4,11 +4,13 @@ import {
   ArrowRight,
   Building2,
   Check,
+  ChevronRight,
   Eye,
   Globe,
   Handshake,
   Heart,
   Images,
+  Package as PackageIcon,
   ShieldCheck,
   Sparkles,
   Star,
@@ -87,6 +89,7 @@ import type { ProfileFieldData } from './_components/editable-row';
 import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import {
   AUTO_ACCEPT_THRESHOLD_DEFAULT,
   DAILY_AUTO_ACCEPT_CAP_DEFAULT,
@@ -860,6 +863,46 @@ async function ShopHome({
       >
         <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
       </ServicesDisclosure>
+
+      {/* ── PACKAGES — the doorway to the package authoring surface (flag-DARK:
+          renders only behind NEXT_PUBLIC_PACKAGE_AUTHORING; flag-off = today's
+          page exactly). Ships in the same PR as its route, per the
+          no-orphaned-pages rule. Sits directly under Services because a package
+          is a bundle OF services. */}
+      {packageAuthoringEnabled() ? (
+        <section id="packages" aria-labelledby="packages-heading" className="mt-4">
+          <Link
+            href="/vendor-dashboard/packages"
+            className="flex items-center gap-3 rounded-2xl border p-4 transition-colors"
+            style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}
+          >
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              style={{ background: 'var(--m-accent-soft)', color: 'var(--m-accent)' }}
+            >
+              <PackageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span
+                id="packages-heading"
+                className="block text-sm font-semibold"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                Packages
+              </span>
+              <span className="block text-xs" style={{ color: 'var(--m-ink-soft)' }}>
+                Bundle your services into something a couple can make their own
+              </span>
+            </span>
+            <ChevronRight
+              aria-hidden
+              className="h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--m-ink-soft)' }}
+            />
+          </Link>
+        </section>
+      ) : null}
 
       {/* ── AUTO-REPLY ASSISTANT — Phase-4 config card (flag-DARK: renders
           only behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1; flag-off = today's page

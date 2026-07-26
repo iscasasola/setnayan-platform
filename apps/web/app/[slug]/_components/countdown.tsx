@@ -37,14 +37,14 @@ export function CountdownWidget({ targetIso }: Props) {
   ];
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
+    <section className="rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8">
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
         Until we say &lsquo;I do&rsquo;
       </p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (
-          <div key={b.label} className="rounded-lg border border-ink/10 bg-cream py-3">
-            <p className="font-serif text-3xl tabular-nums sm:text-5xl">
+          <div key={b.label} className="rounded-lg border border-ink/10 bg-paper py-3">
+            <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
               {String(b.value).padStart(2, '0')}
             </p>
             <p className="mt-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">

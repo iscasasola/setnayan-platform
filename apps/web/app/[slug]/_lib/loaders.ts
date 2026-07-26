@@ -81,6 +81,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -104,7 +105,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -244,13 +245,8 @@ export const loadMedia = cache(
     // strokes, so the bespoke mark uses the container-level entrance instead).
     // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
     // which outranks the lettered lockup — one effective mark feeds the hero.
-    const bespokeSvg =
-      (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-        ? event.monogram_uploaded_svg
-        : null) ??
-      (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
-        ? event.monogram_custom_svg
-        : null);
+    // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+    const bespokeSvg = resolveEventMonogramSvg(event);
 
     // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
     // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on

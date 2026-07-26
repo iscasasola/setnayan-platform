@@ -37,17 +37,30 @@ export function parseCycles(raw: unknown): number | null {
 
 /**
  * How many 28-day cycles a paid amount buys, given the admin-managed unit price.
- * Rounds to the nearest whole cycle (the buyer paid unit × cycles) and never
- * returns less than 1 for a real payment. Guards a missing/zero unit price.
+ *
+ * ── CONTRACT (⭐ CHANGED BY SEC-7 · 2026-07-26) ──────────────────────────────
+ *   `number` ≥ 1  — grant this many cycles.
+ *   `0`           — nothing was paid (amount missing / zero / negative). No grant.
+ *   `null`        — ⚠ THE UNIT PRICE IS UNKNOWABLE. REFUSE. Do NOT grant.
+ *
+ * The old contract returned `1` for an unknown unit price — `if (!Number.isFinite(unit)
+ * || unit <= 0) return 1; // can't divide → grant one cycle`. That single line was
+ * the back half of SEC-7: `SETNAYAN_AI_SUB` has no `platform_retail_catalog_v2`
+ * row, so the unit read came back null, so a ₱0.01 order divided by nothing and
+ * was handed a full 28-day cycle. Repeatably, stacking each time.
+ *
+ * "I cannot compute how much they bought" is not a reason to guess in the
+ * buyer's favour on a paid entitlement — it is a reason to stop and make a human
+ * look. Every caller must handle `null` as a refusal-plus-alarm, never as 1.
  */
 export function cyclesFromAmount(
   amountPhp: number | null | undefined,
   unitPricePhp: number | null | undefined,
-): number {
+): number | null {
   const amount = Number(amountPhp);
   const unit = Number(unitPricePhp);
   if (!Number.isFinite(amount) || amount <= 0) return 0;
-  if (!Number.isFinite(unit) || unit <= 0) return 1; // can't divide → grant one cycle
+  if (!Number.isFinite(unit) || unit <= 0) return null; // can't divide → REFUSE
   return Math.max(1, Math.round(amount / unit));
 }
 

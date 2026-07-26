@@ -113,7 +113,7 @@ export function GuestCameraPlayer({
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <span
             aria-hidden
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400"
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta"
           />
           <p className="text-sm text-cream/75">Connecting to {label}…</p>
           <p className="max-w-xs text-xs text-cream/50">

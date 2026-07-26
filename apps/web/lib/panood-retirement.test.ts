@@ -77,7 +77,10 @@ test('checkout REFUSES a retired SKU, and does so before any charge resolver', (
   // ORDER MATTERS: filtering inside a resolver would turn "charged its real price"
   // into "charged whatever the browser sent" (the resolver's own null-means-trust-the-
   // client fallback). The reject has to come first.
-  const resolver = src.indexOf('resolvePaxPricedOrderCentavos(');
+  // SEC-7 folded the individual resolvers into one authority call; the ordering
+  // invariant is unchanged and still the point.
+  const resolver = src.indexOf('resolveOrderChargeCentavos(');
+  assert.ok(resolver > 0, 'the server-side charge authority is gone from checkout');
   assert.ok(gate < resolver, 'the retirement gate must run BEFORE the charge resolvers');
 });
 

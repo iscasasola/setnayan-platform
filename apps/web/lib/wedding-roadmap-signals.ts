@@ -122,7 +122,11 @@ export async function fetchRoadmapState(
 ): Promise<RoadmapState | null> {
   const [evRes, vendorsRes, guestCountRes, tableCountRes, captureRes] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_date, date_candidates, date_window_start, roadmap_completed, estimated_budget_centavos',
       )

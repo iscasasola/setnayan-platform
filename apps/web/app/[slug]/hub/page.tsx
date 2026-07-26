@@ -501,7 +501,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             {tableLabel ?? 'Not yet assigned'}
           </h3>
           {arrived && tableLabel ? (
-            <p className="text-sm text-emerald-700">
+            <p className="text-sm text-ink/70">
               Welcome, {firstName} — you’re checked in.
             </p>
           ) : tableLabel ? (
@@ -718,7 +718,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           {invitationUrl}
         </p>
         {guest.rsvp_status === 'attending' ? (
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-success-700">
+          <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-ink/70">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Your RSVP is confirmed.
           </p>

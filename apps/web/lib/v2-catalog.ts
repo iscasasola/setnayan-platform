@@ -22,12 +22,17 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type {
+  CatalogChargeResolution as CatalogChargeResolutionType,
+  BundleChargeResolution as BundleChargeResolutionType,
+} from '@/lib/order-charge-math';
 import {
   VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
   applyVendor3dPlanUnlockDiscountCentavos,
   eventVendor3dPlanUnlockDiscountActive,
 } from '@/lib/vendor-3d-plan-unlock';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { resolveLivePax } from '@/lib/pax';
 
 /**
  * Catalog price recurrence (migration 20270322883953). `one_time` = a single
@@ -550,12 +555,44 @@ export function formatSkuPriceLabel(
 export async function resolvePaxPricedOrderCentavos(
   eventId: string,
   serviceCode: string,
-): Promise<{ is_pax_priced: boolean; centavos: number } | null> {
+): Promise<{ is_pax_priced: boolean; centavos: number; pax: number | null } | null> {
+  const resolution = await resolveRetailChargeCentavos(eventId, serviceCode);
+  if (resolution.status !== 'resolved') return null;
+  return {
+    is_pax_priced: resolution.is_pax_priced,
+    centavos: resolution.centavos,
+    pax: resolution.pax,
+  };
+}
+
+/**
+ * ⭐ SEC-7 · the FAIL-CLOSED form of {@link resolvePaxPricedOrderCentavos}.
+ *
+ * The `| null` return above conflates two completely different answers:
+ *
+ *     not_in_catalog  — "this SKU has no row here"     → try the next resolver
+ *     error           — "the read failed"              → REFUSE THE SALE
+ *
+ * Checkout's old fallback ("a null resolve keeps the client price") turned the
+ * second one into a money hole with a heartbeat: a transient PostgREST blip on
+ * ANY catalog SKU left the browser-supplied `original_centavos` standing as the
+ * charge. Attackers do not need to wait for a blip — they can cause one.
+ *
+ * So the charge path calls THIS, and treats `error` as a hard stop. The `| null`
+ * wrapper stays for DISPLAY callers (e.g. the 3D Plan buy card), where "no price
+ * → render nothing" is already the right degradation.
+ */
+export type { CatalogChargeResolution } from '@/lib/order-charge-math';
+
+export async function resolveRetailChargeCentavos(
+  eventId: string,
+  serviceCode: string,
+): Promise<CatalogChargeResolutionType> {
   let admin;
   try {
     admin = createAdminClient();
   } catch {
-    return null;
+    return { status: 'error', message: 'no service-role client' };
   }
 
   const { data: sku, error: skuErr } = await admin
@@ -566,7 +603,10 @@ export async function resolvePaxPricedOrderCentavos(
     .eq('service_code', serviceCode)
     .maybeSingle();
 
-  if (skuErr || !sku) return null;
+  // ⚠ PostgREST returns NO error for a 0-row match, so `!skuErr` is never proof
+  // of a hit — the two branches are checked separately and mean different things.
+  if (skuErr) return { status: 'error', message: `platform_retail_catalog_v2: ${skuErr.message}` };
+  if (!sku) return { status: 'not_in_catalog' };
 
   const config: PaxPricingConfig = {
     retail_price_php: Number(sku.retail_price_php),
@@ -582,15 +622,37 @@ export async function resolvePaxPricedOrderCentavos(
         : Number(sku.pax_increment_price_php),
   };
 
+  // ── Pax at charge time (SEC-3 · 2026-07-26) ────────────────────────────────
+  // This used to read events.estimated_pax RAW:
+  //
+  //     .from('events').select('estimated_pax')…
+  //     pax = event.estimated_pax
+  //
+  // `events` UPDATE RLS is ROW-level, never column-level, and estimated_pax is
+  // deliberately host-writable (lib/security/events-column-privileges.ts:43-47
+  // — "a grant cannot close those without breaking the product"). So with the
+  // public anon key a host could PATCH estimated_pax → 1, buy a pax-priced SKU
+  // at pax_floor_price_php, and PATCH it back. Real money on a pax curve.
+  //
+  // The fix is to stop trusting a single freely-mutable number: resolveLivePax
+  // is the app's CANONICAL pax definition (lib/pax.ts) and is already what the
+  // vendor quoting engine charges against —
+  //
+  //     final_pax when the list is frozen  (a LOCKED column, service-role only,
+  //                                         guarded by guard_pax_finalize_columns)
+  //     else max(estimated_pax, live headcount on the event's basis)
+  //
+  // …so a deflated estimate is floored by the guest list the host actually has,
+  // and a frozen list ignores the estimate entirely. Deflating to 1 with 250
+  // attending guests on the roster no longer moves the price. (With no guest
+  // list at all the floor price applies anyway — computePaxPriceCentavos
+  // clamps at pax_floor, so there is nothing left to win.)
+  //
+  // Aligning here removes a divergence rather than creating one: every other
+  // pax surface in the app already quotes resolveLivePax.
   let pax: number | null = null;
   if (config.is_pax_priced) {
-    const { data: event } = await admin
-      .from('events')
-      .select('estimated_pax')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    pax =
-      event && event.estimated_pax != null ? Number(event.estimated_pax) : null;
+    pax = await resolveLivePax(admin, eventId);
   }
 
   const standardCentavos = computePaxPriceCentavos(config, pax);
@@ -610,7 +672,9 @@ export async function resolvePaxPricedOrderCentavos(
   if (serviceCode === VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY) {
     const unlocked = await eventVendor3dPlanUnlockDiscountActive(admin, eventId);
     return {
+      status: 'resolved',
       is_pax_priced: config.is_pax_priced,
+      pax,
       centavos: applyVendor3dPlanUnlockDiscountCentavos(
         serviceCode,
         standardCentavos,
@@ -620,7 +684,9 @@ export async function resolvePaxPricedOrderCentavos(
   }
 
   return {
+    status: 'resolved',
     is_pax_priced: config.is_pax_priced,
+    pax,
     centavos: standardCentavos,
   };
 }
@@ -654,11 +720,25 @@ export async function resolvePaxPricedOrderCentavos(
 export async function resolveBundleChargeCentavos(
   packageCode: string,
 ): Promise<number | null> {
+  const resolution = await resolveBundleChargeResolution(packageCode);
+  return resolution.status === 'resolved' ? resolution.centavos : null;
+}
+
+/**
+ * ⭐ SEC-7 · the FAIL-CLOSED form of {@link resolveBundleChargeCentavos}, with
+ * the same miss/error split as {@link resolveRetailChargeCentavos}. The charge
+ * path uses this one; the `| null` wrapper above is kept for display callers.
+ */
+export type { BundleChargeResolution } from '@/lib/order-charge-math';
+
+export async function resolveBundleChargeResolution(
+  packageCode: string,
+): Promise<BundleChargeResolutionType> {
   let admin;
   try {
     admin = createAdminClient();
   } catch {
-    return null;
+    return { status: 'error', message: 'no service-role client' };
   }
 
   const { data: pkg, error } = await admin
@@ -668,9 +748,17 @@ export async function resolveBundleChargeCentavos(
     .eq('is_active', true)
     .maybeSingle();
 
-  if (error || !pkg || pkg.retail_price_php == null) return null;
+  if (error) {
+    return { status: 'error', message: `platform_package_catalog: ${error.message}` };
+  }
+  // A 0-row match here means EITHER "not a bundle" OR "a retired bundle" (the
+  // `is_active` filter). Both are `not_in_catalog` for the caller, and BOTH are
+  // safe now: the retirement REJECT (resolveServiceSellability) already ran and
+  // sent the retired case home, and a genuine miss now REFUSES rather than
+  // falling back to the browser's number.
+  if (!pkg || pkg.retail_price_php == null) return { status: 'not_in_catalog' };
 
-  return Math.round(Number(pkg.retail_price_php) * 100);
+  return { status: 'resolved', centavos: Math.round(Number(pkg.retail_price_php) * 100) };
 }
 
 /**
@@ -692,10 +780,15 @@ export async function resolveBundleChargeCentavos(
  *
  *   'sellable' — row exists in either catalog and is_active = true
  *   'retired'  — row exists in either catalog and is_active = false → REJECT
- *   'unknown'  — in NEITHER catalog. Legitimate and common: PAPIC_CAMERAS,
- *                SETNAYAN_AI_SUB, 'save-the-date:<slug>' and
+ *   'unknown'  — in NEITHER catalog. Legitimate and common: SETNAYAN_AI_SUB,
+ *                setnayan_service__{category}, PAPIC_CAMERAS and
  *                'vendor_additional_branch__<uuid>' style keys. → ALLOW. A
  *                naive "must map to an active row" rule would kill all of them.
+ *                ⚠ This list previously named 'save-the-date:<slug>', which
+ *                does not exist anywhere in the codebase (the real SKU is
+ *                STD_PREMIUM_OPENINGS, an ordinary retail row), and omitted
+ *                setnayan_service__{category}, which was genuinely undefended.
+ *                Corrected 2026-07-26 — verify such lists, do not trust them.
  *   'error'    — DB/env failure → caller REJECTS (fail closed).
  *
  * ⚠ DO NOT reuse this to filter catalog READS. `is_active=false` is overloaded

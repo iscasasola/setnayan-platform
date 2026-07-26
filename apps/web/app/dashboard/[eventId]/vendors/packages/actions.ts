@@ -5,12 +5,23 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
-  computeCustomization,
+  priceCustomizedPackage,
+  unresolvedRequiredChoices,
+} from '@/lib/package-credit-adapter';
+import {
   isRemovableItem,
   keptItems,
+  resolveChosenOption,
   resolveVendorCategory,
+  PACKAGE_ITEM_OPTION_SELECT,
+  VENDOR_PACKAGE_SELECT,
+  VENDOR_PACKAGE_ITEM_SELECT,
+  type VendorPackageRow,
   type PackageCustomizations,
+  type VendorPackageItemOptionRow,
+  type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 
@@ -44,6 +55,10 @@ export type LockPackageResult =
   // inserts contracted event_vendors rows for pkg.vendor_profile_id, so it's
   // gated the same as finalizeVendor. The DB trigger is the hard guard.
   | { status: 'vendor_not_verified'; vendorName: string }
+  // A REQUIRED choice line was left unpicked. Owner rule: the couple must
+  // choose, and the engine refuses to apply the default on their behalf. The
+  // modal blocks the button, so this is the stale-client backstop.
+  | { status: 'choice_required'; itemIds: ReadonlyArray<string> }
   | { status: 'error'; message: string };
 
 /**
@@ -81,9 +96,7 @@ export async function lockPackage(
   // 2. Load the package + its items. Active-only.
   const { data: pkgRow, error: pkgErr } = await supabase
     .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-    )
+    .select(VENDOR_PACKAGE_SELECT)
     .eq('package_id', packageId)
     .maybeSingle();
   if (pkgErr) return { status: 'error', message: pkgErr.message };
@@ -96,15 +109,39 @@ export async function lockPackage(
       // `is_required` is load-bearing: `isRemovableItem` refuses to price a
       // removal without it, so omitting it here silently let a host drop a
       // line the vendor marked mandatory.
-      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
+      VENDOR_PACKAGE_ITEM_SELECT,
     )
     .eq('package_id', packageId)
     .order('display_order', { ascending: true });
   if (itemsErr) return { status: 'error', message: itemsErr.message };
 
+  // CHOICE options. Read here, from the DB, on purpose: the browser sends only
+  // option IDs, and every peso attached to one is resolved server-side. A price
+  // that arrived from the client must never be what the host is charged.
+  const itemIds = (itemsRows ?? []).map((i) => i.item_id);
+  const { data: optionRows, error: optionsErr } = itemIds.length
+    ? await supabase
+        .from('vendor_package_item_options')
+        .select(PACKAGE_ITEM_OPTION_SELECT)
+        .in('item_id', itemIds)
+        .eq('is_available', true)
+        .order('display_order', { ascending: true })
+    : { data: [] as VendorPackageItemOptionRow[], error: null };
+  if (optionsErr) return { status: 'error', message: optionsErr.message };
+
+  const optionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
+  for (const row of (optionRows ?? []) as VendorPackageItemOptionRow[]) {
+    const list = optionsByItem.get(row.item_id) ?? [];
+    list.push(row);
+    optionsByItem.set(row.item_id, list);
+  }
+
   const pkg: VendorPackageWithItems = {
     ...pkgRow,
-    items: itemsRows ?? [],
+    items: (itemsRows ?? []).map((row) => ({
+      ...(row as VendorPackageItemRow),
+      options: optionsByItem.get(row.item_id) ?? [],
+    })),
   };
 
   // 3. Idempotency guard — if this event already has an active locked
@@ -121,9 +158,75 @@ export async function lockPackage(
 
   // 4. Compute the cascade math.
   const removedIds = customizations.removed_item_ids ?? [];
-  const { remainingConsumableCentavos, totalLockedCentavos } =
-    computeCustomization(pkg, removedIds);
   const kept = keptItems(pkg, removedIds);
+
+  // Keep only option ids that really belong to a KEPT choice line on THIS
+  // package. Anything else — another package's option, a retired one, an id for
+  // a line the host just dropped — is discarded rather than rejected, matching
+  // how `computeCustomization` already treats a bogus removal: a stale or
+  // hostile client can neither crash the lock nor profit from it.
+  const requestedOptionIds = customizations.chosen_option_ids ?? [];
+  const chosenOptionIds = kept
+    .map((item) => resolveChosenOption(item, requestedOptionIds))
+    .filter((opt): opt is VendorPackageItemOptionRow => opt !== undefined)
+    .filter((opt) => requestedOptionIds.includes(opt.option_id))
+    .map((opt) => opt.option_id);
+
+  // ── The CREDIT engine (flag-dark) ────────────────────────────────────────
+  //
+  // With the flag ON, ./package-credit becomes the single authority for every
+  // number on this booking. It is a strict superset of the shipped math: with
+  // policy 'expiring' and no upgrades it reproduces `computeCustomization` to
+  // the centavo (the DB default is 'expiring', and nothing can write anything
+  // else), so flipping the flag on a plain package is a no-op by construction.
+  //
+  // It FAILS CLOSED. The removal list is narrowed first — see `allowedRemovals`
+  // for why that specific forgiveness is preserved and why it can only ever
+  // hand out LESS credit — and anything the engine still refuses is a real
+  // problem, so we surface it instead of quietly falling back to a number. A
+  // silent fallback here would be the worst of both: the couple is charged by
+  // one model while being shown another.
+  if (packageCreditEnabled()) {
+    const unresolved = unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds);
+    if (unresolved.length > 0) {
+      // Owner rule: a required choice line must be PICKED, never defaulted.
+      // The modal blocks this, so reaching here means a stale or hand-rolled
+      // client — answer it as the product question it is, not as an error code.
+      return {
+        status: 'choice_required',
+        itemIds: unresolved,
+      };
+    }
+  }
+
+  // ONE pricer, shared with removeItemFromPackage — see priceCustomizedPackage
+  // for why computing this in two places was a live money bug.
+  const creditTotals = priceCustomizedPackage(
+    pkg,
+    removedIds,
+    chosenOptionIds,
+    packageCreditEnabled(),
+  );
+  if (!creditTotals) {
+    return {
+      status: 'error',
+      message: 'Package pricing could not be computed.',
+    };
+  }
+
+  const bookingTotalCentavos = creditTotals.bookingTotalCentavos;
+
+  // Persist the SANITISED set, not the raw client object — otherwise a bogus id
+  // survives in customizations_json and reads as truth to every later consumer.
+  const persistedCustomizations: PackageCustomizations = {
+    ...customizations,
+    ...(chosenOptionIds.length > 0
+      ? { chosen_option_ids: chosenOptionIds }
+      : { chosen_option_ids: undefined }),
+  };
+  if (persistedCustomizations.chosen_option_ids === undefined) {
+    delete persistedCustomizations.chosen_option_ids;
+  }
 
   // 5. Fetch vendor info for the cascaded event_vendors row metadata.
   //    business_name carries onto event_vendors.vendor_name so the
@@ -158,9 +261,14 @@ export async function lockPackage(
       event_id: eventId,
       package_id: packageId,
       status: 'locked',
-      customizations_json: customizations,
-      remaining_consumable_centavos: remainingConsumableCentavos,
-      total_locked_centavos: totalLockedCentavos,
+      customizations_json: persistedCustomizations,
+      // Credit left in the pool after upgrades. Flag OFF: the shipped
+      // consumable figure, unchanged. Flag ON: the engine's remaining credit,
+      // which is the same number for a package with no upgrades.
+      remaining_consumable_centavos: creditTotals.remainingConsumableCentavos,
+      // Includes any picked upgrades — this is the number the couple agreed to,
+      // and §6.4 makes it the package booking-fee base.
+      total_locked_centavos: bookingTotalCentavos,
       locked_at: new Date().toISOString(),
     })
     .select('booking_id')
@@ -175,23 +283,29 @@ export async function lockPackage(
   //    marketplace_vendor_id link so the compatibility-check + finalized-
   //    card-photo flows (PR #341 + PR B 2026-05-22) work out-of-the-box.
   if (kept.length > 0) {
-    const eventVendorRows = kept.map((item) => ({
-      event_id: eventId,
-      category: resolveVendorCategory(item.canonical_service),
-      vendor_name: vendor.business_name || pkg.package_name,
-      contact_email: vendor.contact_email ?? null,
-      contact_phone: vendor.contact_phone ?? null,
-      status: 'contracted' as const,
-      total_cost_php: item.replacement_value_centavos > 0
-        ? item.replacement_value_centavos / 100
-        : null,
-      marketplace_vendor_id: pkg.vendor_profile_id,
-      event_vendor_package_id: bookingId,
-      // Provenance. Without it the only link back was (booking, category), and
-      // that mapping is many-to-one — see migration 20271007240000.
-      package_item_id: item.item_id,
-      notes: `From package: ${pkg.package_name} — ${item.service_description}`,
-    }));
+    const eventVendorRows = kept.map((item) => {
+      // A picked upgrade belongs to the line it upgrades. Without this the
+      // surcharge exists only on the booking total, and every per-row consumer
+      // — planning cards, the budget, and the §6.4 fee base — under-reports it.
+      const chosen = resolveChosenOption(item, chosenOptionIds);
+      const lineCentavos =
+        item.replacement_value_centavos + (chosen?.price_delta_centavos ?? 0);
+      return {
+        event_id: eventId,
+        category: resolveVendorCategory(item.canonical_service),
+        vendor_name: vendor.business_name || pkg.package_name,
+        contact_email: vendor.contact_email ?? null,
+        contact_phone: vendor.contact_phone ?? null,
+        status: 'contracted' as const,
+        total_cost_php: lineCentavos > 0 ? lineCentavos / 100 : null,
+        marketplace_vendor_id: pkg.vendor_profile_id,
+        event_vendor_package_id: bookingId,
+        // Provenance. Without it the only link back was (booking, category), and
+        // that mapping is many-to-one — see migration 20271007240000.
+        package_item_id: item.item_id,
+        notes: `From package: ${pkg.package_name} — ${item.service_description}`,
+      };
+    });
 
     const { data: insertedRows, error: cascadeErr } = await supabase
       .from('event_vendors')
@@ -354,9 +468,7 @@ export async function removeItemFromPackage(formData: FormData) {
 
   const { data: pkgRow } = await supabase
     .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
-    )
+    .select(VENDOR_PACKAGE_SELECT)
     .eq('package_id', booking.package_id)
     .maybeSingle();
   if (!pkgRow) throw new Error('Package not found');
@@ -367,7 +479,7 @@ export async function removeItemFromPackage(formData: FormData) {
       // `is_required` is load-bearing: `isRemovableItem` refuses to price a
       // removal without it, so omitting it here silently let a host drop a
       // line the vendor marked mandatory.
-      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
+      VENDOR_PACKAGE_ITEM_SELECT,
     )
     .eq('package_id', booking.package_id)
     .order('display_order', { ascending: true });
@@ -378,6 +490,28 @@ export async function removeItemFromPackage(formData: FormData) {
   };
 
   // Update the customizations payload + recompute the math.
+  // Options, so a choice line is still a choice line when we re-price. Without
+  // this every line reads as plain and the surcharge vanishes.
+  const removeItemIds = (itemsRows ?? []).map((i) => i.item_id);
+  const { data: removeOptionRows } = removeItemIds.length
+    ? await supabase
+        .from('vendor_package_item_options')
+        .select(PACKAGE_ITEM_OPTION_SELECT)
+        .in('item_id', removeItemIds)
+        .eq('is_available', true)
+        .order('display_order', { ascending: true })
+    : { data: [] as VendorPackageItemOptionRow[] };
+  const removeOptionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
+  for (const row of (removeOptionRows ?? []) as VendorPackageItemOptionRow[]) {
+    const list = removeOptionsByItem.get(row.item_id) ?? [];
+    list.push(row);
+    removeOptionsByItem.set(row.item_id, list);
+  }
+  pkg.items = pkg.items.map((i) => ({
+    ...i,
+    options: removeOptionsByItem.get(i.item_id) ?? [],
+  }));
+
   const existingCustom = (booking.customizations_json ?? {}) as PackageCustomizations;
   const existingRemoved = existingCustom.removed_item_ids ?? [];
   if (existingRemoved.includes(itemId)) {
@@ -391,8 +525,20 @@ export async function removeItemFromPackage(formData: FormData) {
     ...existingCustom,
     removed_item_ids: newRemoved,
   };
-  const { remainingConsumableCentavos, totalLockedCentavos } =
-    computeCustomization(pkg, newRemoved);
+  // Choices matter here too. This path used to price with `computeCustomization`
+  // alone, so removing ANY line from a package carrying a paid upgrade silently
+  // dropped the upgrade from the stored total while `chosen_option_ids` still
+  // recorded the pick — and the booking fee rides on that total.
+  const survivingOptionIds = newCustom.chosen_option_ids ?? [];
+  const totals = priceCustomizedPackage(
+    pkg,
+    newRemoved,
+    survivingOptionIds,
+    packageCreditEnabled(),
+  );
+  if (!totals) throw new Error('Package pricing could not be computed.');
+  const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =
+    totals;
 
   const removedItem = pkg.items.find((i) => i.item_id === itemId);
   if (!removedItem) throw new Error('Item not found in package');

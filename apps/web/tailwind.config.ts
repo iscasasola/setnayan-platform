@@ -96,6 +96,13 @@ const config: Config = {
         // cream surface channel (same Warm Alabaster value; flips correctly in
         // dark mode) so `<alpha-value>` modifiers like `text-paper/70` work too.
         paper: 'rgb(var(--color-cream) / <alpha-value>)',
+        // Pahina material tokens (guest-site design 2026-07-25 §4) — decor-only
+        // roles emitted by buildSitePaletteVars, with :root fallbacks in
+        // globals.css so palette-less events resolve them too. Nothing consumes
+        // these until the Pahina restyle PRs (wave A).
+        gild: 'rgb(var(--color-gild) / <alpha-value>)',
+        'paper-deep': 'rgb(var(--color-paper-deep) / <alpha-value>)',
+        veil: 'rgb(var(--color-veil) / <alpha-value>)',
         ink: {
           DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
           soft: 'rgb(var(--ink-soft) / <alpha-value>)',
@@ -241,6 +248,9 @@ const config: Config = {
         // Use `font-mono` for brand eyebrows + accent labels (DM Mono).
         sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
         display: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
+        // Pahina display face (guest-site design 2026-07-25 §3) — Fraunces,
+        // loaded in app/layout.tsx under --font-pahina-display.
+        pahina: ['var(--font-pahina-display)', 'Georgia', ...defaultTheme.fontFamily.serif],
         serif: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
         mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
         // Extra display faces (already loaded as CSS vars on <html> in

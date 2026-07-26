@@ -76,6 +76,16 @@ async function newConsideringPick(
      RETURNING vendor_id`,
     [eventId, totalCostPhp, vendorProfileId],
   );
+  // Since 20271009140000 only Setnayan-SOURCED clients are billable, and "no
+  // thread" reads as a client the vendor brought (free). A chat-lock fixture is
+  // by definition a couple who came through the marketplace and messaged.
+  if (vendorProfileId) {
+    await db.query(
+      `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+       VALUES ($1, $2, 'explore')`,
+      [eventId, vendorProfileId],
+    );
+  }
   return r.rows[0]!.vendor_id;
 }
 
@@ -160,7 +170,7 @@ test('unverified marketplace vendor → chat lock is BLOCKED by the verified DB 
   assert.equal(Number(row.rows[0]!.total_cost_php), 50_000, 'total untouched');
 });
 
-test('price parity: chat lock bills 5% of the NEGOTIATED total, not the stale one', async () => {
+test('price parity: chat lock bills the TAPER on the NEGOTIATED total, not the stale one', async () => {
   const vpid = await newVendor('parity@chatlock.test');
   await warmPastFree5(vpid, 'parity');
 
@@ -174,9 +184,10 @@ test('price parity: chat lock bills 5% of the NEGOTIATED total, not the stale on
   const charge = await openLockCharge(evId);
   assert.equal(charge.is_free, false, '6th booking is billable');
   assert.equal(charge.status, 'pending');
-  // 5% of the NEGOTIATED ₱120,000 = ₱6,000 = 600,000c — NOT 5% of the old ₱50k.
-  assert.equal(charge.computed_fee_centavos, 600_000, 'fee = 5% of the negotiated total');
-  assert.equal(charge.amount_charged_centavos, 600_000);
+  // Taper on the NEGOTIATED ₱120,000 = ₱5,000 + 1% of ₱20,000 = ₱5,200 = 520,000c
+  // — NOT computed off the stale ₱50k.
+  assert.equal(charge.computed_fee_centavos, 520_000, 'fee = taper on the negotiated total');
+  assert.equal(charge.amount_charged_centavos, 520_000);
 
   // The charge base equals the exact number a thread would freeze
   // (agreed_price_centavos = round(negotiated * 100) = 12,000,000c).
@@ -197,7 +208,7 @@ test('cross entry-point: vendor-finalize then chat re-lock → ONE charge, never
   await chatLockWrite(evId, eventId, 200_000); // finalize's negotiated total
   const first = await openLockCharge(evId);
   assert.equal(first.reused, false, 'finalize mints the charge');
-  assert.equal(first.computed_fee_centavos, 1_000_000, '5% of ₱200,000');
+  assert.equal(first.computed_fee_centavos, 600_000, 'taper on ₱200,000 = ₱6,000');
 
   // Entry point #2 — the couple ALSO hits chat lock. bookVendorAtChatLock sees an
   // already-'contracted' row → refresh_fee_only → NO rewrite in the CORE. Here we
@@ -212,8 +223,8 @@ test('cross entry-point: vendor-finalize then chat re-lock → ONE charge, never
   assert.equal(second.charge_id, first.charge_id, 'same charge id — no second charge');
   assert.equal(
     second.computed_fee_centavos,
-    4_999_995,
-    'pending fee RE-DERIVED to 5% of the amended ₱999,999 — not doubled, not stale',
+    1_399_999,
+    'pending fee RE-DERIVED to the taper on ₱999,999 — not doubled, not stale',
   );
 
   const count = await db.query<{ c: number }>(

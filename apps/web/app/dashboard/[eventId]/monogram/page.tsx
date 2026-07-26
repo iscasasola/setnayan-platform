@@ -15,6 +15,7 @@ import { MarkEverywhere } from './mark-everywhere';
 import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
@@ -94,10 +95,8 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // The EFFECTIVE custom mark (the Vector Studio mark) — drives the draft-restore
   // one-shot (it hides once a mark exists). Every downstream surface (chrome icon,
   // QR centre, website hero) reads the same `events.monogram_custom_svg`.
-  const customSvg =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
-      ? event.monogram_custom_svg
-      : null;
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const customSvg = safeMonogramSvg(event.monogram_custom_svg);
 
   // ── Vector studio state (the from-scratch composer). hasStudio = a saved
   // studio mark exists (re-editable config present + a custom svg).
@@ -128,8 +127,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
-  const effectiveSvg =
-    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg) || customSvg;
+  const effectiveSvg = safeMonogramSvg(event.monogram_uploaded_svg) ?? customSvg;
   const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
 
   return (

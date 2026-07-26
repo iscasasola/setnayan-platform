@@ -83,13 +83,21 @@ export const CRITICAL_LOCKED_SELECT: ReadonlyArray<{ column: string; exploit: st
 ];
 
 /**
- * Sensitive columns that are DELIBERATELY still guest-readable, because the couple
- * reads them with the authenticated client and a role-level grant cannot tell a
- * couple from a guest (both are the `authenticated` role). Closing these needs the
- * ROW-level follow-up (re-scope event_member_can_read + a narrow guest surface).
+ * Sensitive columns THIS migration (20271007100000) deliberately left readable,
+ * because the couple reads them with the authenticated client and a role-level
+ * grant cannot tell a couple from a guest (both are the `authenticated` role).
  *
- * The unit test asserts none of these ever lands in the SELECT deny-set — adding
- * one here would break a real host surface in production, silently, for everyone.
+ * ⚠ HISTORICAL AS OF 20271008731642 (SEC-2b) — do not read this list as current
+ * truth. SEC-2b closed all of them: it revokes them from authenticated + anon
+ * and hands hosts the columns back through `public.events_host`, a
+ * couple/moderator-scoped definer view. `budget_band` and
+ * `photo_delivery_folder_name`, absent below, are in that deny-set too.
+ * Current contract: lib/security/events-private-details.ts.
+ *
+ * The list stays HERE, unchanged, because it describes 20271007100000's
+ * apply-time post-condition — which is what this module's unit test audits, and
+ * that migration's text is immutable history. The unit test's claim is narrow
+ * and still true: none of these ever lands in *the SEC-2 deny-set*.
  */
 export const NOT_DENIED_FOR_SELECT: ReadonlyArray<{ column: string; reader: string }> = [
   { column: 'partner_a_birth_date', reader: 'app/dashboard/[eventId]/details/page.tsx:68' },

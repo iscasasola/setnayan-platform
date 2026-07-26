@@ -368,8 +368,17 @@ test('the Drive OAuth token is unreachable even though the guest can see the row
 test('the COUPLE keeps full access to everything except the credentials', async () => {
   await asUser(hostUid);
 
-  // Everything a host surface reads with the authenticated client — including
-  // the private-but-host-read columns this fix deliberately does NOT close.
+  // Everything a host surface reads off the BASE TABLE with the authenticated
+  // client after this migration.
+  //
+  // ⚠ Scope note (2026-07-26): this suite deliberately builds the schema at the
+  // 20271007100000 point in time — before() re-applies only THIS migration — so
+  // it is still meaningful to read NOT_DENIED_FOR_SELECT here. In PROD those
+  // eleven columns are no longer on the base table's authenticated surface:
+  // 20271008731642 (SEC-2b) revoked them and moved host reads to
+  // public.events_host. That is covered end-to-end by
+  // tests/db/events-private-details.db.test.ts, which applies BOTH migrations
+  // in order and re-asserts this migration's deny-set survives.
   const hostCols = NOT_DENIED_FOR_SELECT.map((c) => c.column).join(', ');
   const readErr = await tryQuery(
     `SELECT ${hostCols}, display_name, event_date, slug, master_qr_token_rotated_at

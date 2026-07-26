@@ -45,7 +45,7 @@ const charge = (over: Partial<OpenChargeResult>): OpenChargeResult => ({
 test('bookingFeeAttribution: marketplace sources → sourced', () => {
   for (const s of [
     'explore', 'search', 'shortlist', 'first_pick', 'favorites',
-    'auto_build', 'editorial', 'influencer', 'website',
+    'auto_build', 'editorial', 'influencer',
   ]) {
     assert.equal(bookingFeeAttribution(s), 'sourced', `${s} should be sourced`);
   }
@@ -57,6 +57,20 @@ test('bookingFeeAttribution: null / unknown / non-billable → import (free)', (
   assert.equal(bookingFeeAttribution('host_manual'), 'import');
   assert.equal(bookingFeeAttribution('invite_claim'), 'import');
   assert.equal(bookingFeeAttribution('degree'), 'import'); // not in the billable set
+});
+
+test('a vendor\u2019s OWN link is an IMPORT — never billed', () => {
+  // Owner-closed 2026-07-26 (#3d-iv): "bringing in clients will give them free
+  // access". A couple arriving through the vendor's own site/socials is a client
+  // the vendor brought; charging it would bill them for their own audience and
+  // push them off-platform.
+  assert.equal(bookingFeeAttribution('website'), 'import');
+});
+
+test('an inquiry_source invented later fails SAFE to import', () => {
+  // The direction that matters: a misclassification must cost Setnayan a fee it
+  // might have been owed, never bill a vendor for a client they brought.
+  assert.equal(bookingFeeAttribution('some_surface_added_in_2027'), 'import');
 });
 
 test('isBookingFeeEnforced: TWO-KEY — needs both the flag AND a live rail', () => {

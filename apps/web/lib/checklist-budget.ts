@@ -124,7 +124,11 @@ export async function computeBudgetHealth(
 
   // ── 1. Fetch event core ──────────────────────────────────────────────────
   const { data: event, error: eventError } = await supabase
-    .from('events')
+    // SEC-2b: public.events_host, not public.events — this select names a column
+    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+    // on the base table by 20271008731642. The view is the couple/moderator-scoped
+    // read path; same columns, same row shape, guests get zero rows.
+    .from('events_host')
     .select(
       'estimated_budget_centavos, estimated_pax, ceremony_type, region, style_preferences',
     )

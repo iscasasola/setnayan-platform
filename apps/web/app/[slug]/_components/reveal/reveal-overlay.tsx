@@ -18,8 +18,11 @@
  *   - admin toggle `config.enabled` (DB `reveal_studio_config`, set in the
  *     /admin/reveal-studio Reveal Studio) → on for everyone, `config.defaultTemplate`
  *   - global flag  `NEXT_PUBLIC_STD_REVEAL=1`  → legacy env fallback (kept for previews)
- *   - per-visit URL `?reveal=<id>` → activates AND overrides the template for that
- *     one visit, even when the toggle is off (how we demo on Vercel previews).
+ *   - per-visit URL `?reveal=<id>` → overrides the template for that one visit,
+ *     but ONLY on a build where NEXT_PUBLIC_STD_REVEAL=1 (how we demo on Vercel
+ *     previews). In production the flag is off and the param is inert — it is a
+ *     preview affordance, never an entitlement (SEC-3, 2026-07-26: it used to
+ *     unlock the paid ₱999 opening for any visitor who typed it).
  *     Accepted ids in ./reveal-templates REVEAL_ALIASES, e.g. ?reveal=church-doors.
  *
  * The admin also customizes the veil look + per-feature toggles via `config`
@@ -35,7 +38,12 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
-import { isVeilTemplate, NO_REVEAL, REVEAL_ALIASES, type RevealTemplate } from './reveal-templates';
+import {
+  isVeilTemplate,
+  NO_REVEAL,
+  resolveRevealOverride,
+  type RevealTemplate,
+} from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
@@ -114,16 +122,24 @@ export function RevealOverlay({
     }
   }, []);
 
-  const override = reveal ? REVEAL_ALIASES[reveal] ?? null : null;
+  // SEC-3 (2026-07-26): `?reveal=` is a PREVIEW affordance, not an entitlement.
+  // It used to be honoured for any visitor, which handed the paid ₱999 opening
+  // to anyone who typed it — and also overrode the admin's allowed-openings map
+  // and the couple's "No Reveal" choice, since everything below keys off
+  // `override`. It is now scoped to the env-only preview flag, which no visitor
+  // can set. See resolveRevealOverride() in ./reveal-templates for the full note.
+  const override = resolveRevealOverride(reveal, FLAG_ON);
   // The couple choosing No Reveal ('none') means no opening at all — even with
-  // the premium unlock (folded into `active` below). The ?reveal= override
-  // still wins (admin/demo). Here we just narrow 'none' out of the template chain.
+  // the premium unlock (folded into `active` below). A preview-build ?reveal=
+  // override still wins; in production it resolves null, so the couple's choice
+  // stands. Here we just narrow 'none' out of the template chain.
   const eventChoice = eventTemplate === NO_REVEAL ? null : eventTemplate;
   let template: RevealTemplate =
     override ?? eventChoice ?? config?.defaultTemplate ?? 'four-flap';
   // Honor the admin "allowed openings" map: an opening the admin deactivated
   // (config.templates[id] === false) falls back to the house default — or the
-  // first still-enabled opening. The ?reveal= preview override bypasses this.
+  // first still-enabled opening. A preview-build ?reveal= override bypasses
+  // this; in production it is null, so the admin's map is authoritative.
   const allowedMap = config?.templates as Record<string, boolean> | undefined;
   if (!override && allowedMap && allowedMap[template] === false) {
     const def = config?.defaultTemplate;

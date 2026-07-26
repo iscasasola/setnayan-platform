@@ -2671,6 +2671,48 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   }
 }
 
+/* ── Pahina hero cover parallax (design §6: "±6%, rAF-throttled transform on
+   the media wrapper") ───────────────────────────────────────────────────────
+
+   Gated on the SAME `.pahina-js` flag as the reveal above, for the same
+   fail-visible reason — and one step stronger: `PahinaCoverParallax` writes
+   ONLY `--pahina-parallax`, never `transform`. So the effect exists only while
+   this rule matches. Reduced motion, a missing IntersectionObserver, the 2s
+   self-heal, or a script that never runs each leave a plain, centred,
+   static `object-cover` photo. There is no half-state.
+
+   THE GEOMETRY — why 1.16 and why ±6% are a matched pair. The layer is
+   `absolute inset-0`, so its height IS the plate height H, and it sits inside
+   an `overflow-hidden` box. scale(1.16) about the centre makes it 1.16H tall,
+   overhanging 0.08H above and 0.08H below. The script clamps the offset to
+   ±0.06H. At either extreme the near edge lands 0.02H OUTSIDE the plate — so
+   ~2% of plate height (≈9px on a 375px phone) of scaled overhang stays hidden
+   under the clip at all times and no gap, letterbox or bare corner can appear,
+   with margin left over for sub-pixel rounding and the 1px border. Raising MAX
+   in pahina-motion.tsx without raising this scale would spend that margin.
+
+   ORDER MATTERS: translate FIRST, scale SECOND. Transform functions apply
+   right-to-left, so written this way the scale is the inner operation and the
+   translate's percentage still resolves against the layer's own UNSCALED
+   height. Written `scale(1.16) translate3d(…)` the 6% would be magnified to
+   6.96% and eat the safety margin above.
+
+   UNLAYERED, like the reveal — it must beat any `transform`/`scale` utility a
+   future pass might put on the media wrapper. */
+.pahina-js .sn-editorial [data-pahina-parallax] {
+  transform: translate3d(0, var(--pahina-parallax, 0%), 0) scale(1.16);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces again — RootFlag already withheld the flag, so this only
+     matters if some future path sets it another way. No scale either: an
+     unmoving image should not be needlessly cropped. */
+  .pahina-js .sn-editorial [data-pahina-parallax] {
+    transform: none;
+    will-change: auto;
+  }
+}
+
 .sn-editorial {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);

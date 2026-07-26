@@ -16,7 +16,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -26,9 +26,9 @@ import {
 } from './vendor-packages';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = join(
-  HERE,
-  '../../../supabase/migrations',
+const MIGRATIONS_DIR = join(HERE, '../../../supabase/migrations');
+const CREATE_MIGRATION = join(
+  MIGRATIONS_DIR,
   '20271006413374_vendor_package_credit_required_and_choice_options.sql',
 );
 
@@ -37,8 +37,34 @@ const MIGRATION = join(
  * block. Deliberately parsed from the migration rather than hard-coded — a
  * second hard-coded list would drift exactly the way the first one did.
  */
+/**
+ * Columns added to the table by a LATER `ALTER TABLE … ADD COLUMN`.
+ *
+ * The table's shape is CREATE TABLE **plus every subsequent ALTER** — reading
+ * only the CREATE would fail every column added after it (per-head pricing was
+ * the first, migration 20271010956443) and push the next author toward deleting
+ * this guard instead of trusting it.
+ */
+function alterAddedColumns(): string[] {
+  const names: string[] = [];
+  for (const file of readdirSync(MIGRATIONS_DIR).sort()) {
+    if (!file.endsWith('.sql')) continue;
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    // Each `ALTER TABLE …vendor_package_item_options` statement, to its `;`.
+    const re = /ALTER\s+TABLE\s+(?:public\.)?vendor_package_item_options([\s\S]*?);/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql)) !== null) {
+      const body = m[1] ?? '';
+      const add = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)/gi;
+      let a: RegExpExecArray | null;
+      while ((a = add.exec(body)) !== null) if (a[1]) names.push(a[1]);
+    }
+  }
+  return names;
+}
+
 function columnsInMigration(): string[] {
-  const sql = readFileSync(MIGRATION, 'utf8');
+  const sql = readFileSync(CREATE_MIGRATION, 'utf8');
   const start = sql.indexOf(
     'CREATE TABLE IF NOT EXISTS public.vendor_package_item_options',
   );
@@ -76,8 +102,13 @@ function columnsInMigration(): string[] {
   return names;
 }
 
-test('every column we name actually exists in the migration', () => {
-  const actual = new Set(columnsInMigration());
+/** The table's real column set: CREATE TABLE plus every later ALTER. */
+function allColumns(): Set<string> {
+  return new Set([...columnsInMigration(), ...alterAddedColumns()]);
+}
+
+test('every column we name actually exists in the migrations', () => {
+  const actual = allColumns();
   assert.ok(actual.size > 0, 'parsed no columns — the parser is broken');
 
   for (const col of PACKAGE_ITEM_OPTION_COLUMNS) {
@@ -90,7 +121,7 @@ test('every column we name actually exists in the migration', () => {
 });
 
 test('the label column is option_label — the exact bug this guards', () => {
-  const actual = new Set(columnsInMigration());
+  const actual = allColumns();
   assert.ok(actual.has('option_label'), 'expected an option_label column');
   assert.ok(
     !actual.has('label'),
@@ -103,7 +134,7 @@ test('the label column is option_label — the exact bug this guards', () => {
 });
 
 test('the select list only names real columns', () => {
-  const actual = new Set(columnsInMigration());
+  const actual = allColumns();
   const selected = PACKAGE_ITEM_OPTION_SELECT.split(',').map((s) => s.trim());
 
   assert.ok(selected.length > 0, 'empty select list');

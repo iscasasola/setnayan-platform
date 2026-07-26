@@ -54,6 +54,11 @@ function toCreditItem(item: VendorPackageItemRow): CreditItem {
             price_delta_centavos: o.price_delta_centavos,
             is_default: o.is_default,
             is_available: o.is_available,
+            // Absent basis reads as 'fixed', so options written before per-head
+            // pricing existed keep their exact behaviour.
+            pricing_basis: o.pricing_basis ?? 'fixed',
+            per_pax_delta_centavos: o.per_pax_delta_centavos ?? 0,
+            min_pax: o.min_pax ?? 0,
           })),
         }
       : {}),
@@ -102,6 +107,8 @@ export function priceCustomizedPackage(
   removedItemIds: ReadonlyArray<string>,
   chosenOptionIds: ReadonlyArray<string>,
   creditEnabled: boolean,
+  /** Server-resolved head count, for per-head option upgrades. */
+  paxCount = 0,
 ): {
   bookingTotalCentavos: number;
   remainingConsumableCentavos: number;
@@ -129,6 +136,7 @@ export function priceCustomizedPackage(
     pkg: toCreditPackage(pkg),
     removedItemIds: allowedRemovals(pkg, removedItemIds),
     chosenOptionIds,
+    paxCount,
   });
   if (!credit.ok) return null;
 

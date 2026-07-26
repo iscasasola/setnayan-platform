@@ -451,3 +451,59 @@ test('the seeded required-ness WORKAROUND still frees zero credit', async () => 
     'the promote-to-required backfill must never touch a line that carries real value',
   );
 });
+
+/* ── per-head option pricing (migration 20271010956443) ────────────────────*/
+
+test('a per-head option stores its rate and floor', async () => {
+  const r = await db.query<{ option_id: string }>(
+    `INSERT INTO public.vendor_package_item_options
+       (item_id, option_label, pricing_basis, price_delta_centavos,
+        per_pax_delta_centavos, min_pax, is_default, is_available)
+     VALUES ($1,'Premium menu','per_pax',0,15000,100,FALSE,TRUE)
+     RETURNING option_id`,
+    [itemId],
+  );
+  assert.ok(r.rows[0]!.option_id, 'a +PHP150/head upgrade is storable');
+});
+
+test('a per-head option cannot ALSO carry a flat delta', async () => {
+  // Money on two bases means a reader must guess which one is real.
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_item_options
+         (item_id, option_label, pricing_basis, price_delta_centavos,
+          per_pax_delta_centavos, is_default, is_available)
+       VALUES ($1,'Both','per_pax',50000,15000,FALSE,TRUE)`,
+      [itemId],
+    ),
+    /check/i,
+  );
+});
+
+test('a per-head rate cannot be negative — no downgrade credits by the back door', async () => {
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_item_options
+         (item_id, option_label, pricing_basis, price_delta_centavos,
+          per_pax_delta_centavos, is_default, is_available)
+       VALUES ($1,'Cheaper','per_pax',0,-15000,FALSE,TRUE)`,
+      [itemId],
+    ),
+    /check/i,
+    'negative deltas stay refused on BOTH bases until the owner rules',
+  );
+});
+
+test('the DEFAULT option cannot be a per-head charge', async () => {
+  // Otherwise every couple who chose nothing would silently owe the uplift.
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_item_options
+         (item_id, option_label, pricing_basis, price_delta_centavos,
+          per_pax_delta_centavos, is_default, is_available)
+       VALUES ($1,'Standard but billed','per_pax',0,15000,TRUE,TRUE)`,
+      [itemId],
+    ),
+    /check|unique/i,
+  );
+});

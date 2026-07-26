@@ -30,6 +30,7 @@ import {
   type PackageCreditErrorCode,
   type PackageCreditOk,
   type PackageCreditResult,
+  type CreditOption,
 } from './package-credit';
 import { computeCustomization, keptItems, type VendorPackageWithItems } from './vendor-packages';
 
@@ -1150,4 +1151,97 @@ test('CONVERGED: keptItems() and keptItemIds agree on un-ticked lines', () => {
     }),
   );
   assert.deepEqual(r.keptItemIds, ['ticked'], 'credit engine: an un-ticked line is NOT in the booking');
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* PER-HEAD OPTIONS — "+₱150/head", the normal PH catering upgrade          */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+function perPaxPkg(over: Partial<CreditOption> = {}) {
+  return {
+    total_price_centavos: 5_000_000,
+    consumable_budget_centavos: 0,
+    is_consumable_flexible: true,
+    unspent_credit_policy: 'expiring' as const,
+    items: [
+      {
+        item_id: 'menu',
+        is_required: false,
+        is_default_included: true,
+        replacement_value_centavos: 0,
+        options: [
+          { option_id: 'std', price_delta_centavos: 0, is_default: true, is_available: true },
+          {
+            option_id: 'prem',
+            price_delta_centavos: 0,
+            is_default: false,
+            is_available: true,
+            pricing_basis: 'per_pax' as const,
+            per_pax_delta_centavos: 15_000, // ₱150/head
+            min_pax: 100,
+            ...over,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+test('per-head: the uplift is rate × guest count', () => {
+  const r = ok(computePackageCredit({ pkg: perPaxPkg(), chosenOptionIds: ['prem'], paxCount: 150 }));
+  assert.equal(r.spentCreditCentavos, 15_000 * 150, '₱150 × 150 heads');
+});
+
+test('per-head: min_pax is a FLOOR, not a filter', () => {
+  // 80 guests against a 100-head minimum still bills 100 — the vendor's floor.
+  const r = ok(computePackageCredit({ pkg: perPaxPkg(), chosenOptionIds: ['prem'], paxCount: 80 }));
+  assert.equal(r.spentCreditCentavos, 15_000 * 100);
+});
+
+test('per-head with NO pax passed still charges the minimum, never zero', () => {
+  // The failure this prevents: a caller forgets the head count and a ₱150/head
+  // upgrade silently becomes free.
+  const r = ok(computePackageCredit({ pkg: perPaxPkg(), chosenOptionIds: ['prem'] }));
+  assert.equal(r.spentCreditCentavos, 15_000 * 100, 'floored at min_pax, not ₱0');
+});
+
+test('per-head: pax does NOT leak into a fixed-basis option', () => {
+  const fixed = perPaxPkg();
+  fixed.items[0]!.options![1] = {
+    option_id: 'prem', price_delta_centavos: 800_000, is_default: false, is_available: true,
+  };
+  const r = ok(computePackageCredit({ pkg: fixed, chosenOptionIds: ['prem'], paxCount: 500 }));
+  assert.equal(r.spentCreditCentavos, 800_000, 'a flat upgrade is flat at any head count');
+});
+
+test('per-head: a NEGATIVE rate is refused, like the flat delta', () => {
+  // Downgrade credits remain an open owner decision; the engine refuses them on
+  // BOTH bases so per-head cannot become the back door.
+  const r = computePackageCredit({
+    pkg: perPaxPkg({ per_pax_delta_centavos: -15_000 }),
+    chosenOptionIds: ['prem'],
+    paxCount: 100,
+  });
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.errors.some((e) => e.code === 'invalid_money'));
+});
+
+test('per-head: money on the WRONG basis is refused, not silently picked', () => {
+  const r = computePackageCredit({
+    pkg: perPaxPkg({ pricing_basis: 'fixed', per_pax_delta_centavos: 15_000 }),
+    chosenOptionIds: ['prem'],
+    paxCount: 100,
+  });
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.errors.some((e) => e.code === 'invalid_package'));
+});
+
+test('per-head: the DEFAULT option must be free on the per-pax basis too', () => {
+  const bad = perPaxPkg();
+  bad.items[0]!.options![0] = {
+    option_id: 'std', price_delta_centavos: 0, is_default: true, is_available: true,
+    pricing_basis: 'per_pax', per_pax_delta_centavos: 15_000, min_pax: 0,
+  };
+  const r = computePackageCredit({ pkg: bad, chosenOptionIds: [], paxCount: 100 });
+  assert.equal(r.ok, false, 'a per-head DEFAULT would surcharge a couple who chose nothing');
 });

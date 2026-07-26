@@ -20,6 +20,7 @@
  */
 
 import type { VendorCategory } from '@/lib/vendors';
+import { optionDeltaCentavos } from './package-credit';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* canonical_service → vendor_category mapping                              */
@@ -236,6 +237,14 @@ export type VendorPackageItemOptionRow = {
   is_default: boolean;
   is_available: boolean;
   display_order: number;
+  /**
+   * 'fixed' (default) = `price_delta_centavos` is the whole uplift.
+   * 'per_pax' = the uplift is `per_pax_delta_centavos × max(pax, min_pax)` —
+   * "+₱150/head", the normal PH catering upgrade.
+   */
+  pricing_basis?: 'fixed' | 'per_pax';
+  per_pax_delta_centavos?: number;
+  min_pax?: number;
 };
 
 /**
@@ -254,11 +263,14 @@ export const PACKAGE_ITEM_OPTION_COLUMNS = [
   'is_default',
   'is_available',
   'display_order',
+  'pricing_basis',
+  'per_pax_delta_centavos',
+  'min_pax',
 ] as const;
 
 /** The PostgREST select list for a choice option. Use this, never a literal. */
 export const PACKAGE_ITEM_OPTION_SELECT =
-  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available';
+  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available, pricing_basis, per_pax_delta_centavos, min_pax';
 
 export type VendorPackageWithItems = VendorPackageRow & {
   items: ReadonlyArray<VendorPackageItemRow>;
@@ -435,7 +447,12 @@ export function chosenOptionsSurchargeCentavos(
     if (!item.is_default_included) return sum;
     if (!isChoiceLine(item)) return sum;
     const chosen = resolveChosenOption(item, chosenOptionIds);
-    return sum + (chosen?.price_delta_centavos ?? 0);
+    if (!chosen) return sum;
+    // Basis-aware: a per-head option priced off its flat delta would read ₱0.
+    // `paxCount` is 0 here because this helper is the FLAG-OFF display path and
+    // has no event context; `min_pax` still floors it, so a per-head upgrade
+    // shows its minimum rather than free. The credit engine prices it properly.
+    return sum + optionDeltaCentavos(chosen, 0);
   }, 0);
 }
 

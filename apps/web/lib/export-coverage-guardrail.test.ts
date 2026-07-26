@@ -75,123 +75,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readSchema, type TableSchema } from './security/migration-schema';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const MIGRATIONS = path.resolve(HERE, '..', '..', '..', 'supabase', 'migrations');
 const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route.ts');
 
 // ── Parser ───────────────────────────────────────────────────────────────────
-
-/** Trailing table-constraint keywords that look like a column name at line start. */
-const NOT_A_COLUMN = /^(constraint|primary|unique|foreign|check|exclude|like)$/i;
-
-export type TableSchema = {
-  /** union of every column name seen across ALL migrations */
-  cols: Set<string>;
-  /** subset of `cols` that carries `REFERENCES public.users(user_id)` */
-  userFks: Set<string>;
-};
-
-/** Split a CREATE TABLE body on top-level commas — one entry per column/constraint. */
-function splitTopLevel(body: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const ch of body) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-    } else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-
-const USER_FK = /REFERENCES\s+public\.users\s*\(\s*user_id/i;
-
-/**
- * table -> columns + which of them FK to public.users(user_id). Union (not
- * last-write) because several migrations DROP+CREATE the same table for
- * idempotency, and later ALTERs add columns.
- *
- * Segment-oriented, NOT line-oriented: a column declaration is frequently
- * wrapped across lines with its REFERENCES clause on the next one, e.g.
- *   customer_id    UUID NOT NULL
- *                  REFERENCES public.users(user_id) ON DELETE CASCADE,
- * (marketing_share_consents, 20261203000000_social_sharing_program.sql:72-73).
- * A line-oriented parser sees the name but never the FK.
- */
-function readSchema(): Map<string, TableSchema> {
-  const schema = new Map<string, TableSchema>();
-  const files = fs
-    .readdirSync(MIGRATIONS)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
-
-    const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.([a-z0-9_]+)\s*\(/gi;
-    let m: RegExpExecArray | null;
-    while ((m = createRe.exec(sql))) {
-      const table = m[1] ?? '';
-      if (!table) continue;
-      // Walk forward from the opening paren, balancing parens, to find the
-      // matching close — the column body can contain nested parens (CHECK,
-      // numeric(10,2), …) so a lazy regex would truncate it.
-      let depth = 0;
-      let end = -1;
-      for (let i = createRe.lastIndex - 1; i < sql.length; i++) {
-        if (sql[i] === '(') depth++;
-        else if (sql[i] === ')') {
-          depth--;
-          if (depth === 0) {
-            end = i;
-            break;
-          }
-        }
-      }
-      if (end < 0) continue;
-
-      const entry = schema.get(table) ?? { cols: new Set<string>(), userFks: new Set<string>() };
-      // Strip `--` comments to END OF LINE, not just whole comment LINES.
-      // A trailing inline comment routinely contains a comma:
-      //   … ON DELETE SET NULL,  -- the rite (kasal/binyag/kumpil), if any
-      // (20270514787557_phase2_person_connections_schema.sql:39). Under a
-      // whole-line filter that comma survives, splitTopLevel breaks the segment
-      // there, and the NEXT real column is swallowed into a segment starting
-      // with leftover comment text — so the ^-anchored column regex never sees
-      // it. Measured: the whole-line filter dropped 161 columns across 55
-      // tables and silently pushed `people` and `vendor_meetings` OUT of the
-      // enforced tier while the suite stayed green. T10 now makes that class of
-      // silent narrowing impossible to ship.
-      const body = sql.slice(createRe.lastIndex, end).replace(/--[^\n]*/g, '');
-      for (const seg of splitTopLevel(body)) {
-        const s = seg.trim();
-        const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(s)?.[1];
-        if (!col || NOT_A_COLUMN.test(col)) continue;
-        entry.cols.add(col);
-        if (USER_FK.test(s)) entry.userFks.add(col);
-      }
-      schema.set(table, entry);
-    }
-
-    const alterRe = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?public\.([a-z0-9_]+)([\s\S]*?);/gi;
-    while ((m = alterRe.exec(sql))) {
-      const entry = schema.get(m[1] ?? '');
-      if (!entry) continue;
-      const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)([^,;]*)/gi;
-      let a: RegExpExecArray | null;
-      while ((a = addRe.exec(m[2] ?? ''))) {
-        if (!a[1]) continue;
-        entry.cols.add(a[1]);
-        if (USER_FK.test(a[2] ?? '')) entry.userFks.add(a[1]);
-      }
-    }
-  }
-  return schema;
-}
+// Extracted 2026-07-26 to lib/security/migration-schema.ts so the RA 10173
+// ERASURE guardrail reuses this exact parser instead of growing a second one.
+// The honesty notes in the docblock above still describe its limits.
 
 /** `user_id` or anything ending `_user_id` — the account holder's own handle. */
 const SUBJECT_COL = /^([a-z0-9_]*_)?user_id$/;

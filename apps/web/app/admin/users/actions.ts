@@ -8,9 +8,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { parseStoredAsset } from '@/lib/uploads';
 import { r2Delete } from '@/lib/r2';
+import { deletePublicAsset } from '@/lib/storage';
+import { eraseUserAccount, type ErasureIo } from '@/lib/erasure/purge';
 import {
-  distinctGuestIds,
-  distinctPersonIds,
   serializeTempPasswordFlash,
   TEMP_PASSWORD_FLASH_COOKIE,
 } from '@/lib/account-erasure';
@@ -20,579 +20,36 @@ import {
 const TEMP_PASSWORD_FLASH_TTL_SECONDS = 120;
 
 /**
- * RA 10173 right-to-erasure helper (PR-G).
+ * The RA 10173 erasure engine lives in `lib/erasure/purge.ts` — a module with no
+ * `next/*` or `server-only` import, so `tests/db/erasure-completeness.db.test.ts`
+ * can run the REAL purge against the REAL replayed schema. This file supplies
+ * the side effects it deliberately does not import.
  *
- * Account hard-delete removes auth.users → cascades to public.users + the
- * event_members membership rows. But `events` has NO foreign key to its owner
- * (the link is via event_members only), so the events ROW — and any sensitive
- * per-partner birth date/time captured for the BaZi date-check — SURVIVES the
- * delete. That's a right-to-erasure violation for sensitive data.
- *
- * This NULLs, on every event the deleted user OWNS (member_type='couple'), the
- * 5 birth/consent columns PLUS the owner's own contact PII (owner_email,
- * owner_display_name, photo_delivery_account_email) and the live encrypted
- * photo-delivery OAuth token. The SHARED fields (bride/groom names, venue) are
- * left intact — a wedding can have two partners + coordinators; we purge the
- * leaving user's own data, not the shared event (whether partial-erasure of a
- * shared record should go further is a DPO/counsel ruling). Best-effort: a purge
- * failure is logged but does not block the deletion (a stuck purge must never
- * trap an account in an undeletable state).
- *
- * Uses the service-role admin client (passed in) so it isn't subject to the
- * leaving user's RLS, which may already be partially torn down.
+ * Why the split matters here and not elsewhere: the purge is a list of column
+ * and table names checked against nothing. That list drifted — `owner_email` was
+ * never a column of `public.events`, so PostgREST rejected the whole owned-event
+ * update and the birth data + photo-delivery credential it was meant to clear
+ * were never cleared in production, invisibly, because best-effort logged the
+ * failure and carried on. A purge you cannot execute in a test is a purge nobody
+ * can check.
  */
-async function purgeOwnedEventBirthData(
-  admin: ReturnType<typeof createAdminClient>,
-  targetUserId: string,
-  actorUserId: string,
-): Promise<void> {
-  // RA 10173 right-to-erasure: a purge failure must NOT trap the account in an
-  // undeletable state, but it also must not silently vanish — the irreversible
-  // auth-delete that follows severs the owner→event link, so un-purged birth
-  // data would orphan undiscoverably. On any failure we leave a durable
-  // admin_audit_log row so the erasure miss is recoverable via a manual sweep.
-  const recordErasureFailure = async (stage: string, message: string, eventIds: string[]) => {
-    console.error(`[purgeOwnedEventBirthData] ${stage} failed`, message);
-    await admin
-      .from('admin_audit_log')
-      .insert({
-        action: 'erasure_purge_failed',
-        target_id: targetUserId,
-        actor_user_id: actorUserId,
-        metadata: { stage, message, event_ids: eventIds, kind: 'bazi_birth_data' },
-      })
-      .then(({ error }) => {
-        if (error) console.error('[purgeOwnedEventBirthData] audit-log write failed', error.message);
-      });
+function erasureIo(): ErasureIo {
+  return {
+    // Only `r2://bucket/key` refs from the current upload flow are removed; a
+    // legacy/external URL is left (it may not even be ours). r2Delete is
+    // idempotent on a missing key.
+    deleteStoredAsset: async (ref) => {
+      const asset = parseStoredAsset(ref);
+      if (asset?.kind === 'r2') await r2Delete({ bucket: asset.bucket, key: asset.key });
+    },
+    // Chat attachments store a PUBLIC R2 URL rather than an `r2://` ref, so they
+    // need the URL-shaped round-trip. deletePublicAsset no-ops on anything that
+    // doesn't parse as one of our buckets.
+    deletePublicAssetUrl: async (url) => {
+      await deletePublicAsset({ publicUrl: url });
+    },
+    revokeAllSessions,
   };
-
-  const { data: owned, error: lookupErr } = await admin
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', targetUserId)
-    .eq('member_type', 'couple');
-  if (lookupErr) {
-    await recordErasureFailure('owned-event-lookup', lookupErr.message, []);
-    return;
-  }
-  const eventIds = (owned ?? [])
-    .map((r) => (r as { event_id?: string }).event_id)
-    .filter((v): v is string => typeof v === 'string' && v.length > 0);
-  if (eventIds.length === 0) return;
-
-  const { error: purgeErr } = await admin
-    .from('events')
-    .update({
-      partner_a_birth_date: null,
-      partner_a_birth_time: null,
-      partner_b_birth_date: null,
-      partner_b_birth_time: null,
-      bazi_birthdata_consent_at: null,
-      // The account owner's own contact PII carried on the event row, plus the
-      // LIVE encrypted Google photo-delivery OAuth token — a credential that
-      // must not survive erasure. (bride/groom names + venue are SHARED with the
-      // co-partner/coordinators → left for the DPO shared-record ruling.)
-      owner_email: null,
-      owner_display_name: null,
-      photo_delivery_account_email: null,
-      photo_delivery_oauth_token_encrypted: null,
-    })
-    .in('event_id', eventIds);
-  if (purgeErr) {
-    await recordErasureFailure('owner-pii-purge', purgeErr.message, eventIds);
-  }
-}
-
-/**
- * RA 10173 right-to-erasure — chat residue (Data Retention Schedule 2026-07-11).
- *
- * The chat FKs to users are ON DELETE SET NULL (the message sender_user_id,
- * chat_threads.created_by_user_id), and chat_threads only cascade-delete when
- * the EVENT or vendor_profile is removed — but events have no owner FK and are
- * never deleted. So without this, a departing user's message BODIES (their own
- * words = their personal data, up to 4000 chars each) survive the auth-delete
- * indefinitely, with sender_user_id merely nulled. That's the live gap flagged
- * in the retention audit.
- *
- * Fix: hard-delete the messages this user AUTHORED, BEFORE the auth-delete
- * cascades sender_user_id → NULL (after which we could no longer tell which
- * rows were theirs). This is the surgical, minimal-harm erasure — the vendor's
- * own messages and any co-partner's messages stay intact (a wedding can have
- * two partners + coordinators; we erase only the leaving user's content, never
- * the shared conversation). Runs on the service-role admin client so it isn't
- * subject to the chat append-only RLS (which denies DELETE to authenticated).
- *
- * Best-effort, matching purgeOwnedEventBirthData: a failure is logged to
- * admin_audit_log (so the erasure miss is recoverable via a manual sweep) but
- * does NOT block the deletion — a stuck purge must never trap an account in an
- * undeletable state.
- *
- * Downstream note: these rows FEED A COUNTER. `countCoupleMessages`
- * (lib/chat.ts) counts couple-authored rows per thread to decide whether a
- * pending vendor thread has already spent its one pre-accept message. Deleting
- * rows here lowers that count. Read that function's docstring before changing
- * this delete — it records why the interaction is accepted rather than defended
- * (it needs a second surviving `member_type='couple'` member on the event, which
- * no shipped app path creates).
- */
-async function purgeUserAuthoredChat(
-  admin: ReturnType<typeof createAdminClient>,
-  targetUserId: string,
-  actorUserId: string,
-): Promise<void> {
-  const { error } = await admin
-    .from('chat_messages') // chat-guard-allow: RA 10173 right-to-erasure — deletes ONLY the leaving user's own authored messages on account deletion (service-role; audit-logged). See fn docstring.
-    .delete()
-    .eq('sender_user_id', targetUserId);
-  if (error) {
-    console.error('[purgeUserAuthoredChat] delete failed', error.message);
-    await admin
-      .from('admin_audit_log')
-      .insert({
-        action: 'erasure_purge_failed',
-        target_id: targetUserId,
-        actor_user_id: actorUserId,
-        metadata: { stage: 'chat-authored-messages', message: error.message, kind: 'chat_message_bodies' },
-      })
-      .then(({ error: auditErr }) => {
-        if (auditErr) console.error('[purgeUserAuthoredChat] audit-log write failed', auditErr.message);
-      });
-  }
-}
-
-/**
- * RA 10173 right-to-erasure — the erased user's OTHER owner-scoped personal data,
- * beyond the users identity row + owned-event data + authored chat that
- * `eraseUserAccount` already handles. Every table here is reachable ONLY as the
- * target's OWN PII (their own FK, or the person node they claimed), so scrubbing
- * it harms no other data subject.
- *
- * Deliberately EXCLUDED (DPO / counsel judgment calls — see the PR): shared-event
- * fields (bride/groom/venue), financial + BIR records (receipts/orders/payments/
- * payouts — lawful retention), consent-audit tables, the fraud identity graph
- * (retention review already pending), third-party PII the user ENTERED about
- * others, and the R2 objects behind verification docs / chat attachments (a DB
- * scrub alone orphans the file). (Per-event guest-side biometrics + face
- * selfies are erased separately by `purgeUserGuestBiometrics`.)
- *
- * Best-effort per step, mirroring the purges above: a failure is audit-logged,
- * never thrown, so one bad step can't trap the account in an undeletable state.
- */
-async function purgeUserOwnedRecords(
-  admin: ReturnType<typeof createAdminClient>,
-  targetUserId: string,
-  actorUserId: string,
-): Promise<void> {
-  const nowIso = new Date().toISOString();
-  const tombstoneEmail = `erased+${targetUserId}@erased.setnayan.invalid`;
-
-  const step = async (
-    stage: string,
-    exec: () => PromiseLike<{ error: { message: string } | null }>,
-  ) => {
-    const { error } = await exec();
-    if (error) {
-      console.error(`[purgeUserOwnedRecords] ${stage} failed`, error.message);
-      await admin
-        .from('admin_audit_log')
-        .insert({
-          action: 'erasure_step_failed',
-          target_id: targetUserId,
-          actor_user_id: actorUserId,
-          metadata: { stage, message: error.message },
-        })
-        .then(({ error: auditErr }) => {
-          if (auditErr) console.error('[purgeUserOwnedRecords] audit-log write failed', auditErr.message);
-        });
-    }
-  };
-
-  // people — the user's OWN durable identity node (claimed_by_user_id UNIQUE).
-  // Anonymize the 7 PII columns + tombstone the node. Rows they merely CREATED
-  // for third parties (created_by_user_id) are left — that's someone else's PII.
-  await step('people-anonymize', () =>
-    admin
-      .from('people')
-      .update({
-        display_name: null,
-        first_name: null,
-        last_name: null,
-        email: null,
-        phone: null,
-        profile_photo_url: null,
-        birth_date: null,
-        deleted_at: nowIso,
-      })
-      .eq('claimed_by_user_id', targetUserId),
-  );
-
-  // user_face_profiles — the account's OWN biometric template. Sensitive PI with
-  // no retention basis → delete the row outright.
-  await step('user-face-profile-delete', () =>
-    admin.from('user_face_profiles').delete().eq('user_id', targetUserId),
-  );
-
-  // push_subscriptions — device push endpoints/keys. Useless after lockout.
-  await step('push-subscriptions-delete', () =>
-    admin.from('push_subscriptions').delete().eq('user_id', targetUserId),
-  );
-
-  // dependents / godparents — the user's PRIVATE family records (owner-scoped;
-  // no other data subject can reach them; may hold a minor's sensitive PI).
-  await step('dependents-delete', () =>
-    admin.from('dependents').delete().eq('owner_user_id', targetUserId),
-  );
-  await step('godparents-delete', () =>
-    admin.from('godparents').delete().eq('owner_user_id', targetUserId),
-  );
-
-  // guest_claims — the user's own name/email presented when claiming a guest
-  // seat. claimer_name is NOT NULL → tombstone; the rest → null.
-  await step('guest-claims-anonymize', () =>
-    admin
-      .from('guest_claims')
-      .update({ claimer_name: '[erased]', claimer_email: null, otp_sent_to: null })
-      .eq('claimer_user_id', targetUserId),
-  );
-
-  // help_messages — support tickets the user authored. Keep the shell for
-  // support continuity but erase every PII field (all three are NOT NULL bar the
-  // name → tombstone/placeholder rather than null).
-  await step('help-messages-anonymize', () =>
-    admin
-      .from('help_messages')
-      .update({ sender_email: tombstoneEmail, sender_name: null, subject: '[erased]', body: '[erased]' })
-      .eq('user_id', targetUserId),
-  );
-
-  // vendor_profiles — the user's OWN shop (user_id is UNIQUE = sole owner). Scrub
-  // the contact PII, blank the NOT NULL name, and unpublish it from the
-  // marketplace. The shell stays for team continuity (DPO note in the PR).
-  await step('vendor-profile-anonymize', () =>
-    admin
-      .from('vendor_profiles')
-      .update({
-        business_name: '',
-        business_slug: null,
-        tagline: null,
-        website: null,
-        contact_email: null,
-        contact_phone: null,
-        logo_url: null,
-        business_owner_name: null,
-        location_city: null,
-        is_published: false,
-      })
-      .eq('user_id', targetUserId),
-  );
-}
-
-/**
- * RA 10173 right-to-erasure — the subject's PER-EVENT guest-side BIOMETRICS.
- *
- * The guest-face-enrolment table has NO user FK: a row holds the biometric
- * template + `asset_url` (the full-res R2 selfie behind it) and is
- * keyed by (event_id, guest_id). Nothing in the identity/owner-scoped purges
- * above reaches it, so before this the subject's face vector + selfie survived
- * account deletion indefinitely. Enrolments are written at RSVP
- * (`app/[slug]/actions.ts`) and day-of (`app/papic/face-enroll-actions.ts`).
- *
- * We resolve the leaving user's guest identities via `event_members.guest_id`
- * (the user→guest link), then hard-delete every enrolment on those guest rows —
- * dropping the R2 selfie objects FIRST so deleting the DB row doesn't orphan the
- * file — and null the subject's own selfie DISPLAY photo on those guest rows
- * (the selfie is the subject's face = their PI, and shares the R2 object with the
- * enrolment asset, so leaving it would both retain the PI and dangle a pointer
- * to a just-deleted object).
- *
- * Best-effort per step, mirroring the other purges: every failure is
- * audit-logged, never thrown, so one bad step can't trap the account undeletable.
- */
-async function purgeUserGuestBiometrics(
-  admin: ReturnType<typeof createAdminClient>,
-  targetUserId: string,
-  actorUserId: string,
-): Promise<void> {
-  const nowIso = new Date().toISOString();
-  const auditFail = async (stage: string, message: string) => {
-    console.error(`[purgeUserGuestBiometrics] ${stage} failed`, message);
-    await admin
-      .from('admin_audit_log')
-      .insert({
-        action: 'erasure_step_failed',
-        target_id: targetUserId,
-        actor_user_id: actorUserId,
-        metadata: { stage, message, kind: 'guest_biometrics' },
-      })
-      .then(({ error }) => {
-        if (error) console.error('[purgeUserGuestBiometrics] audit-log write failed', error.message);
-      });
-  };
-
-  // Resolve the subject's guest identities via BOTH user→guest links, unioned:
-  //
-  //  (1) event_members.guest_id — the guest row a signed-in account is bound to
-  //      when it JOINS an event (app/join/[eventId]/actions.ts). Covers the
-  //      common "RSVP'd, then joined" path.
-  //  (2) the person spine — guests.person_id → people.claimed_by_user_id. A guest
-  //      row is auto-linked to its durable person node by EMAIL on insert
-  //      (set_guest_person trigger / resolve_or_claim_person, migration
-  //      20270514555975), and an account CLAIMS that person by the same email.
-  //      This catches enrolments the subject made WITHOUT ever joining the event
-  //      — e.g. a selfie RSVP on the public event page (submitRsvp writes a
-  //      guest-face-enrolment row from a guest-session guestId with NO
-  //      event_members insert), then a later same-email signup + account delete.
-  //      Resolving only via (1) would leave that face_vector + full-res R2 selfie
-  //      surviving deletion — the exact RA 10173 erasure gap this step closes.
-  //
-  // Ordering note: purgeUserOwnedRecords runs BEFORE this step and only NULLs the
-  // people PII columns + stamps deleted_at — it does NOT null claimed_by_user_id
-  // (that UNIQUE link is retained), so the (2) lookup is still resolvable here.
-  const { data: memberships, error: mErr } = await admin
-    .from('event_members')
-    .select('guest_id')
-    .eq('user_id', targetUserId)
-    .not('guest_id', 'is', null);
-  if (mErr) {
-    await auditFail('biometrics-membership-lookup', mErr.message);
-    return;
-  }
-
-  const { data: claimedPersons, error: pnErr } = await admin
-    .from('people')
-    .select('person_id')
-    .eq('claimed_by_user_id', targetUserId);
-  if (pnErr) {
-    await auditFail('biometrics-person-lookup', pnErr.message);
-    return;
-  }
-  const personIds = distinctPersonIds(
-    (claimedPersons ?? []) as { person_id?: string | null }[],
-  );
-
-  let personLinkedGuests: { guest_id?: string | null }[] = [];
-  if (personIds.length > 0) {
-    const { data: pg, error: pgErr } = await admin
-      .from('guests')
-      .select('guest_id')
-      .in('person_id', personIds);
-    if (pgErr) {
-      await auditFail('biometrics-person-guest-lookup', pgErr.message);
-      return;
-    }
-    personLinkedGuests = (pg ?? []) as { guest_id?: string | null }[];
-  }
-
-  const guestIds = distinctGuestIds([
-    ...((memberships ?? []) as { guest_id?: string | null }[]),
-    ...personLinkedGuests,
-  ]);
-  if (guestIds.length === 0) return;
-
-  // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
-  // this subject ever enrolled for these events must go) before deleting.
-  const { data: enrols, error: eErr } = await admin
-    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — reads only asset_url (the R2 selfie key) to clean up storage, never a face vector
-    .select('asset_url')
-    .in('guest_id', guestIds);
-  if (eErr) {
-    await auditFail('biometrics-enrolment-lookup', eErr.message);
-    return;
-  }
-
-  // Delete the R2 selfie objects (full-res biometric source). r2Delete is
-  // idempotent on a missing key; best-effort per object.
-  for (const row of enrols ?? []) {
-    const asset = parseStoredAsset((row as { asset_url?: string | null }).asset_url);
-    if (asset?.kind !== 'r2') continue;
-    try {
-      await r2Delete({ bucket: asset.bucket, key: asset.key });
-    } catch (e) {
-      await auditFail('biometrics-r2-delete', e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  // Hard-delete the enrolment rows (vector + asset ref + consent record).
-  const { error: dErr } = await admin
-    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — hard-deletes the subject's OWN enrolment rows (no vector is read)
-    .delete()
-    .in('guest_id', guestIds);
-  if (dErr) await auditFail('biometrics-enrolment-delete', dErr.message);
-
-  // Null the subject's OWN selfie display photo on those guest rows (their face
-  // = their PI; also avoids a dangling pointer to the deleted R2 object). Only
-  // 'selfie'-sourced photos — a Gmail avatar is display-only, non-biometric.
-  const { error: pErr } = await admin
-    .from('guests')
-    .update({ photo_url: null, photo_source: null, photo_updated_at: nowIso })
-    .in('guest_id', guestIds)
-    .eq('photo_source', 'selfie');
-  if (pErr) await auditFail('biometrics-guest-photo-null', pErr.message);
-}
-
-/**
- * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
- *
- * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
- * activity: ~46 foreign keys to auth.users / public.users are ON DELETE
- * NO ACTION / RESTRICT, and `vendor_team_guard_trg` aborts the delete of a
- * vendor's sole admin. So the admin Delete button — and the RA 10173 self-serve
- * erasure queue that funnels through here — 500'd on real accounts, leaving
- * erasure unfulfillable. Worse, the two PII purges used to run and COMMIT
- * *before* the throwing hard-delete, so a failed delete left the account LIVE
- * with its birth data + chat already erased (an inconsistent, unrecoverable state).
- *
- * Fix: we never DELETE auth.users. Instead we
- *   1. anonymize the public.users PII + stamp `deleted_at` (the middleware +
- *      dashboard/vendor-dashboard layouts reject any session with deleted_at set
- *      — immediate lockout);
- *   2. revoke every live session;
- *   3. scrub the auth.users email to a per-user tombstone (frees the original
- *      address for re-signup — the blacklist gate still blocks blacklisted ones —
- *      and removes the email PII from the auth schema);
- *   4. run the domain PII purges (owned-event owner data · authored chat bodies ·
- *      the user's other owner-scoped records via `purgeUserOwnedRecords`);
- *   5. delete the user's OWN uploaded files from R2 (profile photo · shop logo)
- *      so nulling the DB pointer doesn't orphan the object.
- * No DELETE is issued, so all the RESTRICT FKs + the vendor-admin trigger are
- * sidestepped, and it is idempotent (re-running re-tombstones to the same values).
- *
- * Legal posture: this erases the data subject's PERSONAL data. Transactional /
- * attribution rows (orders, vendor-team membership, audit) persist under the
- * lawful basis to retain business records — you erase the personal data, not
- * every row. Coverage now: the users identity row (incl. religion/civil-status/
- * sex/address/venue), owned-event owner data + the photo-delivery OAuth token,
- * authored chat, (via `purgeUserOwnedRecords`) the people node, account
- * biometrics, family records, shop contact PII, support tickets, push tokens,
- * and guest claims, and (via `purgeUserGuestBiometrics`) the subject's per-event
- * guest-side face enrolments (vector) + the R2 selfies behind them + their
- * selfie display photos. ⚠ STILL a DPO / counsel retention-review item (NOT
- * scrubbed here): the R2 objects behind verification docs / chat attachments;
- * shared-event fields; financial + BIR
- * records; consent-audit tables; and the fraud identity graph (note: this DOES
- * null `users.address_normalized`, a fraud-graph input — carve out if counsel
- * establishes a fraud-retention basis). Best-effort per step: a failure is
- * audit-logged, never thrown, so erasure can't trap the account undeletable.
- */
-async function eraseUserAccount(
-  admin: ReturnType<typeof createAdminClient>,
-  targetUserId: string,
-  actorUserId: string,
-): Promise<void> {
-  const nowIso = new Date().toISOString();
-  // Per-user unique tombstone (auth.users.email + public.users.email are unique).
-  // The .invalid TLD (RFC 2606) can never be a real deliverable address.
-  const tombstoneEmail = `erased+${targetUserId}@erased.setnayan.invalid`;
-
-  const auditFail = async (stage: string, message: string) => {
-    console.error(`[eraseUserAccount] ${stage} failed`, message);
-    await admin
-      .from('admin_audit_log')
-      .insert({
-        action: 'erasure_step_failed',
-        target_id: targetUserId,
-        actor_user_id: actorUserId,
-        metadata: { stage, message },
-      })
-      .then(({ error }) => {
-        if (error) console.error('[eraseUserAccount] audit-log write failed', error.message);
-      });
-  };
-
-  // 0. Capture the user's OWN uploaded-file refs (profile photo · shop logo)
-  //    BEFORE the anonymize nulls those columns — nulling the DB pointer alone
-  //    orphans the object in R2. (Papic/event photos are shared-event → left for
-  //    the DPO shared-record ruling; gov-ID/selfie were retired 2026-07-03 and
-  //    are never stored.)
-  const [preUser, preVendor] = await Promise.all([
-    admin.from('users').select('profile_photo_url').eq('user_id', targetUserId).maybeSingle(),
-    admin.from('vendor_profiles').select('logo_url').eq('user_id', targetUserId).maybeSingle(),
-  ]);
-  const ownFileRefs = [
-    (preUser.data as { profile_photo_url?: string | null } | null)?.profile_photo_url,
-    (preVendor.data as { logo_url?: string | null } | null)?.logo_url,
-  ].filter((v): v is string => typeof v === 'string' && v.length > 0);
-
-  // 1. Anonymize the public.users PII + lock the account out via deleted_at.
-  //    email is NOT NULL → tombstone rather than null. Covers the sensitive PI
-  //    (§3(l)) the identity row carries beyond name/contact: religion, civil
-  //    status, sex, address, self-review venue, and the public social-post link.
-  const { error: pErr } = await admin
-    .from('users')
-    .update({
-      email: tombstoneEmail,
-      display_name: null,
-      phone: null,
-      profile_photo_url: null,
-      birth_date: null,
-      slug: null,
-      religion: null,
-      religion_consent_at: null,
-      civil_status: null,
-      civil_status_consent_at: null,
-      sex: null,
-      sex_consent_at: null,
-      address_normalized: null,
-      venue_address: null,
-      venue_name: null,
-      social_post_url: null,
-      last_login_at: null,
-      last_ghost_check_at: null,
-      deleted_at: nowIso,
-      updated_at: nowIso,
-    })
-    .eq('user_id', targetUserId);
-  if (pErr) await auditFail('users-anonymize', pErr.message);
-
-  // 2. Kill live sessions so the lockout is immediate on every device.
-  const revoked = await revokeAllSessions(targetUserId);
-  if (!revoked.ok) await auditFail('session-revoke', revoked.error);
-
-  // 3. Scrub the auth.users email (frees the original + removes email PII).
-  //    email_confirm:true applies it immediately without mailing the tombstone.
-  const { error: aErr } = await admin.auth.admin.updateUserById(targetUserId, {
-    email: tombstoneEmail,
-    email_confirm: true,
-  });
-  if (aErr) await auditFail('auth-scrub', aErr.message);
-
-  // 4. Domain PII purges (owned-event owner data · authored chat bodies · the
-  //    user's other owner-scoped records — people node, account biometrics,
-  //    family records, shop contact PII, support tickets, push tokens, guest
-  //    claims · the subject's per-event GUEST-side biometrics + selfies).
-  await purgeOwnedEventBirthData(admin, targetUserId, actorUserId);
-  await purgeUserAuthoredChat(admin, targetUserId, actorUserId);
-  await purgeUserOwnedRecords(admin, targetUserId, actorUserId);
-  await purgeUserGuestBiometrics(admin, targetUserId, actorUserId);
-
-  // 5. Delete the user's own uploaded FILES from R2 (the objects behind the
-  //    now-nulled profile-photo + shop-logo pointers). Best-effort: r2Delete
-  //    throws only if R2 is unconfigured — caught so a storage hiccup can't trap
-  //    the erasure. Only `r2://` refs from the current upload flow are removed;
-  //    a legacy/external URL is left (it may not even be ours).
-  for (const ref of ownFileRefs) {
-    const asset = parseStoredAsset(ref);
-    if (asset?.kind === 'r2') {
-      try {
-        await r2Delete({ bucket: asset.bucket, key: asset.key });
-      } catch (e) {
-        await auditFail('r2-object-delete', e instanceof Error ? e.message : String(e));
-      }
-    }
-  }
-
-  // 6. Success audit.
-  await admin
-    .from('admin_audit_log')
-    .insert({
-      action: 'user_erased',
-      target_id: targetUserId,
-      actor_user_id: actorUserId,
-      metadata: { method: 'soft_delete_anonymize' },
-    })
-    .then(({ error }) => {
-      if (error) console.error('[eraseUserAccount] success audit write failed', error.message);
-    });
 }
 
 async function requireAdmin() {
@@ -736,9 +193,14 @@ export async function deleteUser(formData: FormData) {
     throw new Error('Cannot delete an internal account');
   }
 
-  await eraseUserAccount(admin, targetUserId, adminUserId);
+  const { publicSlug } = await eraseUserAccount(admin, targetUserId, adminUserId, erasureIo());
 
   revalidatePath('/admin/users');
+  // The anonymize nulls users.slug, but /u/[slug] is a cached public page — it
+  // would keep serving the erased profile until its own revalidation window
+  // expired. (The EVENT site at /[slug] is shared with the co-partner and is
+  // deliberately not invalidated here; see the DPO note in the PR.)
+  if (publicSlug) revalidatePath(`/u/${publicSlug}`);
 }
 
 /**
@@ -793,9 +255,10 @@ export async function blacklistUser(formData: FormData) {
     throw new Error(bError.message);
   }
 
-  await eraseUserAccount(admin, targetUserId, adminUserId);
+  const { publicSlug } = await eraseUserAccount(admin, targetUserId, adminUserId, erasureIo());
 
   revalidatePath('/admin/users');
+  if (publicSlug) revalidatePath(`/u/${publicSlug}`);
 }
 
 /**

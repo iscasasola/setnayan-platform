@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
   priceCustomizedPackage,
@@ -340,7 +342,7 @@ export async function lockPackage(
     const { data: insertedRows, error: cascadeErr } = await supabase
       .from('event_vendors')
       .insert(eventVendorRows)
-      .select('vendor_id, category');
+      .select('vendor_id, category, package_role');
     if (cascadeErr) {
       // Best-effort rollback: delete the booking we just created so the
       // host doesn't end up with an orphaned package row pointing at no
@@ -353,18 +355,46 @@ export async function lockPackage(
       return { status: 'error', message: cascadeErr.message };
     }
 
-    // Pick the primary (reception_venue category if present, else first).
-    const primary =
-      insertedRows?.find((r) => r.category === 'venue') ??
-      insertedRows?.find(
-        (r) => r.category === resolveVendorCategory(pkg.primary_canonical_service),
-      ) ??
-      insertedRows?.[0];
-    if (primary) {
+    // The ANCHOR is the primary, by construction — it is the row carrying the
+    // agreed total. This used to be a heuristic (venue category, else the
+    // package's primary service, else whichever row came back first), which
+    // could land on a covered row that carries no money at all.
+    const anchorRow = insertedRows?.find((r) => r.package_role === 'anchor');
+    if (anchorRow) {
       await supabase
         .from('event_vendor_packages')
-        .update({ primary_event_vendor_id: primary.vendor_id })
+        .update({ primary_event_vendor_id: anchorRow.vendor_id })
         .eq('booking_id', bookingId);
+
+      // ── § 6.4 — the booking fee, ONCE, on the package's agreed total ──────
+      //
+      // Until now `lockPackage` never called the collector at all, so on
+      // flag-flip a package booked for ₱0 in fees no matter its size.
+      //
+      // It fires on the ANCHOR precisely because the anchor carries
+      // `total_cost_php` = the whole number the couple accepted. Calling it per
+      // cascaded row would instead price the largest single LINE, and — worse —
+      // burn one of the vendor's five free bookings per service and freeze a
+      // ledger ordinal that is only ever computed once. The RPC now refuses a
+      // covered row outright (`covered_row_no_fee`) so that cannot happen even
+      // by mistake.
+      //
+      // Ships dark: `collectBookingFeeAtLock` is a no-op unless
+      // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on. Fail-soft on purpose — the
+      // couple's booking must never fail because a fee could not be opened;
+      // the next lock re-attempts it.
+      if (isBookingFeeEnabled()) {
+        try {
+          await collectBookingFeeAtLock(createAdminClient(), {
+            eventVendorId: anchorRow.vendor_id,
+          });
+        } catch (e) {
+          console.error(
+            `[lockPackage] booking-fee collect failed for booking_id=${bookingId}:`,
+            e,
+          );
+        }
+      }
     }
   }
 

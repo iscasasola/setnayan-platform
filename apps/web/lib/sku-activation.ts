@@ -870,6 +870,24 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       .eq('service_code', AI_SUB_SKU)
       .maybeSingle();
     const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
+    // ⭐ SEC-7 · `null` = the unit price is unknowable, so how many cycles this
+    // payment bought is unknowable too. REFUSE — the old behaviour was
+    // `cyclesFromAmount` silently returning 1, which is how a ₱0.01 order bought
+    // a full 28-day subscription (SETNAYAN_AI_SUB has no catalog row in prod).
+    // Raise the alarm instead of guessing: an admin can grant the window by hand
+    // once someone has seeded the SKU's admin-managed price.
+    if (cycles === null) {
+      reportActivationFault(
+        'activate:SETNAYAN_AI_SUB:no-unit-price',
+        ctx,
+        new Error(
+          `SETNAYAN_AI_SUB has no admin-managed retail_price_php — refusing to grant ` +
+            `cycles for a ₱${amountPhp} payment (order ${ctx.orderId}). Seed the catalog row, ` +
+            `then re-approve.`,
+        ),
+      );
+      return;
+    }
     if (cycles <= 0) return;
 
     // (4) Current window (one row per user) → extend, with a second idempotency

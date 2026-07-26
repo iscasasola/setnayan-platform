@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
   computeCustomization,
+  isRemovableItem,
   keptItems,
   resolveVendorCategory,
   type PackageCustomizations,
@@ -92,7 +93,10 @@ export async function lockPackage(
   const { data: itemsRows, error: itemsErr } = await supabase
     .from('vendor_package_items')
     .select(
-      'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at',
+      // `is_required` is load-bearing: `isRemovableItem` refuses to price a
+      // removal without it, so omitting it here silently let a host drop a
+      // line the vendor marked mandatory.
+      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
     )
     .eq('package_id', packageId)
     .order('display_order', { ascending: true });
@@ -183,6 +187,9 @@ export async function lockPackage(
         : null,
       marketplace_vendor_id: pkg.vendor_profile_id,
       event_vendor_package_id: bookingId,
+      // Provenance. Without it the only link back was (booking, category), and
+      // that mapping is many-to-one — see migration 20271007240000.
+      package_item_id: item.item_id,
       notes: `From package: ${pkg.package_name} — ${item.service_description}`,
     }));
 
@@ -357,7 +364,10 @@ export async function removeItemFromPackage(formData: FormData) {
   const { data: itemsRows } = await supabase
     .from('vendor_package_items')
     .select(
-      'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at',
+      // `is_required` is load-bearing: `isRemovableItem` refuses to price a
+      // removal without it, so omitting it here silently let a host drop a
+      // line the vendor marked mandatory.
+      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at',
     )
     .eq('package_id', booking.package_id)
     .order('display_order', { ascending: true });
@@ -384,22 +394,43 @@ export async function removeItemFromPackage(formData: FormData) {
   const { remainingConsumableCentavos, totalLockedCentavos } =
     computeCustomization(pkg, newRemoved);
 
-  // Map the removed item's canonical_service to its vendor_category so we
-  // know which cascaded event_vendors row to delete.
   const removedItem = pkg.items.find((i) => i.item_id === itemId);
   if (!removedItem) throw new Error('Item not found in package');
-  const removedCategory = resolveVendorCategory(removedItem.canonical_service);
 
-  // Delete the cascaded event_vendors row(s) for this category in this
-  // booking. There's typically exactly one match — the package cascade
-  // creates one row per item.
-  const { error: deleteErr } = await supabase
+  // A required line is not the host's to drop (owner-locked 2026-07-26). The
+  // client disables the control, but the server is what decides.
+  if (!isRemovableItem(removedItem)) {
+    throw new Error('That item is part of the package and cannot be removed.');
+  }
+
+  // Delete by ITEM, not by category. resolveVendorCategory is many-to-one
+  // (reception_venue + hotel_ballroom + garden_… all → 'venue'), so the old
+  // category match deleted every sibling row in the category while recording
+  // only this one item_id — see migration 20271007240000.
+  const { data: deletedRows, error: deleteErr } = await supabase
     .from('event_vendors')
     .delete()
     .eq('event_id', eventId)
     .eq('event_vendor_package_id', bookingId)
-    .eq('category', removedCategory);
+    .eq('package_item_id', itemId)
+    .select('vendor_id');
   if (deleteErr) throw new Error(deleteErr.message);
+
+  // Fallback for rows cascaded before package_item_id existed (none in prod —
+  // this booking predates the column). Category-scoped as before, but only
+  // when the precise match found nothing, so it can never over-delete a
+  // booking that does carry provenance.
+  if ((deletedRows?.length ?? 0) === 0) {
+    const removedCategory = resolveVendorCategory(removedItem.canonical_service);
+    const { error: legacyErr } = await supabase
+      .from('event_vendors')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('event_vendor_package_id', bookingId)
+      .eq('category', removedCategory)
+      .is('package_item_id', null);
+    if (legacyErr) throw new Error(legacyErr.message);
+  }
 
   // Persist new customization + recomputed totals.
   const { error: updateErr } = await supabase

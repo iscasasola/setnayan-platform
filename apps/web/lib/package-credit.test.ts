@@ -825,12 +825,16 @@ test('legacy computeCustomization still ignores is_required (flag-OFF path uncha
       },
     ],
   };
-  // The legacy function is the ACCRUAL half only — it has never known about
-  // required-ness and must keep behaving exactly as it does on main, or a
-  // flag-OFF booking would silently re-price.
+  // CONVERGED 2026-07-26. This test previously pinned the OPPOSITE — that the
+  // legacy accrual half ignored required-ness — on the argument that changing
+  // it would re-price a flag-OFF booking. That argument does not survive the
+  // facts: prod holds zero packages and zero package bookings, so there is no
+  // booking to re-price, and leaving it meant the shipped (flag-OFF) lock path
+  // refunded a host for a line the vendor marked mandatory. Both engines now
+  // agree: a required line is never removable and never accrues credit.
   const out = computeCustomization(legacy, [REQ_FIXED]);
-  assert.equal(out.removedTotalCentavos, V_REQ_FIXED);
-  assert.equal(out.remainingConsumableCentavos, CONSUMABLE + V_REQ_FIXED);
+  assert.equal(out.removedTotalCentavos, 0);
+  assert.equal(out.remainingConsumableCentavos, CONSUMABLE);
   assert.equal(out.totalLockedCentavos, TOTAL_PRICE);
 });
 
@@ -1076,12 +1080,12 @@ test("PINNED: under 'expiring', removals never move the price (the model's pilla
 /* keptItemIds DIVERGES from the shipped keptItems() — documented, not a bug */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-test('DIVERGENCE: keptItems() includes un-ticked lines, keptItemIds does not', () => {
-  // keptItems() filters ONLY on removal, so a line the vendor never ticked
-  // still cascades into event_vendors today. The credit engine excludes it.
-  // Both behaviours are pinned here so the lock wave has to make a choice
-  // rather than silently inherit one — switching the cascade to keptItemIds
-  // would drop rows it creates on main right now.
+test('CONVERGED: keptItems() and keptItemIds agree on un-ticked lines', () => {
+  // Was DIVERGENCE. keptItems() filtered only on removal, so a line the vendor
+  // never ticked still cascaded into event_vendors while the credit engine
+  // excluded it — the host was delivered a service they never bought, and the
+  // fee base was inflated by revenue nobody collected. The lock wave resolved
+  // it in the credit engine's favour (2026-07-26): both now drop it.
   const legacy: VendorPackageWithItems = {
     package_id: 'pkg-div',
     vendor_profile_id: 'vp-1',
@@ -1119,8 +1123,8 @@ test('DIVERGENCE: keptItems() includes un-ticked lines, keptItemIds does not', (
   };
   assert.deepEqual(
     keptItems(legacy, []).map((i) => i.item_id),
-    ['ticked', 'unticked'],
-    'shipped behaviour: an un-ticked line still cascades',
+    ['ticked'],
+    'CONVERGED: an un-ticked line no longer cascades — it was never bought',
   );
 
   const r = ok(

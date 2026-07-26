@@ -614,6 +614,58 @@ export async function screenEditorialVendorMedia(opts: {
  * late-finishing screen can never decide for media the couple has since
  * replaced. And even if it somehow did, the binding makes the result inert.
  */
+/**
+ * WHAT THE AUTOMATIC SCREEN IS ALLOWED TO CONCLUDE — pure, and exported so the
+ * "it can reject but never approve a video" rule is a test rather than a
+ * property of the surrounding I/O.
+ *
+ * `screenStdVideo` below does the I/O and then calls exactly this. Keeping the
+ * decision separable is what makes the guarantee auditable in one place: there
+ * is no branch in this module that reaches 'approved' for a video without a
+ * `grandfathered` marker, and lib/nsfw-screen.test.ts proves it exhaustively.
+ */
+export type StdScreenOutcome = {
+  /** The status to persist. */
+  status: 'rejected' | 'in_review' | 'approved';
+  /** Whether to record a poster examination (by the classifier that read it). */
+  examinePoster: boolean;
+  /**
+   * The examiner to record for the VIDEO, or null for "nobody examined it".
+   * `'legacy-poster-screen'` is reachable ONLY by carrying an existing
+   * service-role marker forward — this function cannot mint one.
+   */
+  videoExaminer: 'legacy-poster-screen' | null;
+  /** Whether the cutover marker survives this outcome. */
+  keepGrandfather: boolean;
+};
+
+export function stdScreenOutcome(args: {
+  decision: NsfwDecision;
+  /** True when the row already carries the SEC-6 cutover marker. */
+  grandfathered: boolean;
+}): StdScreenOutcome {
+  if (args.decision !== 'clean') {
+    // Rejection needs no examination of the video — a dirty poster is evidence
+    // enough to refuse the thing beside it. It also ENDS any carry-over: the row
+    // was grandfathered on a poster that now classifies dirty.
+    return {
+      status: 'rejected',
+      examinePoster: false,
+      videoExaminer: null,
+      keepGrandfather: false,
+    };
+  }
+  // Clean. The classifier examined the POSTER and nothing else, so it may vouch
+  // for the poster and for nothing else. Without a marker that leaves the video
+  // unexamined, which is `in_review` — waiting on a human, not on more compute.
+  return {
+    status: args.grandfathered ? 'approved' : 'in_review',
+    examinePoster: true,
+    videoExaminer: args.grandfathered ? 'legacy-poster-screen' : null,
+    keepGrandfather: args.grandfathered,
+  };
+}
+
 export async function screenStdVideo(opts: {
   eventId: string;
   /** The video this screen is for — guards against approving a superseded upload. */
@@ -724,9 +776,12 @@ export async function screenStdVideo(opts: {
     if (after.video !== before.video) return;
 
     const scores = await classifyImageBytes(bytes);
-    const decision = decideNsfw(scores);
+    const outcome = stdScreenOutcome({
+      decision: decideNsfw(scores),
+      grandfathered: grandfathered !== null,
+    });
 
-    if (decision !== 'clean') {
+    if (outcome.status === 'rejected') {
       await writeVerdict({
         ...base,
         status: 'rejected',
@@ -771,13 +826,15 @@ export async function screenStdVideo(opts: {
      * should not be leaning on it.
      */
     const { createHash } = await import('node:crypto');
-    const posterExamination = {
-      ref: sealed.posterRef,
-      fingerprint: sealed.posterFingerprint,
-      digest: createHash('sha256').update(bytes).digest('hex'),
-      by: 'nsfwjs-image' as const,
-      at,
-    };
+    const posterExamination = outcome.examinePoster
+      ? {
+          ref: sealed.posterRef,
+          fingerprint: sealed.posterFingerprint,
+          digest: createHash('sha256').update(bytes).digest('hex'),
+          by: 'nsfwjs-image' as const,
+          at,
+        }
+      : null;
 
     /**
      * The VIDEO's examination — NULL, except on the one grandfathered row.
@@ -793,19 +850,19 @@ export async function screenStdVideo(opts: {
      * COMPETENT_EXAMINERS.video and only counts while the marker is on the row.
      * It cannot be reached without a marker, and nothing here writes one.
      */
-    const videoExamination = grandfathered
+    const videoExamination = outcome.videoExaminer
       ? {
           ref: sealed.videoRef,
           fingerprint: sealed.videoFingerprint,
           digest: null,
-          by: 'legacy-poster-screen' as const,
+          by: outcome.videoExaminer,
           at,
         }
       : null;
 
     await writeVerdict({
       ...base,
-      status: videoExamination ? 'approved' : 'in_review',
+      status: outcome.status,
       videoFingerprint: before.video,
       posterFingerprint: before.poster,
       sealed: {
@@ -816,9 +873,9 @@ export async function screenStdVideo(opts: {
       },
       video: videoExamination,
       poster: posterExamination,
-      grandfathered,
+      grandfathered: outcome.keepGrandfather ? grandfathered : null,
       // `in_review` is not a terminal decision, so it does not stamp screenedAt.
-      screenedAt: videoExamination ? at : null,
+      screenedAt: outcome.status === 'approved' ? at : null,
       attemptedAt,
     });
   } catch (err) {

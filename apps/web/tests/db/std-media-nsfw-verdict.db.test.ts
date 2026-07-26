@@ -61,6 +61,17 @@ import { join } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 
 import { MIGRATIONS_DIR, createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { stdScreenOutcome } from '../../lib/nsfw-screen';
+import {
+  R2_SEALED_SEGMENT,
+} from '../../lib/r2-client-ref';
+import {
+  resolveStdMedia,
+  resolveStdNsfwVerdict,
+  stdNsfwDisplayStatus,
+  stdVideoNeedsGrandfatherHeal,
+  stdVideoServeRefs,
+} from '../../lib/std-media';
 
 const UPDATE_PRIVILEGE_MIGRATION = '20271005100000_events_column_update_privileges.sql';
 const SELECT_PRIVILEGE_MIGRATION = '20271007100000_events_column_select_privileges.sql';
@@ -72,8 +83,9 @@ const READ_TRAP_PROBE = 'sec6_read_trap_probe';
 
 const VIDEO_KEY = 'r2://setnayan-media/events/std-video/clean.mp4';
 const POSTER_KEY = 'r2://setnayan-media/events/std-video-poster/poster.jpg';
-const LEGACY_VIDEO_KEY = 'r2://setnayan-media/events/std-video/legacy.mp4';
-const LEGACY_POSTER_KEY = 'r2://setnayan-media/events/std-video-poster/legacy.jpg';
+/** Set after the insert — they must carry the row's OWN event id to parse. */
+let LEGACY_VIDEO_KEY = '';
+let LEGACY_POSTER_KEY = '';
 
 const FORGED_VERDICT = JSON.stringify({
   status: 'approved',
@@ -181,21 +193,27 @@ before(async () => {
   );
   eventId = ev.rows[0]!.event_id;
 
-  // The already-published row the cutover has to keep live.
+  // The already-published row the cutover has to keep live — shaped EXACTLY like
+  // the one production row (`cale-ice`): `r2://setnayan-media/events/{its own
+  // id}/std-video/…` with a poster under `…/std-video-poster/`. The refs are
+  // written in a second statement because they must carry the generated id.
   const legacy = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, std_media)
-     VALUES ('SEC-6 Legacy Event', 'birthday', $1::jsonb) RETURNING event_id`,
-    [
-      JSON.stringify({
-        type: 'video',
-        videoKey: LEGACY_VIDEO_KEY,
-        posterKey: LEGACY_POSTER_KEY,
-        nsfw: 'approved',
-        fit: 'fill',
-      }),
-    ],
+     VALUES ('SEC-6 Legacy Event', 'birthday', '{}'::jsonb) RETURNING event_id`,
   );
   legacyEventId = legacy.rows[0]!.event_id;
+  LEGACY_VIDEO_KEY = `r2://setnayan-media/events/${legacyEventId}/std-video/016d9fc1-teaser.mp4`;
+  LEGACY_POSTER_KEY = `r2://setnayan-media/events/${legacyEventId}/std-video-poster/3fc03b1b-poster.jpg`;
+  await db.query(`UPDATE public.events SET std_media = $2::jsonb WHERE event_id = $1`, [
+    legacyEventId,
+    JSON.stringify({
+      type: 'video',
+      videoKey: LEGACY_VIDEO_KEY,
+      posterKey: LEGACY_POSTER_KEY,
+      nsfw: 'approved',
+      fit: 'fill',
+    }),
+  ]);
 
   await db.query(
     `INSERT INTO public.event_members (event_id, user_id, member_type)
@@ -502,6 +520,89 @@ test('a HOST cannot forge a grandfather marker (the carry-over is not a host pri
   assert.equal(svcErr, null, `service_role also failed (${svcErr}) — the denial above proves nothing`);
   await db.query(`UPDATE public.events SET std_media_nsfw = NULL WHERE event_id = $1`, [eventId]);
   await reset();
+});
+
+// ── 3c. END TO END: the live production row still plays after the cutover ───
+
+test('E2E the cale-ice-shaped row survives migration → screen → serve, and serves the SEAL', async () => {
+  // The promise this whole grandfather exists to keep: a real couple's public
+  // page must not go dark. Every earlier test checks one link; this one walks
+  // the entire chain on a row shaped exactly like the single production video —
+  // the REAL migration output, the REAL screen outcome function, the REAL pure
+  // serve gate — and asserts a guest is handed a playable pair at the end.
+  await reset();
+  const r = await db.query<{ media: unknown; verdict: unknown }>(
+    `SELECT std_media AS media, std_media_nsfw AS verdict
+       FROM public.events WHERE event_id = $1`,
+    [legacyEventId],
+  );
+  const media = resolveStdMedia(r.rows[0]!.media, legacyEventId);
+  assert.equal(media.type, 'video', 'the strict parser rejected the real production ref shape');
+
+  // (1) straight out of the migration: marked, bound, NOT serving, and asking
+  //     for exactly one heal pass.
+  const migrated = resolveStdNsfwVerdict(r.rows[0]!.verdict);
+  assert.equal(migrated.grandfathered !== null, true);
+  assert.equal(
+    stdVideoServeRefs(media, migrated, legacyEventId),
+    null,
+    'the migration alone produced a servable verdict — it cannot honestly do that',
+  );
+  assert.equal(stdVideoNeedsGrandfatherHeal(media, migrated, legacyEventId), true);
+
+  // (2) the screen's decision on a clean poster, from the shipped function.
+  const outcome = stdScreenOutcome({ decision: 'clean', grandfathered: true });
+  assert.equal(outcome.status, 'approved');
+  assert.equal(outcome.videoExaminer, 'legacy-poster-screen');
+
+  // (3) the verdict the screen writes, assembled exactly as screenStdVideo does.
+  const sealedVideo = `r2://setnayan-media/events/${legacyEventId}/${R2_SEALED_SEGMENT}/n1/video-e1-100`;
+  const sealedPoster = `r2://setnayan-media/events/${legacyEventId}/${R2_SEALED_SEGMENT}/n2/poster-e2-10`;
+  const healed = resolveStdNsfwVerdict({
+    status: outcome.status,
+    videoKey: media.videoKey,
+    posterKey: media.posterKey,
+    videoFingerprint: 'e1:100',
+    posterFingerprint: 'e2:10',
+    sealed: {
+      videoRef: sealedVideo,
+      videoFingerprint: 'e1:100',
+      posterRef: sealedPoster,
+      posterFingerprint: 'e2:10',
+    },
+    video: outcome.videoExaminer
+      ? {
+          ref: sealedVideo,
+          fingerprint: 'e1:100',
+          digest: null,
+          by: outcome.videoExaminer,
+          at: '2026-07-26T00:00:00.000Z',
+        }
+      : null,
+    poster: outcome.examinePoster
+      ? {
+          ref: sealedPoster,
+          fingerprint: 'e2:10',
+          digest: 'sha256hex',
+          by: 'nsfwjs-image',
+          at: '2026-07-26T00:00:00.000Z',
+        }
+      : null,
+    grandfathered: outcome.keepGrandfather ? migrated.grandfathered : null,
+    screenedAt: '2026-07-26T00:00:00.000Z',
+    attemptedAt: '2026-07-26T00:00:00.000Z',
+  });
+
+  // (4) …and the guest gets a playable pair — of SEALED objects, never the
+  //     couple's still-writable upload key.
+  const refs = stdVideoServeRefs(media, healed, legacyEventId);
+  assert.ok(refs, 'THE LIVE PAGE WENT DARK — the cutover broke a real couple site');
+  assert.equal(refs.videoRef, sealedVideo);
+  assert.equal(refs.posterRef, sealedPoster);
+  assert.notEqual(refs.videoRef, media.videoKey);
+  assert.equal(stdNsfwDisplayStatus(media, healed, legacyEventId), 'approved');
+  // …and the heal has stopped firing, so the public page is not in a loop.
+  assert.equal(stdVideoNeedsGrandfatherHeal(media, healed, legacyEventId), false);
 });
 
 // ── 4. Re-applying the migration is safe ────────────────────────────────────

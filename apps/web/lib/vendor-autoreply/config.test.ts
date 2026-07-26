@@ -7,6 +7,7 @@ import {
   DAILY_REPLY_CAP_MAX,
   DAILY_REPLY_CAP_MIN,
   parseAutoReplyConfigForm,
+  parseVoiceSwitchesForm,
 } from './config';
 
 function form(entries: Record<string, string>): FormData {
@@ -159,4 +160,39 @@ test('one invalid auto-accept field rejects the whole form', () => {
     form({ auto_accept_enabled: 'true', auto_accept_threshold: '200' }),
   );
   assert.equal(res.ok, false);
+});
+
+/* ─── Advanced voice-match switches ───────────────────────────────────────── */
+
+test('voice switches: mode parses to exactly the two DB CHECK values', () => {
+  assert.deepEqual(parseVoiceSwitchesForm(form({ mode: 'smart' })), {
+    ok: true,
+    patch: { mode: 'smart' },
+  });
+  assert.deepEqual(parseVoiceSwitchesForm(form({ mode: 'free' })), {
+    ok: true,
+    patch: { mode: 'free' },
+  });
+});
+
+test('voice switches: an out-of-CHECK mode is refused, never coerced', () => {
+  for (const bad of ['pro', 'SMART', 'advanced', '', 'true']) {
+    assert.equal(parseVoiceSwitchesForm(form({ mode: bad })).ok, false, bad);
+  }
+});
+
+test('voice switches: the learn opt-out parses both ways', () => {
+  assert.deepEqual(parseVoiceSwitchesForm(form({ learn_from_past_messages: 'false' })), {
+    ok: true,
+    patch: { learn_from_past_messages: false },
+  });
+  assert.deepEqual(parseVoiceSwitchesForm(form({ learn_from_past_messages: 'true' })), {
+    ok: true,
+    patch: { learn_from_past_messages: true },
+  });
+  assert.equal(parseVoiceSwitchesForm(form({ learn_from_past_messages: 'maybe' })).ok, false);
+});
+
+test('voice switches: an empty form patches nothing (never clobbers)', () => {
+  assert.deepEqual(parseVoiceSwitchesForm(form({})), { ok: true, patch: {} });
 });

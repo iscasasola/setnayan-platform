@@ -93,6 +93,9 @@ import {
   DAILY_REPLY_CAP_DEFAULT,
 } from '@/lib/vendor-autoreply/config';
 import { AutoReplyCard } from './_components/autoreply-card';
+// Advanced voice-match panel — self-gating on NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH
+// (returns null, zero queries, when the flag is off).
+import { VoiceMatchSection } from './_components/voice-match-section';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -919,6 +922,7 @@ async function AutoReplySection({ vendorProfileId }: { vendorProfileId: string }
         initialAutoAcceptThreshold={autoAcceptThreshold}
         initialDailyAutoAcceptCap={dailyAutoAcceptCap}
       />
+      <VoiceMatchSection vendorProfileId={vendorProfileId} />
     </section>
   );
 }

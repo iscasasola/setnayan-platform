@@ -369,8 +369,24 @@ END $$;
 -- READ-ONLY, and closed to anon. A single-table view with a simple WHERE is
 -- auto-updatable, and this one runs with definer rights — granting anything but
 -- SELECT would hand hosts a write path straight past couple_can_update_event.
+-- ⚠ THE `authenticated` REVOKE IS LOAD-BEARING, NOT BELT-AND-BRACES.
+-- This project carries ALTER DEFAULT PRIVILEGES in `public` granting
+-- arwdDxtm — i.e. INSERT/SELECT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER —
+-- to BOTH anon and authenticated on every newly created relation (verify with
+-- `select defaclacl from pg_default_acl d join pg_namespace n
+--    on n.oid = d.defaclnamespace where n.nspname = 'public'`).
+-- A view is a relation, so `CREATE VIEW` above already handed `authenticated`
+-- the full set before this block runs, and `GRANT SELECT` ADDS a privilege —
+-- it does not reduce the others. Revoking only PUBLIC and anon therefore left
+-- authenticated holding UPDATE/INSERT/DELETE on an auto-updatable,
+-- definer-rights view: a write path straight past couple_can_update_event AND
+-- past RLS on public.events.
+-- Post-condition (c) `events_host-is-writable` caught exactly this and refused
+-- to apply the migration. Revoke from authenticated FIRST, then grant back the
+-- single privilege it should have.
 REVOKE ALL ON public.events_host FROM PUBLIC;
 REVOKE ALL ON public.events_host FROM anon;
+REVOKE ALL ON public.events_host FROM authenticated;
 GRANT SELECT ON public.events_host TO authenticated, service_role;
 
 COMMENT ON VIEW public.events_host IS

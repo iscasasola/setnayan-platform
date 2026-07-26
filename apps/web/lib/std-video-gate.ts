@@ -226,14 +226,31 @@ async function sealScreenedObject(args: {
       toKey,
       sourceIfMatch: parts.etag,
     });
-  } catch {
-    return null; // copy refused (source moved) or R2 unconfigured → no approval
+  } catch (err) {
+    // Copy refused (a 412 means the source moved under us — exactly what the
+    // condition is for), or R2 is unconfigured. Either way: no approval.
+    //
+    // LOGGED, not silent. This path fails CLOSED, so a systemic failure here
+    // (an R2 change that rejects the conditional header outright, a bucket
+    // permission drift) would look identical to "nobody uploaded a video" —
+    // every couple's film would quietly close on the photo gallery with no
+    // signal anywhere. One warning per attempt, throttled upstream to once per
+    // 10 minutes per event by stdVideoNeedsScreen.
+    console.warn(
+      `[std-video-gate] seal failed (video stays unapproved) — event_id=${args.eventId} role=${args.role}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
   }
   const sealedFingerprint = await fingerprintObject({
     bucket: args.source.bucket,
     key: toKey,
   });
-  if (sealedFingerprint !== args.fingerprint) return null;
+  if (sealedFingerprint !== args.fingerprint) {
+    console.warn(
+      `[std-video-gate] sealed copy does not match the screened bytes (video stays unapproved) — event_id=${args.eventId} role=${args.role}`,
+    );
+    return null;
+  }
   const ref = encodeR2Ref(args.source.bucket, toKey);
   // Final self-check: the ref we are about to persist must satisfy the same
   // policy the serve path will apply to it. A seal the reader would refuse is a

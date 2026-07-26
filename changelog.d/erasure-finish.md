@@ -133,3 +133,65 @@ Four new neutralisation probes, all measured and reverted:
 The other **eight DPO questions** the parent PR surfaced are untouched, as are audit-log retention (`admin_audit_log`, `admin_data_access_log`) and the `events` shared-field line.
 
 SPEC IMPACT: `DECISION_LOG.md` — new row recording (a) the owner's per-partner erasure ruling and the fail-closed rule it implies, (b) that the user↔partner-slot mapping is a known missing primitive blocking complete self-erasure of paperwork, (c) `granted_by_user_id` as the standing attribution pattern for event-keyed credentials, (d) vendor verification documents now in erasure scope, and (e) the guardrail lesson that a table with no user column is unread, not clean.
+
+---
+
+## 2026-07-26 · fix(security): SEC-8 — a couple member could read the event's live Google refresh token
+
+Found while closing out the PR above. Eighth finding of the 2026-07-26 audit, and the eighth instance of the same single mistake: **RLS is ROW-level and can never hide a COLUMN.**
+
+`public.oauth_grants` stores Google credentials in **plaintext** (`refresh_token`, `access_token`). Verified against the live catalog:
+
+- table-level `SELECT` granted to **both** `anon` and `authenticated`;
+- `has_column_privilege(..., 'SELECT')` **true for every column of the table** for both roles — tokens included;
+- RLS on, two PERMISSIVE policies, both `TO authenticated`: `admin_manages_oauth_grants` (`is_admin()`, cmd `*`) and `event_member_reads_oauth_grants` (`event_id IN current_couple_event_ids()`, SELECT).
+
+`anon` was never the exposure — no policy names it, so it matches zero rows. **`authenticated` was.** The couple-read policy admits every couple member of the event to the row; nothing then withheld the column. So `GET /rest/v1/oauth_grants?select=refresh_token` returned a live, long-lived Google credential — with curl, without ever loading a Setnayan page.
+
+**Scale, honestly.** One signup ever, no evidence of any breach: today the only person who can do this is reading their own token. The reason to fix it now is what it becomes at 5,000 weddings — **partner A can lift partner B's Drive refresh token**, and any couple member holds a bearer credential to the connected Google account that outlives the wedding and cannot be un-leaked.
+
+**Why a column revoke and not a policy change.** The row policy is correct. Tightening it would break the couple-facing "Connected to Drive as …" surfaces, which legitimately read `external_account_display` / `granted_at` / `connection_health` / `metadata` off the same rows. Only two columns are wrong; a column-level denial is the minimum cut. `metadata` was inspected against the live rows (`picture_url`, `account_name`, `drive_folder_id`, `drive_subfolders`, `drive_folder_name`, `thumbnail_url`) — no token material, so it stays readable.
+
+**Nothing had to move.** Every one of the seven token readers was audited and every one already uses `createAdminClient()`: `/api/cron/oauth-refresh`, the drive / youtube / photo-delivery disconnect routes, `disconnectPhotoDelivery` (a server action that authenticates on the session client and reads the grant on the admin client), `lib/drive-copy.ts` and `lib/photo-delivery-release.ts`. The three OAuth callbacks write tokens, also on the admin client. Connect, refresh and disconnect are unaffected — asserted, not assumed, by a `service_role` differential control.
+
+### The freeze was red, and the fix was to narrow — not to re-baseline
+
+CI failed on `THE FREEZE: the exposure surface has not widened`. Cause: this PR adds `event_paperwork.subject_user_id` and `oauth_grants.granted_by_user_id`, and the project carries `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated` — so **new columns ship OPEN** (`anon=SIU authenticated=SIU`). The same trap broke a different migration earlier the same day.
+
+Decided per column, not blanket-baselined. Neither is user data: both are **erasure-control inputs**, written by the server and read only by the purge. `UPDATE` is the load-bearing revoke — `event_paperwork`'s host policies are `TO PUBLIC` with `cmd=UPDATE`, so a writable `subject_user_id` would let a host stamp the **co-partner's** user id onto their own rows and have erasure destroy the co-partner's PSA/CENOMAR scan on the attacker's say-so. That is the SEC-6 shape (a host-writable field feeding a server decision), and it is the exact harm the column was added to prevent, handed back through the front door. Both columns: `SELECT`, `INSERT` and `UPDATE` revoked from both browser roles, in the same migration that creates them so the column and its lockdown cannot be cherry-picked apart.
+
+**⚠ The naive one-liner is a silent no-op.** Postgres: *"if a role has been granted privileges on a table, then revoking the same privileges from individual columns will have no effect."* Both roles hold table-level `SELECT` in prod, so `REVOKE SELECT (refresh_token, access_token) … FROM anon, authenticated` applies cleanly and changes nothing. Table-level must be revoked first and an explicit column list granted back — computed from **live** privileges so it is a union with every earlier revoke rather than a silent undo (the SEC-2b shape from `20271008731642`). Both migrations carry post-conditions that `RAISE` on the no-op.
+
+### Baseline: verified mechanically, not by eye
+
+6150 facts before and after · **ADDED 0 · REMOVED 0 · CHANGED 6 · WIDENED 0**, with every changed key proven a strict subset of its prior privilege set:
+
+| kind | key | before | after |
+|---|---|---|---|
+| `col` | `oauth_grants.access_token` | `anon=SIU authenticated=SIU` | `anon=IU authenticated=IU` |
+| `col` | `oauth_grants.refresh_token` | `anon=SIU authenticated=SIU` | `anon=IU authenticated=IU` |
+| `tpriv` | `event_paperwork\|anon` | `SIUD` | `D` |
+| `tpriv` | `event_paperwork\|authenticated` | `SIUD` | `D` |
+| `tpriv` | `oauth_grants\|anon` | `SIUD` | `D` |
+| `tpriv` | `oauth_grants\|authenticated` | `SIUD` | `D` |
+
+The two columns that made the freeze red appear **nowhere** as accepted new lines — they emit nothing, because the collector is sparse and a column no low-trust role can touch is not a fact. The freeze was answered by narrowing. A baseline refreshed whenever it complains is not a freeze.
+
+### Neutralisation — including the one mutation CI missed
+
+New `tests/db/oauth-token-column-lockdown.db.test.ts`, 9 subtests. The vacuity risk here is the classic one, so the probe **asserts** up front that the session is really `authenticated`, is not a superuser, has no `BYPASSRLS`, and does not own either table (META-1); that the denied columns exist and the refusal is exactly SQLSTATE **42501**, not 42703 from a rename (META-2); that the same session **can** read the couple-facing columns off the same table (META-3, positive control); and that **`service_role` can still read both tokens** (META-4, differential control).
+
+| probe | mutation | result |
+|---|---|---|
+| **N1** | delete the whole SEC-8 revoke + its post-conditions | **3 of 9 fail** — both denial tests and the deny-set test. The six controls stay green, which is what makes them controls. |
+| **N2** | swap in the naive column `REVOKE` | **9 of 9 PASS — not caught.** `20271009200000` runs first in the same PR and has already converted the table to a column-list grant, so the harness has no table-level grant left for the one-liner to fail against. CI would have been green over a fix inert in production. |
+| **N2b** | naive `REVOKE` **and** the `20271009200000` lockdown removed — prod's actual state | migration post-condition (a) `RAISE`s during replay naming all four columns; **all 9 fail**. The no-op cannot ship even with this test file deleted. |
+| **N3** | drop only the attribution-column lockdown | **all 9 fail** via SEC-8's own UNION post-condition (b) — the live-privilege allow-list grants the column straight back, and (b) notices. The freeze independently goes red. |
+
+N2 is the most useful line in this table: it is a mutation the suite did **not** catch, and writing it down is why the migration uses `REVOKE`-then-`GRANT` in both files rather than depending on either one's ordering.
+
+`tsc --noEmit` clean, proved non-vacuous by injecting a deliberate type error and confirming it was reported · `test:unit` 4051/4051 · `test:db` 352/352 · `next lint` warnings only · `check-migration-timestamps` and `migration-doctor` both clean.
+
+Deliberately untouched: the eight open DPO questions, `KNOWN_GAP_CEILING` (89), and `oauth_grants` **write** privileges — RLS gates writes row-wise and the only write policy is `is_admin()`, so a non-admin matches zero rows and there is no write path to close.
+
+SPEC IMPACT: `DECISION_LOG.md` — new row recording SEC-8 (plaintext OAuth credentials were column-readable by any couple member; closed by column revoke, no reader had to move) and the standing rule it generalises: **on this project a new column ships OPEN, so every migration that adds one to a table the browser can reach must revoke it in the same file** — and a column-level `REVOKE` is a no-op wherever a table-level grant exists, so the shape is always table-REVOKE-then-column-GRANT.

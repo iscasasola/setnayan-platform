@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { screenEditorialVendorMedia } from '@/lib/nsfw-screen';
+import { editorialVendorMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import {
   findRecommendedEventVendorId,
   MAX_PER_TYPE,
@@ -39,6 +40,17 @@ export async function submitVendorEditorialMedia(
     if (it.type !== 'photo' && it.type !== 'clip') return { ok: false, error: 'Bad media type.' };
     if (typeof it.stillRef !== 'string' || !it.stillRef) return { ok: false, error: 'Missing image.' };
     if (it.type === 'clip' && !it.boomerangRef) return { ok: false, error: 'A clip needs its boomerang.' };
+    // SEC-1: both refs were only non-empty-checked, then stored and presigned
+    // on the couple's PUBLIC editorial site (app/[slug]/…/editorial/data.ts)
+    // and read server-side by lib/nsfw-screen.ts. Contain them to the media
+    // bucket under the prefix the uploader actually writes.
+    const policy = editorialVendorMediaPolicy();
+    if (!parseClientRef(it.stillRef, policy)) {
+      return { ok: false, error: 'That image reference isn’t valid — re-upload and try again.' };
+    }
+    if (it.boomerangRef && !parseClientRef(it.boomerangRef, policy)) {
+      return { ok: false, error: 'That clip reference isn’t valid — re-upload and try again.' };
+    }
   }
 
   const supabase = await createClient();

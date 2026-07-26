@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { presignUploadUrl } from '@/lib/uploads';
 
+/** Matches app/admin/recaps/actions.ts — jobId is interpolated into an R2 key. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Iteration 0017 Patiktok — presigned-PUT endpoint for video objects.
  *
@@ -114,6 +117,22 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (!membership) {
     return bad('not a member of this event', 403);
+  }
+
+  // SEC-1: `jobId` is interpolated straight into the object key but was only
+  // checked for "non-empty string". A value containing `/` (or `..`) escapes
+  // the `patiktok/renders/{eventId}/` prefix and mints a PUT URL for an
+  // arbitrary `*.mp4` key anywhere in the media bucket. Require a UUID, and
+  // require the job to actually belong to this event.
+  if (kind === 'reel') {
+    if (!UUID_RE.test(jobId as string)) return bad('jobId must be a UUID');
+    const { data: job } = await supabase
+      .from('patiktok_render_jobs')
+      .select('job_id')
+      .eq('job_id', jobId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!job) return bad('render job not found for this event', 404);
   }
 
   const key =

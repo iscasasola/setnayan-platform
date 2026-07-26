@@ -302,7 +302,11 @@ export const routes = {
       // between this and `panood.broadcast` on the flag.
       liveStudioControl: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/live-studio-control`,
-        control: (eventId: string) => `/dashboard/${eventId}/studio/live-studio-control/setup`,
+        // ⭐ WAVE 8 (§ 4g): the controller is CHROME-LESS and therefore lives
+        // outside /dashboard — an App Router page cannot opt out of an ancestor
+        // layout, and `[eventId]/layout.tsx` mounts the masthead + bottom nav.
+        // Same escape `/panood/program/[eventId]` already uses.
+        control: (eventId: string) => `/panood/control/${eventId}`,
       },
       moodBoard: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/mood-board`,

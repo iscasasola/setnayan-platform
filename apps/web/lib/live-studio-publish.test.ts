@@ -220,7 +220,7 @@ test('WIRING — the PUBLIC read re-applies the gate (permission does not persis
 });
 
 test('WIRING — the rehearsal actions have NOT had the old entitlement gate re-added', () => {
-  const actions = read('../app/dashboard/[eventId]/studio/live-studio-control/setup/actions.ts');
+  const actions = read('../app/panood/control/[eventId]/actions.ts');
 
   // The gate may still guard the ⚡ highlight actions (paid, on-air) and nothing
   // else. Two call sites, both inside markHighlight / deleteHighlight.
@@ -482,7 +482,7 @@ test('WIRING — ⭐ the UNIFIED controller installs the program bridge (the pat
   // The Wave 4 gap: `installProgramBridge` had exactly one caller (the legacy control
   // room), so a cut on the unified controller reached the monitor and stopped.
   const bridge = read(
-    '../app/dashboard/[eventId]/studio/live-studio-control/setup/_components/program-bridge.tsx',
+    '../app/panood/control/[eventId]/_components/program-bridge.tsx',
   );
   assert.ok(bridge.includes('installProgramBridge('), 'the unified controller stopped installing the bridge');
   assert.ok(
@@ -501,13 +501,13 @@ test('WIRING — ⭐ the UNIFIED controller installs the program bridge (the pat
     'the bridge host must subscribe to Wave 4’s shared viewer, never open its own',
   );
 
-  const page = read('../app/dashboard/[eventId]/studio/live-studio-control/setup/page.tsx');
+  const page = read('../app/panood/control/[eventId]/page.tsx');
   assert.ok(page.includes('<ProgramBridgeHost'), 'the controller page must mount the bridge host');
 });
 
 test('WIRING — ⭐ the controller publishes the PERMITTED slot, never the raw cut', () => {
   const bridge = read(
-    '../app/dashboard/[eventId]/studio/live-studio-control/setup/_components/program-bridge.tsx',
+    '../app/panood/control/[eventId]/_components/program-bridge.tsx',
   );
   // The single most important line in the file: what goes onto the bridge.
   assert.ok(
@@ -529,7 +529,7 @@ test('WIRING — ⭐ the controller publishes the PERMITTED slot, never the raw 
     'the bridge host must subscribe to the permitted slot, not the cut',
   );
 
-  const page = read('../app/dashboard/[eventId]/studio/live-studio-control/setup/page.tsx');
+  const page = read('../app/panood/control/[eventId]/page.tsx');
   assert.ok(page.includes('decideProgramAir('), 'the controller must resolve the air decision server-side');
 });
 

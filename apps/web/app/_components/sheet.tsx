@@ -46,6 +46,14 @@ export type SheetProps = {
    * floats in the top-right of the sheet body.
    */
   title?: string;
+  /**
+   * Widen the sm+ drawer from 22rem to ~34rem. For sheets whose body is a
+   * SETTINGS SURFACE rather than a single decision — long RTMP URLs, two-column
+   * forms, a channel list with per-row controls — 22rem wraps every control onto
+   * its own line and turns setup into scrolling. Default false: every existing
+   * caller renders byte-identically.
+   */
+  wide?: boolean;
   children: ReactNode;
 };
 
@@ -54,6 +62,7 @@ export function Sheet({
   onClose,
   labelledById,
   title,
+  wide = false,
   children,
 }: SheetProps) {
   // Esc-to-close + body-scroll-lock + focus management (focus-in, Tab trap,
@@ -82,7 +91,9 @@ export function Sheet({
 
       {/* Sheet body */}
       <div
-        className="relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:h-full sm:max-h-none sm:w-[22rem] sm:rounded-l-3xl sm:rounded-tr-none sm:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]"
+        className={`relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:h-full sm:max-h-none sm:rounded-l-3xl sm:rounded-tr-none sm:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
+          wide ? 'sm:w-[min(34rem,92vw)]' : 'sm:w-[22rem]'
+        }`}
       >
         {title ? (
           <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3">

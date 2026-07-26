@@ -42,6 +42,7 @@ export function BroadcastWindowStrip({
   isLive,
   broadcastStartedAt,
   addADay,
+  compact = false,
 }: {
   /** ISO end of the paid broadcast day, or null when no clock is running. */
   expiresAt: string | null;
@@ -51,6 +52,21 @@ export function BroadcastWindowStrip({
   broadcastStartedAt: string | null;
   /** The "Add another day" purchase control (the shared inline checkout drawer). */
   addADay: ReactNode;
+  /**
+   * ⭐ WAVE 8 (§ 4g) — render inside a FIXED viewport that must never scroll.
+   *
+   * Two of these strips can be up at once (the day ending AND the 12-hour archive
+   * cap), and at full size that is ~140px appearing without warning directly above
+   * the transport row. On a 360×640 phone that is enough to push Go live off a
+   * viewport the operator cannot scroll.
+   *
+   * Compact keeps the ACTIONABLE half at full strength — the bold headline and the
+   * "Add another day" button are untouched — and clamps the explanatory sentence to
+   * two lines. NOTHING IS REMOVED FROM THE DOM: `line-clamp` is a visual clamp, so
+   * screen readers still read the whole sentence, and the full text is one tap away
+   * in Setup. Default false, so every other caller renders byte-identically.
+   */
+  compact?: boolean;
 }) {
   // Start from the server's own instant so the first paint matches what the server
   // decided, then take over the clock for the crossings it cannot see.
@@ -71,6 +87,7 @@ export function BroadcastWindowStrip({
     <div className="space-y-2">
       {phase === 'ending-soon' ? (
         <Strip
+          compact={compact}
           tone="warn"
           Icon={Clock3}
           title={`Your broadcast day ends ${untilLabel(expiresAt, now)}.`}
@@ -83,21 +100,21 @@ export function BroadcastWindowStrip({
       ) : null}
 
       {phase === 'running-long' ? (
-        <Strip tone="calm" Icon={Radio} title="Your broadcast day is up — carry on." action={addADay}>
+        <Strip compact={compact} tone="calm" Icon={Radio} title="Your broadcast day is up — carry on." action={addADay}>
           We do not interrupt a broadcast in progress. Every camera stays on air until you
           stop. Add another day if you plan to go live again after this.
         </Strip>
       ) : null}
 
       {phase === 'ended' ? (
-        <Strip tone="warn" Icon={Radio} title="Your broadcast day has ended." action={addADay}>
+        <Strip compact={compact} tone="warn" Icon={Radio} title="Your broadcast day has ended." action={addADay}>
           Going live now streams one camera, free, exactly as it always does. Add another
           day to put all of them back on air.
         </Strip>
       ) : null}
 
       {archive.exceeded ? (
-        <Strip tone="warn" Icon={AlertCircle} title={`This stream has passed ${YOUTUBE_ARCHIVE_HOURS} hours.`}>
+        <Strip compact={compact} tone="warn" Icon={AlertCircle} title={`This stream has passed ${YOUTUBE_ARCHIVE_HOURS} hours.`}>
           YouTube saves only the first {YOUTUBE_ARCHIVE_HOURS} hours of a stream as a replay —
           anything from here may not appear in the recording at all. It is still going out
           live to everyone watching. For a celebration that runs over more than one day, stop
@@ -105,6 +122,7 @@ export function BroadcastWindowStrip({
         </Strip>
       ) : archive.warn ? (
         <Strip
+          compact={compact}
           tone="calm"
           Icon={Film}
           title={`${archive.hoursToCap} hour${archive.hoursToCap === 1 ? '' : 's'} of recording left.`}
@@ -123,12 +141,14 @@ function Strip({
   Icon,
   title,
   action,
+  compact = false,
   children,
 }: {
   tone: 'warn' | 'calm';
   Icon: typeof Clock3;
   title: string;
   action?: ReactNode;
+  compact?: boolean;
   children: ReactNode;
 }) {
   const skin =
@@ -136,7 +156,11 @@ function Strip({
       ? 'border-terracotta/40 bg-terracotta/[0.07] text-ink/75'
       : 'border-ink/15 bg-ink/[0.03] text-ink/70';
   return (
-    <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs leading-snug ${skin}`}>
+    <div
+      className={`flex flex-wrap items-center gap-2 rounded-xl border text-xs leading-snug ${
+        compact ? 'px-3 py-2' : 'px-3.5 py-2.5'
+      } ${skin}`}
+    >
       <Icon
         aria-hidden
         className={`h-4 w-4 shrink-0 ${tone === 'warn' ? 'text-terracotta' : 'text-ink/45'}`}
@@ -144,7 +168,8 @@ function Strip({
       />
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-ink">{title}</span>
-        {children}
+        {/* Visual clamp only — the sentence stays whole in the DOM and for AT. */}
+        <span className={compact ? 'line-clamp-2 block' : undefined}>{children}</span>
       </span>
       {action ? <span className="shrink-0">{action}</span> : null}
     </div>

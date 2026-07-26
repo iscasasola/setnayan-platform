@@ -17,11 +17,15 @@ export function InvitationShell({
   children,
   backdrop,
   rolePalette,
+  monogramText,
   fullBleed = false,
   hideWatermark = false,
   customColorVars,
 }: {
   children: React.ReactNode;
+  /** Pahina (wave A PR-2): couple's monogram text for the header right slot —
+   *  gild Fraunces italic. Falls back to the mono "Invitation" label. */
+  monogramText?: string | null;
   backdrop?: React.ReactNode;
   // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
   // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
@@ -77,9 +81,13 @@ export function InvitationShell({
               Setnayan
             </span>
           </span>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
-            Invitation
-          </span>
+          {monogramText ? (
+            <span className="font-pahina text-lg italic text-gild">{monogramText}</span>
+          ) : (
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+              Invitation
+            </span>
+          )}
         </div>
       </header>
       <div
@@ -108,8 +116,8 @@ export function InvitationShell({
         }`}
       >
         <p
-          className={`font-serif text-lg italic ${
-            backdrop ? 'text-cream/90' : 'text-terracotta'
+          className={`font-pahina text-lg italic ${
+            backdrop ? 'text-cream/90' : 'text-gild'
           }`}
         >
           See you soon.

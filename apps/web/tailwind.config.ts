@@ -248,6 +248,9 @@ const config: Config = {
         // Use `font-mono` for brand eyebrows + accent labels (DM Mono).
         sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
         display: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
+        // Pahina display face (guest-site design 2026-07-25 §3) — Fraunces,
+        // loaded in app/layout.tsx under --font-pahina-display.
+        pahina: ['var(--font-pahina-display)', 'Georgia', ...defaultTheme.fontFamily.serif],
         serif: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
         mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
         // Extra display faces (already loaded as CSS vars on <html> in

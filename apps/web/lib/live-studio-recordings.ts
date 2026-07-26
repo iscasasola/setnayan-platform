@@ -105,6 +105,27 @@ export const ORPHANED_CAMERA_LABEL = 'Camera channel';
 /** The label the directed program feed carries in the couple's list. */
 export const PROGRAM_RECORDING_LABEL = 'Main broadcast';
 
+/**
+ * Seconds → "2 hr 15 min".
+ *
+ * ⚠ ROUND TO MINUTES FIRST, THEN SPLIT. The obvious form — floor the hours, then
+ * round the leftover seconds into minutes — rounds the remainder INDEPENDENTLY of
+ * the hour it was taken from, so the two can disagree: a 1 h 59 m 59 s ceremony
+ * (7199 s) gives `h = 1` and `m = round(3599/60) = 60` → **"1 hr 60 min"**, and
+ * 3599 s gives **"60 min"**. Caught by an adversarial review of #3770/#3774; the
+ * window is the last ~30 seconds of every hour, and multi-hour recordings are
+ * exactly what this function formats.
+ */
+export function formatRecordingDuration(seconds: number): string {
+  const totalMinutes = Math.round(seconds / 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h > 0) return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
+  // Sub-minute recordings still read as "1 min" rather than "0 min" — a broadcast
+  // that produced an archive at all lasted some non-zero time.
+  return `${Math.max(m, 1)} min`;
+}
+
 function watchUrlFor(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
@@ -336,7 +357,14 @@ export async function fetchEventRecordings(
         .from('live_studio_roam_streams')
         .select('zone_id, broadcast_id, status, ended_at')
         .eq('event_id', eventId)
-        .eq('status', 'complete'),
+        .eq('status', 'complete')
+        // ORDERED, because an unordered select is whatever order Postgres feels
+        // like returning and can differ between two loads of the same page. The
+        // card sorts cameras by zone_index for display, but a host who ended and
+        // restarted has SEVERAL completed rows per zone, and those tie — so this
+        // is what decides which of a zone's recordings leads, deterministically,
+        // newest first.
+        .order('ended_at', { ascending: false }),
     ),
     rowsOf<RecordingZoneRow>(
       admin

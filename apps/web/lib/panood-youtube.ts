@@ -475,36 +475,54 @@ export type { YoutubeVideoArchive } from '@/lib/panood-youtube-types';
  * costs. Ids YouTube does not return (deleted, never archived, not ours) are
  * simply absent from the result; callers must treat "missing" as "no archive"
  * and never as an error.
+ *
+ * ⚠ **ASKS ABOUT EVERY ID, OR THROWS. NEVER A PARTIAL ANSWER.** (Fixed 2026-07-26
+ * after an adversarial review; the first cut did `.slice(0, 50)` and silently
+ * dropped the rest.) The contract above — *"callers must treat missing as no
+ * archive"* — is what makes a partial answer dangerous rather than merely
+ * incomplete: `buildRecordingList` turns "absent from the answer" into the hard
+ * `archived: false`, which the couple reads as **"No recording on YouTube"**. An
+ * id we never asked about would therefore be reported as a recording that does
+ * not exist, which is precisely the false claim the tri-state was built to
+ * prevent — inverted. So the 50-id API ceiling is handled by CHUNKING, and any
+ * chunk failure throws, so the caller degrades to `null` ("we couldn't confirm")
+ * instead of to a confident lie. Two chunks cost 2 quota units out of ~10,000/day.
  */
 export async function fetchYoutubeVideoArchives(
   accessToken: string,
   videoIds: readonly string[],
 ): Promise<YoutubeVideoArchive[]> {
-  const ids = [...new Set(videoIds.filter((v) => v.length > 0))].slice(0, 50);
+  const ids = [...new Set(videoIds.filter((v) => v.length > 0))];
   if (ids.length === 0) return [];
 
-  const json = (await youtubeApi(
-    `${YOUTUBE_VIDEOS_URL}?part=snippet,status,contentDetails&id=${ids.map(encodeURIComponent).join(',')}`,
-    accessToken,
-  )) as {
-    items?: Array<{
-      id?: string;
-      snippet?: { title?: string };
-      status?: { privacyStatus?: string; uploadStatus?: string };
-      contentDetails?: { duration?: string };
-    }>;
-  };
-
+  /** videos.list accepts at most 50 ids per call. */
+  const CHUNK = 50;
   const out: YoutubeVideoArchive[] = [];
-  for (const item of json.items ?? []) {
-    if (!item.id) continue;
-    out.push({
-      videoId: item.id,
-      title: item.snippet?.title ?? '',
-      durationSeconds: parseIso8601DurationSeconds(item.contentDetails?.duration),
-      privacyStatus: item.status?.privacyStatus ?? null,
-      processed: item.status?.uploadStatus === 'processed',
-    });
+
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const json = (await youtubeApi(
+      `${YOUTUBE_VIDEOS_URL}?part=snippet,status,contentDetails&id=${chunk.map(encodeURIComponent).join(',')}`,
+      accessToken,
+    )) as {
+      items?: Array<{
+        id?: string;
+        snippet?: { title?: string };
+        status?: { privacyStatus?: string; uploadStatus?: string };
+        contentDetails?: { duration?: string };
+      }>;
+    };
+
+    for (const item of json.items ?? []) {
+      if (!item.id) continue;
+      out.push({
+        videoId: item.id,
+        title: item.snippet?.title ?? '',
+        durationSeconds: parseIso8601DurationSeconds(item.contentDetails?.duration),
+        privacyStatus: item.status?.privacyStatus ?? null,
+        processed: item.status?.uploadStatus === 'processed',
+      });
+    }
   }
   return out;
 }

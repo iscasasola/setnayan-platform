@@ -600,7 +600,7 @@ export function SelfieCapture({
                 ) : error ? (
                   <p className="text-terracotta-700">{error}</p>
                 ) : gate && gate.available && !gate.ok ? (
-                  <p className="inline-flex items-start gap-1.5 text-warn-700">
+                  <p className="inline-flex items-start gap-1.5 text-ink/80">
                     <AlertTriangle
                       className="mt-0.5 h-3.5 w-3.5 shrink-0"
                       strokeWidth={2}
@@ -613,7 +613,7 @@ export function SelfieCapture({
                     </span>
                   </p>
                 ) : r2Ref ? (
-                  <p className="inline-flex items-center gap-1.5 text-success-700">
+                  <p className="inline-flex items-center gap-1.5 text-ink/70">
                     <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                     Looks great — added to your RSVP.
                   </p>
@@ -665,7 +665,7 @@ export function SelfieCapture({
                 </>
               ) : null}
             </div>
-            <p className="inline-flex items-center gap-1.5 text-xs text-success-700">
+            <p className="inline-flex items-center gap-1.5 text-xs text-ink/70">
               <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
               {shots.length} of {maxShots} angles added
               {shots.length < maxShots

@@ -23,19 +23,33 @@ export function RsvpWidget({
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
 
   return (
-    <form
-      action={action}
-      className="rsvp-form space-y-5 rounded-2xl border border-terracotta/30 bg-gradient-to-b from-terracotta/5 to-cream p-6 sm:p-8"
-    >
-      {/* The selfie step reveals once the guest picks "I'll be there" — pure
+    <form action={action} className="rsvp-form pahina-deckle space-y-6 sm:p-8">
+      {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
           below, so this stays a server component with no client state. */}
       <style>{`.rsvp-form .selfie-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal{display:block}`}</style>
-      <header className="flex items-center justify-between">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          RSVP
-        </p>
-        <RsvpPill status={guest.rsvp_status} />
+
+      {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
+          is a card in real life, so it is the only thing still shaped like one:
+          heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
+          the perforation rule. Everything else on the site is a plate. */}
+      <header className="space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <p className="pahina-eyebrow">
+            <span aria-hidden>№ 07</span>
+            <span>Reply</span>
+          </p>
+          <RsvpPill status={guest.rsvp_status} />
+        </div>
+        <div className="flex items-end justify-between gap-4">
+          <p className="pahina-letterpress font-pahina text-[3.2rem] font-light leading-[0.9] tracking-tight text-ink">
+            RSVP
+          </p>
+          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+            Nº {stubNo(guest.guest_id)}
+          </p>
+        </div>
+        <hr className="pahina-perforation" />
       </header>
 
       {/* Seat reservation: confirming attendance holds the guest's place (the
@@ -43,8 +57,8 @@ export function RsvpWidget({
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
         <>
-          <p className="flex items-center justify-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-center text-sm font-medium text-success-800">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
+          <p className="flex items-center gap-2.5 border-l-2 border-gild bg-veil/60 px-4 py-3 text-sm text-ink/80">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
             Your place is reserved — we can&rsquo;t wait to celebrate with you.
           </p>
           <GuestToHostCta
@@ -57,20 +71,23 @@ export function RsvpWidget({
         </>
       ) : null}
 
+      {/* Three quiet outlined options; the chosen one takes the palette's DEEP
+          accent fill. Labels are the spec's reply-card wording — the `key`
+          values (and therefore the server action's contract) are unchanged. */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {(
           [
-            { key: 'attending', label: "I'll be there", tone: 'bg-success-600 text-white border-success-600 hover:bg-success-700' },
-            { key: 'maybe', label: 'Maybe', tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
-            { key: 'declined', label: "Can't make it", tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
+            { key: 'attending', label: 'Joyfully accepts' },
+            { key: 'maybe', label: 'Undecided, for now' },
+            { key: 'declined', label: 'Regretfully declines' },
           ] as const
         ).map((option) => (
           <label
             key={option.key}
-            className={`flex h-16 cursor-pointer items-center justify-center rounded-lg border text-sm font-medium transition-colors has-[:checked]:ring-2 has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-cream ${
+            className={`flex h-16 cursor-pointer items-center justify-center border px-3 text-center font-pahina text-base font-light italic leading-tight transition-colors has-[:checked]:ring-1 has-[:checked]:ring-terracotta-700 has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-paper-deep ${
               guest.rsvp_status === option.key
-                ? 'border-terracotta bg-terracotta text-cream ring-2 ring-terracotta'
-                : option.tone
+                ? 'border-terracotta-700 bg-terracotta-700 text-cream'
+                : 'border-ink/20 bg-paper text-ink hover:border-ink/40'
             }`}
           >
             <input
@@ -141,12 +158,28 @@ export function RsvpWidget({
   );
 }
 
+/**
+ * Display-only stub number for the reply card's ticket corner. A short stable
+ * digest of the guest id — per build plan §4 the Nº is flavor and must NEVER
+ * expose a raw internal id, so the id is never rendered, only this 3-digit fold.
+ */
+function stubNo(guestId: string): string {
+  let h = 0;
+  for (let i = 0; i < guestId.length; i++) {
+    h = (h * 31 + guestId.charCodeAt(i)) % 997;
+  }
+  return String(h).padStart(3, '0');
+}
+
 function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
+  // Functional-color exile (§4): the app's green / amber / red status tones are
+  // gone. The states now read as quiet mono stamps — the answered one is
+  // gild-ruled, the rest are ink. Status labels themselves are unchanged.
   const tone: Record<GuestRow['rsvp_status'], string> = {
-    attending: 'bg-success-100 text-success-800',
-    pending: 'bg-warn-100 text-warn-800',
-    declined: 'bg-danger-100 text-danger-800',
-    maybe: 'bg-ink/10 text-ink/70',
+    attending: 'border-gild text-gild',
+    pending: 'border-ink/20 text-ink/55',
+    declined: 'border-ink/25 text-ink/60',
+    maybe: 'border-ink/20 text-ink/60',
   };
   const label =
     status === 'attending'
@@ -157,7 +190,9 @@ function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
           ? 'Declined'
           : 'Maybe';
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone[status]}`}>
+    <span
+      className={`shrink-0 border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-[0.18em] ${tone[status]}`}
+    >
       {label}
     </span>
   );

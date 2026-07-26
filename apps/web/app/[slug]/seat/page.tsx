@@ -352,7 +352,7 @@ async function PersonalPass({
           {targetTable ? (
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               You&rsquo;re at{' '}
-              <span className="text-emerald-700">{targetTable.table_label}</span>
+              <span className="text-gild">{targetTable.table_label}</span>
               {seatNumber !== null ? (
                 <span className="ml-2 align-middle text-base font-medium text-ink/55">
                   · Seat {seatNumber}
@@ -466,7 +466,7 @@ async function PublicTableView({
             Table view
           </p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            <span className="text-emerald-700">{table.table_label}</span>
+            <span className="text-gild">{table.table_label}</span>
           </h1>
           {event.venue_name ? (
             <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">

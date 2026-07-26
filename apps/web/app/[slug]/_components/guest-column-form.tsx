@@ -152,7 +152,7 @@ export function GuestColumnForm({
 
       {/* Declined note — the couple returned it */}
       {own?.status === 'rejected' && !closed ? (
-        <div className="mb-3 rounded-lg border border-warn-200 bg-warn-50 p-3 text-sm text-warn-900">
+        <div className="mb-3 rounded-lg border-l-2 border-ink/30 bg-paper-deep p-3 text-sm text-ink/75">
           The couple returned your column{own.declineNote ? ':' : '.'}{' '}
           {own.declineNote ? <span className="italic">&ldquo;{own.declineNote}&rdquo;</span> : null}{' '}
           You can edit it and send it again.

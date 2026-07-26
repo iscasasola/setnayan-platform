@@ -138,7 +138,7 @@ function MatchCard({ match }: { match: SeatMatch }) {
       <div className="px-4 py-5 text-center">
         <p className="text-base text-ink/80">{match.display_name}</p>
         <p className="mt-3 text-sm font-medium text-ink/60">Your table</p>
-        <p className="mt-0.5 text-4xl font-bold leading-tight text-success-700">
+        <p className="mt-0.5 text-4xl font-bold leading-tight text-gild">
           {match.table_label}
         </p>
       </div>

@@ -3151,9 +3151,17 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 @keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
 
 /* ---------- expand / collapse (no height measuring) ---------- */
-.sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
 .sn-acc.open { grid-template-rows:1fr; }
-.sn-acc > * { overflow:hidden; min-height:0; }
+.sn-acc > * { overflow:hidden; min-height:0; min-width:0; }
+/* HORIZONTAL CONTAINMENT (the twin of min-height:0, which only frees the vertical axis).
+ * Without an explicit column track the implicit column is `auto`, so it sizes to the
+ * child's max-content: a wide child — a horizontally-scrolling rail, a table, a long
+ * unbroken string — inflates the collapse past its container. `minmax(0,1fr)` pins the
+ * track to the container in every engine; min-width:0 on the child is belt-and-braces
+ * (a child with overflow:hidden already resolves its automatic minimum to 0, so the
+ * TRACK, not the child, is what must be constrained). Any collapse built on this
+ * template inherits the fix — copy BOTH lines if you duplicate the pattern. */
 
 /* ---------- overlays ---------- */
 .sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }

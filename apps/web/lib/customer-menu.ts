@@ -46,7 +46,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
+import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -228,7 +228,9 @@ export function buildCustomerMenuTree(
       subnavLabel: 'Services sections',
       children: BUDGET_BUILD_TABS.map((t) => ({
         key: t,
-        label: TAB_META[t].label,
+        // Label via tabLabel() so the Explore-Replan "Plans" rename (PR-F)
+        // reaches the docked sub-nav; the KEY/tab/slotKey below stay 'compare'.
+        label: tabLabel(t),
         icon: TAB_META[t].icon,
         kind: 'tab' as const,
         tab: t,

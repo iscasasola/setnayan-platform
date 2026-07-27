@@ -75,8 +75,16 @@ export type CandidateInsight = {
   /** Pro 4 — long-weekend guest-travel note (null when nothing notable). */
   holiday: string | null;
 
-  /** Pro 5 — marketplace vendor service categories available on this date. */
-  marketplace: { availableCategories: number; totalCategories: number };
+  /**
+   * Pro 5 — marketplace vendor service categories available on this date.
+   *
+   * `readFailed` is not decoration. Until 2026-07-26 the pool query behind these
+   * two numbers errored on every request and the `?? []` downstream reported it
+   * as zero rows, so this card said "Marketplace available" — a confident claim
+   * built on a failed read. When we could not read the pool we must say so, not
+   * reassure.
+   */
+  marketplace: { availableCategories: number; totalCategories: number; readFailed?: boolean };
 
   /** Pro 6 — months to the date + comfort rating. */
   prep: {
@@ -270,14 +278,16 @@ function CandidateCard({
     return undefined;
   })();
 
-  // Pro 5 — marketplace
-  const mktValue =
-    c.marketplace.totalCategories > 0
+  // Pro 5 — marketplace. A failed read is stated, never dressed up as coverage.
+  const remaining = c.marketplace.totalCategories - c.marketplace.availableCategories;
+  const mktValue = c.marketplace.readFailed
+    ? 'Coverage unavailable'
+    : c.marketplace.totalCategories > 0
       ? `${c.marketplace.availableCategories} of ${c.marketplace.totalCategories} categories bookable`
       : 'Marketplace available';
-  const remaining = c.marketplace.totalCategories - c.marketplace.availableCategories;
-  const mktSub =
-    c.marketplace.totalCategories > 0 && remaining === 0
+  const mktSub = c.marketplace.readFailed
+    ? "We couldn't check vendor coverage just now — this date may still be fine"
+    : c.marketplace.totalCategories > 0 && remaining === 0
       ? 'Full coverage · Setnayan can help across every category'
       : remaining > 0
         ? `${remaining} categor${remaining === 1 ? 'y is' : 'ies are'} fully booked — check early`

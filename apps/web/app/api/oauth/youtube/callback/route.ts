@@ -174,6 +174,26 @@ export async function GET(req: NextRequest) {
 
   // Google can surface its own error (user canceled, scope denied, etc.) —
   // forward it verbatim so the UI can show a sensible message.
+  //
+  // ⭐ ONE EXCEPTION — `org_internal`, translated rather than forwarded.
+  //
+  // Google returns it when a NON-ORG user hits a consent screen whose Audience is
+  // Internal. That is not a failure a couple can act on; it is the CORRECT answer
+  // under the Setnayan-owned channel model, arriving through the one door that model
+  // closes. Forwarding it verbatim renders "YouTube connection failed (org_internal).
+  // Try again, or contact support" — three lies in one sentence: nothing failed,
+  // retrying cannot help, and support cannot fix it either.
+  //
+  // WHY THIS IS A REAL PATH AND NOT DEFENSIVE PADDING: the BYO route and the pool
+  // route share ONE OAuth client (`getYoutubeOAuthConfig`). The moment Internal
+  // credentials are configured, the couple-facing BYO door starts answering
+  // `org_internal` — and it keeps doing so until `NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY`
+  // is flipped. Those two changes are made by a human, in two different systems
+  // (Google Cloud and Vercel), and nothing enforces their ordering. This closes the
+  // window between them.
+  if (oauthError === 'org_internal') {
+    return redirectWithError(url, null, 'pool_only');
+  }
   if (oauthError) {
     return redirectWithError(url, null, oauthError);
   }

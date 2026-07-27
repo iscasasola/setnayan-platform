@@ -292,7 +292,21 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      {youtubeError ? (
+      {/* ⭐ `pool_only` is NOT an error, so it must not render as one. The callback
+          translates Google's `org_internal` into it: the couple reached the BYO
+          consent door while Setnayan's own channel is the model. Nothing failed,
+          retrying cannot help, and support cannot fix it — so this branch states
+          the situation instead, using the SAME shared constant the closed door and
+          the controller use. */}
+      {youtubeError === 'pool_only' ? (
+        <p
+          role="status"
+          className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+        </p>
+      ) : youtubeError ? (
         <p
           role="alert"
           className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"

@@ -130,3 +130,34 @@ test('the module states the ordering that stops it closing the only working door
   assert.match(src, /no route to air/i, 'the consequence of flipping too early is not stated');
   assert.match(src, /G1/, 'the owner gate that must precede the flip is not named');
 });
+
+/* ── 6 · The org_internal window (added with the Internal-audience switch) ──── */
+
+test('⭐ Google’s org_internal is TRANSLATED, never forwarded as a failure', () => {
+  // The BYO route and the pool route share ONE OAuth client. The moment Internal
+  // credentials are configured, the couple-facing door starts answering
+  // `org_internal` — and keeps doing so until NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY is
+  // flipped. Those are two human actions in two different systems (Google Cloud,
+  // Vercel) with nothing enforcing their order. This closes the window between them.
+  const cb = repoFile('app/api/oauth/youtube/callback/route.ts');
+  const translateAt = cb.indexOf("if (oauthError === 'org_internal')");
+  const forwardAt = cb.indexOf('if (oauthError) {');
+  assert.ok(translateAt > -1, 'org_internal is forwarded verbatim — the couple sees a raw error code');
+  assert.ok(
+    translateAt < forwardAt,
+    'the translation must precede the catch-all, or the verbatim branch wins',
+  );
+  assert.match(cb, /redirectWithError\(url, null, 'pool_only'\)/);
+});
+
+test('the couple sees a STATUS, not a failure — and not "contact support"', () => {
+  // Nothing failed, retrying cannot help, and support cannot fix it. Rendering this
+  // through the generic error branch would tell the couple three untrue things.
+  const page = repoFile('app/dashboard/[eventId]/studio/panood/setup/page.tsx');
+  assert.match(page, /youtubeError === 'pool_only'/, 'pool_only falls through to the error renderer');
+  const poolAt = page.indexOf("youtubeError === 'pool_only'");
+  const genericAt = page.indexOf('YouTube connection failed (');
+  assert.ok(poolAt < genericAt, 'the pool_only branch must be checked BEFORE the generic error');
+  // Same shared constant as the closed door and the controller — one wording.
+  assert.match(page, /\{POOL_ONLY_CONNECT_NOTICE\}/);
+});

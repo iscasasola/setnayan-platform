@@ -87,6 +87,27 @@ const DEMAND_SATURATION_COUPLES = 10;
  *  dimension carried a score without re-deriving the weight table. */
 export type CompatDimension = keyof typeof COMPAT_WEIGHTS;
 
+/**
+ * A complete weight vector over every dimension — the shape of `COMPAT_WEIGHTS`
+ * with the literal types widened so an alternative vector can be declared.
+ * `Record<CompatDimension, …>` on purpose: adding a dimension to
+ * `COMPAT_WEIGHTS` immediately fails every lens vector that has not been
+ * updated, rather than silently scoring the new dim at `undefined`.
+ *
+ * ── 2026-07-27 · RANKING LENSES (Explore_Replan_BUILD_SPEC §15)
+ * A "lens" ("Best matches", "Nearest to your venue") is NOT a second scorer and
+ * NOT a bespoke comparator — it is a NAMED WEIGHT VECTOR handed to the one
+ * scorer below. The vectors live in `lib/ranking-lenses.ts`; this module only
+ * learns to accept one. `COMPAT_WEIGHTS` itself is unchanged to the byte, so
+ * every caller that does not pass a vector (`category-search.ts`,
+ * `build-3state-actions.ts`, `plan-budget-accordion.tsx`, `app/tour/vendors`,
+ * `vendor-autoreply`) keeps its exact current output.
+ *
+ * INVARIANT: every vector must sum to 1.000. Asserted per-member in
+ * `ranking-lenses.test.ts` — a vector that does not sum to 1 fails CI.
+ */
+export type CompatWeights = Record<CompatDimension, number>;
+
 export type CompatTier = 'strong' | 'good' | 'fair';
 
 export type CompatInputs = {
@@ -249,13 +270,21 @@ export function compatSubScores(input: CompatInputs): Record<CompatDimension, nu
  * the function returns **null** — there is no reason to give, so the caller
  * must render none rather than invent one. A dimension scoring BELOW neutral
  * (e.g. booked on the date) can never win either.
+ *
+ * `weights` defaults to `COMPAT_WEIGHTS`. Passing a lens vector makes the
+ * explanation agree with the ORDER the couple is actually looking at — under
+ * "Nearest to your venue" (distance 0.45) proximity should be what the pill
+ * names, and it now is.
  */
-export function topCompatDimension(input: CompatInputs): CompatDimension | null {
+export function topCompatDimension(
+  input: CompatInputs,
+  weights: CompatWeights = COMPAT_WEIGHTS,
+): CompatDimension | null {
   const sub = compatSubScores(input);
   let best: CompatDimension | null = null;
   let bestLift = 0;
   for (const dim of Object.keys(COMPAT_WEIGHTS) as CompatDimension[]) {
-    const lift = COMPAT_WEIGHTS[dim] * (sub[dim] - NEUTRAL);
+    const lift = weights[dim] * (sub[dim] - NEUTRAL);
     if (lift > bestLift) {
       bestLift = lift;
       best = dim;
@@ -267,19 +296,26 @@ export function topCompatDimension(input: CompatInputs): CompatDimension | null 
 /**
  * Compute the 0–100 compatibility score + tier for one eligible vendor.
  * Inputs that are null/absent fall back to a neutral baseline (admit-unknown).
+ *
+ * `weights` defaults to `COMPAT_WEIGHTS` — the SIGNATURE changed for the
+ * ranking lenses (§15.0), the MATH did not. Omitting the argument is
+ * byte-identical to the pre-lens behaviour for every existing caller.
  */
-export function computeCompatScore(input: CompatInputs): { score: number; tier: CompatTier } {
+export function computeCompatScore(
+  input: CompatInputs,
+  weights: CompatWeights = COMPAT_WEIGHTS,
+): { score: number; tier: CompatTier } {
   const sub = compatSubScores(input);
 
   const raw =
-    COMPAT_WEIGHTS.refinement * sub.refinement +
-    COMPAT_WEIGHTS.budgetFit * sub.budgetFit +
-    COMPAT_WEIGHTS.distance * sub.distance +
-    COMPAT_WEIGHTS.reviews * sub.reviews +
-    COMPAT_WEIGHTS.dateHeadroom * sub.dateHeadroom +
-    COMPAT_WEIGHTS.faithFit * sub.faithFit +
-    COMPAT_WEIGHTS.trust * sub.trust +
-    COMPAT_WEIGHTS.demandPressure * sub.demandPressure;
+    weights.refinement * sub.refinement +
+    weights.budgetFit * sub.budgetFit +
+    weights.distance * sub.distance +
+    weights.reviews * sub.reviews +
+    weights.dateHeadroom * sub.dateHeadroom +
+    weights.faithFit * sub.faithFit +
+    weights.trust * sub.trust +
+    weights.demandPressure * sub.demandPressure;
 
   // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
   // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast

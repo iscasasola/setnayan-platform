@@ -8,7 +8,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sortWithReasons, benchFitScore, BENCH_SORTS } from './bench-sort';
+import {
+  sortWithReasons,
+  benchFitScore,
+  formatDistanceKm,
+  BENCH_SORTS,
+  BENCH_LENSES,
+  BENCH_PLAIN_SORTS,
+} from './bench-sort';
+import { COMPAT_WEIGHTS } from './compat-score';
 import type { ShortlistVendor } from './shortlist-taxonomy';
 
 function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVendor {
@@ -340,4 +348,144 @@ test('no budget pill ever claims value — "cheapest"/"best value" are unbackabl
   );
   assert.equal(benchFitScore(cards[0]!.v), benchFitScore(cards[1]!.v), 'in-budget vendors tie');
   for (const c of cards) assert.ok(!banned.test(c.reason?.label ?? ''), c.reason?.label);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §15 · RANKING LENSES — "Best matches" (the default) + "Nearest to your venue".
+// A lens is the same scorer under a different weight vector; these cases pin
+// the behaviour the couple actually sees.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('the segmented control still exposes the flag-OFF trio unchanged', () => {
+  // Flag-off production must be byte-identical: same keys, same labels, same
+  // order as before the lens work.
+  assert.deepEqual(BENCH_SORTS, [
+    { key: 'fit', label: 'Best fit' },
+    { key: 'price', label: 'Lowest price' },
+    { key: 'rating', label: 'Top rated' },
+  ]);
+});
+
+test('the flag-ON control separates two lenses from two plain sorts', () => {
+  assert.deepEqual(BENCH_LENSES, [
+    { key: 'fit', label: 'Best matches' },
+    { key: 'near', label: 'Nearest to your venue' },
+  ]);
+  assert.deepEqual(BENCH_PLAIN_SORTS, [
+    { key: 'price', label: 'Lowest price' },
+    { key: 'rating', label: 'Top rated' },
+  ]);
+});
+
+test("'fit' scores identically whether or not a weight vector is passed", () => {
+  const v = vendor({ vendorId: 'x', distanceKm: 14, rating: 4.2, reviewCount: 22, isVerified: true });
+  assert.equal(benchFitScore(v), benchFitScore(v, COMPAT_WEIGHTS));
+});
+
+test('the Nearest lens promotes the closer vendor over the better-reviewed one', () => {
+  // A modest distance gap the default vector resolves in favour of the proven
+  // vendor (reviews 0.18 vs distance 0.18, and the review lift is bigger here).
+  // Raising distance to 0.45 flips it — which is the entire point of the lens.
+  const close = vendor({ vendorId: 'close', distanceKm: 2, serviceRadiusKm: 20 });
+  const proven = vendor({
+    vendorId: 'proven',
+    distanceKm: 12,
+    serviceRadiusKm: 20,
+    rating: 4.9,
+    reviewCount: 140,
+  });
+  assert.deepEqual(order(sortWithReasons([close, proven], 'fit')), ['proven', 'close']);
+  assert.deepEqual(order(sortWithReasons([close, proven], 'near')), ['close', 'proven']);
+});
+
+test('Nearest states the MEASURED distance on a non-leader card', () => {
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'a', distanceKm: 1.5, serviceRadiusKm: 50 }),
+      vendor({ vendorId: 'b', distanceKm: 6.25, serviceRadiusKm: 50 }),
+      vendor({ vendorId: 'c', distanceKm: 12.4, serviceRadiusKm: 50 }),
+    ],
+    'near',
+  );
+  assert.deepEqual(order(out), ['a', 'b', 'c']);
+  // Only the genuine category leader on distance may claim the superlative.
+  assert.deepEqual(out[0]!.reason, { label: 'Closest to your venue', tone: 'ok' });
+  assert.equal(out[1]!.reason!.label, '6.3 km from your venue');
+  assert.equal(out[2]!.reason!.label, '12 km from your venue');
+});
+
+test('a vendor too far to be a positive signal gets NO pill at all', () => {
+  // 41 km against a 20 km radius scores BELOW neutral, so distance is not a
+  // reason — it is a drawback. The card must stay silent rather than dress a
+  // penalty up as a feature ("41 km from your venue" alongside a leader reading
+  // "Closest to your venue" would read as a recommendation).
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'near', distanceKm: 1.5, serviceRadiusKm: 20 }),
+      vendor({ vendorId: 'far', distanceKm: 41.4, serviceRadiusKm: 20 }),
+    ],
+    'near',
+  );
+  assert.deepEqual(order(out), ['near', 'far']);
+  assert.equal(out[1]!.reason, null);
+});
+
+test('the distance readout is a measurement, never a reach claim', () => {
+  // §15.4: "3.2 km from your venue" is permitted because it is measured;
+  // "Reaches your venue" as a RANKING claim is not, because the radius behind
+  // it is a paid tier, not a promise.
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'a', distanceKm: 3, serviceRadiusKm: 50 }),
+      vendor({ vendorId: 'b', distanceKm: 8, serviceRadiusKm: 50 }),
+      vendor({ vendorId: 'c', distanceKm: 30, serviceRadiusKm: 50 }),
+    ],
+    'near',
+  );
+  for (const r of out) {
+    assert.ok(!/reach/i.test(r.reason?.label ?? ''), `"${r.reason?.label}" makes a reach claim`);
+  }
+});
+
+test('an all-unknown vendor renders NO pill under either lens', () => {
+  // The naive `weight × sub` contribution would hand every blank card
+  // "Matches your style" (refinement carries the largest weight at a neutral
+  // sub-score). Measuring the LIFT above neutral is what keeps the pill honest.
+  for (const lens of ['fit', 'near'] as const) {
+    const out = sortWithReasons([vendor({ vendorId: 'blank' })], lens);
+    assert.equal(out[0]!.reason, null, `${lens} invented a reason for a blank card`);
+  }
+});
+
+test('a vendor with no distance never claims a distance reason under Nearest', () => {
+  const out = sortWithReasons(
+    [
+      vendor({ vendorId: 'measured', distanceKm: 3, serviceRadiusKm: 20 }),
+      vendor({ vendorId: 'unknown', distanceKm: null, rating: 4.8, reviewCount: 60 }),
+    ],
+    'near',
+  );
+  const unknown = out.find((r) => r.v.vendorId === 'unknown')!;
+  assert.ok(
+    unknown.reason == null || !/venue/i.test(unknown.reason.label),
+    `unknown distance claimed "${unknown.reason?.label}"`,
+  );
+});
+
+test('formatDistanceKm: one decimal under 10 km, whole km above', () => {
+  assert.equal(formatDistanceKm(0), '0.0 km');
+  assert.equal(formatDistanceKm(3.24), '3.2 km');
+  assert.equal(formatDistanceKm(9.96), '10.0 km');
+  assert.equal(formatDistanceKm(10), '10 km');
+  assert.equal(formatDistanceKm(41.4), '41 km');
+});
+
+test('the Nearest lens never mutates the input array either', () => {
+  const input = [
+    vendor({ vendorId: 'a', distanceKm: 40, serviceRadiusKm: 20 }),
+    vendor({ vendorId: 'b', distanceKm: 1, serviceRadiusKm: 20 }),
+  ];
+  const before = input.map((v) => v.vendorId);
+  sortWithReasons(input, 'near');
+  assert.deepEqual(input.map((v) => v.vendorId), before);
 });

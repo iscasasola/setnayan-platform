@@ -24,6 +24,17 @@
  * distance decay scaled by the vendor's own travel radius, Bayesian-adjusted
  * reviews, and NEUTRAL (0.6, never 0) for every missing input. The bench simply
  * never called it. Now it does.
+ *
+ * ── 2026-07-27 · RANKING LENSES (Explore_Replan §15) — flag-dark
+ * The segmented control now carries TWO KINDS of chip. "Best matches" and
+ * "Nearest to your venue" are LENSES: the same scorer, different weight
+ * vectors from `lib/ranking-lenses.ts`, each card explaining itself. "Lowest
+ * price" and "Top rated" stay PLAIN SORTS in their own group — a user job, not
+ * a recommendation. Still no second scorer and still no bespoke comparator:
+ * a lens is a weight vector, nothing more.
+ *
+ * While the flag is OFF the bench renders `BENCH_SORTS` exactly as before and
+ * `'fit'` resolves to `COMPAT_WEIGHTS`, so the order is unchanged.
  */
 
 import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
@@ -33,12 +44,44 @@ import {
   topCompatDimension,
   type CompatDimension,
   type CompatInputs,
+  type CompatWeights,
 } from '@/lib/compat-score';
+import { isLensKey, lensWeights, LENSES, LENS_ORDER, type LensKey } from '@/lib/ranking-lenses';
 
-export type BenchSort = 'fit' | 'price' | 'rating';
+export type BenchSort = LensKey | 'price' | 'rating';
 
+/**
+ * The pre-lens segmented control, kept EXACTLY as it shipped. This is what the
+ * bench renders while `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED` is OFF, so flag-off
+ * production is byte-identical — same three chips, same labels, same order.
+ */
 export const BENCH_SORTS: { key: BenchSort; label: string }[] = [
   { key: 'fit', label: 'Best fit' },
+  { key: 'price', label: 'Lowest price' },
+  { key: 'rating', label: 'Top rated' },
+];
+
+/**
+ * ── LENSES vs PLAIN SORTS (Explore_Replan §15.0) ──────────────────────────
+ * These are two different kinds of control and the bench renders them as two
+ * visually separate groups, not one row of four.
+ *
+ * A LENS is a recommendation: the same composite scorer under a different
+ * weight vector, and every card carries a reason pill saying which dimension
+ * earned its place.
+ *
+ * A PLAIN SORT is a user JOB — "just show me the cheapest" — with no scorer,
+ * no weights and no recommendation implied. They are deliberately NOT modelled
+ * as weight vectors: `priceFitScore` returns a flat 1.0 for every vendor inside
+ * the budget, so a "cheapest" weight vector is arithmetically impossible, and a
+ * lens that ties its whole field would be a label pretending to be a ranking.
+ */
+export const BENCH_LENSES: { key: LensKey; label: string }[] = LENS_ORDER.map((k) => ({
+  key: k,
+  label: LENSES[k].label,
+}));
+
+export const BENCH_PLAIN_SORTS: { key: 'price' | 'rating'; label: string }[] = [
   { key: 'price', label: 'Lowest price' },
   { key: 'rating', label: 'Top rated' },
 ];
@@ -67,6 +110,15 @@ export type SortReason = { label: string; tone: 'ok' | 'soft' };
  * `reachesVenue` is not passed either, and that is the whole point: `distanceKm`
  * + `travelRadiusKm` say the same thing continuously, and say nothing at all
  * (NEUTRAL) when unknown — instead of docking a point.
+ *
+ * ⚠ `travelRadiusKm` — a DELIBERATE divergence from `category-search.ts`.
+ * That call site omits the radius, so `DEFAULT_RADIUS_KM = 25` applies to
+ * everyone and distance scoring is tier-blind. The build spec's §15.1 asks the
+ * bench to match it. It does NOT: the owner ruled 2026-07-27 that a bigger tier
+ * means wider reach, so the vendor's own tier radius keeps scaling the decay
+ * here — a Pro vendor who pays to travel 50 km is not treated as if they only
+ * travel 25. The owner ruling supersedes §15.1. If that position is ever
+ * reversed, drop this one line and the two surfaces converge.
  */
 export function benchCompatInputs(v: ShortlistVendor): CompatInputs {
   return {
@@ -90,9 +142,20 @@ export function benchCompatInputs(v: ShortlistVendor): CompatInputs {
 }
 
 /** The bench card's 0–100 composite fit, straight from `computeCompatScore`.
- *  Never rendered as a number — it only orders the rail (§14.4-3). */
-export function benchFitScore(v: ShortlistVendor): number {
-  return computeCompatScore(benchCompatInputs(v)).score;
+ *  Never rendered as a number — it only orders the rail (§14.4-3).
+ *  `weights` defaults to the "Best matches" vector; pass a lens vector to score
+ *  the same card under a different lens. */
+export function benchFitScore(v: ShortlistVendor, weights?: CompatWeights): number {
+  return computeCompatScore(benchCompatInputs(v), weights).score;
+}
+
+/**
+ * Distance as the couple reads it. One decimal under 10 km (the difference
+ * between 2.4 and 7.1 is a real logistics difference), whole km above it (the
+ * difference between 41 and 41.3 is noise). Pure + exported for the unit test.
+ */
+export function formatDistanceKm(km: number): string {
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
 }
 
 /** Couple-facing wording per dimension. `lead` is the superlative form and is
@@ -195,8 +258,10 @@ export function sortWithReasons(
     }));
   }
 
-  // ── Fit lens · the composite. Score + explain each card ONCE (not once per
-  // comparison), then sort on the cached score.
+  // ── A LENS · the composite under this lens's weight vector. Score + explain
+  // each card ONCE (not once per comparison), then sort on the cached score.
+  // `'fit'` resolves to COMPAT_WEIGHTS, so the default lens is unchanged.
+  const weights = lensWeights(isLensKey(mode) ? mode : 'fit');
   const scored = new Map<
     ShortlistVendor,
     { score: number; dim: CompatDimension | null; subs: Record<CompatDimension, number> }
@@ -204,8 +269,12 @@ export function sortWithReasons(
   for (const v of arr) {
     const inputs = benchCompatInputs(v);
     scored.set(v, {
-      score: computeCompatScore(inputs).score,
-      dim: topCompatDimension(inputs),
+      score: computeCompatScore(inputs, weights).score,
+      // Weight-aware, so the pill names the dimension carrying the card UNDER
+      // THIS LENS. Still measured as lift above NEUTRAL, never `weight × sub`:
+      // under the naive form an all-unknown vendor always "wins" on refinement
+      // and every card would falsely claim "Matches your style".
+      dim: topCompatDimension(inputs, weights),
       subs: compatSubScores(inputs),
     });
   }
@@ -235,10 +304,19 @@ export function sortWithReasons(
     if (!s || !dim) return { v, reason: null };
     const copy = dimensionCopyFor(dim, v);
     const isBestOnDim = bestByDim.get(dim) === s.subs[dim];
+    // Under "Nearest to your venue" a non-leader states the MEASURED number
+    // instead of the vague "Near your venue" — §15.4 permits a measured
+    // distance and forbids turning the tier radius into a reach claim, and a
+    // number is the whole point of the lens. The category leader keeps the
+    // superlative, which it has genuinely earned on this dimension.
+    const measured =
+      mode === 'near' && dim === 'distance' && v.distanceKm != null
+        ? `${formatDistanceKm(v.distanceKm)} from your venue`
+        : null;
     return {
       v,
       reason: {
-        label: isBestOnDim ? copy.lead : copy.plain,
+        label: isBestOnDim ? copy.lead : (measured ?? copy.plain),
         tone: i === 0 ? 'ok' : 'soft',
       } as SortReason,
     };

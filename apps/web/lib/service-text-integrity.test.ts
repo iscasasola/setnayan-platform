@@ -21,6 +21,7 @@ import {
   autoName,
   findVendorTextViolation,
   serviceTextIntegrityEnabled,
+  SERVICE_HANDLE_MESSAGE,
   SERVICE_TEXT_BLOCK_MESSAGE,
 } from './service-text-integrity';
 
@@ -163,6 +164,75 @@ test('flag ON: real contact info is still refused on a card', () => {
   });
 });
 
+// -- The `@`-only message (owner ruling 2026-07-27) ---------------------------
+// `@` stays BLOCKED — HANDLE cannot tell "@Tagaytay" from "@juanphotos". What
+// changed is what the vendor is told: the one-character fix, not the generic
+// "phone numbers, emails, links" sentence they cannot act on.
+
+const GENERIC_SENTENCE_FRAGMENT = 'Phone numbers, emails, links';
+
+test('flag ON: a bare @ meaning "at" gets the rewrite tip, not the generic message', () => {
+  withFlagOn(() => {
+    const msg = findVendorTextViolation([
+      { field: 'Inclusion 1', value: 'Coverage @Tagaytay' },
+    ]);
+    assert.ok(msg, 'expected @Tagaytay to still be refused');
+    assert.ok(
+      msg.includes('Write "at Tagaytay" instead of "@Tagaytay".'),
+      `expected the rewrite tip, got: ${msg}`,
+    );
+    assert.ok(
+      !msg.includes(GENERIC_SENTENCE_FRAGMENT),
+      `the generic contact sentence leaked into the @-only message: ${msg}`,
+    );
+    // The field-name prefix is unchanged.
+    assert.equal(msg, `Inclusion 1: ${SERVICE_HANDLE_MESSAGE}`);
+  });
+});
+
+test("flag ON: the tip quotes the vendor's OWN word, hyphens and all", () => {
+  withFlagOn(() => {
+    // REGRESSION GUARD. The HANDLE detector's class has no hyphen, so it
+    // matches only `@Shangri` here. Building the tip from THAT match tells the
+    // vendor to write "at Shangri" — advice about text they never typed, with
+    // half their venue name dropped. The sample must follow the author's word
+    // boundaries, not the detector's.
+    assert.equal(
+      findVendorTextViolation([{ field: 'Inclusion 1', value: 'Reception @Shangri-La' }]),
+      'Inclusion 1: The @ symbol reads as a social handle, so it is not allowed ' +
+        'on a card. Write "at Shangri-La" instead of "@Shangri-La".',
+    );
+    // Underscores and dots survive too.
+    assert.equal(
+      findVendorTextViolation([{ field: 'Title', value: 'Shoot @The_Blue.Leaf' }]),
+      'Title: The @ symbol reads as a social handle, so it is not allowed on a ' +
+        'card. Write "at The_Blue.Leaf" instead of "@The_Blue.Leaf".',
+    );
+  });
+});
+
+test('flag ON: @ ALONGSIDE a real leak gets the GENERIC message, never the tip', () => {
+  withFlagOn(() => {
+    // THE ONE THAT MATTERS. A phone number in the same string is the serious
+    // reason. If the softer copy were shown here, the vendor would rewrite the
+    // `@`, save again, be refused again, and never be told about the number —
+    // and a formatting tip would be masking a live disintermediation leak.
+    for (const value of [
+      'IG @juanphotos or 0917 880 7163',
+      'Coverage @Tagaytay — hi@studio.com',
+      '@juanphotos on facebook.com/ourstudio',
+      'Shots @Tagaytay, message me on viber',
+    ]) {
+      const msg = findVendorTextViolation([{ field: 'Inclusion 1', value }]);
+      assert.equal(
+        msg,
+        `Inclusion 1: ${SERVICE_TEXT_BLOCK_MESSAGE}`,
+        `handle tip masked a real leak in ${JSON.stringify(value)}`,
+      );
+    }
+  });
+});
+
 test('flag ON: clean fields pass', () => {
   withFlagOn(() => {
     assert.equal(
@@ -216,4 +286,13 @@ test('an empty field list is clean', () => {
   withFlagOn(() => {
     assert.equal(findVendorTextViolation([]), null);
   });
+});
+
+test('flag ON: trailing punctuation is not quoted back as part of the venue name', () => {
+  process.env.NEXT_PUBLIC_SERVICE_TEXT_INTEGRITY_ENABLED = 'true';
+  const msg = findVendorTextViolation([
+    { field: 'Inclusion 1', value: 'Coverage @Tagaytay.' },
+  ]);
+  assert.ok(msg?.includes('Write "at Tagaytay" instead of "@Tagaytay".'));
+  assert.ok(!msg?.includes('at Tagaytay.\" instead'));
 });

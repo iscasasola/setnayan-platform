@@ -396,8 +396,12 @@ test('the ADMIN path can still verify and un-hide a vendor', async () => {
   const { vendorProfileId } = await newVendor('adminverify@guard.test');
   await asService();
   await db.query(
+    // `last_verified_at` stamped in the SAME statement, exactly as
+    // admin/verify/actions.ts does — and as
+    // `vendor_profiles_verified_requires_stamp` (20271017100000) now requires.
     `UPDATE public.vendor_profiles
-        SET verification_state = 'verified', public_visibility = 'verified'
+        SET verification_state = 'verified', public_visibility = 'verified',
+            last_verified_at = NOW()
       WHERE vendor_profile_id = $1`,
     [vendorProfileId],
   );

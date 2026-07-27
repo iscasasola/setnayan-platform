@@ -31,8 +31,8 @@ async function newVendor(email: string): Promise<string> {
     [email],
   );
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state)
-     VALUES ($1, 'Chat Lock Vendor', 'Manila', ARRAY['photography']::text[], 'verified')
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1, 'Chat Lock Vendor', 'Manila', ARRAY['photography']::text[], 'verified', NOW())
      RETURNING vendor_profile_id`,
     [u.rows[0]!.id],
   );

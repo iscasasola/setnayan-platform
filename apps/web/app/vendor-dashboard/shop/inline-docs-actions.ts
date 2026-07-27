@@ -2,11 +2,16 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   businessProfileChecklist,
   fetchOwnVendorProfile,
   type VendorProfileRow,
 } from '@/lib/vendor-profile';
+import {
+  markVendorPendingReview,
+  revertVendorPendingReview,
+} from '@/lib/vendor-verification-state';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   parseClientRef,
@@ -612,9 +617,11 @@ export async function readContactStamps(
  * non-redirecting twin of `verify/actions.ts:submitApplication`, enforcing the
  * ONE shared gate (`verificationSubmitMissing`): complete profile + the 4
  * required documents + both VALIDATE contact confirmations. Flips
- * draft → pending_review, stamps submitted_at + the 5-business-day SLA, bumps
- * `vendor_profiles.verification_state`, writes the audit row, and fans out the
- * admin notification — then returns a VALUE for `useActionState`.
+ * draft → pending_review, stamps submitted_at + the 5-business-day SLA, advances
+ * `vendor_profiles.verification_state` (via `markVendorPendingReview` /
+ * service_role — a vendor's own client is refused by the DB guard, and that
+ * refusal used to be swallowed), writes the audit row, and fans out the admin
+ * notification — then returns a VALUE for `useActionState`.
  */
 export async function submitInlineForReview(
   _prev: SubmitResult | null,
@@ -641,32 +648,45 @@ export async function submitInlineForReview(
   }
 
   const now = new Date();
+  const nowIso = now.toISOString();
+
+  // ── Step 1: the PRIVILEGED flip, first and fail-loud ──────────────────────
+  // P0 2026-07-27 — identical defect to verify/actions.ts:submitApplication.
+  // The comment this replaces ("owner-only RLS admits the vendor's own session")
+  // was true of RLS and irrelevant to the outcome: RLS is ROW-level, and
+  // `guard_vendor_profiles_entitlement` is a TRIGGER that refuses any
+  // vendor-authored `verification_state` change regardless of RLS. The result
+  // was discarded, so every vendor got a green "submitted" with a profile that
+  // never left 'unverified'. Routed through service_role and checked.
+  const flip = await markVendorPendingReview(createAdminClient(), {
+    vendorProfileId: auth.vendorProfileId,
+    userId: auth.userId,
+    nowIso,
+  });
+  if (!flip.ok) return { ok: false, error: flip.error };
+  const fromState = flip.fromState;
+
+  // ── Step 2: the application row ───────────────────────────────────────────
   const { error: updErr } = await auth.supabase
     .from('vendor_verification_applications')
     .update({
       status: 'pending_review',
-      submitted_at: now.toISOString(),
+      submitted_at: nowIso,
       sla_due_at: addBusinessDays(now, 5).toISOString(),
-      updated_at: now.toISOString(),
+      updated_at: nowIso,
     })
     .eq('application_id', app.application_id);
-  if (updErr) return { ok: false, error: updErr.message };
-
-  // Bump the profile's verification_state so perk gates + payout model read
-  // the in-flight signal (owner-only RLS admits the vendor's own session).
-  const { data: prior } = await auth.supabase
-    .from('vendor_profiles')
-    .select('verification_state')
-    .eq('vendor_profile_id', auth.vendorProfileId)
-    .maybeSingle();
-  const fromState =
-    ((prior as { verification_state?: string | null } | null)?.verification_state as
-      | string
-      | null) ?? 'unverified';
-  await auth.supabase
-    .from('vendor_profiles')
-    .update({ verification_state: 'pending_review', updated_at: now.toISOString() })
-    .eq('vendor_profile_id', auth.vendorProfileId);
+  if (updErr) {
+    if (flip.changed) {
+      await revertVendorPendingReview(createAdminClient(), {
+        vendorProfileId: auth.vendorProfileId,
+        userId: auth.userId,
+        toState: fromState,
+        nowIso,
+      });
+    }
+    return { ok: false, error: updErr.message };
+  }
 
   // Audit + admin fan-out — best-effort, never blocks the submit that landed.
   await auth.supabase
@@ -676,7 +696,12 @@ export async function submitInlineForReview(
       target_table: 'vendor_verification_applications',
       target_id: app.application_id,
       before_json: { status: 'draft', verification_state: fromState },
-      after_json: { status: 'pending_review', verification_state: 'pending_review' },
+      after_json: {
+        status: 'pending_review',
+        // A renewal from an already-verified shop keeps its badge — record the
+        // state the profile ACTUALLY reads now, not an assumed value.
+        verification_state: flip.changed ? 'pending_review' : fromState,
+      },
       actor_user_id: auth.userId,
       reason: null,
     })

@@ -106,8 +106,8 @@ before(async () => {
     const vp = (
       await db.query<{ vendor_profile_id: string }>(
         `INSERT INTO public.vendor_profiles
-           (user_id, business_name, location_city, services, verification_state)
-         VALUES ($1,$2,'Manila',$3::text[],'verified') RETURNING vendor_profile_id`,
+           (user_id, business_name, location_city, services, verification_state, last_verified_at)
+         VALUES ($1,$2,'Manila',$3::text[],'verified', NOW()) RETURNING vendor_profile_id`,
         [uid, `${key} co`, services as unknown as string[]],
       )
     ).rows[0]!.vendor_profile_id;

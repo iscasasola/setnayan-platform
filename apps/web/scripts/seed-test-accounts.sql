@@ -98,13 +98,37 @@ BEGIN
     contact_email = 'vendor.test@setnayan.com',
     is_published  = true,
     is_demo       = true,
-    verification_state = 'verified',
+    -- ⚠ `verification_state = 'verified'` MUST arrive with its side-effects, in
+    -- THIS statement. This seed is documented (header) as runnable against PROD
+    -- via --db-url, and the un-stamped version of this line is the most likely
+    -- origin of the prod row that carried the public "Verified" badge with a
+    -- NULL last_verified_at and no vendor_tier_history entry — a shop that
+    -- looked human-checked to couples while nobody had checked it.
+    -- `vendor_profiles_verified_requires_stamp` (migration 20271017100000) now
+    -- REJECTS the un-stamped shape outright, so omitting these would fail loudly
+    -- rather than seed another lie.
+    verification_state  = 'verified',
+    last_verified_at    = NOW(),
+    next_renewal_due_at = NOW() + INTERVAL '1 year',
     compatible_ceremony_types = ARRAY['catholic','civil'],
     compatible_venue_settings = ARRAY['garden','banquet_hall'],
     event_types   = ARRAY['wedding']
   WHERE vendor_profile_id = v_vpid;
 
-  UPDATE public.vendor_profiles SET public_visibility = 'coming_soon', is_demo = true
+  -- The audit row a real admin approval would have written. Without it the
+  -- seeded shop is verified with no history explaining why.
+  INSERT INTO public.vendor_tier_history
+    (vendor_profile_id, from_state, to_state, admin_user_id, reason, metadata)
+  VALUES
+    (v_vpid, 'unverified', 'verified', admin_id, 'Seeded test vendor',
+     jsonb_build_object('source', 'seed-test-accounts.sql', 'is_demo', true));
+
+  -- 'verified', NOT the retired 'coming_soon'. Migration 20271013500000 retired
+  -- that value (owner: "we only show shops that are ready") and narrowed
+  -- `vendor_profiles_public_read` to require public_visibility = 'verified' AND
+  -- verification_state = 'verified' — so a 'coming_soon' seed row is invisible
+  -- in the marketplace, which defeats the point of seeding a browsable vendor.
+  UPDATE public.vendor_profiles SET public_visibility = 'verified', is_demo = true
     WHERE vendor_profile_id = v_vpid;
 
   INSERT INTO public.vendor_services

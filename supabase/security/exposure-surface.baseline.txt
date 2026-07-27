@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6178
+# facts: 6182
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     720
-#   col       4416
+#   col       4420
 #   policy    813
 #   view      10
 #   func      215
@@ -4407,10 +4407,14 @@ col	public.vendor_package_items.hour_base_centavos	anon=SIU authenticated=SIU
 col	public.vendor_package_items.is_default_included	anon=SIU authenticated=SIU
 col	public.vendor_package_items.is_required	anon=SIU authenticated=SIU
 col	public.vendor_package_items.item_id	anon=SIU authenticated=SIU
+col	public.vendor_package_items.max_extra_hours	anon=SIU authenticated=SIU
 col	public.vendor_package_items.min_hours	anon=SIU authenticated=SIU
 col	public.vendor_package_items.min_pax	anon=SIU authenticated=SIU
 col	public.vendor_package_items.package_id	anon=SIU authenticated=SIU
+col	public.vendor_package_items.parent_option_id	anon=SIU authenticated=SIU
 col	public.vendor_package_items.per_pax_price_centavos	anon=SIU authenticated=SIU
+col	public.vendor_package_items.pick_max	anon=SIU authenticated=SIU
+col	public.vendor_package_items.pick_min	anon=SIU authenticated=SIU
 col	public.vendor_package_items.pricing_basis	anon=SIU authenticated=SIU
 col	public.vendor_package_items.replacement_value_centavos	anon=SIU authenticated=SIU
 col	public.vendor_package_items.service_description	anon=SIU authenticated=SIU

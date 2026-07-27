@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -426,6 +427,9 @@ export default async function EventHomePage({
   return (
     <>
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
+      {/* Self-hiding: renders nothing unless a coordinator is waiting on an
+          answer (owner ruling 2026-07-27 — the host decides what to share). */}
+      <AccessRequestsDoorway eventId={eventId} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
         <DayOfModeGrid

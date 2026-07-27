@@ -508,6 +508,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'Transient OAuth handshake token (Live Studio channel).',
   },
   {
+    table: 'event_access_requests',
+    column: 'requester_user_id',
+    why: 'The subject’s own asks for access to an event, including a free-text note they wrote. Their request, their words — and the grant it may have produced lives in event_moderators, which erasure handles separately. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s request is an action ON their record, not personal data OF the answerer.',
+  },
+  {
     table: 'event_day_requests',
     column: 'author_user_id',
     why: 'Free text the subject wrote on the day ("we are running late", "the cake is missing") in the day-of requests stream. Same call as chat_messages: authored prose is the author’s personal data, the event it coordinated is long over, and the coordinator’s remaining rows are unaffected. `resolved_by_user_id` needs no entry — it is ON DELETE SET NULL, so triage attribution detaches on its own.',

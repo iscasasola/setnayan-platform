@@ -386,6 +386,8 @@ export const routes = {
       new: (eventId: string) => `/dashboard/${eventId}/orders/new`,
     },
     paperwork: (eventId: string) => `/dashboard/${eventId}/paperwork`,
+    /** Where the host answers a coordinator's ask for access (2026-07-27). */
+    accessRequests: (eventId: string) => `/dashboard/${eventId}/access-requests`,
     profile: {
       index: () => `/dashboard/profile`,
       concierge: () => `/dashboard/profile/concierge`,

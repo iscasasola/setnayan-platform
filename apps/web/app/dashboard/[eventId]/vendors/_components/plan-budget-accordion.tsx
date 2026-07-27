@@ -1155,7 +1155,12 @@ function ChildRail({
         <span className="lh-nm">{child.label}</span>
         <span className="lh-right">
           {child.personalizationEnabled ? (
-            <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
+            <DeadlineChip
+              status={child.timelineStatus}
+              daysLeft={child.daysLeft}
+              lockedCount={child.picks.filter(isLocked).length}
+              multiPick={!child.hardSingle}
+            />
           ) : null}
           {child.picks.length > 0 ? (
             <span className="lh-count">{child.picks.length}</span>
@@ -1276,6 +1281,7 @@ function ChildRail({
                 label={child.label}
                 groupId={child.groupId}
                 onOpenSearch={onOpenSearch}
+                another={child.state === 'finalized' && !child.hardSingle}
               />
               {child.primaryCategory ? (
                 <button
@@ -1361,11 +1367,25 @@ function DependencyNudge({
 function DeadlineChip({
   status,
   daysLeft,
+  lockedCount,
+  multiPick,
 }: {
   status: AccordionChild['timelineStatus'];
   daysLeft: number | null;
+  /** How many picks in this group are locked — drives the multi-pick copy. */
+  lockedCount?: number;
+  /** True for groups outside HARD_SINGLE_PICK_GROUPS: one lock is the floor,
+      not the ceiling (owner 2026-07-27 — e.g. a 2nd caterer / photo booth). */
+  multiPick?: boolean;
 }) {
   if (status === 'locked') {
+    if (multiPick && lockedCount && lockedCount > 0) {
+      return (
+        <span className="chip locked">
+          ✓ {lockedCount} locked · add more
+        </span>
+      );
+    }
     return <span className="chip locked">✓ Locked</span>;
   }
   if (status === 'overdue' && daysLeft !== null) {
@@ -1759,10 +1779,14 @@ function AddCard({
   label,
   groupId,
   onOpenSearch,
+  another = false,
 }: {
   label: string;
   groupId: string;
   onOpenSearch: (groupId: string, label: string) => void;
+  /** Group already has a lock and allows more (multi-pick) — invite the
+      2nd pick ("Add another …") instead of the cold-start "Find …". */
+  another?: boolean;
 }) {
   return (
     <button
@@ -1772,7 +1796,7 @@ function AddCard({
     >
       <span className="inner">
         <span className="plus">＋</span>
-        <span className="at">Find {label}</span>
+        <span className="at">{another ? `Add another ${label}` : `Find ${label}`}</span>
       </span>
     </button>
   );

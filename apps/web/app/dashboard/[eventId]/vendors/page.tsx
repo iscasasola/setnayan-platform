@@ -1061,6 +1061,31 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
+  // Explore Replan slice C · the ADAPTIVE CATEGORY SET. Tile-grain
+  // `event_category_decisions` rows (migration 20271016100000) carrying
+  // decision='excluded' are the categories the couple removed with "Not needed?
+  // Remove"; they leave the bench and reappear as "＋ Add to your plan" chips.
+  // Column-explicit, RLS-scoped, one query, and only behind the flag — OFF
+  // means no query at all and a byte-identical pre-replan bench. Fail-soft: a
+  // read error degrades to "nothing excluded", which can only ever show MORE
+  // categories, never hide one.
+  const excludedTiles: string[] = await (async () => {
+    if (!isExploreReplanEnabled()) return [];
+    try {
+      const { data } = await supabase
+        .from('event_category_decisions')
+        .select('tile')
+        .eq('event_id', eventId)
+        .eq('decision', 'excluded')
+        .not('tile', 'is', null);
+      return (data ?? [])
+        .map((r: { tile: string | null }) => r.tile)
+        .filter((t): t is string => typeof t === 'string' && t.length > 0);
+    } catch {
+      return [];
+    }
+  })();
+
   // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
   // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
   // and render its quick-view as the inspector column body — a new PRESENTATION
@@ -1112,6 +1137,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // `buildPlanBudgetModel`; passed down, never re-queried.
         buildPickVendorIds={[...new Set([...buildPicksByGroup.values()].flat())]}
         daysUntilWedding={daysUntilWedding}
+        // Explore Replan PR-C — tile-level exclusions ("Not needed? Remove").
+        excludedTiles={excludedTiles}
       />
     </>
   );

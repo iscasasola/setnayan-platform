@@ -57,7 +57,11 @@ import {
   searchMarketplaceForBench,
   type BenchMarketResult,
 } from '../_actions/bench-marketplace-search';
-import { clearCategoryDecision } from '../category-decision-actions';
+import {
+  clearCategoryDecision,
+  excludeTileFromPlan,
+  restoreTileToPlan,
+} from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { tileIcon } from '@/lib/taxonomy-icons';
 import {
@@ -68,15 +72,23 @@ import {
   orderCoverageTiles,
   type CoverageTile,
 } from '@/lib/coverage-strip';
+import { canRemoveTileFromPlan, resolveInPlanTiles } from '@/lib/explore-in-plan';
 import {
+  ADD_TO_PLAN_HEADING,
+  addToPlanChipLabel,
+  categoryHintButtonLabel,
+  categoryHintForTile,
   COVERAGE_NEXT_FLAG,
   COVERAGE_STRIP_HEADING,
   coverageCountLabel,
   coverageTileLabel,
+  folderEmptyInPlan,
   FOLDER_SUMMARY_ALL_COVERED,
   FOLDER_SUMMARY_LOCKED,
   FOLDER_SUMMARY_MORE,
   FOLDER_SUMMARY_TO_DECIDE,
+  REMOVE_FROM_PLAN_LABEL,
+  removeFromPlanButtonLabel,
 } from '@/lib/explore-info-copy';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
@@ -289,6 +301,31 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 html.dark .slcat .ctile .mini.bd{background:#2A2E36}
 html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 
+/* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
+   Three quiet affordances on the SHIPPED accordion, not a new surface: the ⓘ
+   beside a category name, the "Not needed? Remove" line at the foot of an open
+   category, and the "＋ Add to your plan" chip pool at the foot of a folder.
+   Every token is the bench's own — no new colour, no new type scale. */
+.slcat .cat-info{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;margin-left:6px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:var(--m-r-full);cursor:pointer;font:inherit;font-family:var(--serif);font-style:italic;font-size:12px;font-weight:600;line-height:1;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
+.slcat .cat-info:hover{background:rgba(30,26,18,.07);color:var(--mulberry)}
+.slcat .cat-info[aria-expanded='true']{background:rgba(169,131,75,.16);border-color:var(--gold);color:var(--gold-deep)}
+.slcat .hintbox{margin:0 4px 9px 4px;padding:9px 12px;background:rgba(169,131,75,.09);border-left:2px solid var(--gold);border-radius:0 var(--m-r-sm) var(--m-r-sm) 0;font-family:var(--sans);font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
+.slcat .cat-note{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:2px 16px 0 0}
+.slcat .rmv{appearance:none;-webkit-appearance:none;border:0;background:none;padding:4px 0;cursor:pointer;font:inherit;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);transition:color .18s var(--ease)}
+.slcat .rmv:hover{color:var(--mulberry);text-decoration:underline}
+.slcat .rmv[disabled]{opacity:.5;cursor:default;text-decoration:none}
+.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:#9a6a12;text-align:right;flex:1 1 200px}
+.slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
+.slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}
+.slcat .addchip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:transparent;border:1px dashed var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .addchip:hover{border-color:var(--gold);color:var(--gold-deep)}
+.slcat .addchip:active{transform:scale(.97)}
+.slcat .addchip[disabled]{opacity:.55;cursor:default}
+.slcat .fold-empty{padding:10px 16px 2px 34px;font-size:12.5px;color:var(--ink-soft)}
+html.dark .slcat .cat-info:hover{background:rgba(251,251,250,.08);color:#C99DB0}
+html.dark .slcat .plan-err{color:#e2b968}
+
 /* "In your plan" marker beside a category name */
 .slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
@@ -471,6 +508,7 @@ export function ShortlistCategories({
   coveredByTile = {},
   buildPickVendorIds = [],
   daysUntilWedding = null,
+  excludedTiles = [],
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -511,6 +549,14 @@ export function ShortlistCategories({
    * falls back to lead-time then taxonomy order.
    */
   daysUntilWedding?: number | null;
+  /**
+   * Explore Replan slice C — tiles the couple removed with "Not needed?
+   * Remove" (`event_category_decisions` rows at TILE grain, decision
+   * ='excluded'). They leave the bench and reappear as "＋ Add to your plan"
+   * chips at the foot of their folder. Empty (the default / flag off) → the
+   * pre-replan render, byte for byte.
+   */
+  excludedTiles?: readonly string[];
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -561,6 +607,40 @@ export function ShortlistCategories({
   const [reqError, setReqError] = useState<string | null>(null);
   const [reqSaving, startReqSave] = useTransition();
   const [, startReopen] = useTransition();
+
+  // ── Adaptive category set (Explore Replan PR-C) ───────────────────────────
+  // Which category's ⓘ hint box is open (one at a time — it is help, never a
+  // setting, so it always starts closed and never persists), plus the in-flight
+  // state and the last refusal message for add/remove.
+  const [hintTile, setHintTile] = useState<string | null>(null);
+  const [planEditing, startPlanEdit] = useTransition();
+  const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
+
+  function removeTileFromPlan(tile: string) {
+    setPlanError(null);
+    startPlanEdit(async () => {
+      const res = await excludeTileFromPlan({ eventId, tile });
+      if (!res.ok) {
+        setPlanError({ tile, message: res.error });
+        return;
+      }
+      setOpenTile((cur) => (cur === tile ? null : cur));
+      router.refresh();
+    });
+  }
+
+  function addTileToPlan(tile: string, folder: string, slug: string) {
+    setPlanError(null);
+    startPlanEdit(async () => {
+      const res = await restoreTileToPlan({ eventId, tile });
+      if (!res.ok) {
+        setPlanError({ tile, message: res.error });
+        return;
+      }
+      openPlan(folder, tile, slug);
+      router.refresh();
+    });
+  }
   const reqDialogRef = useRef<HTMLDivElement>(null);
 
   function closeReqModal() {
@@ -711,10 +791,40 @@ export function ShortlistCategories({
       coverageByFolder.set(f.folder, rows);
     }
   }
-  // The strip shows IN-PLAN categories only (decision #5) — the same set the
-  // chip strip it replaces already drew, so `openPlan` still reaches every tile.
+  // ── Adaptive category set (Explore Replan PR-C · decision #6) ─────────────
+  // The bench shows the couple's IN-PLAN tiles; the rest sit in a per-folder
+  // "＋ Add to your plan" chip pool. The rule itself is pure and unit-tested in
+  // lib/explore-in-plan.ts — including the reason `inPlan` and `coverage` are
+  // two sets (a wedding has no onboarding plan to seed from, and collapsing its
+  // ~53-row bench to whatever is already shortlisted would be an amputation,
+  // not an adaptation). Locks pin a tile in plan no matter what; the deep-link
+  // target is pinned too so `?open=` always lands on a row.
+  const allTilesInOrder = folders.flatMap((f) => f.tiles.map((t) => t.tile));
+  const inPlanResolution = resolveInPlanTiles({
+    allTiles: allTilesInOrder,
+    plannedTiles: plannedTileSet,
+    tilesWithVendors: new Set(
+      folders.flatMap((f) => f.tiles.filter((t) => t.vendors.length > 0).map((t) => t.tile)),
+    ),
+    tilesWithLocks: new Set(
+      folders.flatMap((f) =>
+        f.tiles.filter((t) => t.vendors.some((v) => v.status === 'locked')).map((t) => t.tile),
+      ),
+    ),
+    excludedTiles: new Set(excludedTiles),
+    pinnedTiles: initialOpenTile ? new Set([initialOpenTile]) : undefined,
+  });
+  // Flag OFF → null everywhere below, so every adaptive branch is skipped and
+  // the bench renders exactly as it does in production today.
+  const inPlanTiles = replan ? inPlanResolution.inPlan : null;
+
+  // The strip shows IN-PLAN categories only (decision #5) — with the flag on
+  // that is PR-C's coverage set (which adjusts "Covered X of Y" to the in-plan
+  // size, spec §5.2); with it off it stays the onboarding plan the chip strip
+  // it replaces already drew, so `openPlan` still reaches every tile.
+  const stripSource = inPlanTiles ? inPlanResolution.coverage : plannedTileSet;
   const stripTiles = orderCoverageTiles(
-    [...coverageByFolder.values()].flat().filter((t) => plannedTileSet.has(t.tile)),
+    [...coverageByFolder.values()].flat().filter((t) => stripSource.has(t.tile)),
     daysUntilWedding,
   );
   const stripSummary = coverageSummary(stripTiles);
@@ -962,9 +1072,20 @@ export function ShortlistCategories({
         // Folder-head summary (Explore Replan PR-B · decision #8). Computed over
         // the FULL folder (not the search-filtered slice) so the numbers stay
         // true while a query narrows the visible rows.
-        const fsum = replan
-          ? folderSummaryOf(coverageByFolder.get(folder.folder) ?? [], plannedTileSet)
-          : null;
+        const fsum = inPlanTiles
+          ? folderSummaryOf(coverageByFolder.get(folder.folder) ?? [], inPlanTiles)
+          : replan
+            ? folderSummaryOf(coverageByFolder.get(folder.folder) ?? [], plannedTileSet)
+            : null;
+        // PR-C — split the folder's (already search-filtered) tiles into the
+        // rows the couple planned and the "＋ Add to your plan" chips. Flag OFF
+        // → every tile is a row, exactly as today.
+        const rowTiles = inPlanTiles
+          ? folder.tiles.filter((t) => inPlanTiles.has(t.tile))
+          : folder.tiles;
+        const poolTiles = inPlanTiles
+          ? folder.tiles.filter((t) => !inPlanTiles.has(t.tile))
+          : [];
         return (
           <section
             key={folder.folder}
@@ -1009,12 +1130,18 @@ export function ShortlistCategories({
             </button>
             <div className="fold-collapse">
               <div className="fold-body">
-                {folder.tiles.map((t) => {
+                {rowTiles.map((t) => {
                   const tileOpen = searching || openTile === t.tile;
                   const coveredGroup = coveredByTile[t.tile] ?? null;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
                   const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;
+                  // PR-C — the ⓘ copy (null → no button, never invented copy)
+                  // and whether this category may be removed from the plan.
+                  const hint = replan ? categoryHintForTile(t.tile) : null;
+                  const removable =
+                    replan && canRemoveTileFromPlan({ lockedCount: t.vendors.filter((v) => v.status === 'locked').length });
+                  const rowError = planError?.tile === t.tile ? planError.message : null;
                   return (
                     <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
                       {/* The category head is a tap target to expand. The
@@ -1052,6 +1179,25 @@ export function ShortlistCategories({
                             <ChevronDown className="cat-chev" size={16} strokeWidth={1.75} aria-hidden />
                           </span>
                         </button>
+                        {/* Per-category ⓘ (PR-C · design §5.1). Its own button
+                            beside the head — buttons can't nest — resolving to
+                            the plan group's shipped `hint` through the
+                            many-to-one tile→group bridge. No copy in JSX. */}
+                        {hint ? (
+                          <button
+                            type="button"
+                            className="cat-info"
+                            aria-expanded={hintTile === t.tile}
+                            aria-label={categoryHintButtonLabel(t.label)}
+                            title={categoryHintButtonLabel(t.label)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHintTile((cur) => (cur === t.tile ? null : t.tile));
+                            }}
+                          >
+                            i
+                          </button>
+                        ) : null}
                         {savedCanonical ? (
                           <button
                             type="button"
@@ -1068,6 +1214,12 @@ export function ShortlistCategories({
                           </button>
                         ) : null}
                       </div>
+                      {/* The hint box stays readable with the category
+                          collapsed — it answers "do I even need this?", which
+                          is a question you ask BEFORE opening the rail. */}
+                      {hint && hintTile === t.tile ? (
+                        <div className="hintbox">{hint}</div>
+                      ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
                           {coveredGroup ? (
@@ -1139,11 +1291,68 @@ export function ShortlistCategories({
                               </button>
                             </div>
                           )}
+                          {/* "Not needed? Remove" (PR-C · decision #6). Quiet,
+                              at the foot of an OPEN category, and absent
+                              entirely when the category holds a locked vendor —
+                              removing one never cancels a booking. The server
+                              action re-checks and refuses; that refusal is what
+                              `plan-err` renders. */}
+                          {replan && !coveredGroup && (removable || rowError) ? (
+                            <div className="cat-note">
+                              {rowError ? <span className="plan-err">{rowError}</span> : null}
+                              {removable ? (
+                                <button
+                                  type="button"
+                                  className="rmv"
+                                  disabled={planEditing}
+                                  aria-label={removeFromPlanButtonLabel(t.label)}
+                                  onClick={() => removeTileFromPlan(t.tile)}
+                                >
+                                  {REMOVE_FROM_PLAN_LABEL}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
                   );
                 })}
+                {/* "＋ Add to your plan" (PR-C · decision #6) — everything in
+                    this folder the couple is NOT planning, as a chip pool at
+                    the foot of the folder body. Tapping one clears the
+                    exclusion and opens the category. */}
+                {inPlanTiles && rowTiles.length === 0 && poolTiles.length > 0 ? (
+                  <p className="fold-empty">{folderEmptyInPlan(folder.label)}</p>
+                ) : null}
+                {inPlanTiles && poolTiles.length > 0 ? (
+                  <div className="addpool">
+                    <p className="ap-t">{ADD_TO_PLAN_HEADING}</p>
+                    <div className="ap-chips">
+                      {poolTiles.map((t) => {
+                        const PoolIcon = tileIcon(t.tile);
+                        return (
+                          <button
+                            key={t.tile}
+                            type="button"
+                            className="addchip"
+                            disabled={planEditing}
+                            aria-label={addToPlanChipLabel(t.label)}
+                            onClick={() => addTileToPlan(t.tile, folder.folder, folder.slug)}
+                          >
+                            <PoolIcon size={13} strokeWidth={1.7} aria-hidden />
+                            {t.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {planError && poolTiles.some((t) => t.tile === planError.tile) ? (
+                      <p className="plan-err" style={{ textAlign: 'left', marginTop: 8 }}>
+                        {planError.message}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>

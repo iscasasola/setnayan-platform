@@ -44,7 +44,15 @@ import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 
-const LOCKED_STATUSES = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+/** The `event_vendors.status` values that mean "this booking is committed". */
+export const LOCKED_VENDOR_STATUSES: readonly string[] = [
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+];
+
+const LOCKED_STATUSES = new Set<string>(LOCKED_VENDOR_STATUSES);
 
 /**
  * Every `VendorCategory` → its taxonomy tile. THREE passes, first-writer-wins:
@@ -146,6 +154,29 @@ const TILE_TO_CATEGORY: Partial<Record<WeddingTile, VendorCategory>> = (() => {
  *  shortlist-taxonomy-coverage.test.ts. */
 export function categoryForTile(tile: WeddingTile): VendorCategory {
   return TILE_TO_CATEGORY[tile] ?? ('misc' as VendorCategory);
+}
+
+/**
+ * EVERY `VendorCategory` that lands on `tile` — the full inverse of
+ * `tileForCategory`, not the single storage representative `categoryForTile`
+ * returns.
+ *
+ * Explore Replan PR-C needs it for the removal guard: "is there a LOCKED vendor
+ * in this category?" is a question about `event_vendors.category`, and a tile
+ * rolls up several of them (e.g. `ceremony_venue` claims `officiant` and
+ * `church_fees` as well as `ceremony_venue`). Asking with only the
+ * representative category would miss a booking and let the couple hide it.
+ *
+ * Accepts a plain string because callers hold tile ids from the URL / the DB;
+ * an unknown tile simply returns `[]`, and the caller must treat that as "I
+ * could not prove this tile is empty", never as "it is empty".
+ */
+export function categoriesForTile(tile: string): VendorCategory[] {
+  const out: VendorCategory[] = [];
+  for (const [category, mapped] of Object.entries(CATEGORY_TO_TILE)) {
+    if (mapped === tile) out.push(category as VendorCategory);
+  }
+  return out;
 }
 
 /** One considered vendor in a tile's carousel (read-only — view, don't lock). */

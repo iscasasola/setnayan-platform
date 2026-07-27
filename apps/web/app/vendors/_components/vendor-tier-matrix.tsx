@@ -473,7 +473,8 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
           are billed per 28-day cycle. Enterprise is a bounded plan; franchises &amp;
           multi-location go Custom. 0% commission while we launch, every tier &mdash;
-          then a flat 5% only on couples Setnayan brings you; your own clients stay free.
+          after that 5%, then 1% beyond ₱100,000, only on couples Setnayan brings you;
+          your own clients stay free.
         </p>
 
         {/* Custom "for those who need more" callout — the negotiated tier ABOVE

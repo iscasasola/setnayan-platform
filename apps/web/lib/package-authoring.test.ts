@@ -16,6 +16,7 @@ import {
   editScopeForPackage,
   structuralChanges,
   isEditAllowed,
+  planItemInsertOrder,
   type DraftPackage,
   type DraftItem,
   type DraftOption,
@@ -40,6 +41,13 @@ function item(over: Partial<DraftItem> = {}): DraftItem {
     is_required: over.is_required ?? false,
     replacement_value_centavos: over.replacement_value_centavos ?? 5_000_00,
     options: over.options ?? [],
+    // Branching fields pass through UNDEFINED-as-absent rather than being
+    // defaulted: `undefined` and an explicit `null` must stay distinguishable
+    // in the tests that assert they read the same to `structuralChanges`.
+    parentRef: over.parentRef,
+    pickMin: over.pickMin,
+    pickMax: over.pickMax,
+    maxExtraHours: over.maxExtraHours,
   };
 }
 
@@ -407,4 +415,304 @@ test('item and option order does not count as a change', () => {
 
 test('an unbooked package accepts a structural edit', () => {
   assert.equal(isEditAllowed('full', draft(), draft({ total_price_centavos: 1 })), true);
+});
+
+// ---------------------------------------------------------------------------
+// RECURSIVE CUSTOMIZATION — pick range
+//
+// Each rule below mirrors a database constraint from migration 20271012816361.
+// The mirror is the point: caught here the vendor reads a sentence, caught at
+// the database they get a 23514 they cannot act on.
+// ---------------------------------------------------------------------------
+
+/** A choice line with `n` options, the first one standard. */
+function choiceItem(n: number, over: Partial<DraftItem> = {}): DraftItem {
+  return item({
+    options: Array.from({ length: n }, (_, i) =>
+      opt({
+        ref: `o${i}`,
+        label: `Option ${i}`,
+        is_default: i === 0,
+        price_delta_centavos: i === 0 ? 0 : 100 * (i + 1),
+      }),
+    ),
+    ...over,
+  });
+}
+
+test('a pick range is BOTH-OR-NEITHER — half of it is not an answer', () => {
+  // "At least 2, no maximum" would have to be read off the option count, which
+  // lives in a different table, so a reader would have to guess.
+  assert.ok(
+    codes(draft({ items: [choiceItem(3, { pickMin: 2 })] })).includes(
+      'choice_pick_range_invalid',
+    ),
+  );
+  assert.ok(
+    codes(draft({ items: [choiceItem(3, { pickMax: 2 })] })).includes(
+      'choice_pick_range_invalid',
+    ),
+  );
+});
+
+test('a pick range of zero, negative, or inverted is refused', () => {
+  const bad = (pickMin: number, pickMax: number) =>
+    codes(draft({ items: [choiceItem(5, { pickMin, pickMax })] }));
+  assert.ok(bad(0, 3).includes('choice_pick_range_invalid'), 'pick_min = 0 is is_required, not this');
+  assert.ok(bad(-1, 3).includes('choice_pick_range_invalid'));
+  assert.ok(bad(3, 2).includes('choice_pick_range_invalid'), 'an inverted range can never be met');
+  assert.ok(bad(1.5, 3).includes('choice_pick_range_invalid'), 'you cannot pick half an option');
+});
+
+test('pick_max cannot exceed the number of options on the line', () => {
+  // A line that asks for more picks than it offers leaves the couple on a
+  // configurator that will never let them continue.
+  const c = codes(draft({ items: [choiceItem(3, { pickMin: 1, pickMax: 4 })] }));
+  assert.ok(c.includes('choice_pick_max_exceeds_options'));
+  assert.ok(
+    !c.includes('choice_pick_range_invalid'),
+    'the range itself is well formed — only the ceiling is wrong',
+  );
+});
+
+test('"choose 3 of 5" and no range at all are both valid', () => {
+  assert.deepEqual(validatePackageDraft(draft({ items: [choiceItem(5, { pickMin: 3, pickMax: 3 })] })), []);
+  assert.deepEqual(validatePackageDraft(draft({ items: [choiceItem(5)] })), []);
+});
+
+test('a pick range on a line with NO options is caught', () => {
+  // The rule is checked for every line, not only choice lines, because
+  // "choose 2" on a plain line is exactly the authoring slip it exists for.
+  const c = codes(draft({ items: [item({ pickMin: 1, pickMax: 2 })] }));
+  assert.ok(c.includes('choice_pick_max_exceeds_options'));
+});
+
+test('a negative extra-hour ceiling is refused; 0 and absent are fine', () => {
+  assert.ok(
+    codes(draft({ items: [item({ maxExtraHours: -1 })] })).includes(
+      'item_max_extra_hours_invalid',
+    ),
+  );
+  // 0 = "fixed at min_hours". A real answer, not an empty one.
+  assert.deepEqual(validatePackageDraft(draft({ items: [item({ maxExtraHours: 0 })] })), []);
+  assert.deepEqual(validatePackageDraft(draft({ items: [item({ maxExtraHours: 8 })] })), []);
+});
+
+// ---------------------------------------------------------------------------
+// RECURSIVE CUSTOMIZATION — follow-up lines
+// ---------------------------------------------------------------------------
+
+/** A parent choice line + one follow-up hanging off its second option. */
+function branchingDraft(over: Partial<DraftItem> = {}): DraftPackage {
+  return draft({
+    items: [
+      item({
+        ref: 'main',
+        options: [
+          opt({ ref: 'beef', label: 'Beef caldereta', is_default: true }),
+          opt({ ref: 'fish', label: 'Fish fillet', price_delta_centavos: 500 }),
+        ],
+      }),
+      item({
+        ref: 'sides',
+        service_description: 'Choose your side',
+        parentRef: { itemRef: 'main', optionRef: 'fish' },
+        ...over,
+      }),
+    ],
+  });
+}
+
+test('a well-formed follow-up is valid', () => {
+  assert.deepEqual(validatePackageDraft(branchingDraft()), []);
+});
+
+test('a follow-up pointing at an option that is not in the draft is refused', () => {
+  // Silently accepting it would mean saving with a NULL parent, which PROMOTES
+  // the follow-up into a line every couple sees on every booking.
+  const d = branchingDraft();
+  d.items[1]!.parentRef = { itemRef: 'main', optionRef: 'ghost' };
+  assert.ok(codes(d).includes('followup_parent_unknown'));
+});
+
+test('a follow-up pointing at an item that is not in the draft is refused', () => {
+  const d = branchingDraft();
+  d.items[1]!.parentRef = { itemRef: 'ghost', optionRef: 'fish' };
+  assert.ok(codes(d).includes('followup_parent_unknown'));
+});
+
+test('a parentRef whose two halves disagree is refused', () => {
+  // `fish` belongs to `main`, not to `sides`. Guessing which half is right is
+  // exactly the kind of silent repair that publishes the wrong line.
+  const d = branchingDraft();
+  d.items[1]!.options = [opt({ ref: 'own', label: 'Rice', is_default: true })];
+  d.items[1]!.parentRef = { itemRef: 'sides', optionRef: 'fish' };
+  assert.ok(codes(d).includes('followup_parent_unknown'));
+});
+
+test('a follow-up hanging off its own option is refused', () => {
+  const d = draft({
+    items: [
+      item({
+        ref: 'self',
+        options: [
+          opt({ ref: 'a', label: 'A', is_default: true }),
+          opt({ ref: 'b', label: 'B', price_delta_centavos: 100 }),
+        ],
+        parentRef: { itemRef: 'self', optionRef: 'b' },
+      }),
+    ],
+  });
+  assert.ok(codes(d).includes('followup_cycle'));
+});
+
+test('a 2-cycle is refused, and reported on both lines', () => {
+  const d = draft({
+    items: [
+      item({
+        ref: 'a',
+        options: [opt({ ref: 'ao', label: 'A', is_default: true }), opt({ ref: 'ao2', label: 'A2', price_delta_centavos: 1 })],
+        parentRef: { itemRef: 'b', optionRef: 'bo' },
+      }),
+      item({
+        ref: 'b',
+        service_description: 'B line',
+        options: [opt({ ref: 'bo', label: 'B', is_default: true }), opt({ ref: 'bo2', label: 'B2', price_delta_centavos: 1 })],
+        parentRef: { itemRef: 'a', optionRef: 'ao' },
+      }),
+    ],
+  });
+  const cycleRefs = validatePackageDraft(d)
+    .filter((p) => p.code === 'followup_cycle')
+    .map((p) => p.itemRef);
+  assert.deepEqual(cycleRefs.sort(), ['a', 'b']);
+});
+
+test('a deep but acyclic chain is valid — depth is the database’s call', () => {
+  // The 5-level cap is enforced by the DB trigger only; the validator is about
+  // shapes that can never be written at all, not about product bounds.
+  const items: DraftItem[] = [];
+  for (let n = 0; n < 4; n += 1) {
+    items.push(
+      item({
+        ref: `n${n}`,
+        service_description: `Level ${n}`,
+        options: [
+          opt({ ref: `n${n}o`, label: 'Yes', is_default: true }),
+          opt({ ref: `n${n}o2`, label: 'No', price_delta_centavos: 1 }),
+        ],
+        ...(n === 0 ? {} : { parentRef: { itemRef: `n${n - 1}`, optionRef: `n${n - 1}o` } }),
+      }),
+    );
+  }
+  assert.deepEqual(validatePackageDraft(draft({ items })), []);
+});
+
+test('re-parenting a follow-up is structural — a booked package freezes it', () => {
+  const stored = branchingDraft();
+  const moved = branchingDraft();
+  moved.items[1]!.parentRef = { itemRef: 'main', optionRef: 'beef' };
+  assert.ok(structuralChanges(stored, moved).includes('items'));
+});
+
+test('widening a pick range or an hour cap is structural', () => {
+  const withRange = (pickMax: number) =>
+    draft({ items: [choiceItem(5, { pickMin: 2, pickMax })] });
+  assert.ok(structuralChanges(withRange(2), withRange(4)).includes('items'));
+
+  const withHours = (maxExtraHours: number) => draft({ items: [item({ maxExtraHours })] });
+  assert.ok(structuralChanges(withHours(2), withHours(6)).includes('items'));
+});
+
+test('an absent branching field and an explicit null read the same', () => {
+  // A loader that stops populating one of these must not look like a re-price.
+  const absent = draft({ items: [item()] });
+  const explicit = draft({
+    items: [item({ parentRef: null, pickMin: null, pickMax: null, maxExtraHours: null })],
+  });
+  assert.deepEqual(structuralChanges(absent, explicit), []);
+});
+
+// ---------------------------------------------------------------------------
+// INSERT ORDER — option ids are minted fresh on every save
+// ---------------------------------------------------------------------------
+
+const levelRefs = (plan: ReturnType<typeof planItemInsertOrder>) =>
+  plan.ok ? plan.levels.map((l) => l.map((i) => i.ref)) : null;
+
+test('a flat package is one level', () => {
+  const plan = planItemInsertOrder([item({ ref: 'a' }), item({ ref: 'b' })]);
+  assert.deepEqual(levelRefs(plan), [['a', 'b']]);
+});
+
+test('an empty package plans to no levels', () => {
+  const plan = planItemInsertOrder([]);
+  assert.deepEqual(levelRefs(plan), []);
+});
+
+test('a follow-up lands in the level AFTER its parent, whatever the array order', () => {
+  // The draft deliberately lists the CHILD first — array order is not
+  // dependency order, and trusting it is how a follow-up gets written before
+  // the option id it points at exists.
+  const plan = planItemInsertOrder(branchingDraft().items.slice().reverse());
+  assert.deepEqual(levelRefs(plan), [['main'], ['sides']]);
+});
+
+test('a three-deep chain plans to three levels', () => {
+  const items = [
+    item({ ref: 'c', parentRef: { itemRef: 'b', optionRef: 'bo' } }),
+    item({ ref: 'a', options: [opt({ ref: 'ao', label: 'A', is_default: true })] }),
+    item({ ref: 'b', parentRef: { itemRef: 'a', optionRef: 'ao' }, options: [opt({ ref: 'bo', label: 'B', is_default: true })] }),
+  ];
+  assert.deepEqual(levelRefs(planItemInsertOrder(items)), [['a'], ['b'], ['c']]);
+});
+
+test('siblings on different parents share a level', () => {
+  const items = [
+    item({ ref: 'p1', options: [opt({ ref: 'p1o', label: 'X', is_default: true })] }),
+    item({ ref: 'p2', options: [opt({ ref: 'p2o', label: 'Y', is_default: true })] }),
+    item({ ref: 'c1', parentRef: { itemRef: 'p1', optionRef: 'p1o' } }),
+    item({ ref: 'c2', parentRef: { itemRef: 'p2', optionRef: 'p2o' } }),
+  ];
+  assert.deepEqual(levelRefs(planItemInsertOrder(items)), [
+    ['p1', 'p2'],
+    ['c1', 'c2'],
+  ]);
+});
+
+test('a dangling parentRef is UNRESOLVED, never demoted to a top-level line', () => {
+  const plan = planItemInsertOrder([
+    item({ ref: 'a', options: [opt({ ref: 'ao', label: 'A', is_default: true })] }),
+    item({ ref: 'orphan', parentRef: { itemRef: 'gone', optionRef: 'gone-o' } }),
+  ]);
+  assert.equal(plan.ok, false);
+  assert.deepEqual(plan.ok === false ? plan.unresolvedRefs : null, ['orphan']);
+});
+
+test('a parentRef whose halves disagree is UNRESOLVED', () => {
+  const plan = planItemInsertOrder([
+    item({ ref: 'a', options: [opt({ ref: 'ao', label: 'A', is_default: true })] }),
+    item({ ref: 'b', options: [opt({ ref: 'bo', label: 'B', is_default: true })] }),
+    // `ao` belongs to `a`, not to `b`.
+    item({ ref: 'c', parentRef: { itemRef: 'b', optionRef: 'ao' } }),
+  ]);
+  assert.equal(plan.ok, false);
+  assert.deepEqual(plan.ok === false ? plan.unresolvedRefs : null, ['c']);
+});
+
+test('a cycle is UNRESOLVED rather than looping forever', () => {
+  const plan = planItemInsertOrder([
+    item({ ref: 'a', parentRef: { itemRef: 'b', optionRef: 'bo' }, options: [opt({ ref: 'ao', label: 'A', is_default: true })] }),
+    item({ ref: 'b', parentRef: { itemRef: 'a', optionRef: 'ao' }, options: [opt({ ref: 'bo', label: 'B', is_default: true })] }),
+  ]);
+  assert.equal(plan.ok, false);
+  assert.deepEqual((plan.ok === false ? plan.unresolvedRefs : []).sort(), ['a', 'b']);
+});
+
+test('every item appears exactly once across the levels', () => {
+  const plan = planItemInsertOrder(branchingDraft().items);
+  assert.equal(plan.ok, true);
+  const flat = plan.ok ? plan.levels.flatMap((l) => l.map((i) => i.ref)) : [];
+  assert.equal(new Set(flat).size, flat.length, 'no item may be inserted twice');
+  assert.equal(flat.length, 2);
 });

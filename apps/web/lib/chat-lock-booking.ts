@@ -4,7 +4,7 @@
  *
  * Option A (owner 2026-07-24): the couple's chat "🔒 Lock this deal" tap IS the
  * booking. It advances the real `event_vendors` row into 'contracted' at the
- * NEGOTIATED total and fires the 5% Booking Fee on that exact number — the same
+ * NEGOTIATED total and fires the Booking Fee on that exact number — the same
  * verified-gate + `collectBookingFeeAtLock` the vendor-page finalize uses — so
  * the chat price and the charged base can never diverge (they read the one
  * `event_vendors.total_cost_php` we write at lock).

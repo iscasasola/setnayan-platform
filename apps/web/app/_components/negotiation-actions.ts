@@ -827,7 +827,7 @@ export async function markAmendmentItemDelivered(formData: FormData): Promise<vo
 // (owner 2026-07-24). Only the COUPLE locks. On lock we:
 //   1. Advance the real event_vendors row into 'contracted' at the NEGOTIATED
 //      total (event_vendors.total_cost_php = the accepted Deal's new total) and
-//      collect the 5% Booking Fee on that exact number — via the SHARED lock
+//      collect the Booking Fee on that exact number — via the SHARED lock
 //      core `bookVendorAtChatLock`, which reuses the SAME verified-gate
 //      (isMarketplaceVendorBookable + the event_vendors_require_verified_before_
 //      lock DB trigger) and the SAME collectBookingFeeAtLock the vendor-page
@@ -890,7 +890,7 @@ export async function lockDeal(formData: FormData): Promise<void> {
   // Advance the real event_vendors row at the negotiated total THROUGH the
   // shared lock core (verified-gate + collectBookingFeeAtLock). Only when we
   // have BOTH a marketplace event_vendors row AND a concrete negotiated number
-  // (agreedCentavos) — so the 5% can only ever fire on the exact price we also
+  // (agreedCentavos) — so the fee can only ever fire on the exact price we also
   // freeze onto the thread below (parity by construction). resolveEventVendorId
   // matches event_vendors.marketplace_vendor_id = thread.vendor_profile_id, so
   // that resolved row's marketplace link IS ctx.thread.vendor_profile_id.

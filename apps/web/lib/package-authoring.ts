@@ -38,6 +38,20 @@ export type DraftOption = {
   is_available: boolean;
 };
 
+/**
+ * Which OPTION, on which ITEM, reveals a follow-up line.
+ *
+ * Both halves are CLIENT REFS, not database ids, and that is the whole point.
+ * `savePackage` replaces a package's items and options wholesale, so every
+ * `option_id` is regenerated on every save; a stored id would dangle the moment
+ * the vendor pressed Save twice. The refs are resolved to freshly-minted ids at
+ * write time (see {@link planItemInsertOrder}).
+ */
+export type DraftParentRef = {
+  itemRef: string;
+  optionRef: string;
+};
+
 export type DraftItem = {
   ref: string;
   service_description: string;
@@ -47,6 +61,26 @@ export type DraftItem = {
   replacement_value_centavos: number;
   /** Empty = a plain line. Non-empty = a CHOICE line. */
   options: DraftOption[];
+  /**
+   * FOLLOW-UP line: the couple sees it only once `optionRef` is picked on
+   * `itemRef`. Absent / null = a normal top-level line, which is every line
+   * that exists today. Maps to `vendor_package_items.parent_option_id`.
+   */
+  parentRef?: DraftParentRef | null;
+  /**
+   * "Choose N of M" on a CHOICE line. Both or neither — the DB refuses a
+   * half-set pair (`vendor_package_items_pick_range_ck`) because "at least 2,
+   * no maximum" would have to be read off a different table. Absent = today's
+   * behaviour: exactly one option.
+   */
+  pickMin?: number | null;
+  pickMax?: number | null;
+  /**
+   * Ceiling on the EXTRA HOURS a couple may add on top of `min_hours`. Extends
+   * the hourly model already on the row — it is NOT a generic quantity cap;
+   * this schema has no generic quantity concept. Absent = uncapped.
+   */
+  maxExtraHours?: number | null;
 };
 
 export type DraftPackage = {
@@ -73,6 +107,14 @@ export type DraftProblem = {
     | 'choice_default_unavailable'
     | 'choice_option_label_duplicated'
     | 'choice_all_options_unavailable'
+    // ---- recursive customization (parent_option_id / pick_min / pick_max) ----
+    // Each mirrors a database constraint, so the vendor reads a sentence
+    // instead of a 23514 they cannot act on.
+    | 'choice_pick_range_invalid'
+    | 'choice_pick_max_exceeds_options'
+    | 'item_max_extra_hours_invalid'
+    | 'followup_parent_unknown'
+    | 'followup_cycle'
     // Raised by the card-text integrity gate (lib/service-text-integrity.ts),
     // NOT by validatePackageDraft — that gate needs this `problems` channel to
     // report a blank / contact-info line through the editor's existing list.
@@ -86,6 +128,33 @@ export type DraftProblem = {
 const isBlank = (s: string) => s.trim().length === 0;
 const isWholeNonNegative = (n: number) =>
   Number.isFinite(n) && Number.isInteger(n) && n >= 0;
+
+/**
+ * Does walking `item`'s parent chain come back to `item`?
+ *
+ * Bounded by a visited set rather than by a depth constant, because the chain
+ * may contain a cycle that does NOT include `item` — an unbounded walk would
+ * hang the vendor's browser on every keystroke, which is a worse failure than
+ * the one being detected. Refs that do not resolve simply end the walk; the
+ * dangling case is reported separately as `followup_parent_unknown`.
+ */
+function isSelfAncestor(
+  item: DraftItem,
+  itemByRef: ReadonlyMap<string, DraftItem>,
+  optionOwner: ReadonlyMap<string, string>,
+): boolean {
+  const seen = new Set<string>([item.ref]);
+  let cursor: DraftItem | undefined = item;
+  while (cursor?.parentRef) {
+    const ownerRef = optionOwner.get(cursor.parentRef.optionRef);
+    if (ownerRef === undefined) return false; // dangling — a different problem
+    if (ownerRef === item.ref) return true;
+    if (seen.has(ownerRef)) return false; // a cycle elsewhere, not ours
+    seen.add(ownerRef);
+    cursor = itemByRef.get(ownerRef);
+  }
+  return false;
+}
 
 /**
  * Every problem with a draft, in one pass. An empty array means the draft is
@@ -156,6 +225,17 @@ export function validatePackageDraft(draft: DraftPackage): DraftProblem[] {
     });
   }
 
+  // Every ref the draft owns, so a parentRef can be checked against the draft
+  // the vendor is actually looking at. A ref that is not in here is dangling —
+  // and a dangling parentRef is not a cosmetic problem: the save path would
+  // have to either invent a NULL parent, which PROMOTES a follow-up into a line
+  // every couple sees, or 23503 at the database.
+  const itemByRef = new Map(draft.items.map((i) => [i.ref, i]));
+  const optionOwner = new Map<string, string>(); // optionRef → owning itemRef
+  for (const i of draft.items) {
+    for (const o of i.options) optionOwner.set(o.ref, i.ref);
+  }
+
   for (const item of draft.items) {
     if (isBlank(item.service_description)) {
       problems.push({
@@ -171,6 +251,82 @@ export function validatePackageDraft(draft: DraftPackage): DraftProblem[] {
         itemRef: item.ref,
         message: 'An inclusion cannot have a negative value.',
       });
+    }
+
+    // ---- RECURSIVE CUSTOMIZATION ----
+    // Checked for EVERY line, plain or choice: "choose 2" on a line with no
+    // options is exactly the authoring slip these rules exist to catch.
+
+    // BOTH-OR-NEITHER, >= 1, min <= max — mirrors
+    // vendor_package_items_pick_range_ck.
+    const hasMin = item.pickMin !== undefined && item.pickMin !== null;
+    const hasMax = item.pickMax !== undefined && item.pickMax !== null;
+    if (hasMin || hasMax) {
+      const min = item.pickMin;
+      const max = item.pickMax;
+      if (
+        !hasMin ||
+        !hasMax ||
+        !isWholeNonNegative(min as number) ||
+        !isWholeNonNegative(max as number) ||
+        (min as number) < 1 ||
+        (max as number) < 1 ||
+        (min as number) > (max as number)
+      ) {
+        problems.push({
+          code: 'choice_pick_range_invalid',
+          itemRef: item.ref,
+          message:
+            'Set both a smallest and a largest number of picks, at least 1 each, with the smallest first.',
+        });
+      } else if ((max as number) > item.options.length) {
+        // A line that asks for more picks than it offers can never be
+        // completed, so the couple is stuck on a configurator that will not let
+        // them continue.
+        problems.push({
+          code: 'choice_pick_max_exceeds_options',
+          itemRef: item.ref,
+          message: `You can pick at most ${item.options.length} here — that is how many options this line has.`,
+        });
+      }
+    }
+
+    // Mirrors vendor_package_items_max_extra_hours_ck.
+    if (item.maxExtraHours !== undefined && item.maxExtraHours !== null) {
+      if (!isWholeNonNegative(item.maxExtraHours)) {
+        problems.push({
+          code: 'item_max_extra_hours_invalid',
+          itemRef: item.ref,
+          message: 'Extra hours cannot be a negative number.',
+        });
+      }
+    }
+
+    if (item.parentRef) {
+      const owner = optionOwner.get(item.parentRef.optionRef);
+      if (
+        !itemByRef.has(item.parentRef.itemRef) ||
+        owner === undefined ||
+        owner !== item.parentRef.itemRef
+      ) {
+        problems.push({
+          code: 'followup_parent_unknown',
+          itemRef: item.ref,
+          message:
+            'This follow-up points at a choice that is no longer in the package. Re-attach it or delete it.',
+        });
+      } else if (isSelfAncestor(item, itemByRef, optionOwner)) {
+        // Mirrors the database trigger (package_followup_self_parent /
+        // package_followup_cycle / package_followup_too_deep). A cycle would
+        // hang the couple-side renderer, which walks children to decide what to
+        // show — so it is caught here where the vendor can read a sentence.
+        problems.push({
+          code: 'followup_cycle',
+          itemRef: item.ref,
+          message:
+            'This follow-up eventually leads back to itself. A follow-up cannot depend on its own answer.',
+        });
+      }
     }
 
     if (item.options.length === 0) continue; // a plain line — nothing further
@@ -248,6 +404,75 @@ export function isPackageDraftValid(draft: DraftPackage): boolean {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* INSERT ORDER — the only reason a follow-up can be written at all           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Group a draft's items into WRITE LEVELS.
+ *
+ * `savePackage` deletes and re-inserts a package's rows wholesale, so every
+ * `option_id` is minted fresh on every save. A follow-up's `parent_option_id`
+ * therefore cannot be known until its parent's OPTIONS have been inserted and
+ * their new ids read back. Hence levels, not a flat ordered list:
+ *
+ *   level 0 → items with no parentRef        …then their options
+ *   level 1 → items whose parent is level 0  …then their options
+ *   …
+ *
+ * Two separate reasons this must be level-by-level rather than one sorted
+ * INSERT. The obvious one is that the parent's option ids do not exist yet. The
+ * subtle one is that a BEFORE-ROW trigger reads the statement's own snapshot,
+ * so rows inserted earlier in the SAME multi-row INSERT are invisible to it —
+ * the database's cycle guard would not see the parent and would raise
+ * `package_followup_parent_missing` even for a perfectly ordered array.
+ *
+ * `unresolvedRefs` is non-empty when an item can never be placed: its parentRef
+ * dangles, or it sits in a cycle. Callers MUST fail the save on that — writing
+ * the item with a NULL parent would silently promote a follow-up into a line
+ * every couple sees.
+ */
+export type InsertPlan =
+  | { ok: true; levels: ReadonlyArray<ReadonlyArray<DraftItem>> }
+  | { ok: false; unresolvedRefs: string[] };
+
+export function planItemInsertOrder(
+  items: ReadonlyArray<DraftItem>,
+): InsertPlan {
+  const optionOwner = new Map<string, string>(); // optionRef → owning itemRef
+  for (const i of items) for (const o of i.options) optionOwner.set(o.ref, i.ref);
+
+  const placed = new Set<string>();
+  const levels: DraftItem[][] = [];
+  let remaining = items.filter((i) => Boolean(i.parentRef));
+
+  const roots = items.filter((i) => !i.parentRef);
+  if (roots.length > 0) {
+    levels.push(roots);
+    for (const i of roots) placed.add(i.ref);
+  }
+
+  // Each pass places every item whose parent landed in a PREVIOUS level. A pass
+  // that places nothing means what is left is dangling or cyclic.
+  while (remaining.length > 0) {
+    const next = remaining.filter((i) => {
+      const ownerRef = optionOwner.get(i.parentRef!.optionRef);
+      // The ref pair must agree — an optionRef that belongs to some OTHER item
+      // than the one named is not a parent we are willing to guess at.
+      return ownerRef !== undefined && ownerRef === i.parentRef!.itemRef && placed.has(ownerRef);
+    });
+    if (next.length === 0) {
+      return { ok: false, unresolvedRefs: remaining.map((i) => i.ref) };
+    }
+    levels.push(next);
+    for (const i of next) placed.add(i.ref);
+    const nextRefs = new Set(next.map((i) => i.ref));
+    remaining = remaining.filter((i) => !nextRefs.has(i.ref));
+  }
+
+  return { ok: true, levels };
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* EDIT SCOPE — what a vendor may still change once someone has booked        */
 /* ────────────────────────────────────────────────────────────────────────── */
 
@@ -313,6 +538,17 @@ export function structuralChanges(
           i.is_default_included,
           i.is_required,
           i.replacement_value_centavos,
+          // Branching is STRUCTURE. Re-parenting a line, widening "choose 2 of
+          // 5" to "choose 4 of 5", or raising the extra-hour ceiling all change
+          // what a booked couple is owed, so each must freeze with everything
+          // else. `?? null` keeps an absent field and an explicit null equal —
+          // a loader that stops populating one must not read as a re-price.
+          i.parentRef
+            ? [i.parentRef.itemRef, i.parentRef.optionRef]
+            : null,
+          i.pickMin ?? null,
+          i.pickMax ?? null,
+          i.maxExtraHours ?? null,
           [...i.options]
             .sort((a, b) => a.ref.localeCompare(b.ref))
             .map((o) => [

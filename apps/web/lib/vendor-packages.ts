@@ -184,6 +184,41 @@ export const VENDOR_PACKAGE_SELECT =
 export const VENDOR_PACKAGE_ITEM_SELECT =
   'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at';
 
+/**
+ * The columns of `vendor_package_items` the AUTHORING surface reads or writes.
+ *
+ * A separate list from {@link VENDOR_PACKAGE_ITEM_SELECT} on purpose. The three
+ * branching columns arrived with migration
+ * 20271012816361_package_item_option_branching_… and every reader of them sits
+ * behind `packageAuthoringEnabled()`, which is OFF in production. Folding them
+ * into the shared select would put a brand-new column name on the COUPLE-side
+ * lock path, where a migration that has not landed yet turns into a PostgREST
+ * 400 on a money action — and this repo has a standing note that migrations
+ * auto-apply unreliably. Keeping the dependency inside the flag-dark surface is
+ * the conservative half of that trade.
+ *
+ * Every name here is asserted to be a real column by
+ * `vendor-packages.columns.test.ts`.
+ */
+export const PACKAGE_ITEM_AUTHORING_COLUMNS = [
+  'item_id',
+  'package_id',
+  'canonical_service',
+  'service_description',
+  'is_default_included',
+  'is_required',
+  'replacement_value_centavos',
+  'display_order',
+  'parent_option_id',
+  'pick_min',
+  'pick_max',
+  'max_extra_hours',
+] as const;
+
+/** The PostgREST select list the authoring loaders use. Never a literal. */
+export const PACKAGE_ITEM_AUTHORING_SELECT =
+  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours';
+
 export type VendorPackageItemRow = {
   item_id: string;
   package_id: string;
@@ -205,6 +240,24 @@ export type VendorPackageItemRow = {
    * by default" and never stopped anyone unticking the line.
    */
   is_required?: boolean;
+  /**
+   * FOLLOW-UP link (migration 20271012816361). Non-null = the couple sees this
+   * line only once that specific option is picked on another line. OPTIONAL
+   * because only the authoring select requests it — see
+   * {@link PACKAGE_ITEM_AUTHORING_SELECT}.
+   *
+   * ⚠ NOT YET HONOURED BY PRICING. `computeCustomization`, `keptItems` and the
+   * credit engine ignore it, so a follow-up whose parent option is unpicked is
+   * still priced and still cascades. That is why nothing authors one outside
+   * the flag-dark authoring surface yet; the visibility rule lands with the
+   * couple-side renderer.
+   */
+  parent_option_id?: string | null;
+  /** "Choose N of M" bounds. Both or neither — the DB refuses a half-set pair. */
+  pick_min?: number | null;
+  pick_max?: number | null;
+  /** Ceiling on EXTRA hours over `min_hours`. NOT a generic quantity cap. */
+  max_extra_hours?: number | null;
   /**
    * The alternatives on this line. **A line is a CHOICE iff this is non-empty**
    * — there is no `is_choice` column, and adding one would be a second source

@@ -61,6 +61,18 @@ another vendor's picks on the same event.
 `REVOKE ALL` on both tables — every new table in `public` ships open, and RLS
 does not undo a table-level GRANT.
 
+### Signed-in read only — narrowed after the exposure freeze caught it
+
+The first draft copied `vendor_songs`' `anon` SELECT, and the **exposure-surface
+freeze** failed the PR for it. Copying a public surface is not a reason to create
+one: the picker is used by a signed-in couple, so `anon` bought nothing today.
+Narrowed to `authenticated`, and the baseline regenerated in this PR per
+`supabase/security/README.md`. Every added `col` line now reads `anon=-` —
+**strangers reach none of it**. The only widening is signed-in reach to two
+RLS-gated tables, which is the floor for a working feature. If the public vendor
+page ever wants to show a host's segments, that is a deliberate widening with its
+own baseline diff.
+
 ### Placement rule: append, never reflow
 
 Picked activities land in a run **after everything already scheduled**,
@@ -79,8 +91,9 @@ header): removing the idempotency early-continue fails exactly the 2 idempotency
 tests; starting the cursor at the timeline's earliest start instead of its tail
 fails exactly the 2 that protect the couple's authored day.
 
-Verified: `tsc --noEmit` clean · 4647/4647 unit tests (16 new) · migration
-prefix guard + doctor clean · production build green.
+Verified: `tsc --noEmit` clean · `next lint` clean · **4647/4647 unit tests**
+(16 new) · **542/542 DB replay guards** including the exposure freeze ·
+migration prefix guard + doctor clean · production build green.
 
 ⚠ **Not yet applied to prod.** `supabase db push` is an owner action.
 

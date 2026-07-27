@@ -81,12 +81,18 @@ CREATE INDEX IF NOT EXISTS vendor_activities_vendor_idx
 
 ALTER TABLE public.vendor_activities ENABLE ROW LEVEL SECURITY;
 
--- Public read, exactly like vendor_songs: a couple comparing emcees needs to
--- see what each one actually does. The catalogue is marketing, not private.
+-- Signed-in read. `vendor_songs` grants this to `anon` as well, and the first
+-- draft here copied that — but copying a public surface is not a reason to
+-- create one. The picker is used by a signed-in couple, so `anon` buys nothing
+-- today, and the exposure freeze exists precisely to make "one more thing
+-- strangers can curl" a decision rather than a side effect. If the public
+-- vendor page ever wants to show a host's segments, that is a deliberate
+-- widening with its own justification and its own baseline diff.
 DROP POLICY IF EXISTS vendor_activities_public_select ON public.vendor_activities;
-CREATE POLICY vendor_activities_public_select
+DROP POLICY IF EXISTS vendor_activities_signed_in_select ON public.vendor_activities;
+CREATE POLICY vendor_activities_signed_in_select
   ON public.vendor_activities FOR SELECT
-  TO anon, authenticated
+  TO authenticated
   USING (true);
 
 -- The emcee manages his own — canonical current_vendor_ids() idiom.
@@ -184,8 +190,7 @@ COMMENT ON TABLE public.event_activity_picks IS
 REVOKE ALL ON public.vendor_activities FROM anon, authenticated;
 REVOKE ALL ON public.event_activity_picks FROM anon, authenticated;
 
-GRANT SELECT ON public.vendor_activities TO anon, authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.vendor_activities TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vendor_activities TO authenticated;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.event_activity_picks TO authenticated;
 

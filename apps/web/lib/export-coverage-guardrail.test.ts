@@ -61,9 +61,13 @@
  *     stamp this test exists to prevent. The numbers are recorded so the
  *     trade-off stays auditable and revisitable, not so it stays permanent.
  *  4. A textual reference in the route proves a table is TOUCHED, not that it is
- *     CORRECTLY SCOPED. Only T6 (author column) and T11 (which CLIENT issues the
- *     read) check scoping, and only for the two tables this PR fixed. Every
- *     other EXPORTED entry is trusted to be reviewed by a human.
+ *     CORRECTLY SCOPED, and it says NOTHING about which of the table's columns
+ *     actually reach the subject. Only T6 (identity column) and T11 (which
+ *     CLIENT issues the read) check scoping, and only for the three tables read
+ *     through the service-role client; only T12 checks column COMPLETENESS, and
+ *     only for `vendor_profiles`. Every other EXPORTED entry is trusted to be
+ *     reviewed by a human — including its select list, which for most sections
+ *     is a hand-written subset nothing compares against the table.
  *  5. Retired tables are not detected. `DROP TABLE` in these migrations is
  *     idempotency scaffolding preceding a CREATE, not retirement — so a
  *     genuinely dropped table would linger as a stale map entry until T3 is
@@ -76,6 +80,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from './security/migration-schema';
+import {
+  VENDOR_PROFILE_EXPORT_COLUMNS,
+  VENDOR_PROFILE_EXPORT_OMITTED,
+} from './export-vendor-profile-columns';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const MIGRATIONS = path.resolve(HERE, '..', '..', '..', 'supabase', 'migrations');
@@ -569,7 +577,7 @@ test('T10 · every classified table is still IN SCOPE (a narrowing heuristic mus
   );
 });
 
-test('T11 · the two author-scoped reads use the PRIVILEGED client, not the session client', () => {
+test('T11 · the three identity-scoped reads use the PRIVILEGED client, not the session client', () => {
   const src = fs.readFileSync(ROUTE, 'utf8');
   // THE load-bearing assertion for this whole fix, and it is here because
   // mutation testing proved its absence: reverting both reads to the RLS
@@ -579,15 +587,26 @@ test('T11 · the two author-scoped reads use the PRIVILEGED client, not the sess
   // coordinator (removeHost stamps event_moderators.removed_at AND deletes the
   // event_members row) reads ZERO rows through the session client and receives
   // a subject-access file asserting they wrote nothing.
+  // `vendor_profiles` joined this set on 2026-07-27 for a DIFFERENT reason than
+  // the two coordinator tables, and the difference is worth stating so nobody
+  // "simplifies" it back: those two have no author SELECT policy, so RLS filters
+  // the subject's own rows to zero. vendor_profiles has a working owner policy —
+  // what breaks it is COLUMN privilege. Once `SELECT (tin_number, …)` is revoked
+  // from `authenticated` (the whole point of the follow-up PR), the owner's own
+  // read 42501s and PostgREST drops the ENTIRE row, not the one column. Same
+  // outcome as the coordinator bug — the subject's own record missing from the
+  // subject's own export — reached by a different mechanism.
   for (const [table, col] of [
     ['event_vendor_working_notes', 'author_user_id'],
     ['coordinator_broadcasts', 'sender_user_id'],
+    ['vendor_profiles', 'user_id'],
   ] as const) {
     assert.match(
       src,
       new RegExp(`admin\\s*\\n?\\s*\\.from\\(\\s*'${table}'\\s*\\)`),
-      `${table} must be read from the SERVICE-ROLE client (\`admin\`). It has no author SELECT policy, so an ` +
-        'RLS-enforced read returns zero rows for a coordinator whose grant was revoked — a false "you wrote nothing".',
+      `${table} must be read from the SERVICE-ROLE client (\`admin\`) — otherwise the subject's own ` +
+        'rows are filtered or refused on their own subject-access request (no author SELECT policy for the ' +
+        'coordinator tables; a column-level REVOKE for vendor_profiles), and they receive a false empty.',
     );
     assert.doesNotMatch(
       src,
@@ -612,6 +631,122 @@ test('T11 · the two author-scoped reads use the PRIVILEGED client, not the sess
     /process\.env\.SUPABASE_SERVICE_ROLE_KEY/,
     'The route must gate the privileged read on SUPABASE_SERVICE_ROLE_KEY being present. ' +
       'A try/catch around createAdminClient() is NOT enough — the dev-only anon-key fallback in lib/supabase/admin.ts never throws.',
+  );
+});
+
+test('T12 · the vendor_profiles export projection is COMPLETE (no column silently drops out)', () => {
+  // WHY THIS TEST IS THE POINT OF THE CHANGE IT GUARDS.
+  //
+  // Replacing `select('*')` with a named list buys a column-level revoke on
+  // vendor_profiles, and costs a new failure mode that the wildcard could not
+  // have: UNDER-EXPORT. A wildcard cannot forget a column. A hand-written list
+  // can, and the omission is invisible in every way that normally catches
+  // things — the route still returns 200, the section still looks populated,
+  // typecheck is silent (a PostgREST select list is a string), and the phantom-
+  // column scanner only looks for the OPPOSITE error (a column that does not
+  // exist). The data subject receives a file that is quietly missing their
+  // registered business address, and nobody finds out.
+  //
+  // So the projection is not trusted; it is DERIVED-CHECKED. The assertion is
+  // an equality, deliberately, not a subset check in either direction:
+  //   • schema \ (projection ∪ omitted) → UNDER-EXPORT, an incomplete legal
+  //     disclosure. This is the one that motivated the test.
+  //   • projection \ schema → a phantom column. PostgREST 42501/42703s the
+  //     WHOLE statement on one bad name, so this would delete the entire
+  //     vendor_profile section rather than one field.
+  //   • omitted \ schema → a stale withholding decision pointing at a column
+  //     that no longer exists, i.e. a reason nobody has re-read.
+  //
+  // Same `readSchema()` the rest of this file uses, so its honesty notes apply
+  // verbatim: a column added inside a DO block or applied straight to prod is
+  // invisible here. Mitigated once by hand — the migration-derived set was
+  // diffed against production `information_schema.columns` on 2026-07-27 and
+  // matched exactly, 93 for 93.
+  const table = readSchema().get('vendor_profiles');
+  assert.ok(
+    table,
+    'No CREATE TABLE public.vendor_profiles found in supabase/migrations — the parser regressed, ' +
+      'and with it every assertion below (an empty schema would make this test vacuously green).',
+  );
+
+  const omitted = Object.keys(VENDOR_PROFILE_EXPORT_OMITTED);
+  const projected = new Set(VENDOR_PROFILE_EXPORT_COLUMNS);
+
+  // Anti-vacuity. If the projection were emptied, or the parser started
+  // returning a handful of columns, the set arithmetic below could still be
+  // made to pass by a matching mistake on the other side.
+  assert.ok(
+    table.cols.size > 80,
+    `readSchema() sees only ${table.cols.size} columns on vendor_profiles; production had 93 on 2026-07-27. ` +
+      'The parser has narrowed — fix it rather than lowering this floor.',
+  );
+  assert.equal(
+    projected.size,
+    VENDOR_PROFILE_EXPORT_COLUMNS.length,
+    'The projection names the same column twice. It is derived by splitting VENDOR_PROFILE_EXPORT_SELECT, ' +
+      'so a duplicate means the string itself repeats a name.',
+  );
+
+  const missing = [...table.cols].filter((c) => !projected.has(c) && !omitted.includes(c)).sort();
+  assert.deepEqual(
+    missing,
+    [],
+    `UNDER-EXPORT: vendor_profiles column(s) reach no data subject: ${missing.join(', ')}.\n` +
+      'A column exists on the table but is neither in the export projection nor deliberately withheld. ' +
+      'Under RA 10173 that is an incomplete subject-access response, not a style issue. Do one of:\n' +
+      '  1. add it to VENDOR_PROFILE_EXPORT_SELECT in lib/export-vendor-profile-columns.ts (preferred), or\n' +
+      '  2. add a VENDOR_PROFILE_EXPORT_OMITTED entry there with the reason it is withheld from the ' +
+      'subject — and expect that reason to be read by the DPO, not by a linter.',
+  );
+
+  const phantom = [...projected].filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(
+    phantom,
+    [],
+    `Projected column(s) no migration declares on vendor_profiles: ${phantom.join(', ')}.\n` +
+      'PostgREST fails the WHOLE select on one unknown column, so this does not lose a field — it loses ' +
+      'the entire vendor_profile section of every vendor’s export.',
+  );
+
+  const staleOmissions = omitted.filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(
+    staleOmissions,
+    [],
+    `VENDOR_PROFILE_EXPORT_OMITTED names column(s) that no longer exist: ${staleOmissions.join(', ')}. ` +
+      'Delete the entries — a withholding decision about a dropped column is a reason nobody has re-read.',
+  );
+
+  for (const [col, reason] of Object.entries(VENDOR_PROFILE_EXPORT_OMITTED)) {
+    assert.ok(
+      reason.trim().length > 20,
+      `VENDOR_PROFILE_EXPORT_OMITTED.${col} needs a real reason, not a placeholder. ` +
+        'Withholding a column from a subject-access response is a decision someone must defend.',
+    );
+  }
+});
+
+test('T13 · a privileged read that could not run is DISCLOSED, never rendered as an empty', () => {
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // The `admin === null` path (no SUPABASE_SERVICE_ROLE_KEY) is not an error —
+  // it is the route declining to take a read it cannot take honestly. Every
+  // section behind that client must therefore pass `adminUnavailable` into its
+  // outcome helper, or it ships `[]` / `null` under `export_complete: true`:
+  // the exact false statement of fact this route exists to prevent, just
+  // relocated. vendor_profile is the newest such section and the easiest to
+  // miss, because unlike the other two it reads as an ordinary owner query.
+  assert.match(
+    src,
+    /singleOutcome<[\s\S]{0,300}?>\(\s*'vendor_profile'\s*,\s*vendorProfileRes\s*,\s*adminUnavailable\s*\)/,
+    "The vendor_profile section must be unwrapped as singleOutcome('vendor_profile', vendorProfileRes, " +
+      "adminUnavailable). Without the third argument a run with no service key reports `vendor_profile: null` " +
+      'with export_complete TRUE — telling a vendor in writing that Setnayan holds no business record for them.',
+  );
+  // The two media sections hang off the profile row, so they go empty with it.
+  assert.match(
+    src,
+    /vendorMediaIncomplete\s*=\s*listOutcome\(/,
+    'When the vendor_profile read is not taken, vendor_portfolio_media and vendor_submitted_media resolve to ' +
+      '[] with nothing said — the same silent empty one level down. They must be named as NOT READ too.',
   );
 });
 
@@ -674,7 +809,7 @@ test('T9 · no read on the export route is unwrapped with a bare `?? []`', () =>
   );
 });
 
-test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {
+test('T6 · the privileged reads stay IDENTITY-scoped, never event- or profile-scoped', () => {
   const src = fs.readFileSync(ROUTE, 'utf8');
   // Coarse but real: a refactor that flips either filter to .eq('event_id', …)
   // would leak a third party's prose into a subject-access file — private
@@ -689,5 +824,16 @@ test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {
     src,
     /coordinator_broadcasts[\s\S]{0,400}?sender_user_id/,
     'coordinator_broadcasts must be filtered by sender_user_id, not by event_id.',
+  );
+  // vendor_profiles (2026-07-27). The tempting refactor here is not event_id —
+  // it is `.eq('vendor_profile_id', …)` resolved from somewhere else, which
+  // behind the service-role client would hand one vendor another vendor's BIR
+  // tax identity. The uid filter is the only thing making this read
+  // self-scoped now that RLS is no longer in the path.
+  assert.match(
+    src,
+    /'vendor_profiles'[\s\S]{0,400}?\.eq\(\s*'user_id'\s*,\s*user\.id\s*\)/,
+    "vendor_profiles must be filtered by .eq('user_id', user.id). It is read service-role, so RLS is NOT " +
+      'a second line of defence here — the filter is the only bound on the row set.',
   );
 });

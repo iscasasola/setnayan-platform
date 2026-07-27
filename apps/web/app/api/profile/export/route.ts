@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
+import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
 
 /**
  * RA 10173 data-export endpoint (V1 slice).
@@ -39,7 +40,7 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  * making that assertion when we simply failed to look is a false statement of
  * fact to a data subject under the very law this endpoint serves.
  *
- * ── WHY TWO SECTIONS USE THE SERVICE-ROLE CLIENT ─────────────────────────────
+ * ── WHY THREE SECTIONS USE THE SERVICE-ROLE CLIENT ───────────────────────────
  * Every other read on this route uses the RLS-enforced session client, and
  * that is right: for those tables a policy the subject already satisfies also
  * returns exactly the subject's own rows, so RLS and completeness agree.
@@ -68,17 +69,42 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  * from a true zero. Completeness therefore has to come from a read RLS cannot
  * narrow.
  *
+ * The THIRD table, `vendor_profiles` (added 2026-07-27), is here for a related
+ * but distinct reason — not RLS, but COLUMN privileges. Its subject-facing
+ * columns include the vendor's BIR tax identity (tin_number, tin_type,
+ * registered_*) and DTI/SEC registration numbers, which a logged-in NON-OWNER
+ * can currently read off any verified vendor because `authenticated` holds
+ * table-level SELECT on all 93 columns. The fix for that is a column-level
+ * REVOKE — and column privileges are ROLE-level, not row-level, so the moment
+ * they land the VENDOR CANNOT READ THEIR OWN tin_number either. PostgREST
+ * fails the whole statement (42501), not the one column, so the subject's
+ * entire `vendor_profile` section would vanish from their own RA 10173 export.
+ * Reading it service-role, filtered to `user_id = auth.uid()`, is what keeps
+ * the subject's own record whole while the role loses access to everyone
+ * else's. (The cleaner shape is a `security_definer` self-view, exactly as
+ * SEC-2b did with `public.events_host` — see the closing note below on why a
+ * migration is not bundled into this route's change.)
+ *
  * WHAT BOUNDS THE BYPASS — four properties, all of which must keep holding:
  *   1. The filter value is `user.id` from `supabase.auth.getUser()`, a
  *      server-verified session identity. It is NEVER taken from the request
  *      body, query string, or a header — this route accepts no input at all,
  *      so there is no parameter for a caller to tamper with.
- *   2. The filter column is the AUTHOR column (author_user_id / sender_user_id),
- *      i.e. the identity itself. The widest possible result set is "rows this
- *      exact authenticated uid wrote" — definitionally the subject's own
+ *   2. The filter column is the AUTHOR column (author_user_id / sender_user_id)
+ *      — or, for vendor_profiles, the OWNER column `user_id` — i.e. the
+ *      identity itself. The widest possible result set is "rows this exact
+ *      authenticated uid wrote or owns" — definitionally the subject's own
  *      personal data, and exactly what the export exists to return.
- *   3. Scope is two tables and a fixed column projection. No `select('*')`, no
- *      joins that could pull a third party's row in behind the bypass.
+ *   3. Scope is three tables and a fixed column projection. No `select('*')`,
+ *      no joins that could pull a third party's row in behind the bypass.
+ *      ⚠ THIS PROPERTY WAS NOT ACTUALLY TRUE UNTIL 2026-07-27. The rule was
+ *      stated here from the start, but `vendor_profiles` was read `select('*')`
+ *      one screen below — on the session client at the time, so the stated rule
+ *      and the code did not visibly collide. Moving that read behind the bypass
+ *      forced the collision, and it was resolved in the rule's favour: the
+ *      wildcard is gone, replaced by the named projection in
+ *      `lib/export-vendor-profile-columns`. There is now no `select('*')`
+ *      anywhere on this route, privileged or not.
  *   4. Read-only. No write ever uses this client on this route.
  * If a future edit loosens (1) or (2) — an event_id filter, a caller-supplied
  * id, a widened select — the bypass stops being bounded and this pattern must
@@ -88,11 +114,16 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  *   • T6 (lib/export-coverage-guardrail) is a TEXT-PROXIMITY match asserting the
  *     author/sender column name appears near each table name. It catches a flip
  *     to .eq('event_id', …). It does NOT see which client issues the read.
- *   • T11 (same file) is the one that pins the client: it asserts both reads are
- *     issued from `admin`, never from the RLS session client. Without it the
- *     whole fix could be reverted by a drive-by refactor with a green build —
- *     mutation-tested, it was.
- * Properties 3 and 4 above are reviewed by humans, not asserted by any test.
+ *   • T11 (same file) is the one that pins the client: it asserts all three
+ *     reads are issued from `admin`, never from the RLS session client. Without
+ *     it the whole fix could be reverted by a drive-by refactor with a green
+ *     build — mutation-tested, it was.
+ *   • T12 (same file) pins the HALF of property 3 that a human reviewer is
+ *     worst at: that the vendor_profiles projection is COMPLETE. It asserts the
+ *     named columns are exactly the table's column set minus an explicit,
+ *     reasoned deny-list, so a column added by a future migration cannot
+ *     silently drop out of a data subject's export. The "no joins" half of
+ *     property 3, and property 4, are still reviewed by humans only.
  *
  * The cleaner long-term shape is author SELECT policies added by migration,
  * which would let the session client do this. It is not bundled here because a
@@ -226,11 +257,28 @@ export async function GET() {
         )
         .in('event_id', ids);
     })(),
-    supabase
-      .from('vendor_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    // RA 10173 — the subject's OWN vendor business record. Read PRIVILEGED and
+    // with an EXPLICIT projection; both halves are load-bearing and neither is
+    // cosmetic. See lib/export-vendor-profile-columns for the full argument:
+    //   • the wildcard had to go because `select('*')` demands SELECT on every
+    //     one of the 93 columns, which pinned the whole table open to
+    //     `authenticated` and made a column-level revoke unexpressible;
+    //   • the client had to change because once that revoke lands, column
+    //     privileges being role-level means the vendor loses their own
+    //     tin_number too, and PostgREST 42501s the entire row rather than
+    //     omitting one field.
+    // Bounded exactly as the two coordinator reads below are: .eq on the OWNER
+    // column with a server-verified session identity, fixed projection, no
+    // joins, read-only. When the service key is absent the read is NOT taken at
+    // all and `not_included` says so — an empty vendor_profile must never be
+    // mistaken for "you have no vendor record".
+    admin
+      ? admin
+          .from('vendor_profiles')
+          .select(VENDOR_PROFILE_EXPORT_SELECT)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve(null),
     supabase
       .from('chat_messages')
       .select('message_id, thread_id, sender_role, body, created_at')
@@ -411,11 +459,16 @@ export async function GET() {
   const profile = singleOutcome('profile (users)', profileRes);
   const events = listOutcome('event_memberships', eventsRes);
   const ownedEvents = listOutcome<Record<string, unknown>>('owned_event_birth_data', ownedEventsRes);
+  // `adminUnavailable` is passed for the same reason it is passed to the two
+  // coordinator sections: without it, a run with no service key would ship
+  // `vendor_profile: null` with `export_complete: true` — i.e. tell a vendor in
+  // writing that Setnayan holds no business record for them, when in fact we
+  // simply did not look.
   const vendorProfile = singleOutcome<{
     vendor_profile_id?: string;
     logo_url?: string | null;
     portfolio_r2_keys?: string[] | null;
-  }>('vendor_profile', vendorProfileRes);
+  }>('vendor_profile', vendorProfileRes, adminUnavailable);
   const messages = listOutcome('chat_messages_authored', messagesRes);
   const orders = listOutcome('orders', ordersRes);
   const payments = listOutcome('payments', paymentsRes);
@@ -446,6 +499,18 @@ export async function GET() {
   let vendorPortfolioMedia: string[] = [];
   let vendorSubmittedMedia: unknown[] = [];
   let vendorMediaIncomplete: string | null = null;
+  // Both media sections hang off `vp`, so when the profile read did not happen
+  // they resolve to `[]` with nothing said — the silent empty, one level down.
+  // A vendor whose portfolio is 40 photos would be handed two empty arrays and
+  // `export_complete: true`. Named here through the same helper so the wording
+  // matches every other NOT READ notice on this route.
+  if (!vp && vendorProfile.incomplete) {
+    vendorMediaIncomplete = listOutcome(
+      'vendor_portfolio_media + vendor_submitted_media',
+      null,
+      adminUnavailable,
+    ).incomplete;
+  }
   if (vp) {
     vendorPortfolioMedia = await displayUrlsForStoredAssets([
       vp.logo_url ?? null,

@@ -43,6 +43,7 @@ import { passesFaithFilter, passesEventTypeFilter } from '@/lib/taxonomy-filters
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
+import type { ChatInquiryStatus } from '@/lib/chat';
 
 /** The `event_vendors.status` values that mean "this booking is committed". */
 export const LOCKED_VENDOR_STATUSES: readonly string[] = [
@@ -248,7 +249,68 @@ export type ShortlistVendor = {
    *  already committed for this event). Fail-open: a calendar flake reads 'free',
    *  never a false 'booked' (mirrors reach's no-false-out-of-range rule). */
   dateFit: 'free' | 'booked' | null;
+  /** ── Three-action card (Explore Replan slice D · spec §12.1) ─────────────
+   *  `event_vendors.marketplace_vendor_id` — the linked marketplace profile, or
+   *  NULL for an off-platform pick. This is the ONLY gate on the inquiry
+   *  affordance: `contactShortlistVendor` returns `not_marketplace` without it,
+   *  so a card that shows "Inquire" anyway is a guaranteed dead end. Gate on
+   *  THIS, never on a manual/source heuristic — `NewManualVendorModal`'s LINKED
+   *  mode writes a real profile id, so a linked manual add IS bookable. */
+  marketplaceVendorId: string | null;
+  /** `chat_threads.thread_id` for (this event, this vendor's profile), read in
+   *  the page's EXISTING batched thread select — never a per-card probe. NULL =
+   *  no thread yet → the card offers "Inquire". */
+  threadId: string | null;
+  /** The thread's inquiry status, from the same batched read. Combined with
+   *  `threadId` by `hasLiveInquiry` — never read raw at a call site. */
+  inquiryStatus: ChatInquiryStatus | null;
+  /** The PlanGroupId whose rules govern this pick, resolved from the vendor's
+   *  OWN stored category (the same resolution `finalizeVendor`'s conflict gate
+   *  and the budget bucketer key on — so an "Add to build" from the bench lands
+   *  in exactly the group the Build/Budget tabs read it from). NULL for a
+   *  category no plan group claims: the card then HIDES Add-to-build and Lock
+   *  rather than passing null into `setBuildPick` / `AccordionLockButton`
+   *  (the #3466 class of bug). */
+  planGroupId: string | null;
+  /** The money basis behind "Add to build" — a real quote (`total_cost_php`)
+   *  first, else the marketplace service's "starts at" anchor. Same basis the
+   *  budget-fit badge above already uses, so the card cannot claim a price the
+   *  badge doesn't. NULL = no price signal at all → the build CTA degrades to a
+   *  quiet "ask first" note (the bench's form of the shipped owner rule that
+   *  only priced services enter the build). */
+  priceBasisPhp: number | null;
+  /** Verification state for the lock gate, TRI-state on purpose: TRUE verified ·
+   *  FALSE still verifying (the lock button explains before the tap) · NULL
+   *  unknown / off-platform → no indicator, the server + DB trigger decide.
+   *  Distinct from `isVerified` above, which is a badge and coerces null→false;
+   *  coercing here would client-block a manual vendor from a lock they're
+   *  entitled to (spec §9). */
+  verifiedState: boolean | null;
 };
+
+/**
+ * THE canonical "does this pick have a live inquiry?" predicate (spec §12.1
+ * step 5). Exported from here so the BENCH card and the PUBLIC vendor profile
+ * (`app/v/[slug]/page.tsx`) resolve it from ONE implementation — before this,
+ * four divergent versions existed and the bench's did not exclude `declined`,
+ * so the same vendor read "Check inquiry" on the bench and "Inquire" on their
+ * own profile.
+ *
+ * ⚠ Share the PREDICATE ONLY, never the event SCOPING. `/v/[slug]` resolves the
+ * couple's PRIMARY event (`events[0]`); the bench is scoped to the event the
+ * couple is currently planning. Those are different questions and must stay
+ * answered by their own callers.
+ *
+ * A `declined` thread has no conversation to resume, so it reads as "no live
+ * inquiry" and the card offers a fresh Inquire (the server dedupes on the
+ * UNIQUE(event_id, vendor_profile_id) thread, so that can never double-send).
+ */
+export function hasLiveInquiry(v: {
+  threadId: string | null;
+  inquiryStatus: string | null;
+}): boolean {
+  return v.threadId != null && v.inquiryStatus !== 'declined';
+}
 
 /** One taxonomy tile (a category) inside a folder. */
 export type ShortlistTile = {
@@ -435,6 +497,18 @@ export function buildShortlistFolders(args: {
       // read on your OWN chosen vendor would be misleading) — same "locked skips"
       // discipline as budget above. Absent map / no committed date → null.
       dateFit: isLocked ? null : dateFitByVendorId?.get(v.vendor_id) ?? null,
+      // ── Three-action card inputs (slice D). All four come off rows the page
+      // ALREADY read — the shortlist row itself (marketplace link, category)
+      // and the batched thread select — so the card costs zero extra queries.
+      marketplaceVendorId: v.marketplace_vendor_id ?? null,
+      threadId: ext?.thread_id ?? null,
+      inquiryStatus: ext?.inquiry_status ?? null,
+      // The vendor's OWN category decides the group (not the tile's), so the
+      // build pick lands where Budget/Build already bucket this vendor.
+      planGroupId: planGroupForCategory(v.category),
+      // Reuses the SAME basis the budget badge computed two statements up.
+      priceBasisPhp: budgetBasis,
+      verifiedState: ext?.is_verified ?? null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

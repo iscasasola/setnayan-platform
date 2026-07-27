@@ -162,3 +162,54 @@ export const REMOVE_BLOCKED_LOCKED =
 export function folderEmptyInPlan(folderLabel: string): string {
   return `Nothing from ${folderLabel} in your plan yet — add below if you need it.`;
 }
+
+/* ── Three-action card (slice D · spec §3 PR-D, §12.1) ─────────────────────
+   Rule 3 above applies here too: none of these may be inlined in JSX. The
+   glyphs the playable prototype drew as emoji are Lucide icons in production —
+   the copy below is text only, and the component supplies the icon. */
+
+/** Primary action — writes `event_build_picks`. */
+export const CARD_ADD_TO_BUILD = 'Add to build';
+export const CARD_ADDING = 'Adding…';
+/** The pinned state + its vendor-scoped undo. */
+export const CARD_IN_BUILD = 'In your build';
+export const CARD_REMOVE_FROM_BUILD = 'Remove';
+
+/**
+ * No price signal at all — neither a quote nor a marketplace "starts at". The
+ * shipped rule (owner 2026-06-09) is that only priced services enter the build;
+ * on the bench the honest next step is to ask, because a card here may never
+ * have been contacted at all ("waiting for the vendor's price" would be a lie).
+ */
+export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
+
+/** Second action, stateful on thread existence. */
+export const CARD_INQUIRE = 'Inquire';
+export const CARD_CHECK_INQUIRY = 'Check inquiry';
+export function cardInquireLabel(name: string): string {
+  return `Inquire with ${name}`;
+}
+export function cardCheckInquiryLabel(name: string): string {
+  return `Open your conversation with ${name}`;
+}
+
+/**
+ * Third action. Deliberately NOT "Lock now — it's final": per the §7 handshake
+ * amendment a lock is a REQUEST until the vendor accepts the payment, so no
+ * customer-facing control may promise finality before that step.
+ */
+export const CARD_LOCK = 'Lock this';
+export const CARD_LOCKING = 'Requesting…';
+
+/** Collapsed category rows name what is already locked there (decision #8). */
+export function lockedNamesLine(names: readonly string[]): string {
+  return names.join(' · ');
+}
+export function lockedNamesLabel(names: readonly string[], categoryLabel: string): string {
+  return `Locked for ${categoryLabel}: ${names.join(', ')}`;
+}
+
+/** Rail end — a locked, still-open category invites the next pick (#3789). */
+export function cardAddAnother(label: string): string {
+  return `Add another ${label}`;
+}

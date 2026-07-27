@@ -35,6 +35,15 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     budgetFit: null,
     budgetEstimated: false,
     dateFit: null,
+    // Three-action card inputs (slice D) — no marketplace link, no thread, no
+    // group, no price basis. The sort never reads them; they are here so the
+    // fixture stays a complete ShortlistVendor.
+    marketplaceVendorId: null,
+    threadId: null,
+    inquiryStatus: null,
+    planGroupId: null,
+    priceBasisPhp: null,
+    verifiedState: null,
     ...p,
   };
 }

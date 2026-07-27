@@ -288,6 +288,13 @@ export type VendorEnrichment = {
   faith_match?: boolean | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
+  /** The chat thread's id for this (event, vendor profile) pair — ONE extra
+   *  column on the batched thread select the page already runs (Explore Replan
+   *  slice D · spec §12.1 step 3). It is what lets the bench card link STRAIGHT
+   *  to `/dashboard/[eventId]/messages/[threadId]` instead of firing a server
+   *  action to rediscover a thread it already knows exists. Absent → no thread
+   *  yet → the card offers "Inquire". */
+  thread_id?: string | null;
   /** Linked-services-on-card labels for this vendor's picked service.
    *  groupId (2026-06-12) = covered plan group when resolvable — feeds
    *  category-satisfaction. */

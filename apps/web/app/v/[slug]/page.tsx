@@ -60,6 +60,7 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import {
   buildVendorVenueEvents,
   fetchViewerVenue,
@@ -1113,12 +1114,22 @@ export async function renderVendorBySlug({
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .maybeSingle();
       // Only surface "View thread" for non-declined threads — a declined
-      // thread has no active conversation to resume.
+      // thread has no active conversation to resume. The RULE lives in
+      // `hasLiveInquiry` (lib/shortlist-taxonomy.ts) so this surface and the
+      // event bench's three-action card can never drift on what "has an
+      // inquiry" means (Explore Replan slice D · spec §12.1 step 5). Only the
+      // PREDICATE is shared — the event SCOPING above (the couple's PRIMARY
+      // event) stays this page's own and must not be reused by the bench.
       const t = threadResult.data as
         | { thread_id: string; inquiry_status: string }
         | null;
-      if (t?.thread_id && t.inquiry_status !== 'declined') {
-        existingThreadId = t.thread_id;
+      if (
+        hasLiveInquiry({
+          threadId: t?.thread_id ?? null,
+          inquiryStatus: t?.inquiry_status ?? null,
+        })
+      ) {
+        existingThreadId = t?.thread_id ?? null;
       }
     }
   }

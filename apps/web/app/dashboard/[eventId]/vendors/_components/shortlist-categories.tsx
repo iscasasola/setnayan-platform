@@ -38,6 +38,8 @@ import {
   BadgeCheck,
   Sparkles,
   Pencil,
+  Plus,
+  Lock,
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
@@ -76,6 +78,7 @@ import { canRemoveTileFromPlan, resolveInPlanTiles } from '@/lib/explore-in-plan
 import {
   ADD_TO_PLAN_HEADING,
   addToPlanChipLabel,
+  cardAddAnother,
   categoryHintButtonLabel,
   categoryHintForTile,
   COVERAGE_NEXT_FLAG,
@@ -87,10 +90,20 @@ import {
   FOLDER_SUMMARY_LOCKED,
   FOLDER_SUMMARY_MORE,
   FOLDER_SUMMARY_TO_DECIDE,
+  lockedNamesLabel,
+  lockedNamesLine,
   REMOVE_FROM_PLAN_LABEL,
   removeFromPlanButtonLabel,
 } from '@/lib/explore-info-copy';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
+import { categoryForTile } from '@/lib/shortlist-taxonomy';
+import { planGroupForCategory } from '@/lib/wedding-plan-groups';
+import {
+  railEndIsAddAnother,
+  resolveBenchCardActions,
+  type BenchCardActions,
+} from '@/lib/bench-card-actions';
+import { BenchVendorActions } from './bench-vendor-actions';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import {
   RequirementsModal,
@@ -332,6 +345,40 @@ html.dark .slcat .plan-err{color:#e2b968}
    presentational chip on the venue category while its shortlist is empty */
 .slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 
+/* ── Three-action card (Explore Replan slice D · flag-gated) ────────────────
+   The prototype drew these as emoji + red pills; production draws them in the
+   bench's OWN language — the same var(--sans) / var(--mono) tokens, gold-deep
+   accent and pill radii the rest of this stylesheet uses, with Lucide icons.
+   The card itself is untouched: .vcw is a wrapper the rail sizes instead of
+   .vc, so the carousel snap, coverflow width and inspector ring all behave as
+   before. Flag OFF ⇒ no wrapper, no action rail, this block never matches. */
+.slcat .vcw{flex:0 0 min(206px, calc(100vw - 132px));scroll-snap-align:start;display:flex;flex-direction:column;gap:6px}
+.slcat .vcw>.vc{flex:1 1 auto;width:100%;min-width:0;scroll-snap-align:none}
+.slcat .vacts{display:flex;flex-direction:column;gap:5px}
+.slcat .vact-slot{display:flex;flex-direction:column}
+.slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:11.5px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .vact:active{transform:scale(.97)}
+.slcat .vact:disabled{opacity:.55;cursor:default}
+.slcat .vact.primary{background:var(--mulberry);color:#fff;border-color:var(--mulberry)}
+.slcat .vact.ghost{background:var(--card);color:var(--ink);border-color:var(--line)}
+.slcat .vact.ghost:hover{border-color:rgba(30,26,18,.3)}
+.slcat .vact.quiet{background:rgba(169,131,75,.1);color:var(--gold-deep);border-color:rgba(169,131,75,.42)}
+.slcat .vact.quiet:hover{background:rgba(169,131,75,.17)}
+.slcat .vact.on{background:rgba(169,131,75,.14);color:var(--gold-deep);border-color:rgba(169,131,75,.42);cursor:default}
+.slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:10.5px;cursor:default;text-align:left;justify-content:flex-start}
+.slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:10.5px;font-weight:500}
+.slcat .vact.mini:hover{color:var(--ink)}
+.slcat .vact-pair{display:flex;gap:5px;align-items:stretch}
+.slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
+.slcat .vact-err{font-family:var(--sans);font-size:10.5px;line-height:1.3;color:#9a3325;margin:4px 0 0}
+html.dark .slcat .vact-err{color:#e9a99d}
+html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C99DB0}
+/* Locked names on a COLLAPSED category row (decision #8) — the row answers
+   "who did we choose here?" without opening the rail. */
+.slcat .cat-locked{display:flex;align-items:center;gap:6px;margin:-2px 4px 8px;padding:0 0 0 2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--gold-deep);min-width:0}
+.slcat .cat-locked span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.slcat .cat-locked svg{flex:0 0 auto}
+
 html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
 html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
 html.dark .slcat .plan-chip{background:#2A2E36}
@@ -351,11 +398,23 @@ function initials(name: string): string {
 function VendorCard({
   v,
   reason,
+  eventId,
+  tileLabel,
+  actions,
 }: {
   v: ShortlistVendor;
   reason?: SortReason | null;
+  eventId: string;
+  /** The category label — the lock modals' "for {this}" copy. */
+  tileLabel: string;
+  /**
+   * Explore Replan slice D — the resolved three-action set, or null when the
+   * flag is OFF / nothing applies. Null keeps the pre-replan render EXACTLY:
+   * a bare `InspectorTrigger`, no wrapper element, no extra DOM.
+   */
+  actions?: BenchCardActions | null;
 }) {
-  return (
+  const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
     // vendor's quick-view in the sticky inspector column instead of navigating;
     // below xl and on modified / new-tab clicks it stays a plain link to `v.href`
@@ -406,6 +465,24 @@ function VendorCard({
         ) : null}
       </span>
     </InspectorTrigger>
+  );
+  // Flag OFF (or nothing to offer) → the card is the whole render, unwrapped,
+  // exactly as it shipped. Only when there ARE actions does the rail item
+  // become a wrapper: `.vcw` takes over the carousel sizing + snap so `.vc`
+  // keeps its look and the actions sit beneath it, inside the same snap unit.
+  if (!actions || (!actions.build && !actions.inquiry && !actions.lockGroupId)) return card;
+  return (
+    <div className="vcw">
+      {card}
+      <BenchVendorActions
+        actions={actions}
+        eventId={eventId}
+        vendorId={v.vendorId}
+        vendorName={v.name}
+        groupLabel={tileLabel}
+        verifiedState={v.verifiedState}
+      />
+    </div>
   );
 }
 
@@ -1139,9 +1216,23 @@ export function ShortlistCategories({
                   // PR-C — the ⓘ copy (null → no button, never invented copy)
                   // and whether this category may be removed from the plan.
                   const hint = replan ? categoryHintForTile(t.tile) : null;
+                  const lockedNames = t.vendors.filter((v) => v.status === 'locked').map((v) => v.name);
                   const removable =
-                    replan && canRemoveTileFromPlan({ lockedCount: t.vendors.filter((v) => v.status === 'locked').length });
+                    replan && canRemoveTileFromPlan({ lockedCount: lockedNames.length });
                   const rowError = planError?.tile === t.tile ? planError.message : null;
+                  // Slice D — the rail-end card flips from "Find more" to
+                  // "＋ Add another {tile}" once this category has a lock AND
+                  // its group allows more picks. The group is resolved at TILE
+                  // grain here (the category the couple is looking at), not per
+                  // card; null → the rule can't apply and "Find more" stands.
+                  const tileGroupId = replan
+                    ? planGroupForCategory(categoryForTile(t.tile))
+                    : null;
+                  const addAnother = railEndIsAddAnother({
+                    enabled: replan,
+                    lockedCount: lockedNames.length,
+                    planGroupId: tileGroupId,
+                  });
                   return (
                     <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
                       {/* The category head is a tap target to expand. The
@@ -1220,6 +1311,19 @@ export function ShortlistCategories({
                       {hint && hintTile === t.tile ? (
                         <div className="hintbox">{hint}</div>
                       ) : null}
+                      {/* Collapsed rows NAME what's locked here (decision #8) —
+                          "who did we choose for this?" answered without opening
+                          the rail. Hidden while the category is open, because
+                          the cards themselves say it better ("★ Chosen"). */}
+                      {replan && !tileOpen && lockedNames.length > 0 ? (
+                        <p
+                          className="cat-locked"
+                          aria-label={lockedNamesLabel(lockedNames, t.label)}
+                        >
+                          <Lock size={10} strokeWidth={2.2} aria-hidden />
+                          <span>{lockedNamesLine(lockedNames)}</span>
+                        </p>
+                      ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
                           {coveredGroup ? (
@@ -1253,12 +1357,32 @@ export function ShortlistCategories({
                           ) : t.vendors.length > 0 ? (
                             <div className="rail">
                               {sortWithReasons(t.vendors, sort).map(({ v, reason }) => (
-                                <VendorCard key={v.vendorId} v={v} reason={reason} />
+                                <VendorCard
+                                  key={v.vendorId}
+                                  v={v}
+                                  reason={reason}
+                                  eventId={eventId}
+                                  tileLabel={t.label}
+                                  // Slice D — three-action card. The resolver is
+                                  // pure + unit-tested; flag OFF returns nothing
+                                  // and the card renders exactly as it shipped.
+                                  actions={resolveBenchCardActions({
+                                    enabled: replan,
+                                    vendor: v,
+                                    inBuild: buildPickSet.has(v.vendorId),
+                                  })}
+                                />
                               ))}
                               <span className="act find">
                                 <Link href={t.exploreHref} prefetch={false}>
-                                  <Search size={20} strokeWidth={1.75} aria-hidden />
-                                  <span className="at">Find more</span>
+                                  {addAnother ? (
+                                    <Plus size={20} strokeWidth={1.9} aria-hidden />
+                                  ) : (
+                                    <Search size={20} strokeWidth={1.75} aria-hidden />
+                                  )}
+                                  <span className="at">
+                                    {addAnother ? cardAddAnother(t.label) : 'Find more'}
+                                  </span>
                                 </Link>
                               </span>
                               <span className="act manual">

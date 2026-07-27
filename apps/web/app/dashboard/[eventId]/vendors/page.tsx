@@ -301,9 +301,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // Not-available badge on the accordion card so the couple sees where each
       // auto-inquiry stands. RLS: the couple is an event member → reads its own
       // event's threads.
+      // `thread_id` rides along (Explore Replan slice D · spec §12.1 step 3):
+      // ONE extra column on a select that already runs, so the bench card's
+      // "💬 Check inquiry" can link straight to the thread. A rail holds dozens
+      // of cards — a per-card `.maybeSingle()` probe is explicitly forbidden.
       supabase
         .from('chat_threads')
-        .select('vendor_profile_id, inquiry_status, created_at')
+        .select('thread_id, vendor_profile_id, inquiry_status, created_at')
         .eq('event_id', eventId)
         .in('vendor_profile_id', marketplaceIds),
       // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17 · migration
@@ -372,10 +376,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // they reached out so the Shortlist's "Waiting for quotes" strip can show
     // how long it's been. Only `pending` threads are tracked here.
     const pendingSinceByProfile = new Map<string, string | null>();
+    // Slice D — thread id per profile, built in the SAME loop (spec §12.1 §3).
+    const threadIdByProfile = new Map<string, string>();
     for (const t of (threadsRes.data as
-      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus; created_at: string | null }[]
+      | {
+          thread_id: string | null;
+          vendor_profile_id: string;
+          inquiry_status: ChatInquiryStatus;
+          created_at: string | null;
+        }[]
       | null) ?? []) {
       inquiryByProfile.set(t.vendor_profile_id, t.inquiry_status);
+      if (t.thread_id) threadIdByProfile.set(t.vendor_profile_id, t.thread_id);
       if (t.inquiry_status === 'pending') {
         pendingSinceByProfile.set(t.vendor_profile_id, t.created_at ?? null);
       }
@@ -530,6 +542,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }),
         faith_match: faithMatch ? true : null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
+        thread_id: threadIdByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
 

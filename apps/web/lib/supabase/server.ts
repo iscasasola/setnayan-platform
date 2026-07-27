@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { applyPersistentCookieDefaults, readClientType } from './cookies';
+import { createLoggingFetch } from './db-error-log';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -26,6 +27,9 @@ export const createClient = cache(async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Surface failed PostgREST calls instead of letting them resolve to
+      // `data: null` and render as an empty list. See ./db-error-log.
+      global: { fetch: createLoggingFetch('anon') },
       cookies: {
         getAll() {
           return cookieStore.getAll();

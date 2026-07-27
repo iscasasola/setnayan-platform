@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { VendorSpecializationSet } from '@/lib/vendor-specialization-gate';
 import { SongDesk } from './song-desk/song-desk';
+import { StageScript } from './stage-script/stage-script';
 
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
@@ -96,8 +97,8 @@ export type SpecializationSurface = (
 export const SPECIALIZATION_SURFACES: Partial<
   Record<VendorSpecializationSet, SpecializationSurface>
 > = {
-  song_desk: SongDesk, //          ← band / singer / choir / orchestra / DJ
-  // stage_script:   StageScript,   // ← host / MC
+  song_desk: SongDesk, //       ← band / singer / choir / orchestra / DJ
+  stage_script: StageScript, // ← host / MC
   // floor_command:  FloorCommand,  // ← coordinator
 };
 

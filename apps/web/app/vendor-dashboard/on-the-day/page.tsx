@@ -43,6 +43,7 @@ import {
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
+import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
@@ -521,6 +522,15 @@ export default async function VendorOnTheDayPage({
       {/* 4 · Shot list — syncs to the couple (personal, device-local for now). */}
       {kind === 'photo' ? (
         <ShotListSection eventId={todaysBooking?.eventId ?? null} eventName={coupleName} />
+      ) : null}
+
+      {/* 4b · Report to the coordinator — one-tap status presets writing into
+          the shared day-of requests stream (build plan §10 #2). Renders itself
+          away when the coordinator_requests_inbox control is dark, when there
+          is no booking today, or for the coordinator (who reads the inbox
+          rather than reporting into it). */}
+      {kind !== 'coordinator' ? (
+        <VendorStatusUpdates eventId={todaysBooking?.eventId ?? null} />
       ) : null}
 
       {/* 5 · Capture for your website + their recap. */}

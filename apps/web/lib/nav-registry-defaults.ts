@@ -358,9 +358,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    // Renamed Explore → Merkado (owner-approved product naming; design
-    // prototype). Slot key + route unchanged.
-    label: "Merkado",
+    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
+    // owner: "just use Marketplace so it is easier to understand").
+    // Slot key + route unchanged throughout.
+    label: "Marketplace",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -398,9 +399,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    // Renamed Explore → Merkado (owner-approved product naming; design
-    // prototype). Slot key + route unchanged.
-    label: "Merkado",
+    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
+    // owner: "just use Marketplace so it is easier to understand").
+    // Slot key + route unchanged throughout.
+    label: "Marketplace",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",

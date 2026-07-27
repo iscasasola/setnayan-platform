@@ -92,3 +92,81 @@ COMMENT ON COLUMN public.vendor_profiles.public_visibility IS
   'coming_soon is RETIRED (owner 2026-07-27, "we only show shops that are '
   'ready") — retained in the enum only because a value cannot be dropped from '
   'a PG enum in place; nothing may write it.';
+
+-- ── 4. Re-point the self-grant guard at the NEW default ─────────────────────
+-- ⚠ WITHOUT THIS, STEP 2 BREAKS VENDOR REGISTRATION OUTRIGHT.
+--
+-- `guard_vendor_profiles_entitlement` (20271004444950) pins the trust columns on
+-- the INSERT branch to their COLUMN DEFAULTS verbatim, so a self-created profile
+-- can never arrive pre-verified or pre-visible. It hardcoded
+-- 'coming_soon' — the default at the time — and raises `insufficient_privilege`
+-- on anything else. Changing the default to 'hidden' in step 2 therefore makes
+-- every ordinary `INSERT INTO vendor_profiles (user_id)` (the signup trigger AND
+-- /open-shop) fail 42501: no vendor could register at all.
+--
+-- Caught by tests/db/vendor-addon-selfgrant-guard.db.test.ts ("ordinary vendor
+-- REGISTRATION still succeeds (the INSERT branch defaults)"), which is precisely
+-- the failure that migration's own comment warned about: "Getting either wrong
+-- would reject ordinary vendor registration."
+--
+-- Body is byte-identical to 20271004444950 except the one literal. Re-stated in
+-- full because CREATE OR REPLACE has no partial form.
+CREATE OR REPLACE FUNCTION public.guard_vendor_profiles_entitlement()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  new_level TEXT := to_jsonb(NEW) ->> 'ai_addon_level';
+  old_level TEXT := CASE WHEN TG_OP = 'UPDATE' THEN to_jsonb(OLD) ->> 'ai_addon_level' END;
+BEGIN
+  IF current_user IN ('authenticated', 'anon') AND NOT public.is_admin() THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.tier_state IS DISTINCT FROM 'free'::public.vendor_tier_state
+         OR NEW.tier_expires_at IS NOT NULL
+         OR NEW.extra_agent_seats IS DISTINCT FROM 0
+         OR NEW.ai_addon_expires_at IS NOT NULL
+         OR NEW.ai_addon_trial_used_at IS NOT NULL
+         OR NEW.booth_addon_expires_at IS NOT NULL
+         OR NEW.booth_addon_trial_used_at IS NOT NULL
+         OR (new_level IS NOT NULL AND new_level <> 'basic')
+         -- Trust columns: a self-created profile may never arrive pre-verified
+         -- or pre-visible. Both are admin-granted only. The literals below are
+         -- the COLUMN DEFAULTS verbatim — 'unverified' (20260516050000:83-84)
+         -- and 'hidden' (20271013500000 step 2; WAS 'coming_soon' from
+         -- 20260515005000 until the owner retired that state on 2026-07-27) —
+         -- and both are ENUMs, so they are cast explicitly. Getting either wrong
+         -- would reject ordinary vendor registration.
+         OR NEW.verification_state
+              IS DISTINCT FROM 'unverified'::public.vendor_verification_state
+         OR NEW.public_visibility
+              IS DISTINCT FROM 'hidden'::public.vendor_public_visibility
+      THEN
+        RAISE EXCEPTION
+          'vendor_profiles tier/seat/add-on/trust columns are not writable by the vendor (self-grant blocked)'
+          USING ERRCODE = 'insufficient_privilege',
+                HINT = 'Tier, paid seats, paid add-ons, verification and public visibility are granted by the admin console or the paid activation path (service_role).';
+      END IF;
+    ELSE  -- UPDATE
+      IF NEW.tier_state IS DISTINCT FROM OLD.tier_state
+         OR NEW.tier_expires_at IS DISTINCT FROM OLD.tier_expires_at
+         OR NEW.extra_agent_seats IS DISTINCT FROM OLD.extra_agent_seats
+         OR NEW.ai_addon_expires_at IS DISTINCT FROM OLD.ai_addon_expires_at
+         OR NEW.ai_addon_trial_used_at IS DISTINCT FROM OLD.ai_addon_trial_used_at
+         OR NEW.booth_addon_expires_at IS DISTINCT FROM OLD.booth_addon_expires_at
+         OR NEW.booth_addon_trial_used_at IS DISTINCT FROM OLD.booth_addon_trial_used_at
+         OR new_level IS DISTINCT FROM old_level
+         -- Trust columns: self-verification, and reversing an admin visibility
+         -- freeze on a suspended vendor.
+         OR NEW.verification_state IS DISTINCT FROM OLD.verification_state
+         OR NEW.public_visibility IS DISTINCT FROM OLD.public_visibility
+      THEN
+        RAISE EXCEPTION
+          'vendor_profiles tier/seat/add-on/trust columns are not writable by the vendor (self-grant blocked)'
+          USING ERRCODE = 'insufficient_privilege',
+                HINT = 'Tier, paid seats, paid add-ons, verification and public visibility are granted by the admin console or the paid activation path (service_role).';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;

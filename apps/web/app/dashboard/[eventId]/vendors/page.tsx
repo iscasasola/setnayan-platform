@@ -1056,6 +1056,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         initialOpenTile={sp.open ?? null}
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
         coveredByTile={coveredByTile}
+        // Explore Replan PR-B — both already resolved above for
+        // `buildPlanBudgetModel`; passed down, never re-queried.
+        buildPickVendorIds={[...new Set([...buildPicksByGroup.values()].flat())]}
+        daysUntilWedding={daysUntilWedding}
       />
     </>
   );

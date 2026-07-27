@@ -58,6 +58,26 @@ import {
   type BenchMarketResult,
 } from '../_actions/bench-marketplace-search';
 import { clearCategoryDecision } from '../category-decision-actions';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import { tileIcon } from '@/lib/taxonomy-icons';
+import {
+  coverageBadgeOf,
+  coverageStateOf,
+  coverageSummary,
+  folderSummaryOf,
+  orderCoverageTiles,
+  type CoverageTile,
+} from '@/lib/coverage-strip';
+import {
+  COVERAGE_NEXT_FLAG,
+  COVERAGE_STRIP_HEADING,
+  coverageCountLabel,
+  coverageTileLabel,
+  FOLDER_SUMMARY_ALL_COVERED,
+  FOLDER_SUMMARY_LOCKED,
+  FOLDER_SUMMARY_MORE,
+  FOLDER_SUMMARY_TO_DECIDE,
+} from '@/lib/explore-info-copy';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
   RequirementsModal,
@@ -224,6 +244,50 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .plan-chip:active{transform:scale(.97)}
 .slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
 .slcat .plan-chip.done .pc-dot{background:#2e7d4f}
+
+/* ── Coverage Strip v2 (Explore Replan PR-B · flag-gated) ──────────────────
+   Same .plan-strip shell as the chip strip it upgrades — only the CONTENTS
+   change: a progress ring + count in the head, icon tiles below. Structure and
+   tokens follow the playable prototype; the emoji there are Lucide here. */
+.slcat .cov-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px}
+.slcat .cov-hl{display:flex;align-items:center;gap:10px;min-width:0}
+.slcat .cov-hl b{font-family:var(--sans);font-size:13.5px;font-weight:700;color:var(--ink)}
+.slcat .cov-cnt{font-family:var(--mono);font-size:10.5px;color:var(--gold-deep);flex:0 0 auto}
+.slcat .cov-ring{width:34px;height:34px;flex:0 0 auto}
+.slcat .cov-ring circle{fill:none;stroke-width:3.4}
+.slcat .cov-ring .tr{stroke:var(--line)}
+.slcat .cov-ring .pr{stroke:var(--gold);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .4s var(--ease)}
+.slcat .cov-ring text{font-family:var(--mono);font-size:9px;fill:var(--gold-deep);font-weight:700}
+@media (prefers-reduced-motion:reduce){.slcat .cov-ring .pr{transition:none}}
+.slcat .cov-strip{display:flex;gap:10px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:none}
+.slcat .cov-strip::-webkit-scrollbar{display:none}
+.slcat .ctile{flex:0 0 auto;width:66px;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;padding:0;font:inherit;cursor:pointer}
+.slcat .ctile .ic{width:48px;height:48px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:var(--card);border:1.5px dashed var(--line);position:relative;transition:transform .15s var(--ease),border-color .2s var(--ease),background .2s var(--ease)}
+.slcat .ctile:hover .ic{transform:translateY(-2px)}
+@media (prefers-reduced-motion:reduce){.slcat .ctile:hover .ic{transform:none}}
+.slcat .ctile .lb{font-family:var(--sans);font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgba(169,131,75,.1);color:var(--gold-deep)}
+.slcat .ctile.st-picked .lb{color:var(--gold-deep)}
+.slcat .ctile.st-locked .ic{border-style:solid;border-width:2.5px;border-color:var(--gold);background:rgba(169,131,75,.16);color:var(--gold-deep);box-shadow:0 2px 8px rgba(169,131,75,.3)}
+.slcat .ctile.st-locked .lb{color:var(--gold-deep);font-weight:700}
+.slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:#2e7d4f;background:rgba(46,125,79,.12);color:#2e7d4f}
+.slcat .ctile.st-covered .lb{color:#2e7d4f;font-weight:700}
+.slcat .ctile.is-next .ic{outline:2.5px solid var(--gold);outline-offset:2.5px}
+.slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;border:2px solid var(--card)}
+.slcat .ctile .mini.dn{background:#2e7d4f}
+.slcat .ctile .mini.lk{background:var(--gold-deep)}
+.slcat .ctile .mini.bd{background:var(--card);color:var(--gold-deep);border-color:var(--gold)}
+.slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7.5px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
+/* folder-head summary pills — "● N locked · N to decide · ＋N more" */
+.slcat .fsum{display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.slcat .fsum .s{font-family:var(--mono);font-size:9px;letter-spacing:.04em;border-radius:var(--m-r-full);padding:2px 8px;font-weight:700;white-space:nowrap}
+.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-deep)}
+.slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
+.slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
+.slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
+html.dark .slcat .ctile .mini.bd{background:#2A2E36}
+html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
+
 /* "In your plan" marker beside a category name */
 .slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
@@ -384,6 +448,8 @@ export function ShortlistCategories({
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
   coveredByTile = {},
+  buildPickVendorIds = [],
+  daysUntilWedding = null,
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -408,6 +474,22 @@ export function ShortlistCategories({
    * Empty (the default / flag off) → byte-identical pre-replan render.
    */
   coveredByTile?: Record<string, string>;
+  /**
+   * Explore Replan slice B — vendor_ids pinned to the working build
+   * (`event_build_picks`), flattened across plan groups. The page ALREADY reads
+   * that table for the plan/budget model, so this is a pass-down, never a new
+   * query. Drives the Coverage Strip's ◕ "in your build" state + its candidate
+   * count badge. Empty → the strip degrades to ○ / ◔ / ● only.
+   */
+  buildPickVendorIds?: readonly string[];
+  /**
+   * Explore Replan slice B — days until the event (already computed on the page
+   * for `buildPlanBudgetModel`). Feeds the strip's urgency ordering through
+   * `timelineStatusOf`, so the strip reads the SAME planning clock as the
+   * accordion. Null (no date set) → every tile reads 'upcoming' and the order
+   * falls back to lead-time then taxonomy order.
+   */
+  daysUntilWedding?: number | null;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -577,6 +659,48 @@ export function ShortlistCategories({
       })),
   );
 
+  // ── Coverage Strip v2 + folder summaries (Explore Replan PR-B) ────────────
+  // Everything below is DERIVED from data the bench already holds — the tile's
+  // own vendor list, slice A's `coveredByTile`, and the build picks / days-out
+  // the page already fetched for the plan model. No new query, no new schema.
+  // While the flag is OFF none of it renders and the surface is unchanged.
+  const replan = isExploreReplanEnabled();
+  const buildPickSet = new Set(buildPickVendorIds);
+  const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
+
+  /** Every tile in a folder as a CoverageTile (`order` = taxonomy walk index). */
+  const coverageByFolder = new Map<string, CoverageTile[]>();
+  {
+    let walk = 0;
+    for (const f of folders) {
+      const rows: CoverageTile[] = [];
+      for (const t of f.tiles) {
+        rows.push({
+          tile: t.tile,
+          folder: f.folder,
+          slug: f.slug,
+          label: t.label,
+          vendorCount: t.vendors.length,
+          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          buildCount: t.vendors.filter((v) => buildPickSet.has(v.vendorId)).length,
+          covered: Boolean(coveredByTile[t.tile]),
+          order: walk++,
+        });
+      }
+      coverageByFolder.set(f.folder, rows);
+    }
+  }
+  // The strip shows IN-PLAN categories only (decision #5) — the same set the
+  // chip strip it replaces already drew, so `openPlan` still reaches every tile.
+  const stripTiles = orderCoverageTiles(
+    [...coverageByFolder.values()].flat().filter((t) => plannedTileSet.has(t.tile)),
+    daysUntilWedding,
+  );
+  const stripSummary = coverageSummary(stripTiles);
+  // Progress ring geometry (r=13.5 in a 34×34 box — the prototype's numbers).
+  const RING_R = 13.5;
+  const RING_C = 2 * Math.PI * RING_R;
+
   function openPlan(folder: string, tile: string, slug: string) {
     setOpenFolder(folder);
     setOpenTile(tile);
@@ -637,7 +761,85 @@ export function ShortlistCategories({
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
-      {plannedList.length > 0 ? (
+      {replan && stripTiles.length > 0 ? (
+        /* Coverage Strip v2 (Explore Replan PR-B) — the SAME `.plan-strip`
+           shell + the SAME `openPlan` doorway as the chip strip it upgrades;
+           only the rendering and the ordering change. Icon tile per in-plan
+           category, state ring, count badge, NEXT flag, "Covered X of Y" and a
+           progress ring. Ordered by the accordion's own planning clock, with
+           covered categories sunk to the right. */
+        <div className="plan-strip">
+          <div className="cov-hd">
+            <span className="cov-hl">
+              <svg
+                className="cov-ring"
+                viewBox="0 0 34 34"
+                role="img"
+                aria-label={coverageCountLabel(stripSummary.covered, stripSummary.total)}
+              >
+                <circle className="tr" cx="17" cy="17" r={RING_R} />
+                <circle
+                  className="pr"
+                  cx="17"
+                  cy="17"
+                  r={RING_R}
+                  strokeDasharray={RING_C.toFixed(1)}
+                  strokeDashoffset={(RING_C * (1 - stripSummary.fraction)).toFixed(1)}
+                />
+                <text x="17" y="20.5" textAnchor="middle">
+                  {stripSummary.covered}
+                </text>
+              </svg>
+              <b>{COVERAGE_STRIP_HEADING}</b>
+            </span>
+            <span className="cov-cnt">
+              {coverageCountLabel(stripSummary.covered, stripSummary.total)}
+            </span>
+          </div>
+          <div className="cov-strip">
+            {stripTiles.map((t) => {
+              const state = coverageStateOf(t);
+              const badge = coverageBadgeOf(t);
+              const isNext = stripSummary.nextTile === t.tile;
+              const Icon = tileIcon(t.tile);
+              return (
+                <button
+                  key={t.tile}
+                  type="button"
+                  className={`ctile st-${state}${isNext ? ' is-next' : ''}`}
+                  aria-label={coverageTileLabel({
+                    label: t.label,
+                    state,
+                    vendorCount: t.vendorCount,
+                    lockedCount: t.lockedCount,
+                    buildCount: t.buildCount,
+                    isNext,
+                  })}
+                  onClick={() => openPlan(t.folder, t.tile, t.slug)}
+                >
+                  <span className="ic">
+                    {isNext ? (
+                      <span className="nx" aria-hidden>
+                        {COVERAGE_NEXT_FLAG}
+                      </span>
+                    ) : null}
+                    <Icon size={21} strokeWidth={1.6} aria-hidden />
+                    {badge ? (
+                      <span
+                        className={`mini ${badge.kind === 'covered' ? 'dn' : badge.kind === 'locked' ? 'lk' : 'bd'}`}
+                        aria-hidden
+                      >
+                        {badge.text}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="lb">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : plannedList.length > 0 ? (
         <div className="plan-strip">
           <p className="plan-eyebrow">
             <Sparkles size={11} strokeWidth={2} aria-hidden /> From your plan
@@ -736,6 +938,12 @@ export function ShortlistCategories({
       ) : null}
       {visibleFolders.map((folder) => {
         const folderOpen = searching || openFolder === folder.folder;
+        // Folder-head summary (Explore Replan PR-B · decision #8). Computed over
+        // the FULL folder (not the search-filtered slice) so the numbers stay
+        // true while a query narrows the visible rows.
+        const fsum = replan
+          ? folderSummaryOf(coverageByFolder.get(folder.folder) ?? [], plannedTileSet)
+          : null;
         return (
           <section
             key={folder.folder}
@@ -753,11 +961,28 @@ export function ShortlistCategories({
             >
               <span className="fold-nm">{folder.label}</span>
               <span className="fold-rt">
-                <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
-                  {folder.pickCount > 0
-                    ? `${folder.pickCount} considering`
-                    : `${folder.tiles.length} categories`}
-                </span>
+                {fsum ? (
+                  <span className="fsum">
+                    {fsum.locked > 0 ? (
+                      <span className="s lk">{FOLDER_SUMMARY_LOCKED(fsum.locked)}</span>
+                    ) : null}
+                    {fsum.toDecide > 0 ? (
+                      <span className="s td">{FOLDER_SUMMARY_TO_DECIDE(fsum.toDecide)}</span>
+                    ) : null}
+                    {fsum.allCovered ? (
+                      <span className="s dn">{FOLDER_SUMMARY_ALL_COVERED}</span>
+                    ) : null}
+                    {fsum.more > 0 ? (
+                      <span className="s ad">{FOLDER_SUMMARY_MORE(fsum.more)}</span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
+                    {folder.pickCount > 0
+                      ? `${folder.pickCount} considering`
+                      : `${folder.tiles.length} categories`}
+                  </span>
+                )}
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>

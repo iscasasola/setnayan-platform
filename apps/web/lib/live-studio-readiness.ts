@@ -89,6 +89,27 @@ export type ReadinessDecision = {
 export const ENCODER_NOTICE =
   'Setnayan cannot send video to YouTube for you. Your computer must be running an encoder (OBS or similar) capturing the program output window — a web browser cannot push a livestream on its own, and the phones only feed your controller.';
 
+/**
+ * ⏳ THE LEAD-TIME NOTICE — shown BEFORE a couple pays, on the buy surface.
+ *
+ * WHY IT EXISTS. Setnayan is apply-then-pay with **manual** reconciliation: a human
+ * checks the BDO/GCash inbox and approves the order, within a 24-hour SLA. Every
+ * other SKU can absorb that latency. A wedding cannot — an unlock bought the night
+ * before may still be unapproved when the ceremony starts, and an unapproved order
+ * is an un-entitled event, which means ONE camera on the day they were promised
+ * several. The date cannot be moved and the ceremony cannot be re-run, so the lead
+ * time has to be stated where the money decision is made, not discovered afterwards.
+ *
+ * ⭐ THE SECOND SENTENCE IS ONLY TRUE BECAUSE OF THE 2026-07-27 ANCHOR FIX, and it is
+ * what makes the advice safe to follow: the broadcast day is anchored on the first
+ * ENTITLED go-live, not on the purchase, so buying early genuinely costs the couple
+ * nothing. Before that fix, "buy earlier" would have been advice to burn their day
+ * sooner — the two changes only work as a pair. If the anchor model is ever changed
+ * back, THIS COPY BECOMES A LIE and must change with it.
+ */
+export const LEAD_TIME_NOTICE =
+  'Buy at least 2 days before your event. We check every payment by hand — usually within 24 hours — so an unlock bought the night before may not be approved in time. Buying earlier costs you nothing: your broadcast day starts when you first go live, not when you pay.';
+
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';
 export const BLOCKED_HEADLINE = 'Not ready to broadcast yet';

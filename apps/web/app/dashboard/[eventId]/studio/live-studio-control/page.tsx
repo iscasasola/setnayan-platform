@@ -11,6 +11,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
+import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -147,6 +148,14 @@ export default async function LiveStudioPage({ params }: Props) {
         settings,
         introCopy:
           'Live Studio streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Studio per event; set up your cameras right after.',
+        // ⏳ THE LEAD-TIME NOTICE, prominent and above the price — not in the footnote
+        // below it. Manual payment reconciliation runs to a 24-hour SLA, and a wedding
+        // cannot wait for it: an unlock bought the night before may still be
+        // unapproved when the ceremony starts, which is one camera on the day. Its
+        // second sentence ("your day starts when you first go live, not when you pay")
+        // is true only because of the 2026-07-27 anchor fix — the pair is what makes
+        // "buy earlier" safe advice rather than advice to burn the day sooner.
+        notice: LEAD_TIME_NOTICE,
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}

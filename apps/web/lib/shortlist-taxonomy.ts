@@ -300,6 +300,29 @@ export type ShortlistVendor = {
    *  coercing here would client-block a manual vendor from a lock they're
    *  entitled to (spec §9). */
   verifiedState: boolean | null;
+  /** ── Build-candidate schedule convergence · SOFT tier (Explore Replan PR-G1 ·
+   *  spec §6 decision #12) ───────────────────────────────────────────────────
+   *  Does this vendor still have a free day inside the BUILD's shared-date
+   *  window (the intersection of every locked + candidate vendor's calendar)?
+   *
+   *   • `'fits'`  — yes; the card behaves normally.
+   *   • `'clash'` — no; the card dims, its build/lock actions go quiet, and it
+   *     sinks behind the "Doesn't fit your build" divider. Fully reversible:
+   *     remove the clashing candidate and it is back on the rail.
+   *   • `null`    — NO VERDICT, and that is the default. The flag is off, the
+   *     couple has no convergeable window, this vendor has no calendar signal,
+   *     or the build's own window is already empty (a build conflict is never a
+   *     bench vendor's fault). Absence of data is never evidence against a
+   *     vendor — the fail-open rule the whole availability path is built on. */
+  buildFit: 'fits' | 'clash' | null;
+  /** The candidate this vendor shares no free day with — what the amber badge
+   *  NAMES so the couple knows exactly which pick to drop. Null when the clash
+   *  has no single culprit (or when `buildFit !== 'clash'`). */
+  buildClashWith: string | null;
+  /** The tiny mono "Free: Sep 12 · Sep 26" / "Free 24 of 30 days" line, already
+   *  formatted upstream against the probe window's size. Null = say nothing (no
+   *  signal, or no free day — the amber badge covers that case). */
+  freeDaysLine: string | null;
 };
 
 /**
@@ -405,6 +428,17 @@ export function buildShortlistFolders(args: {
    *  inquiry-backed. Absent map (flag off / no committed date) → no vendor
    *  carries a demand signal and the lens cannot discriminate → it hides. */
   demandByVendorId?: ReadonlyMap<string, number>;
+  /** Per-vendor SOFT-tier verdict against the build's shared-date window
+   *  (Explore Replan PR-G1). Resolved once upstream by
+   *  `classifyAgainstBuildWindow`; a vendor absent from the map gets `null` —
+   *  no verdict, no sinking, no disabled action. Absent map (flag OFF) ⇒ every
+   *  card renders exactly as it does in production today. */
+  buildFitByVendorId?: ReadonlyMap<string, { fits: boolean; clashWith: string | null }>;
+  /** Per-vendor pre-formatted "Free: …" line, keyed by vendor_id. Formatted
+   *  upstream because the wording depends on the PROBE WINDOW's size (name the
+   *  days for a handful of candidate dates; count them for a whole month) and
+   *  that is a page-level fact, not a per-vendor one. */
+  freeDaysLineByVendorId?: ReadonlyMap<string, string>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -417,6 +451,8 @@ export function buildShortlistFolders(args: {
     totalBudgetPhp,
     dateFitByVendorId,
     demandByVendorId,
+    buildFitByVendorId,
+    freeDaysLineByVendorId,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -539,6 +575,16 @@ export function buildShortlistFolders(args: {
       // Reuses the SAME basis the budget badge computed two statements up.
       priceBasisPhp: budgetBasis,
       verifiedState: ext?.is_verified ?? null,
+      // ── Schedule convergence, SOFT tier (PR-G1). Both come off maps resolved
+      // once upstream from the SAME batched calendar read the date-fit badge
+      // above already runs — zero extra queries here, and an absent entry means
+      // "no verdict", never "doesn't fit".
+      buildFit: (() => {
+        const f = buildFitByVendorId?.get(v.vendor_id);
+        return f ? (f.fits ? 'fits' : 'clash') : null;
+      })(),
+      buildClashWith: buildFitByVendorId?.get(v.vendor_id)?.clashWith ?? null,
+      freeDaysLine: freeDaysLineByVendorId?.get(v.vendor_id) ?? null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

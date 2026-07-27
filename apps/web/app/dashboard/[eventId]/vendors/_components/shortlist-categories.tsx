@@ -34,6 +34,7 @@ import {
   MapPinOff,
   Wallet,
   CalendarCheck,
+  CalendarDays,
   CalendarX2,
   BadgeCheck,
   Sparkles,
@@ -108,6 +109,12 @@ import {
   resolveBenchCardActions,
   type BenchCardActions,
 } from '@/lib/bench-card-actions';
+import {
+  DOESNT_FIT_DIVIDER,
+  noSharedDateBadge,
+  partitionByBuildFit,
+  type ConvergenceBanner,
+} from '@/lib/build-date-window';
 import { BenchVendorActions } from './bench-vendor-actions';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import {
@@ -393,6 +400,47 @@ html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C9
 .slcat .cat-locked span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .slcat .cat-locked svg{flex:0 0 auto}
 
+/* ── Build-candidate schedule convergence · SOFT tier (PR-G1 · flag-gated) ───
+   The prototype drew this as a red pill + emoji banner; production draws it in
+   the bench's own language — the same .plan-strip shell geometry, var(--sans)
+   / var(--mono) tokens, gold-deep accent and Lucide icons as everything above.
+   Amber, never red: the vendor is fine, it is the couple's build that narrowed
+   past them, and un-narrowing it is one tap away. Flag OFF ⇒ no banner, no
+   .is-dim, no divider, and none of these selectors ever match. */
+.slcat .convrg{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:11px 13px;border:0.5px solid var(--line);border-radius:var(--m-r-md);background:rgba(30,26,18,.035)}
+.slcat .convrg .cv-i{flex:0 0 auto;display:flex;color:var(--gold-deep);margin-top:1px}
+.slcat .convrg .cv-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.slcat .convrg .cv-b b{font-family:var(--sans);font-size:12.5px;font-weight:600;line-height:1.3;color:var(--ink)}
+.slcat .convrg .cv-b span{font-family:var(--sans);font-size:11px;line-height:1.4;color:var(--ink-soft)}
+.slcat .convrg.t-converged{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.1)}
+.slcat .convrg.t-conflict{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.14)}
+.slcat .convrg.t-conflict .cv-i,.slcat .convrg.t-converged .cv-i{color:var(--gold-deep)}
+html.dark .slcat .convrg{background:rgba(251,251,250,.04)}
+html.dark .slcat .convrg .cv-b b{color:var(--ink)}
+html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{background:rgba(169,131,75,.16);border-color:rgba(169,131,75,.4)}
+
+/* The sink divider — a vertical rule INSIDE the horizontal rail, so the sunk
+   cards stay in the same carousel the couple is already scrolling. */
+.slcat .raildiv{flex:0 0 auto;display:flex;align-items:center;align-self:stretch;padding:0 4px;scroll-snap-align:start}
+.slcat .raildiv>span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-deep);border-left:0.5px solid rgba(169,131,75,.42);padding:8px 0 8px 7px;white-space:nowrap}
+
+/* DIM, never removed (decision #3): the card stays viewable and its Inquire
+   leg stays live — only Add-to-build and Lock stand down. */
+.slcat .vcw.is-dim>.vc{opacity:.62;filter:saturate(.8)}
+.slcat .vcw.is-dim:hover>.vc,.slcat .vcw.is-dim:focus-within>.vc{opacity:1;filter:none}
+
+/* The vendor's own free days, in the same mono voice as the price/meta rows. */
+.slcat .vc .freedays{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* The withheld build CTA — a reason, not an error. Wraps, unlike .vact.note. */
+.slcat .vact.note.clash{align-items:flex-start;gap:6px;border-color:rgba(169,131,75,.42);color:var(--gold-deep);white-space:normal}
+.slcat .vact.note.clash svg{flex:0 0 auto;margin-top:1px}
+.slcat .vact-note-txt{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
+.slcat .vact-note-txt b{font-weight:600;color:var(--gold-deep)}
+.slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:10px;line-height:1.35}
+html.dark .slcat .vact.note.clash{color:#e2b968}
+html.dark .slcat .vact-note-txt b{color:#e2b968}
+
 html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
 html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
 html.dark .slcat .plan-chip{background:#2A2E36}
@@ -477,6 +525,10 @@ function VendorCard({
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
+        {/* PR-G1 — the vendor's own free days inside the couple's date window,
+            in the bench's mono voice. Renders only when there IS a signal; a
+            calendar we could not read stays silent rather than guessing. */}
+        {v.freeDaysLine ? <span className="freedays">{v.freeDaysLine}</span> : null}
       </span>
     </InspectorTrigger>
   );
@@ -484,9 +536,16 @@ function VendorCard({
   // exactly as it shipped. Only when there ARE actions does the rail item
   // become a wrapper: `.vcw` takes over the carousel sizing + snap so `.vc`
   // keeps its look and the actions sit beneath it, inside the same snap unit.
-  if (!actions || (!actions.build && !actions.inquiry && !actions.lockGroupId)) return card;
+  if (!actions || (!actions.build && !actions.inquiry && !actions.lockGroupId)) {
+    // A clashing card with nothing to offer still sits behind the divider, so
+    // it still reads as sunk. (`buildFit` is only ever populated under the flag,
+    // so this branch cannot fire in pre-replan production.)
+    return v.buildFit === 'clash' ? <div className="vcw is-dim">{card}</div> : card;
+  }
   return (
-    <div className="vcw">
+    // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
+    // one (decision #3 — never removed, always viewable, always reversible).
+    <div className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}`}>
       {card}
       <BenchVendorActions
         actions={actions}
@@ -569,7 +628,21 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
             text: 'Booked that day',
           }
         : null;
-  if (!reach && !budget && !date) return null;
+  // SOFT schedule convergence (PR-G1). Amber, never red: the vendor is fine —
+  // it is the couple's own build that has narrowed past them, and un-narrowing
+  // it is one tap away. The badge NAMES the clashing candidate so that tap is
+  // obvious. `buildFit === 'fits'` deliberately renders NOTHING: a green
+  // "fits your build" on every card is noise, and the shipped "Free on your
+  // date" badge already carries the positive case when there IS a date.
+  const schedule =
+    v.buildFit === 'clash'
+      ? {
+          cls: 'warn',
+          icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
+          text: noSharedDateBadge(v.buildClashWith),
+        }
+      : null;
+  if (!reach && !budget && !date && !schedule) return null;
   return (
     <span className="fits">
       {reach ? (
@@ -587,6 +660,11 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
           {date.icon} {date.text}
         </span>
       ) : null}
+      {schedule ? (
+        <span className={`fit ${schedule.cls}`}>
+          {schedule.icon} {schedule.text}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -600,6 +678,7 @@ export function ShortlistCategories({
   buildPickVendorIds = [],
   daysUntilWedding = null,
   excludedTiles = [],
+  convergence = null,
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -648,6 +727,14 @@ export function ShortlistCategories({
    * pre-replan render, byte for byte.
    */
   excludedTiles?: readonly string[];
+  /**
+   * Explore Replan PR-G1 — the build's shared-date convergence banner, resolved
+   * server-side by `convergenceBanner`. Null = render nothing: an open window
+   * has no news, and a status bar that says "no news" is chrome. Sits between
+   * the Coverage Strip and the bench, exactly where the narrowing it describes
+   * is visible.
+   */
+  convergence?: ConvergenceBanner | null;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -1145,6 +1232,27 @@ export function ShortlistCategories({
           </div>
         </div>
       ) : null}
+      {/* PR-G1 · the convergence banner. Between the Coverage Strip and the
+          bench, because that is where the narrowing it reports is happening.
+          Server-resolved; null on an open window, so the surface stays calm
+          until the couple's build actually says something. */}
+      {convergence ? (
+        <div className={`convrg t-${convergence.tone}`} role="status">
+          <span className="cv-i" aria-hidden>
+            {convergence.tone === 'conflict' ? (
+              <CalendarX2 size={15} strokeWidth={1.9} />
+            ) : convergence.tone === 'converged' ? (
+              <CalendarCheck size={15} strokeWidth={1.9} />
+            ) : (
+              <CalendarDays size={15} strokeWidth={1.9} />
+            )}
+          </span>
+          <span className="cv-b">
+            <b>{convergence.headline}</b>
+            <span>{convergence.detail}</span>
+          </span>
+        </div>
+      ) : null}
       <div className="sortbar">
         <span className="sortbar-lbl">Sort by</span>
         {replan ? (
@@ -1353,6 +1461,21 @@ export function ShortlistCategories({
                     lockedCount: lockedNames.length,
                     planGroupId: tileGroupId,
                   });
+                  // PR-G1 — sort FIRST (the couple's chosen order), then sink
+                  // the schedule clashes to the end. Stable: the sink only
+                  // moves the losers, it never reshuffles the winners.
+                  //
+                  // §15 — "the couple's chosen order" is now their chosen LENS.
+                  // The two features compose cleanly and in this order only: the
+                  // lens decides merit, the sink is a partition applied AFTER it
+                  // and never a term inside the score.
+                  const rail = partitionByBuildFit(
+                    sortWithReasons(t.vendors, effectiveSort),
+                    ({ v }) =>
+                      v.buildFit === 'clash'
+                        ? { fits: false, clashWith: v.buildClashWith }
+                        : null,
+                  );
                   return (
                     <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
                       {/* The category head is a tap target to expand. The
@@ -1476,7 +1599,7 @@ export function ShortlistCategories({
                             </div>
                           ) : t.vendors.length > 0 ? (
                             <div className="rail">
-                              {sortWithReasons(t.vendors, effectiveSort).map(({ v, reason }) => (
+                              {rail.fits.map(({ v, reason }) => (
                                 <VendorCard
                                   key={v.vendorId}
                                   v={v}
@@ -1514,6 +1637,37 @@ export function ShortlistCategories({
                                   <span className="at">Add manually</span>
                                 </button>
                               </span>
+                              {/* PR-G1 · the SOFT tier's sink. Vendors with no
+                                  free day left inside the build's shared-date
+                                  window keep their place in the rail — after the
+                                  Find/Add cards, behind a labelled divider —
+                                  instead of vanishing. Removing the clashing
+                                  candidate puts them straight back. */}
+                              {rail.clashes.length > 0 ? (
+                                <>
+                                  <span
+                                    className="raildiv"
+                                    role="separator"
+                                    aria-label={DOESNT_FIT_DIVIDER}
+                                  >
+                                    <span aria-hidden>{DOESNT_FIT_DIVIDER}</span>
+                                  </span>
+                                  {rail.clashes.map(({ v, reason }) => (
+                                    <VendorCard
+                                      key={v.vendorId}
+                                      v={v}
+                                      reason={reason}
+                                      eventId={eventId}
+                                      tileLabel={t.label}
+                                      actions={resolveBenchCardActions({
+                                        enabled: replan,
+                                        vendor: v,
+                                        inBuild: buildPickSet.has(v.vendorId),
+                                      })}
+                                    />
+                                  ))}
+                                </>
+                              ) : null}
                             </div>
                           ) : (
                             <div className="find-set">

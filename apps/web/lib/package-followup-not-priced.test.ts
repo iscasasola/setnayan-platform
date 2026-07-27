@@ -271,11 +271,31 @@ test('the booked-package detail list excludes follow-ups', () => {
   assert.match(src, /parent_option_id['`]/);
 });
 
-test('the lock modal still lists ONLY default-included lines', () => {
-  // Its existing add-on guard doubles as the follow-up guard: filtering TO
-  // included is what keeps a follow-up off a list the couple can tick. Widening
-  // it to add-ons would surface every follow-up at once, detached from the
-  // question that reveals it.
+test('the lock modal builds its list from the choice tree, not a raw item list', () => {
+  // The modal used to hold this guard itself, as an inline
+  // `.filter((i) => i.is_default_included)`. That rule now lives in
+  // `visibleLineTree` (./package-choice-tree), which applies it to ROOTS and
+  // adds the follow-up walk on top — so the guard is pinned where it moved to,
+  // in the test below, and this one pins that the modal actually delegates.
+  //
+  // Falsifiable in the direction that matters: go back to mapping `pkg.items`
+  // directly and this goes red, because that is precisely how an add-on (and
+  // therefore every follow-up, which the DB forces to not-included) gets back
+  // onto a list the couple can tick.
   const src = read('app/_components/vendor-packages/lock-modal.tsx');
-  assert.match(src, /\.filter\(\(i\) => i\.is_default_included\)/);
+  assert.match(src, /visibleLineTree\(pkg, removedIds, selection\)/);
+  assert.doesNotMatch(
+    src,
+    /pkg\.items\s*\n?\s*\.filter/,
+    'the modal is filtering pkg.items itself again — that is a second, ' +
+      'divergent definition of what the couple may see',
+  );
+});
+
+test('visibleLineTree is where the included-only + follow-up rules now live', () => {
+  // Both root filters, at source. A follow-up must be reachable ONLY through
+  // the option that reveals it, and an add-on must not be a root at all.
+  const src = read('lib/package-choice-tree.ts');
+  assert.match(src, /if \(isFollowUpLine\(item\)\) continue;/);
+  assert.match(src, /if \(!item\.is_default_included\) continue;/);
 });

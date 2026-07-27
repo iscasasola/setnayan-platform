@@ -32,6 +32,11 @@ export type BenchCardVendor = {
   inquiryStatus: string | null;
   planGroupId: string | null;
   priceBasisPhp: number | null;
+  /** SOFT schedule-convergence verdict (PR-G1). `'clash'` = no free day left
+   *  inside the build's shared-date window. Undefined / null = no verdict, and
+   *  the card behaves exactly as it did before this tier existed. */
+  buildFit?: 'fits' | 'clash' | null;
+  buildClashWith?: string | null;
 };
 
 /** Primary action — the build pick. */
@@ -46,7 +51,14 @@ export type BenchBuildAction =
    *  Pinning would contribute ₱0 to the budget, which is the exact failure the
    *  shipped owner rule (2026-06-09, "only services vendors responded a price
    *  for") exists to prevent. The card shows a quiet note instead of a CTA. */
-  | { kind: 'needs_price' };
+  | { kind: 'needs_price' }
+  /** SOFT schedule clash (Explore Replan PR-G1 · spec §6 decision #12): this
+   *  vendor has no free day left inside the build's shared-date window. Adding
+   *  or locking them would knowingly create a date the couple's own team cannot
+   *  all make, so both are withheld — but REVERSIBLY and with the reason named,
+   *  and the Inquire leg stays live ("Ask anyway", decision #3). Never a HARD
+   *  block: the couple removes the clashing candidate and the card is back. */
+  | { kind: 'schedule_clash'; clashWith: string | null };
 
 /** Second action — stateful on thread EXISTENCE, never on a source heuristic. */
 export type BenchInquiryAction =
@@ -80,6 +92,10 @@ const NO_ACTIONS: BenchCardActions = { build: null, inquiry: null, lockGroupId: 
  *  4. Inquiry requires `marketplaceVendorId` — the ONLY correct gate. A LINKED
  *     manual add carries one and IS messageable; an off-platform pick does not
  *     and would hit `not_marketplace` ("This vendor can't be messaged here").
+ *  5. A SOFT schedule clash (PR-G1) withholds Add-to-build and Lock — and ONLY
+ *     those. The inquiry leg survives ("Ask anyway"), because a date the couple
+ *     can still change is a conversation, not a wall. A vendor already in the
+ *     build is exempt: it helped DEFINE the window, and it keeps its Remove.
  */
 export function resolveBenchCardActions(args: {
   enabled: boolean;
@@ -91,14 +107,21 @@ export function resolveBenchCardActions(args: {
   if (!enabled) return NO_ACTIONS;
   if (vendor.status === 'locked') return NO_ACTIONS;
 
+  // Rule 5 — the SOFT schedule tier (PR-G1). A vendor already IN the build can
+  // never be sunk by the window it helps define, so `inBuild` wins: the couple
+  // keeps the Remove control that fixes the clash in the first place.
+  const clashes = !inBuild && vendor.buildFit === 'clash';
+
   const build: BenchBuildAction | null =
     vendor.planGroupId == null
       ? null
-      : inBuild
-        ? { kind: 'in_build' }
-        : vendor.priceBasisPhp == null
-          ? { kind: 'needs_price' }
-          : { kind: 'add' };
+      : clashes
+        ? { kind: 'schedule_clash', clashWith: vendor.buildClashWith ?? null }
+        : inBuild
+          ? { kind: 'in_build' }
+          : vendor.priceBasisPhp == null
+            ? { kind: 'needs_price' }
+            : { kind: 'add' };
 
   const inquiry: BenchInquiryAction | null =
     vendor.marketplaceVendorId == null
@@ -107,7 +130,9 @@ export function resolveBenchCardActions(args: {
         ? { kind: 'check', threadId: vendor.threadId }
         : { kind: 'inquire' };
 
-  return { build, inquiry, lockGroupId: vendor.planGroupId };
+  // Lock is withheld on a clash for the same reason Add is — but the group id
+  // is NOT forgotten anywhere else, so nothing downstream degrades.
+  return { build, inquiry, lockGroupId: clashes ? null : vendor.planGroupId };
 }
 
 /**

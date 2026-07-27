@@ -2,18 +2,31 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package as PackageIcon, X, Check, AlertCircle } from 'lucide-react';
+import { Package as PackageIcon, X, Check, AlertCircle, Minus, Plus } from 'lucide-react';
 import {
-  chosenOptionsSurchargeCentavos,
   computeCustomization,
   formatCentavosPhp,
   isChoiceLine,
-  resolveChosenOption,
+  type VendorPackageItemOptionRow,
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { unresolvedRequiredChoices } from '@/lib/package-credit-adapter';
+import {
+  choiceTotals,
+  extraHoursBounds,
+  extraHoursOn,
+  isFollowUpLine,
+  isOptionSelectable,
+  isPickCapReached,
+  pickBounds,
+  pickedOptionsOn,
+  pickState,
+  unfinishedChoiceLines,
+  visibleLineTree,
+  type ChoiceSelection,
+} from '@/lib/package-choice-tree';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
@@ -24,6 +37,27 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  *
  * Renders inline as a CTA button + drawer. Mobile = bottom sheet,
  * desktop = right-side drawer. Both share the same content.
+ *
+ * ── THE CHOICE TREE (this slice) ────────────────────────────────────────────
+ * The line list is no longer a flat filter. It comes from `visibleLineTree`,
+ * which returns the lines the couple can currently see plus their nesting
+ * depth: top-level inclusions, and beneath each picked option whatever
+ * FOLLOW-UP lines that option reveals, recursively. A follow-up whose parent
+ * option is not picked is not in the list at all, so it cannot be rendered,
+ * picked, priced or cascaded.
+ *
+ * With the credit flag OFF the branching columns are not even selected, so
+ * every line arrives top-level with `pick_min`/`pick_max` null and the tree
+ * degenerates to exactly the flat `is_default_included` list that shipped.
+ *
+ * ⚠ EVERY NUMBER ON THIS SCREEN COMES FROM `choiceTotals`, which calls the same
+ * `priceCustomizedPackage` the lock action calls, over the same narrowed option
+ * ids (`chargeableOptionIds`). There is no local sum. A follow-up pick and a
+ * second pick on a "choose 2 of 3" line are PREFERENCES: they are recorded for
+ * the vendor but priced at exactly zero, because `lockPackage` reads its items
+ * with a select that cannot see the columns that define them. `isOptionSelectable`
+ * is what keeps that honest — inside that region only a zero-delta option is
+ * offered, so a preference is always genuinely free.
  */
 /**
  * What Lock actually promises. Owner ruling 2026-07-26 — a lock becomes real
@@ -35,9 +69,18 @@ const vendorConfirmsLabel = 'Your vendor confirms once payment is approved.';
 export function LockPackageModal({
   eventId,
   pkg,
+  paxCount = 0,
 }: {
   eventId: string;
   pkg: VendorPackageWithItems;
+  /**
+   * Server-resolved head count, for per-head option upgrades ("+₱150/head").
+   * The lock action resolves its own with `resolveLivePax`; passing the same
+   * number here is what stops the quote drifting from the charge on a per-head
+   * option. Defaults to 0, which each option's `min_pax` then floors — a
+   * per-head upgrade prices at its minimum rather than at nothing.
+   */
+  paxCount?: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -57,21 +100,47 @@ export function LockPackageModal({
    */
   const choicesEnabled = packageCreditEnabled();
 
-  /** item_id → option_id the host picked. Only ever holds kept choice lines. */
-  const [chosenByItem, setChosenByItem] = useState<Record<string, string>>({});
-  const chosenOptionIds = useMemo(() => Object.values(chosenByItem), [chosenByItem]);
+  /**
+   * item_id → the option ids picked on that line. An array rather than a single
+   * id because a "choose 2 of 3" line holds more than one; a plain one-of-N line
+   * simply holds at most one, so there is ONE shape instead of two to keep in
+   * step.
+   */
+  const [selection, setSelection] = useState<ChoiceSelection>({
+    picks: {},
+    extraHours: {},
+  });
+
+  /** The lines the couple can see right now, with their nesting depth. */
+  const tree = useMemo(
+    () => visibleLineTree(pkg, removedIds, selection),
+    [pkg, removedIds, selection],
+  );
 
   const { remainingConsumableCentavos, totalLockedCentavos, removedTotalCentavos } =
     useMemo(() => computeCustomization(pkg, removedIds), [pkg, removedIds]);
 
-  /** What the picked upgrades add. Zero when every line sits on its standard. */
-  const surchargeCentavos = useMemo(
+  /**
+   * 💰 THE ONLY NUMBER. Same function, same inputs as the lock's own commit —
+   * `null` means the pricer refused, and the button blocks rather than showing
+   * a substituted figure.
+   */
+  const totals = useMemo(
     () =>
-      choicesEnabled
-        ? chosenOptionsSurchargeCentavos(pkg, removedIds, chosenOptionIds)
-        : 0,
-    [choicesEnabled, pkg, removedIds, chosenOptionIds],
+      choiceTotals({
+        pkg,
+        removedItemIds: removedIds,
+        selection,
+        creditEnabled: choicesEnabled,
+        paxCount,
+      }),
+    [pkg, removedIds, selection, choicesEnabled, paxCount],
   );
+
+  /** What the picked upgrades add, as the difference actually being charged. */
+  const surchargeCentavos = totals
+    ? Math.max(0, totals.bookingTotalCentavos - totalLockedCentavos)
+    : 0;
 
   function toggle(item: VendorPackageItemRow) {
     const nowRemoved = !removedIds.includes(item.item_id);
@@ -80,21 +149,65 @@ export function LockPackageModal({
         ? prev.filter((id) => id !== item.item_id)
         : [...prev, item.item_id],
     );
-    // Dropping a line must drop its upgrade too. The credit engine rejects an
+    // Dropping a line must drop its picks too. The credit engine rejects an
     // option id on a removed line outright (`option_on_removed_item`), so
-    // leaving it behind would turn an untick into a failed lock.
-    if (nowRemoved && isChoiceLine(item)) {
-      setChosenByItem((prev) => {
-        if (!(item.item_id in prev)) return prev;
-        const next = { ...prev };
-        delete next[item.item_id];
-        return next;
-      });
+    // leaving one behind would turn an untick into a failed lock. The line's
+    // whole follow-up subtree stops being visible at the same moment, and its
+    // picks go with it — otherwise re-ticking the line would silently restore
+    // answers to questions the couple can no longer see.
+    if (nowRemoved) {
+      setSelection((prev) => dropSubtreePicks(pkg, prev, item.item_id));
     }
   }
 
-  function chooseOption(itemId: string, optionId: string) {
-    setChosenByItem((prev) => ({ ...prev, [itemId]: optionId }));
+  /**
+   * Pick or unpick one option.
+   *
+   * `pick_max === 1` (every line that exists today) behaves as a radio: the new
+   * pick replaces the old. A genuine pick-N line behaves as a checkbox, capped
+   * at `pick_max`.
+   *
+   * Either way the subtree hanging off any option that just stopped being
+   * picked is cleared, so a follow-up answer never survives the question that
+   * revealed it.
+   */
+  function chooseOption(item: VendorPackageItemRow, option: VendorPackageItemOptionRow) {
+    setSelection((prev) => {
+      const current = prev.picks?.[item.item_id] ?? [];
+      const { max } = pickBounds(item);
+      const already = current.includes(option.option_id);
+
+      let next: string[];
+      if (already) {
+        next = current.filter((id) => id !== option.option_id);
+      } else if (max === 1) {
+        next = [option.option_id];
+      } else if (current.length >= max) {
+        return prev; // cap reached — the option is rendered disabled anyway
+      } else {
+        next = [...current, option.option_id];
+      }
+
+      const dropped = current.filter((id) => !next.includes(id));
+      let state: ChoiceSelection = {
+        ...prev,
+        picks: { ...prev.picks, [item.item_id]: next },
+      };
+      for (const optionId of dropped) {
+        state = dropPicksUnderOption(pkg, state, optionId);
+      }
+      return state;
+    });
+  }
+
+  function setExtraHours(item: VendorPackageItemRow, hours: number) {
+    const bounds = extraHoursBounds(item);
+    if (!bounds) return;
+    const clamped = Math.min(Math.max(bounds.min, hours), bounds.max);
+    setSelection((prev) => ({
+      ...prev,
+      extraHours: { ...(prev.extraHours ?? {}), [item.item_id]: clamped },
+    }));
   }
 
   /**
@@ -105,9 +218,28 @@ export function LockPackageModal({
   const pendingRequiredChoices = useMemo(
     () =>
       choicesEnabled
-        ? unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds)
+        ? unresolvedRequiredChoices(
+            pkg,
+            removedIds,
+            Object.values(selection.picks ?? {}).flat(),
+          )
         : [],
-    [choicesEnabled, pkg, removedIds, chosenOptionIds],
+    [choicesEnabled, pkg, removedIds, selection],
+  );
+
+  /**
+   * 🚫 Lines below their minimum. A package with a question unanswered is an
+   * UNFINISHED ORDER, never a cheaper one — the vendor priced it assuming every
+   * question is answered — so this blocks the button instead of quoting less.
+   */
+  const unfinished = useMemo(
+    () => (choicesEnabled ? unfinishedChoiceLines(pkg, removedIds, selection) : []),
+    [choicesEnabled, pkg, removedIds, selection],
+  );
+
+  const blockedItemIds = useMemo(
+    () => new Set([...pendingRequiredChoices, ...unfinished.map((i) => i.item_id)]),
+    [pendingRequiredChoices, unfinished],
   );
 
   function close() {
@@ -119,13 +251,19 @@ export function LockPackageModal({
 
   function onLock() {
     setError(null);
+    if (!totals) {
+      setError('We could not price this package. Please reload and try again.');
+      return;
+    }
     startTransition(async () => {
       const result: LockPackageResult = await lockPackage(eventId, pkg.package_id, {
         removed_item_ids: removedIds,
         // Ids only. The server re-reads every price from the DB — a delta that
-        // arrived from the browser must never be what the host is charged.
-        ...(choicesEnabled && chosenOptionIds.length > 0
-          ? { chosen_option_ids: chosenOptionIds }
+        // arrived from the browser must never be what the host is charged. It
+        // also re-runs the SAME narrowing this screen priced with, so anything
+        // beyond the chargeable set is dropped there exactly as it was here.
+        ...(choicesEnabled && totals.chargeableOptionIds.length > 0
+          ? { chosen_option_ids: [...totals.chargeableOptionIds] }
           : {}),
       });
       if (result.status === 'ok' || result.status === 'already_locked') {
@@ -227,137 +365,225 @@ export function LockPackageModal({
               </p>
 
               <ul className="space-y-2">
-                {/* Same set the public card lists (package-card.tsx filters on
-                    is_default_included). Listing add-ons here rendered them
-                    PRE-TICKED, and unticking one refunded money the vendor
-                    never charged.
-
-                    ⚠ THIS FILTER IS ALSO THE FOLLOW-UP GUARD. The database
-                    forces every follow-up line to is_default_included = FALSE
-                    (vendor_package_items_followup_not_default_included_ck), so
-                    filtering TO included is what keeps "which style of
-                    lechon?" out of a list the couple can tick before they have
-                    picked the lechon. Widening this to add-ons would surface
-                    every follow-up in the package at once, detached from the
-                    question that reveals it. The renderer slice shows a
-                    follow-up only once its parent option is picked. */}
-                {pkg.items
-                  .filter((i) => i.is_default_included)
-                  .map((item) => {
+                {/* THE TREE, not a flat filter. `visibleLineTree` applies the
+                    same `is_default_included` rule the flat list used to (an
+                    add-on is never inside total_price_centavos, and unticking
+                    one refunded money the vendor never charged), and adds the
+                    follow-up walk on top: a conditional line appears only under
+                    the option that reveals it, and disappears with it. */}
+                {tree.map(({ item, depth }) => {
                   const removed = removedIds.includes(item.item_id);
                   const locked = item.is_required === true;
-                  // Required AND a choice: the couple must pick explicitly.
-                  const requiredChoice = locked && isChoiceLine(item);
+                  const followUp = isFollowUpLine(item);
+                  const choice = isChoiceLine(item);
+                  const bounds = pickBounds(item);
+                  const state = pickState(item, selection);
+                  const multi = bounds.max > 1;
+                  const needsPick = blockedItemIds.has(item.item_id);
+                  const hours = extraHoursBounds(item);
                   return (
-                    <li key={item.item_id}>
-                      <label
-                        className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
-                          locked
-                            ? 'cursor-default border-ink/10 bg-cream/60'
-                            : removed
-                              ? 'cursor-pointer border-ink/10 bg-cream/40 opacity-60'
-                              : 'cursor-pointer border-success-300/50 bg-success-50/30'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!removed}
-                          disabled={locked}
-                          onChange={() => toggle(item)}
-                          aria-describedby={locked ? `req-${item.item_id}` : undefined}
-                          className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/20 text-terracotta focus:ring-terracotta disabled:opacity-50"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm ${
-                              removed ? 'text-ink/50 line-through' : 'text-ink/85'
-                            }`}
-                          >
-                            {item.service_description}
+                    <li
+                      key={item.item_id}
+                      style={depth > 0 ? { marginLeft: `${Math.min(depth, 5) * 12}px` } : undefined}
+                      className={
+                        depth > 0 ? 'border-l-2 border-terracotta/25 pl-3' : undefined
+                      }
+                    >
+                      {/* A FOLLOW-UP is not a line the couple ticks — it is a
+                          question raised BY the pick above it, and it has no
+                          independent price. Rendering it with a checkbox would
+                          invite them to "remove" something that was never
+                          charged. */}
+                      {followUp ? (
+                        <div className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+                          <p className="text-sm text-ink/85">{item.service_description}</p>
+                          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                            Because of your pick above
                           </p>
-                          {locked ? (
+                        </div>
+                      ) : (
+                        <label
+                          className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                            locked
+                              ? 'cursor-default border-ink/10 bg-cream/60'
+                              : removed
+                                ? 'cursor-pointer border-ink/10 bg-cream/40 opacity-60'
+                                : 'cursor-pointer border-success-300/50 bg-success-50/30'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!removed}
+                            disabled={locked}
+                            onChange={() => toggle(item)}
+                            aria-describedby={locked ? `req-${item.item_id}` : undefined}
+                            className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/20 text-terracotta focus:ring-terracotta disabled:opacity-50"
+                          />
+                          <div className="min-w-0 flex-1">
                             <p
-                              id={`req-${item.item_id}`}
-                              className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45"
-                            >
-                              Always included
-                            </p>
-                          ) : null}
-                          {!locked && item.replacement_value_centavos > 0 ? (
-                            <p
-                              className={`mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                                removed ? 'text-success-700' : 'text-ink/45'
+                              className={`text-sm ${
+                                removed ? 'text-ink/50 line-through' : 'text-ink/85'
                               }`}
                             >
-                              {removed
-                                ? `+${formatCentavosPhp(item.replacement_value_centavos)} back to budget`
-                                : `${formatCentavosPhp(item.replacement_value_centavos)} value`}
+                              {item.service_description}
                             </p>
-                          ) : null}
-                        </div>
-                      </label>
+                            {locked ? (
+                              <p
+                                id={`req-${item.item_id}`}
+                                className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45"
+                              >
+                                Always included
+                              </p>
+                            ) : null}
+                            {!locked && item.replacement_value_centavos > 0 ? (
+                              <p
+                                className={`mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                                  removed ? 'text-success-700' : 'text-ink/45'
+                                }`}
+                              >
+                                {removed
+                                  ? `+${formatCentavosPhp(item.replacement_value_centavos)} back to budget`
+                                  : `${formatCentavosPhp(item.replacement_value_centavos)} value`}
+                              </p>
+                            ) : null}
+                          </div>
+                        </label>
+                      )}
 
                       {/* CHOICE line — the vendor offered alternatives, so the
-                          host picks one. Rendered OUTSIDE the parent <label>:
-                          nesting a radio inside a checkbox's label makes
-                          clicking the radio also toggle the checkbox. */}
-                      {choicesEnabled && !removed && isChoiceLine(item) ? (
+                          host picks. Rendered OUTSIDE the parent <label>:
+                          nesting an input inside a checkbox's label makes
+                          clicking the option also toggle the checkbox. */}
+                      {choicesEnabled && !removed && choice ? (
                         <fieldset className="mt-1.5 ml-8 space-y-1.5">
                           <legend
                             className={`mb-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                              requiredChoice && !chosenByItem[item.item_id]
-                                ? 'text-terracotta'
-                                : 'text-ink/45'
+                              needsPick ? 'text-terracotta' : 'text-ink/45'
                             }`}
                           >
-                            {requiredChoice && !chosenByItem[item.item_id]
-                              ? 'Pick one to continue'
-                              : 'Pick one'}
+                            {multi
+                              ? /* THE LIVE COUNTER. "Choose 2 of 3" states the
+                                   contract; the count states where they are. */
+                                `Choose ${
+                                  bounds.min === bounds.max
+                                    ? bounds.min
+                                    : `${bounds.min}–${bounds.max}`
+                                } · ${state.counterLabel}`
+                              : needsPick
+                                ? 'Pick one to continue'
+                                : 'Pick one'}
                           </legend>
                           {(item.options ?? []).map((opt) => {
+                            const picked = pickedOptionsOn(item, selection).some(
+                              (o) => o.option_id === opt.option_id,
+                            );
                             // A REQUIRED choice line starts genuinely
                             // UNSELECTED. The engine refuses to apply its
                             // default (owner rule: "must pick a main course"
                             // is the couple's decision), so showing the
                             // standard as preselected would be the UI
                             // claiming a choice the server will reject.
-                            const active = requiredChoice
-                              ? chosenByItem[item.item_id] === opt.option_id
-                              : resolveChosenOption(item, chosenOptionIds)?.option_id ===
-                                opt.option_id;
+                            const active =
+                              picked ||
+                              (!multi &&
+                                locked !== true &&
+                                (item.options ?? []).length > 0 &&
+                                pickedOptionsOn(item, selection).length === 0 &&
+                                opt.is_default &&
+                                opt.is_available);
+                            // 🚨 Inside the non-chargeable region a PRICED
+                            // option is not on offer: showing it would promise
+                            // an upgrade nobody is billed for.
+                            const selectable = isOptionSelectable(
+                              pkg,
+                              removedIds,
+                              item,
+                              opt,
+                              selection,
+                              paxCount,
+                            );
+                            const capped = isPickCapReached(item, opt, selection);
+                            const disabled = !selectable || capped;
                             return (
                               <label
                                 key={opt.option_id}
-                                className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${
-                                  active
-                                    ? 'border-terracotta bg-terracotta/[0.06]'
-                                    : 'border-ink/10 hover:border-ink/25 hover:bg-ink/[0.02]'
+                                className={`flex min-h-[44px] items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                                  disabled
+                                    ? 'cursor-not-allowed border-ink/10 opacity-55'
+                                    : active
+                                      ? 'cursor-pointer border-terracotta bg-terracotta/[0.06]'
+                                      : 'cursor-pointer border-ink/10 hover:border-ink/25 hover:bg-ink/[0.02]'
                                 }`}
                               >
                                 <input
-                                  type="radio"
+                                  type={multi ? 'checkbox' : 'radio'}
                                   name={`opt-${item.item_id}`}
                                   value={opt.option_id}
-                                  checked={active}
-                                  onChange={() =>
-                                    chooseOption(item.item_id, opt.option_id)
-                                  }
-                                  className="mt-0.5 h-5 w-5 shrink-0 border-ink/20 text-terracotta focus:ring-terracotta"
+                                  checked={multi ? picked : active}
+                                  disabled={disabled}
+                                  onChange={() => chooseOption(item, opt)}
+                                  className="mt-0.5 h-5 w-5 shrink-0 border-ink/20 text-terracotta focus:ring-terracotta disabled:opacity-50"
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm text-ink/85">
-                                    {opt.option_label}
-                                  </p>
+                                  <p className="text-sm text-ink/85">{opt.option_label}</p>
                                   <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                                    {opt.price_delta_centavos > 0
-                                      ? `+${formatCentavosPhp(opt.price_delta_centavos)}`
-                                      : 'Included'}
+                                    {!selectable
+                                      ? 'Ask your vendor — not part of this total'
+                                      : opt.price_delta_centavos > 0
+                                        ? `+${formatCentavosPhp(opt.price_delta_centavos)}`
+                                        : 'Included'}
                                   </p>
                                 </div>
                               </label>
                             );
                           })}
                         </fieldset>
+                      ) : null}
+
+                      {/* QUANTITY — extra hours on an hourly line, bounded by
+                          `max_extra_hours`. Recorded as a request, not a
+                          charge: `lockPackage` reads its items with a select
+                          that carries neither column, so there is no way to
+                          commit an hour and no way to price one. */}
+                      {choicesEnabled && !removed && hours ? (
+                        <div className="mt-1.5 ml-8 flex items-center gap-3 rounded-lg border border-ink/10 px-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-ink/85">Extra hours</p>
+                            <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                              Up to {hours.max} · your vendor quotes these
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              aria-label="One hour fewer"
+                              disabled={extraHoursOn(item, selection) <= hours.min}
+                              onClick={() =>
+                                setExtraHours(item, extraHoursOn(item, selection) - 1)
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink/70 transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Minus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                            <span
+                              aria-live="polite"
+                              className="min-w-[2ch] text-center font-mono text-sm text-ink"
+                            >
+                              {extraHoursOn(item, selection)}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="One hour more"
+                              disabled={extraHoursOn(item, selection) >= hours.max}
+                              onClick={() =>
+                                setExtraHours(item, extraHoursOn(item, selection) + 1)
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink/70 transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                          </div>
+                        </div>
                       ) : null}
                     </li>
                   );
@@ -370,7 +596,7 @@ export function LockPackageModal({
                 <div className="flex items-center justify-between">
                   <dt className="text-ink/70">Total package</dt>
                   <dd className="font-mono text-ink">
-                    {formatCentavosPhp(totalLockedCentavos + surchargeCentavos)}
+                    {totals ? formatCentavosPhp(totals.bookingTotalCentavos) : '—'}
                   </dd>
                 </div>
                 {surchargeCentavos > 0 ? (
@@ -386,7 +612,11 @@ export function LockPackageModal({
                   <div className="flex items-center justify-between">
                     <dt className="text-ink/70">Consumable budget</dt>
                     <dd className="font-mono text-success-800">
-                      {formatCentavosPhp(remainingConsumableCentavos)}
+                      {formatCentavosPhp(
+                        totals
+                          ? totals.remainingConsumableCentavos
+                          : remainingConsumableCentavos,
+                      )}
                     </dd>
                   </div>
                 ) : null}
@@ -411,7 +641,17 @@ export function LockPackageModal({
                 </p>
               ) : null}
 
-              {pendingRequiredChoices.length > 0 ? (
+              {unfinished.length > 0 ? (
+                /* 🚫 Not a cheaper package — an unfinished one. Said plainly,
+                   because "you saved money" is exactly the wrong inference. */
+                <p className="mb-3 text-center text-xs text-ink/65">
+                  {unfinished.length === 1
+                    ? 'One line still needs your choices'
+                    : `${unfinished.length} lines still need your choices`}
+                  . Answering fewer doesn{'’'}t lower the price — your vendor priced
+                  this package with every choice made.
+                </p>
+              ) : pendingRequiredChoices.length > 0 ? (
                 <p className="mb-3 text-center text-xs text-ink/65">
                   Pick an option on{' '}
                   {pendingRequiredChoices.length === 1
@@ -424,7 +664,7 @@ export function LockPackageModal({
               <button
                 type="button"
                 onClick={onLock}
-                disabled={isPending || pendingRequiredChoices.length > 0}
+                disabled={isPending || blockedItemIds.size > 0 || !totals}
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -448,4 +688,56 @@ export function LockPackageModal({
       ) : null}
     </>
   );
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* Subtree pruning                                                          */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Forget every pick made on the lines revealed by ONE option, and on their
+ * descendants.
+ *
+ * A stale pick under a question the couple can no longer see is a real hazard,
+ * not tidiness: `visibleLineTree` would re-reveal the whole subtree — answers
+ * intact — the instant the parent option were picked again, so the couple would
+ * silently re-commit choices they never revisited.
+ */
+function dropPicksUnderOption(
+  pkg: VendorPackageWithItems,
+  selection: ChoiceSelection,
+  optionId: string,
+): ChoiceSelection {
+  let next = selection;
+  for (const child of pkg.items) {
+    if (child.parent_option_id !== optionId) continue;
+    next = dropSubtreePicks(pkg, next, child.item_id);
+  }
+  return next;
+}
+
+/** Forget the picks on a line and on everything hanging beneath it. */
+function dropSubtreePicks(
+  pkg: VendorPackageWithItems,
+  selection: ChoiceSelection,
+  itemId: string,
+  seen: Set<string> = new Set(),
+): ChoiceSelection {
+  if (seen.has(itemId)) return selection; // cycle guard — in-memory shapes only
+  seen.add(itemId);
+
+  const item = pkg.items.find((i) => i.item_id === itemId);
+  const picks = { ...selection.picks };
+  const extraHours = { ...(selection.extraHours ?? {}) };
+  delete picks[itemId];
+  delete extraHours[itemId];
+  let next: ChoiceSelection = { picks, extraHours };
+
+  for (const option of item?.options ?? []) {
+    for (const child of pkg.items) {
+      if (child.parent_option_id !== option.option_id) continue;
+      next = dropSubtreePicks(pkg, next, child.item_id, seen);
+    }
+  }
+  return next;
 }

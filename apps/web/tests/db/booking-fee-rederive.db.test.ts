@@ -149,7 +149,11 @@ async function seedOrder(
     `INSERT INTO public.orders
        (event_id, user_id, vendor_profile_id, service_key, description,
         requested_total_php, status, reference_code)
-     VALUES ($1,$2,$3,$4,'Setnayan booking fee (5%)',$5,'submitted',$6)
+     -- Rate-agnostic on purpose: nothing here asserts the description, and the
+     -- real one is DERIVED from BOOKING_FEE (bookingFeeScheduleSummary). The old
+     -- '(5%)' literal was the wrong claim above ₱100,000 — no copy of it lives
+     -- in the repo any more.
+     VALUES ($1,$2,$3,$4,'Setnayan booking fee',$5,'submitted',$6)
      RETURNING order_id`,
     [eventId, payerUserId, vendorProfileId, `${SVC_PREFIX}${chargeId}`, amountPhp, `SN${chargeId.slice(0, 8)}`],
   );

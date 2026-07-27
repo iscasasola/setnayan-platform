@@ -44,6 +44,7 @@ import {
   PACKAGE_ITEM_OPTION_SELECT,
   type VendorPackageItemOptionRow,
 } from '@/lib/vendor-packages';
+import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
@@ -152,6 +153,53 @@ export async function savePackage(
 
   const problems = validatePackageDraft(input);
   if (problems.length > 0) return { status: 'invalid', problems };
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark): no off-platform contact
+  // info in anything a couple reads on the configurator. Runs before the first
+  // write on BOTH the update and create branches below.
+  //
+  // It rides the `invalid` channel, but note WHERE it surfaces: the editor's
+  // inline note list is rendered from the CLIENT copy of validatePackageDraft,
+  // which cannot see this server-only rule — so package-editor.tsx renders
+  // `res.problems` into the alert instead. Do not "simplify" that back to a
+  // fixed string: it pointed the vendor at notes that did not exist.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Package name', value: input.package_name },
+      ...input.items.flatMap((item, i) => [
+        { field: `Item ${i + 1}`, value: item.service_description },
+        ...item.options.map((o, j) => ({
+          field: `Item ${i + 1} option ${j + 1}`,
+          value: o.label,
+        })),
+      ]),
+    ]);
+    if (viol) {
+      return { status: 'invalid', problems: [{ code: 'text_not_allowed', message: viol }] };
+    }
+  }
+
+  // A BLANK NAME IS FILLED IN, NOT REFUSED (owner 2026-07-27: "saving builds
+  // blank will make us autocreate a name for the build"). `addChoice` seeds two
+  // options with `label: ''` and validatePackageDraft has no blank-option rule,
+  // so an untouched choice row reaches this point blank and would otherwise
+  // save an unreadable bullet onto a public card. Items are covered too, as
+  // defence in depth — today `item_description_empty` above already stops a
+  // blank one, so that branch is unreachable unless that rule is relaxed.
+  input = {
+    ...input,
+    items: input.items.map((item, i) => ({
+      ...item,
+      service_description:
+        item.service_description.trim().length > 0
+          ? item.service_description
+          : autoName('item', i),
+      options: item.options.map((o, j) => ({
+        ...o,
+        label: o.label.trim().length > 0 ? o.label : autoName('option', j),
+      })),
+    })),
+  };
 
   // ---- UPDATE ----
   if (input.packageId) {

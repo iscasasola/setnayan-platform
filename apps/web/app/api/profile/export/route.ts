@@ -156,6 +156,7 @@ export async function GET() {
     marketingShareConsentsRes,
     workingNotesRes,
     broadcastsSentRes,
+    dayRequestsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -380,6 +381,19 @@ export async function GET() {
           .eq('sender_user_id', user.id)
           .order('created_at', { ascending: true })
       : Promise.resolve(null),
+    // RA 10173 (2026-07-27) — the day-of requests stream (§10 #2/#6).
+    // Scoped to author_user_id for the same reason chat_messages is scoped to
+    // sender_user_id: the subject's data is what they WROTE. An event-scoped
+    // read would hand a supplier the couple's private issue log and every other
+    // supplier's reports on their own subject-access request. `resolved_by_
+    // user_id` is deliberately not a second lane — clearing someone else's item
+    // is an action ON their record, not personal data OF the person who cleared
+    // it. Mirrors the erasure decision in lib/erasure/coverage.ts.
+    supabase
+      .from('event_day_requests')
+      .select('request_id, event_id, origin, kind, status, body, preset_key, created_at')
+      .eq('author_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -412,6 +426,7 @@ export async function GET() {
     broadcastsSentRes,
     adminUnavailable,
   );
+  const dayRequests = listOutcome('day_requests_authored', dayRequestsRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -466,6 +481,7 @@ export async function GET() {
     marketingShareConsents,
     workingNotes,
     broadcastsSent,
+    dayRequests,
   ]);
 
   const exported = {
@@ -537,6 +553,8 @@ export async function GET() {
     // receives the words they wrote (see the bounded-bypass block above).
     vendor_working_notes_authored: workingNotes.rows,
     coordinator_broadcasts_sent: broadcastsSent.rows,
+    // The day-of notes the subject wrote (§10 #2/#6), author-scoped.
+    day_requests_authored: dayRequests.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

@@ -124,3 +124,41 @@ export function categoryHintForTile(tile: string): string | null {
   }
   return null;
 }
+
+/** aria-label for the per-category ⓘ toggle (PR-C wires the button). */
+export function categoryHintButtonLabel(label: string): string {
+  return `What does ${label} cover?`;
+}
+
+/* ── Adaptive category set (PR-C · spec §3 PR-C · design §5.2) ─────────────
+   The bench shows the couple's in-plan categories; the rest sit in a per-folder
+   chip pool. Rule 3 above applies to this copy too — a wording change must stay
+   a one-file diff, so none of these strings may be inlined in JSX. */
+
+/** Heading above a folder's "not in your plan" chip pool. */
+export const ADD_TO_PLAN_HEADING = '＋ Add to your plan';
+
+/** aria-label on one pool chip. */
+export function addToPlanChipLabel(label: string): string {
+  return `Add ${label} to your plan`;
+}
+
+/** The quiet per-category removal control. */
+export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
+
+export function removeFromPlanButtonLabel(label: string): string {
+  return `Remove ${label} from your plan`;
+}
+
+/**
+ * The HARD GUARD's copy (spec §3 PR-C): a category holding a locked vendor is
+ * not removable. Shown by the client when it refuses, and returned verbatim by
+ * the server action when it refuses — one sentence, one home.
+ */
+export const REMOVE_BLOCKED_LOCKED =
+  'This category has a locked vendor. Unlock (or undo) that booking first — removing a category never cancels a booking.';
+
+/** A folder whose in-plan set is empty but whose pool is not. */
+export function folderEmptyInPlan(folderLabel: string): string {
+  return `Nothing from ${folderLabel} in your plan yet — add below if you need it.`;
+}

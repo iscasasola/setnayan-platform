@@ -13,8 +13,8 @@
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     719
-#   col       4446
+#   tpriv     718
+#   col       4447
 #   policy    820
 #   view      10
 #   func      216
@@ -152,7 +152,6 @@ tpriv	public.event_build_picks|anon	SIUD
 tpriv	public.event_build_picks|authenticated	SIUD
 tpriv	public.event_category_build_state|anon	SIUD
 tpriv	public.event_category_build_state|authenticated	SIUD
-tpriv	public.event_category_decisions|anon	SIUD
 tpriv	public.event_category_decisions|authenticated	SIUD
 tpriv	public.event_checklist_items|anon	SIUD
 tpriv	public.event_checklist_items|authenticated	SIUD
@@ -1428,11 +1427,12 @@ col	public.event_category_build_state.plan_group_id	anon=SIU authenticated=SIU
 col	public.event_category_build_state.set_by	anon=SIU authenticated=SIU
 col	public.event_category_build_state.state	anon=SIU authenticated=SIU
 col	public.event_category_build_state.updated_at	anon=SIU authenticated=SIU
-col	public.event_category_decisions.decided_at	anon=SIU authenticated=SIU
-col	public.event_category_decisions.decision	anon=SIU authenticated=SIU
-col	public.event_category_decisions.event_id	anon=SIU authenticated=SIU
-col	public.event_category_decisions.id	anon=SIU authenticated=SIU
-col	public.event_category_decisions.plan_group_id	anon=SIU authenticated=SIU
+col	public.event_category_decisions.decided_at	anon=- authenticated=SIU
+col	public.event_category_decisions.decision	anon=- authenticated=SIU
+col	public.event_category_decisions.event_id	anon=- authenticated=SIU
+col	public.event_category_decisions.id	anon=- authenticated=SIU
+col	public.event_category_decisions.plan_group_id	anon=- authenticated=SIU
+col	public.event_category_decisions.tile	anon=- authenticated=SIU
 col	public.event_checklist_items.category	anon=SIU authenticated=SIU
 col	public.event_checklist_items.completed_at	anon=SIU authenticated=SIU
 col	public.event_checklist_items.created_at	anon=SIU authenticated=SIU

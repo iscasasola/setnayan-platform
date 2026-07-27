@@ -50,7 +50,7 @@ import {
 // paints and responds BEFORE this server-built panel resolves (owner: "the sub
 // nav should always respond first"). The dock shares the bus + meta from the lib
 // without importing across _components. Re-exported here so the existing
-// imperative consumers (build-compare.tsx, build-picks-list.tsx) keep importing
+// imperative consumer (build-compare.tsx) keeps importing
 // goToBuildTab from './services-takeover' unchanged.
 export { BB_TAB_EVENT, goToBuildTab };
 

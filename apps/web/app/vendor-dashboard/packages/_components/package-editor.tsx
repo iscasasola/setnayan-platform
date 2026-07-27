@@ -13,6 +13,11 @@
  * never trusted. A vendor should never be able to press Save and get a
  * surprise, but the server still decides.
  *
+ * NOT every server problem has an inline note: the card-text integrity gate
+ * (`text_not_allowed`) is server-only by design, so the `invalid` branch of
+ * `save()` renders `res.problems` into the alert rather than pointing at notes
+ * that would not exist.
+ *
  * Money is edited in PESOS and stored in CENTAVOS. The conversion happens once,
  * at the input boundary, so nothing downstream has to wonder which unit it holds.
  */
@@ -171,7 +176,17 @@ export function PackageEditor({
         return;
       }
       if (res.status === 'invalid') {
-        setServerError('Some details still need fixing — see the notes below.');
+        // The inline notes below come from the CLIENT copy of
+        // validatePackageDraft, which cannot see server-only rules (the
+        // card-text integrity gate raises `text_not_allowed`). Pointing the
+        // vendor at "the notes below" when there are none is a dead end they
+        // cannot get out of — so show what the server actually said, and keep
+        // the pointer only for problems the inline notes really do render.
+        setServerError(
+          res.problems.length > 0
+            ? res.problems.map((p) => p.message).join(' ')
+            : 'Some details still need fixing — see the notes below.',
+        );
         return;
       }
       setServerError(

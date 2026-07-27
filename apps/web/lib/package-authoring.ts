@@ -72,7 +72,11 @@ export type DraftProblem = {
     | 'choice_needs_exactly_one_default'
     | 'choice_default_unavailable'
     | 'choice_option_label_duplicated'
-    | 'choice_all_options_unavailable';
+    | 'choice_all_options_unavailable'
+    // Raised by the card-text integrity gate (lib/service-text-integrity.ts),
+    // NOT by validatePackageDraft — that gate needs this `problems` channel to
+    // report a blank / contact-info line through the editor's existing list.
+    | 'text_not_allowed';
   /** Which item/option it belongs to, when it is not a package-level problem. */
   itemRef?: string;
   optionRef?: string;

@@ -33,6 +33,7 @@ import {
   type DueAnchor,
 } from '@/lib/vendor-service-payment-schedules';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
+import { findVendorTextViolation } from '@/lib/service-text-integrity';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -624,6 +625,33 @@ export async function createVendorService(formData: FormData) {
     typeof titleRaw === 'string' && titleRaw.trim().length > 0
       ? titleRaw.trim().slice(0, 80)
       : null;
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark): no off-platform contact
+  // info in anything that renders on the public card. Runs BEFORE the first
+  // write so a bounce never leaves a half-saved service.
+  //
+  // No auto-naming here, unlike savePackage: `parseInclusionRows` /
+  // `parseDiscountRows` already DROP a blank row (`if (label.length === 0)
+  // continue`), so a blank never reaches the write to be named — and the title
+  // has its own publish gate.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Title', value: title },
+      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+    ]);
+    if (viol) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(viol)}`);
+    }
+  }
+
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
@@ -884,6 +912,28 @@ export async function updateVendorService(formData: FormData) {
   const transport_included = formData.get('transport_included') === 'on';
   const crew_meal_required = !crew_meal_included;
   if (transport_included) transport_flat_fee_php = null;
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark), same gate as create.
+  // No Title entry: this legacy edit form does not submit or write `title`
+  // (the wizard's commitVendorService owns that field) — checking a value the
+  // action never reads would bounce on text it cannot save.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+    ]);
+    if (viol) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(viol)}`);
+    }
+  }
+
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
@@ -1435,6 +1485,31 @@ export async function commitVendorService(formData: FormData) {
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark). The wizard writes the
+  // card text itself (title + perk go into the `fields` payload, the lists into
+  // the same atomic RPC), so it needs its own gate — it does not route through
+  // create/updateVendorService. Placed AFTER the parse try/catch on purpose:
+  // `back()` redirects, and a redirect thrown inside that try would be caught
+  // and re-reported as a parse error. Still ahead of the RPC, the first write.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Title', value: fields.title as string | null },
+      {
+        field: 'Setnayan Exclusive',
+        value: fields.exclusive_perk_text as string | null,
+      },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+    ]);
+    if (viol) return back(viol);
   }
 
   // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service

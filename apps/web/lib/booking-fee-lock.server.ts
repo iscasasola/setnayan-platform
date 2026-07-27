@@ -52,8 +52,20 @@ export async function collectBookingFeeAtLock(
   admin: SupabaseClient,
   args: { eventVendorId: string },
 ): Promise<CollectBookingFeeResult> {
-  // Two-key belt: the flag alone gates the LOCK path (the manual QR rail is
-  // always live, so — unlike the PayMongo send-gate — it needs no RAIL_LIVE).
+  // ⚠ ONE KEY, NOT TWO. This path is gated by NEXT_PUBLIC_BOOKING_FEE_ENABLED
+  // ALONE. `isBookingFeeEnforced()` — the genuine two-key check (flag AND
+  // RAIL_LIVE) — belongs to the DORMANT PayMongo send-gate and is not consulted
+  // here, deliberately: the manual QR rail is always live, so this path needs no
+  // rail flag. Flipping that single env var therefore starts billing vendors on
+  // the next lock of a sourced booking — it writes a real `orders` row plus a
+  // `payments` row into /admin/payments (see below). Treat the flag as the whole
+  // safety margin.
+  //
+  // This comment used to OPEN with "Two-key belt:" and only then walk it back.
+  // A spec written from it inherited the wrong claim (corrected 2026-07-27,
+  // Integration_Contract_Booking_x_Explore §4). A comment that opens with a
+  // reassurance it then contradicts is worse than no comment — the reader stops
+  // at the reassurance.
   if (!isBookingFeeEnabled()) return { status: 'disabled' };
 
   const { data, error } = await admin.rpc('booking_fee_open_lock_charge', {

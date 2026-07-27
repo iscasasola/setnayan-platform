@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { VendorSpecializationSet } from '@/lib/vendor-specialization-gate';
+import { FloorCommand } from './floor-command/floor-command';
 import { SongDesk } from './song-desk/song-desk';
 import { StageScript } from './stage-script/stage-script';
 
@@ -99,7 +100,7 @@ export const SPECIALIZATION_SURFACES: Partial<
 > = {
   song_desk: SongDesk, //       ← band / singer / choir / orchestra / DJ
   stage_script: StageScript, // ← host / MC
-  // floor_command:  FloorCommand,  // ← coordinator
+  floor_command: FloorCommand, // ← coordinator
 };
 
 /**

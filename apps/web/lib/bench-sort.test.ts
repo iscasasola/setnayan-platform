@@ -32,6 +32,10 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     distanceKm: null,
     budgetFitRatio: null,
     faithMatch: null,
+    // Lens inputs (§15) — null by default so every pre-existing case keeps
+    // measuring exactly the dimensions it was written for.
+    firstVerifiedAt: null,
+    demandCoupleCount: null,
     budgetFit: null,
     budgetEstimated: false,
     dateFit: null,
@@ -276,4 +280,58 @@ test('never mutates the input array', () => {
   sortWithReasons(input, 'price');
   sortWithReasons(input, 'fit');
   assert.deepEqual(input.map((v) => v.vendorId), before, 'original order preserved');
+});
+
+// ── Same-date demand pill (Explore_Replan §15.3/§15.4) ──────────────────────
+
+test('demand is INERT under "Best fit" — it carries weight only in its own lens', () => {
+  // demandPressure is 0 in COMPAT_WEIGHTS, so a busy vendor can neither out-rank
+  // a quiet one nor claim a demand pill here. "In demand" is a lens the couple
+  // chooses, never a thumb on the default scale.
+  const busy = vendor({ vendorId: 'busy', demandCoupleCount: 12 });
+  const quiet = vendor({ vendorId: 'quiet', demandCoupleCount: null });
+  assert.equal(benchFitScore(busy), benchFitScore(quiet));
+  assert.equal(sortWithReasons([busy], 'fit')[0]!.reason, null);
+});
+
+test('a below-floor demand count says nothing, even if one somehow reaches the client', () => {
+  // Belt-and-braces: the server already refuses to serialise a below-floor
+  // count, but if one ever arrived the scorer must still refuse to speak.
+  const out = sortWithReasons([vendor({ vendorId: 'quiet', demandCoupleCount: 2 })], 'fit');
+  assert.equal(out[0]!.reason, null, 'n=2 must produce no pill at all');
+});
+
+test('a vendor with no demand signal is not out-ranked by one with a below-floor signal', () => {
+  const none = benchFitScore(vendor({ vendorId: 'a', demandCoupleCount: null }));
+  const below = benchFitScore(vendor({ vendorId: 'b', demandCoupleCount: 2 }));
+  assert.equal(none, below);
+});
+
+test('the budget pill carries the mandatory "est." qualifier when the basis is a starts-at', () => {
+  const quoted = sortWithReasons(
+    [vendor({ vendorId: 'quoted', budgetFitRatio: 1, budgetEstimated: false })],
+    'fit',
+  );
+  assert.equal(quoted[0]!.reason?.label, 'Fits your budget');
+  const estimated = sortWithReasons(
+    [vendor({ vendorId: 'est', budgetFitRatio: 1, budgetEstimated: true })],
+    'fit',
+  );
+  assert.equal(estimated[0]!.reason?.label, 'Fits your budget · est.');
+});
+
+test('no budget pill ever claims value — "cheapest"/"best value" are unbackable', () => {
+  // priceFitScore returns a flat 1.0 for EVERY in-budget vendor, so a ₱30k and
+  // an ₱89k vendor tie exactly. Any value language would be a claim the data
+  // cannot make.
+  const banned = /best value|cheapest|most for your money|lowest price|best price|great deal/i;
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'a', budgetFitRatio: 1, totalCostPhp: 30_000 }),
+      vendor({ vendorId: 'b', budgetFitRatio: 1, totalCostPhp: 89_000, budgetEstimated: true }),
+    ],
+    'fit',
+  );
+  assert.equal(benchFitScore(cards[0]!.v), benchFitScore(cards[1]!.v), 'in-budget vendors tie');
+  for (const c of cards) assert.ok(!banned.test(c.reason?.label ?? ''), c.reason?.label);
 });

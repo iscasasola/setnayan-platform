@@ -440,6 +440,39 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Vendor interest counts (what other couples can see)">
+          <p>
+            When you save a vendor to your plan, or send that vendor an inquiry, for an
+            event on a specific date, that action is counted toward an{' '}
+            <strong>aggregate, de-identified</strong> number — how many other couples are
+            interested in that vendor on that same date. Other couples planning that date
+            can see that number next to the vendor.
+          </p>
+          <p className="pt-2">
+            <strong>What is shared is the count, and only the count.</strong> Never your
+            name, your account, your email, your event, your budget, your guest list, or
+            any contact detail; never <em>which</em> couples they are; and never anything
+            that would let another couple work out who you are. The count is computed on
+            our servers from data no couple can read directly, and only the final number
+            reaches the page. Vendors are not shown this count either.
+          </p>
+          <p className="pt-2">
+            <strong>Small numbers are suppressed.</strong> In the Marketplace&rsquo;s
+            &ldquo;In demand right now&rdquo; ranking, the number is only sourced from
+            couples who actually <em>inquired</em> with the vendor (not from couples who
+            merely saved them), and it is not shown at all unless at least{' '}
+            <strong>three</strong> other couples have inquired for your date — so one
+            couple&rsquo;s planning is never exposed on its own. The count is also
+            exact-date only: if your date is still a month or a year rather than a day, no
+            count is computed and none is shown.
+          </p>
+          <p className="pt-2">
+            We never present this number as scarcity. Setnayan does not tell you a vendor
+            is &ldquo;almost gone&rdquo; or that there are &ldquo;only N slots left&rdquo;
+            — we do not hold a live capacity count, so any such claim would be invented.
+          </p>
+        </Section>
+
         <Section title="Coordinators you invite (delegated access)">
           <p>
             You can invite a <strong>coordinator</strong> to help plan your event. A
@@ -749,8 +782,13 @@ export default function PrivacyPage() {
               <strong>Storage + scope.</strong> Tokens and the open ID are
               stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
               Supabase database (Singapore region · encrypted at rest), scoped
-              to one specific Setnayan event. They are never shared with
-              vendors, other couples, or third parties.
+              to one specific Setnayan event. These credentials are never
+              shared with vendors, other couples, or third parties. (That
+              statement is about your TikTok credentials specifically — it is
+              not a blanket claim that nothing you do on Setnayan is ever
+              visible to another couple. For the one place where your planning
+              activity feeds an anonymous count that other couples can see, see{' '}
+              <em>Vendor interest counts</em> above.)
             </li>
             <li>
               <strong>Retention.</strong> Grants are kept until the earlier of
@@ -1064,7 +1102,10 @@ export default function PrivacyPage() {
             itself &mdash; its link is embedded on your event page, which is
             public, so anyone with that page or the link can watch. That is what
             the feature is for, and you control it by choosing whether to go
-            live.
+            live. (This paragraph is about your YouTube connection, not about
+            everything you do on Setnayan &mdash; your vendor shortlisting also
+            feeds an anonymous count other couples can see, described under{' '}
+            <em>Vendor interest counts</em> above.)
           </p>
 
           <p className="pt-3">
@@ -1145,8 +1186,13 @@ export default function PrivacyPage() {
               email + folder IDs are stored in{' '}
               <code className="font-mono text-[12px]">oauth_grants</code>{' '}
               in our Supabase database (Singapore region · encrypted at
-              rest), scoped to one specific Setnayan event. They are never
-              shared with vendors, other couples, or third parties.
+              rest), scoped to one specific Setnayan event. These credentials
+              are never shared with vendors, other couples, or third parties.
+              (That statement is about your Google Drive credentials
+              specifically — it is not a blanket claim that nothing you do on
+              Setnayan is ever visible to another couple. See{' '}
+              <em>Vendor interest counts</em> above for the one place where your
+              planning activity feeds an anonymous count.)
             </li>
             <li>
               <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use

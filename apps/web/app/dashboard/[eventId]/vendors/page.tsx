@@ -31,6 +31,13 @@ import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import {
+  allHoldingEventIds,
+  countInquiringCouples,
+  groupHoldsByVendor,
+  inquiryPairKey,
+  type SameDateHold,
+} from '@/lib/same-date-demand';
 import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -285,7 +292,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -326,6 +333,40 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .from('vendor_profiles')
         .select('vendor_profile_id, inner_radius_km, outer_radius_km')
         .in('vendor_profile_id', marketplaceIds),
+      // FIRST-VERIFICATION ANCHOR for the "New here" lens (§15.1). The honest
+      // question is "when did this vendor become available to couples", and the
+      // ONLY column on vendor_profiles that looks like an answer —
+      // `last_verified_at` — is the wrong one: both admin approval paths
+      // overwrite it on EVERY approval (`admin/verify/actions.ts:150,:361`), so
+      // an established vendor who just renewed reads as brand new. Migration
+      // 20260516050000 also backfilled it to the migration's own NOW() for
+      // hand-approved rows. `vendor_profiles.created_at` is worse still — for
+      // admin-seeded profiles it is the ADMIN's date.
+      //
+      // `vendor_tier_history` is an append-only audit of verification_state
+      // TRANSITIONS, written only when the state actually MOVES
+      // (`toState !== fromState`). So a renewal of an already-verified vendor
+      // writes no row and cannot reset the anchor, while a demote→re-verify
+      // writes a SECOND row that MIN() correctly ignores. MIN(created_at) over
+      // to_state='verified' is therefore "first verified", by construction.
+      //
+      // Isolated select for the same reason as the rings read above: a failure
+      // here yields an empty map, which reads as "we don't know when they were
+      // verified" → freshnessRatio null → NEUTRAL. Freshness only ever LIFTS,
+      // so an absent anchor costs a genuinely-new vendor its head-start but can
+      // never make an established vendor falsely read "New on Setnayan". That
+      // is the safe direction to fail.
+      //
+      // Flag-gated so the flag-OFF page makes exactly the queries it makes in
+      // production today — the anchor only feeds a lens that cannot render
+      // while the flag is off, so paying for the round-trip would be waste.
+      isExploreReplanEnabled()
+        ? enrichmentAdmin
+            .from('vendor_tier_history')
+            .select('vendor_profile_id, created_at')
+            .in('vendor_profile_id', marketplaceIds)
+            .eq('to_state', 'verified')
+        : Promise.resolve({ data: null }),
     ]);
 
     type StatsRow = {
@@ -369,6 +410,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const ringsByProfile = new Map<string, RingRow>();
     for (const r of (ringsRes.data as RingRow[] | null) ?? []) {
       ringsByProfile.set(r.vendor_profile_id, r);
+    }
+    // First-verification anchor — MIN(created_at) per vendor over the
+    // to_state='verified' transition rows. Reduced in JS rather than via a
+    // GROUP BY so this stays a plain PostgREST read (no RPC, no new object).
+    // Absent → the vendor simply has no anchor → NEUTRAL freshness.
+    const firstVerifiedAtByProfile = new Map<string, string>();
+    for (const h of (firstVerifiedRes.data as
+      | { vendor_profile_id: string; created_at: string | null }[]
+      | null) ?? []) {
+      if (!h.created_at) continue;
+      const prev = firstVerifiedAtByProfile.get(h.vendor_profile_id);
+      if (prev == null || h.created_at < prev) {
+        firstVerifiedAtByProfile.set(h.vendor_profile_id, h.created_at);
+      }
     }
     const inquiryByProfile = new Map<string, ChatInquiryStatus>();
     // Pending-since (inquiry-accepted-visibility 2026-06-16) — when the couple
@@ -541,6 +596,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           budgetByPlanGroup,
         }),
         faith_match: faithMatch ? true : null,
+        // "New here" lens anchor (§15.1) — first verification, never row
+        // creation and never last-verification. Null → NEUTRAL freshness.
+        first_verified_at: firstVerifiedAtByProfile.get(pid) ?? null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         thread_id: threadIdByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
@@ -653,12 +711,39 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   // ── Same-date competition (spec §6a) — aggregate-only count of OTHER
-  // couples soft-holding the same vendor on the same wedding date. Admin
+  // couples interested in the same vendor on the same wedding date. Admin
   // client because RLS blocks couple→couple reads; we only ever surface the
-  // COUNT, never identities (RA 10173). Dedup by event. 0 → no chip; never
-  // fabricated. eq(event_date) is exact same-day (event_date is a date col);
-  // a type mismatch would undercount → no chip, the safe failure.
+  // COUNT, never identities (RA 10173). Dedup by event. eq(event_date) is exact
+  // same-day (event_date is a date col); a type mismatch would undercount → no
+  // chip, the safe failure.
+  //
+  // ── 2026-07-27 · TWO COUNTS, ONE QUERY PAIR (Explore_Replan §15.3)
+  // The legacy count answers the WRONG question. `status IN
+  // ('considering','contracted')` is written by merely SAVING a vendor
+  // (`explore/actions.ts` saveVendorToPicks, `onboarding/wedding/actions.ts`)
+  // with zero contact ever made. The owner's 2026-06-02 ruling
+  // (`Schedule_Matrix_and_Date_Finder_2026-06-02.md:141`, DECISION_LOG.md:470)
+  // is explicit: competition "starts at the inquiry (Stage 2), NEVER at search
+  // (Stage 1) … counting it as competition = manufactured scarcity (a fineable
+  // dark pattern)."
+  //
+  // So the replan build resolves an HONEST count alongside it: the same holds,
+  // narrowed to events that ALSO have a `chat_threads` row for that vendor —
+  // i.e. an inquiry was actually fired. `unlock-category.ts` is the clean
+  // pattern (it inserts 'considering' AND opens a thread); a saved-but-never-
+  // contacted vendor has no thread and contributes ZERO. The honest count is
+  // then FLOORED at MIN_DEMAND_COUPLE_COUNT — 06-02 §8.3, "Don't show a '1'":
+  // n=1 on a solo vendor plus an exact date in a small municipality is
+  // functionally re-identifying. Below the floor nothing leaves the server.
+  //
+  // The swap is FLAG-GATED. Flag OFF, `eyeingByVendorId` is byte-identical to
+  // production (save-count, no floor) and `demandByVendorId` is empty. Flag ON,
+  // BOTH read the honest floored count — a lens that says "3 couples inquired"
+  // must not sit beside a chip that says "1 also eyeing" from a different
+  // basis.
+  const honestDemand = isExploreReplanEnabled();
   const eyeingByVendorId = new Map<string, number>();
+  const demandByVendorId = new Map<string, number>();
   if (eventDate && marketplaceIds.length > 0) {
     try {
       const admin = createAdminClient();
@@ -669,20 +754,51 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .in('status', ['considering', 'contracted'])
         .neq('event_id', eventId)
         .eq('events.event_date', eventDate);
-      const otherEventsByProfile = new Map<string, Set<string>>();
-      for (const h of (holds ?? []) as Array<{
-        marketplace_vendor_id: string | null;
-        event_id: string;
-      }>) {
-        if (!h.marketplace_vendor_id) continue;
-        const set =
-          otherEventsByProfile.get(h.marketplace_vendor_id) ?? new Set<string>();
-        set.add(h.event_id);
-        otherEventsByProfile.set(h.marketplace_vendor_id, set);
+      const holdRows: SameDateHold[] = (
+        (holds ?? []) as Array<{ marketplace_vendor_id: string | null; event_id: string }>
+      ).map((h) => ({
+        marketplaceVendorId: h.marketplace_vendor_id,
+        eventId: h.event_id,
+      }));
+      const otherEventsByProfile = groupHoldsByVendor(holdRows);
+
+      // Inquiry discriminator — the (event, vendor) pairs that actually opened a
+      // thread. `chat_threads` is UNIQUE (event_id, vendor_profile_id), so a row
+      // is exactly "this couple reached out to this vendor". Bounded by the hold
+      // set above, so it adds one small read and never a table scan.
+      const inquiredPairs = new Set<string>();
+      const holdEventIds = allHoldingEventIds(holdRows);
+      if (honestDemand && holdEventIds.length > 0) {
+        const { data: inquiries } = await admin
+          .from('chat_threads')
+          .select('event_id, vendor_profile_id')
+          .in('event_id', holdEventIds)
+          .in('vendor_profile_id', marketplaceIds);
+        for (const t of (inquiries ?? []) as Array<{
+          event_id: string;
+          vendor_profile_id: string;
+        }>) {
+          inquiredPairs.add(inquiryPairKey(t.event_id, t.vendor_profile_id));
+        }
       }
+
+      // `countInquiringCouples` applies BOTH honesty rules — inquiry-only and
+      // the min-N floor — so a below-floor count never leaves this server.
+      const inquiringByProfile = honestDemand
+        ? countInquiringCouples(otherEventsByProfile, inquiredPairs)
+        : null;
+
       for (const v of vendors) {
-        if (!v.marketplace_vendor_id) continue;
-        const n = otherEventsByProfile.get(v.marketplace_vendor_id)?.size ?? 0;
+        const pid = v.marketplace_vendor_id;
+        if (!pid) continue;
+        if (inquiringByProfile) {
+          const n = inquiringByProfile.get(pid);
+          if (n == null) continue;
+          demandByVendorId.set(v.vendor_id, n);
+          eyeingByVendorId.set(v.vendor_id, n);
+          continue;
+        }
+        const n = otherEventsByProfile.get(pid)?.size ?? 0;
         if (n > 0) eyeingByVendorId.set(v.vendor_id, n);
       }
     } catch (e) {
@@ -1001,6 +1117,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     vendorRows,
     enrichmentByVendorId,
     dateFitByVendorId,
+    // ⚠ PRODUCT QUESTION, NOT AN IMPLEMENTATION CHOICE (surfaced in the PR).
+    // The same-date demand signal is already Setnayan-AI-gated everywhere it
+    // exists today — `buildPlanBudgetModel` is handed an EMPTY map when the
+    // couple doesn't own Setnayan AI. Whether the "In demand right now" lens
+    // should be paid-only is the owner's call; until they make it, this
+    // MIRRORS the shipped gate rather than quietly widening or narrowing it.
+    // AI off → no vendor carries a demand signal → the lens cannot
+    // discriminate → the visibility gate hides its chip. Nothing leaks.
+    demandByVendorId: aiActive ? demandByVendorId : undefined,
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,

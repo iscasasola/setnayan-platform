@@ -82,6 +82,10 @@ export function benchCompatInputs(v: ShortlistVendor): CompatInputs {
     // The one date signal the bench has: free on the committed date = full
     // headroom, booked = none, no signal = null → NEUTRAL.
     dateHeadroomRatio: v.dateFit === 'free' ? 1 : v.dateFit === 'booked' ? 0 : null,
+    // Same-date INQUIRY count (never a save count), already floored upstream.
+    // Weight 0 in the global vector, so this is inert outside the lens that
+    // asks for it.
+    demandCoupleCount: v.demandCoupleCount,
   };
 }
 
@@ -103,7 +107,52 @@ const DIMENSION_COPY: Record<CompatDimension, { lead: string; plain: string }> =
   refinement: { lead: 'Matches your style', plain: 'Matches your style' },
   faithFit: { lead: 'Fits your ceremony', plain: 'Fits your ceremony' },
   trust: { lead: 'Verified', plain: 'Verified' },
+  // Demand is the one dimension whose honest pill is a MEASUREMENT, not an
+  // adjective — the number is the whole claim. `dimensionCopyFor` overrides
+  // these with "N couples inquired for your date"; this static pair is the
+  // count-less fallback and is deliberately free of any scarcity verb ("only N
+  // left" / "booking fast" / "almost gone" are all forbidden — no capacity
+  // counter exists to back them).
+  demandPressure: {
+    lead: 'Most inquired for your date',
+    plain: 'Others inquired for your date',
+  },
 };
+
+/**
+ * Resolve a dimension's pill copy for ONE card. Identical to `DIMENSION_COPY`
+ * except where the honest phrasing needs a value off the card itself.
+ *
+ * `demandPressure` is such a case: "3 couples inquired for your date" states
+ * exactly what was measured, where "in demand" would be an interpretation. The
+ * count is guaranteed to be at or above `MIN_DEMAND_COUPLE_COUNT` — the server
+ * never serialises a smaller one and `demandSub` would not have lifted above
+ * NEUTRAL for it, so this dimension could not have won.
+ */
+function dimensionCopyFor(
+  dim: CompatDimension,
+  v: ShortlistVendor,
+): { lead: string; plain: string } {
+  if (dim === 'demandPressure' && v.demandCoupleCount != null) {
+    const phrase = `${v.demandCoupleCount} couples inquired for your date`;
+    return { lead: phrase, plain: phrase };
+  }
+  // `budgetFit` is scored off the service's "starts at", not a quote (see
+  // `vendorBudgetFitRatio`). When that is the basis, the pill MUST carry the
+  // same `est.` qualifier the budget fit-badge already renders — an estimate
+  // must never read as a firm number. `budgetEstimated` is the shipped source
+  // of truth for that (shortlist-taxonomy.ts); reuse it, never re-derive it.
+  //
+  // Note also what this pill deliberately does NOT say. `priceFitScore`
+  // returns a FLAT 1.0 for every vendor at or under budget — a ₱30k and an
+  // ₱89k photographer tie exactly — so it ranks distance from OVER-budget, not
+  // value. "Best value" / "cheapest" / "most for your money" are therefore
+  // unbackable and forbidden (§15.4).
+  if (dim === 'budgetFit' && v.budgetEstimated) {
+    return { lead: 'Fits your budget · est.', plain: 'Fits your budget · est.' };
+  }
+  return DIMENSION_COPY[dim];
+}
 
 /**
  * Sort a category's vendors by the active lens and attach a per-card reason.
@@ -184,7 +233,7 @@ export function sortWithReasons(
     // No dimension rose above neutral → we have nothing honest to say. Render
     // no pill rather than a manufactured reason.
     if (!s || !dim) return { v, reason: null };
-    const copy = DIMENSION_COPY[dim];
+    const copy = dimensionCopyFor(dim, v);
     const isBestOnDim = bestByDim.get(dim) === s.subs[dim];
     return {
       v,

@@ -232,6 +232,20 @@ export type ShortlistVendor = {
    *  unknown / non-wedding → NEUTRAL — a lift for specialists, never a penalty
    *  for generalists. */
   faithMatch: boolean | null;
+  /** LENS input · ISO timestamp of the vendor's FIRST verification approval —
+   *  derived on the page from `MIN(vendor_tier_history.created_at)` over the
+   *  `to_state='verified'` transition rows, which is an append-only audit of
+   *  state CHANGES and so cannot be reset by a renewal. Feeds the "New here"
+   *  lens's `freshness` dim. NULL = no recorded first verification → NEUTRAL,
+   *  never 0: an unknown anchor withholds a newcomer's head-start but can never
+   *  make an established vendor read "New on Setnayan". */
+  firstVerifiedAt: string | null;
+  /** LENS input · how many OTHER couples have INQUIRED with this vendor for the
+   *  couple's exact date. Already floored at `MIN_DEMAND_COUPLE_COUNT` on the
+   *  server — a below-floor count is never serialized here at all — and sourced
+   *  from thread existence, so a saved-but-never-contacted vendor contributes
+   *  ZERO. NULL = no signal → NEUTRAL, never a penalty. */
+  demandCoupleCount: number | null;
   /** Fit-badge · budget fit (2026-07-09). 'fits' = the vendor's price basis is
    *  within the event's remaining budget (total − locked commitments); 'over' =
    *  it exceeds it; NULL = no budget set or no price basis → hidden. Locked picks
@@ -384,6 +398,13 @@ export function buildShortlistFolders(args: {
    *  Compare tab uses. Absent / no committed date → no date badges. Locked picks
    *  are skipped here (they're already committed for this event). */
   dateFitByVendorId?: ReadonlyMap<string, 'free' | 'booked'>;
+  /** Per-vendor same-date INQUIRY count for the "In demand right now" lens.
+   *  vendor_id → n. Resolved upstream (page.tsx) from `event_vendors` holds
+   *  narrowed to events that also opened a `chat_threads` row, then floored at
+   *  `MIN_DEMAND_COUPLE_COUNT`, so every entry here is already ≥ the floor and
+   *  inquiry-backed. Absent map (flag off / no committed date) → no vendor
+   *  carries a demand signal and the lens cannot discriminate → it hides. */
+  demandByVendorId?: ReadonlyMap<string, number>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -395,6 +416,7 @@ export function buildShortlistFolders(args: {
     plannedTiles,
     totalBudgetPhp,
     dateFitByVendorId,
+    demandByVendorId,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -490,6 +512,14 @@ export function buildShortlistFolders(args: {
       distanceKm: ext?.distance_km ?? null,
       budgetFitRatio: ext?.budget_fit_ratio ?? null,
       faithMatch: ext?.faith_match ?? null,
+      // Lens inputs. Both are pure ADDITIONS to the ranking vocabulary and are
+      // null on every existing path, so the shipped lenses are unchanged.
+      // A LOCKED pick carries no demand signal: the couple has already
+      // committed, so telling them other couples are competing for the vendor
+      // they booked is noise at best and pressure at worst — same "locked skips"
+      // discipline as the budget + date badges below.
+      firstVerifiedAt: ext?.first_verified_at ?? null,
+      demandCoupleCount: isLocked ? null : demandByVendorId?.get(v.vendor_id) ?? null,
       budgetFit,
       budgetEstimated,
       // Fit-badge · date. Skipped for locked picks (already committed for this

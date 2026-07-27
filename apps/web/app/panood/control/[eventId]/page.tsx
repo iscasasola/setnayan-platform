@@ -45,6 +45,10 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import {
+  liveStudioPoolOnly,
+  POOL_ONLY_CONNECT_NOTICE,
+} from '@/lib/live-studio-pool-only';
 import { fetchEventRecordings } from '@/lib/live-studio-recordings';
 import {
   LIVE_STUDIO_SKU,
@@ -1358,6 +1362,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           <p className="inline-flex items-center gap-2 rounded-lg border border-success-200/80 bg-success-50/60 px-3 py-2.5 text-sm text-ink">
             <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2} />
             Connected{youtubeGrant.external_account_display ? ` — ${youtubeGrant.external_account_display}` : ''}. Your broadcast goes live on this channel.
+          </p>
+        ) : liveStudioPoolOnly() ? (
+          /* ⭐ POOL-ONLY: nothing to connect — Setnayan supplies the channel. The
+             server refuses this door too (409), so a button here would dead-end. */
+          <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/70">
+            {POOL_ONLY_CONNECT_NOTICE}
           </p>
         ) : (
           <Link

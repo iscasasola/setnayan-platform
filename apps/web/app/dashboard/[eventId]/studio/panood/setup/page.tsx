@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  liveStudioPoolOnly,
+  POOL_ONLY_CONNECT_NOTICE,
+} from '@/lib/live-studio-pool-only';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
@@ -448,6 +452,18 @@ function ComingSoonPlaceholder() {
 }
 
 function ConnectCTA({ eventId }: { eventId: string }) {
+  // ⭐ POOL-ONLY: Setnayan supplies the channel, so there is nothing to connect and
+  // the door is closed server-side (api/oauth/youtube/start returns 409). Rendering
+  // the button anyway would be a fake door — and under an Internal-audience OAuth
+  // client Google would refuse these users with `org_internal` regardless.
+  if (liveStudioPoolOnly()) {
+    return (
+      <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
+        {POOL_ONLY_CONNECT_NOTICE}
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
       <Link

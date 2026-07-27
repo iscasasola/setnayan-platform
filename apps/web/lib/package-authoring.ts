@@ -26,6 +26,22 @@
  * What a CHECK cannot see is the rest of the package. Those are the invariants
  * below: they are all CROSS-ROW, which is exactly why they need a validator.
  *
+ * ── THE ONE DELIBERATE MIRROR ───────────────────────────────────────────────
+ * `vendor_package_items_followup_not_default_included_ck` — a FOLLOW-UP line
+ * can be neither default-included nor required — IS single-row, and IS repeated
+ * here, on purpose. Two reasons the "do not duplicate" rule yields to it:
+ *
+ *   1. The editor's own default for a new line is `is_default_included: true`
+ *      (package-editor.tsx), so the FIRST follow-up a vendor ever draws is the
+ *      shape the database refuses. Left to the DB, every vendor's first attempt
+ *      dies on a 23514 they cannot act on.
+ *   2. It is a MONEY rule — a default-included follow-up charges the couple for
+ *      a line the configurator never showed them — so a readable sentence at
+ *      the point of authoring is worth the duplication. Same precedent as
+ *      `choice_default_unavailable` below.
+ *
+ * The database remains the enforcement; this is only the sentence.
+ *
  * Pure: no I/O, no env, no clock. Callers do the DB work.
  */
 
@@ -115,6 +131,14 @@ export type DraftProblem = {
     | 'item_max_extra_hours_invalid'
     | 'followup_parent_unknown'
     | 'followup_cycle'
+    // Mirrors vendor_package_items_followup_not_default_included_ck. A
+    // follow-up is CONDITIONAL by definition, so it can never be inside the
+    // package price — charging for a line the couple was never shown, and
+    // cascading it into a booked vendor row, is the hazard the constraint
+    // closes. Two codes, not one, because they highlight two different
+    // checkboxes on the editor row.
+    | 'followup_cannot_be_default_included'
+    | 'followup_cannot_be_required'
     // Raised by the card-text integrity gate (lib/service-text-integrity.ts),
     // NOT by validatePackageDraft — that gate needs this `problems` channel to
     // report a blank / contact-info line through the editor's existing list.
@@ -303,6 +327,28 @@ export function validatePackageDraft(draft: DraftPackage): DraftProblem[] {
     }
 
     if (item.parentRef) {
+      // ---- A FOLLOW-UP IS CONDITIONAL, SO IT IS NEVER INSIDE THE PRICE ----
+      // Mirrors vendor_package_items_followup_not_default_included_ck. Checked
+      // off `parentRef` alone — the vendor DREW a follow-up, so the rule
+      // applies whether or not the parent still resolves; a dangling parent is
+      // reported separately below and is not a licence to charge for the line.
+      if (item.is_default_included) {
+        problems.push({
+          code: 'followup_cannot_be_default_included',
+          itemRef: item.ref,
+          message:
+            'A follow-up only appears once its option is picked, so it cannot also be included by default — most couples would never see it, and every one of them would be charged for it. Untick “included”, or detach it from the choice to make it a normal inclusion.',
+        });
+      }
+      if (item.is_required) {
+        problems.push({
+          code: 'followup_cannot_be_required',
+          itemRef: item.ref,
+          message:
+            'A follow-up cannot be required. “Required” means every couple keeps and pays for the line, but a follow-up is only shown to the couples who pick its option. Make the CHOICE required instead, or detach this line from it.',
+        });
+      }
+
       const owner = optionOwner.get(item.parentRef.optionRef);
       if (
         !itemByRef.has(item.parentRef.itemRef) ||

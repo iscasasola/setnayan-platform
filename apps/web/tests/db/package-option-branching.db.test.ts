@@ -23,6 +23,10 @@
  *     could hang a line off another vendor's option;
  *   • deleting the parent option CASCADES the follow-up away, rather than
  *     SET NULL promoting it into a line every couple sees;
+ *   • 💰 a follow-up can be NEITHER default-included NOR required
+ *     (20271015207377) — either one charges every couple for a line only some
+ *     of them are ever shown, and cascades a booked vendor row for it. Ordinary
+ *     top-level lines keep all three of their legal shapes;
  *   • the trigger function is not EXECUTE-able by anon or authenticated.
  *
  * Run: pnpm --filter @setnayan/web test:db
@@ -40,7 +44,17 @@ let packageId: string;
 /** A second package owned by the SAME vendor — the cross-package probe. */
 let otherPackageId: string;
 
-/** Insert a line, returning its item_id. */
+/**
+ * Insert a line, returning its item_id.
+ *
+ * `is_default_included` is written explicitly as `parentOptionId IS NULL`
+ * because the column DEFAULTS TO TRUE and a follow-up may never be
+ * default-included (`vendor_package_items_followup_not_default_included_ck`,
+ * migration 20271015207377). Leaving it to the default would make every
+ * follow-up in this file the exact shape that constraint refuses — the helper
+ * has to author the legal shape so the tests below probe the guards they are
+ * actually about.
+ */
 async function addItem(
   pkgId: string,
   description: string,
@@ -49,10 +63,11 @@ async function addItem(
   const r = await db.query<{ item_id: string }>(
     `INSERT INTO public.vendor_package_items
        (package_id, canonical_service, service_description,
-        replacement_value_centavos, display_order, parent_option_id)
-     VALUES ($1, 'catering', $2, 100000, 0, $3)
+        replacement_value_centavos, display_order, parent_option_id,
+        is_default_included)
+     VALUES ($1, 'catering', $2, 100000, 0, $3, $4)
      RETURNING item_id`,
-    [pkgId, description, parentOptionId],
+    [pkgId, description, parentOptionId, parentOptionId === null],
   );
   return r.rows[0]!.item_id;
 }
@@ -246,6 +261,160 @@ test('max_extra_hours refuses a negative cap and allows 0 / NULL', async () => {
   await db.query(
     `UPDATE public.vendor_package_items SET max_extra_hours = NULL WHERE item_id = $1`,
     [itemId],
+  );
+});
+
+/* ── A FOLLOW-UP IS NEVER INSIDE THE PRICE ──────────────────────────────────*/
+
+/*
+ * `vendor_package_items_followup_not_default_included_ck` (migration
+ * 20271015207377). A follow-up is shown only once its parent option is picked,
+ * so `is_default_included = TRUE` on one would charge EVERY couple for a line
+ * most of them never see, inflate the booking fee taken off that total, and
+ * cascade an event_vendors row at lock for a service nobody chose.
+ *
+ * This is a SCHEMA rule rather than a filter in the pricing code on purpose:
+ * with is_default_included forced FALSE, every existing reader (keptItems,
+ * computeCustomization, the credit engine, the cascade) is already correct
+ * without knowing follow-ups exist.
+ *
+ * NEUTRALISATION: drop the constraint and the two rejection tests below go
+ * green-to-red — the priced follow-up inserts happily.
+ */
+
+test('the follow-up money guard exists and is VALIDATED', async () => {
+  // A constraint that exists but is NOT VALID enforces nothing over the rows
+  // already there, which is indistinguishable from absent when it matters.
+  const r = await db.query<{ def: string; convalidated: boolean }>(
+    `SELECT pg_get_constraintdef(oid) AS def, convalidated
+       FROM pg_constraint
+      WHERE conrelid = 'public.vendor_package_items'::regclass
+        AND conname = 'vendor_package_items_followup_not_default_included_ck'`,
+  );
+  assert.equal(r.rows.length, 1, 'the constraint must exist');
+  assert.equal(r.rows[0]!.convalidated, true, 'NOT VALID enforces nothing');
+  // BOTH doors are named in THIS constraint, so it states the whole rule about
+  // follow-ups on its own. `is_required` is also blocked by
+  // vendor_package_items_required_implies_included, and relaxing THAT one must
+  // not silently re-open this hazard.
+  assert.match(r.rows[0]!.def, /parent_option_id IS NULL/);
+  assert.match(r.rows[0]!.def, /is_default_included = false/);
+  assert.match(r.rows[0]!.def, /is_required = false/);
+});
+
+test('a follow-up marked default-included is REFUSED', async () => {
+  const parent = await addItem(packageId, 'Priced-followup parent');
+  const option = await addOption(parent, 'Lechon');
+
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_items
+         (package_id, canonical_service, service_description,
+          replacement_value_centavos, display_order, parent_option_id,
+          is_default_included)
+       VALUES ($1, 'catering', 'Which style of lechon?', 300000, 0, $2, TRUE)`,
+      [packageId, option],
+    ),
+    /vendor_package_items_followup_not_default_included_ck/,
+    'a default-included follow-up charges every couple for a line most never see',
+  );
+});
+
+test('promoting an EXISTING follow-up into the price is REFUSED', async () => {
+  // The UPDATE door. A follow-up authored legally must not be flipped into the
+  // package price afterwards — same overcharge, later.
+  const parent = await addItem(packageId, 'Promote parent');
+  const option = await addOption(parent, 'Promote option');
+  const followUp = await addItem(packageId, 'Promote follow-up', option);
+
+  await assert.rejects(
+    db.query(
+      `UPDATE public.vendor_package_items SET is_default_included = TRUE WHERE item_id = $1`,
+      [followUp],
+    ),
+    /vendor_package_items_followup_not_default_included_ck/,
+  );
+});
+
+test('a follow-up marked required is REFUSED, in BOTH spellings', async () => {
+  const parent = await addItem(packageId, 'Required-followup parent');
+  const option = await addOption(parent, 'Required option');
+
+  const insert = (included: boolean, required: boolean) =>
+    db.query(
+      `INSERT INTO public.vendor_package_items
+         (package_id, canonical_service, service_description,
+          replacement_value_centavos, display_order, parent_option_id,
+          is_default_included, is_required)
+       VALUES ($1, 'catering', 'Required follow-up', 300000, 0, $2, $3, $4)`,
+      [packageId, option, included, required],
+    );
+
+  // required + included → the follow-up guard speaks.
+  await assert.rejects(
+    insert(true, true),
+    /vendor_package_items_followup_not_default_included_ck/,
+    'a required follow-up cannot be dropped AND was never chosen',
+  );
+  // required + not included → the older required_implies_included guard speaks
+  // first. Either way there is no spelling of "required follow-up" that lands.
+  await assert.rejects(
+    insert(false, true),
+    /check/i,
+    'no spelling of a required follow-up may be written',
+  );
+});
+
+test('an ordinary follow-up — not included, not required — is ACCEPTED', async () => {
+  const parent = await addItem(packageId, 'Legal-followup parent');
+  const option = await addOption(parent, 'Legal option');
+
+  const r = await db.query<{ item_id: string }>(
+    `INSERT INTO public.vendor_package_items
+       (package_id, canonical_service, service_description,
+        replacement_value_centavos, display_order, parent_option_id,
+        is_default_included, is_required)
+     VALUES ($1, 'catering', 'Which style?', 300000, 0, $2, FALSE, FALSE)
+     RETURNING item_id`,
+    [packageId, option],
+  );
+  assert.equal(r.rows.length, 1, 'the guard must not ban follow-ups outright');
+});
+
+test('REGRESSION: every non-follow-up shape that authors today still authors', async () => {
+  // The rule is scoped to follow-ups. A top-level line keeps all three legal
+  // combinations of included/required — this is the assertion that proves the
+  // constraint did not quietly narrow ordinary authoring.
+  const shapes: Array<[boolean, boolean, string]> = [
+    [true, true, 'included + required — the mandatory core of a package'],
+    [true, false, 'included + optional — the removable line'],
+    [false, false, 'not included + optional — an ADD-ON'],
+  ];
+  for (const [included, required, why] of shapes) {
+    const r = await db.query<{ item_id: string }>(
+      `INSERT INTO public.vendor_package_items
+         (package_id, canonical_service, service_description,
+          replacement_value_centavos, display_order,
+          is_default_included, is_required)
+       VALUES ($1, 'catering', $2, 100000, 0, $3, $4)
+       RETURNING item_id`,
+      [packageId, `Regression ${why}`, included, required],
+    );
+    assert.equal(r.rows.length, 1, why);
+  }
+
+  // And the one top-level shape that was ALREADY refused stays refused.
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_package_items
+         (package_id, canonical_service, service_description,
+          replacement_value_centavos, display_order,
+          is_default_included, is_required)
+       VALUES ($1, 'catering', 'Regression ghost line', 100000, 0, FALSE, TRUE)`,
+      [packageId],
+    ),
+    /vendor_package_items_required_implies_included/,
+    'required-but-not-included was already a money bug and still is',
   );
 });
 

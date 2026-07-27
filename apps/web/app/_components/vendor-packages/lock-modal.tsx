@@ -230,7 +230,17 @@ export function LockPackageModal({
                 {/* Same set the public card lists (package-card.tsx filters on
                     is_default_included). Listing add-ons here rendered them
                     PRE-TICKED, and unticking one refunded money the vendor
-                    never charged. */}
+                    never charged.
+
+                    ⚠ THIS FILTER IS ALSO THE FOLLOW-UP GUARD. The database
+                    forces every follow-up line to is_default_included = FALSE
+                    (vendor_package_items_followup_not_default_included_ck), so
+                    filtering TO included is what keeps "which style of
+                    lechon?" out of a list the couple can tick before they have
+                    picked the lechon. Widening this to add-ons would surface
+                    every follow-up in the package at once, detached from the
+                    question that reveals it. The renderer slice shows a
+                    follow-up only once its parent option is picked. */}
                 {pkg.items
                   .filter((i) => i.is_default_included)
                   .map((item) => {

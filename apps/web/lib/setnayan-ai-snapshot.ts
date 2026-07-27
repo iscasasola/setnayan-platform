@@ -566,8 +566,16 @@ export async function buildPlanningSnapshot(
       .eq('event_id', eventId)
       .eq('inquiry_status', 'pending'),
     // GRD-06 clash — the run-of-show blocks (times + nesting) for overlap detection.
+    // ⚠ `event_schedule_blocks`, NOT `schedule_blocks` — there has never been a
+    // bare `schedule_blocks` relation in prod. PostgREST answered 42P01 and
+    // supabase-js resolved `data: null`, so `blockRows ?? []` fed GRD-06 an empty
+    // list on every run: the clash rule could not fire, and reported "no overlaps"
+    // for every event. All four columns exist on event_schedule_blocks unchanged.
+    // The phantom-COLUMN guard could not see this — it skips sites whose table is
+    // unknown (select-column-scan.ts `if (!table) continue`); the companion
+    // unresolved-TABLE ratchet in select-column-scan.test.ts now covers that gap.
     admin
-      .from('schedule_blocks')
+      .from('event_schedule_blocks')
       .select('label, start_at, end_at, parent_block_id')
       .eq('event_id', eventId),
   ]);

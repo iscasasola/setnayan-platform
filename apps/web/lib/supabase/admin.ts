@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createLoggingFetch } from './db-error-log';
 
 /**
  * Server-only Supabase client that uses the `service_role` key and bypasses RLS.
@@ -45,5 +46,8 @@ export function createAdminClient() {
   }
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    // Surface failed PostgREST calls instead of letting them resolve to
+    // `data: null` and render as an empty list. See ./db-error-log.
+    global: { fetch: createLoggingFetch('admin') },
   });
 }

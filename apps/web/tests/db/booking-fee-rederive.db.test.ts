@@ -14,6 +14,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { bookingFeeScheduleSummary } from '../../lib/booking-fee';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -149,7 +150,11 @@ async function seedOrder(
     `INSERT INTO public.orders
        (event_id, user_id, vendor_profile_id, service_key, description,
         requested_total_php, status, reference_code)
-     VALUES ($1,$2,$3,$4,'Setnayan booking fee (5%)',$5,'submitted',$6)
+     -- Rate-agnostic on purpose: nothing here asserts the description, and the
+     -- real one is DERIVED from BOOKING_FEE (bookingFeeScheduleSummary). The old
+     -- '(5%)' literal was the wrong claim above ₱100,000 — no copy of it lives
+     -- in the repo any more.
+     VALUES ($1,$2,$3,$4,'Setnayan booking fee',$5,'submitted',$6)
      RETURNING order_id`,
     [eventId, payerUserId, vendorProfileId, `${SVC_PREFIX}${chargeId}`, amountPhp, `SN${chargeId.slice(0, 8)}`],
   );
@@ -169,6 +174,15 @@ async function orderFor(chargeId: string): Promise<{ status: string; total: numb
   );
   if (r.rows.length === 0) return null;
   return { status: r.rows[0]!.status, total: Number(r.rows[0]!.requested_total_php) };
+}
+
+/** The vendor-facing copy on the money document the SQL minter wrote. */
+async function orderDescriptionFor(chargeId: string): Promise<string | null> {
+  const r = await db.query<{ description: string | null }>(
+    `SELECT description FROM public.orders WHERE service_key = $1 LIMIT 1`,
+    [`${SVC_PREFIX}${chargeId}`],
+  );
+  return r.rows[0]?.description ?? null;
 }
 
 before(async () => {
@@ -400,4 +414,45 @@ test('paid → raise (delta) → then drop back to exactly paid → delta cancel
   assert.equal(liveDelta, undefined, 'pending delta cancelled when the raise is reversed');
   const credit = c.find((x) => x.kind === 'amendment_credit');
   assert.ok(!credit || credit.credit === 0, 'no credit owed — new fee equals what was paid');
+});
+
+test('the SQL booking_fee_schedule_summary() and the TS bookingFeeScheduleSummary() agree exactly', async () => {
+  // Anti-drift, same shape as the sourced-set guard in booking-fee-lock.db.test.ts.
+  // SQL cannot import BOOKING_FEE, so the sentence on the amendment-path money
+  // document is duplicated by necessity. TS DERIVES its copy from the constants;
+  // the SQL literal does not move on its own. If anyone reprices the taper, this
+  // is what fails — instead of a vendor being billed 1.4% on a bill saying 5%.
+  const r = await db.query<{ s: string }>(`SELECT public.booking_fee_schedule_summary() AS s`);
+  assert.equal(
+    r.rows[0]!.s,
+    bookingFeeScheduleSummary(),
+    'SQL and TS state the fee schedule differently — reprice the SQL mirror ' +
+      '(supabase/migrations/*_booking_fee_schedule_summary_in_sql_order_description.sql)',
+  );
+});
+
+test('the amendment-path money document states the taper, never a bare (5%)', async () => {
+  // Drive the MINT branch: no seedOrder, so the trigger's SQL minter writes the
+  // order — and therefore the description — with no TypeScript in the loop.
+  const { vendorProfileId } = await newVendor('descr@fee.test');
+  await warmPastFree5(vendorProfileId, 'descr');
+  const eventId = await newEvent('descr-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  assert.equal(await orderDescriptionFor(charge.charge_id!), null, 'no order yet — SQL must mint it');
+
+  await setTotal(evId, 1_000_000); // ₱1M → ₱14,000 = 1.40%, nowhere near 5%
+
+  const ord = await orderFor(charge.charge_id!);
+  assert.equal(ord?.total, 14_000, 'taper on ₱1M: 5% of ₱100k + 1% of ₱900k');
+  const descr = await orderDescriptionFor(charge.charge_id!);
+  assert.ok(descr, 'the amendment path must mint the vendor money document');
+  assert.ok(
+    !/\(5%\)/.test(descr!),
+    `the bill claims a flat rate the vendor is not paying: ${descr}`,
+  );
+  assert.ok(
+    descr!.includes(bookingFeeScheduleSummary()),
+    `the bill must state the real schedule: ${descr}`,
+  );
 });

@@ -38,6 +38,7 @@ export type PrivacyControlKey =
   | 'coordinator_prep_release'
   | 'coordinator_run_of_show'
   | 'coordinator_day_of_broadcast'
+  | 'coordinator_requests_inbox'
   | 'vendor_ai_autoreply'
   | 'vendor_deep_search'
   | 'antifraud_trust_signals'
@@ -210,6 +211,16 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Coordinator activation — not privacy-sensitive',
     riskNote:
       'No RA 10173 exposure — an activation switch. Emails go to booked vendors’ existing contact addresses; no new PII collection.',
+  },
+  {
+    key: 'coordinator_requests_inbox',
+    group: 'activation_switch',
+    title: 'Day-of requests inbox + vendor status updates',
+    description:
+      'The shared day-of stream behind one inbox: the coordinator’s issues log becomes couple/vendor/host/coordinator lanes, and booked vendors get one-tap status presets ("On site", "Running late") that report into it. While inactive the issues log stays device-local, exactly as shipped.',
+    category: 'Coordinator activation — not privacy-sensitive',
+    riskNote:
+      'No new personal data is collected. Rows carry operational text between people already on the event; a booked vendor can read only their own reports, never the couple’s log or another supplier’s. Free-text bodies are author-entered, so the inbox inherits the same do-not-paste-PII guidance as chat.',
   },
   {
     key: 'vendor_ai_autoreply',

@@ -53,7 +53,12 @@ export const COMPAT_WEIGHTS = {
 
 /** A dimension we have no data for scores at this neutral baseline (slightly
  *  positive — "no reason to down-rank"), never 0. */
-const NEUTRAL = 0.6;
+export const COMPAT_NEUTRAL = 0.6;
+const NEUTRAL = COMPAT_NEUTRAL;
+
+/** The seven weighted dimensions, as a type. Lets a caller reason about WHICH
+ *  dimension carried a score without re-deriving the weight table. */
+export type CompatDimension = keyof typeof COMPAT_WEIGHTS;
 
 export type CompatTier = 'strong' | 'good' | 'fair';
 
@@ -148,10 +153,12 @@ function trustSub(verified: boolean | undefined, boosted: boolean | undefined): 
 }
 
 /**
- * Compute the 0–100 compatibility score + tier for one eligible vendor.
- * Inputs that are null/absent fall back to a neutral baseline (admit-unknown).
+ * The seven per-dimension sub-scores (each 0..1) BEFORE weighting — the single
+ * implementation `computeCompatScore` itself consumes, exported so a caller can
+ * explain a score without re-deriving (and inevitably drifting from) the math.
+ * Every missing input still resolves to NEUTRAL here, exactly as in the score.
  */
-export function computeCompatScore(input: CompatInputs): { score: number; tier: CompatTier } {
+export function compatSubScores(input: CompatInputs): Record<CompatDimension, number> {
   // Refinement fit: prefer the concrete music song-overlap, else the general
   // preference-facet ratio, else neutral (admit-unknown).
   const refinement =
@@ -160,21 +167,56 @@ export function computeCompatScore(input: CompatInputs): { score: number; tier: 
       : input.preferenceMatchRatio != null
         ? clamp01(input.preferenceMatchRatio)
         : NEUTRAL;
-  const budgetFit = input.budgetFitRatio == null ? NEUTRAL : clamp01(input.budgetFitRatio);
-  const distance = distanceSub(input.distanceKm, input.travelRadiusKm);
-  const reviews = reviewsSub(input.avgRating, input.reviewCount);
-  const dateHeadroom = input.dateHeadroomRatio == null ? NEUTRAL : clamp01(input.dateHeadroomRatio);
-  const faithFit = input.faithMatch === true ? 0.95 : NEUTRAL;
-  const trust = trustSub(input.verified, input.boosted);
+  return {
+    refinement,
+    budgetFit: input.budgetFitRatio == null ? NEUTRAL : clamp01(input.budgetFitRatio),
+    distance: distanceSub(input.distanceKm, input.travelRadiusKm),
+    reviews: reviewsSub(input.avgRating, input.reviewCount),
+    dateHeadroom: input.dateHeadroomRatio == null ? NEUTRAL : clamp01(input.dateHeadroomRatio),
+    faithFit: input.faithMatch === true ? 0.95 : NEUTRAL,
+    trust: trustSub(input.verified, input.boosted),
+  };
+}
+
+/**
+ * WHICH dimension is actually carrying this vendor's score — the one with the
+ * largest WEIGHTED LIFT ABOVE NEUTRAL, i.e. `weight × (sub − NEUTRAL)`.
+ *
+ * Measuring the lift (not `weight × sub`) is what makes the answer honest: an
+ * all-unknown vendor sits at NEUTRAL on every dimension, every lift is 0, and
+ * the function returns **null** — there is no reason to give, so the caller
+ * must render none rather than invent one. A dimension scoring BELOW neutral
+ * (e.g. booked on the date) can never win either.
+ */
+export function topCompatDimension(input: CompatInputs): CompatDimension | null {
+  const sub = compatSubScores(input);
+  let best: CompatDimension | null = null;
+  let bestLift = 0;
+  for (const dim of Object.keys(COMPAT_WEIGHTS) as CompatDimension[]) {
+    const lift = COMPAT_WEIGHTS[dim] * (sub[dim] - NEUTRAL);
+    if (lift > bestLift) {
+      bestLift = lift;
+      best = dim;
+    }
+  }
+  return best;
+}
+
+/**
+ * Compute the 0–100 compatibility score + tier for one eligible vendor.
+ * Inputs that are null/absent fall back to a neutral baseline (admit-unknown).
+ */
+export function computeCompatScore(input: CompatInputs): { score: number; tier: CompatTier } {
+  const sub = compatSubScores(input);
 
   const raw =
-    COMPAT_WEIGHTS.refinement * refinement +
-    COMPAT_WEIGHTS.budgetFit * budgetFit +
-    COMPAT_WEIGHTS.distance * distance +
-    COMPAT_WEIGHTS.reviews * reviews +
-    COMPAT_WEIGHTS.dateHeadroom * dateHeadroom +
-    COMPAT_WEIGHTS.faithFit * faithFit +
-    COMPAT_WEIGHTS.trust * trust;
+    COMPAT_WEIGHTS.refinement * sub.refinement +
+    COMPAT_WEIGHTS.budgetFit * sub.budgetFit +
+    COMPAT_WEIGHTS.distance * sub.distance +
+    COMPAT_WEIGHTS.reviews * sub.reviews +
+    COMPAT_WEIGHTS.dateHeadroom * sub.dateHeadroom +
+    COMPAT_WEIGHTS.faithFit * sub.faithFit +
+    COMPAT_WEIGHTS.trust * sub.trust;
 
   // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
   // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast

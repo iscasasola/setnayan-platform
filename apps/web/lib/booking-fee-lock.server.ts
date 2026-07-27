@@ -2,6 +2,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookingFeeEnabled, BOOKING_FEE_SCHEDULE_VERSION } from '@/lib/booking-fee-gate';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+// `booking-fee.ts` is a pure value → value module (no I/O, no `server-only`),
+// so importing it from this `.server.ts` file is fine in both directions.
+import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -139,6 +142,12 @@ export async function collectBookingFeeAtLock(
   // Vendor-payer order on the manual QR rail. `vendor_`-prefixed service_key →
   // VAT-INCLUSIVE (isVatInclusiveServiceKey): the fee IS the gross the vendor
   // pays, no VAT built on top. Description carries the 24-hr verification SLA.
+  //
+  // ⚠ The parenthetical is DERIVED from the fee constants, never typed. It used
+  // to read a hard-coded "(5%)", which is only true at or below ₱100,000 — past
+  // the 2026-07-25 taper a ₱1M booking is billed ₱14,000 (1.40%), so the money
+  // document the vendor reads overstated its own rate. Keep it derived: a
+  // reprice must move the copy with the math, in one place.
   const { data: orderRow, error: oErr } = await admin
     .from('orders')
     .insert({
@@ -146,8 +155,7 @@ export async function collectBookingFeeAtLock(
       user_id: payerUserId,
       vendor_profile_id: vendorProfileId,
       service_key: serviceKey,
-      description:
-        'Setnayan booking fee (5%) — up for verification, confirmation within 24 hrs',
+      description: `Setnayan booking fee (${bookingFeeScheduleSummary()}) — up for verification, confirmation within 24 hrs`,
       requested_total_php: amountPhp,
       status: 'submitted',
       reference_code: referenceCode,

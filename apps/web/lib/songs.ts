@@ -282,6 +282,43 @@ export async function syncEventSongPicks(
     .upsert(rows, { onConflict: 'event_id,song_id', ignoreDuplicates: true });
 }
 
+/**
+ * The couple's chosen songs for one event, WITH title/artist — the read behind
+ * the day-of song desk.
+ *
+ * `fetchEventSongPickIds` below returns bare ids because its caller (the
+ * marketplace match score) only ever counts the overlap. The song desk has to
+ * NAME the songs to a musician standing on the floor, so it needs the join.
+ *
+ * READ PATH. Reaches `event_song_picks` under the caller's own RLS. Two
+ * policies can satisfy it and both are legitimate: `event_song_picks_host_select`
+ * (the couple reading their own) and `event_song_picks_booked_vendor_read`
+ * (migration 20271013090000 — a vendor booked on the event). A vendor who is
+ * NOT booked on this event reads zero rows rather than an error, which the desk
+ * renders as its honest empty state. Passing an admin client here would bypass
+ * that boundary — don't.
+ *
+ * Ordered by title so the desk's grouping is stable between renders (the pick
+ * rows carry no ordering the couple chose).
+ */
+export async function fetchEventSongRequests(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<Song[]> {
+  const { data, error } = await supabase
+    .from('event_song_picks')
+    .select('song_id, songs(song_id, title, artist)')
+    .eq('event_id', eventId);
+  if (error || !data) return [];
+  return (data as unknown[])
+    .flatMap((row) => {
+      const r = row as { songs: unknown };
+      const s = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as Song | undefined;
+      return s ? [{ song_id: s.song_id, title: s.title, artist: s.artist }] : [];
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
 /** The couple's chosen song_ids (the match query set). Empty on no picks / error. */
 export async function fetchEventSongPickIds(
   supabase: SupabaseClient,

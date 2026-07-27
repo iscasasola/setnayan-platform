@@ -85,6 +85,11 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
     declaredIn: [],
     note: 'Activation switch, not privacy-sensitive — no filing declaration needed.',
   },
+  coordinator_requests_inbox: {
+    privacySensitive: false,
+    declaredIn: [],
+    note: 'Activation switch, not privacy-sensitive — no filing declaration needed. The day-of requests stream carries operational text between people already on the event (couple, hosts, booked suppliers, coordinator); it collects no new category of personal data, and a supplier reads only their own reports. Author-entered free text inherits the same do-not-paste-PII guidance as chat, and rows the author wrote are purged on erasure (lib/erasure/coverage.ts).',
+  },
   vendor_ai_autoreply: {
     privacySensitive: true,
     declaredIn: ['ropa'],

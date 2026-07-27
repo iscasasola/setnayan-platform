@@ -94,6 +94,7 @@ export function ShowcaseMediaFields({
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         watermark
+        compressImage
         qrGuard
         variant="wide"
         label="Photos (up to 5)"

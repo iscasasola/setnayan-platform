@@ -306,10 +306,18 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
   //     (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
   //
-  // ₱2,999 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on FIRST GO-LIVE rather than a
-  // calendar day — no timezone ambiguity, and buying early costs the couple nothing because the
-  // clock does not start until this line runs. Wave 5 noted that the unified go-live path never
-  // wrote `first_live_at`; this is that gap closed.
+  // ₱2,999 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on the first ENTITLED GO-LIVE
+  // rather than a calendar day — no timezone ambiguity, and buying early costs the couple nothing
+  // because the clock does not start until this line runs. Wave 5 noted that the unified go-live
+  // path never wrote `first_live_at`; this is that gap closed.
+  //
+  // ⚠ "ENTITLED" IS LOAD-BEARING (owner-approved 2026-07-27). This call is reached by the FREE
+  // single-camera livestream too — it is the same action — and until now that stamped the PAID
+  // clock, so a couple who streamed free once and then bought (as the 24-hour manual
+  // reconciliation SLA makes them do, days ahead) arrived at their ceremony EXPIRED, on one
+  // camera. `stampFirstLiveAt` now asks `resolveBroadcastWindow` first and refuses an
+  // un-entitled press; see its header for the full failure it closes. Nothing is gated HERE —
+  // the rule is structural, inside the stamp, so no future caller can forget it.
   //
   // AFTER the broadcast is persisted, deliberately: every failure above returns early, so a
   // go-live that never reached YouTube cannot burn a day the couple paid for. Write-once by DB

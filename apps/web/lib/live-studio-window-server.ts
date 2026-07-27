@@ -288,13 +288,54 @@ export async function resolveBroadcastWindow(
 }
 
 /**
- * Stamp the window anchor at the FIRST go-live. Write-once by DB trigger
+ * Stamp the window anchor at the first **ENTITLED** go-live. Write-once by DB trigger
  * (`trg_panood_first_live_at_immutable`), so a re-press can never move, restart or
  * extend the window; the `COALESCE`-shaped guard here only avoids a pointless write.
  *
  * Best-effort and non-fatal by design: a host must never be unable to go live
  * because the meter could not be started. The cost of a missed stamp is a window
  * that stays in `awaiting-go-live` — generous to the couple, never punitive.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ * 🚨 THE ENTITLEMENT GATE — why this function refuses a FREE go-live
+ * (owner-approved 2026-07-27, after a completeness audit found the defect)
+ * ══════════════════════════════════════════════════════════════════════════════
+ * This used to stamp for ANY host that pressed go-live. Two facts made that cost a
+ * couple their wedding's multi-cam AFTER paying for it:
+ *
+ *   ① the **free single-camera livestream** — a promise on the live `/pricing` page,
+ *      and the thing § 4d's rehearse-free model actively encourages — runs through
+ *      `goLivePanood` exactly like a paid broadcast, so it stamped the PAID clock;
+ *   ② `foldWindowEnd` computes `max(firstLiveAt, boughtAt) + 24h`.
+ *
+ * ⇒ Stream free on Monday. Buy on Thursday — which the apply-then-pay **24-hour
+ * MANUAL reconciliation SLA forces**, buy-ahead being the advice we give. The window
+ * becomes `max(Mon, Thu) + 24h` = **Friday**. The wedding is **Saturday**: expired,
+ * one camera, ₱2,999 paid. That inverted § 4f ②'s own promise — *"anchor the window
+ * on first go-live … buying early costs the couple nothing"* — into "your day starts
+ * when you pay", on the one event that cannot be re-run.
+ *
+ * THE GATE REUSES `resolveBroadcastWindow` — the SAME rule every other surface asks,
+ * not a second one that can disagree with it. It lives in this module, so there is no
+ * import cycle (`live-studio-publish.ts` imports FROM here, so reaching for
+ * `canPublishMultiCam` — a thin wrapper over this very call — would have made one).
+ *
+ * WHY THE BASE CASE IS NOT CIRCULAR: at the first entitled go-live the anchor is
+ * still NULL, and `decideBroadcastWindow`'s null-anchor branch returns
+ * `multiCam: true, reason: 'awaiting-go-live'`. So the gate says yes, we stamp, and
+ * from then on the real expiry is computed. After expiry it says no — and refusing
+ * to re-stamp is correct twice over (the DB trigger makes it write-once anyway).
+ *
+ * WHICH DIRECTION IT FAILS: `resolveBroadcastWindow` fails **closed** (an unreadable
+ * entitlement reads as un-owned), so a transient error means we do NOT stamp. That is
+ * the safe direction here and not a paywall hole: an unstamped paid event sits in
+ * `awaiting-go-live`, which is `multiCam: true` with NO clock — the couple keeps the
+ * capability they bought and simply is not metered for that press. A FREE event is
+ * unaffected either way, because the free tier never depended on this column.
+ *
+ * ⚠ DO NOT "OPTIMISE" THIS BY STAMPING FIRST AND CHECKING LATER. The column is
+ * write-once by trigger, so a wrong stamp is **unfixable without an admin reset that
+ * does not exist** (the audit found no void/reset path). Ask, then write.
  */
 export async function stampFirstLiveAt(
   supabase: SupabaseClient,
@@ -302,6 +343,11 @@ export async function stampFirstLiveAt(
 ): Promise<void> {
   if (!eventId) return;
   try {
+    // ASK BEFORE WRITING — see the block above. A free single-cam go-live must never
+    // start the paid clock.
+    const entitled = await resolveBroadcastWindow(supabase, eventId);
+    if (!entitled.multiCam) return;
+
     await supabase
       .from('panood_control_state')
       .upsert({ event_id: eventId }, { onConflict: 'event_id', ignoreDuplicates: true });

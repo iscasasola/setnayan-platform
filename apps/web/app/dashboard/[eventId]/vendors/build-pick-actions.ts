@@ -79,15 +79,27 @@ export async function removeBuildPick(input: {
 }
 
 /**
- * Replace the entire working build with a saved plan's vendor picks (Compare
- * "Modify"/"Lock"). Clears every existing build pick for the event, then upserts
- * each (planGroupId → vendorId) one at a time, best-effort: a vendor that has
- * since left the shortlist (event_vendors row gone) FK-rejects, so we skip that
- * single pick and keep going. Couple-own RLS + the FK enforce ownership.
+ * Replace the working build with a saved plan's vendor picks — the Plans panel's
+ * **Load** (formerly Compare's "Modify"/"Lock"). Clears the event's existing
+ * build picks, then upserts each (planGroupId → vendorId) one at a time,
+ * best-effort: a vendor that has since left the shortlist (event_vendors row
+ * gone) FK-rejects, so we skip that single pick and keep going. Couple-own RLS +
+ * the FK enforce ownership.
+ *
+ * LOCKED-CATEGORY GUARD (Explore_Replan_BUILD_SPEC_2026-07-27 §2 #10 / §8.2 —
+ * "locked vendors are untouched"). Locks live in `event_vendors.status`, NOT in
+ * `event_build_picks`, so this action could never delete one. What it COULD do
+ * before this guard is re-open a settled category — insert a stale candidate
+ * into a group the couple has since LOCKED, so a pinned row sprouted a rival.
+ * `lockedPlanGroupIds` closes that: those groups are excluded from BOTH the wipe
+ * and the insert, so a Load leaves every locked category exactly as it was.
+ * Optional + defaults to today's behaviour, so pre-PR-F callers are unaffected;
+ * the caller filters too (`planPicksToApply`) — this is the server-side backstop.
  */
 export async function applyBuildToWorking(input: {
   eventId: string;
   picks: { planGroupId: string; vendorId: string }[];
+  lockedPlanGroupIds?: string[];
 }): Promise<BuildPickResult> {
   const supabase = await createClient();
   const {
@@ -95,16 +107,46 @@ export async function applyBuildToWorking(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
+  const lockedGroups = new Set(input.lockedPlanGroupIds ?? []);
+
   // Wipe the current working build first so a partial apply still reflects the
-  // chosen plan (no leftover picks from the previous build).
-  const { error: clearError } = await supabase
-    .from('event_build_picks')
-    .delete()
-    .eq('event_id', input.eventId);
-  if (clearError) return { ok: false, error: clearError.message };
+  // chosen plan (no leftover picks from the previous build) — minus any LOCKED
+  // category, which a plan may not vary.
+  if (lockedGroups.size === 0) {
+    const { error: clearError } = await supabase
+      .from('event_build_picks')
+      .delete()
+      .eq('event_id', input.eventId);
+    if (clearError) return { ok: false, error: clearError.message };
+  } else {
+    // Read-then-targeted-delete rather than a NOT-IN filter: plan_group_ids are
+    // free-form slugs, and an explicit .in() list can't mis-quote its way into
+    // deleting the wrong rows.
+    const { data: existing, error: readError } = await supabase
+      .from('event_build_picks')
+      .select('plan_group_id')
+      .eq('event_id', input.eventId);
+    if (readError) return { ok: false, error: readError.message };
+    const clearable = [
+      ...new Set(
+        ((existing ?? []) as Array<{ plan_group_id: string }>)
+          .map((r) => r.plan_group_id)
+          .filter((g) => !lockedGroups.has(g)),
+      ),
+    ];
+    if (clearable.length > 0) {
+      const { error: clearError } = await supabase
+        .from('event_build_picks')
+        .delete()
+        .eq('event_id', input.eventId)
+        .in('plan_group_id', clearable);
+      if (clearError) return { ok: false, error: clearError.message };
+    }
+  }
 
   let applied = 0;
-  for (const p of input.picks) {
+  const insertable = input.picks.filter((p) => !lockedGroups.has(p.planGroupId));
+  for (const p of insertable) {
     const { error } = await supabase.from('event_build_picks').upsert(
       {
         event_id: input.eventId,
@@ -122,7 +164,7 @@ export async function applyBuildToWorking(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
 
-  if (input.picks.length === 0 || applied > 0) return { ok: true };
+  if (insertable.length === 0 || applied > 0) return { ok: true };
   return {
     ok: false,
     error:
@@ -130,9 +172,12 @@ export async function applyBuildToWorking(input: {
   };
 }
 
-/** Reset the build — clear every build pick for the event. Does NOT touch the
- *  shortlist (event_vendors) or any locked/finalized vendor; build picks are a
- *  separate, reversible layer. */
+/** "Clear candidates" — reset the build by clearing every build pick for the
+ *  event. Does NOT touch the shortlist (event_vendors) or any locked/finalized
+ *  vendor; build picks are a separate, reversible layer, so locked vendors (they
+ *  are contracts) and in-progress handshakes survive untouched and are cancelled
+ *  individually. Surfaced on the Plans panel by
+ *  Explore_Replan_BUILD_SPEC_2026-07-27 §8.3. */
 export async function clearBuildPicks(input: { eventId: string }): Promise<BuildPickResult> {
   const supabase = await createClient();
   const {

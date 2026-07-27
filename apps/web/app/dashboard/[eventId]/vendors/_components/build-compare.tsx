@@ -14,22 +14,53 @@
  * can load its vendor picks into the live working build and jump to the Build
  * tab (Modify) or the Lock tab (Lock) — Lock does NOT bulk-finalize here, it just
  * loads the picks and routes to the Lock tab's hardened finalize flow.
+ *
+ * ── PR-F · "Plans" reframe (Explore_Replan_BUILD_SPEC_2026-07-27 §3 PR-F + §8),
+ * behind `isExploreReplanEnabled()` — flag OFF renders exactly as before:
+ *   • the section is "Plans" (label only — the tab key stays `compare`),
+ *   • LOCKED categories are PINNED: one identical row across every column,
+ *     because a plan may only vary the candidate categories (§2 #10),
+ *   • saved plans get a first-class named-row list with a **Load** button
+ *     (Compare's "Modify" promoted) that never re-opens a locked category,
+ *   • "Clear candidates" empties the BUILD only — locked vendors stay.
  */
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, ChevronDown, Loader2, Lock, Pencil, Trash2 } from 'lucide-react';
+import {
+  Bookmark,
+  ChevronDown,
+  Eraser,
+  FolderOpen,
+  Loader2,
+  Lock,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import {
   savePlanBuildNamed,
   deleteBudgetBuild,
   type SavedPlanBuild,
   type PlanBuildSnapshot,
 } from '../build-actions';
-import { applyBuildToWorking } from '../build-pick-actions';
+import { applyBuildToWorking, clearBuildPicks } from '../build-pick-actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
-import { sortSavedBuilds, displayBuildTitle } from '@/lib/named-builds';
+import {
+  sortSavedBuilds,
+  displayBuildTitle,
+  autoBuildTitle,
+  normalizeBuildTitle,
+  MAX_BUILD_TITLE_LEN,
+} from '@/lib/named-builds';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  lockedGroupIdsOf,
+  partitionPlanRows,
+  planPicksToApply,
+  isPlanLoadable,
+} from '@/lib/plans-panel';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 
 const peso = (php: number | null) =>
@@ -71,11 +102,17 @@ export function BuildCompare({
   availability?: CompareAvailability | null;
 }) {
   const router = useRouter();
+  // PR-F: every user-visible delta below is gated on this. Read once so the
+  // whole surface agrees within a render.
+  const replan = isExploreReplanEnabled();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState('');
   // Save-As: '' = create a new named build; a build_id = overwrite.
   const [overwriteId, setOverwriteId] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
+  // Set to the auto-generated title when a BLANK name was saved (§7a) — the
+  // surface then says plainly what it called the plan.
+  const [namedNotice, setNamedNotice] = useState<string | null>(null);
   // Per-cell inclusion expand state, keyed `${columnKey}::${groupId}`.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Confirm-first guard for Modify (it overwrites the working build).
@@ -127,6 +164,41 @@ export function BuildCompare({
     return [...seen.entries()].map(([groupId, label]) => ({ groupId, label }));
   }, [currentPlan, savedBuilds]);
 
+  // ── PR-F · pinned locked rows ─────────────────────────────────────────────
+  // The categories the couple has LOCKED right now (the live plan is the
+  // authority — a saved snapshot's `locked` flag is historical). These pin: one
+  // identical row across every column, never per-column editable, and every
+  // Load filters them out so a plan can't re-open a contract.
+  const lockedGroups = useMemo(() => lockedGroupIdsOf(currentPlan.picks), [currentPlan]);
+  const { lockedRows, candidateRows } = useMemo(
+    () =>
+      partitionPlanRows({
+        currentPicks: currentPlan.picks,
+        savedPickSets: orderedBuilds.map((b) => b.snapshot.picks ?? []),
+      }),
+    [currentPlan, orderedBuilds],
+  );
+  // Rows the matrix actually renders below the pinned block.
+  const bodyRows = replan ? candidateRows : rows;
+  // Candidates = the live picks a plan may vary (locked ones are contracts).
+  const candidateCount = currentPlan.picks.filter((p) => !p.locked).length;
+
+  // ── PR-F · a blank name NEVER blocks a save ───────────────────────────────
+  // Owner ruling (Integration_Contract_Booking_x_Explore_2026-07-27.md §7a):
+  // "saving builds blank will make us autocreate a name for the build". The
+  // shipped `autoBuildTitle` IS that namer — we surface the name it WILL pick as
+  // the placeholder so it's never a surprise, and confirm it after the save.
+  // There is deliberately no required-field validation and no content gate on
+  // this field: plan names are couple-private text, so trim + the
+  // MAX_BUILD_TITLE_LEN cap (normalizeBuildTitle) is the whole of it.
+  const autoNameHint = useMemo(() => {
+    const i = overwriteId ? orderedBuilds.findIndex((b) => b.build_id === overwriteId) : -1;
+    const target = i >= 0 ? orderedBuilds[i] : undefined;
+    return target
+      ? autoBuildTitle({ build_id: target.build_id, label: target.label, title: null }, i)
+      : autoBuildTitle({ build_id: '', label: null, title: null }, orderedBuilds.length);
+  }, [overwriteId, orderedBuilds]);
+
   const overUnder = (total: number | null) => {
     if (total == null || budgetPhp == null) return null;
     const diff = total - budgetPhp;
@@ -156,6 +228,10 @@ export function BuildCompare({
       );
       if (!res.ok) setErr(res.error);
       else {
+        // §7a: a blank name is a valid save — say plainly what we called it, and
+        // point at the one-tap rename (the Rename control on the plan row).
+        if (replan && normalizeBuildTitle(name) === null) setNamedNotice(autoNameHint);
+        else setNamedNotice(null);
         setName('');
         setOverwriteId('');
         router.refresh();
@@ -175,6 +251,32 @@ export function BuildCompare({
     });
   }
 
+  // "Clear candidates" (spec §8.3) — `clearBuildPicks` empties the BUILD layer
+  // only. Locked vendors are contracts and stay; in-progress handshakes stay
+  // (those are cancelled one at a time). Confirm-first: it's a bulk discard.
+  async function onClearCandidates() {
+    setErr(null);
+    const ok = await confirm({
+      title: 'Clear your candidates?',
+      body: (
+        <>
+          This empties your build — every vendor you’re still weighing up comes off. Your{' '}
+          <span className="font-medium text-ink">locked vendors stay</span> (they’re contracts), and
+          so does anything mid-handshake.
+        </>
+      ),
+      confirmLabel: 'Clear candidates',
+      cancelLabel: 'Keep them',
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await clearBuildPicks({ eventId });
+      if (!res.ok) setErr(res.error);
+      else router.refresh();
+    });
+  }
+
   // Load a saved build's picks into the working build, then jump to a tab. Lock
   // does NOT finalize here — the Lock tab hosts the hardened finalize flow.
   //
@@ -188,27 +290,44 @@ export function BuildCompare({
     title: string,
   ) {
     setErr(null);
-    if (currentPlan.picks.length > 0) {
+    // Flag off: prompt whenever there's a current build to lose (shipped rule).
+    // Flag on: only CANDIDATES can be lost — locked picks survive a Load.
+    if (replan ? candidateCount > 0 : currentPlan.picks.length > 0) {
       const ok = await confirm({
-        title: 'Replace your current build?',
-        body: (
+        title: replan ? 'Load this plan?' : 'Replace your current build?',
+        body: replan ? (
+          <>
+            <span className="font-medium text-ink">“{title}”</span>’s candidates replace the ones in
+            your build right now. Your locked vendors are untouched — they’re in every plan. Save
+            your current candidates as a plan first if you want to keep them.
+          </>
+        ) : (
           <>
             This replaces your current build with{' '}
             <span className="font-medium text-ink">“{title}”</span>. Save your current plan first if
             you want to keep it.
           </>
         ),
-        confirmLabel: destination === 'lock' ? 'Lock' : 'Replace',
+        confirmLabel: replan ? 'Load' : destination === 'lock' ? 'Lock' : 'Replace',
         cancelLabel: 'Cancel',
         destructive: true,
       });
       if (!ok) return;
     }
-    const picks = snapshot.picks
-      .filter((p) => p.vendorId)
-      .map((p) => ({ planGroupId: p.groupId, vendorId: p.vendorId! }));
+    // PR-F: a plan may only vary the UNLOCKED categories, so a Load drops every
+    // pick in a locked group (and the action re-checks server-side). Flag off →
+    // the shipped "every pick with a vendorId" behaviour, unchanged.
+    const picks = replan
+      ? planPicksToApply({ snapshotPicks: snapshot.picks, lockedGroupIds: lockedGroups })
+      : snapshot.picks
+          .filter((p) => p.vendorId)
+          .map((p) => ({ planGroupId: p.groupId, vendorId: p.vendorId! }));
     startTransition(async () => {
-      const res = await applyBuildToWorking({ eventId, picks });
+      const res = await applyBuildToWorking({
+        eventId,
+        picks,
+        ...(replan ? { lockedPlanGroupIds: lockedGroups } : {}),
+      });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -226,10 +345,15 @@ export function BuildCompare({
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
       {dialog}
       <div className="space-y-1">
-        <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
+        <h2 className="font-display text-2xl italic text-ink">
+          {replan ? 'Plans' : 'Compare your plans'}
+        </h2>
         <p className="text-sm text-ink/60">
-          Save versions of your plan and compare the real vendors side by side
+          {replan
+            ? 'Name a set of candidates as a plan, load one back any time, and put them side by side'
+            : 'Save versions of your plan and compare the real vendors side by side'}
           {budgetPhp != null ? `, against your ${peso(budgetPhp)} budget` : ''}.
+          {replan ? ' Locked vendors are pinned in every plan.' : ''}
         </p>
       </div>
 
@@ -237,13 +361,21 @@ export function BuildCompare({
       <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
           <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
-          Save your current plan as
+          {replan ? 'Save your current candidates as' : 'Save your current plan as'}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Garden wedding"
+            // Spec §8.1 — saving NAMES it; the stored title caps at
+            // MAX_BUILD_TITLE_LEN, so stop the typing there rather than
+            // silently truncating on write.
+            maxLength={replan ? MAX_BUILD_TITLE_LEN : undefined}
+            // §7a: the placeholder IS the name a blank save will get, so the
+            // auto-name is never a surprise. Optional field — never validated.
+            placeholder={
+              replan ? `${autoNameHint} — or give it a name` : 'e.g. Garden wedding'
+            }
             className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
-            aria-label="Build name"
+            aria-label={replan ? 'Plan name (optional — we’ll name it for you)' : 'Build name'}
           />
           <select
             value={overwriteId}
@@ -251,7 +383,7 @@ export function BuildCompare({
             className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
             aria-label="Save as a new build or overwrite an existing one"
           >
-            <option value="">as a new build</option>
+            <option value="">{replan ? 'as a new plan' : 'as a new build'}</option>
             {orderedBuilds.map((b, i) => (
               <option key={b.build_id} value={b.build_id}>
                 overwrite “{displayBuildTitle(b, i)}”
@@ -265,17 +397,132 @@ export function BuildCompare({
             className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-            {overwriteId ? 'Save' : 'Save As'}
+            {overwriteId ? 'Save' : replan ? 'Save plan' : 'Save As'}
           </button>
         </div>
+        {replan && !err ? (
+          <p className="text-xs text-ink/45">
+            {namedNotice ? (
+              <>
+                Saved — no name given, so we called it{' '}
+                <span className="font-medium text-ink/70">“{namedNotice}”</span>. Tap{' '}
+                <span className="text-ink/70">Rename</span> on its row below to change it.
+              </>
+            ) : (
+              <>A name is optional — leave it blank and we’ll name the plan for you.</>
+            )}
+          </p>
+        ) : null}
         {err ? <p className="text-xs text-danger-700">{err}</p> : null}
       </div>
+
+      {/* ── PR-F · the Plans list: named rows + a first-class Load ───────────
+          Each saved plan is a NAMED row you can load straight back into your
+          build (Compare's old per-column "modify" promoted to a real control).
+          "Clear candidates" sits here as the quiet counterpart — it empties the
+          build layer only. (Spec §8: the Your-team placement is PR-E's job;
+          this is where it fits the surface as shipped today.) */}
+      {replan ? (
+        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+          <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Your saved plans
+          </h3>
+          {orderedBuilds.length === 0 ? (
+            <p className="text-sm text-ink/55">
+              No saved plans yet. Add candidates to your build, then save your team under a name.
+            </p>
+          ) : (
+            <ul className="divide-y divide-ink/8">
+              {orderedBuilds.map((b, i) => {
+                const title = displayBuildTitle(b, i);
+                const loadable = isPlanLoadable({
+                  snapshotPicks: b.snapshot.picks ?? [],
+                  lockedGroupIds: lockedGroups,
+                });
+                return (
+                  <li
+                    key={b.build_id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                      {title}
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-ink/55">
+                      {peso(b.total_php)}
+                    </span>
+                    <button
+                      type="button"
+                      // §7a "make renaming easy": load this plan's name into the
+                      // Save-As bar with itself pre-selected as the overwrite
+                      // target — typing + Save renames it in place (the shipped
+                      // savePlanBuildNamed overwrite path, no new machinery).
+                      onClick={() => {
+                        setNamedNotice(null);
+                        setErr(null);
+                        setName(normalizeBuildTitle(b.title) ?? title);
+                        setOverwriteId(b.build_id);
+                      }}
+                      disabled={pending}
+                      aria-label={`Rename ${title}`}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink/45 transition hover:text-terracotta disabled:opacity-50"
+                    >
+                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onApply(b.snapshot, 'build', title)}
+                      disabled={pending || !loadable}
+                      title={
+                        loadable
+                          ? undefined
+                          : 'Nothing to load — every vendor in this plan is either locked already or no longer on your shortlist.'
+                      }
+                      className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta disabled:opacity-40"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                      Load
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(b.build_id)}
+                      disabled={pending}
+                      aria-label={`Delete ${title}`}
+                      className="shrink-0 rounded-full p-1 text-ink/35 transition hover:text-danger-600 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/8 pt-2">
+            <span className="text-xs text-ink/50">
+              Current team{' '}
+              <span className="font-mono tabular-nums text-ink/70">{peso(currentPlan.totalPhp)}</span>
+            </span>
+            {candidateCount > 0 ? (
+              <button
+                type="button"
+                onClick={onClearCandidates}
+                disabled={pending}
+                className="inline-flex items-center gap-1 text-xs text-ink/45 underline-offset-2 transition hover:text-danger-600 hover:underline disabled:opacity-50"
+              >
+                <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                Clear candidates
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* Side-by-side comparison */}
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-cream px-4 py-10 text-center text-sm text-ink/60">
-          No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan
-          to compare versions side by side.
+          {replan
+            ? 'No vendors in your team yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
+            : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-ink/10">
@@ -286,7 +533,14 @@ export function BuildCompare({
                   Category
                 </th>
                 {columns.map((c) => {
-                  const canApply = !c.isCurrent && c.snapshot.picks.some((p) => p.vendorId);
+                  const canApply =
+                    !c.isCurrent &&
+                    (replan
+                      ? isPlanLoadable({
+                          snapshotPicks: c.snapshot.picks ?? [],
+                          lockedGroupIds: lockedGroups,
+                        })
+                      : c.snapshot.picks.some((p) => p.vendorId));
                   return (
                     <th
                       key={c.key}
@@ -302,10 +556,20 @@ export function BuildCompare({
                               type="button"
                               onClick={() => onApply(c.snapshot, 'build', c.title)}
                               disabled={pending || !canApply}
-                              aria-label={`Modify with ${c.title}`}
+                              aria-label={replan ? `Load ${c.title}` : `Modify with ${c.title}`}
                               className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta disabled:opacity-40"
                             >
-                              <Pencil className="h-3 w-3" strokeWidth={1.75} aria-hidden /> modify
+                              {replan ? (
+                                <>
+                                  <FolderOpen className="h-3 w-3" strokeWidth={1.75} aria-hidden />{' '}
+                                  load
+                                </>
+                              ) : (
+                                <>
+                                  <Pencil className="h-3 w-3" strokeWidth={1.75} aria-hidden />{' '}
+                                  modify
+                                </>
+                              )}
                             </button>
                             <button
                               type="button"
@@ -339,7 +603,31 @@ export function BuildCompare({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {/* PINNED locked rows (PR-F · spec §2 #10). A locked vendor is a
+                  contract, so it is IDENTICAL in every plan — rendered once
+                  across the full column span rather than per-column, and with
+                  no per-column control. Plans may only vary what's below. */}
+              {replan
+                ? lockedRows.map((r) => (
+                    <tr key={`locked-${r.groupId}`} className="border-t border-ink/8 bg-ink/[0.02]">
+                      <td className="px-3 py-2 text-ink/80">
+                        <span className="mr-1 text-success-700" aria-hidden>
+                          ●
+                        </span>
+                        {r.label}
+                      </td>
+                      <td
+                        colSpan={columns.length}
+                        className="px-2 py-2 text-center text-[11px] leading-snug text-ink/70"
+                      >
+                        <span className="font-medium text-ink">{r.vendorName}</span>
+                        <span className="tabular-nums"> · {peso(r.costPhp)}</span>
+                        <span className="text-ink/45"> — locked, the same in every plan</span>
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {bodyRows.map((r) => (
                 <tr key={r.groupId} className="border-t border-ink/8 align-top">
                   <td className="px-3 py-2 text-ink/80">{r.label}</td>
                   {columns.map((c) => {
@@ -448,13 +736,24 @@ export function BuildCompare({
         </div>
       )}
 
-      <p className="text-xs text-ink/45">
-        <span className="text-terracotta">Current</span> is your live plan. Save it as a new named
-        build to bank a version, then change your picks and save another to compare.{' '}
-        Use <span className="text-ink/70">Modify</span> to load a saved plan back into your working
-        build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
-        finalize those vendors.
-      </p>
+      {replan ? (
+        <p className="text-xs text-ink/45">
+          <span className="text-success-700">●</span> Locked picks are{' '}
+          <span className="text-ink/70">pinned identical rows</span> — every plan has them. The rows
+          below are your <span className="text-ink/70">candidates</span>: save different candidate
+          sets under different names, compare them here, then lock the winner.{' '}
+          <span className="text-ink/70">Load</span> puts a saved plan’s candidates back into your
+          build — your locked vendors are never touched.
+        </p>
+      ) : (
+        <p className="text-xs text-ink/45">
+          <span className="text-terracotta">Current</span> is your live plan. Save it as a new named
+          build to bank a version, then change your picks and save another to compare. Use{' '}
+          <span className="text-ink/70">Modify</span> to load a saved plan back into your working
+          build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
+          finalize those vendors.
+        </p>
+      )}
     </div>
   );
 }

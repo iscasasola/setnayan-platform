@@ -39,10 +39,12 @@ import { ChevronDown, Sparkles } from 'lucide-react';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
+  tabLabel,
   BB_TAB_EVENT,
   goToBuildTab,
   type BudgetBuildTab,
 } from '@/lib/budget-build';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META moved to
 // @/lib/budget-build 2026-06-16: the docked mobile section sub-nav is now
@@ -58,12 +60,14 @@ export { BB_TAB_EVENT, goToBuildTab };
  *  dock dispatches over the bus, so `goToBuildTab('build')` resolves to `#svc-build`. */
 const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
 
-/** Per-section intro copy — the single-scroll headings the strip scrolls between. */
+/** Per-section intro copy — the single-scroll headings the strip scrolls between.
+ *  `compare` is reframed as "Your plans" behind the Explore-Replan flag (PR-F);
+ *  the section KEY / anchor / bus event stay `compare`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   shortlist: 'Browse the bench',
   build: 'Build your team',
   budget: 'Your budget',
-  compare: 'Compare saved builds',
+  compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
 };
 
 export function ServicesTakeover({
@@ -289,7 +293,8 @@ function ServiceSection({
 
 /** Fallback body when a slot isn't supplied (e.g. a slot still being built). */
 function SectionStub({ tab }: { tab: BudgetBuildTab }) {
-  const { label, icon: Icon, blurb } = TAB_META[tab];
+  const { icon: Icon, blurb } = TAB_META[tab];
+  const label = tabLabel(tab);
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-12 text-center">
       <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">

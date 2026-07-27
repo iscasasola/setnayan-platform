@@ -49,12 +49,39 @@ export const COMPAT_WEIGHTS = {
   faithFit: 0.07,
   /** Verified / Setnayan-Pay-boosted / profile completeness. */
   trust: 0.07,
+  /** How many OTHER couples have INQUIRED with this vendor for the couple's
+   *  exact date (Explore_Replan §15.1, "In demand right now"). ZERO in the
+   *  global vector — it only carries weight inside that one lens, so every
+   *  existing caller is byte-for-byte unchanged. Never a penalty: a vendor
+   *  nobody has inquired about sits at NEUTRAL, not at 0. */
+  demandPressure: 0,
 } as const;
 
 /** A dimension we have no data for scores at this neutral baseline (slightly
  *  positive — "no reason to down-rank"), never 0. */
 export const COMPAT_NEUTRAL = 0.6;
 const NEUTRAL = COMPAT_NEUTRAL;
+
+/**
+ * PRIVACY FLOOR for the same-date demand signal (`demandPressure`).
+ *
+ * `Schedule_Matrix_and_Date_Finder_2026-06-02.md` §8.3, owner: *"Don't show a
+ * '1'."* A count of one, attached to a solo vendor and an exact date in a small
+ * municipality, is functionally re-identifying — the other couple is findable.
+ * Below this floor the dimension resolves to NEUTRAL (no lift, no pill, no
+ * number), exactly as if there were no signal at all.
+ *
+ * This is the SECOND of two enforcement points, deliberately. The producer
+ * (`dashboard/[eventId]/vendors/page.tsx`) refuses to serialize a below-floor
+ * count to the client at all; this one guarantees that any OTHER caller that
+ * ever passes a raw count still cannot render one.
+ */
+export const MIN_DEMAND_COUPLE_COUNT = 3;
+
+/** Where the demand lift saturates. At or above this many inquiring couples the
+ *  dimension is maxed; between the floor and here it ramps. Bounded so a
+ *  runaway count can't dominate a weighted composite. */
+const DEMAND_SATURATION_COUPLES = 10;
 
 /** The seven weighted dimensions, as a type. Lets a caller reason about WHICH
  *  dimension carried a score without re-deriving the weight table. */
@@ -106,6 +133,21 @@ export type CompatInputs = {
    *  inquiries within the admin SLA → earns a responsiveness head-start.
    *  Undefined/false = no head-start (sits at neutral, never a penalty). */
   respondsFast?: boolean;
+  /** How many OTHER couples have INQUIRED with this vendor for the couple's
+   *  exact event date. Feeds the `demandPressure` dim (weight 0 outside the
+   *  "In demand right now" lens).
+   *
+   *  Three hard rules the caller must honour, and which this module enforces
+   *  again regardless:
+   *  1. INQUIRIES, not saves. A couple who merely shortlisted a vendor has not
+   *     competed for them — counting that is manufactured scarcity (owner,
+   *     2026-06-02: competition "starts at the inquiry (Stage 2), NEVER at
+   *     search (Stage 1)").
+   *  2. Below `MIN_DEMAND_COUPLE_COUNT` this resolves to NEUTRAL — no lift, no
+   *     reason phrase, no number.
+   *  3. Absent/null is NEUTRAL, never 0. A vendor nobody has inquired about is
+   *     unknown demand, not bad demand. */
+  demandCoupleCount?: number | null;
   /** Admin-managed `platform_settings.firstlook_boost_weight` (0–0.5). The
    *  fast-responder blend scales the five-dimension score by (1 - boostWeight)
    *  and adds boostWeight for fast responders, so COMPAT_WEIGHTS still sum to 1
@@ -146,6 +188,25 @@ function reviewsSub(avgRating: number | null | undefined, reviewCount: number | 
 
 /** Verified + boosted → 0..1. Verified is the bulk of trust; boosted adds a
  *  small nudge. Unverified sits at the midpoint (not punished, not rewarded). */
+/**
+ * Same-date inquiry demand → 0..1. Shaped like `faithFit`: a LIFT for the
+ * positive case, NEUTRAL for everything else, and never a penalty — a vendor
+ * with no recorded demand must not be pushed below a vendor with some, because
+ * "nobody inquired" and "we have no data" are indistinguishable here.
+ *
+ * Below the privacy floor (or absent) → NEUTRAL. At the floor → a modest lift;
+ * ramping to a full 1.0 at `DEMAND_SATURATION_COUPLES` and no further.
+ */
+function demandSub(count: number | null | undefined): number {
+  if (count == null || !Number.isFinite(count) || count < MIN_DEMAND_COUPLE_COUNT) {
+    return NEUTRAL;
+  }
+  const span = DEMAND_SATURATION_COUPLES - MIN_DEMAND_COUPLE_COUNT;
+  const t = span > 0 ? clamp01((count - MIN_DEMAND_COUPLE_COUNT) / span) : 1;
+  // 0.7 at the floor → 1.0 at saturation.
+  return clamp01(NEUTRAL + (1 - NEUTRAL) * (0.25 + 0.75 * t));
+}
+
 function trustSub(verified: boolean | undefined, boosted: boolean | undefined): number {
   let s = verified ? 0.85 : 0.5;
   if (boosted) s += 0.15;
@@ -175,6 +236,7 @@ export function compatSubScores(input: CompatInputs): Record<CompatDimension, nu
     dateHeadroom: input.dateHeadroomRatio == null ? NEUTRAL : clamp01(input.dateHeadroomRatio),
     faithFit: input.faithMatch === true ? 0.95 : NEUTRAL,
     trust: trustSub(input.verified, input.boosted),
+    demandPressure: demandSub(input.demandCoupleCount),
   };
 }
 
@@ -216,7 +278,8 @@ export function computeCompatScore(input: CompatInputs): { score: number; tier: 
     COMPAT_WEIGHTS.reviews * sub.reviews +
     COMPAT_WEIGHTS.dateHeadroom * sub.dateHeadroom +
     COMPAT_WEIGHTS.faithFit * sub.faithFit +
-    COMPAT_WEIGHTS.trust * sub.trust;
+    COMPAT_WEIGHTS.trust * sub.trust +
+    COMPAT_WEIGHTS.demandPressure * sub.demandPressure;
 
   // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
   // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast
@@ -300,6 +363,19 @@ export function explainCompatScore(input: CompatInputs): string[] {
   // dateHeadroom (.08) — free on most candidate dates.
   if (input.dateHeadroomRatio != null && clamp01(input.dateHeadroomRatio) > NEUTRAL) {
     reasons.push('Free on your dates');
+  }
+
+  // demandPressure (0 globally; 0.22 inside the "In demand right now" lens) —
+  // a FACT with its own number, not a scarcity claim. The phrase states what
+  // was measured ("N couples inquired for your date") and nothing more: no
+  // "only N left", no "booking fast", no "almost gone" — there is no capacity
+  // counter behind any of those (vendor_schedule_pool_bookings has no
+  // cross-couple SELECT policy), so they would be invented. The
+  // `demandSub > NEUTRAL` gate means the privacy floor is already applied:
+  // this phrase can never render for fewer than MIN_DEMAND_COUPLE_COUNT.
+  const demandCount = input.demandCoupleCount;
+  if (demandCount != null && demandSub(demandCount) > NEUTRAL) {
+    reasons.push(`${demandCount} couples inquired for your date`);
   }
 
   // trust (.10) — verified pushes trust above neutral; unverified sits below it.

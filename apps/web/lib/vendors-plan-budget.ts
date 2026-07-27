@@ -286,6 +286,21 @@ export type VendorEnrichment = {
    *  positive case is carried; null/absent → neutral (serves-all / non-wedding /
    *  no match) — never a penalty. */
   faith_match?: boolean | null;
+  /** ISO timestamp of the vendor's FIRST verification approval, derived from
+   *  `MIN(vendor_tier_history.created_at) WHERE to_state = 'verified'` — the
+   *  anchor for the "New here" lens (`freshness` dim). Deliberately NOT
+   *  `vendor_profiles.last_verified_at` (every approval, including an annual
+   *  renewal, overwrites it) and NOT `vendor_profiles.created_at` (row-insert
+   *  time — the ADMIN's date for seeded profiles). null/absent → freshness is
+   *  NEUTRAL, never 0: an unknown anchor costs a new vendor its head-start but
+   *  can never make an established vendor read "New on Setnayan". */
+  first_verified_at?: string | null;
+  /** Number of OTHER couples who have INQUIRED with this vendor for the same
+   *  exact event date — the "In demand right now" lens input. Already floored
+   *  at MIN_DEMAND_COUPLE_COUNT upstream, so a value here is always ≥ that
+   *  floor and a below-floor count never leaves the server. null/absent → the
+   *  demand dim is NEUTRAL, never a penalty. */
+  demand_couple_count?: number | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
   /** The chat thread's id for this (event, vendor profile) pair — ONE extra

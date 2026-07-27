@@ -392,7 +392,7 @@ html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C9
    / var(--mono) tokens, gold-deep accent and Lucide icons as everything above.
    Amber, never red: the vendor is fine, it is the couple's build that narrowed
    past them, and un-narrowing it is one tap away. Flag OFF ⇒ no banner, no
-   `.is-dim`, no divider, and none of these selectors ever match. */
+   .is-dim, no divider, and none of these selectors ever match. */
 .slcat .convrg{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:11px 13px;border:0.5px solid var(--line);border-radius:var(--m-r-md);background:rgba(30,26,18,.035)}
 .slcat .convrg .cv-i{flex:0 0 auto;display:flex;color:var(--gold-deep);margin-top:1px}
 .slcat .convrg .cv-b{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -418,7 +418,7 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 /* The vendor's own free days, in the same mono voice as the price/meta rows. */
 .slcat .vc .freedays{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* The withheld build CTA — a reason, not an error. Wraps, unlike `.vact.note`. */
+/* The withheld build CTA — a reason, not an error. Wraps, unlike .vact.note. */
 .slcat .vact.note.clash{align-items:flex-start;gap:6px;border-color:rgba(169,131,75,.42);color:var(--gold-deep);white-space:normal}
 .slcat .vact.note.clash svg{flex:0 0 auto;margin-top:1px}
 .slcat .vact-note-txt{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}

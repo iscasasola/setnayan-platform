@@ -191,8 +191,8 @@ export default function AboutPage() {
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
               verified Filipino wedding vendors you message directly, and
-              in-app services — free single-camera livestreaming to your own
-              YouTube (Live Studio), candid photo capture (Papic), a custom wedding
+              in-app services — free single-camera livestreaming to YouTube
+              (Live Studio), candid photo capture (Papic), a custom wedding
               song (Pakanta), and bespoke monograms. Every service is free to
               use; some have clearly priced upgrades, like Live Studio&rsquo;s
               multicam control room. Couples and vendors

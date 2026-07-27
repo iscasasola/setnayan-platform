@@ -157,6 +157,7 @@ export async function GET() {
     workingNotesRes,
     broadcastsSentRes,
     dayRequestsRes,
+    accessRequestsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -394,6 +395,14 @@ export async function GET() {
       .select('request_id, event_id, origin, kind, status, body, preset_key, created_at')
       .eq('author_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-27) — the subject's own asks for event access, scoped
+    // to requester_user_id. `decided_by_user_id` is deliberately not a second
+    // lane: answering someone else's request is an action ON their record.
+    supabase
+      .from('event_access_requests')
+      .select('request_id, event_id, requested_areas, note, status, decisions, created_at')
+      .eq('requester_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -427,6 +436,7 @@ export async function GET() {
     adminUnavailable,
   );
   const dayRequests = listOutcome('day_requests_authored', dayRequestsRes);
+  const accessRequests = listOutcome('event_access_requests_made', accessRequestsRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -482,6 +492,7 @@ export async function GET() {
     workingNotes,
     broadcastsSent,
     dayRequests,
+    accessRequests,
   ]);
 
   const exported = {
@@ -555,6 +566,9 @@ export async function GET() {
     coordinator_broadcasts_sent: broadcastsSent.rows,
     // The day-of notes the subject wrote (§10 #2/#6), author-scoped.
     day_requests_authored: dayRequests.rows,
+    // Access the subject ASKED for (not what they were granted — that lives on
+    // the moderator record).
+    event_access_requests_made: accessRequests.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

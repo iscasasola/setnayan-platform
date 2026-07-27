@@ -241,12 +241,20 @@ const WEB = join(import.meta.dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 test('the vendor workspace add-on list excludes follow-ups', () => {
-  // This surface labels every non-included line "(optional add-on)". Because
-  // the DB forces follow-ups to not-included, they would ALL land in that
-  // bucket without the filter.
+  // This surface lists every non-included line as an add-on the vendor offers
+  // (in its own "Not included" section since 2026-07-27 — it used to be an
+  // inline "(optional add-on)" suffix inside "What's included"). Because the DB
+  // forces follow-ups to not-included, they would ALL land in that bucket
+  // without the filter.
   const src = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
   assert.match(src, /parent_option_id == null/);
-  assert.match(src, /select\(\s*'[^']*parent_option_id/);
+  // STRENGTHENED, not relaxed. The select is now
+  // `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id` — a template literal, so
+  // the old single-quote pattern could no longer match. This pins the same
+  // thing plus the canonical constant, which is what had silently dropped both
+  // `item_id` (no removal id could ever match a line without it) and
+  // `is_required` from this page.
+  assert.match(src, /\$\{VENDOR_PACKAGE_ITEM_SELECT\}, parent_option_id/);
 });
 
 test('the booked-package detail list excludes follow-ups', () => {

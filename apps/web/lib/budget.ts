@@ -196,7 +196,7 @@ export function buildBudgetLiveSummary(
  * vendor-controlled items, falls back to host-manual entry, or shows the
  * "pending vendor pricing" empty state.
  */
-type VendorPricingLookup = Map<
+export type VendorPricingLookup = Map<
   string,
   {
     priceSource: VendorPriceSource;
@@ -215,7 +215,7 @@ function isMissingRelation(error: { code?: string } | null | undefined): boolean
   return error?.code === '42P01';
 }
 
-async function buildVendorPricingLookup(
+export async function buildVendorPricingLookup(
   supabase: SupabaseClient,
   eventId: string,
   eventVendors: EventVendorRow[],

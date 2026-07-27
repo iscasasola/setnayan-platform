@@ -48,6 +48,23 @@ jobs:
       - name: Data-layer guards (DB replay)
         run: pnpm --filter @setnayan/web test:db:ci
 
+      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
+      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
+      # hand-typed select that drops a column the canonical *_SELECT constant
+      # includes). Fails when a NEW instance appears beyond the committed
+      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
+      # narrowing and passes silently, so paying debt down never turns the build
+      # red.
+      #
+      # It rides THIS job rather than getting its own, because it needs the TS
+      # scanners (and therefore tsx) and this job has already installed. A
+      # dedicated job would buy nothing but a second `pnpm install` per PR. The
+      # structural half — is the baseline canonical, is the guard still wired —
+      # is pure node and DOES get its own install-free job below.
+      # See apps/web/scripts/lint-dup-rule.ts.
+      - name: Duplicated-rule guards
+        run: pnpm --filter @setnayan/web lint:dup-rule
+
   build:
     name: production build
     runs-on: ubuntu-latest
@@ -405,6 +422,34 @@ jobs:
 
       - name: Lint exposure baseline
         run: node scripts/lint-exposure-baseline.mjs
+
+  lint-dup-rule-baseline:
+    name: lint duplicated-rule baseline
+    runs-on: ubuntu-latest
+    # Structural half of the duplicated-rule ratchet. The real comparison —
+    # scan vs committed baseline — runs inside the "typecheck + lint" job,
+    # because it needs the TypeScript scanners. THIS job needs nothing but the
+    # files, so it runs install-free and closes the two ways a file-based guard
+    # dies quietly:
+    #   1. the baseline gets truncated, emptied or hand-sorted, so the differ
+    #      compares nothing against nothing and reports "no widenings";
+    #   2. the guard gets unwired — runner deleted, package.json script dropped,
+    #      CI step removed — and the build still goes green. That is the worst
+    #      failure mode available, because it manufactures confidence.
+    # So it asserts: header fact-counts match the body, per-kind floors are met,
+    # ordering is canonical, keys are unique and correctly shaped, the mirrored
+    # DUP_RULE_KINDS constant has not drifted, the "adding a line is a widening"
+    # sentence is still in the header, and both the runner and its CI steps are
+    # still in place. Pure node, no install. See scripts/lint-dup-rule-baseline.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint duplicated-rule baseline
+        run: node scripts/lint-dup-rule-baseline.mjs
 
   lint-vendor-layout-revalidate:
     name: lint vendor layout revalidate

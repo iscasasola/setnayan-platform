@@ -73,6 +73,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSchema, type TableSchema } from './migration-schema';
+import { stripComments } from './source-text';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib/security
 /** apps/web/lib/security → apps/web is two levels up. */
@@ -274,4 +275,349 @@ export function scanForPhantomColumns(root: string = APP_ROOT): {
   const schema = readSchema();
   const sites = scanSelectSites(root);
   return { sites, phantoms: findPhantomColumns(sites, schema), schema };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PART 2 — THE INVERSE: a hand-typed list that OMITS what the canonical
+ *          `*_SELECT` constant includes.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Everything above answers "does this column exist?". This answers the question
+ * underneath it — "is this list the SAME list the rest of the app uses?"
+ *
+ * THE BUG. On 2026-07-27 two pages hand-typed the column list for
+ * `vendor_package_items` instead of using `VENDOR_PACKAGE_ITEM_SELECT`. One copy
+ * left out `item_id`, so a removal filter (`removed_item_ids.has(i.item_id)`)
+ * compared against `undefined` and could never match. The same copy left out
+ * `is_required`, and an absent boolean reads as FALSE — so a line the vendor had
+ * marked MANDATORY could be dropped from the receipt. Neither is a phantom
+ * column. Every name in both lists is real, so the guard above sees nothing:
+ * PostgREST returns rows, the query "works", and the page is quietly wrong.
+ *
+ * WHY THIS LIVES HERE AND NOT IN A RIVAL SCRIPT. It needs the same `.from()` →
+ * `.select()` attribution, the same select-list parser, and the same limits. A
+ * second scanner would drift from this one exactly the way the two column lists
+ * drifted from each other — which would be a joke.
+ *
+ * WHY IT IS NOT "EVERY SELECT MUST USE THE CONSTANT". A narrow select is a
+ * legitimate, often better, choice: `SECTION_CONTENT_EVENT_COLUMNS` names seven
+ * `events` columns, and a page that needs `venue_name` alone should ask for
+ * `venue_name` alone. Forcing the constant everywhere would over-fetch by
+ * default and the rule would be ignored within a month. So the signal is not
+ * "did not use the constant" — it is NEAR-COPY WITH A HOLE: a literal that
+ * reproduces most of a canonical list and drops part of it. That shape is
+ * almost always a paste that went stale, and it is exactly what happened.
+ *
+ * ADDITIONAL LIMITS ON TOP OF THE ONES ABOVE
+ * ------------------------------------------
+ *  A. The constant → table binding is LEARNED, not declared: a constant is
+ *     bound to table `t` only because some `.from('t').select(CONST)` exists in
+ *     the repo. A canonical list nobody has adopted yet guards nothing.
+ *  B. Only identifiers ending `_SELECT` or `_COLUMNS` are treated as canonical.
+ *     `COLS`, `FEATURED_FIELDS`, `SELECT_COLS` and friends are ignored — naming
+ *     is the only declaration of intent available, and widening the pattern
+ *     buys noise.
+ *  C. Constant VALUES are read from `export const NAME = '…'` (single or
+ *     concatenated string literals) and `export const NAME = [ '…' ] as const`.
+ *     A computed value (`X.split(',')`) is not resolved and the constant is
+ *     skipped.
+ */
+
+/** A `.from('t').select(SOME_CONSTANT)` — how a constant learns its table. */
+export type ConstantSelectSite = {
+  file: string;
+  line: number;
+  table: string;
+  constant: string;
+};
+
+/** An exported canonical column list and the columns it names. */
+export type SelectConstant = {
+  name: string;
+  /** apps/web-relative file that exports it */
+  file: string;
+  columns: string[];
+};
+
+export type OmittedColumn = {
+  file: string;
+  line: number;
+  table: string;
+  /** the canonical constant this literal is a near-copy of */
+  constant: string;
+  /** a column the constant names and the literal does not */
+  column: string;
+  /** how much of the constant the literal reproduced, 0–1 */
+  overlap: number;
+  /** `file\ttable\tconstant\tcolumn` — the stable key a baseline entry pins. */
+  key: string;
+};
+
+/** Only these suffixes declare "this is the canonical list" — limit B. */
+const CANONICAL_CONST_RE = /^[A-Z][A-Z0-9_]*_(SELECT|COLUMNS)$/;
+/** …the same shape, searched for inside a select argument. */
+const CANONICAL_CONST_SCAN_RE = /\b[A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS)\b/g;
+
+/**
+ * WHAT COUNTS AS A NEAR-COPY — and why it is two-sided.
+ *
+ * A one-sided "the literal reproduces ≥N% of the constant" rule fails the real
+ * bug. The vendor workspace's stale list was
+ * `service_description, is_default_included, parent_option_id, display_order` —
+ * only 3 of `VENDOR_PACKAGE_ITEM_SELECT`'s 9 columns, i.e. 33%. By that measure
+ * it is a "narrow select" and legitimate. It was not: 3 of its 4 columns came
+ * from the canonical list, so it was the canonical list TRIMMED, and the trim
+ * took `item_id` (making a removal filter unmatchable) and `is_required`
+ * (making a mandatory line vanish).
+ *
+ * So the question is asked from both ends, and either answer is enough:
+ *   · the literal reproduces most of the CONSTANT  (a stale paste), or
+ *   · the constant accounts for most of the LITERAL (the constant, trimmed).
+ *
+ * With a floor under the second one. Without it, any 3-column select whose
+ * columns all appear in a 90-column export list scores 100% "of literal" and
+ * gets accused of omitting 87 columns — measured, not imagined: that was the
+ * first version's output for `VENDOR_PROFILE_EXPORT_SELECT`.
+ *
+ * Measured on this repo at these values: 104 facts across 24 sites, and the
+ * historical workspace bug IS flagged. Loosening the constant-ratio to 0.3
+ * one-sided pulls in 123 facts including plainly-legitimate narrow reads
+ * (a page wanting `venue_name` accused of omitting `love_story`). These numbers
+ * are the argument; re-run the guard before changing any of them.
+ *
+ * THE GREY ZONE, ADMITTED. A short literal whose columns ALL come from a
+ * short-to-mid canonical list is flagged — 3 of 10, fully covered, is reported.
+ * That is the same shape as the workspace bug and cannot be told apart from it
+ * without knowing what the page needs. It is deliberate, and it is what the
+ * baseline is for: it costs one reviewed line, not a red build.
+ */
+
+/**
+ * Two shared column names between two lists on the same table is coincidence —
+ * `event_id, created_at` is on almost everything. Three is a pattern.
+ */
+export const NEAR_COPY_MIN_SHARED = 3;
+
+/** Below this share of the CONSTANT, the two lists are not about the same thing. */
+export const NEAR_COPY_CONSTANT_FLOOR = 0.25;
+
+/** At or above this share of the CONSTANT, the literal is a paste of it. */
+export const NEAR_COPY_OF_CONSTANT = 0.5;
+
+/** At or above this share of the LITERAL, the literal is the constant, trimmed. */
+export const NEAR_COPY_OF_LITERAL = 0.6;
+
+/** Is this literal select a near-copy of this canonical constant? */
+export function isNearCopy(
+  sharedColumns: number,
+  constantColumns: number,
+  literalColumns: number,
+): boolean {
+  if (sharedColumns < NEAR_COPY_MIN_SHARED) return false;
+  if (constantColumns === 0 || literalColumns === 0) return false;
+  const ofConstant = sharedColumns / constantColumns;
+  if (ofConstant < NEAR_COPY_CONSTANT_FLOOR) return false;
+  return ofConstant >= NEAR_COPY_OF_CONSTANT || sharedColumns / literalColumns >= NEAR_COPY_OF_LITERAL;
+}
+
+/**
+ * The text between `.select(` and its matching `)`, plus the offset it starts
+ * at. Returns null when the parens do not balance inside the window.
+ */
+function selectArgument(window: string): { text: string; index: number } | null {
+  const open = /\.select\(/.exec(window);
+  if (!open) return null;
+  const start = open.index + open[0].length;
+  let depth = 1;
+  for (let i = start; i < window.length; i++) {
+    const ch = window[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') {
+      depth--;
+      if (depth === 0) return { text: window.slice(start, i), index: open.index };
+    }
+  }
+  return null;
+}
+
+/**
+ * Canonical constants named at the TOP LEVEL of a select argument.
+ *
+ * Depth matters and it is the whole correctness argument here. In
+ * `` `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id` `` the constant lists
+ * columns of the table being queried. In `` `id, items:t(${X})` `` it lists
+ * columns of the EMBEDDED table `t`, and binding it to the outer table would be
+ * a lie. Only depth 0 counts.
+ */
+function topLevelConstants(arg: string): string[] {
+  let depth = 0;
+  let level0 = '';
+  for (const ch of arg) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (depth === 0) level0 += ch;
+    else level0 += ' ';
+  }
+  return [...level0.matchAll(CANONICAL_CONST_SCAN_RE)].map((m) => m[0]);
+}
+
+/**
+ * Every `.from('t').select(… CONST …)` in one source string.
+ *
+ * Unlike `extractSelectSites`, this strips comments first: `.select(` followed
+ * by an explanatory comment and THEN the constant is a real shape in this repo
+ * (`vendors/packages/actions.ts`), and a raw scan misses it. The original path
+ * keeps reading raw source on purpose — see the note in ./source-text.
+ */
+export function extractConstantSelectSites(source: string, file: string): ConstantSelectSite[] {
+  const src = stripComments(source);
+  const sites: ConstantSelectSite[] = [];
+  const fromRe = new RegExp(FROM_RE.source, 'gi');
+  let m: RegExpExecArray | null;
+  while ((m = fromRe.exec(src))) {
+    const table = m[1];
+    if (!table) continue;
+    const window = src.slice(fromRe.lastIndex, fromRe.lastIndex + SELECT_WINDOW);
+
+    const arg = selectArgument(window);
+    if (!arg) continue;
+
+    // Same attribution guard as extractSelectSites: never reach past the next
+    // `.from()`.
+    const nextFrom = new RegExp(FROM_RE.source, 'i').exec(window);
+    if (nextFrom && nextFrom.index < arg.index) continue;
+
+    const line = src.slice(0, m.index).split('\n').length;
+    for (const constant of topLevelConstants(arg.text)) {
+      if (!CANONICAL_CONST_RE.test(constant)) continue;
+      sites.push({ file, line, table, constant });
+    }
+  }
+  return sites;
+}
+
+const EXPORT_STRING_CONST_RE =
+  /export\s+const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*((?:'[^']*'|"[^"]*"|`[^`$]*`)(?:\s*\+\s*(?:'[^']*'|"[^"]*"|`[^`$]*`))*)\s*;/g;
+const EXPORT_ARRAY_CONST_RE =
+  /export\s+const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*\[([^\]]*)\]/g;
+
+/**
+ * Exported canonical column lists in one source string — limit C.
+ * String form is parsed with the SAME `parseSelectList` the literals use, so a
+ * constant and a literal can never be read by two different rules.
+ */
+export function extractSelectConstants(sourceRaw: string, file: string): SelectConstant[] {
+  const source = stripComments(sourceRaw);
+  const out: SelectConstant[] = [];
+  const seen = new Set<string>();
+
+  const strRe = new RegExp(EXPORT_STRING_CONST_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = strRe.exec(source))) {
+    const name = m[1];
+    const body = m[2];
+    if (!name || !body) continue;
+    const joined = [...body.matchAll(/'([^']*)'|"([^"]*)"|`([^`$]*)`/g)]
+      .map((q) => q[1] ?? q[2] ?? q[3] ?? '')
+      .join('');
+    const columns = parseSelectList(joined);
+    if (columns.length === 0) continue;
+    seen.add(name);
+    out.push({ name, file, columns });
+  }
+
+  const arrRe = new RegExp(EXPORT_ARRAY_CONST_RE.source, 'g');
+  while ((m = arrRe.exec(source))) {
+    const name = m[1];
+    if (!name || seen.has(name)) continue;
+    const columns = [...(m[2] ?? '').matchAll(/'([a-z0-9_]+)'|"([a-z0-9_]+)"/g)].map(
+      (q) => q[1] ?? q[2] ?? '',
+    );
+    if (columns.length === 0) continue;
+    seen.add(name);
+    out.push({ name, file, columns });
+  }
+
+  return out;
+}
+
+/**
+ * Compare every LITERAL select against the canonical constants bound to the
+ * same table, and report the columns a near-copy left out.
+ *
+ * One fact per (file, table, constant, omitted column) — the granularity
+ * matters: dropping one more column ADDS a line (a widening, which fails), and
+ * fixing one REMOVES a line (a narrowing, which passes).
+ */
+export function findOmittedColumns(
+  literalSites: readonly SelectSite[],
+  constantSites: readonly ConstantSelectSite[],
+  constants: readonly SelectConstant[],
+): OmittedColumn[] {
+  const byName = new Map(constants.map((c) => [c.name, c]));
+
+  /** table → canonical constants some `.from(table).select(CONST)` uses. */
+  const canonicalByTable = new Map<string, SelectConstant[]>();
+  for (const site of constantSites) {
+    const c = byName.get(site.constant);
+    if (!c) continue;
+    const list = canonicalByTable.get(site.table);
+    if (!list) canonicalByTable.set(site.table, [c]);
+    else if (!list.some((x) => x.name === c.name)) list.push(c);
+  }
+
+  const out: OmittedColumn[] = [];
+  for (const site of literalSites) {
+    const canon = canonicalByTable.get(site.table);
+    if (!canon) continue;
+    const have = new Set(site.columns);
+    for (const c of canon) {
+      const shared = c.columns.filter((col) => have.has(col)).length;
+      if (!isNearCopy(shared, c.columns.length, site.columns.length)) continue;
+      const missing = c.columns.filter((col) => !have.has(col));
+      if (missing.length === 0) continue; // the literal is the constant, spelled out
+      for (const column of missing) {
+        out.push({
+          file: site.file,
+          line: site.line,
+          table: site.table,
+          constant: c.name,
+          column,
+          overlap: shared / c.columns.length,
+          key: `${site.file}\t${site.table}\t${c.name}\t${column}`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** Scan the app for near-copy selects that drop a canonical column. */
+export function scanForOmittedColumns(root: string = APP_ROOT): {
+  literalSites: SelectSite[];
+  constantSites: ConstantSelectSite[];
+  constants: SelectConstant[];
+  omissions: OmittedColumn[];
+} {
+  const literalSites: SelectSite[] = [];
+  const constantSites: ConstantSelectSite[] = [];
+  const constants: SelectConstant[] = [];
+
+  for (const file of collectSourceFiles(root)) {
+    let src: string;
+    try {
+      src = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    const rel = path.relative(root, file);
+    if (src.includes('export const')) constants.push(...extractSelectConstants(src, rel));
+    if (!src.includes('.from(')) continue;
+    literalSites.push(...extractSelectSites(src, rel));
+    constantSites.push(...extractConstantSelectSites(src, rel));
+  }
+
+  const omissions = findOmittedColumns(literalSites, constantSites, constants);
+  omissions.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  return { literalSites, constantSites, constants, omissions };
 }

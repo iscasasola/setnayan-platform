@@ -46,9 +46,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readSchema } from './migration-schema';
 import {
+  extractConstantSelectSites,
+  extractSelectConstants,
   extractSelectSites,
+  findOmittedColumns,
   findPhantomColumns,
+  isNearCopy,
   parseSelectList,
+  scanForOmittedColumns,
   scanSelectSites,
   type PhantomColumn,
 } from './select-column-scan';
@@ -381,4 +386,196 @@ test('T12 · no KNOWN_UNRESOLVED_TABLES entry has gone stale, and the list may o
         Object.keys(KNOWN_UNRESOLVED_TABLES).length - stale.length
       }:\n` + stale.map((s) => `  ${s}`).join('\n'),
   );
+});
+
+// ── T13–T18 · the OMITTED-column half (PART 2 of the scanner) ────────────────
+//
+// T1 asks "does every column in this list exist?". These ask the question the
+// other way round — "is this list the same list the rest of the app uses?".
+//
+// THE BUG. On 2026-07-27 the vendor workspace hand-typed
+// 'service_description, is_default_included, parent_option_id, display_order'
+// for `vendor_package_items` instead of using VENDOR_PACKAGE_ITEM_SELECT. Every
+// name was real, so T1 saw nothing. What was MISSING was the problem: without
+// `item_id` a removal filter compares against `undefined` and can never match,
+// and without `is_required` an absent boolean reads as FALSE, so a line the
+// vendor marked mandatory could vanish from a day-of view while still being
+// delivered and charged for.
+//
+// The repo-wide ratchet is scripts/dup-rule.baseline.txt (a reviewable file,
+// not a constant in here). What lives here is what must hold regardless of
+// repo state.
+
+test('T13 · positive control from HISTORY — the workspace list that shipped IS flagged', () => {
+  // Verbatim shapes from apps/web/.../[vendorId]/workspace/page.tsx at
+  // faf95f925^ and from lib/vendor-packages.ts.
+  const owner = `
+    export const VENDOR_PACKAGE_ITEM_SELECT =
+      'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at';
+  `;
+  const caller = `
+    await supabase.from('vendor_package_items').select(VENDOR_PACKAGE_ITEM_SELECT);
+    await supabase
+      .from('vendor_package_items')
+      .select('service_description, is_default_included, parent_option_id, display_order');
+  `;
+  const constants = extractSelectConstants(owner, 'lib/vendor-packages.ts');
+  assert.equal(constants[0]?.columns.length, 9, 'the canonical list must parse to 9 columns');
+
+  const bindings = extractConstantSelectSites(caller, 'workspace.tsx');
+  assert.deepEqual(
+    bindings.map((b) => `${b.constant}→${b.table}`),
+    ['VENDOR_PACKAGE_ITEM_SELECT→vendor_package_items'],
+    'the constant learns its table from a real .from().select(CONST) in the repo',
+  );
+
+  const omissions = findOmittedColumns(
+    extractSelectSites(caller, 'workspace.tsx'),
+    bindings,
+    constants,
+  );
+  assert.deepEqual(
+    [...new Set(omissions.map((o) => o.column))].sort(),
+    [
+      'canonical_service',
+      'created_at',
+      'is_required',
+      'item_id',
+      'package_id',
+      'replacement_value_centavos',
+    ],
+    'item_id and is_required — the two that made the page wrong — must be among them',
+  );
+});
+
+test('T14 · negative control — a deliberately NARROW select is not accused', () => {
+  // CASE 1 · a small read against a BIG canonical list. The real
+  // VENDOR_PROFILE_EXPORT_SELECT names ~90 columns of vendor_profiles; a card
+  // that wants three of them is correct, and the first version of this guard
+  // accused it of omitting the other 87. The constant-side floor exists for
+  // exactly this, and it is measured against a realistic list, not a toy one.
+  const wide = Array.from({ length: 40 }, (_, i) => `col_${i}`);
+  const owner = `
+    export const VENDOR_PROFILE_EXPORT_SELECT =
+      '${['business_name', 'logo_url', 'city', ...wide].join(', ')}';
+  `;
+  const caller = `
+    await supabase.from('vendor_profiles').select(VENDOR_PROFILE_EXPORT_SELECT);
+    await supabase.from('vendor_profiles').select('business_name, logo_url, city');
+  `;
+  assert.deepEqual(
+    findOmittedColumns(
+      extractSelectSites(caller, 'card.tsx'),
+      extractConstantSelectSites(caller, 'card.tsx'),
+      extractSelectConstants(owner, 'lib/x.ts'),
+    ).map((o) => o.column),
+    [],
+    'a header that wants three columns of a forty-three-column export list is CORRECT, ' +
+      'not a stale copy. Accusing it is how a guard gets switched off.',
+  );
+
+  // CASE 2 · a rich read that happens to share a few columns with a canonical
+  // list about something else. `lib/event-preload.ts` reads a dozen `events`
+  // columns and three of them also appear in SECTION_CONTENT_EVENT_COLUMNS.
+  // It is not a copy of that list in either direction.
+  const owner2 = `
+    export const SECTION_CONTENT_EVENT_COLUMNS =
+      'event_date, venue_name, venue_address, love_story, special_message, what_to_bring, our_photos';
+  `;
+  const caller2 = `
+    await supabase.from('events').select(SECTION_CONTENT_EVENT_COLUMNS);
+    await supabase.from('events').select(
+      'event_id, display_name, event_date, venue_name, venue_address, slug, theme_key, status, owner_user_id, guest_count, created_at, updated_at',
+    );
+  `;
+  assert.deepEqual(
+    findOmittedColumns(
+      extractSelectSites(caller2, 'preload.ts'),
+      extractConstantSelectSites(caller2, 'preload.ts'),
+      extractSelectConstants(owner2, 'lib/y.ts'),
+    ).map((o) => o.column),
+    [],
+    'sharing three column names is not the same as being a copy — 43% of the constant and ' +
+      '25% of the literal clears neither side of the near-copy test.',
+  );
+});
+
+test('T15 · the near-copy rule is two-sided, and both sides are needed', () => {
+  // The stale paste: reproduces most of the constant.
+  assert.equal(isNearCopy(8, 10, 9), true);
+  // The constant, trimmed: only 3 of 9 canonical columns, but 3 of the
+  // literal's 4 — the historical workspace bug, which a one-sided rule misses.
+  assert.equal(isNearCopy(3, 9, 4), true);
+  // Genuinely narrow: three columns of a ninety-column export list. Without the
+  // constant-side FLOOR this scored 100% "of literal" and reported 87 omissions.
+  assert.equal(isNearCopy(3, 90, 3), false);
+  // Coincidence: two shared names is `event_id, created_at`, which is on
+  // almost every table.
+  assert.equal(isNearCopy(2, 6, 2), false);
+});
+
+test('T16 · a constant is bound to the OUTER table only at the top level of a select', () => {
+  // The constant lists columns of the table being queried — bind it.
+  const topLevel = "supabase.from('vendor_package_items').select(`${ITEM_SELECT}, parent_option_id`)";
+  assert.deepEqual(
+    extractConstantSelectSites(topLevel, 'f.ts').map((b) => `${b.constant}→${b.table}`),
+    ['ITEM_SELECT→vendor_package_items'],
+  );
+  // Inside an embedded resource it lists columns of ANOTHER table — binding it
+  // to the outer one would be a lie, and would then accuse every honest select
+  // on the outer table of omitting the inner table's columns.
+  const embedded = "supabase.from('vendor_packages').select(`package_id, items:vendor_package_items(${ITEM_SELECT})`)";
+  assert.deepEqual(extractConstantSelectSites(embedded, 'f.ts'), []);
+  // A comment between `.select(` and the constant is a real shape in this repo
+  // (vendors/packages/actions.ts) and must not hide the binding.
+  const commented = `supabase.from('orders').select(
+      // the canonical list, not a hand-typed copy
+      ORDER_SELECT,
+    )`;
+  assert.deepEqual(
+    extractConstantSelectSites(commented, 'f.ts').map((b) => b.constant),
+    ['ORDER_SELECT'],
+  );
+  // Only *_SELECT / *_COLUMNS declare canonical intent — limit B.
+  assert.deepEqual(extractConstantSelectSites("supabase.from('orders').select(COLS)", 'f.ts'), []);
+});
+
+test('T17 · constant VALUES parse from both the string and the array form', () => {
+  const src = `
+    export const A_SELECT =
+      'item_id, package_id, ' +
+      'is_required';
+    export const B_COLUMNS = ['one', 'two', 'three'] as const;
+    export const C_SELECT: string = 'alias:real_col, cast_col::text, embed:other(x, y)';
+    // export const COMMENTED_SELECT = 'never, seen';
+  `;
+  const found = new Map(extractSelectConstants(src, 'f.ts').map((c) => [c.name, c.columns]));
+  assert.deepEqual(found.get('A_SELECT'), ['item_id', 'package_id', 'is_required']);
+  assert.deepEqual(found.get('B_COLUMNS'), ['one', 'two', 'three']);
+  // Parsed by the SAME parseSelectList the literals use — one rule, one place.
+  assert.deepEqual(found.get('C_SELECT'), ['real_col', 'cast_col']);
+  assert.equal(found.has('COMMENTED_SELECT'), false, 'a commented-out constant is not a constant');
+});
+
+test('T18 · anti-vacuity — the omission scan really has something to compare', () => {
+  const r = scanForOmittedColumns();
+  assert.ok(
+    r.literalSites.length >= MIN_SELECT_SITES,
+    `${r.literalSites.length} literal select sites, expected >= ${MIN_SELECT_SITES}.`,
+  );
+  const bound = new Set(r.constantSites.map((s) => s.constant));
+  assert.ok(
+    bound.size >= 10,
+    `only ${bound.size} canonical *_SELECT/*_COLUMNS constants resolved to a table — with ` +
+      'nothing bound, the omission guard passes while comparing nothing.',
+  );
+  assert.ok(
+    bound.has('VENDOR_PACKAGE_ITEM_SELECT'),
+    'the constant at the centre of the original bug must still be bound to its table; if it ' +
+      'is not, the guard has stopped watching the exact query that caused this.',
+  );
+  for (const o of r.omissions) {
+    assert.match(o.key, /^[^\t]+\t[^\t]+\t[^\t]+\t[^\t]+$/, 'key is file⇥table⇥constant⇥column');
+    assert.ok(o.line > 0);
+  }
 });

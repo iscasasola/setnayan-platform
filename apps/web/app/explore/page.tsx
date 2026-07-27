@@ -1350,11 +1350,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
-  // Build the base query. Visibility filter is the new authoritative gate
-  // (Decision 6 / 2026-05-15): default shows both 'verified' AND 'coming_soon';
-  // the "Verified only" toggle restricts to verified-bookable vendors. The
-  // legacy `is_published` boolean is no longer queried here — public_visibility
-  // is the source of truth for marketplace surfacing.
+  // Build the base query. `public_visibility` is the authoritative listing
+  // gate (the legacy `is_published` boolean is no longer queried here).
+  //
+  // 🔒 Owner 2026-07-27 — "we only show shops that are ready." `coming_soon` is
+  // retired, so PUBLIC_SURFACE_VISIBILITIES is now `['verified']` alone and the
+  // "Verified only" toggle no longer narrows anything: both branches resolve to
+  // the same single state. The toggle is kept as an inert no-op rather than
+  // ripped out here, because removing the URL param is a separate UI change and
+  // a stale `?verified=1` bookmark must keep working.
   const allowedVisibilities = filters.verifiedOnly
     ? (['verified'] as const)
     : PUBLIC_SURFACE_VISIBILITIES;

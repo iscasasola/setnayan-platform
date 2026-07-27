@@ -200,7 +200,8 @@ function FolderVendorCard({
       .map((p) => p.charAt(0).toUpperCase())
       .slice(0, 2)
       .join('') || '?';
-  const isComingSoon = vendor.public_visibility === 'coming_soon';
+  // `coming_soon` retired 2026-07-27 — a listed vendor is always verified now,
+  // so the pill this flag drove has been removed.
   // ANTI-FRAUD (2026-07-05): show the TRUSTED aggregate (receipt-backed,
   // arm's-length), not the raw avg_rating_overall / review_count.
   const rating = trustedRating;
@@ -246,11 +247,6 @@ function FolderVendorCard({
             <h3 className="min-w-0 truncate text-sm font-semibold text-ink group-hover:text-terracotta">
               {displayName}
             </h3>
-            {isComingSoon ? (
-              <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                Coming soon
-              </span>
-            ) : null}
           </div>
           {vendor.location_city ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">

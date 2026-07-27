@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6184
+# facts: 6198
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     720
-#   col       4422
-#   policy    813
+#   col       4434
+#   policy    815
 #   view      10
 #   func      215
 #
@@ -212,6 +212,7 @@ tpriv	public.event_software_activations_v2|anon	SIUD
 tpriv	public.event_software_activations_v2|authenticated	SIUD
 tpriv	public.event_song_picks|anon	SIUD
 tpriv	public.event_song_picks|authenticated	SIUD
+tpriv	public.event_song_requests|authenticated	SU
 tpriv	public.event_sponsors|anon	SIUD
 tpriv	public.event_sponsors|authenticated	SIUD
 tpriv	public.event_std_views|anon	SIUD
@@ -588,8 +589,7 @@ tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
 tpriv	public.vendor_date_waitlist|authenticated	SIUD
-tpriv	public.vendor_dayof_configs|anon	SIUD
-tpriv	public.vendor_dayof_configs|authenticated	SIUD
+tpriv	public.vendor_dayof_configs|authenticated	SIU
 tpriv	public.vendor_deep_search_uses|anon	SIUD
 tpriv	public.vendor_deep_search_uses|authenticated	SIUD
 tpriv	public.vendor_disputes|anon	SIUD
@@ -1767,6 +1767,17 @@ col	public.event_song_picks.created_at	anon=SIU authenticated=SIU
 col	public.event_song_picks.event_id	anon=SIU authenticated=SIU
 col	public.event_song_picks.song_id	anon=SIU authenticated=SIU
 col	public.event_song_picks.source	anon=SIU authenticated=SIU
+col	public.event_song_requests.anon_key	anon=- authenticated=SU
+col	public.event_song_requests.created_at	anon=- authenticated=SU
+col	public.event_song_requests.decided_at	anon=- authenticated=SU
+col	public.event_song_requests.decided_by_vendor_profile_id	anon=- authenticated=SU
+col	public.event_song_requests.event_id	anon=- authenticated=SU
+col	public.event_song_requests.guest_id	anon=- authenticated=SU
+col	public.event_song_requests.origin	anon=- authenticated=SU
+col	public.event_song_requests.request_id	anon=- authenticated=SU
+col	public.event_song_requests.requester_name	anon=- authenticated=SU
+col	public.event_song_requests.song_id	anon=- authenticated=SU
+col	public.event_song_requests.status	anon=- authenticated=SU
 col	public.event_sponsors.created_at	anon=SIU authenticated=SIU
 col	public.event_sponsors.created_by_user_id	anon=SIU authenticated=SIU
 col	public.event_sponsors.decline_note	anon=SIU authenticated=SIU
@@ -4195,12 +4206,13 @@ col	public.vendor_date_waitlist.status	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.user_id	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.waitlist_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.config_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.created_at	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.enabled_modules	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.event_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_dayof_configs.config_id	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.created_at	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.enabled_modules	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.event_id	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.song_requests_open	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.updated_at	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_deep_search_uses.created_at	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.dossier_id	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.free_cycle_start	anon=SIU authenticated=SIU
@@ -5404,6 +5416,8 @@ policy	public.event_seating_constraints|event_seating_constraints_couple_write	m
 policy	public.event_song_picks|event_song_picks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) check=NULL
 policy	public.event_song_picks|event_song_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
 policy	public.event_song_picks|event_song_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin())
+policy	public.event_song_requests|event_song_requests_decide	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin())
+policy	public.event_song_requests|event_song_requests_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
 policy	public.event_sponsors|event_sponsors_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_std_views|event_member_can_read_std_views	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
 policy	public.event_tables|event_tables_coordinator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_tables.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'coordinator'::member_type)))) check=NULL
@@ -5866,7 +5880,7 @@ policy	public.vendor_profiles|vendor_profiles_admin_unclaimed_read	mode=PERMISSI
 policy	public.vendor_profiles|vendor_profiles_admin_unclaimed_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((user_id IS NULL) AND is_admin()) check=is_admin()
 policy	public.vendor_profiles|vendor_profiles_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_profiles|vendor_profiles_owner	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
-policy	public.vendor_profiles|vendor_profiles_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_published = true) check=NULL
+policy	public.vendor_profiles|vendor_profiles_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((public_visibility = 'verified'::vendor_public_visibility) AND (verification_state = 'verified'::vendor_verification_state)) check=NULL
 policy	public.vendor_proposal_templates|vendor_proposal_templates_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_proposals|vendor_proposals_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((status <> 'draft'::text) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)))) check=NULL
 policy	public.vendor_proposals|vendor_proposals_org_delete_draft	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'draft'::text)) check=NULL

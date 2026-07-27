@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  DEFAULT_PRIVATE_VISIBILITY,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -206,9 +207,14 @@ export async function rejectVendor(formData: FormData) {
   const vendorProfileId = readFormString(formData, 'vendor_profile_id');
   if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
 
-  const rejectTo = readFormString(formData, 'reject_to');
-  const next: VendorPublicVisibility =
-    rejectTo === 'hidden' ? 'hidden' : 'coming_soon';
+  // 🔒 Owner 2026-07-27 — "demote. remove coming soon entirely." A rejection
+  // now always lands on `hidden`. Previously the non-hidden branch demoted to
+  // `coming_soon`, which was a PUBLICLY-READABLE state: rejecting a vendor left
+  // their row (name, contact email, phone) readable by anyone with the anon key
+  // and, before the /explore verification filter, listed in the marketplace.
+  // `reject_to` is kept in the signature so existing form posts stay valid, but
+  // both branches resolve to the same private state.
+  const next: VendorPublicVisibility = DEFAULT_PRIVATE_VISIBILITY;
 
   const result = await transitionVendorVisibility({
     actor,

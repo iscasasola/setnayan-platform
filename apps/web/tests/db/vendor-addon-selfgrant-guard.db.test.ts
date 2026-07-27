@@ -413,7 +413,14 @@ test('the ADMIN path can still verify and un-hide a vendor', async () => {
 
 test('ordinary vendor REGISTRATION still succeeds (the INSERT branch defaults)', async () => {
   // The INSERT guard compares against the real column DEFAULTS ('unverified' /
-  // 'coming_soon'). Get either literal wrong and every self-registration 500s.
+  // 'hidden'). Get either literal wrong and every self-registration 500s.
+  //
+  // 🔒 `hidden` since 2026-07-27 (was 'coming_soon'). The owner retired
+  // coming_soon — "we only show shops that are ready" — and migration
+  // 20271013500000 moved BOTH the column default AND the guard's INSERT-branch
+  // literal in one step, precisely because moving only the default would have
+  // made the guard reject every registration. This assertion is the thing that
+  // proves the pair stayed in sync, so it must track the default, not lag it.
   await reset();
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email, raw_user_meta_data)
@@ -433,5 +440,10 @@ test('ordinary vendor REGISTRATION still succeeds (the INSERT branch defaults)',
     [uid],
   );
   assert.equal(r.rows[0]!.v, 'unverified');
-  assert.equal(r.rows[0]!.p, 'coming_soon');
+  assert.equal(
+    r.rows[0]!.p,
+    'hidden',
+    'a self-registered shop must rest PRIVATE — the pre-2026-07-27 default ' +
+      "('coming_soon') was publicly readable through vendor_profiles_public_read",
+  );
 });

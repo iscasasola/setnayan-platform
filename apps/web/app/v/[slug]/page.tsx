@@ -77,10 +77,12 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import {
+  PACKAGE_ITEM_BRANCHING_SELECT,
   PACKAGE_ITEM_OPTION_SELECT,
   VENDOR_PACKAGE_SELECT,
   VENDOR_PACKAGE_ITEM_SELECT,
 } from '@/lib/vendor-packages';
+import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
@@ -1182,6 +1184,16 @@ export async function renderVendorBySlug({
       ? await resolveLivePax(supabase, coupleEventId)
       : null;
 
+  // Head count for the package configurator's per-head option upgrades
+  // ("+₱150/head"). SERVER-resolved, and the SAME number `lockPackage` resolves
+  // for itself — quoting a per-head upgrade at anything else is a display total
+  // that drifts from the charge. Only fetched when a package can actually be
+  // configured: flag on, signed-in host with an event, packages to show.
+  const packageLivePax =
+    packageCreditEnabled() && coupleEventId && vendorPackages.length > 0
+      ? ((await resolveLivePax(supabase, coupleEventId)) ?? 0)
+      : 0;
+
   // Phase 1b PR-3 · per-category requirements capture. The initial pick's
   // category IS the canonical_service (vendor_services.category ≈ 1:1 with
   // canonical_service_schemas). Load the leaf's multi_select facets (checkbox
@@ -2205,6 +2217,7 @@ export async function renderVendorBySlug({
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
             hidePrices={hidePricesPublicly}
+            paxCount={packageLivePax}
           />
         ) : null}
 
@@ -3269,17 +3282,33 @@ async function fetchVendorPackagesWithItems(
     if (pkgsErr || !pkgs || pkgs.length === 0) return [];
 
     const packageIds = pkgs.map((p) => p.package_id);
-    const { data: items } = await admin
-      .from('vendor_package_items')
-      .select(
-        // `is_required` drives the "Always included" lock in the customize
-        // modal. It was missing here, so on this page every required line
-        // rendered as a normal unticking checkbox — the server still refused
-        // the removal, but the UI said otherwise.
-        VENDOR_PACKAGE_ITEM_SELECT,
-      )
-      .in('package_id', packageIds)
-      .order('display_order', { ascending: true });
+    // `is_required` drives the "Always included" lock in the customize modal. It
+    // was missing here, so on this page every required line rendered as a normal
+    // unticking checkbox — the server still refused the removal, but the UI said
+    // otherwise.
+    //
+    // The BRANCHING columns are appended only behind the credit flag, and only
+    // here — never on `lockPackage`'s own select. This fetch is best-effort (the
+    // catch below renders no packages at all), so if the branching migration has
+    // not landed the cost is a hidden section; the same names on the lock path
+    // would be a PostgREST 400 on a money action. See
+    // PACKAGE_ITEM_BRANCHING_SELECT.
+    //
+    // TWO WHOLE QUERIES, not one with a ternary select: postgrest-js parses the
+    // select string in the TYPE system, and a union of two literals makes that
+    // parser bail (`ParserError<"Unexpected input: …">`), which erases the row
+    // type. Each branch has to carry a single concrete literal.
+    const { data: items } = packageCreditEnabled()
+      ? await admin
+          .from('vendor_package_items')
+          .select(`${VENDOR_PACKAGE_ITEM_SELECT}, ${PACKAGE_ITEM_BRANCHING_SELECT}`)
+          .in('package_id', packageIds)
+          .order('display_order', { ascending: true })
+      : await admin
+          .from('vendor_package_items')
+          .select(VENDOR_PACKAGE_ITEM_SELECT)
+          .in('package_id', packageIds)
+          .order('display_order', { ascending: true });
 
     // CHOICE lines. A line is a choice iff it has options, so this join is what
     // makes them visible at all — without it the couple saw an inclusion with
@@ -3333,12 +3362,15 @@ function VendorPackagesSection({
   coupleEventId,
   isComingSoon,
   hidePrices,
+  paxCount,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
   hidePrices: boolean;
+  /** Server-resolved head count, so a per-head upgrade quotes at what it charges. */
+  paxCount: number;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -3362,7 +3394,13 @@ function VendorPackagesSection({
               </p>
             );
           } else if (coupleEventId) {
-            cta = <LockPackageModal eventId={coupleEventId} pkg={pkg} />;
+            cta = (
+              <LockPackageModal
+                eventId={coupleEventId}
+                pkg={pkg}
+                paxCount={paxCount}
+              />
+            );
           } else {
             cta = (
               <Link

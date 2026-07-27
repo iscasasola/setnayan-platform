@@ -80,7 +80,7 @@ export const TAB_META: Record<
  * listens to stay lit. Lives here (next to `BUDGET_BUILD_TABS`) so the takeover
  * (page subtree) and the dock (layout subtree) share one channel without a
  * cross-`_components` import. `services-takeover.tsx` re-exports both for its
- * existing consumers (`build-compare.tsx`, `build-picks-list.tsx`).
+ * existing consumer (`build-compare.tsx`).
  */
 export const BB_TAB_EVENT = 'bb:tab';
 export function goToBuildTab(tab: BudgetBuildTab) {

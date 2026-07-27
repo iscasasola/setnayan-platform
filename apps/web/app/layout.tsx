@@ -21,7 +21,6 @@ import { NativeBridge } from './_components/native-bridge';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
-import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
@@ -582,7 +581,6 @@ export default async function RootLayout({
             tab taps. No-op on desktop / reduced-motion / unsupported browsers,
             and never touches the locked BottomNav. See nav-slide-controller.tsx. */}
         <NavSlideController />
-        <PilotModeBanner />
         {/*
           DemoModeBanner is admin-only and now a CLIENT component: it reads a
           non-httpOnly presence-hint cookie and, only when present, fetches the

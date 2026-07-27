@@ -68,6 +68,7 @@ import {
   type PendingLockProposal,
 } from './_components/pending-lock-proposals';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
@@ -978,6 +979,36 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
+  // Explore Replan slice A · per-tile "✓ Covered" collapse. A category the
+  // couple explicitly finished — the post-lock "done with this service, or add
+  // another?" toast, or the automatic hard-single fill — carries an
+  // event_category_decisions row with decision='complete'. Those decisions key
+  // on plan_group_id while the bench renders at TILE grain, so bridge across
+  // with the group's `catalogTile`. Flag OFF → `{}` with no query at all, so
+  // the bench renders byte-identically to pre-replan production. Fail-soft: a
+  // read error degrades to the normal rails (the surface is unaffected).
+  const coveredByTile: Record<string, string> = await (async () => {
+    const out: Record<string, string> = {};
+    if (!isExploreReplanEnabled()) return out;
+    try {
+      const { data } = await supabase
+        .from('event_category_decisions')
+        .select('plan_group_id')
+        .eq('event_id', eventId)
+        .eq('decision', 'complete');
+      const completed = new Set<string>(
+        (data ?? []).map((r: { plan_group_id: string }) => r.plan_group_id),
+      );
+      if (completed.size === 0) return out;
+      for (const g of PLAN_GROUPS) {
+        if (g.catalogTile && completed.has(g.id)) out[g.catalogTile] = g.id;
+      }
+    } catch {
+      /* fail-soft — no "Covered" rows rather than a broken shortlist */
+    }
+    return out;
+  })();
+
   // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
   // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
   // and render its quick-view as the inspector column body — a new PRESENTATION
@@ -1024,6 +1055,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         eventId={eventId}
         initialOpenTile={sp.open ?? null}
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
+        coveredByTile={coveredByTile}
       />
     </>
   );

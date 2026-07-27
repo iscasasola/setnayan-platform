@@ -7638,7 +7638,7 @@ function BoothPickerPanel({
                 href={`/dashboard/${eventId}/vendors`}
                 className="font-medium text-terracotta-700 underline hover:text-terracotta"
               >
-                lock a vendor in Merkado
+                lock a vendor in the Marketplace
               </a>{' '}
               to place them here. Until then this slot shows Setnayan.
             </>

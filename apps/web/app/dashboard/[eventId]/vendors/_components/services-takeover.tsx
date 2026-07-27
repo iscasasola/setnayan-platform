@@ -172,7 +172,7 @@ export function ServicesTakeover({
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
-          the Merkado as the couple's premium planning surface. Gold-accented,
+          the Marketplace as the couple's premium planning surface. Gold-accented,
           presentational; the AI features it names (smart matching, watch guard)
           are already live behind the same gate. */}
       {premium ? (
@@ -182,7 +182,7 @@ export function ServicesTakeover({
             Setnayan&nbsp;AI
           </span>
           <span className="text-xs text-ink/60">
-            Your Merkado is on the premium tier — smart matching, fit scoring, and the watch guard are on.
+            Your Marketplace is on the premium tier — smart matching, fit scoring, and the watch guard are on.
           </span>
         </div>
       ) : null}

@@ -1,0 +1,130 @@
+import Link from 'next/link';
+import { ArrowRight, Lock, Sparkles } from 'lucide-react';
+import type { DayOfFrameModel } from '@/lib/vendor-dayof-frame';
+import {
+  ConsoleEyebrow,
+  ConsoleHeading,
+  ConsolePlate,
+} from '../../../_components/pahina-console';
+import { SPECIALIZATION_SURFACES } from './specialization-registry';
+
+/**
+ * The specialization SLOT — the one place the console renders a vendor's
+ * per-trade surface, and the one place that decides what to show when there
+ * isn't one yet.
+ *
+ * Three states, from `buildDayOfFrame`, and all three render something honest:
+ *
+ *   ready       → the registered surface, mounted with the props contract.
+ *   coming_soon → a named placeholder. The vendor HOLDS this specialization;
+ *                 we simply have not shipped the desk yet. It says exactly
+ *                 that, using the set's own label and blurb, so it is never a
+ *                 blank panel, never an error, and never a link that goes
+ *                 nowhere (owner requirement).
+ *   locked      → the quiet upsell. Their trade has a desk; their tier does
+ *                 not include it yet.
+ *
+ * THE ENTITLEMENT IS NOT DECIDED HERE. `page.tsx` resolves it on the server via
+ * `resolveVendorSpecializationAccessForVendor` before this component exists.
+ * This file reads `model.specialization.state` and nothing else — there is no
+ * prop, param or cookie on this path that could promote `locked` to `ready`.
+ *
+ * NOTHING IN THE GENERIC KIT PASSES THROUGH HERE. This component renders the
+ * NEW section only. The tools every vendor already had are rendered by
+ * `page.tsx` from `model.genericModuleIds`, which the frame passes through
+ * untouched on every access path.
+ */
+export function SpecializationSlot({
+  model,
+  eventId,
+  vendorProfileId,
+  coupleName,
+}: {
+  model: DayOfFrameModel;
+  eventId: string;
+  vendorProfileId: string;
+  coupleName: string;
+}) {
+  const spec = model.specialization;
+  if (!spec) return null; // category has no specialization — generic is the whole kit
+
+  const Surface =
+    spec.state === 'ready' ? SPECIALIZATION_SURFACES[spec.set] : undefined;
+
+  return (
+    <section id={spec.domId} className="scroll-mt-4 space-y-3">
+      <ConsoleEyebrow>
+        {spec.state === 'locked' ? 'Available on your trade' : 'Your specialization'}
+      </ConsoleEyebrow>
+
+      {Surface ? (
+        // The built desk. It gets the plate for material consistency; whatever
+        // it renders inside is its own PR's business.
+        <ConsolePlate className="space-y-4">
+          <ConsoleHeading>{spec.label}</ConsoleHeading>
+          <Surface
+            eventId={eventId}
+            vendorProfileId={vendorProfileId}
+            coupleName={coupleName}
+          />
+        </ConsolePlate>
+      ) : spec.state === 'coming_soon' ? (
+        <ComingSoon label={spec.label} blurb={spec.blurb} />
+      ) : (
+        <LockedUpsell model={model} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Held, but not built yet. Names the desk and says plainly that it is on the
+ * way — no spinner, no "error loading", no CTA that leads nowhere.
+ */
+function ComingSoon({ label, blurb }: { label: string; blurb: string }) {
+  return (
+    <ConsolePlate className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />
+        <ConsoleHeading as="h3">{label}</ConsoleHeading>
+      </div>
+      <p className="text-sm leading-relaxed text-ink/65">{blurb}</p>
+      <p className="text-sm leading-relaxed text-ink/70">
+        This is included in your plan. We&rsquo;re still building it — it will appear
+        here, on this screen, the moment it&rsquo;s ready. Nothing for you to do.
+      </p>
+    </ConsolePlate>
+  );
+}
+
+/**
+ * Eligible by trade, below the tier floor (or lapsed). Quiet on purpose: it is
+ * one plate under the tools the vendor came here to use, not a wall in front of
+ * them. `lapsed` gets "renew", everyone else gets "subscribe".
+ */
+function LockedUpsell({ model }: { model: DayOfFrameModel }) {
+  const upsell = model.upsell;
+  if (!upsell) return null;
+
+  return (
+    <ConsolePlate className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Lock aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+        <ConsoleHeading as="h3">{upsell.label}</ConsoleHeading>
+      </div>
+      <p className="text-sm leading-relaxed text-ink/65">{upsell.blurb}</p>
+      <p className="text-sm leading-relaxed text-ink/70">
+        {upsell.lapsed
+          ? `Your subscription has lapsed, so this desk is paused. Renewing brings it back — everything else on this screen keeps working.`
+          : `Built for your trade, and included from ${upsell.minTierLabel} up. Everything else on this screen stays exactly as it is.`}
+      </p>
+      <Link
+        href={upsell.href}
+        className="inline-flex items-center gap-1.5 pt-1 text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline"
+      >
+        {upsell.lapsed ? 'Renew your plan' : 'See the plans'}
+        <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      </Link>
+    </ConsolePlate>
+  );
+}

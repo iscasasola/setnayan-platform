@@ -250,12 +250,17 @@ test('the vendor workspace add-on list excludes follow-ups', () => {
 });
 
 test('the booked-package detail list excludes follow-ups', () => {
-  // This one splits on `removed_item_ids` alone and never consults
-  // is_default_included, so a follow-up would print under "Included in this
-  // booking" — a receipt for something nobody bought.
+  // This one used to split on `removed_item_ids` alone and never consult
+  // is_default_included, so a follow-up — and every ordinary ADD-ON — printed
+  // under "Included in this booking", a receipt for something nobody bought.
+  // The inclusion half now lives in `[bookingId]/receipt-sections.ts` and is
+  // asserted by its own suite; this still pins the follow-up half at source.
   const src = read('app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx');
   assert.match(src, /parent_option_id == null/);
-  assert.match(src, /parent_option_id'/);
+  // Terminator-agnostic: the select is now `${VENDOR_PACKAGE_ITEM_SELECT},
+  // parent_option_id` — the canonical constant rather than a hand-typed copy,
+  // which is what had silently dropped `is_required` from this page.
+  assert.match(src, /parent_option_id['`]/);
 });
 
 test('the lock modal still lists ONLY default-included lines', () => {

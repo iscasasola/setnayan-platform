@@ -12,7 +12,16 @@
  * POSITIONING (locked "Live Studio human positioning"): sell PRESENCE ACROSS
  * DISTANCE — being there for the guests who can't be in the room. Copy sells
  * BENEFITS only (public-surface hygiene) and quotes NO price (admin-managed +
- * provisional — links to /pricing). Never names YouTube / the streaming stack.
+ * provisional — links to /pricing).
+ *
+ * ⚠ 2026-07-27 — the old "never names YouTube / the streaming stack" rule is
+ * REVERSED. This is the primary public page for the feature that consumes a
+ * Google SENSITIVE scope (auth/youtube). A product page that never mentions the
+ * integration reads to an OAuth reviewer as concealment, whatever the marketing
+ * rationale. The FAQ now names YouTube plainly and links /privacy. Keep it.
+ * Describe whose channel is used as a function of how the event is set up —
+ * both arrangements ship (setup/actions.ts:203-229) — and never claim Setnayan
+ * transmits the video (panood-youtube.ts:266-274).
  */
 
 import Link from 'next/link';
@@ -79,7 +88,7 @@ const APP_LD = {
     'Family overseas join in real time',
     'No login or install for the people watching',
     'Costs the same whether ten watch or ten thousand',
-    'The recording stays with your wedding afterwards',
+    'Auto-archived on YouTube, with the watch link kept on your wedding website afterwards',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -100,11 +109,15 @@ const FAQ = [
   },
   {
     q: 'Can we keep the recording?',
-    a: 'Yes. After the day, the stream stays with your wedding so anyone who missed it — or wants to relive it — can watch it back.',
+    a: 'Yes — YouTube keeps the broadcast after the day, and the watch link stays on your wedding website so anyone who missed it can watch it back. If it ran on your own YouTube channel, the recording is yours to keep, edit, or delete in YouTube Studio. If it ran on a Setnayan channel, we keep it as an unlisted video and give you the watch link — and we will delete it if you ask.',
   },
   {
     q: 'Does it replace our videographer?',
     a: 'No. Live Studio is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Studio makes sure no one misses the day itself.',
+  },
+  {
+    q: 'How does the stream actually work?',
+    a: 'Live Studio broadcasts through YouTube. Setnayan sets the broadcast up and embeds it on your wedding website, always unlisted — it never appears in YouTube search, and only people with your website or the link can watch. It runs on your own YouTube channel when you connect one, or on a Setnayan channel where we supply it. Your own streaming software, like OBS, sends the video to YouTube; Setnayan does not carry the video itself. How we handle the Google data involved is set out at setnayan.com/privacy.',
   },
 ];
 
@@ -240,6 +253,14 @@ export default function PanoodLandingPage() {
               </Reveal>
             ))}
           </dl>
+          <p className="mt-5 text-center text-sm text-[#5F5E5A]">
+            Live Studio uses YouTube API Services. How we handle the Google data
+            involved is set out in our{' '}
+            <Link href="/privacy" className="underline underline-offset-4">
+              privacy policy
+            </Link>
+            .
+          </p>
         </section>
 
         {/* CTA — incidental fade; gold capped to a single --m-orange hairline border. */}

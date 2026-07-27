@@ -821,10 +821,26 @@ export function HomeReskin({
             load-bearing — do not "tighten" them away:
               1. the literal title-case string "Setnayan" as body prose,
               2. a plain description of what the app does,
-              3. the explicit statement that Live Studio creates a YouTube live
+              3. an explicit statement that Live Studio sets up a YouTube live
                  broadcast — that's the justification Google's SENSITIVE-SCOPE
                  review asks for next, and it has to be visible on the homepage
                  before that review, not after it fails.
+
+            ⚠ RULE FOR WHOSE CHANNEL (added 2026-07-27). Two arrangements ship
+            on main: goLivePanood prefers a Setnayan-owned pool channel when
+            NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on and otherwise uses the
+            couple's own grant (setup/actions.ts:203-229), and
+            /api/oauth/youtube/start still lets a couple connect their own.
+            In production the pool is EMPTY, so the couple-connects path is the
+            only one that has ever run. Therefore: describe whose channel is
+            used as a FUNCTION OF HOW THE EVENT IS SET UP. Never assert which
+            arrangement is in force — in EITHER direction. "creates the
+            couple's own YouTube live broadcast" was wrong under the pool;
+            "runs on a Setnayan channel" would be wrong today. Both readings
+            must survive the pool shipping with no rewrite.
+            Do not say Setnayan streams or pushes the video: it never sends a
+            video byte (panood-youtube.ts:52-53, 266-274). The couple's own
+            encoder pushes to the stream key.
             Anchored as #what-is-setnayan so the URL can be handed to a reviewer
             directly (see the hash-deep-link effect above). */}
         <section className="hr-about" id="what-is-setnayan">
@@ -837,9 +853,12 @@ export function HomeReskin({
             verified vendors at 0% commission, and a live event page for their guests. Optional
             paid upgrades set the day apart: <em>Papic</em> turns the guests’ own phones into a
             photo-and-video crew, <em>Setnayan AI</em> drafts the timeline and matches vendors,
-            and <em>Live Studio</em> creates the couple’s own YouTube live broadcast and streams
-            the ceremony to it, so family working abroad can watch the moment it happens. Every
-            photo, video, and milestone gathers into one living memory the couple keeps, for life.
+            and <em>Live Studio</em> sets up a YouTube live broadcast for the ceremony and puts
+            the player on their event page, so family working abroad can watch the moment it
+            happens. The broadcast is created on the couple’s own YouTube channel when they
+            connect one; where Setnayan supplies the channel for an event, the couple connects
+            nothing. Every photo, video, and milestone gathers into one living memory the couple
+            keeps, for life.
           </p>
           {/* Google's App Homepage checklist requires the homepage to "explain
               with transparency the purpose for which your app requests user
@@ -856,11 +875,20 @@ export function HomeReskin({
               YOUTUBE_OAUTH_SCOPES in lib/panood-youtube.ts.) */}
           <p className="hr-adef hr-anote">
             <em>Why Setnayan asks for YouTube access:</em> Live Studio is optional and off by
-            default. When a couple turns it on, Setnayan asks them to connect their own YouTube
-            account, and uses that connection to set up and run the live broadcast for their own
-            event — scheduling it, starting and ending it, and streaming their ceremony to it.
-            Nothing is broadcast to their channel unless they turn Live Studio on for their event.
-            Full details are in our <Link href="/privacy">Privacy Policy</Link>.
+            default. It uses one Google permission — the YouTube account-management permission,{' '}
+            <code>https://www.googleapis.com/auth/youtube</code> — and Setnayan uses it only to set
+            up and run Live Studio broadcasts: see which channel is connected, create the live
+            broadcast and its streaming slot, start and end it, check that the stream is arriving,
+            and afterwards find the replay of the broadcast we created so the event page can link
+            to it. When a couple connects their own channel, that connection is held against their
+            event and used for nothing else. Where Setnayan supplies the channel for an event, the
+            couple connects nothing and grants Setnayan no access to their Google account.
+            Broadcasts are always created unlisted, and Setnayan does not send the video itself —
+            the couple’s own streaming software does that. Setnayan does not upload videos to
+            anyone’s channel, does not read anything else on a connected channel, never sells
+            YouTube data or uses it to train AI, and shares nothing beyond the broadcast link the
+            couple asked us to put on their event page. Full details are in our{' '}
+            <Link href="/privacy">Privacy Policy</Link>.
           </p>
         </section>
 

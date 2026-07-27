@@ -134,7 +134,7 @@ const softwareAppJsonLd = {
     'Pakulay mood board (free)',
     'Personal event website with branded QR invitations',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (paid add-on)',
-    'Live Studio — day-of livestream embedded on the event website (paid add-on)',
+    'Live Studio — day-of livestream to YouTube, embedded on the event website (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
     'Pakanta — a custom Filipino-style wedding song produced for the couple (paid add-on)',
     'Animated Monogram — a bespoke monogram + animation across invites, website, and signage (paid add-on)',

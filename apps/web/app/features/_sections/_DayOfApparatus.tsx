@@ -54,7 +54,7 @@ const COPY: Record<
     services: [
       {
         tagline: 'Livestream · free single-cam, paid multicam',
-        body: 'Go live on your own YouTube channel from a phone or laptop, free, embedded right on your event page, auto-archived. Family who can’t make it sees every moment in 1080p, on whatever device they’re on. Upgrade to the multicam control room when you want several cameras, one-tap moment switching, and overlays routed to every screen at the venue.',
+        body: 'Go live to YouTube, free, embedded right on your event page and auto-archived. Setnayan sets the broadcast up; you run the stream from a laptop using free streaming software like OBS. Family who can’t make it sees every moment in 1080p, on whatever device they’re on. Upgrade to the multicam control room when you want several cameras, one-tap moment switching, and your monogram and lower-third on the broadcast.',
       },
       {
         tagline: 'Designated paparazzi',
@@ -97,7 +97,7 @@ const COPY: Record<
     services: [
       {
         tagline: 'Livestream · libre single-cam, bayad multicam',
-        body: 'Mag-live sa sarili mong YouTube channel mula sa phone o laptop, libre, naka-embed mismo sa event page mo, auto-archived. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila. Mag-upgrade sa multicam control room kapag gusto mo ng maraming camera, one-tap moment switching, at overlays na naka-route sa bawat screen sa venue.',
+        body: 'Mag-live sa YouTube, libre, naka-embed mismo sa event page mo, auto-archived. Ang Setnayan ang bahala sa pag-set up ng broadcast; ikaw ang magpapatakbo ng stream mula sa laptop gamit ang libreng streaming software tulad ng OBS. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila. Mag-upgrade sa multicam control room kapag gusto mo ng maraming camera, one-tap moment switching, at ang monogram at lower-third mo sa broadcast.',
       },
       {
         tagline: 'Designated paparazzi',

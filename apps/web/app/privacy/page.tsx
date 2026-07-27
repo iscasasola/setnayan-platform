@@ -783,96 +783,200 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="YouTube integration (Live Studio)">
+        {/* ── Google / YouTube data (Live Studio) ───────────────────────────
+            Rewritten 2026-07-27. Five rules produced every sentence below.
+            Re-read them before editing:
+              1. TRUE IN BOTH ARRANGEMENTS, AND TRUE TODAY. goLivePanood
+                 prefers a Setnayan-owned pool channel when
+                 NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on
+                 (lib/live-studio-channel-grants.ts) and otherwise uses the
+                 couple's own grant (lib/panood-broadcast.ts). In production
+                 the pool is EMPTY, so the couple-connects path is the only one
+                 that has ever run. Describe whose channel is used as a
+                 FUNCTION OF HOW THE EVENT IS SET UP; never assert which
+                 arrangement is in force, in either direction.
+              2. NEVER CLAIM AN INCAPACITY THE SCOPE CONTRADICTS. auth/youtube
+                 is Google's broad "manage your YouTube account" scope. State
+                 restraint ("we do not"), never inability ("we cannot").
+              3. NEVER PROMISE AN AUTOMATION THAT DOES NOT EXIST. The old "30
+                 days after the event ends / refresh tokens purged
+                 automatically" line was implemented nowhere — retention-sweep
+                 is chat-only and api/cron/oauth-refresh only refreshes.
+              4. STATE WHAT IS GUARANTEED, NOT WHAT IS ATTEMPTED. The
+                 disconnect route calls Google's revoke endpoint only when
+                 getYoutubeOAuthConfig() resolves ready
+                 (api/oauth/youtube/disconnect/route.ts:88-92), and
+                 revokeYoutubeToken swallows every network error
+                 (panood-youtube.ts:550-563). So the Google-side revoke is
+                 best-effort and this copy says so.
+              5. THE SCOPE LIST MUST BYTE-MATCH YOUTUBE_OAUTH_SCOPES *AND* THE
+                 OAUTH CONSENT SCREEN. A policy that discloses a scope we do
+                 not request is as wrong as one that hides a scope we do. */}
+        <Section title="Google / YouTube data (Live Studio)">
           <p>
-            Couples who purchase a Live Studio SKU (live wedding broadcast) connect
-            their own YouTube channel to Setnayan so the live ceremony can
-            stream to their channel and embed on the event landing page. The
-            connection uses Google&rsquo;s standard OAuth sign-in. You can
-            revoke it at any time from your{' '}
+            Live Studio is Setnayan&rsquo;s live-broadcast feature. It is
+            optional and off by default. When a host turns it on for an event,{' '}
+            <strong>Live Studio uses YouTube API Services</strong> to set up and
+            run that event&rsquo;s live broadcast, and embeds the player on the
+            event page. Single-camera streaming is free for any host; the
+            multi-camera control room is a paid upgrade. Your use of YouTube is
+            also governed by{' '}
             <a
-              href="https://myaccount.google.com/permissions"
+              href="https://www.youtube.com/t/terms"
               className="text-terracotta hover:underline"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Google Account permissions
+              YouTube&rsquo;s Terms of Service
+            </a>{' '}
+            and the{' '}
+            <a
+              href="https://policies.google.com/privacy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Privacy Policy
             </a>
             .
           </p>
-          <ul className="ml-5 list-disc space-y-1 pt-2">
+
+          <p className="pt-2">
+            <strong>
+              Whose YouTube channel the broadcast runs on depends on how your
+              event is set up.
+            </strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
             <li>
-              {/* .../auth/youtube.upload was dropped 2026-07-25 — it was
-                  requested for the same-day-edit upload feature, which the
-                  owner retired 2026-06-28, and no code ever called an upload
-                  endpoint. This list must keep matching YOUTUBE_OAUTH_SCOPES in
-                  lib/panood-youtube.ts AND the OAuth consent screen: a privacy
-                  policy that discloses a scope we don't request is as wrong as
-                  one that hides a scope we do. */}
-              <strong>Scopes requested.</strong> Only{' '}
-              <code className="font-mono text-[12px]">.../auth/youtube</code>{' '}
-              (create and manage the live broadcast for your event),{' '}
-              <code className="font-mono text-[12px]">.../auth/userinfo.email</code>, and{' '}
-              <code className="font-mono text-[12px]">.../auth/userinfo.profile</code>.
-              We do <strong>not</strong> request permission to upload videos to
-              your channel.
-              We never request read access to your subscribers, comments, view
-              history, watch history, search history, or any YouTube data
-              unrelated to the broadcast we created for your event.
+              <strong>You connect your own channel.</strong> You link your
+              YouTube channel to Setnayan using Google&rsquo;s standard
+              sign-in, and the broadcast is created on your channel. This is
+              the arrangement everything below describes — and the one you are
+              in if Setnayan ever asked you to sign in to Google.
             </li>
             <li>
-              <strong>What we receive from Google.</strong> A refresh token
-              tied to your YouTube channel, your channel name and ID, an
-              access token (typically valid 1 hour), and the broadcast IDs we
-              create on your behalf. We do not receive your Google password.
+              <strong>Setnayan supplies the channel.</strong> For events where
+              Setnayan provides the channel, the broadcast is created on a
+              YouTube channel Setnayan owns and operates, using a Google
+              connection that belongs to Setnayan. You connect nothing, you are
+              never asked to sign in to Google, and no Google data of yours
+              reaches us at all. What this means for the recording is under
+              &ldquo;Recordings&rdquo; below.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>When you connect your own YouTube channel</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              {/* .../auth/youtube.upload was dropped 2026-07-25 — requested for
+                  the same-day-edit feature the owner retired 2026-06-28, and no
+                  code ever called an upload endpoint. userinfo.email and
+                  userinfo.profile were removed from this list 2026-07-27: they
+                  were disclosed here but never requested. Keep this matching
+                  YOUTUBE_OAUTH_SCOPES in lib/panood-youtube.ts AND the OAuth
+                  consent screen. */}
+              <strong>The permission we ask for.</strong> Exactly one:{' '}
+              <code className="font-mono text-[12px]">
+                https://www.googleapis.com/auth/youtube
+              </code>
+              . This is the narrowest permission Google offers that can create
+              and run a live broadcast &mdash; the read-only YouTube permission
+              cannot start one, and the two other permissions that could
+              (&ldquo;force-ssl&rdquo; and &ldquo;youtubepartner&rdquo;) are
+              wider, not narrower. Google describes it broadly, as managing
+              your YouTube account &mdash; so the consent screen will tell you
+              it covers more than we use. We ask for nothing else: no permission
+              to upload videos, and no permission to read your Google email
+              address or profile. Connecting YouTube tells us your
+              channel&rsquo;s ID, name, and picture. It does not tell us your
+              Gmail address.
             </li>
             <li>
-              <strong>How we use it.</strong> The refresh token is read by our
-              broadcaster orchestration service only during your event window,
-              to (a) create the YouTube live broadcast for your event, (b)
-              push the selected camera feed to YouTube&rsquo;s ingest endpoint
-              while you are live, and (c) embed the resulting public broadcast
-              in your Setnayan event landing page. We do not browse, modify,
-              or delete any other content on your YouTube channel.
+              <strong>What we actually do with it.</strong> Six things, and
+              nothing else: (a) read which channel you connected, so we can show
+              you it is linked; (b) create the live broadcast for your event;
+              (c) create the streaming slot it receives video on; (d) link those
+              two together; (e) start the broadcast, check that video is
+              arriving, and end it; and (f) afterwards, look up the replay of
+              the broadcast <em>we</em> created, by its ID, so your event page
+              can link to it.
             </li>
             <li>
-              <strong>Storage + scope.</strong> Tokens and the channel ID are
-              stored in <code className="font-mono text-[12px]">oauth_grants</code>{' '}
-              in our Supabase database (Singapore region · encrypted at rest),
-              scoped to one specific Setnayan event. They are never shared
-              with vendors, other couples, or third parties.
+              <strong>What we do not do.</strong> We do not read, edit, or
+              delete any other video on your channel. We do not read your
+              subscribers, comments, playlists, watch history, or search
+              history. We do not upload anything to your channel. We do not
+              delete anything from your channel &mdash; including the broadcast
+              we created.
             </li>
             <li>
-              <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use
-              and transfer of information received from Google APIs to any
-              other app adheres to the{' '}
-              <a
-                href="https://developers.google.com/terms/api-services-user-data-policy"
-                className="text-terracotta hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google API Services User Data Policy
-              </a>
-              , including the Limited Use requirements. We never use your
-              YouTube data for advertising, never sell or transfer it, and
-              never use it to train AI or ML models.
+              <strong>Setnayan does not send your video to YouTube.</strong>{' '}
+              Setnayan creates the broadcast and gives you a streaming address
+              and key; your own streaming software sends the video to YouTube.
+              No ceremony video passes through Setnayan on its way to your
+              channel.
             </li>
             <li>
-              <strong>Retention.</strong> Grants are kept until the earlier of
-              (a) you revoke them from your Google account or from your
-              Setnayan profile, (b) you delete your Setnayan account, or (c)
-              30 days after the event ends. Refresh tokens past their expiry
-              are purged automatically.
+              <strong>The broadcast is unlisted.</strong> Every broadcast we
+              create is set to unlisted &mdash; it does not appear in YouTube
+              search or on a channel&rsquo;s public video list. Anyone who has
+              the link, or your event page, can watch it. It is embedded on your
+              event page using YouTube&rsquo;s privacy-enhanced player, which
+              sets no tracking cookies until someone presses play.
             </li>
             <li>
-              <strong>Revoking access.</strong> Two paths, either works
-              immediately:
+              <strong>What we receive and store.</strong> A refresh token and a
+              short-lived access token for the connection, the permission Google
+              granted, your channel&rsquo;s ID, name and picture, which Setnayan
+              account completed the connection, and the IDs of the broadcasts we
+              created. We never receive your Google password.
+            </li>
+            <li>
+              <strong>Where it is stored, and who can read it.</strong> In our
+              Supabase database in Singapore, encrypted at rest by our hosting
+              provider. The credential is readable only by our servers &mdash;
+              it is never sent to any browser, including yours, and the database
+              blocks browser-level accounts from reading it at all. No Setnayan
+              screen displays it to our staff. Access to the underlying database
+              is limited to the small team that operates Setnayan. A person only
+              ever looks at your Google connection data where it is necessary
+              for security purposes, to comply with applicable law, or where you
+              have asked us to investigate a specific problem with your
+              broadcast. Your streaming key is shown to you only when you ask to
+              see it, and is never published on your event page.
+            </li>
+            <li>
+              <strong>How long we keep it.</strong> Until you disconnect it,
+              until you delete your Setnayan account, or until you ask us to
+              remove it. We keep the connection alive in the background &mdash;
+              refreshing the access token automatically, including outside your
+              event window &mdash; so it still works on the day and so we can
+              resolve your replay afterwards. We do not currently delete the
+              connection on an automatic timer after the event. If you ask us to
+              delete the Google data we hold about you, we will do so within 30
+              days.
+            </li>
+            <li>
+              <strong>If you revoke access at Google.</strong> Our side notices
+              on the next attempt and stops using the connection. Setnayan will
+              show you that the connection needs reconnecting rather than
+              behaving as though it still works.
+            </li>
+            <li>
+              <strong>How to disconnect.</strong> Two ways, either works:
               <ul className="ml-5 mt-1 list-disc space-y-1">
                 <li>
                   In Setnayan, open the Live Studio page and click{' '}
-                  <em>Disconnect YouTube</em>. We soft-revoke the grant
-                  locally.
+                  <em>Disconnect YouTube</em>. We mark the connection revoked so
+                  Setnayan stops using it, and we ask Google to cancel our
+                  access. That second step is best-effort &mdash; if the call to
+                  Google does not go through, we still stop using the connection
+                  on our side. If you want to be certain the access is gone at
+                  Google as well, remove Setnayan from your Google account
+                  permissions too.
                 </li>
                 <li>
                   In your Google account, go to{' '}
@@ -882,40 +986,109 @@ export default function PrivacyPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Security → Third-party apps with account access
+                    Security &rarr; Third-party apps with account access
                   </a>{' '}
-                  and remove Setnayan. We honor the revocation on the next
-                  broadcast attempt.
+                  and remove Setnayan.
                 </li>
               </ul>
             </li>
             <li>
-              <strong>Broadcasts on your YouTube channel.</strong> Once a
-              broadcast is created on your channel, the recording is owned by
-              you. Edit or delete it from YouTube Studio like any other video
-              — Setnayan cannot delete videos on your behalf after the
-              broadcast ends. Your use of YouTube is also governed by{' '}
+              <strong>If you delete your Setnayan account.</strong> We delete
+              the Google connections our records attribute to your account.
+              Where a connection was recorded before we started capturing which
+              partner completed it, we leave it in place rather than risk
+              deleting your partner&rsquo;s credential &mdash; ask us and we
+              will remove it. Deleting your account does not, by itself, call
+              Google&rsquo;s revoke endpoint, so if you want the access
+              cancelled at Google too, remove Setnayan from your{' '}
               <a
-                href="https://www.youtube.com/t/terms"
+                href="https://myaccount.google.com/permissions"
                 className="text-terracotta hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                YouTube&rsquo;s Terms of Service
-              </a>{' '}
-              and the{' '}
-              <a
-                href="https://policies.google.com/privacy"
-                className="text-terracotta hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google Privacy Policy
+                Google account permissions
               </a>
-              .
+              . Records of the broadcasts we created (their YouTube video IDs,
+              timings, and streaming keys) are not removed by account deletion
+              today; ask us and we will delete them.
             </li>
           </ul>
+
+          <p className="pt-3">
+            <strong>Recordings</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              Setnayan does not keep its own copy of your broadcast. YouTube
+              archives it, and Setnayan links to it.
+            </li>
+            <li>
+              <strong>If the broadcast ran on your own channel</strong>, the
+              recording is yours. Edit or delete it in YouTube Studio like any
+              other video. Setnayan does not delete or edit videos on your
+              channel.
+            </li>
+            <li>
+              <strong>If the broadcast ran on a Setnayan channel</strong>, the
+              recording is an unlisted video on a YouTube channel Setnayan owns.
+              Setnayan keeps it and can remove it; you will not have YouTube
+              Studio access to it. Setnayan gives you the watch link from your
+              dashboard. Ask us and we will delete it.
+            </li>
+            <li>
+              Setnayan never deletes anything on YouTube automatically. Nothing
+              disappears because an event ended.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>Sharing, advertising, and AI.</strong> Setnayan&rsquo;s use
+            and transfer of information received from Google APIs to any other
+            app adheres to the{' '}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. We do not sell YouTube
+            data, do not transfer it to anyone other than Google, do not send it
+            to advertising networks or data brokers, do not use it for
+            advertising or personalisation, and do not use it to train AI or
+            machine-learning models. Your connection credential and your channel
+            details are not shared with vendors, other couples, or any other
+            Setnayan user. The one thing that is published is the broadcast
+            itself &mdash; its link is embedded on your event page, which is
+            public, so anyone with that page or the link can watch. That is what
+            the feature is for, and you control it by choosing whether to go
+            live.
+          </p>
+
+          <p className="pt-3">
+            Setnayan&rsquo;s Google Drive integration (Photo Delivery and Papic)
+            is a separate connection, with a separate permission and separate
+            credentials that never mix with this one. See the Google Drive
+            section below.
+          </p>
+
+          <p className="pt-3">
+            <strong>Facebook Live.</strong> A host may also publish a Facebook
+            Live link alongside the YouTube player on their event page. For this,
+            Setnayan uses no Meta credentials of yours or of ours: the host
+            pastes in a link they created themselves on their own Facebook
+            account. Setnayan sends no video to Meta and receives no data back
+            from Meta for your broadcast. Meta, not Setnayan, controls how long
+            that replay lasts. (Separately, Setnayan does hold a credential for
+            its own Facebook and Instagram pages &mdash; that is only for
+            posting Setnayan&rsquo;s own marketing, and is covered under
+            &ldquo;Featuring your event on Setnayan&rsquo;s own social
+            channels&rdquo; above.)
+          </p>
         </Section>
+
 
         <Section title="Google Drive integration (Photo Delivery + Papic)">
           <p>
@@ -1059,8 +1232,9 @@ export default function PrivacyPage() {
             <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
-              Google (YouTube Data API — only for couples who purchase Live Studio
-              and explicitly connect their YouTube channel via OAuth; Google
+              Google (YouTube Data API — used for any event broadcast through
+              Live Studio, under either the couple&rsquo;s own connected channel
+              or a Setnayan-held connection where Setnayan supplies the channel; Google
               Drive API — only for couples who use Photo Delivery or Papic
               and explicitly connect a Drive account via OAuth; Google&rsquo;s
               public STUN server — contacted briefly by your device when starting

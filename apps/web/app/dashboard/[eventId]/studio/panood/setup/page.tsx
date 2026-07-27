@@ -258,11 +258,13 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           Broadcast your wedding live
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Connect your YouTube channel, go live from your phone or OBS, and Setnayan
-          embeds your broadcast on your event page so family abroad can watch in real
-          time. The watch URL and auto-archive stay on your own channel. Want more
-          than one camera? The Setnayan multicam control room — the paid upgrade —
-          lets you switch between several phones with broadcast-style overlays.
+          Connect your YouTube channel, start your stream from OBS, and Setnayan embeds
+          your broadcast on your event page so family abroad can watch in real time.
+          Setnayan sets the broadcast up and hands your encoder a streaming address and
+          key — it never sends the video itself. When you connect your own channel, the
+          watch URL and auto-archive stay on that channel. Want more than one camera? The
+          Setnayan multicam control room — the paid upgrade — lets you switch between
+          several phones with broadcast-style overlays.
         </p>
       </header>
 
@@ -397,9 +399,12 @@ function YoutubeConnect({
           Connect your YouTube channel
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Live Studio broadcasts to <em>your</em> YouTube channel — your family controls who
-          subscribes, the archive belongs to you, and the watch URL is yours forever. We
-          request the minimum scopes needed to create + manage the live broadcast.
+          Connect a channel and Live Studio broadcasts to <em>your</em> YouTube channel —
+          your family controls who subscribes, the recording is yours, and the watch URL
+          stays on your channel. (For events where Setnayan supplies the channel, there is
+          nothing to connect here and the recording sits on a Setnayan channel instead.) We
+          request the minimum permission needed to create and run the live broadcast, and
+          nothing more.
         </p>
       </div>
 
@@ -411,16 +416,36 @@ function YoutubeConnect({
         <ConnectCTA eventId={eventId} />
       )}
 
+      {/* ⚠ This chip must keep byte-matching YOUTUBE_OAUTH_SCOPES in
+          lib/panood-youtube.ts AND the OAuth consent screen. It said "YouTube
+          manage + upload" until 2026-07-27 — the upload scope was removed
+          2026-07-25, so this screen was claiming a permission we no longer
+          request, one click before Google's consent screen shows a single
+          permission. */}
       <ul className="grid gap-2 text-xs text-ink/55 sm:grid-cols-2">
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
-          <span className="font-mono text-ink/65">Scopes requested:</span> YouTube manage
-          + upload (broadcast lifecycle + recording archive).
+          <span className="font-mono text-ink/65">Permission requested:</span> one —
+          YouTube account management, the narrowest permission Google offers that can
+          create and run a live broadcast (the read-only one cannot start a broadcast;
+          the alternatives are wider). No upload permission, no access to your email or
+          profile.
         </li>
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">One-time consent:</span> disconnect any
-          time from this page; we revoke the grant on Google&rsquo;s side too.
+          time from this page. We mark the connection revoked so Setnayan stops using it,
+          and ask Google to cancel our access — that second step is best-effort, so remove
+          Setnayan from your Google account permissions if you want to be certain.
         </li>
       </ul>
+      <p className="text-xs text-ink/55">
+        Setnayan uses this connection only to create, start, check, and end your
+        broadcast, and afterwards to look up its replay. We do not read your other
+        videos, subscribers, comments, or history, and we never upload to your channel.{' '}
+        <Link href="/privacy" className="text-terracotta hover:underline">
+          How we handle Google data
+        </Link>
+        .
+      </p>
     </section>
   );
 }
@@ -529,9 +554,10 @@ function ConnectedPanel({
         </form>
       </div>
       <p className="text-xs text-ink/65">
-        Your broadcast goes live on this channel — start it from the YouTube app or OBS,
-        then paste the watch link below so it appears on your event page. Automatic
-        broadcast creation (with ads switched off) arrives with the streaming rollout.
+        Your broadcast goes live on this channel. Use <em>Go live</em> below and Setnayan
+        creates the broadcast for you — always unlisted — then gives you the streaming
+        address and key to paste into OBS. The player appears on your event page
+        automatically once the stream is arriving.
       </p>
     </div>
   );

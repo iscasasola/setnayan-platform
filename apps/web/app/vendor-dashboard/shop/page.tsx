@@ -43,6 +43,7 @@ import {
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
+import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
   fetchVendorTeam,
@@ -193,8 +194,14 @@ type ShopData = {
   branchSub: string;
   hqLat: number | null;
   hqLng: number | null;
-  /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped. */
+  /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped.
+   *  Under the inner/outer model (§17) this is the CEILING on what the vendor
+   *  may declare below, not a claim about them. */
   reachKm: number;
+  /** Vendor-DECLARED free-transport ring in km. NULL = not declared yet. */
+  innerRadiusKm: number | null;
+  /** Vendor-DECLARED overall range in km. NULL = not declared yet. */
+  outerRadiusKm: number | null;
   branchViews: VendorBranchView[];
   branchFeePhp: number;
   branchAutoRadius: number;
@@ -333,6 +340,33 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   } catch {
     // pre-migration → treated as not-on-file (the gate then asks for it)
   }
+
+  // Vendor-declared travel rings (migration 20271013561924 · §17) — SOFT-PROBED
+  // in their own query, deliberately, for the same deploy-order reason as
+  // `registration_number_raw` above and `std-video-gate.ts:116`. Vercel ships on
+  // merge and migrations apply on their own schedule, so there is a window where
+  // this code is live and the columns are not. Folded into a big select, a
+  // missing column (42703) nulls the WHOLE row and would blank the shop page;
+  // isolated, the worst case is a null declaration — which reads as "not
+  // declared yet", which is the correct state in that window anyway.
+  let innerRadiusKm: number | null = null;
+  let outerRadiusKm: number | null = null;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('inner_radius_km, outer_radius_km')
+      .eq('vendor_profile_id', vendorId)
+      .maybeSingle();
+    const rings = (data ?? null) as {
+      inner_radius_km?: number | null;
+      outer_radius_km?: number | null;
+    } | null;
+    innerRadiusKm = rings?.inner_radius_km ?? null;
+    outerRadiusKm = rings?.outer_radius_km ?? null;
+  } catch {
+    // pre-migration → both stay null (the card renders empty fields)
+  }
+
   const meetSlot = verifyUploads.google_meet;
   const meetScheduledAt =
     meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
@@ -571,6 +605,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     hqLat: profile.hq_latitude ?? null,
     hqLng: profile.hq_longitude ?? null,
     reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
+    innerRadiusKm,
+    outerRadiusKm,
     branchViews: branches,
     branchFeePhp,
     branchAutoRadius: branchAutoRadiusKm(),
@@ -830,6 +866,8 @@ async function ShopHome({
             hqLat={data.hqLat}
             hqLng={data.hqLng}
             reachKm={data.reachKm}
+            innerRadiusKm={data.innerRadiusKm}
+            outerRadiusKm={data.outerRadiusKm}
             branches={data.branchViews}
             branchFeePhp={data.branchFeePhp}
             branchAutoRadius={data.branchAutoRadius}
@@ -1250,6 +1288,8 @@ function BranchPanel({
   hqLat,
   hqLng,
   reachKm,
+  innerRadiusKm,
+  outerRadiusKm,
   branches,
   branchFeePhp,
   branchAutoRadius,
@@ -1261,6 +1301,8 @@ function BranchPanel({
   hqLat: number | null;
   hqLng: number | null;
   reachKm: number;
+  innerRadiusKm: number | null;
+  outerRadiusKm: number | null;
   branches: VendorBranchView[];
   branchFeePhp: number;
   branchAutoRadius: number;
@@ -1298,14 +1340,16 @@ function BranchPanel({
         </div>
       </div>
 
-      {/* ── Coverage reach — the radius couples' Services search gates on. */}
+      {/* ── Coverage reach — the radius couples' Services search gates on, and
+           (2026-07-27 · §17) the CEILING on the two distances the vendor
+           declares for themselves just below it. */}
       {hasCoords ? (
         <div className="space-y-2">
           <ReachMap lat={hqLat} lng={hqLng} radiusKm={reachKm} />
           <p className="text-xs text-ink/55">
             {hasRing ? (
               <>
-                You cover about{' '}
+                Your plan reaches about{' '}
                 <span className="font-medium text-ink">{reachKm} km</span> from{' '}
                 {from}. Couples searching farther still find you under
                 {' '}&ldquo;Show farther,&rdquo; flagged &ldquo;travel fee
@@ -1318,6 +1362,11 @@ function BranchPanel({
               </>
             )}
           </p>
+          <ServiceRadiusFields
+            initialInnerKm={innerRadiusKm}
+            initialOuterKm={outerRadiusKm}
+            tierCapKm={reachKm}
+          />
         </div>
       ) : (
         <p className="text-xs" style={{ color: 'var(--m-slate)' }}>

@@ -171,6 +171,18 @@ export type ShortlistVendor = {
   /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
    *  else null (Free/unscoped or Enterprise/nationwide) — drives the reach label. */
   serviceRadiusKm: number | null;
+  /** INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17) — the vendor's
+   *  OWN declared travel rings, in km, ALREADY tier-clamped upstream. Inside
+   *  `innerRadiusKm` the vendor charges NO transportation fee; between inner and
+   *  outer a travel fee applies; beyond `outerRadiusKm` they're out of range.
+   *
+   *  NULL on EITHER = not declared → the card falls back EXACTLY to the
+   *  tier-derived `reachesVenue` badge above. A blank is never a penalty and
+   *  never a claim — which is the only way a voluntary field gets filled in.
+   *  These SUPERSEDE `reachesVenue` on the card when both are present, because
+   *  they're the vendor's own word rather than an inference from what they pay. */
+  innerRadiusKm: number | null;
+  outerRadiusKm: number | null;
   /** COMPOSITE-RANKING input · straight-line km from the event's venue anchor to
    *  the vendor's HQ (haversine, already resolved on the vendors page). NULL =
    *  either side has no coords / manual vendor → the scorer's NEUTRAL applies.
@@ -373,6 +385,11 @@ export function buildShortlistFolders(args: {
       // range"). serviceRadiusKm feeds the "within N km" label.
       reachesVenue: ext?.within_radius ?? null,
       serviceRadiusKm: ext?.service_radius_km ?? null,
+      // Declared travel rings (§17), already tier-clamped by the vendors page.
+      // Absent for manual vendors and for anyone who hasn't declared → null →
+      // the card keeps the tier-derived reach badge.
+      innerRadiusKm: ext?.inner_radius_km ?? null,
+      outerRadiusKm: ext?.outer_radius_km ?? null,
       // Composite-ranking inputs. All three are ALREADY resolved per candidate on
       // the vendors page for the compat % (§14.3) — carrying them onto the card
       // costs no extra query and is what lets "Best fit" call the real scorer

@@ -79,6 +79,7 @@ import {
   FOLDER_SUMMARY_TO_DECIDE,
 } from '@/lib/explore-info-copy';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
+import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import {
   RequirementsModal,
   type RequirementsModalPhase,
@@ -382,16 +383,36 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
-  const reach =
-    v.reachesVenue === true
-      ? { cls: 'ok', icon: <MapPin size={9} strokeWidth={2.25} aria-hidden />, text: 'Reaches you' }
-      : v.reachesVenue === false
-        ? {
-            cls: 'warn',
-            icon: <MapPinOff size={9} strokeWidth={2.25} aria-hidden />,
-            text: v.serviceRadiusKm ? `Beyond ${v.serviceRadiusKm}km` : 'Travel fee likely',
-          }
-        : null;
+  // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
+  // has DECLARED both rings, their own word replaces the tier-derived reach
+  // read with a three-state, money-shaped answer:
+  //   inside inner → "No travel fee" · inner→outer → "Travel fee applies" ·
+  //   beyond outer → "Outside their range".
+  // `travelFeeVerdictForVendor` returns null whenever either ring is undeclared
+  // or the distance is unknown, and the tier-derived badge below then renders
+  // EXACTLY as it does today. A blank is never a penalty and never a new claim.
+  // Rings on `ShortlistVendor` are ALREADY tier-clamped by the vendors page, so
+  // `resolveReachBadge` is a pure threshold read. It owns the precedence
+  // (declaration beats tier inference; no declaration = today's badge verbatim)
+  // and the copy, so this component and the quickview inspector cannot drift.
+  const badge = resolveReachBadge({
+    distanceKm: v.distanceKm,
+    innerKm: v.innerRadiusKm,
+    outerKm: v.outerRadiusKm,
+    reachesVenue: v.reachesVenue,
+    serviceRadiusKm: v.serviceRadiusKm,
+  });
+  const reach = badge
+    ? {
+        cls: badge.tone,
+        icon: badge.inRange ? (
+          <MapPin size={9} strokeWidth={2.25} aria-hidden />
+        ) : (
+          <MapPinOff size={9} strokeWidth={2.25} aria-hidden />
+        ),
+        text: badge.text,
+      }
+    : null;
   const budget =
     v.budgetFit === 'fits'
       ? {

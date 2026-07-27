@@ -1103,6 +1103,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <WaitingForQuotes items={waitingForQuotes} />
       <PendingLockProposals eventId={eventId} proposals={pendingLockProposals} />
       <ShortlistCategories
+        // Explore Replan PR-E — the "Still needs your decision" doorways in the
+        // right rail push the SHIPPED `?tab=shortlist&open=<tile>` deep link
+        // from inside this same route. A soft nav re-renders but does not
+        // remount, and `initialOpenTile` is only read in the bench's state
+        // initialisers — so without this key the deep link would be a no-op
+        // in-page. Keyed on the tile so the bench re-seeds when (and only when)
+        // the requested category changes. Flag OFF → `undefined`, i.e. no key
+        // at all: reconciliation is exactly as it ships today.
+        key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
         initialOpenTile={sp.open ?? null}
@@ -1393,6 +1402,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             budgetPhp: buildAnchors.budget.php,
             region: buildAnchors.location.region,
           }}
+          // Explore Replan PR-E — the live plan snapshot the Plans panel already
+          // builds above. "Your team" reads locked-ness from it through
+          // `lockedGroupIdsOf`, so both surfaces share one authority. Pass-down,
+          // never a new query.
+          planPicks={currentPlan.picks}
         />
       </div>
     );

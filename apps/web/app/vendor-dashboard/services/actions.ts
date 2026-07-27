@@ -34,6 +34,17 @@ import {
 } from '@/lib/vendor-service-payment-schedules';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
+import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
+import {
+  CUSTOMIZATION_FIELD_NAME,
+  autoNameDraftItems,
+  canonicalServiceForVendorCategory,
+  countAutoNamed,
+  parseCustomizationDraft,
+  toPackageDraft,
+} from '@/lib/service-customization-draft';
+import { savePackage } from '../packages/actions';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -1487,6 +1498,32 @@ export async function commitVendorService(formData: FormData) {
     return back((e as Error).message);
   }
 
+  // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
+  //
+  // The wizard is ONE <form>, so this step arrives as ONE hidden JSON field
+  // alongside everything else. PARSED HERE, WRITTEN LATER: every bounce below
+  // is a `redirect`, so the parse has to happen while a bounce is still free —
+  // but the write has to wait until the service row exists. Malformed JSON
+  // bounces with a readable sentence; it never throws, and it is never
+  // degraded into an empty structure that would then be saved as a real
+  // package (an empty package renders an empty configurator to the couple).
+  //
+  // With the flag OFF the field is not rendered and is not read, so this whole
+  // block is inert and the action behaves exactly as it does today.
+  let customizationItems: DraftItem[] = [];
+  let customizationAutoNamed = 0;
+  if (packageAuthoringEnabled()) {
+    const parsed = parseCustomizationDraft(formData.get(CUSTOMIZATION_FIELD_NAME));
+    if (!parsed.ok) return back(parsed.message);
+    // Counted BEFORE naming — afterwards there are no blanks left to count.
+    // Reported back to the vendor on the success redirect.
+    customizationAutoNamed = countAutoNamed(parsed.items);
+    // Blank names are FILLED IN, never refused (owner-locked 2026-07-27), and
+    // filled in BEFORE validation — `validatePackageDraft` refuses a blank
+    // `service_description`, and `savePackage`'s own auto-naming runs after it.
+    customizationItems = autoNameDraftItems(parsed.items);
+  }
+
   // Card-text integrity (owner 2026-07-27 · flag-dark). The wizard writes the
   // card text itself (title + perk go into the `fields` payload, the lists into
   // the same atomic RPC), so it needs its own gate — it does not route through
@@ -1508,8 +1545,45 @@ export async function commitVendorService(formData: FormData) {
         field: `Discount ${i + 1} conditions`,
         value: d.conditions_md,
       })),
+      // Customization lines are card text too — a couple reads them on the
+      // configurator exactly the way they read an inclusion label. Routed
+      // through the SAME gate (its 'card' profile), never a second one.
+      ...customizationItems.flatMap((item, i) => [
+        { field: `Customization line ${i + 1}`, value: item.service_description },
+        ...item.options.map((o, j) => ({
+          field: `Customization line ${i + 1} option ${j + 1}`,
+          value: o.label,
+        })),
+      ]),
     ]);
     if (viol) return back(viol);
+  }
+
+  // The customization draft becomes a ONE-SERVICE package anchored to this
+  // service's category. Built and validated HERE, before the service is
+  // written, so a bad draft costs the vendor a bounce rather than leaving a
+  // saved service whose customization silently vanished.
+  const customizationPriceCentavos =
+    typeof fields.starting_price_php === 'number' && fields.starting_price_php > 0
+      ? // The ONE peso→centavo conversion site on this path.
+        // `vendor_services.starting_price_php` is INTEGER PESOS;
+        // `vendor_packages.total_price_centavos` is BIGINT CENTAVOS.
+        fields.starting_price_php * 100
+      : 0;
+  if (customizationItems.length > 0) {
+    if (customizationPriceCentavos <= 0) {
+      return back(
+        'Customization options need one price to sit under. Add a starting price on the Pricing step, or remove the customization lines.',
+      );
+    }
+    const problems = validatePackageDraft(
+      toPackageDraft(customizationItems, {
+        packageName: (fields.title as string | null) ?? displayServiceLabel(category),
+        totalPriceCentavos: customizationPriceCentavos,
+      }),
+    );
+    const first = problems[0];
+    if (first) return back(first.message);
   }
 
   // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
@@ -1658,6 +1732,45 @@ export async function commitVendorService(formData: FormData) {
   });
   if (error) return back(error.message);
 
+  // ---- ★ Customization → the one-service package (write LATE) ----
+  //
+  // Only now, once the service row genuinely exists. Everything that could
+  // reject this draft — the JSON parse, the card-text gate, the cross-row
+  // validator, the missing-price check — already ran above, while a bounce was
+  // still free; `savePackage` re-runs the validator itself as the backstop.
+  //
+  // ⚠ HOW A SERVICE RESOLVES TO ITS PACKAGE ROW: it does not. `vendor_packages`
+  // has no service column (migration 20260604110000) — only
+  // `vendor_profile_id` + `primary_canonical_service`. So this CREATES a
+  // package anchored to the service's category. That is sound because the
+  // wizard is CREATE-ONLY (`/services/new/[category]` is its single mount), so
+  // one run mints one package and no path here can fork a second. Re-opening a
+  // service to EDIT its customization needs the link column proposed in
+  // lib/service-customization-draft.ts (one nullable
+  // `vendor_packages.vendor_service_id`); this slice adds no migration.
+  //
+  // A failure here does NOT bounce through `back()`: the service is already
+  // saved, and on the claim path `back()` re-renders the wizard, which would
+  // invite a re-submit and a duplicate service. Report it and move on.
+  let customizationError: string | null = null;
+  if (customizationItems.length > 0) {
+    const res = await savePackage({
+      ...toPackageDraft(customizationItems, {
+        packageName: (fields.title as string | null) ?? displayServiceLabel(category),
+        totalPriceCentavos: customizationPriceCentavos,
+      }),
+      primary_canonical_service: canonicalServiceForVendorCategory(category),
+    });
+    if (res.status !== 'ok') {
+      customizationError =
+        res.status === 'invalid'
+          ? (res.problems[0]?.message ?? 'Some customization options need fixing.')
+          : res.status === 'error'
+            ? res.message
+            : `Customization options could not be saved (${res.status}).`;
+    }
+  }
+
   // ---- PR-C — register the freshly-created service to the inviting couple ----
   // When this create came from a couple's claim QR (?claim=<token> threaded
   // through as a hidden field), link the new service back to the couple's plan
@@ -1706,6 +1819,22 @@ export async function commitVendorService(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
+  // (savePackage revalidates /vendor-dashboard/packages itself on success.)
+
+  // A LATE customization failure is reported as an ERROR even though the
+  // service saved — "Services updated" and nothing else would let the vendor
+  // believe their options went live. Checked BEFORE the claim redirect on
+  // purpose: `/vendor-dashboard` renders no `?error=`, so routing the failure
+  // there would swallow it. The couple registration above has already run, so
+  // the only thing given up in this rare branch is the `claimed=1` banner.
+  if (customizationError) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(
+        `Your service was saved, but its customization options were not: ${customizationError}`,
+      )}#service-${savedId ?? ''}`,
+    );
+  }
+
   // PR-C — after a claim-driven first service, send the vendor on to their
   // dashboard to "continue from there" (the new client is in their pipeline).
   // The normal flow stays on the Services page with the saved anchor.
@@ -1713,7 +1842,10 @@ export async function commitVendorService(formData: FormData) {
     revalidatePath('/vendor-dashboard');
     redirect('/vendor-dashboard?claimed=1&service=1');
   }
-  redirect(`${await servicesReturnBase()}?saved=1#service-${savedId ?? ''}`);
+  // Blank names are auto-named, never refused — so the save REPORTS how many
+  // it filled in (the placeholder showed the same names before the save).
+  const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';
+  redirect(`${await servicesReturnBase()}?saved=1${named}#service-${savedId ?? ''}`);
 }
 
 /**

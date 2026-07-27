@@ -108,6 +108,13 @@ export type ServicesManagerSearch = {
   error?: string;
   add?: string;
   requested?: string;
+  /**
+   * How many blank customization names the last save filled in for the vendor
+   * (★ Customization step · flag-dark). A blank name is auto-named, never
+   * refused (owner-locked 2026-07-27) — this is the "and here is what we
+   * called them" half of that promise. Absent on every other save.
+   */
+  autonamed?: string;
   /** Off-Season Promos nudge — when set to one of the vendor's own
    *  vendor_service_id values, that service's Discount section opens
    *  pre-filled with an `off_peak` discount keyed to the lean months. */
@@ -461,6 +468,13 @@ export async function VendorServicesManager({
           style={{ borderColor: 'var(--m-sage)', background: 'var(--m-sage)', color: 'var(--m-ink)' }}
         >
           Services updated.
+          {Number(search.autonamed) > 0
+            ? ` ${search.autonamed} customization line${
+                Number(search.autonamed) === 1 ? '' : 's'
+              } had no name, so we named ${
+                Number(search.autonamed) === 1 ? 'it' : 'them'
+              } for you — rename any time.`
+            : ''}
         </p>
       ) : null}
       {search.requested ? (

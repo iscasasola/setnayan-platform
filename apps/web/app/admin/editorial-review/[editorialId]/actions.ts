@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAdminAction } from '@/lib/admin/require-admin';
 import { scanEditorial, type ScanFlag } from '@/lib/editorial-scan';
 import { emitNotification } from '@/lib/notification-emit';
 
@@ -54,17 +54,31 @@ async function notifyCoupleEditorialDecision(
   }
 }
 
+/**
+ * Admin gate for this surface.
+ *
+ * FIXED 2026-07-27 (divergence fix): this file used to declare its own
+ * `requireAdmin` that selected `is_internal` ONLY — dropping the two other
+ * clauses of the canonical predicate (`is_team_member`, `account_type ===
+ * 'admin'`). It was the single outlier among ~43 local copies. A Setnayan team
+ * member (`is_team_member = true`, `is_internal = false`) could approve payouts
+ * and verify vendors but hit a hard "Unauthorized" on the editorial moderation
+ * queue — unreachable for exactly the staff hired to work it.
+ *
+ * Authorization now runs through `requireAdminAction()`
+ * (`lib/admin/require-admin.ts`), which resolves the caller through the USER's
+ * own RLS-scoped Supabase client. The old local copy did its authorization
+ * lookup through `createAdminClient()` — the RLS-bypassing service-role client
+ * — which is the wrong client to let decide who you are.
+ *
+ * The service-role client is still obtained here and still does all the WORK:
+ * `event_editorial` reads/writes and the `event_members` fan-out in
+ * `notifyCoupleEditorialDecision` genuinely need to bypass RLS (admins are not
+ * members of the couple's event). It just no longer decides authorization.
+ */
 async function requireAdmin() {
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Unauthorized');
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from('users')
-    .select('is_internal')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!data?.is_internal) throw new Error('Unauthorized');
-  return { user, admin };
+  const { userId } = await requireAdminAction();
+  return { userId, admin: createAdminClient() };
 }
 
 export async function resolveFlag(
@@ -73,7 +87,7 @@ export async function resolveFlag(
   action: 'accept' | 'dismiss' | 'edit',
   adminEdit?: string,
 ) {
-  const { user, admin } = await requireAdmin();
+  const { userId, admin } = await requireAdmin();
 
   const { data } = await admin
     .from('event_editorial')
@@ -89,7 +103,7 @@ export async function resolveFlag(
       ...f,
       status: action === 'accept' ? 'accepted' : action === 'edit' ? 'edited' : 'dismissed',
       admin_edit: action === 'edit' ? adminEdit : undefined,
-      resolved_by: user.id,
+      resolved_by: userId,
       resolved_at: new Date().toISOString(),
     } satisfies ScanFlag;
   });

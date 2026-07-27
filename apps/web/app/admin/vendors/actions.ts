@@ -110,7 +110,12 @@ export async function createAdminVendorInvite(
       contact_email: rawEmail.toLowerCase(),
       services,
       is_published: false,
-      public_visibility: 'coming_soon',
+      // 🔒 Owner 2026-07-27 — an admin-STAGED vendor (no user_id yet, invited
+      // but unclaimed) is by definition not ready, so it rests in `hidden`.
+      // Staging previously wrote `coming_soon`, which was publicly readable —
+      // meaning a vendor who had never even claimed their account had their
+      // business name and contact email exposed via the anon key.
+      public_visibility: 'hidden',
     })
     .select('vendor_profile_id')
     .single();

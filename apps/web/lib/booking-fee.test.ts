@@ -13,7 +13,7 @@ import {
   BOOKING_FEE_RATE,
 } from './booking-fee';
 
-test('rate is a flat 5%', () => {
+test('the head-band rate is 5%', () => {
   assert.equal(BOOKING_FEE_RATE, 0.05);
   assert.equal(BOOKING_FEE.rate, 0.05);
 });

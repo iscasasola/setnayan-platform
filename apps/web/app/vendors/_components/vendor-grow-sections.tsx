@@ -147,7 +147,7 @@ export function VendorGrowThesis() {
   const items = [
     { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
     { b: '0% now', s: 'commission while we launch — you keep every peso you earn' },
-    { b: 'First 5 free', s: 'the bookings we bring you are on us — then a flat 5%, only on couples we source' },
+    { b: 'First 5 free', s: 'the bookings we bring you are on us — after that, 5%, then 1% beyond ₱100,000, only on couples we source' },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -359,7 +359,7 @@ export function VendorGrowFairPay() {
         <Eyebrow center>Fair by design</Eyebrow>
         <H2>Never spend a peso that doesn&rsquo;t grow your business.</H2>
         <Lede>
-          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then a <b style={{ color: 'var(--m-ink)' }}>flat 5%</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
+          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then <b style={{ color: 'var(--m-ink)' }}>5%, then 1% beyond ₱100,000</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>

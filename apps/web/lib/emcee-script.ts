@@ -91,8 +91,16 @@ const ROLE_ORDER: GuestRole[] = [
 /** Roles that belong on the roster — everyone else is a plain guest. */
 const PARTY_ROLES = new Set<GuestRole>(ROLE_ORDER.filter((r) => r !== 'guest'));
 
-/** Light emcee cue keyed off the block type, so the host has a prompt to read. */
-const BLOCK_CUE: Partial<Record<ScheduleBlockRow['block_type'], string>> = {
+/**
+ * Light emcee cue keyed off the block type, so the host has a prompt to read.
+ *
+ * EXPORTED because it is the substrate, not a detail of this compiler. The
+ * vendor day-of "Script & cues" desk (`lib/stage-script.ts`) renders the SAME
+ * cues live on the floor, and a second copy of these sentences would let the
+ * downloadable script and the on-stage desk drift into telling one host two
+ * different things about the same moment. One map, two renderers.
+ */
+export const BLOCK_CUE: Partial<Record<ScheduleBlockRow['block_type'], string>> = {
   pre_ceremony: 'Guests are seated; music sets the mood.',
   ceremony: 'All rise — the ceremony begins.',
   cocktails: 'Invite guests to enjoy cocktails and mingle.',

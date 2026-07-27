@@ -2178,7 +2178,8 @@ export async function finalizeVendor(
   // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on, so this block is byte-behaviour-
   // identical to today. Pre-gated on the marketplace link too, so an off-platform
   // vendor never even calls in. A verified vendor's first 5 booked customers are
-  // FREE; booking 6+ mints a 5% vendor-payer order on the manual QR rail.
+  // FREE; booking 6+ mints a vendor-payer order on the manual QR rail, priced at
+  // the locked schedule — 5%, then 1% beyond ₱100,000 (lib/booking-fee.ts).
   // Fully fail-soft: the lock already committed — a fee hiccup never rolls it back.
   // ----------------------------------------------------------------------
   if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {

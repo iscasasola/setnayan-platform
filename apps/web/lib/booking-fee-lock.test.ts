@@ -2,7 +2,7 @@
  * Unit suite for the LOCK-path booking-fee helpers (owner 2026-07-24) — the
  * service_key round-trip, the free-5 boundary, and the pure decideLockFee rule
  * that the SQL RPC mirrors. Money code: the 5th-vs-6th boundary, the flag-off
- * no-op, and the 5%-of-confirmed-total base each get a direct assertion.
+ * no-op, and the confirmed-total fee base each get a direct assertion.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +66,7 @@ test('5th lock → free: a waived charge, no money, no order', () => {
   assert.deepEqual(d, { charge: true, free: true, feePhp: 0, createOrder: false });
 });
 
-test('6th lock → 5% of the confirmed total, order issued', () => {
+test('6th lock → head-band 5% of a ₱100,000 confirmed total, order issued', () => {
   const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000 });
   // 5% × ₱100,000 = ₱5,000
   assert.deepEqual(d, { charge: true, free: false, feePhp: 5_000, createOrder: true });

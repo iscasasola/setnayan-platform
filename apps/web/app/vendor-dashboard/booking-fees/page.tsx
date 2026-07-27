@@ -28,8 +28,9 @@ function fmtDate(s: string) {
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (5% of a booked total, past their free-5). Each row links
- * to the same manual-QR pay flow couples use, reachable from the Plan hub
+ * booking-fee orders (5% of a booked total, then 1% beyond ₱100,000, minimum ₱50,
+ * past their free-5 — owner-ruled 2026-07-27; NOT a flat rate). Each row links to
+ * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).
  *
@@ -64,7 +65,7 @@ export default async function VendorBookingFeesPage() {
       <PageMasthead
         className="mt-4"
         title="Booking fees"
-        lede="Setnayan charges a 5% booking fee once a couple confirms a booking with you — but only past your first 5 booked customers, who are free. Fees are paid on the same GCash/BDO rail as everything else and clear once our team confirms your payment (within 24 hours)."
+        lede="Setnayan's booking fee is 5%, then 1% beyond ₱100,000 (minimum ₱50), charged once a couple confirms a booking with you — but only past your first 5 booked customers, who are free. Fees are paid on the same GCash/BDO rail as everything else and clear once our team confirms your payment (within 24 hours)."
       />
 
       {due.length > 0 ? (

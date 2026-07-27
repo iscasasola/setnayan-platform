@@ -15,6 +15,16 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bookingFeeScheduleSummary } from '../../lib/booking-fee';
+import { BOOKING_FEE_SCHEDULE_VERSION } from '../../lib/booking-fee-gate';
+
+/**
+ * The SUPERSEDED schedule string that `booking_fee_rederive_lock_fee` carried as
+ * its parameter DEFAULT from 20270930120000 until 20271013541380. Named here —
+ * and, after the fix, nowhere else outside that migration's own explanation —
+ * so the guards at the bottom of this file can prove it never reaches a charge
+ * row again. The owner-locked taper replaced it on 2026-07-25.
+ */
+const STALE_SCHEDULE_VERSION = '2026-07-24-flat5-nocap';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -454,5 +464,315 @@ test('the amendment-path money document states the taper, never a bare (5%)', as
   assert.ok(
     descr!.includes(bookingFeeScheduleSummary()),
     `the bill must state the real schedule: ${descr}`,
+  );
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * THE SCHEDULE-VERSION STAMP
+ *
+ * Every booking_fee_charges row records the schedule under which its amount was
+ * computed. The stamp exists so a future reprice cannot silently rewrite
+ * history: it is the ONLY thing that lets an audit (or a recompute) know which
+ * rate table produced a given number.
+ *
+ * The defect these tests close: `booking_fee_rederive_lock_fee` kept
+ * `p_schedule_version TEXT DEFAULT '2026-07-24-flat5-nocap'` — the superseded
+ * FLAT-5% schedule — while the math had moved to the 2026-07-25 taper. The
+ * amendment trigger calls the function with ONE argument, so every
+ * amendment-minted delta / credit row was stamped flat-5% while its amount came
+ * from the taper. The AMOUNT was right; the row lied about how it was derived.
+ * Migration 20271013541380 replaces the literal with a call to
+ * public.booking_fee_schedule_version(), so the stamp is DERIVED and a reprice
+ * moves it in one place instead of leaving a third copy behind.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** The schedule_version stamped on every charge row for a booking, in age order. */
+async function stamps(eventVendorId: string): Promise<Array<{ kind: string; version: string }>> {
+  const r = await db.query<{ kind: string; schedule_version: string }>(
+    `SELECT kind, schedule_version FROM public.booking_fee_charges
+       WHERE event_vendor_id = $1 ORDER BY created_at`,
+    [eventVendorId],
+  );
+  return r.rows.map((x) => ({ kind: x.kind, version: x.schedule_version }));
+}
+
+test('PARITY: SQL booking_fee_schedule_version() equals the TS constant byte-for-byte', async () => {
+  // Anti-drift, same idiom as the sourced-set parity test in
+  // booking-fee-lock.db.test.ts. SQL stamps what the DB actually wrote; the TS
+  // constant is what the app passes explicitly on the lock path. If they
+  // disagree, two charges for the same schedule carry two different names and
+  // the audit trail is worthless.
+  const r = await db.query<{ v: string }>(`SELECT public.booking_fee_schedule_version() AS v`);
+  assert.equal(
+    r.rows[0]!.v,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    'public.booking_fee_schedule_version() must mirror BOOKING_FEE_SCHEDULE_VERSION exactly',
+  );
+  // And it is not accidentally the string it replaced.
+  assert.notEqual(r.rows[0]!.v, STALE_SCHEDULE_VERSION);
+});
+
+test('THE DEFECT: a delta minted BY THE TRIGGER stamps the CURRENT schedule, not flat-5%', async () => {
+  // Driven end-to-end through the real one-argument path: an UPDATE on
+  // event_vendors.total_cost_php fires booking_fee_on_event_vendor_price_change,
+  // which does `PERFORM booking_fee_rederive_lock_fee(NEW.vendor_id)` with NO
+  // schedule argument — so the PARAMETER DEFAULT is what lands on the row. This
+  // is the test that would have caught the defect.
+  const { vendorProfileId } = await newVendor('stamp-delta@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-delta');
+  const eventId = await newEvent('stamp-delta-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  await setTotal(evId, 200_000); // amendment raises → the trigger opens a delta
+
+  const s = await stamps(evId);
+  const delta = s.find((x) => x.kind === 'amendment_delta');
+  assert.ok(delta, 'the amendment must have opened a supplementary delta');
+  assert.equal(
+    delta.version,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    `the trigger-minted delta is stamped "${delta.version}" but its amount was computed ` +
+      `by booking_fee_centavos under "${BOOKING_FEE_SCHEDULE_VERSION}"`,
+  );
+  // The amount itself is unchanged by this fix — the taper, not flat 5%.
+  const c = await charges(evId);
+  assert.equal(
+    c.find((x) => x.kind === 'amendment_delta')!.amount,
+    100_000,
+    'taper on ₱200k = ₱6k, minus the ₱5k already paid',
+  );
+});
+
+test('THE DEFECT: a credit minted BY THE TRIGGER stamps the CURRENT schedule too', async () => {
+  // The other row the re-derive INSERTs with p_schedule_version. Same one-argument
+  // trigger path, opposite direction (a post-paid price DROP).
+  const { vendorProfileId } = await newVendor('stamp-credit@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-credit');
+  const eventId = await newEvent('stamp-credit-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  await setTotal(evId, 100_000); // amendment drops → audit credit recorded
+
+  const credit = (await stamps(evId)).find((x) => x.kind === 'amendment_credit');
+  assert.ok(credit, 'the amendment must have recorded a credit note');
+  assert.equal(
+    credit.version,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    `the trigger-minted credit is stamped "${credit.version}" but was computed under ` +
+      `"${BOOKING_FEE_SCHEDULE_VERSION}"`,
+  );
+});
+
+test('an EXPLICIT schedule argument still wins (the fix changed only the default)', async () => {
+  // The signature must keep working for callers that pass a version — the app's
+  // lock path does exactly that. Nothing about the parameter changed except what
+  // happens when it is omitted.
+  //
+  // The stamp is only ever written by an INSERT (the delta_updated branch does
+  // not rewrite schedule_version — an existing charge keeps the schedule it was
+  // priced under, which is the whole point of the column). So this test has to
+  // make the EXPLICIT call be the one that MINTS the delta. It gets there with
+  // real product state rather than by muting the trigger: the trigger's WHEN
+  // clause only fires for status IN (contracted, deposit_paid, delivered,
+  // complete), so a price moved while the booking is 'shortlisted' does not fire
+  // it. No DISABLE TRIGGER anywhere.
+  const { vendorProfileId } = await newVendor('stamp-explicit@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-explicit');
+  const eventId = await newEvent('stamp-explicit-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  // status-only UPDATE: does not mention total_cost_php, so `AFTER UPDATE OF
+  // total_cost_php` cannot fire on it.
+  await db.query(`UPDATE public.event_vendors SET status = 'shortlisted' WHERE vendor_id = $1`, [evId]);
+  await db.query(`UPDATE public.event_vendors SET total_cost_php = 200000 WHERE vendor_id = $1`, [evId]);
+  assert.equal(
+    (await charges(evId)).filter((x) => x.kind === 'amendment_delta').length,
+    0,
+    'precondition: the trigger did NOT fire for a non-contracted booking',
+  );
+
+  const res = await db.query<{ r: { action: string } }>(
+    `SELECT public.booking_fee_rederive_lock_fee($1, $2) AS r`,
+    [evId, 'test-explicit-version'],
+  );
+  assert.equal(res.rows[0]!.r.action, 'delta_opened');
+
+  const delta = (await stamps(evId)).find((x) => x.kind === 'amendment_delta');
+  assert.equal(
+    delta?.version,
+    'test-explicit-version',
+    'an explicitly-passed schedule version must be stamped as given, not overridden by the default',
+  );
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * THE UNDER-BILLING BUG — a clobbered `FOUND`
+ *
+ * 20270930120000 guarded the update-the-existing-delta branch with
+ *   IF FOUND AND v_existing_delta.charge_id IS NOT NULL THEN
+ * but `FOUND` is reset by EVERY statement, and the statement immediately before
+ * it is the credit-zeroing UPDATE — not the `SELECT … INTO v_existing_delta` the
+ * line appears to be guarding. With no credit note on file (the common case)
+ * that UPDATE matches 0 rows, so FOUND is false, the branch is skipped despite a
+ * pending delta existing, and control falls through to the INSERT — which
+ * violates booking_fee_charges_one_pending_delta_per_event_vendor. The trigger
+ * is fail-soft, so the 23505 became a WARNING, the amendment committed, and the
+ * stale delta survived at its OLD amount. Setnayan silently under-billed.
+ *
+ * These tests are the reproduction, promoted. They are about MONEY, not control
+ * flow: each asserts the peso figure the vendor is actually billed.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** The single pending supplementary delta for a booking, or null. */
+async function pendingDelta(
+  eventVendorId: string,
+): Promise<{ chargeId: string; amount: number } | null> {
+  const r = await db.query<{ charge_id: string; amount_charged_centavos: number }>(
+    `SELECT charge_id, amount_charged_centavos FROM public.booking_fee_charges
+       WHERE event_vendor_id = $1 AND kind = 'amendment_delta' AND status = 'pending'`,
+    [eventVendorId],
+  );
+  assert.ok(r.rows.length <= 1, `${r.rows.length} pending deltas — the one-live index is broken`);
+  if (r.rows.length === 0) return null;
+  return { chargeId: r.rows[0]!.charge_id, amount: Number(r.rows[0]!.amount_charged_centavos) };
+}
+
+test('THE DEFECT: a SECOND amendment must RAISE the pending delta, not silently keep the stale one', async () => {
+  const { vendorProfileId } = await newVendor('second-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'second-raise');
+  const eventId = await newEvent('second-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  // Primary ₱5,000 SETTLED — the paid branch is the one that opens deltas.
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000);
+
+  // First amendment: ₱100k → ₱200k. Fee ₱6,000, minus ₱5,000 paid = ₱1,000 delta.
+  await setTotal(evId, 200_000);
+  const first = await pendingDelta(evId);
+  assert.equal(first?.amount, 100_000, 'first amendment opens a ₱1,000 delta');
+
+  // SECOND amendment, higher: ₱200k → ₱1,000,000. Taper = ₱14,000, minus the
+  // ₱5,000 already paid = ₱9,000 owed. The bug left this at ₱1,000.
+  await setTotal(evId, 1_000_000);
+
+  const second = await pendingDelta(evId);
+  assert.ok(second, 'the pending delta must still exist after the second amendment');
+  assert.equal(
+    second.amount,
+    900_000,
+    `the vendor owes ₱9,000 (taper ₱14,000 − ₱5,000 paid) but is being billed ₱${second.amount / 100}`,
+  );
+  assert.equal(second.chargeId, first!.chargeId, 'updated in place — not a second delta row');
+
+  // Nothing was swallowed: exactly one delta row of any status, no 23505.
+  const all = await charges(evId);
+  assert.equal(
+    all.filter((x) => x.kind === 'amendment_delta').length,
+    1,
+    'exactly one amendment_delta row — no failed INSERT was swallowed by the fail-soft trigger',
+  );
+
+  // THE BILL THE VENDOR ACTUALLY RECEIVES must move too, not just the charge row.
+  const ord = await orderFor(second.chargeId);
+  assert.equal(ord?.total, 9_000, 'the vendor QR order must be re-upserted to ₱9,000');
+  assert.equal(ord?.status, 'submitted', 'and left open for the vendor to pay');
+});
+
+test('THE DEFECT: the second raise also works WITH a credit note on file', async () => {
+  // The fix must not depend on the credit-zeroing UPDATE having matched rows.
+  // This drives the booking through a DROP first, so an amendment_credit row
+  // exists for the rest of the sequence — covering both worlds: the UPDATE
+  // matching (credit non-zero) and not matching (credit already zeroed).
+  const { vendorProfileId } = await newVendor('credit-then-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'credit-then-raise');
+  const eventId = await newEvent('credit-then-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000); // ₱6,000 paid
+
+  // Drop → an amendment_credit row now exists with a NON-ZERO credit.
+  await setTotal(evId, 100_000);
+  const credit = (await charges(evId)).find((x) => x.kind === 'amendment_credit');
+  assert.equal(credit?.credit, 100_000, 'precondition: a ₱1,000 credit note is on file');
+
+  // Raise past what was paid → delta opened, credit zeroed by the same statement.
+  await setTotal(evId, 300_000); // taper ₱7,000 − ₱6,000 paid = ₱1,000
+  assert.equal((await pendingDelta(evId))?.amount, 100_000);
+
+  // (a) credit row present but ZEROED → the credit-zeroing UPDATE matches nothing.
+  await setTotal(evId, 1_000_000); // taper ₱14,000 − ₱6,000 paid = ₱8,000
+  assert.equal(
+    (await pendingDelta(evId))?.amount,
+    800_000,
+    'delta must reach ₱8,000 even though the credit-zeroing UPDATE matched no rows',
+  );
+
+  // (b) credit row present and NON-ZERO → the UPDATE matches, FOUND would be true.
+  //     Forced directly so both sides of that UPDATE's match state are covered.
+  await db.query(
+    `UPDATE public.booking_fee_charges SET credit_centavos = 12345
+       WHERE event_vendor_id = $1 AND kind = 'amendment_credit'`,
+    [evId],
+  );
+  await setTotal(evId, 2_000_000); // taper ₱24,000 − ₱6,000 paid = ₱18,000
+  assert.equal(
+    (await pendingDelta(evId))?.amount,
+    1_800_000,
+    'delta must reach ₱18,000 with a non-zero credit note on file too',
+  );
+
+  const all = await charges(evId);
+  assert.equal(all.filter((x) => x.kind === 'amendment_delta').length, 1, 'still exactly one delta');
+  assert.equal(all.filter((x) => x.kind === 'amendment_credit').length, 1, 'still exactly one credit');
+});
+
+test('the DEFAULT is derived, not a second copy of the literal', async () => {
+  // Introspect the stored parameter default. A literal here — of ANY value,
+  // including today's correct one — is the bug class: it is a second place a
+  // reprice has to remember. The default must be the function CALL.
+  const r = await db.query<{ args: string }>(
+    `SELECT pg_get_function_arguments(p.oid) AS args
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = 'booking_fee_rederive_lock_fee'`,
+  );
+  assert.equal(r.rows.length, 1, 'exactly one booking_fee_rederive_lock_fee overload');
+  const args = r.rows[0]!.args;
+  assert.match(
+    args,
+    /p_schedule_version text DEFAULT booking_fee_schedule_version\(\)/,
+    `the default must call the version function, got: ${args}`,
+  );
+  assert.doesNotMatch(
+    args,
+    /DEFAULT '/,
+    `no string literal may be typed into this default again, got: ${args}`,
+  );
+  // Signature is otherwise untouched — the trigger and every other caller depend on it.
+  assert.match(args, /^p_event_vendor_id uuid, p_schedule_version text /, args);
+});
+
+test('SWEEP: no charge row anywhere carries the superseded flat-5% schedule', async () => {
+  // Covers every row this whole suite minted — lock charges, trigger-minted
+  // deltas and credits alike. The re-derive path can no longer produce one.
+  const r = await db.query<{ n: number; versions: string[] }>(
+    `SELECT count(*) FILTER (WHERE schedule_version = $1)::int AS n,
+            array_agg(DISTINCT schedule_version) AS versions
+       FROM public.booking_fee_charges`,
+    [STALE_SCHEDULE_VERSION],
+  );
+  const { n, versions } = r.rows[0]!;
+  assert.ok(versions.length > 0, 'the suite must actually have minted charges to sweep');
+  assert.equal(
+    n,
+    0,
+    `${n} charge row(s) stamped "${STALE_SCHEDULE_VERSION}"; distinct stamps seen: ${JSON.stringify(versions)}`,
   );
 });

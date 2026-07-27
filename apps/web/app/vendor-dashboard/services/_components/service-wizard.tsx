@@ -142,6 +142,7 @@ export function ServiceWizard({
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             watermark
+            compressImage
             variant="square"
             qrGuard
           />

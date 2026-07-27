@@ -818,6 +818,7 @@ export async function VendorServicesManager({
                             maxSizeMB={5}
                             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                             watermark
+                            compressImage
                             variant="square"
                             currentValue={svc.primary_photo_r2_key}
                             initialDisplayUrls={showcaseDisplayUrls}
@@ -1267,6 +1268,7 @@ function AddServiceForm({
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           watermark
+          compressImage
           variant="square"
         />
       </Field>

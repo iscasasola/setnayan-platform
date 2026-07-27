@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -10,11 +11,62 @@ import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
+import { buildDayOfFrame } from '@/lib/vendor-dayof-frame';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { FloorClock } from './_components/floor-clock';
 import { LiveReviews } from '../../_components/live-reviews';
+import {
+  ConsoleEyebrow,
+  ConsoleHeading,
+  ConsolePlate,
+} from '../../_components/pahina-console';
+import { SpecializationSlot } from './_components/specialization-slot';
+import { registeredSpecializationSets } from './_components/specialization-registry';
 
 export const metadata = { title: 'Live · On the Day · Setnayan' };
+
+/**
+ * The launched day-of console.
+ *
+ * ── THE FRAME (2026-07-27) ─────────────────────────────────────────────────
+ *
+ * Two sections, not one flat stack: the GENERIC KIT every vendor gets, and a
+ * SPECIALIZATION slot for the vendor's trade (song desk · script & cues · floor
+ * command). The structure is decided by `buildDayOfFrame` in
+ * `lib/vendor-dayof-frame.ts`; this page is a renderer over that model.
+ *
+ * To add a specialization surface you edit ONE file — the registry at
+ * `_components/specialization-registry.tsx` — and add ONE line to it, pointing
+ * at a component in your own new subdirectory. You do not edit this page. See
+ * the registry's header for the two-step recipe.
+ *
+ * ── THE GATE GOVERNS THE NEW SECTION ONLY ──────────────────────────────────
+ *
+ * `resolveVendorSpecializationAccessForVendor` is resolved SERVER-SIDE here and
+ * the entitlement is `access.unlockedSet`. It decides whether the specialization
+ * section renders a desk or an upsell — and nothing else. `resolveModules` still
+ * produces the generic kit exactly as it did before this frame existed, and the
+ * frame passes that list through untouched on every access path. Free-during-
+ * launch is active and every production vendor is on a free tier: nobody loses
+ * a tool they had yesterday. Pinned by the identity tests in
+ * `lib/vendor-dayof-frame.test.ts`.
+ *
+ * ── STYLING (Pahina materials) ─────────────────────────────────────────────
+ *
+ * Dressed in the same Pahina language as the guest site, but WITHOUT the
+ * `.pahina-*` classes — those are `.sn-editorial`-scoped and unreachable from a
+ * dashboard by design (owner-locked guest-tree ↔ chrome separation). The
+ * recipes are recomposed from the `:root`-level palette tokens in
+ * `_components/pahina-console.tsx`; see that file's header for the full
+ * reasoning and the two contrast traps it handles.
+ *
+ * The obsidian FOCAL is deliberately kept on `.sn-tile-dark`: `FloorClock` is a
+ * client component with hardcoded light-on-dark colours, `.sn-tile-dark` is the
+ * mode-stable dark stock it was built against, and a day-of clock wants to be
+ * the one glare-legible thing on the screen. It gains the Pahina gild hairline
+ * and display face; it does not change what it does.
+ */
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {
@@ -74,6 +126,12 @@ export default async function VendorOnTheDayLivePage({
         (b) => b.eventId === eventId,
       ) ?? null
     : null;
+  // Which client can READ this vendor's profile row. The owner path reads under
+  // their own RLS; the grantee path is already authorised by the grant and uses
+  // the admin client (as the profile load below does), so the subscription read
+  // behind the specialization gate resolves for grantees too instead of silently
+  // degrading a paying vendor's crew to the generic kit.
+  let profileClient: SupabaseClient = supabase;
 
   if (!booking) {
     // Not the owner (or not booked under their own profile) — check for a grant.
@@ -100,6 +158,7 @@ export default async function VendorOnTheDayLivePage({
           .maybeSingle();
         if (vp) {
           profile = vp as { vendor_profile_id: string; services: string[] };
+          profileClient = admin;
           booking =
             (await fetchVendorPoolBookings(admin, vpid)).find((b) => b.eventId === eventId) ?? null;
         }
@@ -138,6 +197,19 @@ export default async function VendorOnTheDayLivePage({
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 
+  // THE SPECIALIZATION GATE — server-side, on the vendor's live subscription
+  // row. Governs the specialization section below and nothing above it.
+  const access = await resolveVendorSpecializationAccessForVendor(
+    profileClient,
+    profile.vendor_profile_id,
+    { services: profile.services, eventTiles },
+  );
+  const frame = buildDayOfFrame({
+    access,
+    genericModuleIds: modules.map((m) => m.id),
+    registeredSets: registeredSpecializationSets(),
+  });
+
   const coupleName = brief?.event.display_name ?? booking.eventName ?? 'Your event';
   const place = brief?.event.venue_name ?? null;
   const invited = brief?.pax.invited ?? 0;
@@ -155,88 +227,132 @@ export default async function VendorOnTheDayLivePage({
     );
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
       {/* Close / back to the console */}
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/vendor-dashboard/on-the-day"
-          className="inline-flex items-center gap-1.5 text-sm font-medium"
-          style={{ color: 'var(--m-slate-2)' }}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Exit
         </Link>
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
+        <span className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
           Day-of · live
         </span>
       </div>
 
-      {/* Obsidian focal — couple + live clock */}
-      <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
-        <p className="truncate text-lg font-semibold" style={{ color: 'var(--m-paper)' }}>
-          {coupleName}
-          {place ? <span className="ml-2 text-sm font-normal" style={{ color: 'rgba(251,251,250,0.6)' }}>· {place}</span> : null}
-        </p>
-        <div className="mt-4">
-          <FloorClock blocks={blocks} />
+      {/* Obsidian focal — couple + live clock. Kept dark on purpose (see the
+          page doc): it is the one glare-legible anchor on a venue floor. */}
+      <div>
+        <div
+          aria-hidden
+          className="h-2 border border-b-0 border-ink/10 bg-gradient-to-r from-veil via-paper-deep to-gild/25"
+        />
+        <div className="sn-tile-dark sn-bloom relative p-5 sm:p-6">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-2 border border-gild/20"
+          />
+          <div className="relative">
+            <p className="truncate font-pahina text-2xl font-light leading-snug tracking-tight text-paper">
+              {coupleName}
+            </p>
+            {place ? (
+              <p className="mt-0.5 truncate text-sm text-paper/60">{place}</p>
+            ) : null}
+            <div className="mt-4">
+              <FloorClock blocks={blocks} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Run of show (reused realtime header) */}
-      {has('run_of_show') ? (
-        <div>
-          <h2 className="sn-sec">Run of show</h2>
-          <div className="mt-3">
-            <RunOfShowHeader eventId={eventId} initial={blocks} />
-          </div>
-        </div>
+      {/* Jump nav — only when there are two sections to move between. Every
+          href anchors a section this same render produces (no dead links). */}
+      {frame.nav.length > 0 ? (
+        <nav
+          aria-label="Console sections"
+          className="flex items-center gap-1 border-y border-ink/10 py-2"
+        >
+          {frame.nav.map((item) => (
+            <a
+              key={item.id}
+              href={item.href}
+              className="rounded-full px-3 py-1 font-mono text-[0.66rem] uppercase tracking-[0.2em] text-ink/70 transition-colors hover:bg-veil hover:text-ink"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
       ) : null}
 
-      {/* Headcount */}
-      {has('pax_headcount') ? (
-        <div className="sn-tile">
-          <div className="flex items-center gap-2">
-            <Users aria-hidden className="h-5 w-5" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-            <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-              Headcount
-            </p>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-              {attending} / {invited}
-            </span>
-            <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              attending · pulled live from RSVPs
-            </span>
-          </div>
-        </div>
-      ) : null}
+      {/* ── THE GENERIC KIT — every vendor, every tier, unchanged ─────────── */}
+      <section id={frame.genericDomId} className="scroll-mt-4 space-y-4">
+        <ConsoleEyebrow>Your tools</ConsoleEyebrow>
 
-      {/* Enabled-module quick links */}
-      {linkModules.length > 0 ? (
-        <div>
-          <h2 className="sn-sec">Your tools</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {/* Run of show (reused realtime header) */}
+        {has('run_of_show') ? <RunOfShowHeader eventId={eventId} initial={blocks} /> : null}
+
+        {/* Headcount */}
+        {has('pax_headcount') ? (
+          <ConsolePlate className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Users aria-hidden className="h-4 w-4 text-gild" strokeWidth={1.75} />
+              <ConsoleHeading as="h3">Headcount</ConsoleHeading>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-bold text-ink">
+                {attending} / {invited}
+              </span>
+              <span className="text-sm text-ink/65">attending · pulled live from RSVPs</span>
+            </div>
+          </ConsolePlate>
+        ) : null}
+
+        {/* Enabled-module quick links */}
+        {linkModules.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2">
             {linkModules.map(({ mod, href }) => (
-              <Link key={mod.id} href={href} className="sn-tile sn-press flex items-center justify-between gap-3">
-                <span>
-                  <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+              <Link
+                key={mod.id}
+                href={href}
+                className="sn-press group relative flex items-center justify-between gap-3 border border-ink/10 bg-paper-deep p-4 transition-colors hover:border-gild/40"
+              >
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-1.5 border border-ink/[0.08]"
+                />
+                <span className="relative min-w-0">
+                  <span className="block font-pahina text-base font-light leading-snug tracking-tight text-ink">
                     {mod.label}
                   </span>
-                  <span className="mt-0.5 block text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-ink/65">
                     {mod.blurb}
                   </span>
                 </span>
-                <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+                <ArrowRight
+                  aria-hidden
+                  className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
+                  strokeWidth={1.75}
+                />
               </Link>
             ))}
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* Live reviews */}
-      {has('live_reviews') ? (
-        <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} />
-      ) : null}
+        {/* Live reviews */}
+        {has('live_reviews') ? (
+          <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} />
+        ) : null}
+      </section>
+
+      {/* ── THE SPECIALIZATION SLOT — the only gated section on this page ─── */}
+      <SpecializationSlot
+        model={frame}
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={coupleName}
+      />
     </section>
   );
 }

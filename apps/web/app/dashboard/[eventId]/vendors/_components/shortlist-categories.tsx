@@ -100,7 +100,7 @@ const SLCAT_CSS = `
    grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
    BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
    pulls collapsed content out of the tab order without cutting the animation. */
-.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease)}
+.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;grid-template-columns:minmax(0,1fr);transition:grid-template-rows .3s var(--ease)}
 .slcat .fold.open .fold-collapse,.slcat .cat.open .cat-collapse{grid-template-rows:1fr}
 .slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{overflow:hidden;min-height:0;min-width:0;opacity:.4;visibility:hidden;transition:opacity .26s var(--ease),visibility 0s .3s}
 .slcat .fold.open .fold-body,.slcat .cat.open .cat-body{opacity:1;visibility:visible;transition:opacity .26s var(--ease),visibility 0s 0s}

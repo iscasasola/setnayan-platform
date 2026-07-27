@@ -263,3 +263,39 @@ test("the 'card' profile still reports categories + matched", () => {
   assert.ok(r.categories.includes('phone'));
   assert.ok(r.matched.length >= 1);
 });
+
+// -- ContactMatch.sample -----------------------------------------------------
+// Added 2026-07-27 so the card gate can quote the vendor's own `@word` back at
+// them ("Write 'at Tagaytay'"). Scope is the point: `handle` only.
+
+const sampleFor = (s: string, category: string, profile: 'chat' | 'card' = 'card') =>
+  evaluateMessage(s, profile).matched.find((m) => m.category === category)?.sample;
+
+test('sample: populated for a handle hit, in BOTH profiles', () => {
+  assert.equal(sampleFor('Coverage @Tagaytay', 'handle'), '@Tagaytay');
+  assert.equal(sampleFor('follow @juan_photo', 'handle', 'chat'), '@juan_photo');
+  // The sample follows the AUTHOR's word, not the detector's class. HANDLE has
+  // no hyphen, so it matches only `@Shangri` — a sample built from that match
+  // would quote text the vendor never wrote.
+  assert.equal(sampleFor('Reception @Shangri-La', 'handle'), '@Shangri-La');
+  assert.equal(sampleFor('Shoot @The_Blue.Leaf', 'handle'), '@The_Blue.Leaf');
+  // Starts at the '@', never at the guard char HANDLE consumes before it.
+  assert.equal(sampleFor('@juanphotos', 'handle'), '@juanphotos');
+});
+
+test('sample: undefined for every other category — the scope stays tight', () => {
+  assert.equal(sampleFor('0917 880 7163', 'phone'), undefined);
+  assert.equal(sampleFor('hi@studio.com', 'email'), undefined);
+  assert.equal(sampleFor('facebook.com/ourstudio', 'url'), undefined);
+  assert.equal(sampleFor('add me on viber', 'solicit'), undefined);
+  // app_name / euphemism only fire under 'chat' (CARD (c) skips them).
+  assert.equal(sampleFor('add me on messenger', 'app_name', 'chat'), undefined);
+  assert.equal(sampleFor('i am on the blue app', 'euphemism', 'chat'), undefined);
+});
+
+test('sample: a mixed string still samples the handle and nothing else', () => {
+  const r = evaluateMessage('IG @juanphotos or 0917 880 7163', 'card');
+  assert.deepEqual(r.categories.slice().sort(), ['handle', 'phone']);
+  assert.equal(r.matched.find((m) => m.category === 'handle')?.sample, '@juanphotos');
+  assert.equal(r.matched.find((m) => m.category === 'phone')?.sample, undefined);
+});

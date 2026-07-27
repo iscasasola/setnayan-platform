@@ -85,6 +85,15 @@ export interface ContactMatch {
   category: ContactRuleCategory;
   /** Human label for the admin record. */
   label: string;
+  /**
+   * The exact substring that fired, when quoting it back helps the author fix
+   * it. OPTIONAL and deliberately NARROW: populated for `handle` only, because
+   * that is the one rule whose fix is a rewrite of the matched token itself
+   * ("@Tagaytay" -> "at Tagaytay"). Every other category stays `undefined` —
+   * echoing a phone number or an email back into a UI string buys nothing and
+   * puts contact info somewhere it does not need to be.
+   */
+  sample?: string;
 }
 
 export interface ContactEvaluation {
@@ -209,6 +218,37 @@ const SOCIAL_URL = new RegExp(
 
 const HANDLE = /(?:^|[^\w@/])@[A-Za-z][A-Za-z0-9._]{1,30}\b/;
 
+// DISPLAY ONLY — deliberately NOT the HANDLE detector, and NOT redundant with
+// it: HANDLE's character class has no hyphen, so inside "Reception @Shangri-La"
+// it matches just `@Shangri`. Quoting THAT back at the vendor would advise them
+// about text they never wrote and silently drop half their venue name. A sample
+// exists to echo the AUTHOR's own word, so it follows the author's boundaries;
+// HANDLE stays the detector and is untouched. Do not merge the two.
+const HANDLE_SAMPLE = /@[A-Za-z][A-Za-z0-9._-]*/;
+
+// A sample is pasted into vendor-facing copy, so it is bounded. Anything longer
+// is not a handle the vendor meant to type, and the caller falls back to a
+// generic example.
+const HANDLE_SAMPLE_MAX = 48;
+
+/**
+ * The `@word` that tripped HANDLE, as the author wrote it — or undefined.
+ *
+ * `HANDLE`/`HANDLE_SAMPLE` carry no /g, so `.exec()` is stateless here (see the
+ * structural-patterns note above; only /g regexes keep lastIndex).
+ */
+function handleSample(body: string): string | undefined {
+  const hit = HANDLE.exec(body);
+  if (!hit) return undefined;
+  // HANDLE consumes one leading non-@ char (the "not part of a word/email"
+  // guard). Re-anchor on the '@' itself so the sample starts where the vendor's
+  // token starts.
+  const at = body.indexOf('@', hit.index);
+  if (at < 0) return undefined;
+  const sample = HANDLE_SAMPLE.exec(body.slice(at))?.[0];
+  return sample && sample.length <= HANDLE_SAMPLE_MAX ? sample : undefined;
+}
+
 // CARD (d): a solicitation whose destination is Setnayan ITSELF is the OPPOSITE
 // of disintermediation — it is the vendor telling the couple to stay. "Message
 // me on Setnayan for the full menu" is honest card copy that the `solicit` rule
@@ -290,7 +330,8 @@ export function evaluateMessage(
   if (EMAIL.test(body) || EMAIL_OBFUSCATED.test(body))
     matched.push({ category: 'email', label: 'Email address' });
   if (SOCIAL_URL.test(body)) matched.push({ category: 'url', label: 'Social/messaging link' });
-  if (HANDLE.test(body)) matched.push({ category: 'handle', label: '@handle' });
+  if (HANDLE.test(body))
+    matched.push({ category: 'handle', label: '@handle', sample: handleSample(body) });
 
   // CARD (d): the solicit rule — and ONLY that rule — reads a copy of the body
   // with any "message me on Setnayan" phrase scrubbed out. Every other rule

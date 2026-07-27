@@ -46,6 +46,38 @@ export const SERVICE_TEXT_BLOCK_MESSAGE =
   'service cards — couples book and chat with you here on Setnayan. Remove ' +
   'them and save again.';
 
+/**
+ * THE `@`-ONLY MESSAGE (owner ruling 2026-07-27: "yes make it at Tagaytay").
+ *
+ * On a card, `@` is usually being used to mean "at" — "Coverage @Tagaytay",
+ * "Reception @Shangri-La". The HANDLE rule still refuses it and MUST: nothing
+ * can tell a venue from a real handle like "@juanphotos", so loosening the rule
+ * reopens the leak the gate exists to close. The fix the owner chose is the
+ * COPY, not the rule — tell the vendor the one-character edit that makes their
+ * line save. A vendor bounced by a bare `@` and handed the generic
+ * "phone numbers, emails, links" sentence has no idea what to change.
+ */
+const SERVICE_HANDLE_PREFIX =
+  'The @ symbol reads as a social handle, so it is not allowed on a card. ';
+
+/** The `@`-only message with the generic example, when no sample is available. */
+export const SERVICE_HANDLE_MESSAGE =
+  `${SERVICE_HANDLE_PREFIX}Write "at Tagaytay" instead of "@Tagaytay".`;
+
+/**
+ * The `@`-only message, quoting the vendor's OWN word when the detector handed
+ * one over: sample `@Shangri-La` reads `Write "at Shangri-La" instead of
+ * "@Shangri-La".` Falls back to the Tagaytay example otherwise.
+ */
+export function serviceHandleMessage(sample?: string): string {
+  // Trailing punctuation rides along from both patterns ("Coverage @Tagaytay."
+  // samples as "@Tagaytay."), and quoting it back would tell the vendor to
+  // write the period too. Strip it for the ADVICE only — never for detection.
+  const token = (typeof sample === 'string' ? sample.trim() : '').replace(/[._-]+$/, '');
+  if (!token.startsWith('@') || token.length < 2) return SERVICE_HANDLE_MESSAGE;
+  return `${SERVICE_HANDLE_PREFIX}Write "at ${token.slice(1)}" instead of "${token}".`;
+}
+
 export type VendorTextField = {
   /** Label the vendor sees in the error, e.g. `Inclusion 2`. */
   field: string;
@@ -72,8 +104,21 @@ export function findVendorTextViolation(fields: VendorTextField[]): string | nul
     if (text.length === 0) continue; // blank → the caller auto-names it
     // 'card' profile: card text is not chat text. Four measured differences,
     // documented in chat-contact-filter.ts.
-    if (evaluateMessage(text, 'card').blocked) {
-      return `${field}: ${SERVICE_TEXT_BLOCK_MESSAGE}`;
+    const evaluation = evaluateMessage(text, 'card');
+    if (evaluation.blocked) {
+      // ONLY `handle` fired → the vendor almost certainly meant "at", so hand
+      // them the one-character fix. `handle` ALONGSIDE anything else → the
+      // GENERIC message: a phone number or an email in the same string is the
+      // more serious reason, and it must never be softened into a formatting
+      // tip that leaves the vendor thinking a rewritten `@` will save.
+      const handleOnly =
+        evaluation.categories.length === 1 && evaluation.categories[0] === 'handle';
+      const message = handleOnly
+        ? serviceHandleMessage(
+            evaluation.matched.find((m) => m.category === 'handle')?.sample,
+          )
+        : SERVICE_TEXT_BLOCK_MESSAGE;
+      return `${field}: ${message}`;
     }
   }
 

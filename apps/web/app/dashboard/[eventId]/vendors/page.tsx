@@ -26,10 +26,7 @@ import {
   isVendorNameRevealed,
 } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
-import {
-  effectiveInnerRadiusKm,
-  effectiveOuterRadiusKm,
-} from '@/lib/vendor-service-radius';
+import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
@@ -493,22 +490,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // and dropped to Verified reads 20 km, with no backfill job. Either ring
       // resolving null → the bench keeps the tier-derived `within_radius` badge
       // above, unchanged — a blank is never a penalty and never a claim.
+      //
+      // ⚠ Composed through `resolveDeclaredRings` — the SAME function the
+      // server-side free-transport enforcement calls before it zeroes a quote's
+      // transportation line (`lib/vendor-free-transport.ts`). The badge below is
+      // a promise about money; that enforcement is the rule the vendor is held
+      // to. They must read the same two numbers, so they read them from one
+      // function rather than composing the helpers twice. Do not inline this
+      // back into two calls.
       const declaredRings = ringsByProfile.get(pid);
-      const effectiveOuterKm = effectiveOuterRadiusKm(
-        declaredRings?.outer_radius_km ?? null,
-        a?.tier_state ?? null,
-      );
-      const effectiveInnerKm = effectiveInnerRadiusKm(
-        declaredRings?.inner_radius_km ?? null,
-        declaredRings?.outer_radius_km ?? null,
-        a?.tier_state ?? null,
-      );
-      // Only carry a ring pair when the vendor ACTUALLY declared the outer one —
-      // `effectiveOuterRadiusKm` returns the tier cap for a blank, and shipping
-      // that downstream would turn "hasn't said" into "declared their tier cap",
-      // which is the exact tier-proxy claim §17 exists to delete.
-      const declaredOuterKm =
-        declaredRings?.outer_radius_km == null ? null : effectiveOuterKm;
+      const { innerKm: effectiveInnerKm, outerKm: declaredOuterKm } = resolveDeclaredRings({
+        declaredInnerKm: declaredRings?.inner_radius_km ?? null,
+        declaredOuterKm: declaredRings?.outer_radius_km ?? null,
+        tier: a?.tier_state ?? null,
+      });
 
       // Positive faith match only (true) — a non-match / serves-all / non-wedding
       // stays null so the scorer applies its neutral (never a penalty).

@@ -188,6 +188,49 @@ export function resolveTravelFeeVerdict(input: {
 }
 
 /**
+ * THE ONE COMPOSER — raw stored columns + tier → the pair of EFFECTIVE rings
+ * every downstream reader is allowed to see.
+ *
+ * ── WHY THIS IS A FUNCTION AND NOT TWO CALLS AT EACH CALL SITE ──────────────
+ * There are now TWO consumers of the same two numbers, and they must never
+ * disagree:
+ *
+ *   • the couple's BADGE ("No travel fee" / "Travel fee applies") — the promise;
+ *   • the server-side ENFORCEMENT that zeroes a quote's transportation line
+ *     (`lib/vendor-free-transport.ts`) — the rule the vendor is held to.
+ *
+ * A promise the platform shows and a rule the platform enforces that read
+ * different numbers is the worst possible failure here: either the couple is
+ * billed for travel the badge called free, or the vendor is forced to eat travel
+ * they never advertised. Composing the two helpers by hand at each call site is
+ * one copy-paste away from exactly that, so the composition lives here, once.
+ *
+ * ── THE ONE NON-OBVIOUS RULE ────────────────────────────────────────────────
+ * `outerKm` is null unless the vendor ACTUALLY DECLARED an outer ring.
+ * `effectiveOuterRadiusKm` answers a blank with the TIER CAP, which is the right
+ * answer for "how far does their plan let them go" and the WRONG answer for
+ * "what did they say" — shipping it downstream would silently convert "hasn't
+ * said" into "declared their tier cap", i.e. reinstate the tier-proxy claim that
+ * §17 exists to delete. `innerKm` is null on the same principle (its helper
+ * already returns null for an undeclared inner).
+ *
+ * Either ring null → `resolveTravelFeeVerdict` returns null → the badge falls
+ * back to today's tier-derived read and enforcement does nothing. A blank is
+ * never a penalty, never a claim, and never a lock.
+ */
+export function resolveDeclaredRings(input: {
+  declaredInnerKm: number | null | undefined;
+  declaredOuterKm: number | null | undefined;
+  tier: string | null | undefined;
+}): { innerKm: number | null; outerKm: number | null } {
+  const declaredOuter = normalizeRadiusKm(input.declaredOuterKm);
+  return {
+    innerKm: effectiveInnerRadiusKm(input.declaredInnerKm, input.declaredOuterKm, input.tier),
+    outerKm: declaredOuter === null ? null : effectiveOuterRadiusKm(declaredOuter, input.tier),
+  };
+}
+
+/**
  * The whole read path in one call: raw stored columns + tier + distance → the
  * badge verdict. This is what the couple's bench uses, so the clamp can never
  * be skipped by forgetting to compose the two helpers.
@@ -200,8 +243,7 @@ export function travelFeeVerdictForVendor(input: {
 }): TravelFeeVerdict {
   return resolveTravelFeeVerdict({
     distanceKm: input.distanceKm,
-    innerKm: effectiveInnerRadiusKm(input.declaredInnerKm, input.declaredOuterKm, input.tier),
-    outerKm: effectiveOuterRadiusKm(input.declaredOuterKm, input.tier),
+    ...resolveDeclaredRings(input),
   });
 }
 

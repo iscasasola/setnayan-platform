@@ -22,7 +22,7 @@
  *     because a plan may only vary the candidate categories (§2 #10),
  *   • saved plans get a first-class named-row list with a **Load** button
  *     (Compare's "Modify" promoted) that never re-opens a locked category,
- *   • "Clear candidates" empties the BUILD only — locked vendors stay.
+ *   • "Clear candidates" MOVED to "Your team" in PR-E (spec §8.3) — one place.
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -30,7 +30,6 @@ import { useRouter } from 'next/navigation';
 import {
   Bookmark,
   ChevronDown,
-  Eraser,
   FolderOpen,
   Loader2,
   Lock,
@@ -43,7 +42,7 @@ import {
   type SavedPlanBuild,
   type PlanBuildSnapshot,
 } from '../build-actions';
-import { applyBuildToWorking, clearBuildPicks } from '../build-pick-actions';
+import { applyBuildToWorking } from '../build-pick-actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
@@ -251,31 +250,9 @@ export function BuildCompare({
     });
   }
 
-  // "Clear candidates" (spec §8.3) — `clearBuildPicks` empties the BUILD layer
-  // only. Locked vendors are contracts and stay; in-progress handshakes stay
-  // (those are cancelled one at a time). Confirm-first: it's a bulk discard.
-  async function onClearCandidates() {
-    setErr(null);
-    const ok = await confirm({
-      title: 'Clear your candidates?',
-      body: (
-        <>
-          This empties your build — every vendor you’re still weighing up comes off. Your{' '}
-          <span className="font-medium text-ink">locked vendors stay</span> (they’re contracts), and
-          so does anything mid-handshake.
-        </>
-      ),
-      confirmLabel: 'Clear candidates',
-      cancelLabel: 'Keep them',
-      destructive: true,
-    });
-    if (!ok) return;
-    startTransition(async () => {
-      const res = await clearBuildPicks({ eventId });
-      if (!res.ok) setErr(res.error);
-      else router.refresh();
-    });
-  }
+  // ("Clear candidates" used to live here. It MOVED to "Your team" in PR-E —
+  // spec §8.3 puts the team's reset next to the team it resets, and there must
+  // be exactly one. See `_components/team-controls.tsx`.)
 
   // Load a saved build's picks into the working build, then jump to a tab. Lock
   // does NOT finalize here — the Lock tab hosts the hardened finalize flow.
@@ -419,9 +396,8 @@ export function BuildCompare({
       {/* ── PR-F · the Plans list: named rows + a first-class Load ───────────
           Each saved plan is a NAMED row you can load straight back into your
           build (Compare's old per-column "modify" promoted to a real control).
-          "Clear candidates" sits here as the quiet counterpart — it empties the
-          build layer only. (Spec §8: the Your-team placement is PR-E's job;
-          this is where it fits the surface as shipped today.) */}
+          Its counterpart, "Clear candidates", now lives on Your team (PR-E ·
+          spec §8.3) — the surface that owns the team owns emptying it. */}
       {replan ? (
         <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
           <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
@@ -502,17 +478,6 @@ export function BuildCompare({
               Current team{' '}
               <span className="font-mono tabular-nums text-ink/70">{peso(currentPlan.totalPhp)}</span>
             </span>
-            {candidateCount > 0 ? (
-              <button
-                type="button"
-                onClick={onClearCandidates}
-                disabled={pending}
-                className="inline-flex items-center gap-1 text-xs text-ink/45 underline-offset-2 transition hover:text-danger-600 hover:underline disabled:opacity-50"
-              >
-                <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                Clear candidates
-              </button>
-            ) : null}
           </div>
         </div>
       ) : null}

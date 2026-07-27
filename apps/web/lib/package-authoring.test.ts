@@ -502,7 +502,16 @@ test('a negative extra-hour ceiling is refused; 0 and absent are fine', () => {
 // RECURSIVE CUSTOMIZATION — follow-up lines
 // ---------------------------------------------------------------------------
 
-/** A parent choice line + one follow-up hanging off its second option. */
+/**
+ * A parent choice line + one follow-up hanging off its second option.
+ *
+ * The follow-up is `is_default_included: false` because that is the ONLY legal
+ * shape for one — a follow-up is conditional by definition, so it can never sit
+ * inside `total_price_centavos`
+ * (`vendor_package_items_followup_not_default_included_ck`). The `item()`
+ * helper defaults inclusion to `true`, which is right for a normal line and
+ * wrong for every follow-up, so it is overridden here rather than at each call.
+ */
 function branchingDraft(over: Partial<DraftItem> = {}): DraftPackage {
   return draft({
     items: [
@@ -516,6 +525,7 @@ function branchingDraft(over: Partial<DraftItem> = {}): DraftPackage {
       item({
         ref: 'sides',
         service_description: 'Choose your side',
+        is_default_included: false,
         parentRef: { itemRef: 'main', optionRef: 'fish' },
         ...over,
       }),
@@ -525,6 +535,58 @@ function branchingDraft(over: Partial<DraftItem> = {}): DraftPackage {
 
 test('a well-formed follow-up is valid', () => {
   assert.deepEqual(validatePackageDraft(branchingDraft()), []);
+});
+
+/* ── A follow-up is CONDITIONAL, so it is never inside the price ───────────── */
+
+test('a follow-up marked "included by default" is refused', () => {
+  // 💰 THE MONEY. `is_default_included` puts the line inside
+  // total_price_centavos, so every couple pays for it and it cascades into an
+  // event_vendors row at lock — while the configurator only ever shows it to
+  // the couples who picked its parent option. Mirrors
+  // vendor_package_items_followup_not_default_included_ck; caught here so the
+  // vendor reads a sentence instead of a 23514.
+  const d = branchingDraft({ is_default_included: true });
+  assert.ok(codes(d).includes('followup_cannot_be_default_included'));
+});
+
+test('a follow-up marked required is refused', () => {
+  // The second door onto the same overcharge: "required" means the line cannot
+  // be dropped and its value never returns to the credit pool.
+  const d = branchingDraft({ is_required: true });
+  assert.ok(codes(d).includes('followup_cannot_be_required'));
+});
+
+test('both follow-up money problems are reported at once, on the right row', () => {
+  const problems = validatePackageDraft(
+    branchingDraft({ is_default_included: true, is_required: true }),
+  ).filter(
+    (p) =>
+      p.code === 'followup_cannot_be_default_included' ||
+      p.code === 'followup_cannot_be_required',
+  );
+  assert.equal(problems.length, 2);
+  assert.deepEqual(new Set(problems.map((p) => p.itemRef)), new Set(['sides']));
+  // The message has to TEACH, not restate the column name — the vendor has to
+  // understand why the two settings cannot both be true.
+  for (const p of problems) assert.ok(p.message.length > 40);
+});
+
+test('a normal top-level line is still allowed to be included and required', () => {
+  // Regression: the rule is scoped to follow-ups. Every shape that authors
+  // today must keep authoring.
+  const d = draft({ items: [item({ is_default_included: true, is_required: true })] });
+  assert.deepEqual(validatePackageDraft(d), []);
+});
+
+test('a follow-up with a dangling parent is still refused for being priced', () => {
+  // A parentRef that no longer resolves is a separate problem; it is not a
+  // licence to charge for the line in the meantime.
+  const d = branchingDraft({ is_default_included: true });
+  d.items[1]!.parentRef = { itemRef: 'main', optionRef: 'ghost' };
+  const c = codes(d);
+  assert.ok(c.includes('followup_cannot_be_default_included'));
+  assert.ok(c.includes('followup_parent_unknown'));
 });
 
 test('a follow-up pointing at an option that is not in the draft is refused', () => {
@@ -601,7 +663,14 @@ test('a deep but acyclic chain is valid — depth is the database’s call', () 
           opt({ ref: `n${n}o`, label: 'Yes', is_default: true }),
           opt({ ref: `n${n}o2`, label: 'No', price_delta_centavos: 1 }),
         ],
-        ...(n === 0 ? {} : { parentRef: { itemRef: `n${n - 1}`, optionRef: `n${n - 1}o` } }),
+        // Only the root is inside the price; every level below it is a
+        // follow-up, and a follow-up is never default-included.
+        ...(n === 0
+          ? {}
+          : {
+              is_default_included: false,
+              parentRef: { itemRef: `n${n - 1}`, optionRef: `n${n - 1}o` },
+            }),
       }),
     );
   }

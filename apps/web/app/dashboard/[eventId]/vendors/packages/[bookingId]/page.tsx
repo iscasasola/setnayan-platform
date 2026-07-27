@@ -60,14 +60,24 @@ export default async function PackageBookingPage({ params }: Props) {
   const { data: itemsRows } = await supabase
     .from('vendor_package_items')
     .select(
-      'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at',
+      'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at, parent_option_id',
     )
     .eq('package_id', typedBooking.package_id)
     .order('display_order', { ascending: true });
 
   const pkg: VendorPackageWithItems = {
     ...(pkgRow as VendorPackageRow),
-    items: (itemsRows ?? []) as VendorPackageItemRow[],
+    // FOLLOW-UPS ARE NOT PART OF THIS BOOKING'S LIST. Unlike every other
+    // surface, the two lists below split on `removed_item_ids` alone and never
+    // consult `is_default_included` — so a follow-up would be printed under
+    // "Included in this booking", a line the couple never picked and never
+    // paid for. The lock path already refuses to cascade one
+    // (`keptItems` in @/lib/vendor-packages); this keeps the receipt honest
+    // about it too. A PICKED follow-up gets listed here by the renderer slice,
+    // which knows which option was chosen.
+    items: ((itemsRows ?? []) as VendorPackageItemRow[]).filter(
+      (i) => i.parent_option_id == null,
+    ),
   };
 
   const customizations = typedBooking.customizations_json as PackageCustomizations;

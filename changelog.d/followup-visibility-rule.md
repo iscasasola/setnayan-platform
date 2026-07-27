@@ -1,0 +1,30 @@
+## 2026-07-27 · fix(packages): a FOLLOW-UP line can never be default-included or required — the documented overcharge is closed in the SCHEMA, not by filtering readers
+
+PR #3808 added `vendor_package_items.parent_option_id` (migration `20271012816361`) — a **follow-up** line the couple is shown only once a specific option is picked on another line ("choose lechon" → "which style?"). The row type carried its own warning: *"⚠ NOT YET HONOURED BY PRICING. `computeCustomization`, `keptItems` and the credit engine ignore it, so a follow-up whose parent option is unpicked is still priced and still cascades."*
+
+**The money.** `keptItems` (`lib/vendor-packages.ts`) returns every item with `is_default_included = true`, and everything it returns cascades into an `event_vendors` row at lock. So a follow-up authored as default-included would be (a) **charged** — it sits inside `total_price_centavos`, and the booking fee is a percentage of that total; (b) **delivered** — a booked vendor row for a service nobody chose; (c) **unrefundable by removal** — the couple cannot untick what the configurator never showed them. Unreachable today only because `packageAuthoringEnabled()` is off in prod and nothing authors a follow-up.
+
+**Fixed structurally, not by filtering.** A pricing-layer filter protects only the readers that know follow-ups exist, and there are several (`keptItems`, `computeCustomization`, `chosenOptionsSurchargeCentavos`, `lib/package-credit.ts`, `lock-modal.tsx`, the cascade) — the next one written would not know. So the truth now lives in the schema. New migration `20271015207377` adds `vendor_package_items_followup_not_default_included_ck`:
+
+```sql
+CHECK (parent_option_id IS NULL
+       OR (is_default_included = FALSE AND is_required = FALSE))
+```
+
+A follow-up is **conditional by definition**, so it can never be inside the package price. With `is_default_included` forced FALSE, **every existing reader is already correct with no change**: `keptItems` returns false, `computeCustomization` counts nothing, the cascade skips it, the credit engine leaves it out of the pool. Added VALIDATED (not `NOT VALID`) with a pre-flight that names the offending row count; prod holds **0** `vendor_packages` / `vendor_package_items` / `vendor_package_item_options` rows (checked 2026-07-27), so nothing to migrate. The constraint carries a `COMMENT` stating the money reason, so a future reader knows that relaxing it re-opens an overcharge.
+
+**On the `is_required` second door.** `keptItems` returns a required line before the removal check, but *after* the `is_default_included` check — so with inclusion forced FALSE, `is_required` cannot resurrect a follow-up through that function. It is still named explicitly in the new CHECK: `is_required = TRUE` + `is_default_included = FALSE` is currently blocked by the older `vendor_package_items_required_implies_included`, and this constraint must state the whole rule about follow-ups on its own rather than depend on another constraint that could later be relaxed. (It is also the shape `lib/package-credit.ts` rejects wholesale as `invalid_package` — a hard failure rather than an overcharge.)
+
+**Belt over the brace.** `keptItems` now drops `parent_option_id != null` explicitly, because it is also handed objects built **in memory** (the customization modal, the credit adapter, every test) where no constraint applies. That is the exact line that would have cascaded the row.
+
+**TS mirror.** `validatePackageDraft` (`lib/package-authoring.ts`) gains `followup_cannot_be_default_included` + `followup_cannot_be_required`, so the vendor reads a sentence instead of a raw 23514. This matters because the editor's default for a new line is `is_default_included: true` — the *first* follow-up any vendor draws is the shape the DB refuses.
+
+**Add-on listing surfaces.** With the CHECK, follow-ups become `is_default_included = FALSE` and would qualify as ADD-ONS wherever "not included ⇒ add-on" is the rule. Swept every `is_default_included` site in `apps/web`. Two leaked and are fixed: the vendor **workspace** page (labels every non-included line "(optional add-on)") and the booked-**package detail** page (splits on `removed_item_ids` alone, so a follow-up would print under "Included in this booking"). Both now select `parent_option_id` and drop follow-ups. Everything else already filters **to** `is_default_included` — `lock-modal.tsx`, `package-card.tsx`, `proposal-merge.ts`, `proposal-actions.ts`, the autoreply answer, the credit engine — and is safe unchanged; the lock-modal comment now records that its add-on guard doubles as the follow-up guard.
+
+The stale warning on `VendorPackageItemRow.parent_option_id` is rewritten rather than deleted: the hazard is closed; what remains for the renderer slice is **display** (show a follow-up once its parent option is picked) and pricing a **picked** follow-up via its own options' deltas.
+
+Tests — DB (`tests/db/package-option-branching.db.test.ts`, +6): the constraint exists and is `convalidated` and names both doors; a default-included follow-up is refused on INSERT and on UPDATE-promotion; a required follow-up is refused in both spellings; an ordinary follow-up is accepted; and a REGRESSION case proving all three legal top-level shapes still author while required-but-not-included stays refused. Unit (`lib/package-followup-not-priced.test.ts`, new): `keptItems` drops a follow-up built in memory with `is_default_included: true` (the belt without the brace) and with `is_required: true`; `computeCustomization` moves no money in either direction, including the flexible-consumable branch; `chosenOptionsSurchargeCentavos` charges nothing for an unpicked follow-up's upgrade; and the add-on listing surfaces are pinned at source. `package-authoring.test.ts` +5. Each of the three layers was neutralised independently and its own test went red.
+
+No fee math, `booking-fee*`, or pricing rate touched. No renderer, no maker UI, no display of follow-ups — that is the next slice; this PR only makes the hazard impossible.
+
+SPEC IMPACT: None (closes a documented pricing hazard; no rate or schedule change)

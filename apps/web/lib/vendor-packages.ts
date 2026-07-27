@@ -246,11 +246,31 @@ export type VendorPackageItemRow = {
    * because only the authoring select requests it — see
    * {@link PACKAGE_ITEM_AUTHORING_SELECT}.
    *
-   * ⚠ NOT YET HONOURED BY PRICING. `computeCustomization`, `keptItems` and the
-   * credit engine ignore it, so a follow-up whose parent option is unpicked is
-   * still priced and still cascades. That is why nothing authors one outside
-   * the flag-dark authoring surface yet; the visibility rule lands with the
-   * couple-side renderer.
+   * ⚠ THE PRICING HAZARD IS CLOSED — STRUCTURALLY, NOT BY FILTERING.
+   * This once read "not yet honoured by pricing": a follow-up authored as
+   * `is_default_included = TRUE` would be charged to the couple and cascade
+   * into an `event_vendors` row even though its parent option was never
+   * picked. Rather than teach each reader to skip follow-ups — which protects
+   * only the readers that know they exist — the truth now lives in the schema:
+   * `vendor_package_items_followup_not_default_included_ck` (migration
+   * 20271015207377) forces every follow-up to `is_default_included = FALSE`
+   * AND `is_required = FALSE`. A follow-up is conditional by definition, so it
+   * can never be inside `total_price_centavos`.
+   *
+   * With that forced, every existing reader is already correct without
+   * knowing the column exists: `keptItems` drops it, `computeCustomization`
+   * and `chosenOptionsSurchargeCentavos` count nothing for it, the credit
+   * engine leaves it out of the pool, the cascade skips it. `keptItems` also
+   * excludes it explicitly, as a belt over that brace.
+   *
+   * WHAT IS STILL UNBUILT is the couple-side RENDERER slice, and it is
+   * DISPLAY + the price of a PICKED follow-up, not this hazard:
+   *   • show a follow-up once its parent option is picked (and hide it again
+   *     when the pick changes);
+   *   • price a picked follow-up through its OWN options' deltas, the same way
+   *     any other choice line is priced.
+   * Until that ships a follow-up is simply invisible and free, which is the
+   * safe direction.
    */
   parent_option_id?: string | null;
   /** "Choose N of M" bounds. Both or neither — the DB refuses a half-set pair. */
@@ -597,11 +617,31 @@ export function keptItems(
 ): ReadonlyArray<VendorPackageItemRow> {
   const removedSet = new Set(removedItemIds);
   return pkg.items.filter((item) => {
+    // BELT over the database's BRACE. A follow-up is CONDITIONAL — the couple
+    // is shown it only once its parent option is picked — so it must never
+    // cascade into a booked event_vendors row off the back of a lock. The
+    // brace is `vendor_package_items_followup_not_default_included_ck`
+    // (migration 20271015207377), which forces `is_default_included = FALSE`
+    // on every follow-up, so the next line already excludes them from any row
+    // that came out of the database.
+    //
+    // BOTH exist because this function does not only see database rows: the
+    // customization modal, the credit adapter and every test build item
+    // objects IN MEMORY, where no constraint applies. This line is what would
+    // have cascaded the row, so it refuses the shape directly rather than
+    // trusting that whoever assembled the object honoured the schema.
+    //
+    // ⚠ Deleting this does NOT become safe once the renderer ships. A PICKED
+    // follow-up cascades through the renderer's own resolution — which knows
+    // the parent was chosen — never through "it was in the package all along".
+    if (item.parent_option_id != null) return false;
     // Never inside the price → never cascades into an event_vendors row. There
     // is no purchase path for add-ons yet, so shipping them as booked services
     // would hand the host a vendor they did not pay for.
     if (!item.is_default_included) return false;
-    // A required line survives regardless of what the client sent.
+    // A required line survives regardless of what the client sent. Note this
+    // sits BELOW the inclusion check, so `is_required` never resurrects a line
+    // the two guards above already dropped.
     if (item.is_required) return true;
     return !removedSet.has(item.item_id);
   });

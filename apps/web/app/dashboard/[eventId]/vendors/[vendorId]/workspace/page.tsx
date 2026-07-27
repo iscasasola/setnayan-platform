@@ -715,7 +715,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           .maybeSingle(),
         supabase
           .from('vendor_package_items')
-          .select('service_description, is_default_included, display_order')
+          // `parent_option_id` is selected only so follow-ups can be DROPPED
+          // below — this list renders every non-included line as "(optional
+          // add-on)", and a follow-up is not an add-on the host can just take.
+          .select(
+            'service_description, is_default_included, parent_option_id, display_order',
+          )
           .eq('package_id', booking.package_id)
           .order('display_order', { ascending: true }),
       ]);
@@ -743,11 +748,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         (itemsRaw ?? []) as Array<{
           service_description: string;
           is_default_included: boolean;
+          parent_option_id: string | null;
         }>
-      ).map((it) => ({
-        service_description: it.service_description,
-        is_default_included: it.is_default_included,
-      }));
+      )
+        // A FOLLOW-UP is not an add-on. This list labels every non-included
+        // line "(optional add-on)", and the DB forces follow-ups to
+        // `is_default_included = FALSE`
+        // (vendor_package_items_followup_not_default_included_ck), so without
+        // this they would ALL land in the add-on bucket — offering the host a
+        // "which style of lechon?" line detached from the lechon.
+        .filter((it) => it.parent_option_id == null)
+        .map((it) => ({
+          service_description: it.service_description,
+          is_default_included: it.is_default_included,
+        }));
     }
   }
 

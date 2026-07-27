@@ -3153,7 +3153,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 /* ---------- expand / collapse (no height measuring) ---------- */
 .sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
 .sn-acc.open { grid-template-rows:1fr; }
-.sn-acc > * { overflow:hidden; min-height:0; }
+.sn-acc > * { overflow:hidden; min-height:0; min-width:0; }
+/* min-width:0 is the horizontal twin of min-height:0 above. A grid item defaults to
+ * min-width:auto ("never shrink below intrinsic content width"), so a wide child — a
+ * horizontally-scrolling rail, a table, a long unbroken string — inflates the collapse
+ * track past the viewport and the PAGE scrolls sideways on mobile instead of the child
+ * scrolling inside itself. Any collapse built on this template inherits the fix. */
 
 /* ---------- overlays ---------- */
 .sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }

@@ -264,6 +264,15 @@ export type VendorEnrichment = {
   /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
    *  else null — feeds the reach badge's "within N km" label. */
   service_radius_km?: number | null;
+  /** INNER/OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17) — the vendor's
+   *  OWN declared rings, ALREADY tier-clamped by `effectiveInnerRadiusKm` /
+   *  `effectiveOuterRadiusKm` on the page that loads them (so a lapsed
+   *  subscription can never keep buying reach through a stale column).
+   *  Inside inner → no travel fee · inner→outer → travel fee · beyond outer →
+   *  out of range. EITHER being null means "not declared" and the bench falls
+   *  back to the tier-derived `within_radius` badge, unchanged. */
+  inner_radius_km?: number | null;
+  outer_radius_km?: number | null;
   /** The picked service's "starts at" anchor (vendor_services.starting_price_php)
    *  — the budget-fit fallback basis when the vendor hasn't sent a quote yet
    *  (total_cost_php is null). PHP whole pesos. */

@@ -11,6 +11,7 @@ import {
 import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 import { formatPhp } from '@/lib/vendors';
 import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
+import { resolveReachBadge } from '@/lib/vendor-service-radius';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -57,13 +58,28 @@ export function VendorQuickViewInspector({
   // there. These are NOT AI-paywalled (they render on the card whether or not
   // Setnayan AI is active).
   const fits: { cls: 'ok' | 'warn'; icon: React.ReactNode; text: string }[] = [];
-  if (v.reachesVenue === true) {
-    fits.push({ cls: 'ok', icon: <MapPin size={12} strokeWidth={2.25} aria-hidden />, text: 'Reaches you' });
-  } else if (v.reachesVenue === false) {
+  // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · §17) — resolved with the
+  // SAME helper the bench card uses, so the inspector and the card can never
+  // give a different answer about the same vendor's travel fee. The helper owns
+  // the precedence: a vendor's own declaration wins, an undeclared ring falls
+  // through to today's tier-derived read verbatim, and absent both it renders
+  // nothing.
+  const reachBadge = resolveReachBadge({
+    distanceKm: v.distanceKm,
+    innerKm: v.innerRadiusKm,
+    outerKm: v.outerRadiusKm,
+    reachesVenue: v.reachesVenue,
+    serviceRadiusKm: v.serviceRadiusKm,
+  });
+  if (reachBadge) {
     fits.push({
-      cls: 'warn',
-      icon: <MapPinOff size={12} strokeWidth={2.25} aria-hidden />,
-      text: v.serviceRadiusKm ? `Beyond ${v.serviceRadiusKm}km` : 'Travel fee likely',
+      cls: reachBadge.tone,
+      icon: reachBadge.inRange ? (
+        <MapPin size={12} strokeWidth={2.25} aria-hidden />
+      ) : (
+        <MapPinOff size={12} strokeWidth={2.25} aria-hidden />
+      ),
+      text: reachBadge.text,
     });
   }
   if (v.budgetFit === 'fits') {

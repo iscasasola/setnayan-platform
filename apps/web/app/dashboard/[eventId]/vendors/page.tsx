@@ -26,6 +26,10 @@ import {
   isVendorNameRevealed,
 } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  effectiveInnerRadiusKm,
+  effectiveOuterRadiusKm,
+} from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
@@ -284,7 +288,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -304,6 +308,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .from('chat_threads')
         .select('vendor_profile_id, inquiry_status, created_at')
         .eq('event_id', eventId)
+        .in('vendor_profile_id', marketplaceIds),
+      // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17 · migration
+      // 20271013561924). Two columns off the SAME `marketplaceIds` list — no
+      // extra fan-out, and it runs in this same Promise.all so it costs no
+      // round-trip.
+      //
+      // ⚠ ISOLATED FROM THE `profRes` SELECT ON PURPOSE. Vercel ships on merge
+      // and migrations apply on their own schedule, so there is a window where
+      // this code is live and the columns are not. Folded into the select two
+      // entries up, a missing column (42703) would null the WHOLE row and strip
+      // every picked vendor of its name, tier and reach. Isolated, the worst
+      // case is an empty rings map — which reads as "nobody has declared", which
+      // is exactly right in that window. Same rule as std-video-gate.ts:116.
+      enrichmentAdmin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, inner_radius_km, outer_radius_km')
         .in('vendor_profile_id', marketplaceIds),
     ]);
 
@@ -336,6 +356,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const anonByProfile = new Map<string, ProfRow>();
     for (const p of (profRes.data as ProfRow[] | null) ?? []) {
       anonByProfile.set(p.vendor_profile_id, p);
+    }
+    // Declared travel rings, RAW (un-clamped) — the tier clamp is applied per
+    // candidate below, where the tier is in hand. A pre-migration read leaves
+    // this map empty and every vendor reads as "not declared".
+    type RingRow = {
+      vendor_profile_id: string;
+      inner_radius_km: number | null;
+      outer_radius_km: number | null;
+    };
+    const ringsByProfile = new Map<string, RingRow>();
+    for (const r of (ringsRes.data as RingRow[] | null) ?? []) {
+      ringsByProfile.set(r.vendor_profile_id, r);
     }
     const inquiryByProfile = new Map<string, ChatInquiryStatus>();
     // Pending-since (inquiry-accepted-visibility 2026-06-16) — when the couple
@@ -455,6 +487,29 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? null
           : distanceKm <= radiusKm;
 
+      // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · §17). The vendor's own
+      // declaration, TIER-CLAMPED HERE so a lapsed subscription can never keep
+      // buying reach through a stale column: a vendor who declared 50 km on Pro
+      // and dropped to Verified reads 20 km, with no backfill job. Either ring
+      // resolving null → the bench keeps the tier-derived `within_radius` badge
+      // above, unchanged — a blank is never a penalty and never a claim.
+      const declaredRings = ringsByProfile.get(pid);
+      const effectiveOuterKm = effectiveOuterRadiusKm(
+        declaredRings?.outer_radius_km ?? null,
+        a?.tier_state ?? null,
+      );
+      const effectiveInnerKm = effectiveInnerRadiusKm(
+        declaredRings?.inner_radius_km ?? null,
+        declaredRings?.outer_radius_km ?? null,
+        a?.tier_state ?? null,
+      );
+      // Only carry a ring pair when the vendor ACTUALLY declared the outer one —
+      // `effectiveOuterRadiusKm` returns the tier cap for a blank, and shipping
+      // that downstream would turn "hasn't said" into "declared their tier cap",
+      // which is the exact tier-proxy claim §17 exists to delete.
+      const declaredOuterKm =
+        declaredRings?.outer_radius_km == null ? null : effectiveOuterKm;
+
       // Positive faith match only (true) — a non-match / serves-all / non-wedding
       // stays null so the scorer applies its neutral (never a penalty).
       const faithMatch =
@@ -470,6 +525,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         distance_km: distanceKm,
         within_radius: withinRadius,
         service_radius_km: hasFiniteRadius ? radiusKm : null,
+        inner_radius_km: effectiveInnerKm,
+        outer_radius_km: declaredOuterKm,
         starting_price_php: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
         budget_fit_ratio: vendorBudgetFitRatio({
           vendorCategory: v.category ?? null,

@@ -25,6 +25,10 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     href: '#',
     reachesVenue: null,
     serviceRadiusKm: null,
+    // Undeclared travel rings (§17) — the default, so every existing bench-sort
+    // case keeps measuring the tier-derived path it was written for.
+    innerRadiusKm: null,
+    outerRadiusKm: null,
     distanceKm: null,
     budgetFitRatio: null,
     faithMatch: null,

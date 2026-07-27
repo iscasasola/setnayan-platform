@@ -60,7 +60,7 @@ async function countAs(uid: string, sql: string, params: unknown[] = []): Promis
   return r.rows.length;
 }
 
-const F = { couple: '', guest: '', eventId: '' };
+const F = { couple: '', guest: '', coordinator: '', eventId: '' };
 
 before(async () => {
   replay = await createReplayedDb();
@@ -68,6 +68,7 @@ before(async () => {
 
   F.couple = await createUser('scope-couple@audit.test');
   F.guest = await createUser('scope-guest@audit.test');
+  F.coordinator = await createUser('scope-coordinator@audit.test');
 
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type) VALUES ('Scope Test', 'birthday')
@@ -84,6 +85,20 @@ before(async () => {
   await db.query(
     `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'guest')`,
     [F.eventId, F.guest],
+  );
+
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'coordinator')`,
+    [F.eventId, F.coordinator],
+  );
+  const song = await db.query<{ song_id: string }>(
+    `INSERT INTO public.songs (title, artist, source)
+     VALUES ('First Dance', 'The Test Band', 'seed') RETURNING song_id`,
+  );
+  await db.query(
+    `INSERT INTO public.event_song_picks (event_id, song_id, source)
+     VALUES ($1, $2, 'editor')`,
+    [F.eventId, song.rows[0]!.song_id],
   );
 
   await db.query(
@@ -107,32 +122,20 @@ after(async () => {
 // ── T1 · the invariant that stops this recurring ─────────────────────────────
 
 /**
- * Policies that still say couple/host while using the member-wide function.
+ * EMPTY, and it must stay that way.
  *
- * These are NOT approved — they are UNRESOLVED. Each is reached by a non-admin
- * client path whose caller role could not be established with confidence from a
- * call-site read, so narrowing them on a guess risks breaking a live flow.
- * Deciding them needs a product ruling (e.g. may a guest see the couple's vendor
- * appointments?), which is why they are pinned here rather than changed.
+ * It briefly held six entries (2026-07-27) while their safe shape was unclear.
+ * The owner then ruled that a guest may see neither the couple's vendor
+ * appointments nor their song picks, and reading each table's FULL policy set
+ * showed the rest answered itself — every one already had a separate
+ * vendor/requester policy, so the couple/host policy never had to carry those
+ * roles. Migration 20271016300000 closed all six.
  *
- * THIS LIST MAY ONLY SHRINK. Removing an entry means either narrowing the policy
- * or renaming it `*_member_*` so the name stops lying.
+ * THIS LIST MAY ONLY SHRINK. Adding an entry means admitting a policy whose name
+ * lies about its scope; fix the policy, or rename it `*_member_*`.
  */
-const KNOWN_BROAD: Record<string, string> = {
-  'booking_handovers.booking_handovers_couple_read':
-    'read on the couple dashboard AND two vendor-dashboard surfaces; caller role unverified.',
-  'event_access_requests.event_access_requests_host_answer':
-    'UPDATE — also invoked from the vendor floor-command surface; needs a ruling on who may answer.',
-  'event_access_requests.event_access_requests_host_read':
-    'paired with the answer policy above; decide both together.',
-  'event_appointments.event_appointments_couple_read':
-    'nine non-admin sites incl. lib/upcoming-items + lib/preparation, which may run for any member.',
-  'event_song_picks.event_song_picks_host_select':
-    'lib/songs.ts is shared by couple and guest song surfaces; narrowing may break the guest picker.',
-  'event_song_picks.event_song_picks_host_write':
-    'paired with the select policy above; decide both together.',
-};
-const KNOWN_BROAD_CEILING = 6;
+const KNOWN_BROAD: Record<string, string> = {};
+const KNOWN_BROAD_CEILING = 0;
 
 test('T1 · no NEW policy named couple/host is wired to the member-wide current_event_ids()', async () => {
   const r = await db.query<{ tablename: string; policyname: string }>(
@@ -263,4 +266,55 @@ test('T6 · NEUTRALISATION: restoring the member-wide policy lets the guest read
     'with the member-wide predicate back the guest CAN read the report — so T2 is ' +
       'caused by the narrowing, not by an unrelated harness failure',
   );
+});
+
+
+// ── T7 · the owner's 2026-07-27 rulings, proven behaviourally ───────────────
+//
+//   "May a guest see the couple's vendor appointments?"  → no
+//   "May a guest see or change the couple's song picks?" → no
+//
+// The COORDINATOR is the counterweight: they are an invited planning role, not a
+// guest, and `current_couple_or_coordinator_event_ids()` is what keeps them in
+// while the ruling puts guests out. A narrowing that also locked out the
+// coordinator would be an over-correction, so it is asserted, not assumed.
+
+test('T7 · a GUEST cannot see the couple song picks; the COORDINATOR still can', async () => {
+  const guest = await countAs(
+    F.guest,
+    `SELECT song_id FROM public.event_song_picks WHERE event_id = $1`,
+    [F.eventId],
+  );
+  const coordinator = await countAs(
+    F.coordinator,
+    `SELECT song_id FROM public.event_song_picks WHERE event_id = $1`,
+    [F.eventId],
+  );
+  const couple = await countAs(
+    F.couple,
+    `SELECT song_id FROM public.event_song_picks WHERE event_id = $1`,
+    [F.eventId],
+  );
+  assert.equal(guest, 0, "owner ruling: a guest may not see the couple's song picks");
+  assert.equal(coordinator, 1, 'the invited coordinator is not a guest — they keep the playlist');
+  assert.equal(couple, 1, 'the couple obviously keeps their own picks');
+});
+
+test('T7b · a GUEST cannot WRITE the couple song picks', async () => {
+  await asUser(F.guest);
+  const del = await db.query(`DELETE FROM public.event_song_picks WHERE event_id = $1`, [
+    F.eventId,
+  ]);
+  await reset();
+  assert.equal(del.affectedRows, 0, 'owner ruling: a guest may not change the song picks');
+});
+
+test('T7c · no couple/host policy anywhere is still member-wide', async () => {
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_policies
+      WHERE schemaname='public' AND 'authenticated' = ANY(roles)
+        AND (COALESCE(qual,'')||COALESCE(with_check,'')) LIKE '%current_event_ids()%'
+        AND (policyname LIKE '%couple%' OR policyname LIKE '%host%')`,
+  );
+  assert.equal(r.rows[0]!.n, 0, 'the sixteen are all closed — KNOWN_BROAD is empty for real');
 });

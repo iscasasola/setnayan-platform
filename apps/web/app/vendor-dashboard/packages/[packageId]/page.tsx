@@ -5,10 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import {
-  PACKAGE_CANONICAL_TO_VENDOR_CATEGORY,
-  PACKAGE_ITEM_OPTION_SELECT,
-} from '@/lib/vendor-packages';
+import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
+import { loadPackageDraft, countActiveBookings } from '@/lib/package-draft-loader';
 import type { DraftPackage } from '@/lib/package-authoring';
 import { PackageEditor } from '../_components/package-editor';
 
@@ -58,66 +56,36 @@ export default async function EditPackagePage({
   let frozen = false;
 
   if (!isNew) {
-    const { data: pkg } = await supabase
-      .from('vendor_packages')
-      .select(
-        'package_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, is_active',
-      )
-      .eq('package_id', packageId)
-      .eq('vendor_profile_id', vendorProfileId) // ownership, not a filter
-      .maybeSingle();
-    if (!pkg) notFound();
-
-    const { data: items } = await supabase
-      .from('vendor_package_items')
-      .select(
-        'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos',
-      )
-      .eq('package_id', packageId)
-      .order('display_order', { ascending: true });
-
-    const itemIds = (items ?? []).map((i) => i.item_id);
-    const { data: options } = itemIds.length
-      ? await supabase
-          .from('vendor_package_item_options')
-          .select(PACKAGE_ITEM_OPTION_SELECT)
-          .in('item_id', itemIds)
-          .order('display_order', { ascending: true })
-      : { data: [] as never[] };
+    // ONE loader, shared with the save action. Both call sites used to run
+    // their own copy of this query and both destructured only `{ data }`, so a
+    // 400 on the item select degraded into an EMPTY draft that the vendor could
+    // then save over the real rows. See lib/package-draft-loader.ts.
+    const read = await loadPackageDraft(supabase, vendorProfileId, packageId);
+    if (!read.ok) {
+      if (read.reason === 'not_found') notFound();
+      // Loud on purpose. Rendering an empty editor here is what turns an
+      // unreadable package into a destructive save on the vendor's next click.
+      throw new Error(
+        `Could not read package ${packageId}: ${read.message}. Refusing to render ` +
+          'an empty editor — saving it would delete the package\'s real inclusions.',
+      );
+    }
 
     // A live booking freezes the structure — see editScopeForPackage. Released
-    // bookings no longer bind, so they do not freeze.
-    const { count } = await supabase
-      .from('event_vendor_packages')
-      .select('booking_id', { count: 'exact', head: true })
-      .eq('package_id', packageId)
-      .neq('status', 'released');
+    // bookings no longer bind, so they do not freeze. An unreadable count is
+    // NOT zero: reading it as zero unfreezes a booked package and unlocks the
+    // branch that deletes every item row underneath a live contract.
+    const bookings = await countActiveBookings(supabase, packageId);
+    if (bookings === null) {
+      throw new Error(
+        `Could not check bookings for package ${packageId}. Refusing to render the ` +
+          'editor unfrozen — a booked package must never open in structural-edit mode.',
+      );
+    }
 
-    isActive = pkg.is_active;
-    frozen = (count ?? 0) > 0;
-    initial = {
-      package_name: pkg.package_name,
-      total_price_centavos: pkg.total_price_centavos,
-      consumable_budget_centavos: pkg.consumable_budget_centavos,
-      is_consumable_flexible: pkg.is_consumable_flexible,
-      items: (items ?? []).map((i) => ({
-        ref: i.item_id,
-        service_description: i.service_description,
-        canonical_service: i.canonical_service,
-        is_default_included: i.is_default_included,
-        is_required: i.is_required ?? false,
-        replacement_value_centavos: i.replacement_value_centavos,
-        options: (options ?? [])
-          .filter((o) => o.item_id === i.item_id)
-          .map((o) => ({
-            ref: o.option_id,
-            label: o.option_label,
-            price_delta_centavos: o.price_delta_centavos,
-            is_default: o.is_default,
-            is_available: o.is_available,
-          })),
-      })),
-    };
+    isActive = read.loaded.isActive;
+    frozen = bookings > 0;
+    initial = read.loaded.draft;
   }
 
   return (

@@ -37,13 +37,15 @@ import {
   validatePackageDraft,
   editScopeForPackage,
   structuralChanges,
+  planItemInsertOrder,
   type DraftPackage,
   type DraftProblem,
 } from '@/lib/package-authoring';
 import {
-  PACKAGE_ITEM_OPTION_SELECT,
-  type VendorPackageItemOptionRow,
-} from '@/lib/vendor-packages';
+  loadPackageDraft,
+  countActiveBookings,
+} from '@/lib/package-draft-loader';
+import { type VendorPackageItemOptionRow } from '@/lib/vendor-packages';
 import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity';
 
 export type SavePackageResult =
@@ -63,76 +65,6 @@ async function ensureProfile() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   return { supabase, profile };
-}
-
-/** Bookings that still bind the vendor. A released booking no longer does. */
-async function activeBookingCount(
-  supabase: SupabaseClient,
-  packageId: string,
-): Promise<number> {
-  const { count } = await supabase
-    .from('event_vendor_packages')
-    .select('booking_id', { count: 'exact', head: true })
-    .eq('package_id', packageId)
-    .neq('status', 'released');
-  return count ?? 0;
-}
-
-/** Read a package the caller owns, in the DraftPackage shape, or null. */
-async function loadOwnDraft(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-  packageId: string,
-): Promise<DraftPackage | null> {
-  const { data: pkg } = await supabase
-    .from('vendor_packages')
-    .select(
-      'package_id, vendor_profile_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible',
-    )
-    .eq('package_id', packageId)
-    .eq('vendor_profile_id', vendorProfileId) // ownership, not a filter
-    .maybeSingle();
-  if (!pkg) return null;
-
-  const { data: items } = await supabase
-    .from('vendor_package_items')
-    .select(
-      'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order',
-    )
-    .eq('package_id', packageId)
-    .order('display_order', { ascending: true });
-
-  const itemIds = (items ?? []).map((i) => i.item_id);
-  const { data: options } = itemIds.length
-    ? await supabase
-        .from('vendor_package_item_options')
-        .select(PACKAGE_ITEM_OPTION_SELECT)
-        .in('item_id', itemIds)
-    : { data: [] as never[] };
-
-  return {
-    package_name: pkg.package_name,
-    total_price_centavos: pkg.total_price_centavos,
-    consumable_budget_centavos: pkg.consumable_budget_centavos,
-    is_consumable_flexible: pkg.is_consumable_flexible,
-    items: (items ?? []).map((i) => ({
-      ref: i.item_id,
-      service_description: i.service_description,
-      canonical_service: i.canonical_service,
-      is_default_included: i.is_default_included,
-      is_required: i.is_required ?? false,
-      replacement_value_centavos: i.replacement_value_centavos,
-      options: (options ?? [])
-        .filter((o) => o.item_id === i.item_id)
-        .map((o) => ({
-          ref: o.option_id,
-          label: o.option_label,
-          price_delta_centavos: o.price_delta_centavos,
-          is_default: o.is_default,
-          is_available: o.is_available,
-        })),
-    })),
-  };
 }
 
 /**
@@ -203,12 +135,33 @@ export async function savePackage(
 
   // ---- UPDATE ----
   if (input.packageId) {
-    const stored = await loadOwnDraft(supabase, vendorProfileId, input.packageId);
-    if (!stored) return { status: 'not_found' };
+    const read = await loadPackageDraft(supabase, vendorProfileId, input.packageId);
+    if (!read.ok) {
+      if (read.reason === 'not_found') return { status: 'not_found' };
+      // A FAILED READ IS NOT AN EMPTY PACKAGE. Everything below deletes the
+      // package's item rows and writes back whatever the draft holds, so
+      // continuing on a read we could not perform is the destructive-save shape
+      // documented in lib/package-draft-loader.ts. Refuse instead.
+      return {
+        status: 'error',
+        message: `Could not read the package to save it, so nothing was changed: ${read.message}`,
+      };
+    }
+    const stored = read.loaded.draft;
 
-    const scope = editScopeForPackage(
-      await activeBookingCount(supabase, input.packageId),
-    );
+    const bookings = await countActiveBookings(supabase, input.packageId);
+    if (bookings === null) {
+      // Same rule as above, one level out: an unreadable booking count read as
+      // zero would unfreeze a BOOKED package and unlock the branch that deletes
+      // every item row underneath a live contract.
+      return {
+        status: 'error',
+        message:
+          'Could not check whether this package has bookings, so nothing was changed.',
+      };
+    }
+
+    const scope = editScopeForPackage(bookings);
     if (scope === 'metadata_only') {
       const changed = structuralChanges(stored, input);
       if (changed.length > 0) return { status: 'frozen', changed };
@@ -276,7 +229,28 @@ export async function savePackage(
   return { status: 'ok', packageId: created.package_id };
 }
 
-/** Insert items + their options. Returns an error result, or null on success. */
+/**
+ * Insert items + their options. Returns an error result, or null on success.
+ *
+ * ── WHY THIS IS NOT ONE INSERT ANY MORE ─────────────────────────────────────
+ * A follow-up line stores `parent_option_id`, an OPTION id — and this function
+ * mints every option id fresh on every save, because `savePackage` replaces a
+ * package's rows wholesale rather than diffing them. So a follow-up cannot be
+ * written until its parent's options exist and their new ids have been read
+ * back. `planItemInsertOrder` groups the draft into levels for exactly that:
+ *
+ *     level 0 items → level 0 options → level 1 items → level 1 options → …
+ *
+ * Sorting the array by depth and issuing ONE insert would not be enough, for a
+ * second and less obvious reason: a BEFORE-ROW trigger sees the statement's own
+ * snapshot, so rows inserted earlier in the same multi-row INSERT are invisible
+ * to it. The database's cycle guard would look for the parent, not find it, and
+ * raise `package_followup_parent_missing` on a perfectly ordered array.
+ *
+ * `display_order` stays the item's index in the ORIGINAL draft array, not its
+ * index within a level, so the vendor's authored order survives the regrouping
+ * and remains the key that maps inserted rows back to draft refs.
+ */
 async function writeItems(
   supabase: SupabaseClient,
   packageId: string,
@@ -284,33 +258,85 @@ async function writeItems(
 ): Promise<SavePackageResult | null> {
   if (draft.items.length === 0) return null;
 
-  const { data: itemRows, error: itemErr } = await supabase
-    .from('vendor_package_items')
-    .insert(
-      draft.items.map((i, idx) => ({
+  const plan = planItemInsertOrder(draft.items);
+  if (!plan.ok) {
+    // A parentRef that names nothing, or an item inside a cycle. FAIL — the
+    // alternative is inserting it with a NULL parent, which PROMOTES a
+    // follow-up into a line every couple sees on every booking.
+    // `validatePackageDraft` already refuses both shapes; this is the backstop
+    // for a payload that never went through it.
+    return {
+      status: 'invalid',
+      problems: plan.unresolvedRefs.map((ref) => ({
+        code: 'followup_parent_unknown' as const,
+        itemRef: ref,
+        message:
+          'This follow-up points at a choice that is not in the package. Re-attach it or delete it.',
+      })),
+    };
+  }
+
+  const orderOfRef = new Map(draft.items.map((i, idx) => [i.ref, idx]));
+  /** draft optionRef → the option id this save just minted for it. */
+  const optionIdByRef = new Map<string, string>();
+
+  for (const level of plan.levels) {
+    const itemRows = level.map((i) => {
+      const parentOptionId = i.parentRef
+        ? optionIdByRef.get(i.parentRef.optionRef)
+        : undefined;
+      return {
         package_id: packageId,
         canonical_service: i.canonical_service,
         service_description: i.service_description.trim(),
         is_default_included: i.is_default_included,
         is_required: i.is_required,
         replacement_value_centavos: i.replacement_value_centavos,
-        display_order: idx,
-      })),
-    )
-    .select('item_id, display_order');
-  if (itemErr || !itemRows) {
-    return { status: 'error', message: itemErr?.message ?? 'Item insert failed' };
-  }
+        display_order: orderOfRef.get(i.ref) ?? 0,
+        // The branching columns are written ONLY when the vendor set them, so a
+        // package with no branching produces byte-identical SQL to before this
+        // change — and cannot 400 on a deployment where the migration has not
+        // landed yet. NULL is the column default in every one of these cases.
+        ...(parentOptionId ? { parent_option_id: parentOptionId } : {}),
+        ...(i.pickMin != null && i.pickMax != null
+          ? { pick_min: i.pickMin, pick_max: i.pickMax }
+          : {}),
+        ...(i.maxExtraHours != null ? { max_extra_hours: i.maxExtraHours } : {}),
+      };
+    });
 
-  // Re-key by display_order — the insert preserves it, and it is the only link
-  // back to the draft's client-side refs.
-  const byOrder = new Map(itemRows.map((r) => [r.display_order, r.item_id]));
-  // Typed as the real row so a mis-named column is a compile error, not a
-  // PostgREST 400 at runtime — writing `label` here (the column is
-  // `option_label`) silently saved every choice line with no options at all.
-  const optionRows: ReadonlyArray<Omit<VendorPackageItemOptionRow, 'option_id'>> =
-    draft.items.flatMap((i, idx) => {
-      const itemId = byOrder.get(idx);
+    // Unreachable via the plan, which only places an item once its parent's
+    // level is done — but a missing id here would silently write a top-level
+    // line, so it is checked rather than assumed.
+    const orphan = level.find(
+      (i) => i.parentRef && !optionIdByRef.has(i.parentRef.optionRef),
+    );
+    if (orphan) {
+      return {
+        status: 'error',
+        message: `Could not resolve the parent choice for "${orphan.service_description}".`,
+      };
+    }
+
+    const { data: inserted, error: itemErr } = await supabase
+      .from('vendor_package_items')
+      .insert(itemRows)
+      .select('item_id, display_order');
+    if (itemErr || !inserted) {
+      return { status: 'error', message: itemErr?.message ?? 'Item insert failed' };
+    }
+
+    // Re-key by display_order — the insert preserves it, and it is the only
+    // link back to the draft's client-side refs.
+    const itemIdByOrder = new Map(inserted.map((r) => [r.display_order, r.item_id]));
+
+    // Typed as the real row so a mis-named column is a compile error, not a
+    // PostgREST 400 at runtime — writing `label` here (the column is
+    // `option_label`) silently saved every choice line with no options at all.
+    const optionRows: ReadonlyArray<
+      Omit<VendorPackageItemOptionRow, 'option_id'> & { __ref: string }
+    > = level.flatMap((i) => {
+      const itemId = itemIdByOrder.get(orderOfRef.get(i.ref) ?? -1);
       if (!itemId) return [];
       return i.options.map((o, oIdx) => ({
         item_id: itemId,
@@ -319,15 +345,31 @@ async function writeItems(
         is_default: o.is_default,
         is_available: o.is_available,
         display_order: oIdx,
+        __ref: o.ref,
       }));
     });
 
-  if (optionRows.length > 0) {
-    const { error: optErr } = await supabase
+    if (optionRows.length === 0) continue;
+
+    const { data: insertedOptions, error: optErr } = await supabase
       .from('vendor_package_item_options')
-      .insert(optionRows);
-    if (optErr) return { status: 'error', message: optErr.message };
+      .insert(optionRows.map(({ __ref, ...row }) => row))
+      .select('option_id, item_id, display_order');
+    if (optErr || !insertedOptions) {
+      return { status: 'error', message: optErr?.message ?? 'Option insert failed' };
+    }
+
+    // (item_id, display_order) is unique within one save, so it is a safe key
+    // back to the draft ref that produced the row.
+    const refByKey = new Map(
+      optionRows.map((r) => [`${r.item_id}:${r.display_order}`, r.__ref]),
+    );
+    for (const row of insertedOptions) {
+      const ref = refByKey.get(`${row.item_id}:${row.display_order}`);
+      if (ref) optionIdByRef.set(ref, row.option_id);
+    }
   }
+
   return null;
 }
 
@@ -345,13 +387,22 @@ export async function setPackageActive(
   // Refuse to publish a package that would not validate — otherwise a draft
   // saved before a rule tightened could go live broken.
   if (isActive) {
-    const stored = await loadOwnDraft(
+    const read = await loadPackageDraft(
       supabase,
       profile.vendor_profile_id as string,
       packageId,
     );
-    if (!stored) return { status: 'not_found' };
-    const problems = validatePackageDraft(stored);
+    if (!read.ok) {
+      if (read.reason === 'not_found') return { status: 'not_found' };
+      // Publishing on a failed read would put a package live having validated
+      // an empty draft — `validatePackageDraft` objects to zero items, but only
+      // AFTER the empty list has already been mistaken for the real one.
+      return {
+        status: 'error',
+        message: `Could not read the package to publish it: ${read.message}`,
+      };
+    }
+    const problems = validatePackageDraft(read.loaded.draft);
     if (problems.length > 0) return { status: 'invalid', problems };
   }
 

@@ -22,7 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -46,10 +46,15 @@ import {
 import { formatPhp } from '@/lib/vendors';
 import {
   BENCH_SORTS,
+  BENCH_PLAIN_SORTS,
+  benchCompatInputs,
+  persistBenchSort,
+  readPersistedBenchSort,
   sortWithReasons,
   type BenchSort,
   type SortReason,
 } from '@/lib/bench-sort';
+import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
 import {
   FREE_VENUE_ASSIST_CHIP,
   isSuriAssistFreeForCategory,
@@ -198,6 +203,15 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
 .slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .sortseg button:active{transform:scale(.96)}
 .slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
+/* A lens whose driving input is missing across the bench (§15.2). Offered but
+   inert: it stays visible so the couple learns what would switch it on, and
+   carries that reason on hover / in its accessible name. */
+.slcat .sortseg button:disabled{opacity:.42;cursor:not-allowed}
+.slcat .sortseg button:disabled:active{transform:none}
+/* Divides the RANKING LENSES from the two PLAIN SORTS. The separation is the
+   point, not decoration: a lens is a recommendation with a reason pill, a plain
+   sort is a comparator the couple asked for. */
+.slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
 html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
 /* bench search — client-side filter over categories + considered vendors */
@@ -933,6 +947,70 @@ export function ShortlistCategories({
   const buildPickSet = new Set(buildPickVendorIds);
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
+  // ── Ranking lenses (Explore Replan §15) ───────────────────────────────────
+  // The control is bench-wide, so the §15.2 visibility gate is measured over
+  // EVERY considered vendor on the bench — not per rail. A lens is offered when
+  // the bench as a whole can be re-ordered by it; offering "Nearest" on one
+  // category and hiding it on the next would read as a bug.
+  //
+  // Candidates are the SAME `CompatInputs` the scorer consumes, so the gate and
+  // the ranking can never disagree about what data exists.
+  const lensCandidates = useMemo(
+    () =>
+      replan
+        ? folders.flatMap((f) => f.tiles.flatMap((t) => t.vendors.map((v) => benchCompatInputs(v))))
+        : [],
+    [folders, replan],
+  );
+  // Chips in order, each resolved to enabled / disabled-with-reason. A lens with
+  // no honest disabled wording (In demand right now) is ABSENT from this list
+  // rather than greyed — see `LENSES.demand` for why that is a requirement.
+  const lensChips = useMemo(
+    () => (replan ? visibleLenses(lensCandidates) : []),
+    [lensCandidates, replan],
+  );
+  // A selected lens that is no longer offered (the couple sorted by "Nearest",
+  // then their venue anchor went away) resolves to the default AT RENDER rather
+  // than by correcting state — no effect, no risk of a set-state loop, and the
+  // couple's stored preference survives in case the data comes back.
+  const effectiveSort: BenchSort =
+    replan && isLensKey(sort) && !lensChips.some((c) => c.key === sort && !c.disabled)
+      ? 'fit'
+      : sort;
+
+  // ── Sort persistence (§13.3) ──────────────────────────────────────────────
+  // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
+  // the bench back to "Best fit". Stored per EVENT. Read once on mount (not
+  // during render — localStorage would desync SSR hydration), and only ever
+  // restored to a lens the CURRENT bench can actually offer.
+  const sortHydrated = useRef(false);
+  const sortPersistArmed = useRef(false);
+  useEffect(() => {
+    if (!replan || sortHydrated.current) return;
+    sortHydrated.current = true;
+    const offered = new Set<BenchSort>([
+      ...BENCH_PLAIN_SORTS.map((s) => s.key as BenchSort),
+      ...lensChips.filter((c) => !c.disabled).map((c) => c.key as BenchSort),
+    ]);
+    const saved = readPersistedBenchSort(
+      eventId,
+      typeof window === 'undefined' ? null : window.localStorage,
+      (mode) => offered.has(mode),
+    );
+    if (saved) setSort(saved);
+  }, [replan, eventId, lensChips]);
+  useEffect(() => {
+    if (!replan) return;
+    // Skip the first run: it fires alongside the hydrate effect above and would
+    // otherwise write the DEFAULT over the couple's stored choice before it has
+    // been read back.
+    if (!sortPersistArmed.current) {
+      sortPersistArmed.current = true;
+      return;
+    }
+    persistBenchSort(eventId, sort, typeof window === 'undefined' ? null : window.localStorage);
+  }, [replan, eventId, sort]);
+
   /** Every tile in a folder as a CoverageTile (`order` = taxonomy walk index). */
   const coverageByFolder = new Map<string, CoverageTile[]>();
   {
@@ -1177,19 +1255,61 @@ export function ShortlistCategories({
       ) : null}
       <div className="sortbar">
         <span className="sortbar-lbl">Sort by</span>
-        <div className="sortseg" role="group" aria-label="Sort vendors">
-          {BENCH_SORTS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className={sort === s.key ? 'on' : undefined}
-              aria-pressed={sort === s.key}
-              onClick={() => setSort(s.key)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {replan ? (
+          <>
+            {/* The five RANKING LENSES — one scorer, five named weight vectors,
+                every card carrying the reason it is where it is. */}
+            <div className="sortseg" role="group" aria-label="Ranking lens">
+              {lensChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  className={effectiveSort === c.key ? 'on' : undefined}
+                  aria-pressed={effectiveSort === c.key}
+                  disabled={c.disabled}
+                  title={c.reason ?? undefined}
+                  aria-label={c.reason ? `${c.label} — ${c.reason}` : undefined}
+                  onClick={() => setSort(c.key)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <span className="sortsep" aria-hidden />
+            {/* The two PLAIN SORTS, kept visually separate. They are a user job
+                ("just show me the cheapest"), not a recommendation: no score, no
+                reason pill. "Lowest price" could not be a lens even if we wanted
+                it to be — `priceFitScore` ties every in-budget vendor at 1.0, so
+                a "cheapest" weight vector is arithmetically impossible. */}
+            <div className="sortseg" role="group" aria-label="Sort vendors">
+              {BENCH_PLAIN_SORTS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={effectiveSort === s.key ? 'on' : undefined}
+                  aria-pressed={effectiveSort === s.key}
+                  onClick={() => setSort(s.key)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="sortseg" role="group" aria-label="Sort vendors">
+            {BENCH_SORTS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                className={sort === s.key ? 'on' : undefined}
+                aria-pressed={sort === s.key}
+                onClick={() => setSort(s.key)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="bench-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />
@@ -1344,8 +1464,13 @@ export function ShortlistCategories({
                   // PR-G1 — sort FIRST (the couple's chosen order), then sink
                   // the schedule clashes to the end. Stable: the sink only
                   // moves the losers, it never reshuffles the winners.
+                  //
+                  // §15 — "the couple's chosen order" is now their chosen LENS.
+                  // The two features compose cleanly and in this order only: the
+                  // lens decides merit, the sink is a partition applied AFTER it
+                  // and never a term inside the score.
                   const rail = partitionByBuildFit(
-                    sortWithReasons(t.vendors, sort),
+                    sortWithReasons(t.vendors, effectiveSort),
                     ({ v }) =>
                       v.buildFit === 'clash'
                         ? { fits: false, clashWith: v.buildClashWith }

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
@@ -101,6 +102,11 @@ export async function commitSimpleEvent(formData: FormData) {
       `/onboarding/simple?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
     );
   }
+
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). A Simple Event is
+  // vendor-free and the in-app services ARE the point of the type, so Papic must
+  // be metered here as much as anywhere. Idempotent + non-fatal.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

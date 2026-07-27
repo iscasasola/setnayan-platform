@@ -55,6 +55,7 @@ import {
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_RUNGS,
 } from '@/lib/papic-cameras';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
 // papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
@@ -319,6 +320,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     validFrom: papicWindow.startIso,
     validUntil: papicWindow.endIso,
   });
+
+  // FREE POOL — the other half of the free tier, and the SELF-HEAL for it.
+  // The 3 seats above are useless without points: with no grant at all,
+  // papic_event_pool_status() returns applies=FALSE and papic_reserve_event_points()
+  // takes its "fence absent -> allow, ledger untouched" branch, so capture runs
+  // UNMETERED. Every event-creation path now arms this at commit; this call is the
+  // backstop that catches (a) every event created before 20271017100000 that the
+  // backfill somehow missed and (b) any creation-time write that failed its
+  // best-effort attempt. Idempotent — the partial unique index collapses repeats.
+  await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes

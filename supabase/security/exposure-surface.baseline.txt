@@ -9,11 +9,11 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6216
+# facts: 6215
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     720
+#   tpriv     719
 #   col       4446
 #   policy    820
 #   view      10
@@ -446,8 +446,7 @@ tpriv	public.platform_retail_catalog_v2|anon	SIUD
 tpriv	public.platform_retail_catalog_v2|authenticated	SIUD
 tpriv	public.platform_secret_rotations|anon	SIUD
 tpriv	public.platform_secret_rotations|authenticated	SIUD
-tpriv	public.platform_settings|anon	SIUD
-tpriv	public.platform_settings|authenticated	SIUD
+tpriv	public.platform_settings|authenticated	S
 tpriv	public.promo_free_windows|anon	SIUD
 tpriv	public.promo_free_windows|authenticated	SIUD
 tpriv	public.proposal_amendment_items|anon	SIUD
@@ -3378,70 +3377,70 @@ col	public.platform_secret_rotations.note	anon=SIU authenticated=SIU
 col	public.platform_secret_rotations.rotated_by	anon=SIU authenticated=SIU
 col	public.platform_secret_rotations.secret_id	anon=SIU authenticated=SIU
 col	public.platform_secret_rotations.updated_at	anon=SIU authenticated=SIU
-col	public.platform_settings.admin_digest_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.admin_digest_last_sent_at	anon=SIU authenticated=SIU
-col	public.platform_settings.bdo_account_name	anon=SIU authenticated=SIU
-col	public.platform_settings.bdo_account_number	anon=SIU authenticated=SIU
-col	public.platform_settings.bdo_qr_url	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_authorized_rep_name	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_authorized_rep_tin	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_authorized_rep_title	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_payor_address	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_payor_name	anon=SIU authenticated=SIU
-col	public.platform_settings.bir_payor_zip	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_apple_touch_url	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_favicon_ico_url	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_icon_master_url	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_icon_png_512_url	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_icon_svg_url	anon=SIU authenticated=SIU
-col	public.platform_settings.brand_icon_version	anon=SIU authenticated=SIU
-col	public.platform_settings.business_address	anon=SIU authenticated=SIU
-col	public.platform_settings.business_email	anon=SIU authenticated=SIU
-col	public.platform_settings.business_name	anon=SIU authenticated=SIU
-col	public.platform_settings.business_tin	anon=SIU authenticated=SIU
-col	public.platform_settings.creator_offer_sweep_last_run_at	anon=SIU authenticated=SIU
-col	public.platform_settings.default_vat_rate_pct	anon=SIU authenticated=SIU
-col	public.platform_settings.firstlook_boost_weight	anon=SIU authenticated=SIU
-col	public.platform_settings.firstlook_sla_hours	anon=SIU authenticated=SIU
-col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=SIU authenticated=SIU
-col	public.platform_settings.free_tier_booking_cap_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.gcash_account_name	anon=SIU authenticated=SIU
-col	public.platform_settings.gcash_number	anon=SIU authenticated=SIU
-col	public.platform_settings.gcash_qr_url	anon=SIU authenticated=SIU
-col	public.platform_settings.google_drive_oauth_client_id	anon=SIU authenticated=SIU
-col	public.platform_settings.google_drive_oauth_redirect_uri	anon=SIU authenticated=SIU
-col	public.platform_settings.id	anon=SIU authenticated=SIU
-col	public.platform_settings.ig_user_id	anon=SIU authenticated=SIU
-col	public.platform_settings.lead_hold_sweep_last_run_at	anon=SIU authenticated=SIU
-col	public.platform_settings.loader_pop_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.loader_step_interval_ms	anon=SIU authenticated=SIU
-col	public.platform_settings.loader_variant	anon=SIU authenticated=SIU
-col	public.platform_settings.loader_veil_opacity	anon=SIU authenticated=SIU
-col	public.platform_settings.maya_checkout_endpoint	anon=SIU authenticated=SIU
-col	public.platform_settings.meta_page_id	anon=SIU authenticated=SIU
-col	public.platform_settings.onboarding_bg_music_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.onboarding_bg_music_r2_key	anon=SIU authenticated=SIU
-col	public.platform_settings.onboarding_bg_music_r2_keys	anon=SIU authenticated=SIU
-col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=SIU authenticated=SIU
-col	public.platform_settings.radar_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.radar_min_n_floor	anon=SIU authenticated=SIU
-col	public.platform_settings.referral_program_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.referral_reward_php	anon=SIU authenticated=SIU
-col	public.platform_settings.repost_watch_hamming_threshold	anon=SIU authenticated=SIU
-col	public.platform_settings.resend_from_address	anon=SIU authenticated=SIU
-col	public.platform_settings.setnayan_ai_paywall_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.setnayan_ai_per_event_pricing_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.setnayan_ai_per_user_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.setnayan_pay_fee_pct	anon=SIU authenticated=SIU
-col	public.platform_settings.spotlight_homepage_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.tiktok_client_key	anon=SIU authenticated=SIU
-col	public.platform_settings.tiktok_oauth_redirect_uri	anon=SIU authenticated=SIU
-col	public.platform_settings.updated_at	anon=SIU authenticated=SIU
-col	public.platform_settings.vendor_addon_tiered_pricing_enabled	anon=SIU authenticated=SIU
-col	public.platform_settings.vendor_validate_email	anon=SIU authenticated=SIU
-col	public.platform_settings.vendor_validate_phone	anon=SIU authenticated=SIU
-col	public.platform_settings.youtube_oauth_client_id	anon=SIU authenticated=SIU
-col	public.platform_settings.youtube_oauth_redirect_uri	anon=SIU authenticated=SIU
+col	public.platform_settings.admin_digest_enabled	anon=- authenticated=S
+col	public.platform_settings.admin_digest_last_sent_at	anon=- authenticated=S
+col	public.platform_settings.bdo_account_name	anon=- authenticated=S
+col	public.platform_settings.bdo_account_number	anon=- authenticated=S
+col	public.platform_settings.bdo_qr_url	anon=- authenticated=S
+col	public.platform_settings.bir_authorized_rep_name	anon=- authenticated=S
+col	public.platform_settings.bir_authorized_rep_tin	anon=- authenticated=S
+col	public.platform_settings.bir_authorized_rep_title	anon=- authenticated=S
+col	public.platform_settings.bir_payor_address	anon=- authenticated=S
+col	public.platform_settings.bir_payor_name	anon=- authenticated=S
+col	public.platform_settings.bir_payor_zip	anon=- authenticated=S
+col	public.platform_settings.brand_apple_touch_url	anon=- authenticated=S
+col	public.platform_settings.brand_favicon_ico_url	anon=- authenticated=S
+col	public.platform_settings.brand_icon_master_url	anon=- authenticated=S
+col	public.platform_settings.brand_icon_png_512_url	anon=- authenticated=S
+col	public.platform_settings.brand_icon_svg_url	anon=- authenticated=S
+col	public.platform_settings.brand_icon_version	anon=- authenticated=S
+col	public.platform_settings.business_address	anon=- authenticated=S
+col	public.platform_settings.business_email	anon=- authenticated=S
+col	public.platform_settings.business_name	anon=- authenticated=S
+col	public.platform_settings.business_tin	anon=- authenticated=S
+col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
+col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
+col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
+col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
+col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
+col	public.platform_settings.free_tier_booking_cap_enabled	anon=- authenticated=S
+col	public.platform_settings.gcash_account_name	anon=- authenticated=S
+col	public.platform_settings.gcash_number	anon=- authenticated=S
+col	public.platform_settings.gcash_qr_url	anon=- authenticated=S
+col	public.platform_settings.google_drive_oauth_client_id	anon=- authenticated=S
+col	public.platform_settings.google_drive_oauth_redirect_uri	anon=- authenticated=S
+col	public.platform_settings.id	anon=- authenticated=S
+col	public.platform_settings.ig_user_id	anon=- authenticated=S
+col	public.platform_settings.lead_hold_sweep_last_run_at	anon=- authenticated=S
+col	public.platform_settings.loader_pop_enabled	anon=- authenticated=S
+col	public.platform_settings.loader_step_interval_ms	anon=- authenticated=S
+col	public.platform_settings.loader_variant	anon=- authenticated=S
+col	public.platform_settings.loader_veil_opacity	anon=- authenticated=S
+col	public.platform_settings.maya_checkout_endpoint	anon=- authenticated=S
+col	public.platform_settings.meta_page_id	anon=- authenticated=S
+col	public.platform_settings.onboarding_bg_music_enabled	anon=- authenticated=S
+col	public.platform_settings.onboarding_bg_music_r2_key	anon=- authenticated=S
+col	public.platform_settings.onboarding_bg_music_r2_keys	anon=- authenticated=S
+col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=- authenticated=S
+col	public.platform_settings.radar_enabled	anon=- authenticated=S
+col	public.platform_settings.radar_min_n_floor	anon=- authenticated=S
+col	public.platform_settings.referral_program_enabled	anon=- authenticated=S
+col	public.platform_settings.referral_reward_php	anon=- authenticated=S
+col	public.platform_settings.repost_watch_hamming_threshold	anon=- authenticated=S
+col	public.platform_settings.resend_from_address	anon=- authenticated=S
+col	public.platform_settings.setnayan_ai_paywall_enabled	anon=- authenticated=S
+col	public.platform_settings.setnayan_ai_per_event_pricing_enabled	anon=- authenticated=S
+col	public.platform_settings.setnayan_ai_per_user_enabled	anon=- authenticated=S
+col	public.platform_settings.setnayan_pay_fee_pct	anon=- authenticated=S
+col	public.platform_settings.spotlight_homepage_enabled	anon=- authenticated=S
+col	public.platform_settings.tiktok_client_key	anon=- authenticated=S
+col	public.platform_settings.tiktok_oauth_redirect_uri	anon=- authenticated=S
+col	public.platform_settings.updated_at	anon=- authenticated=S
+col	public.platform_settings.vendor_addon_tiered_pricing_enabled	anon=- authenticated=S
+col	public.platform_settings.vendor_validate_email	anon=- authenticated=S
+col	public.platform_settings.vendor_validate_phone	anon=- authenticated=S
+col	public.platform_settings.youtube_oauth_client_id	anon=- authenticated=S
+col	public.platform_settings.youtube_oauth_redirect_uri	anon=- authenticated=S
 col	public.promo_free_windows.audience_params	anon=SIU authenticated=SIU
 col	public.promo_free_windows.audience_type	anon=SIU authenticated=SIU
 col	public.promo_free_windows.blurb	anon=SIU authenticated=SIU
@@ -5673,7 +5672,7 @@ policy	public.platform_compliance_facts|platform_compliance_facts_admin_all	mode
 policy	public.platform_expenses|platform_expenses_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.platform_package_catalog|platform_package_catalog_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.platform_retail_catalog_v2|platform_retail_catalog_v2_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
-policy	public.platform_settings|platform_settings_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.platform_settings|platform_settings_read_authenticated	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.promo_free_windows|promo_free_windows_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.promo_free_windows|promo_free_windows_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.proposal_amendment_items|proposal_amendment_items_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR ((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))

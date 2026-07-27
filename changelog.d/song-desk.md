@@ -72,9 +72,26 @@ existing `fetchEventSongPickIds` returns bare ids because the match score only
 counts overlap; a musician on the floor needs the titles). Extends the existing
 module rather than adding a parallel one.
 
+**Changed — `supabase/security/exposure-surface.baseline.txt`.** The freeze guard
+caught this PR, correctly: a new read policy IS a widening of what the public
+internet can reach, and the guard exists so that widening lands as a reviewable
+line in a diff. Regenerated per `supabase/security/README.md` § "Accept it
+deliberately". **The diff is exactly one fact** (6156 → 6157):
+
+```
+policy  public.event_song_picks|event_song_picks_booked_vendor_read
+        mode=PERMISSIVE cmd=SELECT roles=authenticated
+        using=(event_id IN (SELECT current_vendor_booked_event_ids())) check=NULL
+```
+
+`cmd=SELECT` + `check=NULL` (no write path) and `roles=authenticated` — **not
+`anon`**, so a stranger holding the public anon key still reads nothing. No
+column, table-privilege, view or function exposure moved.
+
 **Verified:** typecheck clean · lint clean (no new warnings) · full unit suite
 **4344/4344** · the frame's own `"being REGISTERED does not unlock"` invariant
-still passes now that a real surface is registered.
+still passes now that a real surface is registered · exposure-freeze DB suite
+6/6 green against the regenerated baseline · `lint-exposure-baseline` OK.
 
 ⏭ **Not built, deliberately:** per-event set ORDERING and a mark-as-played
 tracker. Both need a new table, and the shipped repertoire model carries no

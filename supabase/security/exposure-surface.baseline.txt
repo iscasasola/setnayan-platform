@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6156
+# facts: 6157
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     719
 #   col       4403
-#   policy    806
+#   policy    807
 #   view      10
 #   func      214
 #
@@ -5375,6 +5375,7 @@ policy	public.event_seat_assignments|event_seat_assignments_moderator_read	mode=
 policy	public.event_seat_assignments|event_seat_assignments_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_seating_constraints|event_seating_constraints_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_seating_constraints|event_seating_constraints_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_song_picks|event_song_picks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) check=NULL
 policy	public.event_song_picks|event_song_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
 policy	public.event_song_picks|event_song_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin())
 policy	public.event_sponsors|event_sponsors_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())

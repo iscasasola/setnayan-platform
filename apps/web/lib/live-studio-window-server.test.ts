@@ -24,6 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   resolveBroadcastWindow,
   resolveLiveStudioGrantKind,
+  stampFirstLiveAt,
 } from './live-studio-window-server';
 import { LIVE_STUDIO_DAY_HOURS } from './live-studio-window';
 
@@ -199,4 +200,174 @@ test('the precedence ruling lives in the PURE layer, not inline in the reader', 
     !/if \(internal\) return 'internal'/.test(src),
     'a second, inline copy of the precedence order is how the two would drift',
   );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🚨 THE ENTITLEMENT GATE ON THE WINDOW ANCHOR (owner-approved 2026-07-27)
+
+   The defect this closes, in one line: the FREE single-camera livestream ran
+   through the same go-live action and stamped the PAID clock, so
+   `max(firstLiveAt, boughtAt) + 24h` could expire BEFORE the wedding the couple
+   had paid for. See stampFirstLiveAt's header.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The `stub()` above models reads only. This one adds the two WRITES the stamp
+ * performs and records whether the anchor was actually written — which is the
+ * whole property under test.
+ */
+function stampStub(facts: Facts) {
+  const dayOrders = facts.dayOrders ?? [];
+  const rows = dayOrders.map((created_at) => ({ created_at, status: 'paid' }));
+  const wrote: Array<Record<string, unknown>> = [];
+
+  const table = (name: string) => {
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: () => q,
+      neq: () => q,
+      not: () => q,
+      in: () => q,
+      is: () => Promise.resolve({ error: null }),
+      order: () => q,
+      limit: () => q,
+      upsert: () => Promise.resolve({ error: null }),
+      update: (payload: Record<string, unknown>) => {
+        if (name === 'panood_control_state' && 'first_live_at' in payload) wrote.push(payload);
+        return q;
+      },
+      maybeSingle: () => {
+        if (name === 'panood_control_state') {
+          return Promise.resolve({
+            data: { first_live_at: facts.firstLiveAt === undefined ? null : facts.firstLiveAt },
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      },
+      then(onOk: (v: unknown) => unknown) {
+        const data = name === 'orders' ? rows : [];
+        return Promise.resolve({ data, error: null }).then(onOk);
+      },
+    };
+    return q;
+  };
+
+  return {
+    client: {
+      from: (name: string) => table(name),
+      rpc: (fn: string) => {
+        if (facts.rpcErrors) return Promise.resolve({ data: null, error: { message: 'rpc down' } });
+        if (fn === 'event_host_holds_founder_seat')
+          return Promise.resolve({ data: Boolean(facts.founder), error: null });
+        if (fn === 'event_has_comp_for_sku')
+          return Promise.resolve({ data: Boolean(facts.comp), error: null });
+        if (fn === 'event_host_is_internal')
+          return Promise.resolve({ data: Boolean(facts.internal), error: null });
+        return Promise.resolve({ data: null, error: null });
+      },
+    } as unknown as SupabaseClient,
+    wrote,
+  };
+}
+
+test('⭐ THE FIX — a FREE go-live does NOT stamp the paid clock', async () => {
+  // No orders, no grants → not-owned → the free single-camera livestream. This press
+  // is exactly what used to burn the couple's paid day before they had bought it.
+  const { client, wrote } = stampStub({});
+  await stampFirstLiveAt(client, EVENT);
+  assert.deepEqual(wrote, [], 'a free broadcast must never start the ₱2,999 clock');
+});
+
+test('⭐ ANTI-VACUITY — a PAID go-live with no anchor DOES stamp', async () => {
+  // If this failed the same way, the test above would be worthless: the gate has to
+  // refuse the free press and admit the paid one.
+  const { client, wrote } = stampStub({ dayOrders: ['2026-07-20T00:00:00.000Z'] });
+  await stampFirstLiveAt(client, EVENT);
+  assert.equal(wrote.length, 1, 'a paid host pressing live must start their day');
+  assert.ok(typeof wrote[0]?.first_live_at === 'string');
+});
+
+test('an already-anchored event is not re-stamped (write-once, and idempotent here)', async () => {
+  const { client, wrote } = stampStub({
+    dayOrders: ['2026-07-20T00:00:00.000Z'],
+    firstLiveAt: T0,
+  });
+  await stampFirstLiveAt(client, EVENT);
+  assert.deepEqual(wrote, [], 'the anchor may never move, restart or extend');
+});
+
+test('a METERED grant (internal) still stamps — the 2026-07-26 metering ruling holds', async () => {
+  // The gate must not accidentally un-meter internal accounts by refusing to start
+  // their clock: §4i ② made internal METERED on purpose.
+  const { client, wrote } = stampStub({ internal: true });
+  await stampFirstLiveAt(client, EVENT);
+  assert.equal(wrote.length, 1, 'an internal host gets one metered event-day, so it must anchor');
+});
+
+test('FAIL-CLOSED on the write, which is fail-OPEN for the couple', async () => {
+  // Grant RPCs down + zero orders → not-owned → no stamp. The paid couple that lands
+  // here keeps multiCam via `awaiting-go-live` (no clock), so a transient error costs
+  // them nothing and can never shorten a window.
+  const { client, wrote } = stampStub({ rpcErrors: true });
+  await stampFirstLiveAt(client, EVENT);
+  assert.deepEqual(wrote, []);
+  const d = await resolveBroadcastWindow(stub({ dayOrders: ['2026-07-20T00:00:00.000Z'], firstLiveAt: null }), EVENT, { now: at(1) });
+  assert.equal(d.multiCam, true, 'an unstamped PAID event must still be able to broadcast');
+  assert.equal(d.reason, 'awaiting-go-live');
+  assert.equal(d.expiresAt, null, 'and it must carry no expiry to run out of');
+});
+
+test('🚨 THE REGRESSION, proven both ways — the wedding-day expiry the gate prevents', async () => {
+  // The real calendar from the audit: free stream Mon, buy Thu (the 24-hour manual
+  // reconciliation SLA forces buying ahead), wedding Sat.
+  const mon = '2026-08-03T10:00:00.000Z';
+  const thu = '2026-08-06T10:00:00.000Z';
+  const sat = new Date('2026-08-08T15:00:00.000Z');
+
+  // BEFORE: the free Monday press had stamped the anchor →
+  // max(Mon, Thu) + 24h = Friday → EXPIRED at a Saturday ceremony, on one camera.
+  const before = await resolveBroadcastWindow(stub({ dayOrders: [thu], firstLiveAt: mon }), EVENT, {
+    now: sat,
+  });
+  assert.equal(before.multiCam, false, 'this is the defect: paid, and cut to one camera');
+  assert.equal(before.reason, 'expired');
+
+  // AFTER: the free press no longer stamps, so the anchor is still null on Saturday;
+  // the first ENTITLED go-live is the ceremony itself and the day starts there.
+  const atCeremony = await resolveBroadcastWindow(
+    stub({ dayOrders: [thu], firstLiveAt: null }),
+    EVENT,
+    { now: sat },
+  );
+  assert.equal(atCeremony.multiCam, true, 'they paid; they broadcast');
+  assert.equal(atCeremony.reason, 'awaiting-go-live');
+
+  // And once it stamps AT the ceremony, the full event-day runs from there.
+  const running = await resolveBroadcastWindow(
+    stub({ dayOrders: [thu], firstLiveAt: sat.toISOString() }),
+    EVENT,
+    { now: new Date(sat.getTime() + 3 * 3_600_000) },
+  );
+  assert.equal(running.multiCam, true);
+  assert.equal(running.reason, 'open');
+  assert.equal(
+    running.expiresAt,
+    new Date(sat.getTime() + LIVE_STUDIO_DAY_HOURS * 3_600_000).toISOString(),
+    'buying early must cost the couple nothing — §4f②',
+  );
+});
+
+test('the gate is STRUCTURAL — the stamp asks before it writes', () => {
+  // A caller-side check would be one forgotten call site away from the defect
+  // returning, and the column is write-once with no admin reset, so a wrong stamp is
+  // unfixable. Pin that the refusal lives inside the stamp.
+  const src = read('live-studio-window-server.ts');
+  const fn = src.slice(src.indexOf('export async function stampFirstLiveAt'));
+  const askAt = fn.indexOf('resolveBroadcastWindow(supabase, eventId)');
+  const writeAt = fn.indexOf("update({ first_live_at");
+  assert.ok(askAt > -1, 'the stamp must resolve the window before writing');
+  assert.ok(writeAt > -1);
+  assert.ok(askAt < writeAt, 'the entitlement must be asked BEFORE the write, not after');
+  assert.match(fn, /if \(!entitled\.multiCam\) return;/);
 });

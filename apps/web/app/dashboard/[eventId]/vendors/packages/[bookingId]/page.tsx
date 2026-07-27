@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
   BookmarkCheck,
+  Circle,
   Package as PackageIcon,
   MessageCircle,
   FileText,
@@ -12,6 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   formatCentavosPhp,
   resolveVendorCategory,
+  VENDOR_PACKAGE_ITEM_SELECT,
   VENDOR_PACKAGE_SELECT,
   type EventVendorPackageRow,
   type PackageCustomizations,
@@ -21,6 +23,7 @@ import {
 } from '@/lib/vendor-packages';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { releasePackage, removeItemFromPackage } from '../actions';
+import { receiptSections } from './receipt-sections';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +63,16 @@ export default async function PackageBookingPage({ params }: Props) {
   const { data: itemsRows } = await supabase
     .from('vendor_package_items')
     .select(
-      'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at, parent_option_id',
+      // The canonical list, not a hand-typed copy of it. `is_required` is the
+      // column that was missing: `keptItems` reads it to decide that a
+      // mandatory line survives a removal id, and an absent column reads as
+      // `undefined` → falsy → the receipt would have printed a line the vendor
+      // marked mandatory (and is still charging for) under "Removed". Both the
+      // lock path and /v/[slug] already SELECT it via this same constant.
+      // `parent_option_id` is appended rather than folded into the constant —
+      // see the note on PACKAGE_ITEM_AUTHORING_COLUMNS for why the branching
+      // columns stay off the shared couple-side list.
+      `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id`,
     )
     .eq('package_id', typedBooking.package_id)
     .order('display_order', { ascending: true });
@@ -81,7 +93,7 @@ export default async function PackageBookingPage({ params }: Props) {
   };
 
   const customizations = typedBooking.customizations_json as PackageCustomizations;
-  const removedIds = new Set(customizations.removed_item_ids ?? []);
+  const removedItemIds = customizations.removed_item_ids ?? [];
 
   // Vendor info for the header
   const { data: vendor } = await supabase
@@ -94,8 +106,17 @@ export default async function PackageBookingPage({ params }: Props) {
     vendor?.business_slug ? `/v/${vendor.business_slug}` : null;
   const eventHomeHref = `/dashboard/${eventId}`;
 
-  const keptItems = pkg.items.filter((i) => !removedIds.has(i.item_id));
-  const removedItems = pkg.items.filter((i) => removedIds.has(i.item_id));
+  // 🧾 THREE lists, not two — and none of them re-derives the inclusion rule
+  // here. The pre-fix page split on `removed_item_ids` alone, so an optional
+  // ADD-ON (never inside `total_price_centavos`, never charged) was printed
+  // under "Included in this booking". The local binding was also named
+  // `keptItems`, SHADOWING the imported helper of the same name, which is how
+  // the two definitions drifted apart unnoticed. See ./receipt-sections.
+  const {
+    included: includedItems,
+    notIncluded: notIncludedItems,
+    removed: removedItems,
+  } = receiptSections(pkg, removedItemIds);
 
   const isLocked = typedBooking.status === 'locked';
   const isReleased = typedBooking.status === 'released';
@@ -197,13 +218,13 @@ export default async function PackageBookingPage({ params }: Props) {
       </section>
 
       {/* Included items */}
-      {keptItems.length > 0 ? (
+      {includedItems.length > 0 ? (
         <section className="mt-6">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            Included in this booking ({keptItems.length})
+            Included in this booking ({includedItems.length})
           </h2>
           <ul className="mt-3 space-y-2">
-            {keptItems.map((item) => {
+            {includedItems.map((item) => {
               const category = resolveVendorCategory(item.canonical_service);
               const categoryLabel = VENDOR_CATEGORY_LABEL[category] ?? category;
               return (
@@ -241,6 +262,55 @@ export default async function PackageBookingPage({ params }: Props) {
                       <SubmitButton pendingLabel="Removing…" className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-danger-300 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500">Remove</SubmitButton>
                     </form>
                   ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Not-included items — the vendor's optional add-ons on this package.
+          Shown in their OWN labelled section (owner design
+          Design_Package_Credit_2026-07-26/couple_customize_and_requests.html:
+          Included · add-ons · requests), never folded into Included and never
+          hidden. The copy is receipt voice, not the design's configurator
+          voice: there is no purchase path for add-ons yet, so "Add on if
+          you'd like" would offer something the product cannot deliver. Naming
+          the status is the honest version. No peso figure either —
+          `replacement_value_centavos` is a replacement VALUE, and printing one
+          next to a line that was never billed reads as a charge. */}
+      {notIncludedItems.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+            Not included in this booking ({notIncludedItems.length})
+          </h2>
+          <p className="mt-2 text-xs leading-relaxed text-ink/60">
+            Optional extras {vendor?.business_name ?? 'this vendor'} offers on
+            this package. They weren{'’'}t part of what you booked, and nothing
+            was charged for them.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {notIncludedItems.map((item) => {
+              const category = resolveVendorCategory(item.canonical_service);
+              const categoryLabel = VENDOR_CATEGORY_LABEL[category] ?? category;
+              return (
+                <li
+                  key={item.item_id}
+                  className="flex items-start gap-3 rounded-lg border border-ink/10 bg-cream/50 p-3"
+                >
+                  <Circle
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/30"
+                    strokeWidth={2}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                      {categoryLabel}
+                    </p>
+                    <p className="mt-0.5 text-sm text-ink/70">
+                      {item.service_description}
+                    </p>
+                  </div>
                 </li>
               );
             })}

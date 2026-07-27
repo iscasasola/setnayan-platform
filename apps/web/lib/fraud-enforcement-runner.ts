@@ -172,9 +172,10 @@ export async function maybeAutoSuspendVendor(
     // Atomic guarded suspend: only flip a vendor that is STILL un-suspended +
     // un-banned (prevents a concurrent double-apply / re-log). We also stash the
     // prior public_visibility so a future un-suspend can restore it — kept in
-    // the audit snapshot rather than a schema column (the un-suspend restores to
-    // 'coming_soon', the safe pre-verification default, unless the admin
-    // re-verifies; documented in the un-suspend action).
+    // the audit snapshot rather than a schema column. The un-suspend restores to
+    // 'hidden' (was 'coming_soon' until the owner retired that state on
+    // 2026-07-27), so clearing a suspension never relists the vendor by itself;
+    // re-listing is an explicit /admin/verify decision.
     const nowIso = new Date().toISOString();
     const { data: updated, error: updErr } = await admin
       .from('vendor_profiles')

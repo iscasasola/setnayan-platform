@@ -51,7 +51,8 @@ function requireVendorId(formData: FormData): string {
 /**
  * DISMISS — mark this vendor's OPEN fraud signals dismissed (false positive).
  * If the vendor was auto-suspended, ALSO un-suspend it (clears the freeze and
- * restores it to the pre-verification-safe 'coming_soon' visibility). Audited.
+ * restores it to the private 'hidden' visibility — `coming_soon` was retired
+ * by the owner on 2026-07-27). Audited.
  */
 export async function dismissVendorSignals(formData: FormData) {
   const { userId } = await requireAdmin();
@@ -97,7 +98,10 @@ export async function dismissVendorSignals(formData: FormData) {
   if (state === 'suspended') {
     const { error: unsuspErr } = await admin
       .from('vendor_profiles')
-      .update({ fraud_suspended_at: null, public_visibility: 'coming_soon' })
+      // 🔒 Owner 2026-07-27 — un-freeze restores to `hidden`, not the retired
+      // `coming_soon`. Clearing a fraud suspension must NOT silently relist the
+      // vendor: re-listing is /admin/verify's decision, made once, deliberately.
+      .update({ fraud_suspended_at: null, public_visibility: 'hidden' })
       .eq('vendor_profile_id', vendorProfileId)
       .not('fraud_suspended_at', 'is', null)
       .is('fraud_banned_at', null);
@@ -131,7 +135,7 @@ export async function dismissVendorSignals(formData: FormData) {
 
 /**
  * UN-SUSPEND — reverse an auto-suspend WITHOUT clearing the signals. The vendor
- * is un-frozen (restored to 'coming_soon' visibility) but stays in the queue so
+ * is un-frozen (restored to the private 'hidden' visibility) but stays in the queue so
  * an admin can keep watching. Audited.
  */
 export async function unsuspendVendor(formData: FormData) {
@@ -145,7 +149,9 @@ export async function unsuspendVendor(formData: FormData) {
 
   const { data: updated, error } = await admin
     .from('vendor_profiles')
-    .update({ fraud_suspended_at: null, public_visibility: 'coming_soon' })
+    // 🔒 Owner 2026-07-27 — see the un-freeze note above: restore to `hidden`,
+    // never to the retired (and formerly public) `coming_soon`.
+    .update({ fraud_suspended_at: null, public_visibility: 'hidden' })
     .eq('vendor_profile_id', vendorProfileId)
     .not('fraud_suspended_at', 'is', null)
     .is('fraud_banned_at', null)

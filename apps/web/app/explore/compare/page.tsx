@@ -160,7 +160,9 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
       'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state,verification_state',
     )
     .in('vendor_profile_id', ids)
-    .in('public_visibility', ['verified', 'coming_soon'])
+    // 🔒 Owner 2026-07-27 — verified only; `coming_soon` is retired. This
+    // surface is reachable anonymously, so it must not be looser than /explore.
+    .in('public_visibility', ['verified'])
     // PR-B — drop UNVERIFIED vendors from this public compare surface
     // (anonymous viewers reach it). Demo rows are admitted at the query level
     // so the admin demo-mode carve-out below still works; the demo-mode gate

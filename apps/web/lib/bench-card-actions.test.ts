@@ -206,3 +206,67 @@ test('rail end: unresolvable group and flag OFF both stay at "Find more"', () =>
     false,
   );
 });
+
+// ── SOFT schedule clash (Explore Replan PR-G1 · spec §6 decision #12) ───────
+
+test('schedule clash: Add-to-build and Lock stand down, and the reason names the candidate', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.build, { kind: 'schedule_clash', clashWith: 'Alta Vista' });
+  assert.equal(a.lockGroupId, null, 'a clashing card must not offer Lock');
+});
+
+test('schedule clash: the INQUIRE leg survives — "Ask anyway" is the whole point of a SOFT tier', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.inquiry, { kind: 'inquire' });
+
+  const withThread = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ buildFit: 'clash', threadId: 't-9', inquiryStatus: 'pending' }),
+    inBuild: false,
+  });
+  assert.deepEqual(withThread.inquiry, { kind: 'check', threadId: 't-9' });
+});
+
+test('schedule clash: a nameless clash still withholds the actions, without inventing a culprit', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ buildFit: 'clash', buildClashWith: null }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.build, { kind: 'schedule_clash', clashWith: null });
+});
+
+test('schedule clash: a vendor ALREADY in the build is exempt — it helped define the window', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
+    inBuild: true,
+  });
+  assert.deepEqual(a.build, { kind: 'in_build' }, 'the Remove control that FIXES the clash must survive');
+  assert.equal(a.lockGroupId, 'catering');
+});
+
+test("schedule clash: 'fits' and no verdict at all behave identically to pre-G1", () => {
+  const base = resolveBenchCardActions({ enabled: true, vendor: vendor(), inBuild: false });
+  for (const buildFit of ['fits', null, undefined] as const) {
+    const a = resolveBenchCardActions({ enabled: true, vendor: vendor({ buildFit }), inBuild: false });
+    assert.deepEqual(a, base, `buildFit=${String(buildFit)} must not change the card`);
+  }
+});
+
+test('schedule clash: flag OFF ignores the verdict entirely', () => {
+  const a = resolveBenchCardActions({
+    enabled: false,
+    vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
+    inBuild: false,
+  });
+  assert.deepEqual(a, { build: null, inquiry: null, lockGroupId: null });
+});

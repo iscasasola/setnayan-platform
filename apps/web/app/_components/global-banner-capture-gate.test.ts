@@ -14,7 +14,11 @@ import { fileURLToPath } from 'node:url';
  *
  *   · <CookieConsentBanner> shipped with no route gate at all (#3721).
  *   · <DemoModeBanner> was gated in the same sweep.
- *   · <PilotModeBanner> was missed by BOTH and is fixed here (2026-07-26).
+ *   · <PilotModeBanner> was missed by BOTH and was gated here (2026-07-26).
+ *     It was then DELETED outright on 2026-07-27 — it promised "everything is
+ *     free" from a dead pricing path the checkout never read. Its named test is
+ *     gone with it; the general sweep below still covers every banner that is
+ *     actually mounted.
  *
  * Each was added to the root layout by someone who had no reason to know that
  * `/panood/program/[eventId]` is window-captured by a couple's OBS, so anything
@@ -24,8 +28,10 @@ import { fileURLToPath } from 'node:url';
  *
  * It reads the root layout, finds every `*-banner` component mounted there, and
  * requires each to reach `capture-safe-routes` — either directly or through one
- * local child component (the pilot banner splits server/client precisely so its
- * ~19 KB pricing import stays server-side, so its gate lives in the child).
+ * local child component. The child hop is deliberate: a banner whose decision
+ * needs a heavy server-only import may keep that on the server and put the
+ * `usePathname()` gate in a small `'use client'` child, rather than dragging the
+ * import into every route's client bundle.
  *
  * TO ADD A BANNER THAT LEGITIMATELY NEEDS NO GATE: do not delete this test.
  * Add it to ALLOWED_UNGATED below with a comment saying why it cannot leak —
@@ -76,8 +82,12 @@ test('every *-banner mounted in the root layout reaches the capture gate', () =>
     .map((m) => m[1])
     .filter((n): n is string => typeof n === 'string');
 
+  // Floor = the banners known to be mounted today (cookie-consent, demo-mode).
+  // Raise it when a banner is added; lower it ONLY when one is genuinely
+  // deleted, as <PilotModeBanner> was on 2026-07-27. A silent drop to zero
+  // would make the loop below vacuous and this guard useless.
   assert.ok(
-    mounted.length >= 3,
+    mounted.length >= 2,
     `Expected to find the known banners in the root layout, found ${mounted.length}: ` +
       `${mounted.join(', ')}. If the layout was restructured, update this test ` +
       `rather than weakening it — it is the only thing standing between a new ` +
@@ -100,14 +110,10 @@ test('every *-banner mounted in the root layout reaches the capture gate', () =>
         `Anything this banner draws there goes out on their live broadcast, on a ` +
         `day that cannot be re-run.\n\n` +
         `Fix: gate it with isBroadcastCaptureRoute(usePathname()) — see ` +
-        `pilot-mode-banner-client.tsx for the server/client split that keeps a ` +
-        `heavy server-only import out of the client bundle.`,
+        `demo-mode-banner.tsx. If the decision needs a heavy server-only ` +
+        `import, keep that on the server and put the gate in a small ` +
+        `'use client' child instead.`,
     );
   }
-});
-
-test('the pilot banner specifically is gated (the 2026-07-26 miss)', () => {
-  const file = join(componentsDir, 'pilot-mode-banner.tsx');
-  assert.ok(reachesGate(file), 'PilotModeBanner lost its capture-route gate.');
 });
 

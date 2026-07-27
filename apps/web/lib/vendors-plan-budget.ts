@@ -140,6 +140,16 @@ const START_DAYS: Partial<Record<PlanGroupId, number>> = {
 };
 const DEFAULT_START_DAYS = 150;
 
+/**
+ * The lock-by hard floor (days before the wedding) for a plan group. Exported
+ * 2026-07-27 (Explore Replan PR-B) as the Coverage Strip's urgency tiebreak: at
+ * equal `timelineStatusOf`, the category with the EARLIER floor (the bigger
+ * number of lead days) is the more urgent one to act on.
+ */
+export function lockLeadDaysFor(groupId: PlanGroupId): number {
+  return LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
+}
+
 // Locked statuses = a pick the couple has committed to (drives "Chosen").
 const LOCKED_STATUSES = new Set([
   'contracted',
@@ -459,8 +469,13 @@ function deadlineFor(groupId: PlanGroupId, daysUntilWedding: number | null): num
  * overdue (warn); inside the START window but not yet near the floor =
  * start_now (the app's recommend-to-begin signal); before the START window =
  * upcoming (quiet). No date set yet → upcoming (nothing to warn about).
+ *
+ * EXPORTED 2026-07-27 (Explore Replan PR-B): the Coverage Strip orders its tiles
+ * by the SAME clock the accordion + "What to lock next" already read, via the
+ * tile→plan-group bridge in `lib/coverage-strip.ts`. Behaviour unchanged — only
+ * the visibility keyword moved, so the strip cannot drift from the accordion.
  */
-function timelineStatusOf(
+export function timelineStatusOf(
   groupId: PlanGroupId,
   daysUntilWedding: number | null,
   state: ChildState,

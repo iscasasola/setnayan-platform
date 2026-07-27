@@ -24,6 +24,7 @@
  */
 
 import { Bookmark, Hammer, Wallet, Scale, type LucideIcon } from 'lucide-react';
+import { isExploreReplanEnabled } from './explore-replan-flag';
 
 /**
  * The four section tabs of the Services takeover, in order.
@@ -72,6 +73,26 @@ export const TAB_META: Record<
     blurb: 'Put your saved builds side by side — and see which dates work.',
   },
 };
+
+/**
+ * The Explore-Replan display label for a tab (`Explore_Replan_BUILD_SPEC_2026-07-27.md`
+ * §3 PR-F). The `compare` section is reframed as **"Plans"** — the couple saves
+ * NAMED plans, loads one back, and compares them side by side; "Compare" named
+ * the view, not the thing.
+ *
+ * LABEL ONLY: the tab KEY stays `'compare'`, so `?tab=compare` deep links, the
+ * `BB_TAB_EVENT` bus, the `#svc-compare` anchor and the
+ * `customer.budget-subnav.compare` nav slot are all untouched. Every label
+ * consumer (the mobile section sub-nav via `customer-menu.ts`, the takeover's
+ * own `SectionStub`) reads through here so the two can't drift.
+ *
+ * Flag-gated: with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED` off this returns exactly
+ * `TAB_META[tab].label`, i.e. today's production strings.
+ */
+export function tabLabel(tab: BudgetBuildTab): string {
+  if (tab === 'compare' && isExploreReplanEnabled()) return 'Plans';
+  return TAB_META[tab].label;
+}
 
 /**
  * Cross-surface tab bus. Any slot OR the docked section sub-nav can request a

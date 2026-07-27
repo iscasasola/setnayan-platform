@@ -1,0 +1,175 @@
+# SETNAYAN DUPLICATED-RULE BASELINE — GENERATED FILE, DO NOT HAND-EDIT
+#
+# Every line below is one place where THIS REPO WRITES THE SAME RULE DOWN TWICE.
+# That is not a style complaint. It is the bug class that cost a full day on
+# 2026-07-27: a fee rate typed into eleven files (one of them a vendor's BILL)
+# that stayed at the old flat rate for three days after the maths changed; a
+# page whose local `keptItems` shadowed the exported `keptItems`, so the
+# receipt and the lock path disagreed about what a couple had bought; two pages
+# hand-typing a column list, one of them missing `item_id` (a removal filter
+# that could never match) and `is_required` (a mandatory line that could
+# silently vanish). None of those was a typo. Each was a second copy of a rule
+# that then drifted from the first.
+#
+# ADDING A LINE IS A WIDENING AND FAILS CI.
+#   A new line means somebody wrote an existing rule down a second time. Do not
+#   regenerate the file to make the build green — go and USE the definition
+#   that already exists. Regenerating without reading your own diff turns this
+#   from a control into a rubber stamp, which is worse than deleting it,
+#   because it still looks like protection.
+#
+# REMOVING A LINE IS A NARROWING AND PASSES, SILENTLY.
+#   Delete the duplicate, import the real one, and regenerate whenever suits
+#   you. Fixing something must never turn the build red.
+#
+# Regenerate:
+#
+#   pnpm --filter @setnayan/web dup-rule:baseline
+#
+# ── LINE FORMAT ────────────────────────────────────────────────────────────
+#
+# shadow <TAB> file <TAB> name <TAB> owning-module
+#   `file` declares a local `name`, and `owning-module` — a module `file`
+#   ALREADY IMPORTS FROM — exports something of that same name. The author had
+#   the real one in reach and wrote a second one anyway. That qualifier is the
+#   whole rule: without it the same scan reports thousands of coincidental
+#   name collisions and is useless.
+#
+# omit <TAB> file <TAB> table <TAB> canonical-constant <TAB> omitted-column
+#   `file` hand-types a `.select()` on `table` that is a near-copy of
+#   `canonical-constant` and leaves `omitted-column` out. Every name in the
+#   list is real, so the phantom-column guard sees nothing: PostgREST returns
+#   rows, the query "works", and the page is quietly wrong. One line per
+#   omitted column, so dropping one MORE column adds a line (fails) and
+#   restoring one removes a line (passes).
+#
+# See the docblocks in lib/security/shadowed-export-scan.ts and
+# lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
+#
+# facts: 124
+#   shadow  21
+#   omit    103
+shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
+shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
+shadow	app/admin/pricing/_surfaces/price-bands-surface.tsx	regionLabel	lib/region-source.ts
+shadow	app/admin/taxonomy/actions.ts	VALID_PHOTO	lib/refinements-mutations.ts
+shadow	app/admin/users/[userId]/page.tsx	ORDER_STATUS_LABEL	lib/orders.ts
+shadow	app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx	SIDE_LABELS	lib/guests.ts
+shadow	app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx	hasContent	lib/invitation-widgets.ts
+shadow	app/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
+shadow	app/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_FOLDER_ORDER	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_FOLDER_SHORT_LABEL	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_FOLDER_SLUG	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_TILES_BY_PARENT	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_TILE_LABEL	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
+shadow	app/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
+shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	cap	app/onboarding/wedding/_components/weave-story.ts
+shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	firstInitial	app/onboarding/wedding/_components/weave-story.ts
+shadow	app/vendor-dashboard/shop/page.tsx	TIER_LABEL	lib/vendor-tier-caps.ts
+shadow	lib/price-position.ts	regionLabel	lib/region-source.ts
+omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
+omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/[slug]/seat/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
+omit	app/api/og/realstory-slug/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
+omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
+omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
+omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
+omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	display_name
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_color
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
+omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	description
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	is_consumable_flexible
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	primary_canonical_service
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
+omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	description
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	is_active
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	is_consumable_flexible
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	primary_canonical_service
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
+omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	is_default_included
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	is_required
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	max_extra_hours
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	parent_option_id
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	pick_max
+omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	pick_min
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	created_at
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	is_default_included
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	is_required
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	description
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	is_active
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	is_consumable_flexible
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	primary_canonical_service
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
+omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
+omit	lib/vendor-autoreply/inbox-hook.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy

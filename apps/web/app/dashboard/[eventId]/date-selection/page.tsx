@@ -42,6 +42,10 @@ import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates } from '@/lib/candidate-dates';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import {
+  VENDOR_BLOCK_SELECT,
+  VENDOR_POOL_SELECT,
+} from '@/lib/date-selection-vendor-pool';
 import { DatePicker } from './_components/date-picker';
 import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
@@ -426,9 +430,14 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       // Explore removed its first-party float the same day, and #3769 deleted the
       // concept from the vendor workspace. Prod has 0 profiles where it is true,
       // so it filtered nothing even when it was intended to.
+      //
+      // The column names now live in `@/lib/date-selection-vendor-pool` and are
+      // checked against `supabase/migrations` by its `.columns.test.ts` — the
+      // repo's select-list scanner cannot see the `.or()` predicate below, which
+      // is where half of this bug lived.
       admin
         .from('vendor_profiles')
-        .select('vendor_profile_id, services')
+        .select(VENDOR_POOL_SELECT)
         .eq('public_visibility', 'verified')
         .or('is_demo.is.null,is_demo.eq.false')
         .not('services', 'is', null),
@@ -499,11 +508,26 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     const topCandidates = effectiveCandidates.slice(0, 3);
     const sorted = [...topCandidates].sort();
 
+    // The OTHER half of the coverage figure, and it had the identical fail-open
+    // `?? []`. A silent failure here is worse than the pool's: an empty block
+    // list does not blank the number, it inflates it — every vendor reads as
+    // free on every candidate date, so the page confidently recommends a date
+    // nobody is available for. Report it for the same reason, and degrade the
+    // same way rather than 500ing the picker.
     const blockRes = await admin
       .from('vendor_calendar_blocks')
-      .select('vendor_profile_id, blocked_at, blocked_until')
+      .select(VENDOR_BLOCK_SELECT)
       .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
       .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`);
+    if (blockRes.error) {
+      Sentry.captureException(
+        new Error(`date-selection vendor blocks read failed: ${blockRes.error.message}`),
+        {
+          tags: { feature: 'date-selection', query: 'vendor_calendar_blocks' },
+          extra: { eventId, code: blockRes.error.code },
+        },
+      );
+    }
     const blockRows: BlockRow[] = (blockRes.data ?? []) as BlockRow[];
 
     // Budget range from shortlist (date-independent shared context).
@@ -560,7 +584,13 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         seasonNote: SEASON_NOTES[m] ?? 'A lovely time of year',
         monthNote: monthNote(m),
         holiday: holidayNote(dateKey),
-        marketplace: { availableCategories: mkt.available, totalCategories: mkt.total },
+        marketplace: {
+          availableCategories: mkt.available,
+          totalCategories: mkt.total,
+          // Either read failing makes this figure a guess, not a fact. Say so
+          // rather than rendering "Marketplace available" over a 42703.
+          readFailed: Boolean(vpRes.error || blockRes.error),
+        },
         prep: prepStatus(dateKey),
       };
     });

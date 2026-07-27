@@ -49,7 +49,12 @@ export default async function LaunchHubPage({ params }: Props) {
   const base = `/dashboard/${eventId}`;
   const [ownsLiveWall, panoodState, ownsPapic, eventRes] = await Promise.all([
     eventSkuActive(supabase, eventId, 'LIVE_WALL'),
-    resolveAddOnState(supabase, eventId, 'panood', 'couple'),
+    // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
+    // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
+    // `LIVE_STUDIO` ₱2,999. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
+    // keying on `panood` means the first couple who actually PAYS resolves to
+    // not-owned — an "Add" button on the day of their wedding instead of "Go live".
+    resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),
     eventPapicSeatsActive(supabase, eventId),
     // Slug + date drive the public-site preview cards below — the ONLY new read
     // this page needs (owner R5 Option A). Slug builds the `/[slug]?phase=` link;
@@ -84,7 +89,9 @@ export default async function LaunchHubPage({ params }: Props) {
       // This is the highest-stakes doorway in the app (it is pressed once, at the
       // wedding), so it must never be the one left pointing at the retired room.
       launchHref: liveStudioControllerHref(eventId),
-      addHref: `${base}/studio/panood`,
+      // The BUY doorway follows the same unification: `/studio/panood` is the Cast
+      // detail page for a retired SKU and offers no buy control.
+      addHref: `${base}/studio/live-studio-control`,
       Icon: Radio,
     },
     {

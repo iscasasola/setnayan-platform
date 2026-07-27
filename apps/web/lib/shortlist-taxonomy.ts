@@ -171,6 +171,23 @@ export type ShortlistVendor = {
   /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
    *  else null (Free/unscoped or Enterprise/nationwide) — drives the reach label. */
   serviceRadiusKm: number | null;
+  /** COMPOSITE-RANKING input · straight-line km from the event's venue anchor to
+   *  the vendor's HQ (haversine, already resolved on the vendors page). NULL =
+   *  either side has no coords / manual vendor → the scorer's NEUTRAL applies.
+   *  This is the CONTINUOUS twin of `reachesVenue`: the badge answers "in range?"
+   *  (and hides when unsure), the ranking needs "how far?" — 2 km and 19 km were
+   *  the same answer before (Explore_Replan §13.4 finding 3). */
+  distanceKm: number | null;
+  /** COMPOSITE-RANKING input · budget fit in [0,1] — the vendor's "starts at"
+   *  scored against this category's allocated share of the couple's budget. The
+   *  continuous twin of the `budgetFit` 'fits'/'over' badge. NULL = no budget set
+   *  or no price basis → NEUTRAL (never a penalty for missing data). */
+  budgetFitRatio: number | null;
+  /** COMPOSITE-RANKING input · TRUE only when the vendor EXPLICITLY declares one
+   *  of the couple's ceremony faiths (a declared specialist). NULL = serves-all /
+   *  unknown / non-wedding → NEUTRAL — a lift for specialists, never a penalty
+   *  for generalists. */
+  faithMatch: boolean | null;
   /** Fit-badge · budget fit (2026-07-09). 'fits' = the vendor's price basis is
    *  within the event's remaining budget (total − locked commitments); 'over' =
    *  it exceeds it; NULL = no budget set or no price basis → hidden. Locked picks
@@ -356,6 +373,13 @@ export function buildShortlistFolders(args: {
       // range"). serviceRadiusKm feeds the "within N km" label.
       reachesVenue: ext?.within_radius ?? null,
       serviceRadiusKm: ext?.service_radius_km ?? null,
+      // Composite-ranking inputs. All three are ALREADY resolved per candidate on
+      // the vendors page for the compat % (§14.3) — carrying them onto the card
+      // costs no extra query and is what lets "Best fit" call the real scorer
+      // instead of three binary flags. Absent → null → the scorer's NEUTRAL.
+      distanceKm: ext?.distance_km ?? null,
+      budgetFitRatio: ext?.budget_fit_ratio ?? null,
+      faithMatch: ext?.faith_match ?? null,
       budgetFit,
       budgetEstimated,
       // Fit-badge · date. Skipped for locked picks (already committed for this

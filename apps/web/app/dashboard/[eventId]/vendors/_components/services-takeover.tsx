@@ -35,7 +35,7 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
+import { ChevronDown, Info, Sparkles, X } from 'lucide-react';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -45,6 +45,14 @@ import {
   type BudgetBuildTab,
 } from '@/lib/budget-build';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  EXPLORE_INFO_BUTTON_LABEL,
+  EXPLORE_INFO_HANDSHAKE,
+  EXPLORE_INFO_STRIP,
+  EXPLORE_INFO_TITLE,
+  EXPLORE_INFO_WHAT,
+  EXPLORE_STATE_LEGEND,
+} from '@/lib/explore-info-copy';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META moved to
 // @/lib/budget-build 2026-06-16: the docked mobile section sub-nav is now
@@ -256,6 +264,10 @@ function ServiceSection({
 }) {
   const { blurb } = TAB_META[tab];
   const bodyId = `${sectionId(tab)}-body`;
+  // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — the bench only, and only
+  // behind the flag. The heading keeps its exact pre-replan classes when the ⓘ
+  // is absent, so the flag-OFF render is byte-identical.
+  const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // scroll-mt clears the sticky desktop `.shell-topbar` when scrolled into view.
     <section id={sectionId(tab)} aria-labelledby={`${sectionId(tab)}-h`} className="scroll-mt-24">
@@ -263,9 +275,16 @@ function ServiceSection({
         <div className="min-w-0">
           <h2
             id={`${sectionId(tab)}-h`}
-            className="font-serif text-xl italic leading-tight text-ink sm:text-2xl"
+            className={`font-serif text-xl italic leading-tight text-ink sm:text-2xl${
+              showInfo ? ' flex items-center gap-2' : ''
+            }`}
           >
             {heading}
+            {/* The ONE explanatory affordance on the bench: what this page does,
+                the state-glyph legend, the lock handshake in a line, and what
+                the Coverage Strip means. Every string comes from
+                lib/explore-info-copy.ts; none is authored here. */}
+            {showInfo ? <ExploreInfoToggle /> : null}
           </h2>
           <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>
         </div>
@@ -288,6 +307,78 @@ function ServiceSection({
       </header>
       {(!collapsible || open) && <div id={bodyId}>{children}</div>}
     </section>
+  );
+}
+
+/**
+ * The page-level ⓘ (Explore Replan PR-B · spec §11).
+ *
+ * Rules encoded here: a REAL button with an aria-label + visible focus ring; a
+ * DISMISSIBLE panel (close button + Escape + click the toggle again); state is
+ * NEVER persisted — it is help, not a setting, so it always starts closed.
+ *
+ * Everything is `<span>`-based because the toggle is rendered inside the
+ * section's `<h2>`, which only admits phrasing content; `block`/`grid` classes
+ * do the layout. All copy is imported — none is authored in this file.
+ */
+function ExploreInfoToggle() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  return (
+    <span className="relative inline-flex not-italic">
+      <button
+        type="button"
+        aria-label={EXPLORE_INFO_BUTTON_LABEL}
+        aria-expanded={open}
+        aria-controls="explore-info-panel"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-ink/55 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      >
+        <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      </button>
+      {open ? (
+        <span
+          id="explore-info-panel"
+          className="absolute left-0 top-8 z-30 block w-[min(22rem,calc(100vw-3rem))] rounded-2xl border border-ink/10 bg-cream p-4 font-sans text-sm not-italic leading-relaxed text-ink/75 shadow-xl"
+        >
+          <span className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-ink">{EXPLORE_INFO_TITLE}</span>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink/45 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            </button>
+          </span>
+          <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
+          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_STRIP}</span>
+          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
+          <span className="mt-3 grid gap-1 border-t border-ink/10 pt-3">
+            {EXPLORE_STATE_LEGEND.map((row) => (
+              <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">
+                <span className="w-3 shrink-0 text-center font-mono text-ink" aria-hidden>
+                  {row.glyph}
+                </span>
+                <span>
+                  <span className="font-semibold text-ink">{row.label}</span> — {row.meaning}
+                </span>
+              </span>
+            ))}
+          </span>
+        </span>
+      ) : null}
+    </span>
   );
 }
 

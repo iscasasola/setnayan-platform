@@ -110,3 +110,50 @@ export function bookingFeeEffectiveRate(proposalPhp: number): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
   return bookingFeePhp(proposalPhp) / proposalPhp;
 }
+
+/** A rate (0.05) as display copy ("5%", "2.5%") — never "2.5000000000000004%". */
+function formatRatePct(rate: number): string {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'percent',
+    maximumFractionDigits: 3,
+  }).format(rate);
+}
+
+/** A PHP amount as display copy — ₱ sign + thousands separators ("₱100,000"). */
+function formatPhpAmount(amountPhp: number): string {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: Number.isInteger(amountPhp) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amountPhp);
+}
+
+/**
+ * The fee schedule as ONE short line of vendor-facing copy, rendered ENTIRELY
+ * from `BOOKING_FEE` — today: `5% of the first ₱100,000, then 1%, minimum ₱50`.
+ *
+ * ⚠ WHY THIS EXISTS. The vendor's booking-fee `orders.description` — a money
+ * document they read in /vendor-dashboard/booking-fees and that ops read in
+ * /admin/payments — used to hard-code the parenthetical "(5%)". That was only
+ * true at or below ₱100,000: a ₱1,000,000 booking is billed ₱14,000 = 1.40%, so
+ * the document overstated its own rate, hid the taper DISCOUNT, and made
+ * Setnayan look like it had taken 5% of a ₱1M deal. Re-hardcoding "5% then 1%"
+ * would simply reproduce the bug at the next reprice, so the copy is DERIVED:
+ * move a constant and every document that quotes the schedule follows.
+ *
+ * The MINIMUM is part of the claim, not a footnote — below ₱1,000 the ₱50 floor
+ * dominates and the effective rate EXCEEDS the headline rate (a ₱200 booking
+ * pays ₱50 = 25%). A summary that names only the bands is wrong at the small end
+ * exactly the way "(5%)" was wrong at the large end.
+ *
+ * Every claim this string makes is pinned against `bookingFeePhp` in
+ * booking-fee-schedule-summary.test.ts.
+ */
+export function bookingFeeScheduleSummary(): string {
+  const head = formatRatePct(BOOKING_FEE.rate);
+  const tail = formatRatePct(BOOKING_FEE.tailRate);
+  const band = formatPhpAmount(BOOKING_FEE.tier1LimitPhp);
+  const floor = formatPhpAmount(BOOKING_FEE.minPhp);
+  return `${head} of the first ${band}, then ${tail}, minimum ${floor}`;
+}

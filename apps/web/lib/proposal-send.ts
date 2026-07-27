@@ -14,6 +14,8 @@ import {
   sanitizeAndResolveSchedule,
   type ResolvedSchedule,
 } from '@/lib/proposal-payment-schedule';
+import { applyFreeTransportToQuote } from '@/lib/vendor-free-transport';
+import { resolveThreadFreeTransport } from '@/lib/vendor-free-transport.server';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -398,10 +400,35 @@ export async function sendCustomProposalCore(
   const { user, profile, thread } = gate;
   const eventId = thread.event_id;
 
-  const { lineItems, totalCentavos } = sanitizeCustomLineItems(input.lineItems);
-  if (lineItems.length === 0) {
+  const sanitized = sanitizeCustomLineItems(input.lineItems);
+  if (sanitized.lineItems.length === 0) {
     return { ok: false, code: 'failed', message: 'Add at least one line item before sending a quote.' };
   }
+
+  // ── Inner-ring free travel · THE ENFORCEMENT BOUNDARY (spec §17 · PR #3816) ──
+  // The Proposal Maker composes its line items in the BROWSER and POSTs them as
+  // JSON, so anything the client does about the transportation field is a
+  // suggestion. Without this, a crafted request hangs a ₱15,000 "Transportation"
+  // line on a quote for a venue the vendor THEMSELVES declared inside their
+  // free-travel ring, and the couple is billed for travel the bench badge
+  // promised was free.
+  //
+  // Flag-dark and fail-soft: `resolveThreadFreeTransport` returns null before
+  // issuing a single query while NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED is
+  // off, and on any error; `applyFreeTransportToQuote(lines, null)` returns the
+  // same lines and the same total, so the flag-off path is behaviourally
+  // identical to before this block existed.
+  //
+  // The total is RECOMPUTED from the enforced lines — rewriting a line without
+  // re-summing would persist a headline the itemization contradicts, and the
+  // headline is what the booking-fee and payment-schedule maths read.
+  const freeTransport = await resolveThreadFreeTransport({
+    vendorProfileId: profile.vendor_profile_id,
+    eventId,
+  });
+  const enforced = applyFreeTransportToQuote(sanitized.lineItems, freeTransport);
+  const lineItems: ProposalLineItem[] = enforced.lineItems;
+  const totalCentavos = enforced.totalCentavos;
 
   // Payment schedule (§ 8) — RE-RESOLVE server-side from the drafts so the
   // persisted, self-balancing numbers come from the pure resolver, not the

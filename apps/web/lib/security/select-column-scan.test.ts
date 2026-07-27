@@ -83,6 +83,63 @@ const KNOWN_PHANTOMS: Record<string, string> = {
  */
 const KNOWN_PHANTOM_CEILING = 2;
 
+/**
+ * Relations `.from()` names that `readSchema()` cannot resolve — the guard's
+ * structural BLIND SPOT, and now its own ratchet.
+ *
+ * `findPhantomColumns` does `if (!table) continue`: a site whose TABLE is
+ * unknown is skipped entirely, so a query against a relation that exists
+ * NOWHERE sails through the column guard untouched. That is not hypothetical —
+ * `lib/setnayan-ai-snapshot.ts` read a bare `schedule_blocks` (the real relation
+ * is `event_schedule_blocks`) and PostgREST answered 42P01 on every call. The
+ * column guard shipped green over it, because it never looked.
+ *
+ * Skipping is nevertheless CORRECT for the entries below: `readSchema()` parses
+ * `supabase/migrations` for `CREATE TABLE`, so it is blind to views and
+ * materialized views by construction, and every one of these was verified
+ * present in PRODUCTION on 2026-07-27 via `pg_class.relkind`. Allowlisting them
+ * is what lets the guard flag the ONE relation that genuinely does not exist.
+ *
+ * THIS LIST MAY ONLY SHRINK. Adding an entry means either teaching the parser
+ * about views, or admitting a real phantom table — say which, in the commit.
+ */
+const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
+  bottleneck_signals_current: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  identity_clusters: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  vendor_fraud_scores: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  vendor_full_completed_events_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  vendor_public_completed_events_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  vendor_review_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  vendor_trusted_review_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
+  events_host: 'view in prod; readSchema() parses CREATE TABLE only.',
+  vendor_market_stats: 'view in prod; readSchema() parses CREATE TABLE only.',
+  reel_music_tracks:
+    'ordinary TABLE in prod (relkind=r) that readSchema() does not pick up — a real ' +
+    'parser gap, not a phantom. Worth closing; it is not a drive-by.',
+  t: "not a query — the scanner reads the literal .from('t') in its own doc comment " +
+    'at select-column-scan.ts:2. The extractor does not strip block comments.',
+};
+
+/**
+ * Ceiling for `KNOWN_UNRESOLVED_TABLES`. Started at 11 on 2026-07-27, the full
+ * set at the moment the blind spot was closed. RAISING IT IS A DECISION.
+ */
+const KNOWN_UNRESOLVED_CEILING = 11;
+
+/** Relations named by a `.from()` that the migration schema cannot resolve. */
+function unresolvedTables(): Map<string, string[]> {
+  const schema = readSchema();
+  const out = new Map<string, string[]>();
+  for (const site of scanSelectSites()) {
+    if (schema.get(site.table)) continue;
+    const at = `${site.file}:${site.line}`;
+    const prior = out.get(site.table);
+    if (prior) prior.push(at);
+    else out.set(site.table, [at]);
+  }
+  return out;
+}
+
 /** Minimum `.from().select()` pairs we must find, or the scanner is broken. */
 const MIN_SELECT_SITES = 2000;
 /** Minimum tables the migration parser must yield, or the schema is broken. */
@@ -274,5 +331,54 @@ test('T10 · attribution guards — ambiguous or unknowable selects are DROPPED,
     sites.map((s) => s.table),
     ['guests'],
     "the bare .from('events') must claim no select of its own",
+  );
+});
+
+// ── T11–T12 · the unresolved-TABLE ratchet ───────────────────────────────────
+//
+// Closes the blind spot described on KNOWN_UNRESOLVED_TABLES: the column guard
+// skips any site whose table it cannot resolve, so a `.from()` naming a relation
+// that exists nowhere was invisible to it. T1 asks "is every column real?"; this
+// asks the question underneath it — "is the TABLE real?"
+
+test('T11 · no .from() names a relation the migrations never declared', () => {
+  const offenders = [...unresolvedTables()].filter(
+    ([table]) => !(table in KNOWN_UNRESOLVED_TABLES),
+  );
+  assert.deepEqual(
+    offenders.map(([table]) => table),
+    [],
+    'These relations are named by a .from() but exist in no migration:\n' +
+      offenders
+        .map(([table, sites]) => `  ${table}\n${sites.map((s) => `      ${s}`).join('\n')}`)
+        .join('\n') +
+      '\n\n  PostgREST answers 42P01 and supabase-js resolves { data: null }, so any\n' +
+      '  `?? []` downstream renders an empty result for a query that never ran.\n' +
+      '  Fix the table name. If it is a view or matview that genuinely exists in\n' +
+      '  prod, add it to KNOWN_UNRESOLVED_TABLES with proof and raise the ceiling.',
+  );
+});
+
+test('T12 · no KNOWN_UNRESOLVED_TABLES entry has gone stale, and the list may only shrink', () => {
+  const n = Object.keys(KNOWN_UNRESOLVED_TABLES).length;
+  assert.ok(
+    n <= KNOWN_UNRESOLVED_CEILING,
+    `KNOWN_UNRESOLVED_TABLES has ${n} entries, ceiling is ${KNOWN_UNRESOLVED_CEILING}.`,
+  );
+  for (const [table, reason] of Object.entries(KNOWN_UNRESOLVED_TABLES)) {
+    assert.ok(
+      reason.length > 20,
+      `KNOWN_UNRESOLVED_TABLES['${table}'] needs a real explanation, not a placeholder.`,
+    );
+  }
+  const reported = unresolvedTables();
+  const stale = Object.keys(KNOWN_UNRESOLVED_TABLES).filter((t) => !reported.has(t));
+  assert.deepEqual(
+    stale,
+    [],
+    'These entries are no longer reported — the query was fixed, or the parser learned\n' +
+      `the relation. Delete them and LOWER KNOWN_UNRESOLVED_CEILING to ${
+        Object.keys(KNOWN_UNRESOLVED_TABLES).length - stale.length
+      }:\n` + stale.map((s) => `  ${s}`).join('\n'),
   );
 });

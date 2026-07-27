@@ -1713,34 +1713,42 @@ export async function finalizeVendor(
   // groups like Music & Entertainment, multiple confirmed vendors IS the
   // happy path, so we don't accidentally archive a legitimate co-lock).
   //
+  // HARD-SINGLE ONLY (owner 2026-07-27): a multi-pick category keeps its
+  // shortlist after a lock — the couple may want a SECOND caterer / photo
+  // booth, and their remaining research is exactly what they'd pick #2
+  // from. Sweeping only applies where the slot is genuinely filled (one
+  // venue / officiant / coordinator / host / LED).
+  //
   // Failure mode: if the archive sweep fails, we DON'T roll back the lock
   // because the lock itself was the primary action the host took. The
   // host can manually delete or re-confirm any stale considering picks
   // from the vendor tracker. We log the error to console.warn so it
   // surfaces in Sentry for ops attention, but the action returns ok.
   // ----------------------------------------------------------------------
-  const { error: archiveErr } = await supabase
-    .from('event_vendors')
-    .update({
-      archived_at: new Date().toISOString(),
-      // Stamp WHO displaced these, so revertVendorToConsidering can un-archive
-      // exactly this set. Without it the undo left every displaced pick
-      // archived forever and the couple lost their research on a mis-tap.
-      archived_by_lock_of: vendorId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId)
-    .eq('category', targetCategory)
-    .neq('vendor_id', vendorId)
-    .in('status', ['considering', 'shortlisted'])
-    .is('archived_at', null);
-  if (archiveErr) {
-    // Surface to Sentry-style logging without rolling back the lock.
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
-      archiveErr.message,
-    );
+  if (isHardSingle) {
+    const { error: archiveErr } = await supabase
+      .from('event_vendors')
+      .update({
+        archived_at: new Date().toISOString(),
+        // Stamp WHO displaced these, so revertVendorToConsidering can un-archive
+        // exactly this set. Without it the undo left every displaced pick
+        // archived forever and the couple lost their research on a mis-tap.
+        archived_by_lock_of: vendorId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('category', targetCategory)
+      .neq('vendor_id', vendorId)
+      .in('status', ['considering', 'shortlisted'])
+      .is('archived_at', null);
+    if (archiveErr) {
+      // Surface to Sentry-style logging without rolling back the lock.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
+        archiveErr.message,
+      );
+    }
   }
 
   // ----------------------------------------------------------------------

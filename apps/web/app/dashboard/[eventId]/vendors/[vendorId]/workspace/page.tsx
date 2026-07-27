@@ -53,7 +53,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
-import { formatCentavosPhp } from '@/lib/vendor-packages';
+import {
+  formatCentavosPhp,
+  VENDOR_PACKAGE_ITEM_SELECT,
+  VENDOR_PACKAGE_SELECT,
+  type VendorPackageItemRow,
+  type VendorPackageRow,
+} from '@/lib/vendor-packages';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -65,6 +71,7 @@ import {
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
+import { parseRemovedItemIds, workspaceSections } from './package-sections';
 import { DepositReservation } from './_components/deposit-reservation';
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
@@ -684,52 +691,72 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Two-hop FK: event_vendors.event_vendor_package_id →
   // event_vendor_packages.booking_id → .package_id → vendor_packages +
   // vendor_package_items. Only 'locked' bookings are treated as a live header
-  // (mirrors lib/budget.ts). Best-effort: any null result falls back to the
-  // category-label service title + host notes, never a 500.
+  // (mirrors lib/budget.ts). Best-effort on a MISSING row: any null result
+  // falls back to the category-label service title + host notes, never a 500.
+  //
+  // ⚠ A FAILED READ IS NOT A MISSING ROW. The booking row carries
+  // `customizations_json`, i.e. which lines the couple REMOVED, and "no row"
+  // and "the query errored" mean opposite things there: the first is a package
+  // that isn't booked, the second is removals we cannot see. Swallowing the
+  // error would print removed lines under "What's included" — so this read
+  // throws. (A swallowed select error shipped a destructive bug in this repo
+  // on 2026-07-27; the same shape, one table over.)
   // --------------------------------------------------------------------------
   let packageHeader: {
     name: string;
     description: string | null;
     priceCentavos: number | null;
   } | null = null;
-  let packageItems: { service_description: string; is_default_included: boolean }[] = [];
+  // 🔧 TWO LISTS, and neither re-derives the inclusion rule here — see
+  // ./package-sections for the ruling and the shared helper.
+  let packageIncludedItems: ReadonlyArray<VendorPackageItemRow> = [];
+  let packageAddOnItems: ReadonlyArray<VendorPackageItemRow> = [];
 
   if (ev.event_vendor_package_id) {
-    const { data: bookingRow } = await supabase
+    const { data: bookingRow, error: bookingErr } = await supabase
       .from('event_vendor_packages')
-      .select('package_id, status, total_locked_centavos')
+      // `customizations_json` is the whole point: `removed_item_ids` lives in
+      // it, and without it this page had no way to know a line was removed.
+      .select(
+        'package_id, status, total_locked_centavos, customizations_json',
+      )
       .eq('booking_id', ev.event_vendor_package_id)
       .maybeSingle();
+    if (bookingErr) throw new Error(bookingErr.message);
     const booking = bookingRow as {
       package_id: string;
       status: string;
       total_locked_centavos: number | string | null;
+      customizations_json: unknown;
     } | null;
 
     if (booking && booking.status === 'locked' && booking.package_id) {
       const [{ data: pkgRowRaw }, { data: itemsRaw }] = await Promise.all([
         supabase
           .from('vendor_packages')
-          .select('package_name, description, total_price_centavos')
+          // The canonical constant, not a hand-typed subset — the row is handed
+          // whole to `workspaceSections`, so it has to BE a package row.
+          .select(VENDOR_PACKAGE_SELECT)
           .eq('package_id', booking.package_id)
           .maybeSingle(),
         supabase
           .from('vendor_package_items')
-          // `parent_option_id` is selected only so follow-ups can be DROPPED
-          // below — this list renders every non-included line as "(optional
-          // add-on)", and a follow-up is not an add-on the host can just take.
-          .select(
-            'service_description, is_default_included, parent_option_id, display_order',
-          )
+          // The canonical list, not a hand-typed copy of it. The old literal
+          // asked for four columns and omitted both `item_id` — without which
+          // no removal id can ever match a line — and `is_required`, which
+          // `isRemovableItem` reads to decide that a MANDATORY line survives a
+          // removal id. An absent column reads as `undefined` → falsy, so a
+          // required line carrying a stale removal id would have vanished from
+          // this page while the vendor was still delivering and charging for
+          // it. `parent_option_id` is appended rather than folded into the
+          // constant — see the note on PACKAGE_ITEM_AUTHORING_COLUMNS for why
+          // the branching columns stay off the shared couple-side list.
+          .select(`${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id`)
           .eq('package_id', booking.package_id)
           .order('display_order', { ascending: true }),
       ]);
 
-      const pkg = pkgRowRaw as {
-        package_name: string;
-        description: string | null;
-        total_price_centavos: number | string | null;
-      } | null;
+      const pkg = pkgRowRaw as VendorPackageRow | null;
 
       if (pkg) {
         const lockedTotal =
@@ -742,26 +769,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           // Prefer the host's actual locked total; fall back to list price.
           priceCentavos: lockedTotal && lockedTotal > 0 ? lockedTotal : listTotal,
         };
-      }
 
-      packageItems = (
-        (itemsRaw ?? []) as Array<{
-          service_description: string;
-          is_default_included: boolean;
-          parent_option_id: string | null;
-        }>
-      )
-        // A FOLLOW-UP is not an add-on. This list labels every non-included
-        // line "(optional add-on)", and the DB forces follow-ups to
-        // `is_default_included = FALSE`
-        // (vendor_package_items_followup_not_default_included_ck), so without
-        // this they would ALL land in the add-on bucket — offering the host a
-        // "which style of lechon?" line detached from the lechon.
-        .filter((it) => it.parent_option_id == null)
-        .map((it) => ({
-          service_description: it.service_description,
-          is_default_included: it.is_default_included,
-        }));
+        // A FOLLOW-UP is in neither list. `workspaceSections` drops them (the
+        // DB forces every follow-up to `is_default_included = FALSE`, which is
+        // also the add-on shape, so the add-on section is exactly where an
+        // unguarded filter would leak "which style of lechon?" detached from
+        // the lechon), but the filter stays here too: it is what makes the
+        // object handed over already free of them.
+        const lines = ((itemsRaw ?? []) as VendorPackageItemRow[]).filter(
+          (it) => it.parent_option_id == null,
+        );
+        const removedItemIds = parseRemovedItemIds(booking.customizations_json);
+        const { included, addOns } = workspaceSections(
+          { ...pkg, items: lines },
+          removedItemIds,
+        );
+        packageIncludedItems = included;
+        packageAddOnItems = addOns;
+      }
     }
   }
 
@@ -1096,8 +1121,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       </section>
   );
 
+  // The manual-vendor fallback below fires only when the package contributed NO
+  // lines at all — the same condition as before the two lists were split apart.
+  const hasPackageLines =
+    packageIncludedItems.length + packageAddOnItems.length > 0;
+
   const includedSection =
-      packageItems.length > 0 ? (
+      packageIncludedItems.length > 0 ? (
         <section
           aria-labelledby="included-heading"
           className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
@@ -1110,22 +1140,26 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             What&apos;s included
           </h2>
           <ul className="space-y-2">
-            {packageItems.map((it, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-ink/80">
+            {packageIncludedItems.map((it) => (
+              <li
+                key={it.item_id}
+                className="flex items-start gap-2 text-sm text-ink/80"
+              >
+                {/* One list, one meaning: every line here IS being delivered.
+                    The dimmed-tick + " (optional add-on)" variant is gone —
+                    add-ons have their own section below, and its heading
+                    carries what the inline suffix used to have to. */}
                 <CheckCircle2
                   aria-hidden
-                  className={`mt-0.5 h-4 w-4 shrink-0 ${it.is_default_included ? 'text-terracotta' : 'text-ink/30'}`}
+                  className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
                   strokeWidth={1.75}
                 />
-                <span>
-                  {it.service_description}
-                  {it.is_default_included ? '' : ' (optional add-on)'}
-                </span>
+                <span>{it.service_description}</span>
               </li>
             ))}
           </ul>
         </section>
-      ) : ev.manual_vendor_id && !ev.marketplace_vendor_id ? (
+      ) : !hasPackageLines && ev.manual_vendor_id && !ev.marketplace_vendor_id ? (
         /* DIY parity (owner doctrine 2026-06-11): a manual vendor has no
            vendor-authored package, so the HOST describes the order — what's
            included + which other plan categories it covers. The covers links
@@ -1137,6 +1171,55 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           initialCovers={ev.covers_plan_groups ?? []}
           options={coverOptions}
         />
+      ) : null;
+
+  /* The vendor's optional add-ons on this package, in their OWN labelled
+     section — never folded into "What's included", never hidden. On a
+     service-detail view "what else this vendor offers on this package" is live,
+     useful context, and the owner's design models the couple side as
+     Included · add-ons · requests.
+
+     The copy names the STATUS and stops there: no CTA, because there is no
+     purchase path for add-ons yet and an invitation would promise something the
+     product cannot deliver; and no peso figure, because
+     `replacement_value_centavos` is a replacement VALUE and printing one beside
+     a line that was never billed reads as a charge.
+
+     No count in the heading — no heading on this page carries one. */
+  const addOnsSection =
+      packageAddOnItems.length > 0 ? (
+        <section
+          aria-labelledby="add-ons-heading"
+          className="rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6"
+        >
+          <h2
+            id="add-ons-heading"
+            className="mb-2 flex items-center gap-2 font-display text-lg italic text-ink"
+          >
+            <Circle aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+            Not included
+          </h2>
+          <p className="mb-3 text-xs text-ink/55">
+            Optional extras {displayName} offers on this package. They
+            weren&apos;t part of what you booked, and nothing was charged for
+            them.
+          </p>
+          <ul className="space-y-2">
+            {packageAddOnItems.map((it) => (
+              <li
+                key={it.item_id}
+                className="flex items-start gap-2 text-sm text-ink/70"
+              >
+                <Circle
+                  aria-hidden
+                  className="mt-0.5 h-4 w-4 shrink-0 text-ink/30"
+                  strokeWidth={1.75}
+                />
+                <span>{it.service_description}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null;
 
   const statusSection = (
@@ -1879,6 +1962,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {backNav}
         {heroSection}
         {includedSection}
+        {addOnsSection}
         {statusSection}
         <div className="grid gap-5 lg:grid-cols-2">
           {conversationSection}
@@ -2233,6 +2317,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <div className="space-y-6">
           {coupleCompletionSection}
           {includedSection}
+          {addOnsSection}
           {marketplaceInfoSection}
           {notesSection}
           {workingFolderSection}

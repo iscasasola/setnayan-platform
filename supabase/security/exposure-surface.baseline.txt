@@ -9,11 +9,11 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6217
+# facts: 6216
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     721
+#   tpriv     720
 #   col       4446
 #   policy    820
 #   view      10
@@ -644,7 +644,6 @@ tpriv	public.vendor_portion_rules|anon	SIUD
 tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
 tpriv	public.vendor_profile_views|authenticated	SIUD
-tpriv	public.vendor_profiles|anon	SIUD
 tpriv	public.vendor_profiles|authenticated	SIUD
 tpriv	public.vendor_proposal_templates|anon	SIUD
 tpriv	public.vendor_proposal_templates|authenticated	SIUD
@@ -4560,99 +4559,99 @@ col	public.vendor_profile_views.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.view_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewed_at	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewer_hash	anon=SIU authenticated=SIU
-col	public.vendor_profiles.absorbs_convenience_fee	anon=SIU authenticated=SIU
-col	public.vendor_profiles.ai_addon_expires_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.ai_addon_level	anon=SIU authenticated=SIU
-col	public.vendor_profiles.ai_addon_trial_used_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.bir_service_category	anon=SIU authenticated=SIU
-col	public.vendor_profiles.booth_addon_expires_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.booth_addon_trial_used_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.business_name	anon=SIU authenticated=SIU
-col	public.vendor_profiles.business_owner_name	anon=SIU authenticated=SIU
-col	public.vendor_profiles.business_slug	anon=SIU authenticated=SIU
-col	public.vendor_profiles.capacity_max	anon=SIU authenticated=SIU
-col	public.vendor_profiles.capacity_min	anon=SIU authenticated=SIU
-col	public.vendor_profiles.compatible_ceremony_types	anon=SIU authenticated=SIU
-col	public.vendor_profiles.compatible_venue_settings	anon=SIU authenticated=SIU
-col	public.vendor_profiles.contact_email	anon=SIU authenticated=SIU
-col	public.vendor_profiles.contact_phone	anon=SIU authenticated=SIU
-col	public.vendor_profiles.created_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.created_by_admin_user_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.demo_batch_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.demotion_count	anon=SIU authenticated=SIU
-col	public.vendor_profiles.event_types	anon=SIU authenticated=SIU
-col	public.vendor_profiles.experience_verified_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.experience_verified_by	anon=SIU authenticated=SIU
-col	public.vendor_profiles.extra_agent_seats	anon=SIU authenticated=SIU
-col	public.vendor_profiles.fraud_banned_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.fraud_suspended_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.fraud_tombstoned	anon=SIU authenticated=SIU
-col	public.vendor_profiles.gallery_video_links	anon=SIU authenticated=SIU
-col	public.vendor_profiles.hq_address	anon=SIU authenticated=SIU
-col	public.vendor_profiles.hq_latitude	anon=SIU authenticated=SIU
-col	public.vendor_profiles.hq_longitude	anon=SIU authenticated=SIU
-col	public.vendor_profiles.hq_region	anon=SIU authenticated=SIU
-col	public.vendor_profiles.in_business_since_date	anon=SIU authenticated=SIU
-col	public.vendor_profiles.in_business_since_year	anon=SIU authenticated=SIU
-col	public.vendor_profiles.inner_radius_km	anon=SIU authenticated=SIU
-col	public.vendor_profiles.is_demo	anon=SIU authenticated=SIU
-col	public.vendor_profiles.is_founder	anon=SIU authenticated=SIU
-col	public.vendor_profiles.is_published	anon=SIU authenticated=SIU
-col	public.vendor_profiles.is_supplier_vendor	anon=SIU authenticated=SIU
-col	public.vendor_profiles.last_demoted_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.last_verified_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.location_city	anon=SIU authenticated=SIU
-col	public.vendor_profiles.logo_url	anon=SIU authenticated=SIU
-col	public.vendor_profiles.max_soft_holds_per_date	anon=SIU authenticated=SIU
-col	public.vendor_profiles.max_waitlist_acceptances	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_about	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_accent	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_featured_editorial_ids	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_featured_service_ids	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_hero_photo_key	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_pinned_review_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_sections	anon=SIU authenticated=SIU
-col	public.vendor_profiles.microsite_video_ids	anon=SIU authenticated=SIU
-col	public.vendor_profiles.name_revealed_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.next_renewal_due_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.outer_radius_km	anon=SIU authenticated=SIU
-col	public.vendor_profiles.portfolio_r2_keys	anon=SIU authenticated=SIU
-col	public.vendor_profiles.presentation_pattern	anon=SIU authenticated=SIU
-col	public.vendor_profiles.public_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.public_visibility	anon=SIU authenticated=SIU
-col	public.vendor_profiles.real_name_unlocked_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registered_address	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registered_business_name	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registered_zip	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registration_number_needs_review	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registration_number_normalized	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registration_number_raw	anon=SIU authenticated=SIU
-col	public.vendor_profiles.registration_number_submitted_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.same_day_available	anon=SIU authenticated=SIU
-col	public.vendor_profiles.screen_name	anon=SIU authenticated=SIU
-col	public.vendor_profiles.screen_name_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.screen_name_slug	anon=SIU authenticated=SIU
-col	public.vendor_profiles.screen_name_taxonomy	anon=SIU authenticated=SIU
-col	public.vendor_profiles.services	anon=SIU authenticated=SIU
-col	public.vendor_profiles.show_team_bookings_in_backend_count	anon=SIU authenticated=SIU
-col	public.vendor_profiles.social_feature_opt_out	anon=SIU authenticated=SIU
-col	public.vendor_profiles.social_featured_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.social_post_url	anon=SIU authenticated=SIU
-col	public.vendor_profiles.supplier_categories	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tagline	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tier_billing_cycle	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tier_expires_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tier_state	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tin_number	anon=SIU authenticated=SIU
-col	public.vendor_profiles.tin_type	anon=SIU authenticated=SIU
-col	public.vendor_profiles.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_profiles.user_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_profiles.venue_type	anon=SIU authenticated=SIU
-col	public.vendor_profiles.verification_state	anon=SIU authenticated=SIU
-col	public.vendor_profiles.waitlist_enabled	anon=SIU authenticated=SIU
-col	public.vendor_profiles.website	anon=SIU authenticated=SIU
-col	public.vendor_profiles.weddings_done_approx	anon=SIU authenticated=SIU
+col	public.vendor_profiles.absorbs_convenience_fee	anon=- authenticated=SIU
+col	public.vendor_profiles.ai_addon_expires_at	anon=- authenticated=SIU
+col	public.vendor_profiles.ai_addon_level	anon=- authenticated=SIU
+col	public.vendor_profiles.ai_addon_trial_used_at	anon=- authenticated=SIU
+col	public.vendor_profiles.bir_service_category	anon=- authenticated=SIU
+col	public.vendor_profiles.booth_addon_expires_at	anon=- authenticated=SIU
+col	public.vendor_profiles.booth_addon_trial_used_at	anon=- authenticated=SIU
+col	public.vendor_profiles.business_name	anon=S authenticated=SIU
+col	public.vendor_profiles.business_owner_name	anon=- authenticated=SIU
+col	public.vendor_profiles.business_slug	anon=S authenticated=SIU
+col	public.vendor_profiles.capacity_max	anon=- authenticated=SIU
+col	public.vendor_profiles.capacity_min	anon=- authenticated=SIU
+col	public.vendor_profiles.compatible_ceremony_types	anon=S authenticated=SIU
+col	public.vendor_profiles.compatible_venue_settings	anon=S authenticated=SIU
+col	public.vendor_profiles.contact_email	anon=S authenticated=SIU
+col	public.vendor_profiles.contact_phone	anon=- authenticated=SIU
+col	public.vendor_profiles.created_at	anon=S authenticated=SIU
+col	public.vendor_profiles.created_by_admin_user_id	anon=- authenticated=SIU
+col	public.vendor_profiles.demo_batch_id	anon=- authenticated=SIU
+col	public.vendor_profiles.demotion_count	anon=- authenticated=SIU
+col	public.vendor_profiles.event_types	anon=S authenticated=SIU
+col	public.vendor_profiles.experience_verified_at	anon=- authenticated=SIU
+col	public.vendor_profiles.experience_verified_by	anon=- authenticated=SIU
+col	public.vendor_profiles.extra_agent_seats	anon=- authenticated=SIU
+col	public.vendor_profiles.fraud_banned_at	anon=- authenticated=SIU
+col	public.vendor_profiles.fraud_suspended_at	anon=- authenticated=SIU
+col	public.vendor_profiles.fraud_tombstoned	anon=- authenticated=SIU
+col	public.vendor_profiles.gallery_video_links	anon=- authenticated=SIU
+col	public.vendor_profiles.hq_address	anon=- authenticated=SIU
+col	public.vendor_profiles.hq_latitude	anon=S authenticated=SIU
+col	public.vendor_profiles.hq_longitude	anon=S authenticated=SIU
+col	public.vendor_profiles.hq_region	anon=S authenticated=SIU
+col	public.vendor_profiles.in_business_since_date	anon=- authenticated=SIU
+col	public.vendor_profiles.in_business_since_year	anon=- authenticated=SIU
+col	public.vendor_profiles.inner_radius_km	anon=- authenticated=SIU
+col	public.vendor_profiles.is_demo	anon=- authenticated=SIU
+col	public.vendor_profiles.is_founder	anon=- authenticated=SIU
+col	public.vendor_profiles.is_published	anon=S authenticated=SIU
+col	public.vendor_profiles.is_supplier_vendor	anon=- authenticated=SIU
+col	public.vendor_profiles.last_demoted_at	anon=- authenticated=SIU
+col	public.vendor_profiles.last_verified_at	anon=- authenticated=SIU
+col	public.vendor_profiles.location_city	anon=S authenticated=SIU
+col	public.vendor_profiles.logo_url	anon=S authenticated=SIU
+col	public.vendor_profiles.max_soft_holds_per_date	anon=- authenticated=SIU
+col	public.vendor_profiles.max_waitlist_acceptances	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_about	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_accent	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_featured_editorial_ids	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_featured_service_ids	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_hero_photo_key	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_pinned_review_id	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_sections	anon=- authenticated=SIU
+col	public.vendor_profiles.microsite_video_ids	anon=- authenticated=SIU
+col	public.vendor_profiles.name_revealed_at	anon=- authenticated=SIU
+col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=SIU
+col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
+col	public.vendor_profiles.portfolio_r2_keys	anon=- authenticated=SIU
+col	public.vendor_profiles.presentation_pattern	anon=- authenticated=SIU
+col	public.vendor_profiles.public_id	anon=S authenticated=SIU
+col	public.vendor_profiles.public_visibility	anon=S authenticated=SIU
+col	public.vendor_profiles.real_name_unlocked_at	anon=- authenticated=SIU
+col	public.vendor_profiles.registered_address	anon=- authenticated=SIU
+col	public.vendor_profiles.registered_business_name	anon=- authenticated=SIU
+col	public.vendor_profiles.registered_zip	anon=- authenticated=SIU
+col	public.vendor_profiles.registration_number_needs_review	anon=- authenticated=SIU
+col	public.vendor_profiles.registration_number_normalized	anon=- authenticated=SIU
+col	public.vendor_profiles.registration_number_raw	anon=- authenticated=SIU
+col	public.vendor_profiles.registration_number_submitted_at	anon=- authenticated=SIU
+col	public.vendor_profiles.same_day_available	anon=- authenticated=SIU
+col	public.vendor_profiles.screen_name	anon=- authenticated=SIU
+col	public.vendor_profiles.screen_name_id	anon=- authenticated=SIU
+col	public.vendor_profiles.screen_name_slug	anon=- authenticated=SIU
+col	public.vendor_profiles.screen_name_taxonomy	anon=- authenticated=SIU
+col	public.vendor_profiles.services	anon=S authenticated=SIU
+col	public.vendor_profiles.show_team_bookings_in_backend_count	anon=- authenticated=SIU
+col	public.vendor_profiles.social_feature_opt_out	anon=- authenticated=SIU
+col	public.vendor_profiles.social_featured_at	anon=- authenticated=SIU
+col	public.vendor_profiles.social_post_url	anon=- authenticated=SIU
+col	public.vendor_profiles.supplier_categories	anon=- authenticated=SIU
+col	public.vendor_profiles.tagline	anon=S authenticated=SIU
+col	public.vendor_profiles.tier_billing_cycle	anon=- authenticated=SIU
+col	public.vendor_profiles.tier_expires_at	anon=- authenticated=SIU
+col	public.vendor_profiles.tier_state	anon=S authenticated=SIU
+col	public.vendor_profiles.tin_number	anon=- authenticated=SIU
+col	public.vendor_profiles.tin_type	anon=- authenticated=SIU
+col	public.vendor_profiles.updated_at	anon=- authenticated=SIU
+col	public.vendor_profiles.user_id	anon=S authenticated=SIU
+col	public.vendor_profiles.vendor_profile_id	anon=S authenticated=SIU
+col	public.vendor_profiles.venue_type	anon=- authenticated=SIU
+col	public.vendor_profiles.verification_state	anon=S authenticated=SIU
+col	public.vendor_profiles.waitlist_enabled	anon=- authenticated=SIU
+col	public.vendor_profiles.website	anon=- authenticated=SIU
+col	public.vendor_profiles.weddings_done_approx	anon=- authenticated=SIU
 col	public.vendor_proposal_templates.body	anon=SIU authenticated=SIU
 col	public.vendor_proposal_templates.created_at	anon=SIU authenticated=SIU
 col	public.vendor_proposal_templates.default_package_id	anon=SIU authenticated=SIU

@@ -124,11 +124,19 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     ),
   );
 
-  // All other active vendors for the propose picker.
+  // All other LIVE vendors for the propose picker.
+  // ⚠ Was `.eq('is_active', true)` — `vendor_profiles` HAS NO `is_active`
+  // column, so PostgREST answered 42703 and this picker was ALWAYS EMPTY: no
+  // vendor could ever propose a partnership. "Active" is expressed by the
+  // marketplace's own liveness pair (the same one /explore and the public
+  // counts use), not by a column that never existed — proposing to a shop that
+  // is not live is pointless, and after the 2026-07-27 ruling `verified` is the
+  // only publicly-real state.
   const { data: allVendors } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
-    .eq('is_active', true)
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified')
     .neq('vendor_profile_id', myId)
     .order('business_name', { ascending: true })
     .limit(300);

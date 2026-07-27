@@ -14,6 +14,7 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
@@ -545,6 +546,13 @@ export async function commitOnboardingWedding(
       error: insertError?.message ?? 'event_insert_failed',
     };
   }
+
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
+  // ON free for every new event, so the metering fence must exist from the moment
+  // the event does — an event with no grant takes papic_event_pool_status()'s
+  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
+  // a miss here is self-healed on the first Papic-studio render.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

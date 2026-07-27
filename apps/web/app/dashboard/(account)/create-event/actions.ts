@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -406,6 +407,12 @@ export async function createWeddingEvent(formData: FormData) {
     );
   }
 
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
+  // ON free for every new event, so the metering fence must exist from the moment
+  // the event does — an event with no grant takes papic_event_pool_status()'s
+  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+
   // Add the creating user as a couple member.
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,
@@ -572,6 +579,12 @@ export async function planNextYearEvent(formData: FormData) {
       `/dashboard/${sourceId}?error=${encodeURIComponent('plan_next_year_failed: ' + (insertError?.message ?? 'unknown'))}`,
     );
   }
+
+  // Arm the free Papic pool for the CLONE (owner-locked 2026-07-27 · 50 pts). A
+  // next-year clone is a brand-new event row with its own pool — grants are never
+  // copied by buildNextYearClonePayload, so without this the clone would be the
+  // one unmetered event in the account. Idempotent + non-fatal.
+  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: inserted.event_id,

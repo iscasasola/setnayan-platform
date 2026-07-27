@@ -306,44 +306,66 @@ export type EventVendorPackageRow = {
  *   category-label → centavos. Informational only — actual money flow
  *   stays in remaining_consumable_centavos.
  */
-export type PackageCustomizations = {
+/**
+ * ⚠ TWO TYPES ON PURPOSE — this split is a bug fix, not bookkeeping.
+ *
+ * Three times in this wave the same failure shipped: a value that must come
+ * from the SERVER arrived from the browser and was written down as truth
+ * (`chosen_option_ids`, then `credit_additions`). Each time the cause was the
+ * same line — `{ ...customizations }` — spreading the client's own object into
+ * the row we persist.
+ *
+ * So the two things now have two types, and the compiler refuses to confuse
+ * them:
+ *
+ *   INPUT  — what a browser may send. IDs and quantities. **No money.**
+ *   STORED — what we persist. Sanitised, with every price FROZEN.
+ *
+ * `Stored` requires `unit_price_centavos` on each addition, and `Input` forbids
+ * it, so `persist({ ...input })` cannot typecheck. The old bug is now
+ * unrepresentable rather than merely tested for.
+ */
+export type PackageCustomizationsInput = {
   removed_item_ids?: string[];
   consumable_allocations?: Record<string, number>;
-  /**
-   * The option the host picked on each CHOICE line — a flat list of
-   * `vendor_package_item_options.option_id`, at most one per line, matching
-   * `computePackageCredit`'s `chosenOptionIds`.
-   *
-   * Absent means "every choice line stays on its default", which is what the
-   * package price already assumes (the DB pins the default's delta to 0).
-   *
-   * Rides inside the existing `customizations_json JSONB` column — **no
-   * migration needed.** Never trust the price attached to one of these ids:
-   * the server re-reads every `price_delta_centavos` from the DB.
-   */
+  /** Option ids the host picked. Server re-reads every price. */
   chosen_option_ids?: string[];
   /**
-   * Other services from the vendor's catalogue, bought with package CREDIT.
-   * Owner-locked 2026-07-26: "credits can be consumables to other services,
-   * but not deductables."
-   *
-   * IDS AND QUANTITIES ONLY — deliberately no money. The server reads each
-   * service's committed `credit_price_centavos`; a price that arrived from the
-   * browser must never be what credit is debited at.
+   * Catalogue buys funded by credit. IDS AND QUANTITIES ONLY — money here
+   * would be a client-supplied price, which is the whole failure this split
+   * exists to stop.
    */
   credit_additions?: Array<{
     service_id: string;
     quantity: number;
-    /**
-     * The committed price this was actually charged at, FROZEN at lock.
-     * `vendor_services.credit_price_centavos` is live and vendor-editable, so
-     * storing only a pointer would let a later edit rewrite what the couple
-     * spent. Absent on the way IN (the client never sends money); always
-     * present on the way OUT.
-     */
-    unit_price_centavos?: number;
+    /** @deprecated never sent by a client; present only to make misuse loud. */
+    unit_price_centavos?: never;
   }>;
 };
+
+/** What is written to `event_vendor_packages.customizations_json`. */
+export type PackageCustomizationsStored = {
+  removed_item_ids?: string[];
+  consumable_allocations?: Record<string, number>;
+  chosen_option_ids?: string[];
+  credit_additions?: Array<{
+    service_id: string;
+    quantity: number;
+    /**
+     * REQUIRED, and frozen at lock. `vendor_services.credit_price_centavos` is
+     * live and vendor-editable, so a bare pointer would let a later edit
+     * rewrite what the couple already spent (cf. `orders.pax_snapshot`).
+     */
+    unit_price_centavos: number;
+  }>;
+};
+
+/**
+ * @deprecated Use {@link PackageCustomizationsInput} at the boundary and
+ * {@link PackageCustomizationsStored} for anything persisted. Kept so existing
+ * readers of stored rows keep compiling.
+ */
+export type PackageCustomizations = PackageCustomizationsStored;
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* PHP centavos formatter                                                   */

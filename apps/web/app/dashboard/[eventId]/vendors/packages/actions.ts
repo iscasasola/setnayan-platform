@@ -23,6 +23,8 @@ import {
   VENDOR_PACKAGE_ITEM_SELECT,
   type VendorPackageRow,
   type PackageCustomizations,
+  type PackageCustomizationsInput,
+  type PackageCustomizationsStored,
   type VendorPackageItemOptionRow,
   type VendorPackageItemRow,
   type VendorPackageWithItems,
@@ -75,7 +77,7 @@ export type LockPackageResult =
 export async function lockPackage(
   eventId: string,
   packageId: string,
-  customizations: PackageCustomizations,
+  customizations: PackageCustomizationsInput,
 ): Promise<LockPackageResult> {
   const supabase = await createClient();
   const {
@@ -252,15 +254,15 @@ export async function lockPackage(
 
   // ONE pricer, shared with removeItemFromPackage — see priceCustomizedPackage
   // for why computing this in two places was a live money bug.
-  const creditTotals = priceCustomizedPackage(
+  const creditTotals = priceCustomizedPackage({
     pkg,
-    removedIds,
+    removedItemIds: removedIds,
     chosenOptionIds,
-    packageCreditEnabled(),
-    livePax,
-    creditAdditions,
-    creditCatalogue,
-  );
+    creditEnabled: packageCreditEnabled(),
+    paxCount: livePax,
+    additions: creditAdditions,
+    catalogue: creditCatalogue,
+  });
   if (!creditTotals) {
     return {
       status: 'error',
@@ -272,7 +274,7 @@ export async function lockPackage(
 
   // Persist the SANITISED set, not the raw client object — otherwise a bogus id
   // survives in customizations_json and reads as truth to every later consumer.
-  const persistedCustomizations: PackageCustomizations = {
+  const persistedCustomizations: PackageCustomizationsStored = {
     ...customizations,
     ...(chosenOptionIds.length > 0
       ? { chosen_option_ids: chosenOptionIds }
@@ -699,15 +701,15 @@ export async function removeItemFromPackage(formData: FormData) {
     unit_price_centavos: a.unit_price_centavos as number,
   }));
 
-  const totals = priceCustomizedPackage(
+  const totals = priceCustomizedPackage({
     pkg,
-    newRemoved,
-    survivingOptionIds,
-    packageCreditEnabled(),
-    removePax,
-    survivingAdditions,
-    survivingCatalogue,
-  );
+    removedItemIds: newRemoved,
+    chosenOptionIds: survivingOptionIds,
+    creditEnabled: packageCreditEnabled(),
+    paxCount: removePax,
+    additions: survivingAdditions,
+    catalogue: survivingCatalogue,
+  });
   if (!totals) throw new Error('Package pricing could not be computed.');
   const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =
     totals;

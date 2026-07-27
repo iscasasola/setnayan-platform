@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 
 import {
   allowedRemovals,
+  type PriceCustomizedPackageArgs,
   toCreditPackage,
   unresolvedRequiredChoices,
   DEFAULT_UNSPENT_CREDIT_POLICY,
@@ -27,6 +28,27 @@ import {
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from './vendor-packages';
+
+/**
+ * Test-local caller for the pricer's required-object API.
+ *
+ * The production signature has NO optional fields on purpose — a forgotten one
+ * is how a line removal once handed back spent credit. Tests state only what
+ * they exercise, and this ONE helper is the single place a new required field
+ * has to be answered for.
+ */
+function price(over: Partial<PriceCustomizedPackageArgs> & { pkg: VendorPackageWithItems }) {
+  return priceCustomizedPackage({
+    removedItemIds: [],
+    chosenOptionIds: [],
+    creditEnabled: true,
+    paxCount: 0,
+    additions: [],
+    catalogue: [],
+    ...over,
+  });
+}
+
 
 /* ── fixtures ─────────────────────────────────────────────────────────────── */
 
@@ -331,8 +353,8 @@ test('an upgrade with NO pool to absorb it is charged, under either flag', () =>
     consumable_budget_centavos: 0,
   });
   for (const creditEnabled of [false, true]) {
-    const base = priceCustomizedPackage(pkg, [], [], creditEnabled)!;
-    const up = priceCustomizedPackage(pkg, [], ['halo'], creditEnabled)!;
+    const base = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: creditEnabled })!;
+    const up = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: ['halo'], creditEnabled: creditEnabled })!;
     assert.equal(
       up.bookingTotalCentavos - base.bookingTotalCentavos,
       4_000,
@@ -356,7 +378,7 @@ test('the remove path SEES choices at all — the actual regression', () => {
   });
   const optionsBlind = computeCustomization(pkg, ['a']).totalLockedCentavos;
   for (const creditEnabled of [false, true]) {
-    const priced = priceCustomizedPackage(pkg, ['a'], ['halo'], creditEnabled)!;
+    const priced = price({ pkg: pkg, removedItemIds: ['a'], chosenOptionIds: ['halo'], creditEnabled: creditEnabled })!;
     assert.notEqual(
       priced.bookingTotalCentavos,
       optionsBlind,
@@ -374,8 +396,8 @@ test('under CREDIT, freed credit absorbs the upgrade instead of raising the tota
     is_consumable_flexible: true,
     consumable_budget_centavos: 0,
   });
-  const withoutUpgrade = priceCustomizedPackage(pkg, ['a'], [], true)!;
-  const withUpgrade = priceCustomizedPackage(pkg, ['a'], ['halo'], true)!;
+  const withoutUpgrade = price({ pkg: pkg, removedItemIds: ['a'], chosenOptionIds: [], creditEnabled: true })!;
+  const withUpgrade = price({ pkg: pkg, removedItemIds: ['a'], chosenOptionIds: ['halo'], creditEnabled: true })!;
 
   assert.equal(withUpgrade.overspendCentavos, 0, 'a 10,000 pool covers a 4,000 upgrade');
   assert.equal(
@@ -397,7 +419,7 @@ test('the pricer returns null rather than a number when the engine refuses', () 
     is_required: true,
     options: [opt('chicken', 'main', { is_default: true }), opt('beef', 'main', { price_delta_centavos: 8_000 })],
   });
-  assert.equal(priceCustomizedPackage(pkgWith([required]), [], [], true), null);
+  assert.equal(price({ pkg: pkgWith([required]), removedItemIds: [], chosenOptionIds: [], creditEnabled: true }), null);
 });
 
 test('flag OFF still charges a picked upgrade — it is never free', () => {
@@ -405,8 +427,8 @@ test('flag OFF still charges a picked upgrade — it is never free', () => {
     is_consumable_flexible: true,
     consumable_budget_centavos: 0,
   });
-  const base = priceCustomizedPackage(pkg, [], [], false)!.bookingTotalCentavos;
-  const up = priceCustomizedPackage(pkg, [], ['halo'], false)!.bookingTotalCentavos;
+  const base = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: false })!.bookingTotalCentavos;
+  const up = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: ['halo'], creditEnabled: false })!.bookingTotalCentavos;
   assert.equal(up - base, 4_000);
 });
 
@@ -419,12 +441,9 @@ test('credit BUYS another service — the pool drains, the price does not move',
     is_consumable_flexible: true,
     consumable_budget_centavos: 50_000,
   });
-  const before = priceCustomizedPackage(pkg, [], [], true)!;
-  const after = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc-photo', quantity: 1 }],
-    [{ addition_id: 'svc-photo', unit_price_centavos: 30_000 }],
-  )!;
+  const before = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true })!;
+  const after = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc-photo', quantity: 1 }],
+    catalogue: [{ addition_id: 'svc-photo', unit_price_centavos: 30_000 }] })!;
 
   assert.equal(
     after.bookingTotalCentavos,
@@ -443,15 +462,12 @@ test('spending MORE than the pool bills the excess, it does not discount', () =>
     is_consumable_flexible: true,
     consumable_budget_centavos: 10_000,
   });
-  const r = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc-big', quantity: 1 }],
-    [{ addition_id: 'svc-big', unit_price_centavos: 25_000 }],
-  )!;
+  const r = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc-big', quantity: 1 }],
+    catalogue: [{ addition_id: 'svc-big', unit_price_centavos: 25_000 }] })!;
   assert.equal(r.overspendCentavos, 15_000, 'the excess is owed');
   assert.equal(
     r.bookingTotalCentavos,
-    priceCustomizedPackage(pkg, [], [], true)!.bookingTotalCentavos + 15_000,
+    price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true })!.bookingTotalCentavos + 15_000,
   );
 });
 
@@ -459,22 +475,16 @@ test('an addition with NO committed price is refused, never priced at zero', () 
   // The failure this prevents: a service the vendor never opted into credit
   // (credit_price_centavos NULL) being handed over for free.
   const pkg = pkgWith([item('a')], { is_consumable_flexible: true, consumable_budget_centavos: 50_000 });
-  const r = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc-unpriced', quantity: 1 }],
-    [], // nothing resolved
-  );
+  const r = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc-unpriced', quantity: 1 }],
+    catalogue: [] });
   assert.equal(r, null, 'an unpriced addition must fail closed');
 });
 
 test('additions are refused outright when the credit flag is OFF', () => {
   // Silently dropping them would tell the couple the booking simply cost less.
   const pkg = pkgWith([item('a')], { is_consumable_flexible: true, consumable_budget_centavos: 50_000 });
-  const r = priceCustomizedPackage(
-    pkg, [], [], false, 0,
-    [{ addition_id: 'svc', quantity: 1 }],
-    [{ addition_id: 'svc', unit_price_centavos: 10_000 }],
-  );
+  const r = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: false, paxCount: 0, additions: [{ addition_id: 'svc', quantity: 1 }],
+    catalogue: [{ addition_id: 'svc', unit_price_centavos: 10_000 }] });
   assert.equal(r, null);
 });
 
@@ -483,13 +493,10 @@ test('quantity multiplies the COMMITTED price, not a client number', () => {
     is_consumable_flexible: true,
     consumable_budget_centavos: 100_000,
   });
-  const r = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc', quantity: 3 }],
-    [{ addition_id: 'svc', unit_price_centavos: 20_000 }],
-  )!;
+  const r = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc', quantity: 3 }],
+    catalogue: [{ addition_id: 'svc', unit_price_centavos: 20_000 }] })!;
   assert.equal(
-    priceCustomizedPackage(pkg, [], [], true)!.remainingConsumableCentavos -
+    price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true })!.remainingConsumableCentavos -
       r.remainingConsumableCentavos,
     60_000,
     '3 × ₱200 committed',
@@ -510,8 +517,8 @@ test('credit already spent is NOT handed back when a line is removed', () => {
   const adds = [{ addition_id: 'svc', quantity: 1 }];
   const cat = [{ addition_id: 'svc', unit_price_centavos: 30_000 }];
 
-  const atLock = priceCustomizedPackage(pkg, [], [], true, 0, adds, cat)!;
-  const afterRemove = priceCustomizedPackage(pkg, ['drop'], [], true, 0, adds, cat)!;
+  const atLock = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: adds, catalogue: cat })!;
+  const afterRemove = price({ pkg: pkg, removedItemIds: ['drop'], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: adds, catalogue: cat })!;
 
   assert.equal(
     atLock.remainingConsumableCentavos,
@@ -525,7 +532,7 @@ test('credit already spent is NOT handed back when a line is removed', () => {
   );
 
   // And the bug's signature: pricing WITHOUT the additions hands the money back.
-  const buggy = priceCustomizedPackage(pkg, ['drop'], [], true, 0)!;
+  const buggy = price({ pkg: pkg, removedItemIds: ['drop'], chosenOptionIds: [], creditEnabled: true, paxCount: 0 })!;
   assert.equal(
     buggy.remainingConsumableCentavos,
     50_000,
@@ -540,16 +547,10 @@ test('a removal cannot re-rate a purchase at a NEW price', () => {
     is_consumable_flexible: true,
     consumable_budget_centavos: 50_000,
   });
-  const atOldPrice = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc', quantity: 1 }],
-    [{ addition_id: 'svc', unit_price_centavos: 30_000 }],
-  )!;
-  const atNewPrice = priceCustomizedPackage(
-    pkg, [], [], true, 0,
-    [{ addition_id: 'svc', quantity: 1 }],
-    [{ addition_id: 'svc', unit_price_centavos: 45_000 }],
-  )!;
+  const atOldPrice = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc', quantity: 1 }],
+    catalogue: [{ addition_id: 'svc', unit_price_centavos: 30_000 }] })!;
+  const atNewPrice = price({ pkg: pkg, removedItemIds: [], chosenOptionIds: [], creditEnabled: true, paxCount: 0, additions: [{ addition_id: 'svc', quantity: 1 }],
+    catalogue: [{ addition_id: 'svc', unit_price_centavos: 45_000 }] })!;
   assert.notEqual(
     atOldPrice.remainingConsumableCentavos,
     atNewPrice.remainingConsumableCentavos,

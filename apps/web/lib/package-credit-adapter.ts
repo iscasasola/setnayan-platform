@@ -103,20 +103,40 @@ export function toCreditPackage(pkg: VendorPackageWithItems): CreditPackage {
  * Returns `null` when the credit engine refuses — callers must surface that,
  * never substitute a number.
  */
-export function priceCustomizedPackage(
-  pkg: VendorPackageWithItems,
-  removedItemIds: ReadonlyArray<string>,
-  chosenOptionIds: ReadonlyArray<string>,
-  creditEnabled: boolean,
+/**
+ * ⚠ ONE REQUIRED OBJECT, NOT POSITIONAL OPTIONALS — this shape is a bug fix.
+ *
+ * This took positional args with defaults, and a new one (`additions`) was
+ * added at the lock site and forgotten at the remove site. `tsc` said nothing,
+ * because a defaulted parameter is legal to omit — so removing a line silently
+ * handed back credit the couple had already spent.
+ *
+ * Every field is REQUIRED. Adding one is now a compile error at every call
+ * site, which forces each caller to answer for it rather than inherit a default
+ * that happens to be wrong for them.
+ */
+export type PriceCustomizedPackageArgs = {
+  pkg: VendorPackageWithItems;
+  removedItemIds: ReadonlyArray<string>;
+  chosenOptionIds: ReadonlyArray<string>;
+  creditEnabled: boolean;
   /** Server-resolved head count, for per-head option upgrades. */
-  paxCount = 0,
-  /**
-   * Catalogue buys funded by credit, and the SERVER-READ prices for them.
-   * Both empty = the package-only path, exactly as before.
-   */
-  additions: ReadonlyArray<CreditAddition> = [],
-  catalogue: ReadonlyArray<CreditCatalogueEntry> = [],
-): {
+  paxCount: number;
+  /** Catalogue buys funded by credit — ids + quantities only. */
+  additions: ReadonlyArray<CreditAddition>;
+  /** SERVER-read prices for those buys. Never a client number. */
+  catalogue: ReadonlyArray<CreditCatalogueEntry>;
+};
+
+export function priceCustomizedPackage({
+  pkg,
+  removedItemIds,
+  chosenOptionIds,
+  creditEnabled,
+  paxCount,
+  additions,
+  catalogue,
+}: PriceCustomizedPackageArgs): {
   bookingTotalCentavos: number;
   remainingConsumableCentavos: number;
   availableCreditCentavos: number;

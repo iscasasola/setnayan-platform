@@ -13,8 +13,8 @@
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     721
-#   col       4427
+#   tpriv     720
+#   col       4428
 #   policy    815
 #   view      10
 #   func      215
@@ -589,8 +589,7 @@ tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
 tpriv	public.vendor_date_waitlist|authenticated	SIUD
-tpriv	public.vendor_dayof_configs|anon	SIUD
-tpriv	public.vendor_dayof_configs|authenticated	SIUD
+tpriv	public.vendor_dayof_configs|authenticated	SIU
 tpriv	public.vendor_deep_search_uses|anon	SIUD
 tpriv	public.vendor_deep_search_uses|authenticated	SIUD
 tpriv	public.vendor_disputes|anon	SIUD
@@ -4207,12 +4206,13 @@ col	public.vendor_date_waitlist.status	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.user_id	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.waitlist_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.config_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.created_at	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.enabled_modules	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.event_id	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_dayof_configs.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_dayof_configs.config_id	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.created_at	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.enabled_modules	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.event_id	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.song_requests_open	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.updated_at	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_deep_search_uses.created_at	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.dossier_id	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.free_cycle_start	anon=SIU authenticated=SIU

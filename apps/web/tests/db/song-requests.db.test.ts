@@ -29,8 +29,20 @@ let db: PGlite;
 
 let eventId: string;
 let guestId: string;
+let vendorProfileId: string;
 const MASTER_TOKEN = 'master-qr-token-for-the-bar-night';
 const ANON_KEY = 'a'.repeat(32);
+
+/** The act opens or closes its requests window (owner: "the band will open or
+ *  close accepting requests"). Every test that expects a request to LAND must
+ *  open it first — closed is the default, deliberately. */
+async function setWindow(open: boolean) {
+  await db.query(
+    `UPDATE public.vendor_dayof_configs SET song_requests_open = $1
+     WHERE vendor_profile_id = $2 AND event_id = $3`,
+    [open, vendorProfileId, eventId],
+  );
+}
 
 before(async () => {
   replay = await createReplayedDb();
@@ -49,14 +61,31 @@ before(async () => {
     [eventId],
   );
   guestId = g.rows[0]!.guest_id;
+
+  const vp = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles (business_name) VALUES ('Saysay Live Band')
+     RETURNING vendor_profile_id`,
+  );
+  vendorProfileId = vp.rows[0]!.vendor_profile_id;
+
+  // The act's day-of config row for this booking. Note we do NOT set
+  // song_requests_open here — the column's own default (FALSE) is what the
+  // "closed by default" test below is asserting.
+  await db.query(
+    `INSERT INTO public.vendor_dayof_configs (vendor_profile_id, event_id) VALUES ($1,$2)`,
+    [vendorProfileId, eventId],
+  );
 });
 
 after(async () => {
   await replay?.db?.close?.();
 });
 
+/** Clear the stream AND open the window — the state most tests are about. The
+ *  window itself is asserted separately in section 6. */
 async function reset() {
   await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(true);
 }
 
 // ─── 1 · The exposure boundary ──────────────────────────────────────────────
@@ -278,4 +307,119 @@ test('a decision must carry its timestamp', async () => {
       ),
     /event_song_requests_decided_together/,
   );
+});
+
+// ─── 6 · The requests window — the act opens and closes it ─────────────────
+// Owner 2026-07-27: "the band will open or close accepting requests."
+
+test('CLOSED BY DEFAULT — a fresh booking receives nothing on either lane', async () => {
+  await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(false); // the column default; set explicitly so the test is readable
+
+  await assert.rejects(
+    () =>
+      db.query(`SELECT * FROM public.guest_submit_song_request($1,$2,$3,$4)`, [
+        guestId, 'Perfect', 'Ed Sheeran', null,
+      ]),
+    /songreq:closed/,
+    'the wedding lane must refuse a closed room',
+  );
+  await assert.rejects(
+    () =>
+      db.query(`SELECT * FROM public.open_submit_song_request($1,$2,$3,$4,$5)`, [
+        MASTER_TOKEN, ANON_KEY, 'Perfect', 'Ed Sheeran', null,
+      ]),
+    /songreq:closed/,
+    'the bar lane must refuse a closed room',
+  );
+
+  const c = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.event_song_requests`,
+  );
+  assert.equal(c.rows[0]!.n, 0, 'a closed room stores nothing');
+});
+
+test('the act OPENS the window and requests start landing', async () => {
+  await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(true);
+  const r = await db.query<{ status: string }>(
+    `SELECT status FROM public.guest_submit_song_request($1,$2,$3,$4)`,
+    [guestId, 'Anak', 'Freddie Aguilar', null],
+  );
+  assert.equal(r.rows.length, 1);
+  assert.equal(r.rows[0]!.status, 'pending');
+});
+
+test('the act CLOSES it again and the room goes quiet mid-night', async () => {
+  await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(true);
+  await db.query(`SELECT * FROM public.guest_submit_song_request($1,$2,$3,$4)`, [
+    guestId, 'Before The Break', '', null,
+  ]);
+  await setWindow(false);
+  await assert.rejects(
+    () =>
+      db.query(`SELECT * FROM public.guest_submit_song_request($1,$2,$3,$4)`, [
+        guestId, 'During The Break', '', null,
+      ]),
+    /songreq:closed/,
+  );
+  // Closing does NOT retract what was already asked — the act still owes those
+  // a decision.
+  const c = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.event_song_requests`,
+  );
+  assert.equal(c.rows[0]!.n, 1);
+});
+
+test('"closed" is reported BEFORE "blocked" or "rate limited" — a shut room says so first', async () => {
+  await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(false);
+  await db.query(
+    `INSERT INTO public.guest_message_blocks (event_id, guest_id) VALUES ($1,$2)`,
+    [eventId, guestId],
+  );
+  // Blocked AND closed → the guest hears the honest, impersonal reason.
+  await assert.rejects(
+    () =>
+      db.query(`SELECT * FROM public.guest_submit_song_request($1,$2,$3,$4)`, [
+        guestId, 'Anything', '', null,
+      ]),
+    /songreq:closed/,
+  );
+  await db.query(`DELETE FROM public.guest_message_blocks WHERE guest_id=$1`, [guestId]);
+});
+
+test('the window is per-EVENT reach: another event stays shut when this one opens', async () => {
+  await db.exec(`DELETE FROM public.event_song_requests`);
+  await setWindow(true);
+
+  const other = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, master_qr_token)
+     VALUES ('Another Night', 'gala_night', 'a-different-master-token')
+     RETURNING event_id`,
+  );
+  const otherId = other.rows[0]!.event_id;
+
+  const openHere = await db.query<{ ok: boolean }>(
+    `SELECT public.song_requests_open_for_event($1) AS ok`, [eventId]);
+  const openThere = await db.query<{ ok: boolean }>(
+    `SELECT public.song_requests_open_for_event($1) AS ok`, [otherId]);
+
+  assert.equal(openHere.rows[0]!.ok, true);
+  assert.equal(openThere.rows[0]!.ok, false, 'opening one act’s window must not open the whole platform');
+
+  await db.query(`DELETE FROM public.events WHERE event_id=$1`, [otherId]);
+});
+
+test('the gate helper is not callable by anon or authenticated', async () => {
+  for (const role of ['anon', 'authenticated']) {
+    const r = await db.query<{ ok: boolean }>(
+      `SELECT has_function_privilege($1, p.oid, 'EXECUTE') AS ok
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname='public' AND p.proname = 'song_requests_open_for_event'`,
+      [role],
+    );
+    for (const row of r.rows) assert.equal(row.ok, false, `${role} must not EXECUTE the gate`);
+  }
 });

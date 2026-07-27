@@ -70,3 +70,60 @@ Nothing here bills.
 
 SPEC IMPACT: `DECISION_LOG.md` — row appended recording the accept-is-the-setlist
 model, the two-lane identity split, and that no new event type was required.
+
+---
+
+## 2026-07-27 (same PR) · feat(song-desk): the act opens and closes the requests window
+
+Owner: *"the band will open or close accepting requests."* A band does not want
+requests during the ceremony, during their break, or after last call.
+
+**New — `supabase/migrations/20271014100000_song_requests_open_close.sql`.**
+
+**One column, no new table, no new policy.** `vendor_dayof_configs` is already
+the sparse per-(vendor × event) day-of config the module configurator writes,
+and the vendor already holds INSERT/UPDATE/SELECT on their own row via
+`current_vendor_profile_ids()`. So `song_requests_open BOOLEAN` lands there and
+the act can flip it with **nothing new about who may open the window**.
+
+**CLOSED is the default, and that is the point.** A band that never touches the
+toggle never receives a request — the feature cannot arrive unannounced at
+someone's gig, and the whole guest-request path is inert on every existing
+booking the moment this ships.
+
+**Any open act opens the room.** The pool is per-event (one inbox), the toggle
+is per-act. With two acts booked, either one accepting opens it — a guest should
+not have to know which band is on stage to ask.
+
+Both lanes now check `song_requests_open_for_event()` (SECURITY DEFINER, since
+the caller is a guest with no read on vendor configs; returns one boolean and
+leaks nothing about who is booked) and raise `songreq:closed` **before** the
+block or rate-limit checks — so a guest is never told "you are blocked" about a
+room that was not taking requests anyway.
+
+**6 more DB tests (20 total):** closed-by-default refuses both lanes and stores
+nothing · opening starts them landing · closing mid-night goes quiet *without*
+retracting requests already made · "closed" is reported ahead of "blocked" ·
+opening one act's window does not open another event · the gate helper is not
+anon/authenticated-callable.
+
+### ⚠️ Pre-existing exposure found and CLOSED (not introduced here)
+
+Adding the column surfaced that **`vendor_dayof_configs` already granted `anon`
+`SIUD` at table level**, with every existing column reading `anon=SIU`. The
+table never got the explicit `REVOKE` every relation in `public` needs. The new
+column merely inherited it.
+
+Not exploitable today — all four policies are `TO authenticated`, so an anon
+caller held the grant but no policy admitted a row. It is the shape that becomes
+a hole the day someone adds a permissive policy, so it should not survive a
+migration already touching the table:
+
+```sql
+REVOKE ALL    ON TABLE public.vendor_dayof_configs FROM anon;
+REVOKE DELETE ON TABLE public.vendor_dayof_configs FROM authenticated;  -- backs no policy
+```
+
+Net effect in the baseline: the `|anon SIUD` row is **gone** and all 7 columns
+flip `anon=SIU` → `anon=-`. This is a **NARROWING**, which the freeze allows
+without ceremony. Baseline 6178 → 6192 overall.

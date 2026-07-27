@@ -57,6 +57,7 @@ import {
   searchMarketplaceForBench,
   type BenchMarketResult,
 } from '../_actions/bench-marketplace-search';
+import { clearCategoryDecision } from '../category-decision-actions';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
   RequirementsModal,
@@ -382,6 +383,7 @@ export function ShortlistCategories({
   eventId,
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
+  coveredByTile = {},
 }: {
   folders: ShortlistFolder[];
   eventId: string;
@@ -399,6 +401,13 @@ export function ShortlistCategories({
    * that canonical. Absent → no icon (no saved request for that category).
    */
   savedRequirementCanonicalByTile?: Record<string, string>;
+  /**
+   * Explore Replan slice A — tile → plan_group_id for categories the couple
+   * marked "I'm done" (event_category_decisions.decision='complete'). A tile
+   * present here renders collapsed as "✓ Covered" with a Reopen affordance.
+   * Empty (the default / flag off) → byte-identical pre-replan render.
+   */
+  coveredByTile?: Record<string, string>;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -448,6 +457,7 @@ export function ShortlistCategories({
   const [reqPhase, setReqPhase] = useState<RequirementsModalPhase>('idle');
   const [reqError, setReqError] = useState<string | null>(null);
   const [reqSaving, startReqSave] = useTransition();
+  const [, startReopen] = useTransition();
   const reqDialogRef = useRef<HTMLDivElement>(null);
 
   function closeReqModal() {
@@ -755,6 +765,7 @@ export function ShortlistCategories({
               <div className="fold-body">
                 {folder.tiles.map((t) => {
                   const tileOpen = searching || openTile === t.tile;
+                  const coveredGroup = coveredByTile[t.tile] ?? null;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
                   const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;
@@ -784,6 +795,11 @@ export function ShortlistCategories({
                             {t.planned && t.vendors.length === 0 ? (
                               <span className="cat-plan">In your plan</span>
                             ) : null}
+                            {coveredGroup ? (
+                              <span className="cat-plan" style={{ color: '#41603b' }}>
+                                ✓ Covered
+                              </span>
+                            ) : null}
                             {t.vendors.length > 0 ? (
                               <span className="cat-count">{t.vendors.length}</span>
                             ) : null}
@@ -808,7 +824,35 @@ export function ShortlistCategories({
                       </div>
                       <div className="cat-collapse">
                         <div className="cat-body">
-                          {t.vendors.length > 0 ? (
+                          {coveredGroup ? (
+                            /* "✓ Covered — reopen" (Explore Replan slice A):
+                               the couple answered "I'm done" here, or a
+                               hard-single slot filled. Reopen deletes the
+                               decision row; the rail returns on refresh. */
+                            <div
+                              className="find-set"
+                              style={{ alignItems: 'center', justifyContent: 'space-between' }}
+                            >
+                              <span className="fr-t" style={{ fontWeight: 600 }}>
+                                ✓ Covered — you&apos;re done with {t.label}.
+                              </span>
+                              <button
+                                type="button"
+                                className="fr manual"
+                                onClick={() =>
+                                  startReopen(async () => {
+                                    await clearCategoryDecision({
+                                      eventId,
+                                      planGroupId: coveredGroup,
+                                    });
+                                    router.refresh();
+                                  })
+                                }
+                              >
+                                <span className="fr-t">Reopen</span>
+                              </button>
+                            </div>
+                          ) : t.vendors.length > 0 ? (
                             <div className="rail">
                               {sortWithReasons(t.vendors, sort).map(({ v, reason }) => (
                                 <VendorCard key={v.vendorId} v={v} reason={reason} />

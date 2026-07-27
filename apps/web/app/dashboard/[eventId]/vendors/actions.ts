@@ -68,6 +68,7 @@ import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-sche
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -2129,6 +2130,27 @@ export async function finalizeVendor(
     }
   }
 
+  // Explore Replan slice A: a hard-single lock FILLS the slot — auto-mark the
+  // category 'complete' so the bench collapses it to "✓ Covered". Multi-pick
+  // groups instead get the toast question client-side. Best-effort + flag-
+  // gated; a failure never rolls back the lock. Undo deletes the row.
+  if (isExploreReplanEnabled() && isHardSingle && groupId) {
+    try {
+      await supabase.from('event_category_decisions').upsert(
+        {
+          event_id: eventId,
+          plan_group_id: groupId,
+          decision: 'complete',
+          decided_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,plan_group_id' },
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`[finalizeVendor] auto-complete failed for group=${groupId}:`, e);
+    }
+  }
+
   // Couple locked a vendor a coordinator had proposed — resolve the pending
   // proposal so it drops off the couple's "to confirm" strip. Best-effort; the
   // lock already succeeded. No-op when there was no proposal.
@@ -2251,6 +2273,22 @@ export async function revertVendorToConsidering(
     // state. If the host already moved past it (e.g. deposit_paid via the
     // vendor tracker), don't silently roll back to 'considering'.
     return { status: 'not_locked' };
+  }
+
+  // Explore Replan slice A: undoing a lock reopens the category — clear any
+  // 'complete' decision (the auto hard-single one or a toast-answered one).
+  // Deliberately NOT flag-gated: rows written while the flag was on must stay
+  // clearable; deleting an absent row is a no-op.
+  {
+    const revertGroup = planGroupForCategory(current.category as VendorCategory);
+    if (revertGroup) {
+      await supabase
+        .from('event_category_decisions')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('plan_group_id', revertGroup)
+        .eq('decision', 'complete');
+    }
   }
 
   // Un-picking a vendor must also drop the #1-pick flag + the marketplace

@@ -28,14 +28,22 @@
  *
  * The lock label is "Lock this", never "it's final": per the §7 handshake
  * amendment a lock is a REQUEST until the vendor accepts the payment.
+ *
+ * PR-G1 adds ONE more state to leg 1: a SOFT schedule clash (no free day left
+ * inside the build's shared-date window) replaces the Add CTA with a note that
+ * names the clashing candidate and the fix. It does NOT touch leg 2 — "Ask
+ * anyway" is deliberate (decision #3) — and leg 3 is withheld upstream by the
+ * resolver returning a null `lockGroupId`. Nothing here is a hard block: the
+ * couple removes the clashing candidate and every leg comes straight back.
  */
 
 import Link from 'next/link';
 import { useTransition } from 'react';
-import { Check, Clock, Hammer, MessageCircle } from 'lucide-react';
+import { CalendarX2, Check, Clock, Hammer, MessageCircle } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
+import { DOESNT_FIT_ACTION, doesntFitReason } from '@/lib/build-date-window';
 import {
   CARD_ADDING,
   CARD_ADD_TO_BUILD,
@@ -128,6 +136,17 @@ export function BenchVendorActions({
             >
               {pending ? '…' : CARD_REMOVE_FROM_BUILD}
             </button>
+          </span>
+        ) : actions.build.kind === 'schedule_clash' ? (
+          // SOFT schedule clash (PR-G1). Not an error and not a wall: the
+          // reason is named, the fix is named, and the Inquire leg below is
+          // still live. Removing the clashing candidate brings this card back.
+          <span className="vact note clash">
+            <CalendarX2 size={12} strokeWidth={1.9} aria-hidden />
+            <span className="vact-note-txt">
+              <b>{DOESNT_FIT_ACTION}</b>
+              <span>{doesntFitReason(actions.build.clashWith)}</span>
+            </span>
           </span>
         ) : (
           <span className="vact note">

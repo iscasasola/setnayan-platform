@@ -48,6 +48,12 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     planGroupId: null,
     priceBasisPhp: null,
     verifiedState: null,
+    // Schedule convergence (PR-G1) — NO verdict is the default everywhere, so
+    // the sort keeps ranking exactly as it did before that tier existed. The
+    // sink is a partition applied AFTER this sort, never a term inside it.
+    buildFit: null,
+    buildClashWith: null,
+    freeDaysLine: null,
     ...p,
   };
 }

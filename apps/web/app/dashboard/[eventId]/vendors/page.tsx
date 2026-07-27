@@ -80,7 +80,17 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
-import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
+import { buildShortlistFolders, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import {
+  classifyAgainstBuildWindow,
+  convergenceBanner,
+  freeDaysLine,
+  resolveBuildDateWindow,
+  resolveProbeWindow,
+  type BuildDateWindow,
+  type ProbeWindow,
+  type TeamCalendarMember,
+} from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
@@ -1113,6 +1123,162 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
+  // ── Explore Replan PR-G1 · build-candidate schedule convergence, SOFT tier ──
+  // Owner (§6): "when they add someone to the build, the options on the bench
+  // change … the goal is to bring everything down to one choice."
+  //
+  // The build's SHARED-DATE WINDOW = the intersection of every locked +
+  // candidate vendor's declared calendar, inside the couple's date-probe window
+  // (their onboarding date candidates, or the month they named). A bench vendor
+  // with no free day left in that window sinks behind a "Doesn't fit your build"
+  // divider naming the candidate it clashes with — and comes straight back when
+  // that candidate is removed.
+  //
+  // COST: exactly ONE extra read, and only when the flag is ON — the SAME
+  // batched `getBatchVendorAvailableDays` the date-fit badge above already uses,
+  // over the union of team + bench profiles. No per-card probe, no N+1, no new
+  // query pattern. Flag OFF ⇒ this whole block is a `null` and a pair of empty
+  // maps, and the bench renders byte-identically to production.
+  //
+  // FAIL-OPEN is preserved end-to-end: the helper hands back a full window on a
+  // read error, a vendor with no entry gets `null` (never a clash), and any
+  // throw clears everything. A calendar flake reads "free", never a false
+  // "booked" — and it certainly never sinks a vendor.
+  //
+  // This tier RESERVES NOTHING. It reads vendor-declared calendars and says so;
+  // that is precisely why it was unblocked from the lock-reserves-date gate that
+  // still holds the hard anchor tier (PR-G2).
+  const replanConvergence = isExploreReplanEnabled() && isBudgetBuildEnabled();
+  let buildDateWindow: BuildDateWindow | null = null;
+  let probeWindow: ProbeWindow | null = null;
+  let teamCalendar: TeamCalendarMember[] = [];
+  const freeDaysByVendorId = new Map<string, string[]>();
+  if (replanConvergence) {
+    try {
+      probeWindow = resolveProbeWindow({
+        eventDate,
+        precision: matchPrecision,
+        candidates: ev?.date_candidates ?? null,
+      });
+      // An ANCHORED window costs NOTHING: the couple has committed to a day, the
+      // soft tier stands down for the anchor tier, and the shipped `dateFit`
+      // badge above has already asked the calendar that exact question. Building
+      // the banner from the probe alone avoids re-running the same read.
+      if (probeWindow && !probeWindow.anchored) {
+        // The team = every LOCKED vendor plus every build candidate. Both come
+        // off rows already in memory (`vendors` + `buildPicksByGroup`), so the
+        // membership costs nothing. Only marketplace-connected picks can carry
+        // a calendar — an off-platform vendor never constrains the window.
+        // (Lock REQUESTS are not a state yet; when PR-H lands they join here.)
+        const candidateVendorIds = new Set([...buildPicksByGroup.values()].flat());
+        const lockedStatuses = new Set(LOCKED_VENDOR_STATUSES);
+        const profileByVendorId = new Map<string, string>();
+        const teamVendors: { vendorId: string; profileId: string; name: string }[] = [];
+        for (const v of vendors) {
+          if (!v.marketplace_vendor_id) continue;
+          profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+          const onTeam =
+            (v.status != null && lockedStatuses.has(v.status)) ||
+            candidateVendorIds.has(v.vendor_id);
+          if (onTeam) {
+            teamVendors.push({
+              vendorId: v.vendor_id,
+              profileId: v.marketplace_vendor_id,
+              name:
+                marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Your vendor',
+            });
+          }
+        }
+        const probeKeys = new Set(probeWindow.dayKeys);
+        const allProfileIds = [...new Set(profileByVendorId.values())];
+        if (allProfileIds.length > 0) {
+          const [ys, ms, ds] = probeWindow.rangeStart.split('-').map(Number);
+          const [ye, me, de] = probeWindow.rangeEnd.split('-').map(Number);
+          const availByProfile = await getBatchVendorAvailableDays(
+            createAdminClient(),
+            allProfileIds,
+            new Date(ys ?? 1970, (ms ?? 1) - 1, ds ?? 1),
+            new Date(ye ?? 1970, (me ?? 1) - 1, de ?? 1),
+          );
+          // Per-vendor free days, clipped to the probe window. A profile the
+          // helper could not answer for is simply absent → the card gets no
+          // line and no verdict.
+          for (const [vendorId, profileId] of profileByVendorId) {
+            const days = availByProfile.get(profileId);
+            if (!days) continue;
+            freeDaysByVendorId.set(
+              vendorId,
+              probeWindow.dayKeys.filter((k) => days.has(k)),
+            );
+          }
+          teamCalendar = teamVendors
+            .filter((t) => availByProfile.has(t.profileId))
+            .map((t) => ({
+              vendorId: t.vendorId,
+              name: t.name,
+              freeDays: new Set(
+                [...(availByProfile.get(t.profileId) ?? [])].filter((k) => probeKeys.has(k)),
+              ),
+            }));
+        }
+        buildDateWindow = resolveBuildDateWindow({
+          enabled: true,
+          probe: probeWindow,
+          members: teamCalendar,
+        });
+      } else if (probeWindow) {
+        // Anchored: banner only ("Your date is set: …"), no members, no read.
+        buildDateWindow = resolveBuildDateWindow({
+          enabled: true,
+          probe: probeWindow,
+          members: [],
+        });
+      }
+    } catch {
+      // Fail-open — no banner, no sinking, no disabled buttons. A broken
+      // calendar read must never cost the couple a vendor.
+      buildDateWindow = null;
+      probeWindow = null;
+      teamCalendar = [];
+      freeDaysByVendorId.clear();
+    }
+  }
+
+  // Per-card verdicts, resolved once here (server) rather than per render. NULL
+  // for every vendor when the tier isn't running — the client then partitions
+  // nothing and disables nothing.
+  const buildFitByVendorId = new Map<string, { fits: boolean; clashWith: string | null }>();
+  if (buildDateWindow && probeWindow) {
+    for (const v of vendors) {
+      const verdict = classifyAgainstBuildWindow({
+        window: buildDateWindow,
+        vendorFreeDays: freeDaysByVendorId.has(v.vendor_id)
+          ? new Set(freeDaysByVendorId.get(v.vendor_id))
+          : null,
+        vendorId: v.vendor_id,
+        members: teamCalendar,
+        probeDayKeys: probeWindow.dayKeys,
+      });
+      if (verdict) {
+        buildFitByVendorId.set(v.vendor_id, {
+          fits: verdict.fits,
+          clashWith: verdict.fits ? null : verdict.clashWith,
+        });
+      }
+    }
+  }
+
+  // The "Free: …" line, formatted ONCE per vendor against the probe window's
+  // size (name the days when the couple is choosing between a handful of
+  // candidate dates; count them when the window is a whole month).
+  const freeDaysLineByVendorId = new Map<string, string>();
+  if (probeWindow) {
+    for (const [vendorId, days] of freeDaysByVendorId) {
+      const line = freeDaysLine({ freeDays: days, windowSize: probeWindow.dayKeys.length });
+      if (line) freeDaysLineByVendorId.set(vendorId, line);
+    }
+  }
+
   const shortlistFolders = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
@@ -1126,6 +1292,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // AI off → no vendor carries a demand signal → the lens cannot
     // discriminate → the visibility gate hides its chip. Nothing leaks.
     demandByVendorId: aiActive ? demandByVendorId : undefined,
+    buildFitByVendorId,
+    freeDaysLineByVendorId,
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,
@@ -1286,6 +1454,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         daysUntilWedding={daysUntilWedding}
         // Explore Replan PR-C — tile-level exclusions ("Not needed? Remove").
         excludedTiles={excludedTiles}
+        // Explore Replan PR-G1 — the convergence banner between the Coverage
+        // Strip and the bench. Null on an open window (nothing to report yet)
+        // and whenever the tier isn't running.
+        convergence={convergenceBanner(buildDateWindow, { anchoredLabel: matchFormattedDate })}
       />
     </>
   );

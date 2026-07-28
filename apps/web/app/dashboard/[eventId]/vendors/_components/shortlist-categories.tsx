@@ -71,7 +71,7 @@ import {
   restoreTileToPlan,
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
-import { tileIcon } from '@/lib/taxonomy-icons';
+import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import {
   coverageBadgeOf,
   coverageStateOf,
@@ -132,6 +132,23 @@ const SLCAT_CSS = `
   --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
   --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
+  /* Card EDGE + resting lift (visual parity 2026-07-28).
+     The bench sits on the app-wide .sn-ambient wash. That wash's old base
+     midpoint (#E3DDCF) was within (2,1,2) RGB of the border token --m-line
+     (#E1DCD1), so a card outline drawn over it VANISHED, and a closed folder
+     also had no resting shadow -- the "washed out, no clear edge" the owner
+     reported. Two halves fix it: .sn-ambient was lightened globally (see
+     globals.css), and the bench gets its own slightly stronger NEUTRAL edge
+     plus a soft resting lift here. --line itself is deliberately untouched, so
+     every dashed rule, separator and chip that reads it is byte-identical. */
+  /* .20 is measured, not taste. Against the lightened wash the edge has to
+     read on BOTH sides. Reference prototype: edge|card 1.28:1, edge|page
+     1.14:1. At .14 we beat it on the card side (1.33) but LOST on the page
+     side (1.10); .20 gives edge|card 1.52 and edge|page 1.26 — clear of the
+     reference on both. (Card|page is 1.25 vs the reference's 1.12.) */
+  --edge:rgba(30,26,18,.2);
+  --edge-lift:0 1px 2px rgba(30,26,18,.05),0 6px 18px -14px rgba(30,26,18,.35);
+  --edge-lift-open:0 10px 26px -16px rgba(30,26,18,.42);
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
@@ -140,15 +157,24 @@ const SLCAT_CSS = `
 .slcat *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ── Level 1 · folder card (collapsible) ── */
-.slcat .fold{margin:0 0 8px;background:var(--card);border:0.5px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,26,18,.4);border-color:rgba(30,26,18,.16)}
+.slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
+.slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
 .slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
-.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
+/* Folder head LEFT — icon + name. min-width:0 so the name can still ellipsis
+   when the summary pills on the right are wide (mobile). */
+.slcat .fold-l{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
+.slcat .fold-ic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border-radius:var(--m-r-full);background:rgba(169,131,75,.1);color:var(--gold-deep);transition:background .22s var(--ease)}
+.slcat .fold.open .fold-ic{background:rgba(169,131,75,.2)}
+/* Deliberately NOT truncated: the long folder names ("Insurance & Protection",
+   "Logistics & Safety") must stay readable on a narrow phone, so the name keeps
+   its shipped WRAPPING behaviour. '.fold-l' carries min-width:0 so the flex
+   shrink that makes that wrap possible still happens with the icon present. */
+.slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:.01em;min-width:0}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
 .slcat .fold-rt{display:flex;align-items:center;gap:11px;flex:0 0 auto}
 .slcat .fold-meta{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .fold-meta.has{color:var(--gold-deep)}
-.slcat .fold-chev{color:var(--ink-soft);transition:transform .28s var(--ease);flex:0 0 auto}
+.slcat .fold-chev{color:var(--ink-soft);transition:transform .24s var(--ease),color .24s var(--ease);flex:0 0 auto}
 .slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
@@ -158,14 +184,25 @@ const SLCAT_CSS = `
    grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
    BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
    pulls collapsed content out of the tab order without cutting the animation. */
-.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;grid-template-columns:minmax(0,1fr);transition:grid-template-rows .3s var(--ease)}
+/* ⚠ 'grid-template-columns:minmax(0,1fr)' is LOAD-BEARING (PRs #3799/#3801) —
+   it is what stops a wide child (the vendor rail, a long name) from blowing the
+   row out horizontally on mobile. Never drop it when tuning this transition.
+   Duration tightened .3s → .24s (2026-07-28) so the expand reads as quick on a
+   phone; the technique and the track values are untouched. */
+.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;grid-template-columns:minmax(0,1fr);transition:grid-template-rows .24s var(--ease)}
 .slcat .fold.open .fold-collapse,.slcat .cat.open .cat-collapse{grid-template-rows:1fr}
-.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{overflow:hidden;min-height:0;min-width:0;opacity:.4;visibility:hidden;transition:opacity .26s var(--ease),visibility 0s .3s}
-.slcat .fold.open .fold-body,.slcat .cat.open .cat-body{opacity:1;visibility:visible;transition:opacity .26s var(--ease),visibility 0s 0s}
+.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{overflow:hidden;min-height:0;min-width:0;opacity:.4;visibility:hidden;transition:opacity .2s var(--ease),visibility 0s .24s}
+.slcat .fold.open .fold-body,.slcat .cat.open .cat-body{opacity:1;visibility:visible;transition:opacity .2s var(--ease),visibility 0s 0s}
 @media (prefers-reduced-motion:reduce){.slcat .fold-collapse,.slcat .cat-collapse,.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{transition:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
 .slcat .fold-body .cat:first-child{border-top:0}
 .slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
+/* Leaf row LEFT — icon + name. The icon is a bare glyph (no disc): the folder
+   head owns the disc, so the two levels stay visually ranked. '.cat-l' carries
+   the min-width:0 the row needs; '.cat-nm' keeps its own ellipsis. */
+.slcat .cat-l{display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 auto}
+.slcat .cat-ic{display:inline-flex;flex:0 0 auto;color:var(--ink-soft);transition:color .18s var(--ease)}
+.slcat .cat.open .cat-ic{color:var(--gold-deep)}
 .slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
@@ -283,7 +320,11 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 
 /* ── "Your plan" strip — the couple's onboarding category picks, surfaced atop
    the bench so the plan the reveal promised is one tap from acting on it ── */
-.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:rgba(30,26,18,.035);border:0.5px solid var(--line);border-radius:var(--m-r-md)}
+/* A CARD, not a tinted box (visual parity 2026-07-28). It used to be a
+   translucent ink wash on the white page, which is what read as the
+   "grey-beige box" beside the white folder cards. Same paper, same edge, same
+   lift as '.fold' — one surface language down the whole bench. */
+.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:var(--card);border:1px solid var(--edge);border-radius:var(--m-r-md);box-shadow:var(--edge-lift)}
 .slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
 .slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
 .slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
@@ -309,9 +350,21 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cov-strip{display:flex;gap:10px;overflow-x:auto;padding:8px 2px 4px;scrollbar-width:none}
 .slcat .cov-strip::-webkit-scrollbar{display:none}
 .slcat .ctile{flex:0 0 auto;width:66px;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;padding:0;font:inherit;cursor:pointer}
-.slcat .ctile .ic{width:48px;height:48px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:var(--card);border:1.5px dashed var(--line);position:relative;transition:transform .15s var(--ease),border-color .2s var(--ease),background .2s var(--ease)}
+/* State changes (not-yet → exploring → locked → covered) animate: a tile that
+   just got covered should be SEEN changing, since the couple's own tap caused
+   it. transform/opacity-cheap properties plus colour — no layout animation. */
+.slcat .ctile .ic{width:48px;height:48px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:var(--card);border:1.5px dashed var(--line);position:relative;transition:transform .15s var(--ease),border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
+.slcat .ctile .lb{transition:color .2s var(--ease)}
 .slcat .ctile:hover .ic{transform:translateY(-2px)}
-@media (prefers-reduced-motion:reduce){.slcat .ctile:hover .ic{transform:none}}
+/* The app-wide 'prefers-reduced-motion' block in globals.css already forces
+   every transition here to ~0ms with '!important', so this is defence in depth
+   for the motion this stylesheet OWNS — it also kills the hover translate,
+   which a duration override alone would leave as an instant jump. */
+@media (prefers-reduced-motion:reduce){
+  .slcat .ctile:hover .ic{transform:none}
+  .slcat .fold-ic,.slcat .cat-ic,.slcat .ctile .ic,.slcat .ctile .lb,
+  .slcat .fold-chev,.slcat .cat-chev,.slcat .fold{transition:none}
+}
 .slcat .ctile .lb{font-family:var(--sans);font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-soft);max-width:66px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .slcat .ctile.st-exploring .ic,.slcat .ctile.st-picked .ic{border-style:solid;border-color:var(--gold);background:rgba(169,131,75,.1);color:var(--gold-deep)}
 .slcat .ctile.st-picked .lb{color:var(--gold-deep)}
@@ -327,7 +380,9 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .ctile .nx{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:7.5px;letter-spacing:.12em;background:var(--gold-deep);color:#fff;border-radius:var(--m-r-full);padding:1px 6px;font-weight:700;line-height:1.6}
 /* folder-head summary pills — "● N locked · N to decide · ＋N more" */
 .slcat .fsum{display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.slcat .fsum .s{font-family:var(--mono);font-size:9px;letter-spacing:.04em;border-radius:var(--m-r-full);padding:2px 8px;font-weight:700;white-space:nowrap}
+/* 10px, not 9px: at 9px mono these read as texture rather than as the counts
+   they are — the reference sets them at 10.5px. */
+.slcat .fsum .s{font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
 .slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-deep)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
@@ -442,9 +497,23 @@ html.dark .slcat .vact.note.clash{color:#e2b968}
 html.dark .slcat .vact-note-txt b{color:#e2b968}
 
 html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
-html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
+/* Dark: the card IS lighter than the page here (#2A2E36 on ink-black), so the
+   surface separates on its own and a black drop shadow buys nothing — both
+   lifts are neutralised via the vars below, which keeps '.fold.open' free to
+   change border-colour as its open cue. */
+html.dark .slcat .plan-strip{background:var(--card)}
 html.dark .slcat .plan-chip{background:#2A2E36}
-html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
+/* --gold-deep (#8A6B39) is too dark to read on the dark card; the bench already
+   uses #e2b968 as its dark gold everywhere else (.fit.warn, .vact.note.clash),
+   so the row icons follow it rather than inventing a shade. */
+/* The open cue in dark mode. '.fold.open' sets a DARK border (fine on white,
+   invisible on #2A2E36) and its shadow is neutralised above, so without this
+   an open folder in dark mode had no edge change at all. */
+html.dark .slcat .fold.open{border-color:rgba(251,251,250,.3)}
+html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
+html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
+html.dark .slcat .cat.open .cat-ic{color:#e2b968}
+html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
@@ -1391,6 +1460,7 @@ export function ShortlistCategories({
         const poolTiles = inPlanTiles
           ? folder.tiles.filter((t) => !inPlanTiles.has(t.tile))
           : [];
+        const FolderIcon = folderIcon(folder.folder);
         return (
           <section
             key={folder.folder}
@@ -1406,7 +1476,18 @@ export function ShortlistCategories({
                 setOpenTile(null);
               }}
             >
-              <span className="fold-nm">{folder.label}</span>
+              {/* Visual parity 2026-07-28 — the prototype gives every folder
+                  row a glyph and the live bench had none. Lucide, from the
+                  SHARED `WEDDING_FOLDER_ICON` the /explore strip already uses;
+                  the prototype's emoji are a prototyping shortcut and do not
+                  come across. Decorative only: the label beside it is the
+                  accessible name, so the icon is aria-hidden. */}
+              <span className="fold-l">
+                <span className="fold-ic" aria-hidden>
+                  <FolderIcon size={17} strokeWidth={1.7} />
+                </span>
+                <span className="fold-nm">{folder.label}</span>
+              </span>
               <span className="fold-rt">
                 {fsum ? (
                   <span className="fsum">
@@ -1476,6 +1557,7 @@ export function ShortlistCategories({
                         ? { fits: false, clashWith: v.buildClashWith }
                         : null,
                   );
+                  const CatIcon = tileIcon(t.tile);
                   return (
                     <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
                       {/* The category head is a tap target to expand. The
@@ -1489,7 +1571,18 @@ export function ShortlistCategories({
                           onClick={() => setOpenTile(tileOpen ? null : t.tile)}
                           style={{ flex: 1, minWidth: 0 }}
                         >
-                          <span className="cat-nm">{t.label}</span>
+                          {/* Visual parity 2026-07-28 — a glyph per leaf row,
+                              same Lucide source (`tileIcon`) the Coverage Strip
+                              tiles already draw from, so a category reads the
+                              same in both places. `.cat-l` carries the
+                              min-width:0 the ellipsis needs; `.cat-nm` keeps
+                              its own truncation. Decorative → aria-hidden. */}
+                          <span className="cat-l">
+                            <span className="cat-ic" aria-hidden>
+                              <CatIcon size={15} strokeWidth={1.7} />
+                            </span>
+                            <span className="cat-nm">{t.label}</span>
+                          </span>
                           <span className="cat-rt">
                             {/* Free first-venue-shortlist carve-out (owner
                                 2026-07-09 · Pricing.md § 00): presentational

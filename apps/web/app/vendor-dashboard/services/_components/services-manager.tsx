@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { CardRecordSection } from '@/app/_components/card-record-section';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import {
   fetchVendorServices,
   fetchDiscountsByService,
@@ -148,6 +154,21 @@ export async function VendorServicesManager({
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
+
+  // CARD RECORD (owner-locked 2026-07-28) — the vendor's own view of what each
+  // card has compiled: booked count, event-type mix, anonymized ledger, and the
+  // medal case with the distance to the next medal. This is the "take care of
+  // your card" payoff, so it renders for DRAFT and PAUSED cards too.
+  //
+  // Same de-identified reader the public card uses — a vendor sees no more about
+  // their own couples here than a stranger does, because the aggregates are the
+  // only thing the RPC can return, and its minimum-N floor applies to the
+  // vendor's own view too. Read as the signed-in vendor (the RPC is granted to
+  // `authenticated`, never to anon). ONE batched call for every card on the
+  // page. Flag-gated: OFF costs not one extra query.
+  const cardRecordByService = cardRecordEnabled()
+    ? await fetchServiceCardRecords(supabase, serviceIdList)
+    : new Map<string, CompiledCardRecord>();
 
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
@@ -1088,6 +1109,23 @@ export async function VendorServicesManager({
                       />
                     </div>
                   </details>
+
+                  {/* Card record — outside <details> on purpose: the whole point
+                      is that the vendor SEES what the card has compiled without
+                      opening the editor. Renders only once the card has been
+                      booked at least once; a brand-new card stays clean. */}
+                  {(() => {
+                    const rec = cardRecordByService.get(svc.vendor_service_id);
+                    if (!rec || rec.bookedCount <= 0) return null;
+                    return (
+                      <div
+                        className="border-t px-4 pb-4 pt-3"
+                        style={{ borderColor: 'var(--m-line)' }}
+                      >
+                        <CardRecordSection record={rec} variant="vendor" />
+                      </div>
+                    );
+                  })()}
                 </li>
                 </Fragment>
               );

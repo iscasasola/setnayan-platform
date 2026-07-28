@@ -106,6 +106,12 @@ import {
 } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import type { CardRecordRating } from '@/app/_components/card-record-section';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -882,6 +888,25 @@ export async function renderVendorBySlug({
     getEventTypeVocab(),
     resolveServiceShowcaseMedia(activeServices),
   ]);
+
+  // CARD RECORD (owner-locked 2026-07-28) — each card's compiled history:
+  // booked count, event-type mix, anonymized ledger, milestone medals. ONE RPC
+  // for the WHOLE gallery: `service_card_records` is batched precisely because
+  // this page is force-dynamic, so a per-card reader would have meant one
+  // round-trip per card on every uncached public request.
+  //
+  // Read through `admin` (service-role). The RPC is deliberately NOT granted to
+  // anon — no browser calls it, and withholding anon EXECUTE also closes the
+  // id-enumeration path to draft and paused cards. It returns only
+  // de-identified aggregates (no name, id, exact date, venue, price or exact
+  // pax), with a minimum-N floor and a completed-month ledger boundary applied
+  // in SQL, so nothing here can under-suppress by forgetting a rule.
+  //
+  // Flag-gated so OFF costs not one extra query — the map stays empty, every
+  // card's `record` is null, and the gallery renders byte-identically to today.
+  const cardRecordByService = cardRecordEnabled()
+    ? await fetchServiceCardRecords(admin, activeServiceIds)
+    : new Map<string, CompiledCardRecord>();
 
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
@@ -2209,6 +2234,21 @@ export async function renderVendorBySlug({
             showcaseByService={showcaseByService}
             hidePrices={hidePricesPublicly}
             coupleEventDate={coupleEventDate}
+            cardRecordByService={cardRecordByService}
+            /* Reuses the SAME trusted aggregate the hero stars read — the only
+               source the anti-fraud lock permits for a public rating number —
+               so the record block can never disagree with the top of the page,
+               and costs no extra query. Vendor-level by nature: reviews carry
+               no service dimension, which is why the badge says "shop rating". */
+            cardRecordRating={
+              trustedReviewStats.trusted_review_count > 0 &&
+              trustedReviewStats.trusted_avg_rating > 0
+                ? {
+                    avg: trustedReviewStats.trusted_avg_rating,
+                    count: trustedReviewStats.trusted_review_count,
+                  }
+                : null
+            }
           />
         ) : null}
 
@@ -2641,6 +2681,8 @@ function ServicesPricingSection({
   showcaseByService,
   hidePrices,
   coupleEventDate,
+  cardRecordByService,
+  cardRecordRating,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2658,6 +2700,13 @@ function ServicesPricingSection({
    *  anonymous / no event → the badge advertises the ladder as "up to" instead
    *  (owner-locked 2026-07-27). DISPLAY ONLY — nothing here is charged. */
   coupleEventDate: string | null;
+  /** Compiled Card Record per service id. EMPTY when NEXT_PUBLIC_CARD_RECORD_
+   *  ENABLED is off (the reader is not even called), so every card's record is
+   *  null and the gallery renders exactly as it does today. */
+  cardRecordByService: Map<string, CompiledCardRecord>;
+  /** Shop-wide trusted rating rendered inside the record block. Vendor-level by
+   *  nature — reviews attach to the profile, not to a service. null → no stars. */
+  cardRecordRating: CardRecordRating | null;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2693,6 +2742,8 @@ function ServicesPricingSection({
           hidePrices,
           coupleEventDate,
           now,
+          cardRecordByService.get(row.vendor_service_id) ?? null,
+          cardRecordRating,
         ),
       ),
     });
@@ -2736,6 +2787,10 @@ function toServiceCard(
   coupleEventDate: string | null,
   /** The render's single clock (injected — never Date.now() down here). */
   now: Date,
+  /** This card's compiled record, or null when the flag is off. */
+  cardRecord: CompiledCardRecord | null,
+  /** Shop-wide trusted rating for the record block, or null. */
+  cardRecordRating: CardRecordRating | null,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2841,6 +2896,11 @@ function toServiceCard(
     serves: serves ?? null,
     photos: showcase?.photos ?? [],
     videoUrl: showcase?.videoUrl ?? null,
+    // A card with no history shows NOTHING new — the record only exists once
+    // this card has actually been booked (owner: a zero-history card must not
+    // advertise its emptiness).
+    record: cardRecord && cardRecord.bookedCount > 0 ? cardRecord : null,
+    recordRating: cardRecord && cardRecord.bookedCount > 0 ? cardRecordRating : null,
   };
 }
 

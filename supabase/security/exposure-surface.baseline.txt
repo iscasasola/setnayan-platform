@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6216
+# facts: 6217
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4448
 #   policy    820
 #   view      10
-#   func      216
+#   func      217
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6177,6 +6177,7 @@ func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	
 func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.save_vendor_service(p_vendor_profile_id uuid, p_service_id uuid, p_fields jsonb, p_links jsonb, p_schedule jsonb, p_discounts jsonb, p_brackets jsonb, p_inclusions jsonb, p_publish boolean)	secdef=yes exec=anon,authenticated search_path=public
+func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.subscriptions_due_for_renewal_reminder(p_days integer)	secdef=yes exec=anon,authenticated search_path=public

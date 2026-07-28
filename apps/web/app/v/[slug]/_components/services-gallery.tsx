@@ -15,6 +15,11 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { BadgePercent, Check, Info, Users } from 'lucide-react';
+import {
+  CardRecordSection,
+  type CardRecordRating,
+} from '@/app/_components/card-record-section';
+import type { CompiledCardRecord } from '@/lib/service-card-record';
 
 export type ServiceCard = {
   id: string;
@@ -47,6 +52,16 @@ export type ServiceCard = {
   photos: string[];
   /** Showcase clip display URL (presigned server-side). null → no video. */
   videoUrl: string | null;
+  // ── Card Record (2026-07-28, flag NEXT_PUBLIC_CARD_RECORD_ENABLED) ────────
+  /** Compiled history of THIS card — booked count, event-type mix, anonymized
+   *  ledger, milestone medals. Compiled server-side by compileCardRecord(); the
+   *  underlying reader emits only de-identified aggregates. null when the flag
+   *  is off OR the card has never been booked — a zero-history card shows
+   *  nothing new. */
+  record: CompiledCardRecord | null;
+  /** Vendor-level trusted rating shown inside the record block. SHOP-wide, not
+   *  per-card: reviews carry no service dimension. null → no stars. */
+  recordRating: CardRecordRating | null;
 };
 
 export type ServiceGroup = {
@@ -222,6 +237,15 @@ function ServiceCardView({ card: c }: { card: ServiceCard }) {
           <Users className="mt-0.5 h-3 w-3 shrink-0 text-ink/35" strokeWidth={2} aria-hidden />
           <span>Serves: {c.serves}</span>
         </p>
+      ) : null}
+
+      {/* Card record — the compiled history this card has earned. Appended, not
+          woven in: it closes the card below every claim the vendor authored, so
+          the proof reads last. `mt-auto` inside the section pins it to the
+          card's bottom edge across a grid row of unequal cards. Absent unless
+          the flag is on AND the card has been booked at least once. */}
+      {c.record ? (
+        <CardRecordSection record={c.record} variant="couple" rating={c.recordRating} />
       ) : null}
     </div>
   );

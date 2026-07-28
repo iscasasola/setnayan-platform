@@ -71,7 +71,7 @@ export default async function LauncherLayout({
         </Link>
         {/* Top-bar utility pill (proto .utilpill) — bell + avatar in one
             frosted capsule over the wash. */}
-        <div className="flex items-center gap-1 rounded-full border border-white/[0.65] bg-white/45 p-1 shadow-[0_12px_30px_-22px_rgba(30,26,18,0.45)] backdrop-blur-[16px]">
+        <div className="flex items-center gap-1 rounded-full border border-ink/15 bg-white/45 p-1 shadow-[0_12px_30px_-22px_rgba(30,26,18,0.45)] backdrop-blur-[16px]">
           <UnreadBellBadge
             userId={user.id}
             initialUnread={unreadCount}

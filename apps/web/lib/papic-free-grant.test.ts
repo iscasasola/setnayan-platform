@@ -4,11 +4,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  PAPIC_FREE_POOL_POINTS,
   PAPIC_FREE_GRANT_SOURCE,
   freePapicGrantRow,
   isAlreadyArmedError,
 } from './papic-free-grant';
+import { PAPIC_FREE_GRANT_POINTS_FALLBACK, fetchPapicFreeGrantPoints } from './papic-tier-copy';
 
 // Resolved by slug, not by prefix: the migration was reissued under a fresh
 // allocator prefix after its original number was claimed by a duplicate-prefix
@@ -21,12 +21,14 @@ const migrationFile = readdirSync(MIGRATIONS_DIR)
 if (!migrationFile) throw new Error('papic_free_pool_grant_arm migration not found');
 const MIGRATION = join(MIGRATIONS_DIR, migrationFile);
 
-test('the free pool is 50 points (owner-locked 2026-07-27)', () => {
-  assert.equal(PAPIC_FREE_POOL_POINTS, 50);
+test('the free-pool fallback is 50 points (owner-locked 2026-07-27)', () => {
+  // ONE fallback literal, shared with the display half. There is deliberately no
+  // second constant in papic-free-grant.ts — see the 2026-07-28 correction.
+  assert.equal(PAPIC_FREE_GRANT_POINTS_FALLBACK, 50);
 });
 
 test('the grant row is shaped for papic_event_point_grants', () => {
-  const row = freePapicGrantRow('evt-1');
+  const row = freePapicGrantRow('evt-1', 50);
   assert.equal(row.event_id, 'evt-1');
   assert.equal(row.points, 50);
   // Must be one of the CHECK-constrained sources on the table, and must be the
@@ -36,16 +38,23 @@ test('the grant row is shaped for papic_event_point_grants', () => {
   assert.equal(PAPIC_FREE_GRANT_SOURCE, 'free_grant');
 });
 
-test('DRIFT GUARD — the migration writes the same 50 the code does', () => {
-  // The point count lives in two places by necessity: the backfill runs in SQL
-  // before any app code, and the app arms new events. If they ever disagree,
-  // events created before and after a deploy get different free allowances and
-  // the card prints a number the meter does not honour. Pin them together.
+test('the grant row carries the ADMIN value, not a baked-in default', () => {
+  // The regression this locks: the first cut hardcoded 50, so an admin raising
+  // papic_event_pool_config.free_grant_points would move the COPY while the
+  // meter kept handing out 50.
+  assert.equal(freePapicGrantRow('evt-1', 90).points, 90);
+  assert.equal(freePapicGrantRow('evt-1', 250).points, 250);
+});
+
+test('DRIFT GUARD — the migration backfill matches the shared fallback', () => {
+  // The backfill runs in SQL before any app code, so its literal must equal the
+  // fallback the app uses when the config row is unreadable. If they disagree,
+  // events created before and after a deploy get different free allowances.
   const sql = readFileSync(MIGRATION, 'utf8');
   assert.match(
     sql,
-    new RegExp(`\\n\\s*${PAPIC_FREE_POOL_POINTS},\\n\\s*'free_grant'`),
-    `Migration 20271017100000 must grant exactly ${PAPIC_FREE_POOL_POINTS} points with source 'free_grant'`,
+    new RegExp(`\\n\\s*${PAPIC_FREE_GRANT_POINTS_FALLBACK},\\n\\s*'free_grant'`),
+    `The backfill must grant exactly ${PAPIC_FREE_GRANT_POINTS_FALLBACK} points with source 'free_grant'`,
   );
 });
 
@@ -56,6 +65,51 @@ test('DRIFT GUARD — the migration keeps the once-per-event index PARTIAL', () 
   // grant is once-per-event, so the predicate is load-bearing.
   const sql = readFileSync(MIGRATION, 'utf8');
   assert.match(sql, /CREATE UNIQUE INDEX[\s\S]*?papic_event_point_grants \(event_id\)\s*\n\s*WHERE source = 'free_grant'/);
+});
+
+// ── fetchPapicFreeGrantPoints — the single live reader ─────────────────────
+// Stubs the one query shape it issues. The failure modes matter more than the
+// happy path: every one of them must land on the fallback rather than on a
+// value that would either mint a bad grant or crash event creation.
+function stubClient(result: { data?: unknown; error?: unknown }) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => result,
+        }),
+      }),
+    }),
+  } as never;
+}
+
+test('reads the ADMIN-editable free_grant_points', async () => {
+  const n = await fetchPapicFreeGrantPoints(stubClient({ data: { free_grant_points: 90 } }));
+  assert.equal(n, 90);
+});
+
+test('a missing row, a read error, or a throw falls back — never crashes creation', async () => {
+  assert.equal(await fetchPapicFreeGrantPoints(stubClient({ data: null })), 50);
+  assert.equal(await fetchPapicFreeGrantPoints(stubClient({ error: { message: 'boom' } })), 50);
+  const thrower = { from: () => { throw new Error('no client'); } } as never;
+  assert.equal(await fetchPapicFreeGrantPoints(thrower), 50);
+});
+
+test('a non-positive or junk config value falls back, never mints a bad grant', async () => {
+  // papic_event_point_grants CHECKs points > 0. A 0/negative/NaN config value
+  // would turn every arm into a silent insert failure and put us straight back
+  // to the UNMETERED state this whole line of work exists to fix.
+  for (const bad of [0, -5, null, undefined, 'abc', NaN]) {
+    assert.equal(
+      await fetchPapicFreeGrantPoints(stubClient({ data: { free_grant_points: bad } })),
+      50,
+      `free_grant_points=${String(bad)} must fall back, not mint a bad grant`,
+    );
+  }
+});
+
+test('a fractional config value is truncated to a whole point', async () => {
+  assert.equal(await fetchPapicFreeGrantPoints(stubClient({ data: { free_grant_points: 90.7 } })), 90);
 });
 
 test('a 23505 unique violation means ALREADY ARMED, not a failure', () => {

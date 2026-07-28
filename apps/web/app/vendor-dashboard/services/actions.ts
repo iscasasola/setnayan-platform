@@ -1799,7 +1799,13 @@ export async function commitVendorService(formData: FormData) {
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).
   const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';
-  redirect(`${await servicesReturnBase()}?saved=1${named}#service-${savedId ?? ''}`);
+  // A CREATE gets its congratulations moment (owner 2026-07-28) — the landing
+  // banner teaches the card's value (care for it; substance over count; events
+  // document onto the card). The value says whether the new card went live, so
+  // the "you now have X active cards" line can be worded truthfully. On success
+  // `publish` IS the final is_active — a publish the RPC refuses errors above.
+  const made = isCreate ? `&created=${publish ? 'live' : 'draft'}` : '';
+  redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
 }
 
 /**

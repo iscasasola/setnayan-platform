@@ -2727,12 +2727,29 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * (owner-directed 2026-07-15 via the glass-rollout go-ahead — see the rollout
  * plan § 6 R1 + DECISION_LOG). Verbatim fidelity-spec canon: warm paper base +
  * gold / green / slate radial glows, fixed attachment (no drift animation). */
+/* LIGHTENED 2026-07-28 (owner: "we want it to be global") — the wash was
+ * draining contrast out of every card in the app, worst on the Explore bench:
+ * its base ramp midpoint (#E3DDCF) was within (2,1,2) RGB of the card border
+ * token --m-line (#E1DCD1), so a card outline drawn over the wash literally
+ * disappeared. White cards on it measured ~1.15:1 — a faint lift, not a plane.
+ *
+ * This is a LIGHTENING, deliberately NOT a re-flatten: the base stays a warm
+ * TINT (now centred on #F4F2EC — the approved Explore prototype's own page
+ * colour, and the existing --m-paper-2 token value) and all three radial glows
+ * are kept at roughly half alpha. That preserves the precondition the note
+ * above records — glass rgba(255,255,255,.5) panels still read against it, and
+ * still refract colour — so this does NOT redo the 2026-07-13 white-flatten
+ * that the owner reversed on 2026-07-15. Same recipe, lighter values.
+ *
+ * SCOPE: this is every logged-in surface — SidebarShell (customer event
+ * dashboard, /vendor-dashboard, /admin), the home launcher, and the account
+ * spokes. Intentional per the owner's "make it global" ruling. */
 .sn-ambient {
   background:
-    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.32), transparent 60%),
-    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.10),  transparent 62%),
-    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.20), transparent 60%),
-    linear-gradient(135deg, #EFEAE0, #E3DDCF 55%, #DDD6C6);
+    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.17), transparent 60%),
+    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.07),  transparent 62%),
+    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.12), transparent 60%),
+    linear-gradient(135deg, #F7F5EF, #F4F2EC 55%, #EDE9DE);
   background-attachment: fixed;
 }
 

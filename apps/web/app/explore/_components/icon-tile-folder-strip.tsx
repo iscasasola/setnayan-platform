@@ -35,30 +35,13 @@
  */
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import {
-  Building2,
-  ClipboardList,
-  UtensilsCrossed,
-  Flower2,
-  Music,
-  Camera,
-  Shirt,
-  Tent,
-  Mail,
-  Car,
-  Compass,
-  Utensils,
-  ShieldCheck,
-  Umbrella,
-  Sparkles,
-  LayoutGrid,
-  type LucideProps,
-} from 'lucide-react';
+import { LayoutGrid, type LucideProps } from 'lucide-react';
 
 import {
   WEDDING_FOLDER_SHORT_LABEL,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import { WEDDING_FOLDER_ICON } from '@/lib/taxonomy-icons';
 import { getLucideIcon } from '@/lib/nav-icons';
 
 export type FolderTab = {
@@ -91,42 +74,15 @@ type Props = {
 };
 
 /**
- * Lucide icon per parent (10-parent model, 2026-05-31). Hand-picked to evoke
- * the parent's spirit at a glance while staying within Lucide's iconography:
- *   - Venue → Building2 (reception + ceremony venues)
- *   - Planning → ClipboardList (coordinators)
- *   - Feast → UtensilsCrossed (cake · catering · stations)
- *   - Design → Flower2 (stylist · florals · lights · LED · fireworks)
- *   - Program → Music (band · choir · DJ · performers · host)
- *   - Documentary → Camera (photo & video · editorial · livestream)
- *   - Look → Shirt (attire · HMUA · grooming · jewellery)
- *   - Booths → Tent (food carts · photo booths · experiential)
- *   - Prints → Mail (printing · souvenirs)
- *   - Transport → Car (bridal car · shuttle · escort)
+ * Lucide icon per parent. The map itself now lives in `lib/taxonomy-icons.ts`
+ * as `WEDDING_FOLDER_ICON` (lifted 2026-07-28 so the Explore BENCH folder rows
+ * render the same glyphs as this strip — a plain module, because re-exporting a
+ * data table out of this `'use client'` file is the documented RSC hazard).
+ * The icons are unchanged by the move; the per-folder rationale lives with the
+ * map. This alias keeps the call site below reading exactly as it did.
  */
-const FOLDER_ICON: Record<WeddingFolder, ComponentType<LucideProps>> = {
-  venue: Building2,
-  planning: ClipboardList,
-  feast: UtensilsCrossed,
-  design: Flower2,
-  program: Music,
-  documentary: Camera,
-  look: Shirt,
-  booths: Tent,
-  prints: Mail,
-  transport: Car,
-  // Non-wedding event-type families (gap leaves, 2026-07-20):
-  //   - Experience → Compass (tours & activities · tour guides)
-  //   - Dining → Utensils (restaurant reservations — not catering)
-  //   - Logistics & Safety → ShieldCheck (referees · medics)
-  //   - Insurance → Umbrella (event · accident · travel cover)
-  //   - Specialty → Sparkles (reveal elements)
-  experience: Compass,
-  dining: Utensils,
-  logistics_safety: ShieldCheck,
-  insurance: Umbrella,
-  specialty: Sparkles,
-};
+const FOLDER_ICON: Record<WeddingFolder, ComponentType<LucideProps>> =
+  WEDDING_FOLDER_ICON;
 
 export function IconTileFolderStrip({
   tabs,

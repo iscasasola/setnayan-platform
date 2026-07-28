@@ -30,6 +30,7 @@ import {
   Armchair,
   Baby,
   Brush,
+  Building2,
   Bus,
   Cake,
   CalendarDays,
@@ -40,6 +41,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Coffee,
+  Compass,
   Crown,
   CupSoda,
   Disc,
@@ -58,12 +60,14 @@ import {
   IceCreamCone,
   Laptop,
   Lightbulb,
+  Mail,
   Map,
   Martini,
   Megaphone,
   Mic,
   MonitorPlay,
   Moon,
+  Music,
   Music4,
   Newspaper,
   Paintbrush,
@@ -84,9 +88,11 @@ import {
   SprayCan,
   Stamp,
   Stethoscope,
+  Tent,
   TreePine,
   Trophy,
   Truck,
+  Umbrella,
   Users,
   Utensils,
   UtensilsCrossed,
@@ -95,7 +101,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { WeddingTile } from '@/lib/taxonomy';
+import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
 
 /** Tile → Coverage Strip icon. Exhaustive over `WeddingTile` by construction. */
 export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
@@ -192,4 +198,61 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
  */
 export function tileIcon(tile: string): LucideIcon {
   return WEDDING_TILE_ICON[tile as WeddingTile] ?? Sparkles;
+}
+
+/**
+ * Folder → icon. One glyph per PARENT folder, the coarse sibling of
+ * `WEDDING_TILE_ICON` above.
+ *
+ * PROVENANCE — this map is NOT new. It shipped as a private `FOLDER_ICON` const
+ * inside `app/explore/_components/icon-tile-folder-strip.tsx`, and the icons
+ * below are that map verbatim. It was lifted here (2026-07-28) when the Explore
+ * bench folder rows needed the same glyphs: the strip is a `'use client'`
+ * module, and re-exporting a plain data table out of a client module is the
+ * documented RSC hazard, so the SSOT moves to this plain module and BOTH
+ * surfaces import it. No icon changed in the move.
+ *
+ * The original hand-picking rationale, preserved:
+ *   - Venue → Building2 (reception + ceremony venues)
+ *   - Planning → ClipboardList (coordinators)
+ *   - Feast → UtensilsCrossed (cake · catering · stations)
+ *   - Design → Flower2 (stylist · florals · lights · LED · fireworks)
+ *   - Program → Music (band · choir · DJ · performers · host)
+ *   - Documentary → Camera (photo & video · editorial · livestream)
+ *   - Look → Shirt (attire · HMUA · grooming · jewellery)
+ *   - Booths → Tent (food carts · photo booths · experiential)
+ *   - Prints → Mail (printing · souvenirs)
+ *   - Transport → Car (bridal car · shuttle · escort)
+ * and the non-wedding event-type families (gap leaves, 2026-07-20):
+ *   - Experience → Compass · Dining → Utensils · Logistics & Safety →
+ *     ShieldCheck · Insurance → Umbrella · Specialty → Sparkles
+ *
+ * Exhaustive over `WeddingFolder` — a new folder is a COMPILE ERROR here until
+ * it gets an icon.
+ */
+export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
+  venue: Building2,
+  planning: ClipboardList,
+  feast: UtensilsCrossed,
+  design: Flower2,
+  program: Music,
+  documentary: Camera,
+  look: Shirt,
+  booths: Tent,
+  prints: Mail,
+  transport: Car,
+  experience: Compass,
+  dining: Utensils,
+  logistics_safety: ShieldCheck,
+  insurance: Umbrella,
+  specialty: Sparkles,
+};
+
+/**
+ * Icon for a folder string that may not be a known `WeddingFolder` (the bench
+ * renders from DB-driven taxonomy snapshots). Unknown → `Sparkles`, matching
+ * `tileIcon`'s never-a-blank-slot contract.
+ */
+export function folderIcon(folder: string): LucideIcon {
+  return WEDDING_FOLDER_ICON[folder as WeddingFolder] ?? Sparkles;
 }

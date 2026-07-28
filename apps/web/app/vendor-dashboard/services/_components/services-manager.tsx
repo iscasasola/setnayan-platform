@@ -166,6 +166,15 @@ export async function VendorServicesManager({
     },
     {},
   );
+  // Leaf → its allowed event types, from the same live tree the browse drills.
+  // Feeds the serves EDIT sheet so its chips match what the server will keep
+  // (parseEventTypes enforces this set on save). Fail-soft: if the tree read
+  // failed (empty), every lookup misses → null → the sheet renders the full
+  // vocab, exactly the pre-fix behaviour — never a false restriction.
+  const allowedByLeaf = new Map<string, string[] | null>();
+  for (const p of coverageTree)
+    for (const b of p.branches)
+      for (const l of b.leaves) allowedByLeaf.set(l.canonicalService, l.allowedEventTypes);
   const coverageItems = vendorCoverages.map((c) => {
     const pathLabel = coverageLabels
       ? coverageLabels.pathLabel(c.canonical_service)
@@ -181,6 +190,7 @@ export async function VendorServicesManager({
       eventTypes: c.event_types,
       faiths: c.faiths ?? [],
       serviceCount: serviceCountByCoverage[c.id] ?? 0,
+      allowedEventTypes: allowedByLeaf.get(c.canonical_service) ?? null,
     };
   });
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));

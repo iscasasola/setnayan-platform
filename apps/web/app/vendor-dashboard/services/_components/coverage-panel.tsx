@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, X, Check, Tag, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
 import {
   createCoverage,
   updateCoverageServes,
@@ -40,6 +41,13 @@ export type CoverageItem = {
   eventTypes: string[];
   faiths: string[];
   serviceCount: number;
+  /**
+   * The leaf's allowed event types from the live taxonomy (null/empty = no
+   * restriction). The serves EDIT sheet renders chips only inside this set —
+   * the server enforces it on save either way (parseEventTypes), so a chip
+   * outside it was a lie: checkable, then silently dropped behind ?saved=1.
+   */
+  allowedEventTypes: string[] | null;
 };
 
 const line = 'var(--m-line)';
@@ -239,12 +247,27 @@ function YourCoverage({
           <div className="space-y-2">
             <SubLabel>Event types you cater · couples planning these find you</SubLabel>
             <div className="flex flex-wrap gap-2">
-              {eventTypeOptions.map((e) => (
+              {allowedEventOptions(eventTypeOptions, open.allowedEventTypes).map((e) => (
                 <CheckChip key={`${open.id}-${e.key}`} name="event_types" value={e.key} defaultChecked={open.eventTypes.includes(e.key)}>
                   {e.label}
                 </CheckChip>
               ))}
             </div>
+            {allowedEventOptions(eventTypeOptions, open.allowedEventTypes).length <
+            eventTypeOptions.length ? (
+              <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+                Only the events this category can serve are shown.
+              </p>
+            ) : null}
+            {droppedEventTypes(open.eventTypes, open.allowedEventTypes).length > 0 ? (
+              <p className="text-[11px]" style={{ color: 'var(--m-blush-deep)' }}>
+                No longer offered for this category:{' '}
+                {droppedEventTypes(open.eventTypes, open.allowedEventTypes)
+                  .map(eventLabel)
+                  .join(' · ')}{' '}
+                — saving removes {droppedEventTypes(open.eventTypes, open.allowedEventTypes).length === 1 ? 'it' : 'them'}.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <SubLabel>Faiths you serve · leave all off = welcome every faith</SubLabel>
@@ -325,12 +348,10 @@ function CoverageBrowse({
       .slice(0, 30);
   }, [q, allLeaves]);
 
-  const allowedEventOptions = useMemo(() => {
-    if (!leaf) return [] as EventTypeOption[];
-    if (!leaf.allowedEventTypes || leaf.allowedEventTypes.length === 0) return eventTypeOptions;
-    const allow = new Set(leaf.allowedEventTypes);
-    return eventTypeOptions.filter((e) => allow.has(e.key));
-  }, [leaf, eventTypeOptions]);
+  const allowedOptions = useMemo(
+    () => (leaf ? allowedEventOptions(eventTypeOptions, leaf.allowedEventTypes) : []),
+    [leaf, eventTypeOptions],
+  );
 
   function pickLeaf(hit: { leaf: CoverageLeaf; parentId: string; branchId: string }) {
     if (covered.has(hit.leaf.canonicalService)) return;
@@ -379,7 +400,7 @@ function CoverageBrowse({
         <div className="space-y-2">
           <SubLabel>Event types you cater</SubLabel>
           <div className="flex flex-wrap gap-2">
-            {allowedEventOptions.map((e) => {
+            {allowedOptions.map((e) => {
               const on = events.includes(e.key);
               return (
                 <SelectChip key={e.key} on={on}>

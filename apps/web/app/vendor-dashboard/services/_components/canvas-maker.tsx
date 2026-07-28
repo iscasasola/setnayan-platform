@@ -16,6 +16,7 @@ import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { parseCustomizationDraft } from '@/lib/service-customization-draft';
 import {
@@ -126,6 +127,7 @@ export function CanvasMaker({
   eventTypeOptions = [],
   faithOptions = [],
   coverageAudience = {},
+  coverageAllowed = {},
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -140,6 +142,13 @@ export function CanvasMaker({
   faithOptions?: AudienceOption[];
   /** coverage id → its CURRENT event_types / faiths, so the chips open truthful. */
   coverageAudience?: Record<number, CoverageAudience>;
+  /**
+   * coverage id → the leaf's allowed event types (null/empty = unrestricted).
+   * Chips render only inside this set — it is the SAME set the server enforces
+   * on save, so a chip is never checkable-then-silently-dropped. Missing id
+   * (or a failed taxonomy read upstream) = null = full vocab, the fail-soft.
+   */
+  coverageAllowed?: Record<number, string[] | null>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -171,6 +180,31 @@ export function CanvasMaker({
     setEvents(next.eventTypes);
     setFaiths(next.faiths);
   }, [selectedCoverage, coverageAudience]);
+
+  // The chips the selected coverage may actually render (see coverageAllowed
+  // above), the saved keys the server would drop on save (admin narrowed the
+  // leaf after the row was saved — disclose, don't silently strip), and a
+  // label lookup for that disclosure.
+  const selectedAllowed =
+    selectedCoverage != null ? (coverageAllowed[selectedCoverage] ?? null) : null;
+  const audienceOptions = useMemo(
+    () => allowedEventOptions(eventTypeOptions, selectedAllowed),
+    [eventTypeOptions, selectedAllowed],
+  );
+  const droppedKeys = useMemo(
+    () =>
+      selectedCoverage != null
+        ? droppedEventTypes(
+            (coverageAudience[selectedCoverage] ?? { eventTypes: [] }).eventTypes,
+            selectedAllowed,
+          )
+        : [],
+    [selectedCoverage, coverageAudience, selectedAllowed],
+  );
+  const eventTypeLabel = useMemo(() => {
+    const m = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
+    return (k: string) => m.get(k) ?? k;
+  }, [eventTypeOptions]);
 
   // ★ Customization ships flag-dark behind the SAME flag the wizard uses, so a
   // canvas and a wizard save carry identical payloads on both settings.
@@ -704,13 +738,16 @@ export function CanvasMaker({
               </select>
             </label>
 
-            {/* EVERY active vocab option renders, across these groups. The
-                split is presentation over ONE array; the grouping (and the
-                union invariant that keeps a new admin-added type from falling
-                through) lives in lib/canvas-audience-groups.ts, tested. A
-                `.filter()` here instead is exactly how five live event types
-                were silently strippable in the first cut. */}
-            {audienceGroups(eventTypeOptions).map((group) => (
+            {/* EVERY vocab option THE LEAF MAY SERVE renders, across these
+                groups. The split is presentation over ONE array; the grouping
+                (and the union invariant that keeps a new admin-added type from
+                falling through) lives in lib/canvas-audience-groups.ts, tested.
+                The only pre-filter is allowedEventOptions — the SAME set the
+                server enforces on save (parseEventTypes), so a chip here is
+                never checkable-then-silently-dropped. An ad-hoc `.filter()`
+                instead is exactly how five live event types were silently
+                strippable in the first cut. */}
+            {audienceGroups(audienceOptions).map((group) => (
               <ChipGroup
                 key={group.id}
                 heading={group.heading}
@@ -722,6 +759,18 @@ export function CanvasMaker({
                 disabled={!coverageId}
               />
             ))}
+            {audienceOptions.length < eventTypeOptions.length ? (
+              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Only the events this category can serve are shown.
+              </p>
+            ) : null}
+            {droppedKeys.length > 0 ? (
+              <p className="text-xs" style={{ color: 'var(--m-blush-deep)' }}>
+                No longer offered for this category:{' '}
+                {droppedKeys.map((k) => eventTypeLabel(k)).join(' · ')} — saving
+                removes {droppedKeys.length === 1 ? 'it' : 'them'}.
+              </p>
+            ) : null}
             <ChipGroup
               heading="Faith"
               blurb="Leave all off to welcome every faith. Faith unlocks you for a search; it never gates you out."

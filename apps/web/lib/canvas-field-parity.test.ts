@@ -236,7 +236,7 @@ test('the parity fence hides only the sibling coverage form', () => {
   // mapped render rather than N hand-written blocks.
   assert.match(
     fenced,
-    /audienceGroups\(eventTypeOptions\)\.map\(/,
+    /audienceGroups\(audienceOptions\)\.map\(/,
     'the event-type groups must come from the tested grouping helper',
   );
   assert.equal(
@@ -414,8 +414,10 @@ test('the canvas MOUNTS the shipped editors rather than forking them', () => {
   // Same flag as the wizard, so both carry identical payloads on both settings.
   assert.match(canvas, /packageAuthoringEnabled\(\)/);
   // The audience grouping comes from the tested module, never a local filter —
-  // a local list is how five live event types became silently strippable.
-  assert.match(canvas, /audienceGroups\(eventTypeOptions\)\.map\(/);
+  // a local list is how five live event types became silently strippable. The
+  // options it groups are the leaf's ALLOWED set (coverage-allowed-events.ts),
+  // the same set the server keeps on save.
+  assert.match(canvas, /audienceGroups\(audienceOptions\)\.map\(/);
 });
 
 /**

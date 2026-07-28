@@ -437,13 +437,15 @@ export function countAutoNamed(items: ReadonlyArray<DraftItem>): number {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * What a zero renders as. OWNER-LOCKED: the vendor never types this word — it
- * is what a blank or a 0 MEANS, so it lives in the placeholder, never in the
- * value. A field whose value is the literal string "included" would have to be
- * parsed back out of prose on save, and "included" is one typo away from an
- * amount nobody notices.
+ * What a zero renders as: NOTHING. Owner 2026-07-28 ("remove the word
+ * included. just place a blank since there is no additional cost — included
+ * makes it seem like this is included whether they pick it or not") —
+ * superseding the earlier "included" placeholder. A ₱0 option is just blank;
+ * the pick still decides. The constant stays so every amount field renders the
+ * one answer, and the never-a-value rule stands: a vendor typing prose into
+ * the field still parses to 0, never to a stray amount.
  */
-export const INCLUDED_PLACEHOLDER = 'included';
+export const INCLUDED_PLACEHOLDER = '';
 
 /** The static prefix rendered beside the field. Never part of the value. */
 export const AMOUNT_PREFIX = '+₱';

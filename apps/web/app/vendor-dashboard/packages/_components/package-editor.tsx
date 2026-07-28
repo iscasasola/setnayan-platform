@@ -558,7 +558,9 @@ function OptionList({
               disabled={frozen || o.is_default}
               className={`${field} w-28 font-mono disabled:opacity-50`}
               value={o.is_default ? '' : pesos(o.price_delta_centavos)}
-              placeholder={o.is_default ? 'included' : '+₱'}
+              // The default pick shows a BLANK, not "included" (owner
+              // 2026-07-28) — "included" reads as comes-regardless-of-the-pick.
+              placeholder={o.is_default ? '' : '+₱'}
               onChange={(e) =>
                 onPatch(item.ref, o.ref, {
                   price_delta_centavos: toCentavos(e.target.value),

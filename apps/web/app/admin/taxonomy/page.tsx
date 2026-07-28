@@ -632,7 +632,7 @@ export default async function AdminTaxonomyPage({
                   ✓ Every reminder category has a deadline set.
                 </p>
               )}
-              <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-white/60 bg-white/60">
+              <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-ink/10 bg-white/60">
                 {recommendedDeadlines.map((d) => (
                   <li key={d.deadline_id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
                     <div className="min-w-0 flex-1">
@@ -690,7 +690,7 @@ export default async function AdminTaxonomyPage({
             The month before the wedding when a category enters its <strong>last-minute</strong> window. Leave
             blank to keep a category <strong>off</strong>.
           </p>
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-white/60 bg-white/60">
+          <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-ink/10 bg-white/60">
             {lastMinuteGroups.map((g) => {
               const current = lmStartByGroup.get(g.id);
               return (

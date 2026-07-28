@@ -481,13 +481,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
   const entries = Object.entries(signals ?? {});
   if (entries.length === 0) {
     return (
-      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-ink/10 bg-white/70 p-3 text-xs text-ink/55">
         No signal details recorded.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-white/60 bg-white/70 p-3">
+    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
       <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         Signals fired
       </p>
@@ -514,13 +514,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
 function MatchedAccounts({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-ink/10 bg-white/70 p-3 text-xs text-ink/55">
         No matched accounts resolved.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-white/60 bg-white/70 p-3">
+    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
       <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         <UsersIcon aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         Matched accounts ({users.length})

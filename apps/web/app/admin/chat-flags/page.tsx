@@ -179,7 +179,7 @@ export default async function AdminChatFlagsPage({
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm text-ink/65">
+        <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view.
         </p>
       ) : (
@@ -230,7 +230,7 @@ export default async function AdminChatFlagsPage({
                   <span className="text-ink/50">{relativeTime(r.created_at)}</span>
                 </p>
 
-                <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-ink/60">
+                <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/60">
                   The message was blocked — it never reached the other person.
                   Its text is not shown here (Setnayan staff don&apos;t read chats);
                   only the rule categories above are recorded.
@@ -249,7 +249,7 @@ export default async function AdminChatFlagsPage({
                       <input type="hidden" name="flag_id" value={r.flag_id} />
                       <input type="hidden" name="action" value="reviewed" />
                       <SubmitButton
-                        className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                         pendingLabel="Marking…"
                       >
                         <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Mark reviewed

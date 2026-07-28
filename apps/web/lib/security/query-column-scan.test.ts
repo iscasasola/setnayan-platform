@@ -34,11 +34,15 @@ import assert from 'node:assert/strict';
 import { readSchema } from './migration-schema';
 import { findPhantomColumns, type PhantomColumn } from './select-column-scan';
 import {
+  EVENTS_PUBLIC_KEY,
   extractFilterSites,
+  extractSurrogateIdFilterSites,
   extractWriteSites,
   parseObjectKeys,
   scanFilterSites,
+  scanSurrogateIdFilters,
   scanWriteSites,
+  SURROGATE_ID_RELATIONS,
 } from './query-column-scan';
 
 /**
@@ -234,5 +238,126 @@ test('T10b · an apostrophe in a comment does not run the chain into the next st
     events!.columns,
     ['display_name'],
     'the chain must stop at the end of the events statement',
+  );
+});
+
+// ── T11–T13 · PART 3 · the events family may never be filtered on `id` ───────
+//
+// Parts 1 and 2 both ask "does this column exist?" — and `events.id` does. It
+// is just the WRONG one: `id` is the hidden bigserial, `event_id` is the uuid
+// every route param holds. Passing the uuid to the bigint column fails the
+// whole statement with 22P02, and the caller's `?? null` renders that as an
+// event with nothing filled in. See the PART 3 block in query-column-scan.ts.
+
+test('T11 · no query filters the events family on its hidden surrogate `id`', () => {
+  const sites = scanSurrogateIdFilters();
+  const lines = sites.map((s) => `${s.file}:${s.line}  .from('${s.table}') … .eq('id', …)`);
+  assert.deepEqual(
+    lines,
+    [],
+    'These filter `id` (bigint, internal-join only) instead of ' +
+      `\`${EVENTS_PUBLIC_KEY}\` (uuid, what the route param holds). PostgREST ` +
+      'rejects the WHOLE statement with 22P02 "invalid input syntax for type ' +
+      'bigint", so the read returns nothing and any `?? null` downstream ' +
+      `renders it as an empty event:\n  ${lines.join('\n  ')}`,
+  );
+});
+
+test('T12 · POSITIVE control — the historical bad filters ARE detected', () => {
+  // Verbatim shape of the two live defects fixed on 2026-07-28. If this ever
+  // stops flagging, T11 is passing vacuously.
+  const vendorsPage = `
+    supabase
+      .from('events_host')
+      .select('event_date, estimated_budget_centavos, setnayan_ai_active')
+      .eq('id', eventId)
+      .maybeSingle(),
+  `;
+  const findDatePage = `
+    supabase
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('id', eventId)
+      .maybeSingle(),
+  `;
+  assert.deepEqual(
+    extractSurrogateIdFilterSites(vendorsPage, 'vendors/page.tsx').map((s) => s.table),
+    ['events_host'],
+    'the events_host instance must be caught',
+  );
+  assert.deepEqual(
+    extractSurrogateIdFilterSites(findDatePage, 'find-date/page.tsx').map((s) => s.table),
+    ['events'],
+    'the events instance must be caught',
+  );
+  // `.in('id', …)` and `.order('id')` fail the same way — cover the family.
+  assert.equal(
+    extractSurrogateIdFilterSites("db.from('events').select('x').in('id', ids);", 'f.ts').length,
+    1,
+    '.in() on the surrogate is the same defect',
+  );
+});
+
+test('T13 · NEGATIVE controls — the correct filter and other tables are NOT flagged', () => {
+  assert.deepEqual(
+    extractSurrogateIdFilterSites(
+      `db.from('events_host').select('event_date').eq('${EVENTS_PUBLIC_KEY}', eventId);`,
+      'f.ts',
+    ),
+    [],
+    'the FIXED shape must pass — otherwise the guard is unsatisfiable',
+  );
+  assert.deepEqual(
+    extractSurrogateIdFilterSites("db.from('platform_settings').select('*').eq('id', 1);", 'f.ts'),
+    [],
+    'settings singletons legitimately key off an integer id',
+  );
+  assert.deepEqual(
+    extractSurrogateIdFilterSites("db.from('guests').select('x').eq('id', rowId);", 'f.ts'),
+    [],
+    'only the events family is in scope — see the SCOPE note in the source',
+  );
+  // A neighbouring statement's filter must not be blamed on the events chain
+  // (the chain walk owns this; pinned here because T11 asserts an EMPTY list
+  // and a leak would make it fail on unrelated edits).
+  assert.deepEqual(
+    extractSurrogateIdFilterSites(
+      `
+      const a = await db.from('events').select('event_date').eq('event_id', id);
+      const b = await db.from('vendor_coverages').select('x').eq('id', coverageId);
+      `,
+      'f.ts',
+    ),
+    [],
+    "a later statement's .eq('id', …) is not the events chain's",
+  );
+  // PROSE IS NOT CODE. The PART 3 docblock in query-column-scan.ts quotes the
+  // exact forbidden chain, and the guard reported its own docstring until the
+  // extractor stripped comments first. Same class as T10's LEAK 3.
+  assert.deepEqual(
+    extractSurrogateIdFilterSites(
+      `
+      // Never write .from('events_host').select('x').eq('id', eventId) — see below.
+      /* .from('events').select('x').eq('id', eventId) is the same defect. */
+      const ok = await db.from('events').select('x').eq('event_id', eventId);
+      `,
+      'f.ts',
+    ),
+    [],
+    'a forbidden chain quoted in a comment must not be reported as code',
+  );
+});
+
+test('T14 · the guarded relation set is the events family, and both are real', () => {
+  // Anti-drift: the set is small on purpose (see SCOPE). `events` must be a
+  // table the migrations actually declare, and it must carry BOTH columns —
+  // that dual key is the entire premise of this guard.
+  assert.deepEqual([...SURROGATE_ID_RELATIONS].sort(), ['events', 'events_host']);
+  const events = readSchema().get('events');
+  assert.ok(events, 'no CREATE TABLE for public.events found in supabase/migrations');
+  assert.ok(events!.cols.has('id'), 'events.id (the surrogate) must exist for the trap to exist');
+  assert.ok(
+    events!.cols.has(EVENTS_PUBLIC_KEY),
+    `events.${EVENTS_PUBLIC_KEY} (the uuid) must exist for the fix to be valid`,
   );
 });

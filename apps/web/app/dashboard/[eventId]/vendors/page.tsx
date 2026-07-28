@@ -19,6 +19,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   fetchEventVendors,
@@ -201,7 +202,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       .select(
         'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
-      .eq('id', eventId)
+      // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
+      // bigserial (internal joins only) and `event_id` is the uuid every route
+      // param, URL and API surface uses. Sending a uuid to the bigint column
+      // makes PostgREST fail the WHOLE statement with 22P02 "invalid input
+      // syntax for type bigint" — never a row, never an error anybody read.
+      // Every one of the 13 sibling queries on this page already filters on
+      // `event_id`; this was the only one that did not. Guarded by
+      // lib/security/query-column-scan.ts (`scanSurrogateIdFilters`).
+      .eq('event_id', eventId)
       .maybeSingle(),
     // Hero photos (CLAUDE.md 2026-05-31 "finish the data wiring" · #8). The
     // card's photo ladder is service_primary_photo_url → manual_vendor_photo_url
@@ -209,6 +218,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // two. Resolve them here (mirrors event-home's locked-card avatar pass).
     fetchVendorPhotoMaps(supabase, eventId),
   ]);
+
+  // A FAILED read is not "no data". This one row carries the event date, the
+  // budget, the venue coordinates, the guest count and the Setnayan-AI
+  // entitlement, so `?? null` degrades the whole page into "couple who has
+  // filled in nothing" — the Unlock banner for a couple who already paid, an
+  // "add your venue" nudge for a couple who has one, and a budget/distance
+  // model with no inputs. Indistinguishable from a genuinely blank event, which
+  // is why the wrong filter column survived. Surface it the way the rest of the
+  // repo does (console + Sentry, non-fatal); the page still renders.
+  if (eventCtx.error) {
+    logQueryError('vendors/page events_host context', eventCtx.error, { event_id: eventId });
+  }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
   const eventDate = ev?.event_date ?? null;

@@ -1154,6 +1154,23 @@ export async function renderVendorBySlug({
   const showInquiryComposer =
     bookable && coupleEventId !== null && composerInitial !== null;
 
+  // Early-booking LADDER on the composer's price line (owner-locked 2026-07-27).
+  // The composer only ever renders for a signed-in couple WITH an event, so the
+  // tier here is always the one THEIR date qualifies for — the same resolver the
+  // service card uses, so the two lines can never disagree. Suppressed when the
+  // vendor hides prices (a "−10%" reveals the underlying figure) and when their
+  // date qualifies for no rung. DISPLAY ONLY: the vendor still confirms the
+  // final price in their reply, which the copy says out loud.
+  const composerLeadTierNote: string | null = (() => {
+    if (hidePricesPublicly || !showInquiryComposer || composerInitial === null) return null;
+    const picked = pickBestDiscount(
+      discountsByService.get(composerInitial.vendor_service_id),
+      composerInitial.starting_price_php,
+      { eventDate: coupleEventDate, now: new Date() },
+    );
+    return typeof picked?.leadTier === 'number' ? picked.label : null;
+  })();
+
   // Compose-first Inquire (owner 2026-07-02) — a bookable vendor with ≥1 service
   // viewed by someone WITHOUT an event yet (signed-out, or signed-in with no
   // event). They compose here, then convert (signup + onboarding) and the
@@ -2191,6 +2208,7 @@ export async function renderVendorBySlug({
             servesByService={servesByService}
             showcaseByService={showcaseByService}
             hidePrices={hidePricesPublicly}
+            coupleEventDate={coupleEventDate}
           />
         ) : null}
 
@@ -2302,6 +2320,7 @@ export async function renderVendorBySlug({
                 vendorServiceId: composerInitial.vendor_service_id,
                 label: serviceLabel(composerInitial),
                 priceLabel: servicePriceLabel(composerInitial),
+                leadTierNote: composerLeadTierNote,
                 categoryKey: composerInitial.category,
               }}
               linked={(linkedByService.get(composerInitial.vendor_service_id) ?? []).map(
@@ -2621,6 +2640,7 @@ function ServicesPricingSection({
   servesByService,
   showcaseByService,
   hidePrices,
+  coupleEventDate,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2632,6 +2652,12 @@ function ServicesPricingSection({
   showcaseByService: Map<string, ServiceShowcaseMedia>;
   /** Council #6: vendor opted to hide public prices → strip every peso amount. */
   hidePrices: boolean;
+  /** The viewing couple's event date (ISO YYYY-MM-DD), when a signed-in couple
+   *  with an event is looking. Drives the early-booking LADDER: their date picks
+   *  the tier and the badge names it ("Booked 6+ months ahead · −10%"). null =
+   *  anonymous / no event → the badge advertises the ladder as "up to" instead
+   *  (owner-locked 2026-07-27). DISPLAY ONLY — nothing here is charged. */
+  coupleEventDate: string | null;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2642,6 +2668,10 @@ function ServicesPricingSection({
     if (bucket) bucket.push(s);
     else byGroup.set(key, [s]);
   }
+
+  // ONE clock for every card on this render — the lead-time ladder must not be
+  // able to resolve two different tiers within a single page.
+  const now = new Date();
 
   // Build serializable coverage groups for the client gallery, preserving the
   // canonical SERVICE_GROUPS order + which groups render (behaviour-identical to
@@ -2661,6 +2691,8 @@ function ServicesPricingSection({
           servesByService.get(row.vendor_service_id),
           showcaseByService.get(row.vendor_service_id),
           hidePrices,
+          coupleEventDate,
+          now,
         ),
       ),
     });
@@ -2699,6 +2731,11 @@ function toServiceCard(
   /** Council #6: when true the vendor opted to hide public prices — every peso
    *  amount below is suppressed (labels/inclusions still show; only figures go). */
   hidePrices: boolean,
+  /** Viewing couple's event date (ISO YYYY-MM-DD) or null — picks the
+   *  early-booking ladder tier (owner-locked 2026-07-27). */
+  coupleEventDate: string | null,
+  /** The render's single clock (injected — never Date.now() down here). */
+  now: Date,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2746,7 +2783,18 @@ function toServiceCard(
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
   // savings on the anchor, dropping expired offers). Suppressed when the vendor
   // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
-  const best = hidePrices ? null : pickBestDiscount(discounts, row.starting_price_php);
+  //
+  // Early-booking LADDER (owner-locked 2026-07-27): when the viewer is a couple
+  // with an event date, that date picks the tier and the badge names it
+  // ("Booked 6+ months ahead · −10%"); rungs they are too late for are dropped.
+  // Anonymous viewers see the ladder advertised as "Save up to 15% booking
+  // early". Display only — the quote still happens in chat.
+  const best = hidePrices
+    ? null
+    : pickBestDiscount(discounts, row.starting_price_php, {
+        eventDate: coupleEventDate,
+        now,
+      });
 
   // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
   // it blank, OR when the vendor hid prices — keep the inclusion label, drop the

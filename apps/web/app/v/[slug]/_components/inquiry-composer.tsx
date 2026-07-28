@@ -60,6 +60,14 @@ export type InquiryComposerService = {
   vendorServiceId: string;
   label: string;
   priceLabel: string;
+  /**
+   * The early-booking tier THIS couple's event date qualifies them for, already
+   * named server-side ("Booked 6+ months ahead · −10%"). Owner-locked
+   * 2026-07-27: the ladder is picked by their date, never negotiated in chat.
+   * null / absent → no tier applies, or the vendor hides prices → nothing shown.
+   * DISPLAY ONLY — the vendor confirms the final price in their reply.
+   */
+  leadTierNote?: string | null;
 };
 
 /** The couple's saved requirements template for this category (pre-fill). */
@@ -459,6 +467,15 @@ export function InquiryComposer({
           </span>
           <span className="font-mono text-[11px] text-ink/55">{initial.priceLabel}</span>
         </div>
+        {/* Early-booking tier, picked by THEIR event date (owner-locked
+            2026-07-27). Display only — say so, because the quote is still the
+            vendor's to confirm. */}
+        {initial.leadTierNote ? (
+          <p className="px-1 text-[11px] text-ink/60">
+            <span className="font-medium text-ink/75">{initial.leadTierNote}</span>{' '}
+            — {vendorLabel} confirms the final price in their reply.
+          </p>
+        ) : null}
       </fieldset>
 
       {/* Linked services — read-only ✓ included */}

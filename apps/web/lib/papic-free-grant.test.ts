@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -10,14 +10,16 @@ import {
   isAlreadyArmedError,
 } from './papic-free-grant';
 
-const MIGRATION = join(
-  process.cwd(),
-  '..',
-  '..',
-  'supabase',
-  'migrations',
-  '20271017100000_papic_free_pool_grant_arm.sql',
-);
+// Resolved by slug, not by prefix: the migration was reissued under a fresh
+// allocator prefix after its original number was claimed by a duplicate-prefix
+// twin, and a renumber must not break this drift guard.
+const MIGRATIONS_DIR = join(process.cwd(), '..', '..', 'supabase', 'migrations');
+const migrationFile = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => f.includes('papic_free_pool_grant_arm'))
+  .sort()
+  .pop();
+if (!migrationFile) throw new Error('papic_free_pool_grant_arm migration not found');
+const MIGRATION = join(MIGRATIONS_DIR, migrationFile);
 
 test('the free pool is 50 points (owner-locked 2026-07-27)', () => {
   assert.equal(PAPIC_FREE_POOL_POINTS, 50);

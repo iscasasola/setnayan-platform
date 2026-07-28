@@ -133,14 +133,18 @@ const SLCAT_CSS = `
   --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
-     The bench sits on the app-wide .sn-ambient wash. That wash's old base
-     midpoint (#E3DDCF) was within (2,1,2) RGB of the border token --m-line
-     (#E1DCD1), so a card outline drawn over it VANISHED, and a closed folder
-     also had no resting shadow -- the "washed out, no clear edge" the owner
-     reported. Two halves fix it: .sn-ambient was lightened globally (see
-     globals.css), and the bench gets its own slightly stronger NEUTRAL edge
-     plus a soft resting lift here. --line itself is deliberately untouched, so
-     every dashed rule, separator and chip that reads it is byte-identical. */
+     The bench sits on the app-wide .sn-ambient ground. The original defect: the
+     champagne wash's base midpoint (#E3DDCF) was within (2,1,2) RGB of the
+     border token --m-line (#E1DCD1), so a card outline drawn over it VANISHED,
+     and a closed folder had no resting shadow either -- the "washed out, no
+     clear edge" the owner reported. Fixed in two halves: the ground is now a
+     flat warm white (globals.css .sn-ambient, owner-directed), and the bench
+     carries its own slightly stronger NEUTRAL edge plus a resting lift here.
+     Re-measured against the warm-white ground: edge|card 1.52:1, edge|ground
+     1.40:1 (reference prototype: 1.28 / 1.14) -- the ground change IMPROVED
+     the page-side read, so these values stand unchanged.
+     --line itself is deliberately untouched, so every dashed rule, separator
+     and chip that reads it is byte-identical. */
   /* .20 is measured, not taste. Against the lightened wash the edge has to
      read on BOTH sides. Reference prototype: edge|card 1.28:1, edge|page
      1.14:1. At .14 we beat it on the card side (1.33) but LOST on the page

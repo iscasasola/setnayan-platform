@@ -905,7 +905,14 @@ html.subnav-docked [data-shell-main] {
   --m-sidebar-fg:        #1B1A17;  /* warm ink — active label · wordmark · primary text */
   --m-sidebar-fg-soft:   #3A382F;  /* inactive nav labels · icons */
   --m-sidebar-fg-muted:  #6E6A62;  /* section labels · chevrons · sub-text */
-  --m-sidebar-line:      rgba(30,26,18,.08);  /* hairline dividers on glass */
+  /* 2026-07-28 — .08 → .12. This is the sidebar's OUTER edge as well as its
+     internal dividers (sidebar-shell.tsx borderColor), and the sidebar is a
+     45%-white frosted panel: on the warm-white ground its FILL computes 1.03:1
+     against the page, i.e. the rail has no body of its own and the hairline is
+     the only thing separating it from the content area. At .08 that hairline
+     was 1.14:1; .12 takes it to 1.22:1. Kept deliberately subtle — this token
+     also draws every divider inside the rail, and heavier reads as a cage. */
+  --m-sidebar-line:      rgba(30,26,18,.12);  /* hairline dividers on glass */
   --m-sidebar-hover:     rgba(255,255,255,.6);  /* hover-row wash */
 
   /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
@@ -2433,15 +2440,32 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
   --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
   --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
-  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows */
-  --sn-sh-tile: 0 18px 40px -26px rgba(30,26,18,.4);
-  --sn-sh-hi:   0 28px 54px -30px rgba(30,26,18,.5);
+  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows.
+     2026-07-28 — each gained a 1px CONTACT layer. The big soft ambient alone
+     reads as a smudge on the flat warm-white ground; the contact layer is what
+     makes a tile sit ON the page rather than float over it. Warm, per kit
+     rule 4. The ambient layers are unchanged. */
+  --sn-sh-tile: 0 1px 2px rgba(40,34,24,.05), 0 18px 40px -26px rgba(30,26,18,.4);
+  --sn-sh-hi:   0 1px 2px rgba(40,34,24,.06), 0 28px 54px -30px rgba(30,26,18,.5);
 
   /* glass (macOS vibrancy) — canon values (Glass PR-1, 2026-07-15): the
      fidelity-spec tuning the frosted home tiles ship at, promoted here so
      .sn-glass / .sn-card / .sn-tile all share one source of truth. */
   --sn-glass-bg:   rgba(255,255,255,.5);
-  --sn-glass-line: rgba(255,255,255,.72);
+  /* 2026-07-28 — WAS rgba(255,255,255,.72), a WHITE hairline. That worked only
+     because the champagne ground was dark enough to frame it; on the warm-white
+     ground it is a white line on a near-white page and the panel dissolves.
+     This is the lever that lets the ground stay as light as the owner asked
+     for: the glass now defines ITSELF instead of depending on ground contrast
+     (the exact failure that sank the 2026-07-13 white-flatten).
+     Warm, never grey/blue — rule 4 of the Atelier kit still holds for edges and
+     shadows; only the PAGE GROUND moved.
+     Measured on #F7F5F0: edge|ground 1.37:1, edge|glass-fill 1.43:1 — in the
+     same band as the bench card edge (1.40 / 1.52) so surfaces read alike.
+     NOTE: this token is for LIGHT glass on the page ground (.sn-glass, .sn-tile,
+     .sn-tile-glass, .sn-row). Glass over dark imagery uses the separate
+     --sn-glass-dark-line, which is still a light hairline and is untouched. */
+  --sn-glass-line: rgba(40,34,24,.16);
   --sn-glass-blur: blur(22px) saturate(1.5);
   --sn-glass-dark-bg:   rgba(23,22,15,.82);
   --sn-glass-dark-line: rgba(255,255,255,.18);
@@ -2744,13 +2768,52 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * SCOPE: this is every logged-in surface — SidebarShell (customer event
  * dashboard, /vendor-dashboard, /admin), the home launcher, and the account
  * spokes. Intentional per the owner's "make it global" ruling. */
+/* ── 2026-07-28 · FLAT WARM WHITE. Read the whole sequence before changing it ──
+ *
+ *   2026-07-13  page flattened to white.
+ *   2026-07-15  owner REVERSED that to the champagne wash, because glass
+ *               rgba(255,255,255,.5) panels are invisible on white.
+ *   2026-07-28  owner: "we want a lighter feel for the background than the
+ *               champagne. keep it modern digital color. like facebook. that
+ *               keeps white to make it look clean." then, refining:
+ *               "then make it a bit of warm white just enough to show the
+ *               glass effect."
+ *
+ * So this is NOT someone re-breaking the 07-15 reversal. It is the owner's
+ * third and current direction, and it comes with the fix the 07-13 flatten
+ * lacked: THE GLASS NOW CARRIES ITS OWN EDGE (see --sn-glass-line below).
+ * That is the whole trick — 07-13 failed because it made glass depend on
+ * ground contrast alone. Do not lighten this further without checking the
+ * glass still reads; do not re-darken it to "fix" glass, fix the border.
+ *
+ * WHY #F7F5F0 SPECIFICALLY (measured, not taste):
+ *   • glass fill (white @ .5) over ANY warm white computes ~1.03–1.05:1
+ *     against its ground — imperceptible. Confirmed across the whole
+ *     #F6F3EC–#FAF8F3 band. The fill can NOT carry the panel; the border must.
+ *   • so the ground was chosen for the WHITE CARDS instead, which do have to
+ *     read: #F7F5F0 gives card|ground 1.09:1, against Facebook's own
+ *     #F0F2F5 → 1.12:1. Close to the reference the owner named, while staying
+ *     warm and in the light band they asked for (darker end of #F7F5F0–#FAF8F3,
+ *     because the lighter end drops white cards to 1.06:1 and they vanish).
+ *   • FLAT, and the three radial glows are GONE: "clean/modern digital" means
+ *     an even ground. Warmth comes from the base tone only. (Bonus: on a flat
+ *     ground `backdrop-filter: blur()` has nothing to blur, so the glass look
+ *     now comes from fill + border + shadow. The blur still earns its keep on
+ *     the sticky sidebar/topbar, where real content scrolls underneath.)
+ *
+ * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
+ * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
 .sn-ambient {
-  background:
-    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.17), transparent 60%),
-    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.07),  transparent 62%),
-    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.12), transparent 60%),
-    linear-gradient(135deg, #F7F5EF, #F4F2EC 55%, #EDE9DE);
+  background: #F7F5F0;
   background-attachment: fixed;
+}
+/* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
+   values, so a dark-mode shell would have painted a LIGHT page. (Dormant in
+   practice: nothing adds `html.dark` today. Correct anyway, so the pairing is
+   not left as a trap for whoever turns dark mode on.) Matches the dark
+   `--color-cream` (#17160F) the body already uses. */
+html.dark .sn-ambient {
+  background: #17160F;
 }
 
 /* ---------- glass surfaces ---------- */
@@ -2759,7 +2822,16 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   border: 1px solid var(--sn-glass-line);
   backdrop-filter: var(--sn-glass-blur);
   -webkit-backdrop-filter: var(--sn-glass-blur);
-  box-shadow: 0 8px 32px rgba(30,26,18,.07);
+  /* 2026-07-28 — gained a contact layer. The lone 32px ambient at .07 is
+     nearly invisible on the flat warm-white ground; the 1px contact is what
+     seats the panel. Warm, per kit rule 4. */
+  box-shadow: 0 1px 2px rgba(40,34,24,.05), 0 8px 28px -10px rgba(40,34,24,.16);
+}
+/* Dark mode: the warm hairline is a DARK line, invisible on a dark ground —
+   hand the light-glass recipes back a light edge so they still read. (Same
+   dormancy caveat as .sn-ambient above: correct now so it is not a trap.) */
+html.dark {
+  --sn-glass-line: rgba(255,255,255,.18);
 }
 .sn-glass-dark {
   background: var(--sn-glass-dark-bg);
@@ -2780,12 +2852,16 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
    * truth; the launcher layout now consumes `.sn-ambient` directly.) */
 
   /* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
-   * 1.5 saturation + white .72 hairline + the warm tile shadow. */
+   * 1.5 saturation + the shared glass hairline + the warm tile shadow.
+   * 2026-07-28 — the fill and hairline were hardcoded copies of the
+   * --sn-glass-* tokens, so the warm-white-ground edge fix would have skipped
+   * this recipe and the launcher tiles alone would have stayed invisible.
+   * Now referenced, not duplicated: one source of truth, same as .sn-tile. */
   .sn-tile-glass {
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(22px) saturate(1.5);
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    background: var(--sn-glass-bg);
+    border: 1px solid var(--sn-glass-line);
+    backdrop-filter: var(--sn-glass-blur);
+    -webkit-backdrop-filter: var(--sn-glass-blur);
     box-shadow: var(--sn-sh-tile);
   }
 
@@ -2851,10 +2927,23 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 
   /* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
    * tint, NO blur, so hundreds of rows stay cheap. */
+  /* 2026-07-28 — this was the worst case of the white-on-white problem: a
+   * white .72 fill with a white .6 border and NO shadow, which on the
+   * warm-white ground is an invisible row on an invisible row. Fill pushed to
+   * opaque white (it is the blur-budget fallback — it has no blur to lose) and
+   * the border given the warm hairline at a LIGHTER weight than .sn-tile:
+   * these repeat hundreds of times, and full-strength edges would read as a
+   * cage. rgba(40,34,24,.10) → 1.21:1 against the ground. */
   .sn-row {
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: #FFFFFF;
+    border: 1px solid rgba(40, 34, 24, 0.1);
     border-radius: 14px;
+  }
+  /* The opaque fill above is a light-mode value, so it needs its dark pair or
+     dark mode gets white rows on a black page. */
+  html.dark .sn-row {
+    background: #2A2E36;
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
@@ -2903,8 +2992,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   }
 
   /* Shared modal chrome all useModalA11y consumers migrate to. */
+  /* 2026-07-28 — this rule declared NO border at all; its one consumer supplied
+     `border-white/60` by hand, which on the warm-white ground is a white line
+     on a near-white panel over a near-white page — an unbounded white blob.
+     Given the shared glass hairline so the panel is bounded by default. */
   .sn-modal-panel {
     background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--sn-glass-line);
     backdrop-filter: blur(30px) saturate(1.5);
     -webkit-backdrop-filter: blur(30px) saturate(1.5);
     border-radius: 18px;

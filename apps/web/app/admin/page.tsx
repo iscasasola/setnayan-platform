@@ -838,7 +838,7 @@ function ActionQueueTile({
   // muted ink.
   const tone = overdue
     ? {
-        card: 'border-white/50 bg-[var(--sn-danger-soft)]',
+        card: 'border-ink/10 bg-[var(--sn-danger-soft)]',
         icon: 'text-[color:var(--sn-danger)]',
         label: 'text-[color:var(--sn-danger)]',
         arrow: 'text-[color:var(--sn-danger)]',
@@ -847,7 +847,7 @@ function ActionQueueTile({
       }
     : dueSoon
       ? {
-          card: 'border-white/50 bg-[var(--sn-warning-soft)]',
+          card: 'border-ink/10 bg-[var(--sn-warning-soft)]',
           icon: 'text-[color:var(--sn-warning)]',
           label: 'text-[color:var(--sn-warning)]',
           arrow: 'text-[color:var(--sn-warning)]',
@@ -856,7 +856,7 @@ function ActionQueueTile({
         }
       : hasWork
         ? {
-            card: 'border-white/60 bg-white/75',
+            card: 'border-ink/10 bg-white/75',
             icon: 'text-[color:var(--sn-warning)]',
             label: 'text-[color:var(--sn-warning)]',
             arrow: 'text-[color:var(--sn-warning)]',
@@ -864,7 +864,7 @@ function ActionQueueTile({
             sub: 'text-[color:var(--sn-ink-500)]',
           }
         : {
-            card: 'border-white/60 bg-white/70',
+            card: 'border-ink/10 bg-white/70',
             icon: '',
             label: 'text-[color:var(--sn-ink-400)]',
             arrow: 'text-[color:var(--sn-ink-300)]',

@@ -124,3 +124,92 @@ export function categoryHintForTile(tile: string): string | null {
   }
   return null;
 }
+
+/** aria-label for the per-category ⓘ toggle (PR-C wires the button). */
+export function categoryHintButtonLabel(label: string): string {
+  return `What does ${label} cover?`;
+}
+
+/* ── Adaptive category set (PR-C · spec §3 PR-C · design §5.2) ─────────────
+   The bench shows the couple's in-plan categories; the rest sit in a per-folder
+   chip pool. Rule 3 above applies to this copy too — a wording change must stay
+   a one-file diff, so none of these strings may be inlined in JSX. */
+
+/** Heading above a folder's "not in your plan" chip pool. */
+export const ADD_TO_PLAN_HEADING = '＋ Add to your plan';
+
+/** aria-label on one pool chip. */
+export function addToPlanChipLabel(label: string): string {
+  return `Add ${label} to your plan`;
+}
+
+/** The quiet per-category removal control. */
+export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
+
+export function removeFromPlanButtonLabel(label: string): string {
+  return `Remove ${label} from your plan`;
+}
+
+/**
+ * The HARD GUARD's copy (spec §3 PR-C): a category holding a locked vendor is
+ * not removable. Shown by the client when it refuses, and returned verbatim by
+ * the server action when it refuses — one sentence, one home.
+ */
+export const REMOVE_BLOCKED_LOCKED =
+  'This category has a locked vendor. Unlock (or undo) that booking first — removing a category never cancels a booking.';
+
+/** A folder whose in-plan set is empty but whose pool is not. */
+export function folderEmptyInPlan(folderLabel: string): string {
+  return `Nothing from ${folderLabel} in your plan yet — add below if you need it.`;
+}
+
+/* ── Three-action card (slice D · spec §3 PR-D, §12.1) ─────────────────────
+   Rule 3 above applies here too: none of these may be inlined in JSX. The
+   glyphs the playable prototype drew as emoji are Lucide icons in production —
+   the copy below is text only, and the component supplies the icon. */
+
+/** Primary action — writes `event_build_picks`. */
+export const CARD_ADD_TO_BUILD = 'Add to build';
+export const CARD_ADDING = 'Adding…';
+/** The pinned state + its vendor-scoped undo. */
+export const CARD_IN_BUILD = 'In your build';
+export const CARD_REMOVE_FROM_BUILD = 'Remove';
+
+/**
+ * No price signal at all — neither a quote nor a marketplace "starts at". The
+ * shipped rule (owner 2026-06-09) is that only priced services enter the build;
+ * on the bench the honest next step is to ask, because a card here may never
+ * have been contacted at all ("waiting for the vendor's price" would be a lie).
+ */
+export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
+
+/** Second action, stateful on thread existence. */
+export const CARD_INQUIRE = 'Inquire';
+export const CARD_CHECK_INQUIRY = 'Check inquiry';
+export function cardInquireLabel(name: string): string {
+  return `Inquire with ${name}`;
+}
+export function cardCheckInquiryLabel(name: string): string {
+  return `Open your conversation with ${name}`;
+}
+
+/**
+ * Third action. Deliberately NOT "Lock now — it's final": per the §7 handshake
+ * amendment a lock is a REQUEST until the vendor accepts the payment, so no
+ * customer-facing control may promise finality before that step.
+ */
+export const CARD_LOCK = 'Lock this';
+export const CARD_LOCKING = 'Requesting…';
+
+/** Collapsed category rows name what is already locked there (decision #8). */
+export function lockedNamesLine(names: readonly string[]): string {
+  return names.join(' · ');
+}
+export function lockedNamesLabel(names: readonly string[], categoryLabel: string): string {
+  return `Locked for ${categoryLabel}: ${names.join(', ')}`;
+}
+
+/** Rail end — a locked, still-open category invites the next pick (#3789). */
+export function cardAddAnother(label: string): string {
+  return `Add another ${label}`;
+}

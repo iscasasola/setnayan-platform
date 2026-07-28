@@ -219,6 +219,27 @@ export const PACKAGE_ITEM_AUTHORING_COLUMNS = [
 export const PACKAGE_ITEM_AUTHORING_SELECT =
   'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours';
 
+/**
+ * The four branching columns, appended to {@link VENDOR_PACKAGE_ITEM_SELECT} by
+ * the COUPLE-side configurator so it can render a choice tree.
+ *
+ * ⚠ READ-SURFACE ONLY, AND FLAG-GATED. This is deliberately NOT folded into
+ * `VENDOR_PACKAGE_ITEM_SELECT`, for exactly the reason spelled out on
+ * {@link PACKAGE_ITEM_AUTHORING_COLUMNS}: that constant is what `lockPackage`
+ * reads with, and naming a column whose migration has not landed turns into a
+ * PostgREST 400 **on a money action** — in a repo where migrations auto-apply
+ * unreliably. The vendor page's package fetch is best-effort (it swallows the
+ * error and renders no packages), so the blast radius of a missing migration
+ * here is a hidden section, not a failed booking.
+ *
+ * The consequence is the boundary the whole couple-side slice is built around:
+ * the lock path cannot SEE these columns, therefore it cannot price them, so a
+ * follow-up pick / an extra pick / an extra hour must cost exactly zero. See
+ * the module header of ./package-choice-tree.
+ */
+export const PACKAGE_ITEM_BRANCHING_SELECT =
+  'parent_option_id, pick_min, pick_max, max_extra_hours, extra_hour_centavos';
+
 export type VendorPackageItemRow = {
   item_id: string;
   package_id: string;
@@ -278,6 +299,14 @@ export type VendorPackageItemRow = {
   pick_max?: number | null;
   /** Ceiling on EXTRA hours over `min_hours`. NOT a generic quantity cap. */
   max_extra_hours?: number | null;
+  /**
+   * Cost of each hour beyond `min_hours` (migration 20270713100000). A line has
+   * a QUANTITY axis iff this is set — `max_extra_hours` only caps an hourly
+   * model that already exists, so a cap without a rate is not a stepper.
+   * OPTIONAL because only the branching select requests it — see
+   * {@link PACKAGE_ITEM_BRANCHING_SELECT}.
+   */
+  extra_hour_centavos?: number | null;
   /**
    * The alternatives on this line. **A line is a CHOICE iff this is non-empty**
    * — there is no `is_choice` column, and adding one would be a second source

@@ -81,7 +81,7 @@ export function ReportPageButton({
           onClick={() => !pending && setOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-white/60 bg-cream p-5 shadow-xl"
+            className="w-full max-w-sm rounded-2xl border border-ink/15 bg-cream p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -127,7 +127,7 @@ export function ReportPageButton({
                   {REASONS.map((r) => (
                     <label
                       key={r.value}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border border-white/60 bg-white/60 px-3 py-2 text-sm text-ink/80 hover:bg-white/80 has-[:checked]:border-terracotta/40 has-[:checked]:bg-terracotta/5"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-ink/15 bg-white/60 px-3 py-2 text-sm text-ink/80 hover:bg-white/80 has-[:checked]:border-terracotta/40 has-[:checked]:bg-terracotta/5"
                     >
                       <input
                         type="radio"
@@ -147,7 +147,7 @@ export function ReportPageButton({
                   placeholder="Add any detail (optional)"
                   rows={2}
                   maxLength={2000}
-                  className="w-full rounded-md border border-white/60 bg-white/70 px-3 py-2 text-sm text-ink/80 placeholder:text-ink/40 focus:border-terracotta/40 focus:outline-none"
+                  className="w-full rounded-md border border-ink/15 bg-white/70 px-3 py-2 text-sm text-ink/80 placeholder:text-ink/40 focus:border-terracotta/40 focus:outline-none"
                 />
                 {error && <p className="text-xs font-medium text-terracotta-700">{error}</p>}
                 <button

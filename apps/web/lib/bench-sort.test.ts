@@ -8,7 +8,27 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sortWithReasons, benchFitScore, BENCH_SORTS } from './bench-sort';
+import {
+  sortWithReasons,
+  benchFitScore,
+  benchCompatInputs,
+  benchSortStorageKey,
+  benchSortWeights,
+  persistBenchSort,
+  readPersistedBenchSort,
+  BENCH_SORTS,
+  BENCH_PLAIN_SORTS,
+  type BenchSort,
+  type BenchSortStore,
+} from './bench-sort';
+import { COMPAT_WEIGHTS } from './compat-score';
+import { LENSES, LENS_ORDER, isLensAvailable, isLensKey, visibleLenses } from './ranking-lenses';
+import {
+  countInquiringCouples,
+  groupHoldsByVendor,
+  inquiryPairKey,
+  type SameDateHold,
+} from './same-date-demand';
 import type { ShortlistVendor } from './shortlist-taxonomy';
 
 function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVendor {
@@ -32,9 +52,28 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     distanceKm: null,
     budgetFitRatio: null,
     faithMatch: null,
+    // Lens inputs (§15) — null by default so every pre-existing case keeps
+    // measuring exactly the dimensions it was written for.
+    firstVerifiedAt: null,
+    demandCoupleCount: null,
     budgetFit: null,
     budgetEstimated: false,
     dateFit: null,
+    // Three-action card inputs (slice D) — no marketplace link, no thread, no
+    // group, no price basis. The sort never reads them; they are here so the
+    // fixture stays a complete ShortlistVendor.
+    marketplaceVendorId: null,
+    threadId: null,
+    inquiryStatus: null,
+    planGroupId: null,
+    priceBasisPhp: null,
+    verifiedState: null,
+    // Schedule convergence (PR-G1) — NO verdict is the default everywhere, so
+    // the sort keeps ranking exactly as it did before that tier existed. The
+    // sink is a partition applied AFTER this sort, never a term inside it.
+    buildFit: null,
+    buildClashWith: null,
+    freeDaysLine: null,
     ...p,
   };
 }
@@ -42,7 +81,29 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
 const order = (out: { v: ShortlistVendor }[]) => out.map((r) => r.v.vendorId);
 
 test('three sort lenses are exposed', () => {
+  // The FLAG-OFF control, frozen. `BENCH_SORTS` is what the bench renders when
+  // `isExploreReplanEnabled()` is false, and it must stay production-identical.
   assert.deepEqual(BENCH_SORTS.map((s) => s.key), ['fit', 'price', 'rating']);
+  assert.deepEqual(BENCH_SORTS.map((s) => s.label), ['Best fit', 'Lowest price', 'Top rated']);
+});
+
+test('the two PLAIN SORTS are separate from the lenses and are not weight vectors', () => {
+  assert.deepEqual(BENCH_PLAIN_SORTS.map((s) => s.key), ['price', 'rating']);
+  // Neither is a LensKey: "Lowest price" cannot be a weight vector at all —
+  // `priceFitScore` ties every in-budget vendor at 1.0 — and "Top rated" as a
+  // RECOMMENDATION would be Setnayan vouching for a vendor. As plain sorts they
+  // are an honest user job. Keep them out of the registry.
+  for (const s of BENCH_PLAIN_SORTS) assert.equal(isLensKey(s.key), false);
+  // …and they fall back to the default vector, which is never consulted.
+  for (const s of BENCH_PLAIN_SORTS) assert.equal(benchSortWeights(s.key), COMPAT_WEIGHTS);
+});
+
+test('all five lenses are reachable through the bench control', () => {
+  for (const key of LENS_ORDER) {
+    assert.equal(isLensKey(key), true);
+    assert.equal(benchSortWeights(key), LENSES[key].weights);
+  }
+  assert.equal(benchSortWeights('fit'), COMPAT_WEIGHTS, 'the default lens is unchanged');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,4 +328,277 @@ test('never mutates the input array', () => {
   sortWithReasons(input, 'price');
   sortWithReasons(input, 'fit');
   assert.deepEqual(input.map((v) => v.vendorId), before, 'original order preserved');
+});
+
+// ── Same-date demand pill (Explore_Replan §15.3/§15.4) ──────────────────────
+
+test('demand is INERT under "Best fit" — it carries weight only in its own lens', () => {
+  // demandPressure is 0 in COMPAT_WEIGHTS, so a busy vendor can neither out-rank
+  // a quiet one nor claim a demand pill here. "In demand" is a lens the couple
+  // chooses, never a thumb on the default scale.
+  const busy = vendor({ vendorId: 'busy', demandCoupleCount: 12 });
+  const quiet = vendor({ vendorId: 'quiet', demandCoupleCount: null });
+  assert.equal(benchFitScore(busy), benchFitScore(quiet));
+  assert.equal(sortWithReasons([busy], 'fit')[0]!.reason, null);
+});
+
+test('a below-floor demand count says nothing, even if one somehow reaches the client', () => {
+  // Belt-and-braces: the server already refuses to serialise a below-floor
+  // count, but if one ever arrived the scorer must still refuse to speak.
+  const out = sortWithReasons([vendor({ vendorId: 'quiet', demandCoupleCount: 2 })], 'fit');
+  assert.equal(out[0]!.reason, null, 'n=2 must produce no pill at all');
+});
+
+test('a vendor with no demand signal is not out-ranked by one with a below-floor signal', () => {
+  const none = benchFitScore(vendor({ vendorId: 'a', demandCoupleCount: null }));
+  const below = benchFitScore(vendor({ vendorId: 'b', demandCoupleCount: 2 }));
+  assert.equal(none, below);
+});
+
+test('the budget pill carries the mandatory "est." qualifier when the basis is a starts-at', () => {
+  const quoted = sortWithReasons(
+    [vendor({ vendorId: 'quoted', budgetFitRatio: 1, budgetEstimated: false })],
+    'fit',
+  );
+  assert.equal(quoted[0]!.reason?.label, 'Fits your budget');
+  const estimated = sortWithReasons(
+    [vendor({ vendorId: 'est', budgetFitRatio: 1, budgetEstimated: true })],
+    'fit',
+  );
+  assert.equal(estimated[0]!.reason?.label, 'Fits your budget · est.');
+});
+
+test('no budget pill ever claims value — "cheapest"/"best value" are unbackable', () => {
+  // priceFitScore returns a flat 1.0 for EVERY in-budget vendor, so a ₱30k and
+  // an ₱89k vendor tie exactly. Any value language would be a claim the data
+  // cannot make.
+  const banned = /best value|cheapest|most for your money|lowest price|best price|great deal/i;
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'a', budgetFitRatio: 1, totalCostPhp: 30_000 }),
+      vendor({ vendorId: 'b', budgetFitRatio: 1, totalCostPhp: 89_000, budgetEstimated: true }),
+    ],
+    'fit',
+  );
+  assert.equal(benchFitScore(cards[0]!.v), benchFitScore(cards[1]!.v), 'in-budget vendors tie');
+  for (const c of cards) assert.ok(!banned.test(c.reason?.label ?? ''), c.reason?.label);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §15 · THE FIVE RANKING LENSES on the bench
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DAY_MS = 86_400_000;
+const NOW = Date.parse('2026-07-27T00:00:00.000Z');
+const daysAgo = (n: number) => new Date(NOW - n * DAY_MS).toISOString();
+
+test('flag-OFF equivalence: the new lens inputs cannot move the "Best fit" order', () => {
+  // Both §15 inputs are weight-0 in COMPAT_WEIGHTS, so adding them to the bench
+  // projection must be a no-op on the surface the flag does not gate.
+  const withSignals = [
+    vendor({ vendorId: 'a', rating: 4.2, reviewCount: 10, firstVerifiedAt: daysAgo(2), demandCoupleCount: 9 }),
+    vendor({ vendorId: 'b', rating: 4.8, reviewCount: 40 }),
+  ];
+  const without = [
+    vendor({ vendorId: 'a', rating: 4.2, reviewCount: 10 }),
+    vendor({ vendorId: 'b', rating: 4.8, reviewCount: 40 }),
+  ];
+  assert.deepEqual(
+    sortWithReasons(withSignals, 'fit', { nowMs: NOW }).map((c) => [c.v.vendorId, c.reason?.label]),
+    sortWithReasons(without, 'fit', { nowMs: NOW }).map((c) => [c.v.vendorId, c.reason?.label]),
+  );
+});
+
+test('"New here": a newcomer leads and its pill names freshness, not reviews', () => {
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'established', rating: 4.9, reviewCount: 90 }),
+      vendor({ vendorId: 'newcomer', firstVerifiedAt: daysAgo(3) }),
+    ],
+    'new',
+    { nowMs: NOW },
+  );
+  assert.equal(cards[0]!.v.vendorId, 'newcomer');
+  // Weight-aware explainability (§15.6): the pill must explain the order the
+  // couple is looking at. Under this lens that is freshness.
+  assert.equal(cards[0]!.reason?.label, 'Newest on Setnayan');
+  // …and the SAME vendor under the default lens must NOT claim to be new,
+  // because freshness carries no weight there.
+  const underFit = sortWithReasons(
+    [vendor({ vendorId: 'newcomer', firstVerifiedAt: daysAgo(3) })],
+    'fit',
+    { nowMs: NOW },
+  );
+  assert.notEqual(underFit[0]!.reason?.label, 'Newest on Setnayan');
+});
+
+test('"New here" copy never implies vetting, quality or endorsement', () => {
+  const banned = /vetted|hand-?picked|curated|endorsed|recommended|rising star|best|top[- ]rated/i;
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'a', firstVerifiedAt: daysAgo(1) }),
+      vendor({ vendorId: 'b', firstVerifiedAt: daysAgo(30) }),
+      vendor({ vendorId: 'c', rating: 4.9, reviewCount: 50 }),
+    ],
+    'new',
+    { nowMs: NOW },
+  );
+  for (const c of cards) assert.ok(!banned.test(c.reason?.label ?? ''), c.reason?.label);
+});
+
+test('"Nearest": the closest vendor leads and earns the superlative', () => {
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'far', distanceKm: 48, serviceRadiusKm: 50, rating: 4.9, reviewCount: 80 }),
+      vendor({ vendorId: 'near', distanceKm: 2, serviceRadiusKm: 20 }),
+    ],
+    'near',
+  );
+  assert.equal(cards[0]!.v.vendorId, 'near');
+  assert.equal(cards[0]!.reason?.label, 'Closest to your venue');
+});
+
+test('"In demand": the pill is the MEASUREMENT, never a scarcity claim', () => {
+  const banned = /only\s|left|booking fast|almost gone|nearly gone|lock it in|selling fast|hurry|last chance/i;
+  const cards = sortWithReasons(
+    [
+      vendor({ vendorId: 'quiet' }),
+      vendor({ vendorId: 'busy', demandCoupleCount: 4 }),
+      vendor({ vendorId: 'busier', demandCoupleCount: 7 }),
+    ],
+    'demand',
+  );
+  assert.equal(cards[0]!.v.vendorId, 'busier');
+  assert.equal(cards[0]!.reason?.label, '7 couples inquired for your date');
+  for (const c of cards) assert.ok(!banned.test(c.reason?.label ?? ''), c.reason?.label);
+});
+
+test('a saved-but-never-contacted vendor contributes ZERO demand, end to end', () => {
+  // The whole chain, because the defect this locks out lived in the JOIN, not
+  // in the scorer: `status='considering'` is written by merely SAVING a vendor.
+  // Counting that as competition is manufactured scarcity (owner, 2026-06-02).
+  const holds: SameDateHold[] = [
+    // Three other couples hold this vendor on the same date…
+    { marketplaceVendorId: 'v1', eventId: 'e1' },
+    { marketplaceVendorId: 'v1', eventId: 'e2' },
+    { marketplaceVendorId: 'v1', eventId: 'e3' },
+  ];
+  // …but NONE of them ever opened a thread. They only bookmarked.
+  const noInquiries = countInquiringCouples(groupHoldsByVendor(holds), new Set<string>());
+  assert.equal(noInquiries.get('v1'), undefined, 'saves must not produce a count');
+
+  // So the card carries null, the scorer sees no signal, no pill renders, and
+  // the lens itself cannot be offered.
+  const saved = vendor({ vendorId: 'v1', demandCoupleCount: noInquiries.get('v1') ?? null });
+  assert.equal(sortWithReasons([saved], 'demand')[0]!.reason, null);
+  assert.equal(isLensAvailable('demand', [saved, saved, saved].map((v) => benchCompatInputs(v))), false);
+
+  // Contrast: the SAME three holds, now genuinely inquiry-backed, do count.
+  const inquired = countInquiringCouples(
+    groupHoldsByVendor(holds),
+    new Set(['e1', 'e2', 'e3'].map((e) => inquiryPairKey(e, 'v1'))),
+  );
+  assert.equal(inquired.get('v1'), 3);
+});
+
+test('an all-neutral vendor renders NO pill under EVERY lens', () => {
+  // A vendor we know nothing about must not be handed a manufactured reason.
+  // `topCompatDimension` measures the lift ABOVE neutral, so every dimension is
+  // exactly 0 here and there is no argmax to report.
+  const blank = vendor({ vendorId: 'unknown' });
+  for (const key of LENS_ORDER) {
+    const [card] = sortWithReasons([blank], key, { nowMs: NOW });
+    assert.equal(card!.reason, null, `lens "${key}" invented a reason for an unknown vendor`);
+  }
+});
+
+test('the bench control offers only the lenses its data can support', () => {
+  const rail = [
+    vendor({ vendorId: 'a', distanceKm: 3, serviceRadiusKm: 20 }),
+    vendor({ vendorId: 'b', distanceKm: 9, serviceRadiusKm: 20 }),
+    vendor({ vendorId: 'c' }),
+  ];
+  const chips = visibleLenses(rail.map((v) => benchCompatInputs(v)));
+  assert.deepEqual(chips.filter((c) => !c.disabled).map((c) => c.key), ['fit', 'near']);
+  // Budget + New stay visible but disabled, carrying the reason that would fix
+  // them; demand is absent entirely.
+  assert.equal(chips.find((c) => c.key === 'budget')?.disabled, true);
+  assert.equal(chips.find((c) => c.key === 'new')?.disabled, true);
+  assert.equal(chips.some((c) => c.key === 'demand'), false);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §13.3 · SORT PERSISTENCE — the couple's lens must survive a reload
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A `localStorage` stand-in, so "reload" is a real assertion rather than
+ *  something only a browser can prove: the store outlives the page, the
+ *  component state does not. */
+function fakeStore(seed: Record<string, string> = {}): BenchSortStore & { map: Map<string, string> } {
+  const map = new Map(Object.entries(seed));
+  return {
+    map,
+    getItem: (k) => map.get(k) ?? null,
+    setItem: (k, v) => void map.set(k, v),
+  };
+}
+
+test('sort persistence survives a simulated reload', () => {
+  const store = fakeStore();
+  // Session 1 — the couple picks "Nearest to your venue".
+  persistBenchSort('evt-1', 'near', store);
+  // …the page unloads. Component state is gone; only the store remains.
+  const restored = readPersistedBenchSort('evt-1', store);
+  assert.equal(restored, 'near', 'the bench must come back on the lens they chose');
+});
+
+test('persistence is per EVENT — one event’s lens never leaks into another', () => {
+  const store = fakeStore();
+  persistBenchSort('manila-wedding', 'near', store);
+  persistBenchSort('cebu-debut', 'budget', store);
+  assert.equal(readPersistedBenchSort('manila-wedding', store), 'near');
+  assert.equal(readPersistedBenchSort('cebu-debut', store), 'budget');
+  assert.equal(readPersistedBenchSort('never-sorted', store), null);
+  assert.notEqual(benchSortStorageKey('a'), benchSortStorageKey('b'));
+});
+
+test('a stored lens that can no longer be offered is NOT restored', () => {
+  // They sorted by "Nearest", then the venue anchor went away. Restoring it
+  // would bring the bench back under a lens whose chip is not even rendered,
+  // and the order would look arbitrary.
+  const store = fakeStore({ [benchSortStorageKey('evt-1')]: 'near' });
+  const offered = (m: BenchSort) => m !== 'near';
+  assert.equal(readPersistedBenchSort('evt-1', store, offered), null);
+  // The preference is not deleted — if the anchor comes back, so does the lens.
+  assert.equal(readPersistedBenchSort('evt-1', store), 'near');
+});
+
+test('a corrupt or unknown stored value falls back to the default', () => {
+  for (const junk of ['', 'best-fit', 'nearest', '{}', 'FIT', 'demand ']) {
+    const store = fakeStore({ [benchSortStorageKey('evt-1')]: junk });
+    assert.equal(readPersistedBenchSort('evt-1', store), null, junk);
+  }
+  // Every legitimate value round-trips, lenses and plain sorts alike.
+  for (const mode of [...LENS_ORDER, 'price', 'rating'] as BenchSort[]) {
+    const store = fakeStore();
+    persistBenchSort('evt-1', mode, store);
+    assert.equal(readPersistedBenchSort('evt-1', store), mode);
+  }
+});
+
+test('persistence never throws when storage is unavailable', () => {
+  // Safari private mode throws on getItem/setItem. The sort must still work; it
+  // just will not be remembered.
+  const hostile: BenchSortStore = {
+    getItem() {
+      throw new Error('SecurityError');
+    },
+    setItem() {
+      throw new Error('QuotaExceededError');
+    },
+  };
+  assert.equal(readPersistedBenchSort('evt-1', hostile), null);
+  assert.doesNotThrow(() => persistBenchSort('evt-1', 'near', hostile));
+  assert.equal(readPersistedBenchSort('evt-1', null), null);
+  assert.doesNotThrow(() => persistBenchSort('evt-1', 'near', undefined));
 });

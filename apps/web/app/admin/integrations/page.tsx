@@ -243,7 +243,7 @@ export default async function AdminIntegrationsPage({
             <form action={clearResendKey}>
               <SubmitButton
                 pendingLabel="Clearing…"
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/60 bg-white/70 px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-white/70 px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
               >
                 Clear saved key
               </SubmitButton>

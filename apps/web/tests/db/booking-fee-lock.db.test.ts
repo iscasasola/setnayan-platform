@@ -31,8 +31,8 @@ async function newVendor(email: string): Promise<{ vendorProfileId: string; user
   // event_vendors_require_verified_before_lock trigger blocks the rest), so a
   // billable booking presupposes a verified identity.
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state)
-     VALUES ($1, 'Fee Test Vendor', 'Manila', ARRAY['photography']::text[], 'verified')
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1, 'Fee Test Vendor', 'Manila', ARRAY['photography']::text[], 'verified', NOW())
      RETURNING vendor_profile_id`,
     [userId],
   );

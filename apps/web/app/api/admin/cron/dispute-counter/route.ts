@@ -7,10 +7,13 @@ import { secureCompare } from '@/lib/secure-compare';
  * Dispute counter cron — runs daily, rolls a 30-day window of disputes per
  * vendor, and auto-demotes any vendor with **3+ disputes** in that window.
  *
- * Per 0006 § "Demote-to-coming_soon trigger" (locked 2026-05-16):
+ * Per 0006 § "Demote-to-coming_soon trigger" (locked 2026-05-16), with the
+ * target state updated 2026-07-27:
  *   • A verified vendor with 3+ disputes in the rolling 30-day window is
- *     demoted to coming_soon (their payout schedule flips to the 20/60/20
- *     milestone release for new bookings).
+ *     demoted to **'hidden'** (their payout schedule flips to the 20/60/20
+ *     milestone release for new bookings). The original spec said
+ *     'coming_soon'; migration 20271013500000 retired that value as unwritable
+ *     and named 'hidden' the demote target.
  *   • The demotion writes admin_audit_log row with before/after JSON, increments
  *     vendor_profiles.demotion_count, and sets last_demoted_at = NOW().
  *   • Verified-tier perks lock (the Setnayan Pay verified-only gate per 0034
@@ -134,9 +137,10 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // Only verified vendors are demoted by this cron — coming_soon vendors
-    // are already at the lowest active state. Hidden / archived are out
-    // of scope (admin handles those manually).
+    // Only publicly-listed vendors are demoted by this cron — a shop that is
+    // already 'hidden' (or archived) is not visible to couples, so there is
+    // nothing left for a demotion to take away. ('coming_soon' was retired by
+    // migration 20271013500000 and no longer occurs.)
     if (profile.public_visibility !== 'verified') {
       results.push({
         vendor_profile_id: vendorProfileId,
@@ -149,19 +153,26 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // Flip visibility → coming_soon. We DON'T flip the spec's
-    // `verification_state` column directly because the parallel agent owns
-    // that ENUM; the canonical flow once both PRs land is:
-    //   public_visibility = 'coming_soon' AND verification_state = 'demoted'
-    // Today (public_visibility only), the read paths treat coming_soon as
-    // the demoted-state surface and that's enough to gate verified-tier
-    // marketplace perks. (Retired 2026-05-28 V2 cutover note — this gate
-    // also covered Setnayan Pay access before the 5% fee was retired
-    // entirely; the same coming_soon flip still locks the verified-tier
-    // perks the V2 model carries forward.)
+    // Flip visibility → 'hidden' (was 'coming_soon' until 2026-07-27).
+    //
+    // Migration 20271013500000 RETIRED 'coming_soon' as a public visibility
+    // state (owner: "demote. remove coming soon entirely.") and declared it
+    // unwritable — it survives in the ENUM only because PostgreSQL cannot drop
+    // a value from an enum in place. This cron was still writing it, so a
+    // dispute-demoted vendor landed in an inert state that no read path treats
+    // as meaningful.
+    //
+    // 'hidden' is the correct target, on the migration's own terms: it is the
+    // new column DEFAULT and is documented there as "the demote/reject/un-freeze
+    // target". It is also the strictly SAFER of the two live values — the
+    // narrowed `vendor_profiles_public_read` policy admits ONLY
+    // public_visibility = 'verified', so 'hidden' actually delists a vendor
+    // demoted for 3+ disputes, which is the entire purpose of this cron.
+    // ('verified' would have been the opposite of a demotion; 'archived' is for
+    // dead shops, not moderated ones.)
     const nowIso = new Date().toISOString();
     const update: Record<string, unknown> = {
-      public_visibility: 'coming_soon',
+      public_visibility: 'hidden',
       last_demoted_at: nowIso,
       demotion_count: ((profile.demotion_count as number | null) ?? 0) + 1,
       updated_at: nowIso,
@@ -186,7 +197,7 @@ export async function POST(request: Request) {
         /column .* demotion_count/.test(updErr.message)
       ) {
         const fallback = {
-          public_visibility: 'coming_soon',
+          public_visibility: 'hidden',
           updated_at: nowIso,
         };
         const { error: retryErr } = await admin
@@ -229,7 +240,9 @@ export async function POST(request: Request) {
         verification_state: profile.verification_state ?? null,
       },
       after_json: {
-        public_visibility: 'coming_soon',
+        // Must mirror what was ACTUALLY written above — an audit row that
+        // records a value the code no longer writes is worse than none.
+        public_visibility: 'hidden',
         verification_state: 'demoted',
         demotion_count: ((profile.demotion_count as number | null) ?? 0) + 1,
       },

@@ -261,8 +261,14 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
       // force_majeure_flags (type='vendor_cancellation'). See lib/force-majeure.ts.
       supabase
         .from('event_vendors')
+        // ⚠ `marketplace_vendor_id`, NOT `vendor_profile_id` — event_vendors has
+        // no such column (the same phantom that killed lib/ghosting.ts). Named
+        // only in a FILTER here, so the select-list guard could not see it and
+        // this count silently returned ZERO finalized bookings for every vendor
+        // — feeding vendor_activity_stats and, through it, the quality score
+        // that ranks the marketplace.
         .select('status')
-        .eq('vendor_profile_id', vendorProfileId),
+        .eq('marketplace_vendor_id', vendorProfileId),
 
       // Inquiries (chat_threads) — all threads + response timing.
       // vendor_first_reply_at is stamped by the stamp_vendor_first_reply trigger
@@ -292,7 +298,9 @@ export async function recomputeVendorActivityStats(vendorProfileId: string): Pro
     const evIds = await supabase
       .from('event_vendors')
       .select('vendor_id')
-      .eq('vendor_profile_id', vendorProfileId);
+      // ⚠ `marketplace_vendor_id` — see the note on the bookings count above.
+      // This one made the vendor-cancellation count permanently 0 as well.
+      .eq('marketplace_vendor_id', vendorProfileId);
     if (evIds.data && evIds.data.length > 0) {
       const ids = evIds.data.map((r: { vendor_id: string }) => r.vendor_id);
       const { count } = await supabase

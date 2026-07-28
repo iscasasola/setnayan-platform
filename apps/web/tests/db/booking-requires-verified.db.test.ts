@@ -40,8 +40,13 @@ async function newVendor(
     [email],
   );
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state)
-     VALUES ($1, 'Book Gate Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state)
+    // `last_verified_at` is stamped ONLY for the 'verified' state, mirroring the
+    // admin approval path — `vendor_profiles_verified_requires_stamp`
+    // (20271017100000) rejects a verified row without it, and the other four
+    // states legitimately have no verification date.
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1, 'Book Gate Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state,
+             CASE WHEN $2 = 'verified' THEN NOW() END)
      RETURNING vendor_profile_id`,
     [u.rows[0]!.id, state],
   );

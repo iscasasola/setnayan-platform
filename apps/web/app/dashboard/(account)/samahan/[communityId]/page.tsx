@@ -133,7 +133,7 @@ export default async function SamahanSpacePage({
       {/* Header band — glass panel: initial chip w/ gold RING (jewelry, not
           paint), serif name + public_id in mono, member/event
           metaline. */}
-      <div className="mb-6 rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+      <div className="mb-6 rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-mulberry/10 text-xl font-semibold text-mulberry ring-1 ring-terracotta-500">
             {initial}
@@ -254,7 +254,7 @@ function OverviewTab({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+      <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         {description ? (
           <p className="text-sm leading-relaxed text-ink/75">{description}</p>
         ) : (
@@ -285,7 +285,7 @@ function OverviewTab({
       </div>
 
       {isOrganizer ? (
-        <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+        <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
             Organizer panel
           </p>
@@ -376,7 +376,7 @@ function MembersTab({
   roster: CommunityRosterEntry[];
 }) {
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+    <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
       <div className="divide-y divide-ink/5">
         {roster.map((m) => (
           <div key={m.member_row_id} className="flex items-center gap-3 py-3">
@@ -510,7 +510,7 @@ function EventsTab({
 
   if (events.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/70 bg-white/60 p-8 text-center shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+      <div className="rounded-2xl border border-ink/15 bg-white/60 p-8 text-center shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         <CalendarDays
           aria-hidden
           className="mx-auto h-8 w-8 text-ink/35"
@@ -534,7 +534,7 @@ function EventsTab({
   }
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+    <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
       {isOrganizer ? (
         <div className="mb-2 flex justify-end">
           <Link

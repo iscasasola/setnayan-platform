@@ -713,7 +713,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
           gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-white/60 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}
@@ -1386,7 +1386,7 @@ function LensPill({
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-[background-color,transform,color] ${
         active
           ? 'sn-chip-pop border-transparent bg-terracotta font-bold text-cream'
-          : 'border-white/60 bg-white/55 text-ink/70 hover:bg-white/85'
+          : 'border-ink/15 bg-white/55 text-ink/70 hover:bg-white/85'
       }`}
     >
       {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}

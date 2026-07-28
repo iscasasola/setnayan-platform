@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  markVendorPendingReview,
+  revertVendorPendingReview,
+} from '@/lib/vendor-verification-state';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   APPLICATION_TYPES,
@@ -217,8 +222,14 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
 
 /**
  * Submit the draft → pending_review. Stamps submitted_at + sla_due_at
- * (5 business days out) and bumps vendor_profiles.verification_state to
+ * (5 business days out) and advances vendor_profiles.verification_state to
  * 'pending_review'. Writes a vendor_tier_history audit row.
+ *
+ * The profile flip goes through `markVendorPendingReview` (service_role) — a
+ * vendor's own client is refused by `guard_vendor_profiles_entitlement`, and
+ * that refusal used to be swallowed. It is a NO-OP for an already-verified shop
+ * submitting an `annual_renewal`, which keeps its badge while the application
+ * sits in the queue.
  */
 export async function submitApplication(formData: FormData): Promise<void> {
   const { supabase, profile, userId } = await ensureVendorAuth();
@@ -316,44 +327,53 @@ export async function submitApplication(formData: FormData): Promise<void> {
   }
 
   const now = new Date();
+  const nowIso = now.toISOString();
   const slaDue = addBusinessDays(now, 5);
 
+  // ── Step 1: the PRIVILEGED flip, first and fail-loud ──────────────────────
+  // P0 2026-07-27: this used to run LAST, through the vendor's own session
+  // client, with its result discarded. `guard_vendor_profiles_entitlement`
+  // refuses any vendor-authored `verification_state` change, so the write
+  // failed 100% of the time and the vendor was told nothing — the application
+  // row said pending_review while the profile stayed 'unverified' forever.
+  // Now it goes through service_role (the guard's own sanctioned path, see
+  // lib/vendor-verification-state.ts) and runs BEFORE the application row, so
+  // a refusal aborts with ZERO writes instead of leaving the two disagreeing.
+  const flip = await markVendorPendingReview(createAdminClient(), {
+    vendorProfileId: profile.vendor_profile_id,
+    userId,
+    nowIso,
+  });
+  if (!flip.ok) {
+    redirect(`/vendor-dashboard/verify?error=${encodeURIComponent(flip.error)}`);
+  }
+  const fromState = flip.fromState;
+
+  // ── Step 2: the application row ───────────────────────────────────────────
   const { error: updErr } = await supabase
     .from('vendor_verification_applications')
     .update({
       status: 'pending_review',
-      submitted_at: now.toISOString(),
+      submitted_at: nowIso,
       sla_due_at: slaDue.toISOString(),
-      updated_at: now.toISOString(),
+      updated_at: nowIso,
     })
     .eq('application_id', applicationId);
   if (updErr) {
+    // Compensate: step 1 already landed, so put the profile back rather than
+    // leaving a shop "pending_review" with no submitted application behind it.
+    if (flip.changed) {
+      await revertVendorPendingReview(createAdminClient(), {
+        vendorProfileId: profile.vendor_profile_id,
+        userId,
+        toState: fromState,
+        nowIso,
+      });
+    }
     redirect(
       `/vendor-dashboard/verify?error=${encodeURIComponent(updErr.message)}`,
     );
   }
-
-  // Bump vendor_profiles.verification_state → 'pending_review' so the rest
-  // of the system (perk gates, payout model) reads the in-flight signal.
-  // We do this from the vendor's session client — the RLS policy on
-  // vendor_profiles is owner-only ALL, so the vendor can flip their own
-  // tier through this action.
-  const { data: existingProfile } = await supabase
-    .from('vendor_profiles')
-    .select('verification_state')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const fromState =
-    (existingProfile?.verification_state as string | null | undefined) ??
-    'unverified';
-
-  await supabase
-    .from('vendor_profiles')
-    .update({
-      verification_state: 'pending_review',
-      updated_at: now.toISOString(),
-    })
-    .eq('vendor_profile_id', profile.vendor_profile_id);
 
   // tier_history insert (best-effort). RLS allows owner SELECT but writes
   // go through the same session — there's no INSERT policy so writes need
@@ -362,18 +382,32 @@ export async function submitApplication(formData: FormData): Promise<void> {
   // admin_audit_log (which has SECURITY DEFINER paths in the schema). For
   // V1 we skip the tier_history insert here (idempotent — the admin
   // decision will write the next transition row).
-  await supabase.from('admin_audit_log').insert({
-    action: 'vendor_verification_submit',
-    target_table: 'vendor_verification_applications',
-    target_id: applicationId,
-    before_json: { status: 'draft', verification_state: fromState },
-    after_json: {
-      status: 'pending_review',
-      verification_state: 'pending_review',
-    },
-    actor_user_id: userId,
-    reason: null,
-  });
+  //
+  // Best-effort is EXPLICIT here (`.then(noop, noop)`, matching the inline twin)
+  // rather than an unchecked `await`. An audit row genuinely must not block a
+  // submit that already landed — but "we chose to ignore this" and "we forgot to
+  // check this" have to look different in the source, because the second one is
+  // what broke the profile flip above.
+  await supabase
+    .from('admin_audit_log')
+    .insert({
+      action: 'vendor_verification_submit',
+      target_table: 'vendor_verification_applications',
+      target_id: applicationId,
+      before_json: { status: 'draft', verification_state: fromState },
+      after_json: {
+        status: 'pending_review',
+        // A renewal submitted by an already-verified shop keeps its badge, so
+        // record what the profile ACTUALLY reads now, not an assumed value.
+        verification_state: flip.changed ? 'pending_review' : fromState,
+      },
+      actor_user_id: userId,
+      reason: null,
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    );
 
   // Cross-account signal (Phase B · 2026-06-19): fan out to the admin queue so
   // the SLA-started application is surfaced (and emailed). Best-effort — never
@@ -382,7 +416,7 @@ export async function submitApplication(formData: FormData): Promise<void> {
     vendorProfileId: profile.vendor_profile_id,
     applicationId,
     applicationType: app.application_type as string | null | undefined,
-  });
+  }).catch(() => undefined);
 
   revalidatePath('/vendor-dashboard/verify');
   revalidatePath('/admin/verify');

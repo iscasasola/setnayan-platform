@@ -162,8 +162,8 @@ before(async () => {
   // Without this, "SELECT business_name succeeded" would pass on an empty
   // result for the wrong reason.
   await db.exec(`
-    INSERT INTO public.vendor_profiles (business_name, public_visibility, verification_state, tin_number)
-    VALUES ('Test Vendor', 'verified', 'verified', '123-456-789-000');
+    INSERT INTO public.vendor_profiles (business_name, public_visibility, verification_state, tin_number, last_verified_at)
+    VALUES ('Test Vendor', 'verified', 'verified', '123-456-789-000', NOW());
   `);
 });
 

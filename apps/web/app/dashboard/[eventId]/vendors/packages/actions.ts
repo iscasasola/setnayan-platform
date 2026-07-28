@@ -13,10 +13,10 @@ import {
   priceCustomizedPackage,
   unresolvedRequiredChoices,
 } from '@/lib/package-credit-adapter';
+import { chargeableOptionIds } from '@/lib/package-choice-tree';
 import {
   isRemovableItem,
   keptItems,
-  resolveChosenOption,
   resolveVendorCategory,
   PACKAGE_ITEM_OPTION_SELECT,
   VENDOR_PACKAGE_SELECT,
@@ -170,12 +170,15 @@ export async function lockPackage(
   // a line the host just dropped — is discarded rather than rejected, matching
   // how `computeCustomization` already treats a bogus removal: a stale or
   // hostile client can neither crash the lock nor profit from it.
+  //
+  // 💰 THE SHARED BOUNDARY. This narrowing used to be spelled out here, and the
+  // couple-side configurator would have had to re-spell it to show a matching
+  // total — two copies of the rule that decides what the couple is charged. It
+  // now lives in ONE exported function that both the live total and this commit
+  // call, so a display total cannot drift from the committed total by anyone
+  // editing one copy. See ./lib/package-choice-tree.
   const requestedOptionIds = customizations.chosen_option_ids ?? [];
-  const chosenOptionIds = kept
-    .map((item) => resolveChosenOption(item, requestedOptionIds))
-    .filter((opt): opt is VendorPackageItemOptionRow => opt !== undefined)
-    .filter((opt) => requestedOptionIds.includes(opt.option_id))
-    .map((opt) => opt.option_id);
+  const chosenOptionIds = chargeableOptionIds(pkg, removedIds, requestedOptionIds);
 
   // ── The CREDIT engine (flag-dark) ────────────────────────────────────────
   //

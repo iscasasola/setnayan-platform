@@ -43,8 +43,17 @@ import { passesFaithFilter, passesEventTypeFilter } from '@/lib/taxonomy-filters
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
+import type { ChatInquiryStatus } from '@/lib/chat';
 
-const LOCKED_STATUSES = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+/** The `event_vendors.status` values that mean "this booking is committed". */
+export const LOCKED_VENDOR_STATUSES: readonly string[] = [
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+];
+
+const LOCKED_STATUSES = new Set<string>(LOCKED_VENDOR_STATUSES);
 
 /**
  * Every `VendorCategory` → its taxonomy tile. THREE passes, first-writer-wins:
@@ -148,6 +157,29 @@ export function categoryForTile(tile: WeddingTile): VendorCategory {
   return TILE_TO_CATEGORY[tile] ?? ('misc' as VendorCategory);
 }
 
+/**
+ * EVERY `VendorCategory` that lands on `tile` — the full inverse of
+ * `tileForCategory`, not the single storage representative `categoryForTile`
+ * returns.
+ *
+ * Explore Replan PR-C needs it for the removal guard: "is there a LOCKED vendor
+ * in this category?" is a question about `event_vendors.category`, and a tile
+ * rolls up several of them (e.g. `ceremony_venue` claims `officiant` and
+ * `church_fees` as well as `ceremony_venue`). Asking with only the
+ * representative category would miss a booking and let the couple hide it.
+ *
+ * Accepts a plain string because callers hold tile ids from the URL / the DB;
+ * an unknown tile simply returns `[]`, and the caller must treat that as "I
+ * could not prove this tile is empty", never as "it is empty".
+ */
+export function categoriesForTile(tile: string): VendorCategory[] {
+  const out: VendorCategory[] = [];
+  for (const [category, mapped] of Object.entries(CATEGORY_TO_TILE)) {
+    if (mapped === tile) out.push(category as VendorCategory);
+  }
+  return out;
+}
+
 /** One considered vendor in a tile's carousel (read-only — view, don't lock). */
 export type ShortlistVendor = {
   vendorId: string;
@@ -200,6 +232,20 @@ export type ShortlistVendor = {
    *  unknown / non-wedding → NEUTRAL — a lift for specialists, never a penalty
    *  for generalists. */
   faithMatch: boolean | null;
+  /** LENS input · ISO timestamp of the vendor's FIRST verification approval —
+   *  derived on the page from `MIN(vendor_tier_history.created_at)` over the
+   *  `to_state='verified'` transition rows, which is an append-only audit of
+   *  state CHANGES and so cannot be reset by a renewal. Feeds the "New here"
+   *  lens's `freshness` dim. NULL = no recorded first verification → NEUTRAL,
+   *  never 0: an unknown anchor withholds a newcomer's head-start but can never
+   *  make an established vendor read "New on Setnayan". */
+  firstVerifiedAt: string | null;
+  /** LENS input · how many OTHER couples have INQUIRED with this vendor for the
+   *  couple's exact date. Already floored at `MIN_DEMAND_COUPLE_COUNT` on the
+   *  server — a below-floor count is never serialized here at all — and sourced
+   *  from thread existence, so a saved-but-never-contacted vendor contributes
+   *  ZERO. NULL = no signal → NEUTRAL, never a penalty. */
+  demandCoupleCount: number | null;
   /** Fit-badge · budget fit (2026-07-09). 'fits' = the vendor's price basis is
    *  within the event's remaining budget (total − locked commitments); 'over' =
    *  it exceeds it; NULL = no budget set or no price basis → hidden. Locked picks
@@ -217,7 +263,91 @@ export type ShortlistVendor = {
    *  already committed for this event). Fail-open: a calendar flake reads 'free',
    *  never a false 'booked' (mirrors reach's no-false-out-of-range rule). */
   dateFit: 'free' | 'booked' | null;
+  /** ── Three-action card (Explore Replan slice D · spec §12.1) ─────────────
+   *  `event_vendors.marketplace_vendor_id` — the linked marketplace profile, or
+   *  NULL for an off-platform pick. This is the ONLY gate on the inquiry
+   *  affordance: `contactShortlistVendor` returns `not_marketplace` without it,
+   *  so a card that shows "Inquire" anyway is a guaranteed dead end. Gate on
+   *  THIS, never on a manual/source heuristic — `NewManualVendorModal`'s LINKED
+   *  mode writes a real profile id, so a linked manual add IS bookable. */
+  marketplaceVendorId: string | null;
+  /** `chat_threads.thread_id` for (this event, this vendor's profile), read in
+   *  the page's EXISTING batched thread select — never a per-card probe. NULL =
+   *  no thread yet → the card offers "Inquire". */
+  threadId: string | null;
+  /** The thread's inquiry status, from the same batched read. Combined with
+   *  `threadId` by `hasLiveInquiry` — never read raw at a call site. */
+  inquiryStatus: ChatInquiryStatus | null;
+  /** The PlanGroupId whose rules govern this pick, resolved from the vendor's
+   *  OWN stored category (the same resolution `finalizeVendor`'s conflict gate
+   *  and the budget bucketer key on — so an "Add to build" from the bench lands
+   *  in exactly the group the Build/Budget tabs read it from). NULL for a
+   *  category no plan group claims: the card then HIDES Add-to-build and Lock
+   *  rather than passing null into `setBuildPick` / `AccordionLockButton`
+   *  (the #3466 class of bug). */
+  planGroupId: string | null;
+  /** The money basis behind "Add to build" — a real quote (`total_cost_php`)
+   *  first, else the marketplace service's "starts at" anchor. Same basis the
+   *  budget-fit badge above already uses, so the card cannot claim a price the
+   *  badge doesn't. NULL = no price signal at all → the build CTA degrades to a
+   *  quiet "ask first" note (the bench's form of the shipped owner rule that
+   *  only priced services enter the build). */
+  priceBasisPhp: number | null;
+  /** Verification state for the lock gate, TRI-state on purpose: TRUE verified ·
+   *  FALSE still verifying (the lock button explains before the tap) · NULL
+   *  unknown / off-platform → no indicator, the server + DB trigger decide.
+   *  Distinct from `isVerified` above, which is a badge and coerces null→false;
+   *  coercing here would client-block a manual vendor from a lock they're
+   *  entitled to (spec §9). */
+  verifiedState: boolean | null;
+  /** ── Build-candidate schedule convergence · SOFT tier (Explore Replan PR-G1 ·
+   *  spec §6 decision #12) ───────────────────────────────────────────────────
+   *  Does this vendor still have a free day inside the BUILD's shared-date
+   *  window (the intersection of every locked + candidate vendor's calendar)?
+   *
+   *   • `'fits'`  — yes; the card behaves normally.
+   *   • `'clash'` — no; the card dims, its build/lock actions go quiet, and it
+   *     sinks behind the "Doesn't fit your build" divider. Fully reversible:
+   *     remove the clashing candidate and it is back on the rail.
+   *   • `null`    — NO VERDICT, and that is the default. The flag is off, the
+   *     couple has no convergeable window, this vendor has no calendar signal,
+   *     or the build's own window is already empty (a build conflict is never a
+   *     bench vendor's fault). Absence of data is never evidence against a
+   *     vendor — the fail-open rule the whole availability path is built on. */
+  buildFit: 'fits' | 'clash' | null;
+  /** The candidate this vendor shares no free day with — what the amber badge
+   *  NAMES so the couple knows exactly which pick to drop. Null when the clash
+   *  has no single culprit (or when `buildFit !== 'clash'`). */
+  buildClashWith: string | null;
+  /** The tiny mono "Free: Sep 12 · Sep 26" / "Free 24 of 30 days" line, already
+   *  formatted upstream against the probe window's size. Null = say nothing (no
+   *  signal, or no free day — the amber badge covers that case). */
+  freeDaysLine: string | null;
 };
+
+/**
+ * THE canonical "does this pick have a live inquiry?" predicate (spec §12.1
+ * step 5). Exported from here so the BENCH card and the PUBLIC vendor profile
+ * (`app/v/[slug]/page.tsx`) resolve it from ONE implementation — before this,
+ * four divergent versions existed and the bench's did not exclude `declined`,
+ * so the same vendor read "Check inquiry" on the bench and "Inquire" on their
+ * own profile.
+ *
+ * ⚠ Share the PREDICATE ONLY, never the event SCOPING. `/v/[slug]` resolves the
+ * couple's PRIMARY event (`events[0]`); the bench is scoped to the event the
+ * couple is currently planning. Those are different questions and must stay
+ * answered by their own callers.
+ *
+ * A `declined` thread has no conversation to resume, so it reads as "no live
+ * inquiry" and the card offers a fresh Inquire (the server dedupes on the
+ * UNIQUE(event_id, vendor_profile_id) thread, so that can never double-send).
+ */
+export function hasLiveInquiry(v: {
+  threadId: string | null;
+  inquiryStatus: string | null;
+}): boolean {
+  return v.threadId != null && v.inquiryStatus !== 'declined';
+}
 
 /** One taxonomy tile (a category) inside a folder. */
 export type ShortlistTile = {
@@ -291,6 +421,24 @@ export function buildShortlistFolders(args: {
    *  Compare tab uses. Absent / no committed date → no date badges. Locked picks
    *  are skipped here (they're already committed for this event). */
   dateFitByVendorId?: ReadonlyMap<string, 'free' | 'booked'>;
+  /** Per-vendor same-date INQUIRY count for the "In demand right now" lens.
+   *  vendor_id → n. Resolved upstream (page.tsx) from `event_vendors` holds
+   *  narrowed to events that also opened a `chat_threads` row, then floored at
+   *  `MIN_DEMAND_COUPLE_COUNT`, so every entry here is already ≥ the floor and
+   *  inquiry-backed. Absent map (flag off / no committed date) → no vendor
+   *  carries a demand signal and the lens cannot discriminate → it hides. */
+  demandByVendorId?: ReadonlyMap<string, number>;
+  /** Per-vendor SOFT-tier verdict against the build's shared-date window
+   *  (Explore Replan PR-G1). Resolved once upstream by
+   *  `classifyAgainstBuildWindow`; a vendor absent from the map gets `null` —
+   *  no verdict, no sinking, no disabled action. Absent map (flag OFF) ⇒ every
+   *  card renders exactly as it does in production today. */
+  buildFitByVendorId?: ReadonlyMap<string, { fits: boolean; clashWith: string | null }>;
+  /** Per-vendor pre-formatted "Free: …" line, keyed by vendor_id. Formatted
+   *  upstream because the wording depends on the PROBE WINDOW's size (name the
+   *  days for a handful of candidate dates; count them for a whole month) and
+   *  that is a page-level fact, not a per-vendor one. */
+  freeDaysLineByVendorId?: ReadonlyMap<string, string>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -302,6 +450,9 @@ export function buildShortlistFolders(args: {
     plannedTiles,
     totalBudgetPhp,
     dateFitByVendorId,
+    demandByVendorId,
+    buildFitByVendorId,
+    freeDaysLineByVendorId,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -397,6 +548,14 @@ export function buildShortlistFolders(args: {
       distanceKm: ext?.distance_km ?? null,
       budgetFitRatio: ext?.budget_fit_ratio ?? null,
       faithMatch: ext?.faith_match ?? null,
+      // Lens inputs. Both are pure ADDITIONS to the ranking vocabulary and are
+      // null on every existing path, so the shipped lenses are unchanged.
+      // A LOCKED pick carries no demand signal: the couple has already
+      // committed, so telling them other couples are competing for the vendor
+      // they booked is noise at best and pressure at worst — same "locked skips"
+      // discipline as the budget + date badges below.
+      firstVerifiedAt: ext?.first_verified_at ?? null,
+      demandCoupleCount: isLocked ? null : demandByVendorId?.get(v.vendor_id) ?? null,
       budgetFit,
       budgetEstimated,
       // Fit-badge · date. Skipped for locked picks (already committed for this
@@ -404,6 +563,28 @@ export function buildShortlistFolders(args: {
       // read on your OWN chosen vendor would be misleading) — same "locked skips"
       // discipline as budget above. Absent map / no committed date → null.
       dateFit: isLocked ? null : dateFitByVendorId?.get(v.vendor_id) ?? null,
+      // ── Three-action card inputs (slice D). All four come off rows the page
+      // ALREADY read — the shortlist row itself (marketplace link, category)
+      // and the batched thread select — so the card costs zero extra queries.
+      marketplaceVendorId: v.marketplace_vendor_id ?? null,
+      threadId: ext?.thread_id ?? null,
+      inquiryStatus: ext?.inquiry_status ?? null,
+      // The vendor's OWN category decides the group (not the tile's), so the
+      // build pick lands where Budget/Build already bucket this vendor.
+      planGroupId: planGroupForCategory(v.category),
+      // Reuses the SAME basis the budget badge computed two statements up.
+      priceBasisPhp: budgetBasis,
+      verifiedState: ext?.is_verified ?? null,
+      // ── Schedule convergence, SOFT tier (PR-G1). Both come off maps resolved
+      // once upstream from the SAME batched calendar read the date-fit badge
+      // above already runs — zero extra queries here, and an absent entry means
+      // "no verdict", never "doesn't fit".
+      buildFit: (() => {
+        const f = buildFitByVendorId?.get(v.vendor_id);
+        return f ? (f.fits ? 'fits' : 'clash') : null;
+      })(),
+      buildClashWith: buildFitByVendorId?.get(v.vendor_id)?.clashWith ?? null,
+      freeDaysLine: freeDaysLineByVendorId?.get(v.vendor_id) ?? null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);

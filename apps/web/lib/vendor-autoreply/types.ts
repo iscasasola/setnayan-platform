@@ -29,6 +29,15 @@ export type StoreDiscount = {
   type: string; // vendor_service_discounts.discount_type
   rate: number;
   unit: 'pct' | 'php';
+  /**
+   * Early-booking LADDER rung threshold in months (owner-locked 2026-07-27);
+   * null = no threshold. Carried so the auto-reply can NAME each rung — a
+   * ladder is several `early_booking` rows, and without the threshold the reply
+   * would list "15% off (Early Booking), 10% off (Early Booking)" as two
+   * indistinguishable offers. The reply only STATES the ladder; the couple's
+   * event date is what picks their tier, on their card, never in chat.
+   */
+  minLeadMonths?: number | null;
 };
 
 export type StoreService = {

@@ -105,13 +105,18 @@ function buildCoverage(store: VendorStoreSnapshot): string | null {
 function buildDiscount(store: VendorStoreSnapshot): string {
   const ds = store.services.flatMap((s) => s.discounts);
   if (ds.length === 0) return `We don't have a running promo at the moment.`;
-  const parts = ds
-    .slice(0, 3)
-    .map((d) =>
-      d.unit === 'pct'
-        ? `${d.rate}% off (${labelize(d.type)})`
-        : `${formatPhp(d.rate)} off (${labelize(d.type)})`,
-    );
+  const parts = ds.slice(0, 3).map((d) => {
+    const amount = d.unit === 'pct' ? `${d.rate}% off` : `${formatPhp(d.rate)} off`;
+    // Name the lead-time rung, or a ladder reads as repeated "Early Booking"
+    // offers with no way to tell them apart (owner-locked 2026-07-27). This
+    // only STATES the ladder — the couple's event date picks their tier on
+    // their card; nothing here is negotiated.
+    const qualifier =
+      d.minLeadMonths != null && d.minLeadMonths >= 1
+        ? `${labelize(d.type)}, ${d.minLeadMonths}+ months ahead`
+        : labelize(d.type);
+    return `${amount} (${qualifier})`;
+  });
   return `Current offers: ${parts.join(', ')}.`;
 }
 

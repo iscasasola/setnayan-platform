@@ -49,14 +49,59 @@ export const COMPAT_WEIGHTS = {
   faithFit: 0.07,
   /** Verified / Setnayan-Pay-boosted / profile completeness. */
   trust: 0.07,
+  /** How many OTHER couples have INQUIRED with this vendor for the couple's
+   *  exact date (Explore_Replan §15.1, "In demand right now"). ZERO in the
+   *  global vector — it only carries weight inside that one lens, so every
+   *  existing caller is byte-for-byte unchanged. Never a penalty: a vendor
+   *  nobody has inquired about sits at NEUTRAL, not at 0. */
+  demandPressure: 0,
+  /** How recently the vendor FIRST passed verification (Explore_Replan §15.1,
+   *  "New here"). ZERO in the global vector for the same reason as
+   *  `demandPressure` — it only carries weight (0.25) inside that one lens, so
+   *  adding it here cannot move any existing caller's number. Like `faithFit`
+   *  it is a LIFT-ONLY dimension: an established vendor sits at NEUTRAL rather
+   *  than being penalised for no longer being new. */
+  freshness: 0,
 } as const;
+
+/**
+ * A complete weight vector — one number per dimension, summing to 1.
+ *
+ * This is the type a RANKING LENS hands to `computeCompatScore`. There is
+ * exactly one scorer on this platform; a lens is a named vector passed to it,
+ * never a second scorer and never a bespoke comparator (Explore_Replan §15.0).
+ * The registry lives in `lib/ranking-lenses.ts`, which asserts the sum-to-one
+ * invariant per member in its unit suite.
+ */
+export type CompatWeights = Record<keyof typeof COMPAT_WEIGHTS, number>;
 
 /** A dimension we have no data for scores at this neutral baseline (slightly
  *  positive — "no reason to down-rank"), never 0. */
 export const COMPAT_NEUTRAL = 0.6;
 const NEUTRAL = COMPAT_NEUTRAL;
 
-/** The seven weighted dimensions, as a type. Lets a caller reason about WHICH
+/**
+ * PRIVACY FLOOR for the same-date demand signal (`demandPressure`).
+ *
+ * `Schedule_Matrix_and_Date_Finder_2026-06-02.md` §8.3, owner: *"Don't show a
+ * '1'."* A count of one, attached to a solo vendor and an exact date in a small
+ * municipality, is functionally re-identifying — the other couple is findable.
+ * Below this floor the dimension resolves to NEUTRAL (no lift, no pill, no
+ * number), exactly as if there were no signal at all.
+ *
+ * This is the SECOND of two enforcement points, deliberately. The producer
+ * (`dashboard/[eventId]/vendors/page.tsx`) refuses to serialize a below-floor
+ * count to the client at all; this one guarantees that any OTHER caller that
+ * ever passes a raw count still cannot render one.
+ */
+export const MIN_DEMAND_COUPLE_COUNT = 3;
+
+/** Where the demand lift saturates. At or above this many inquiring couples the
+ *  dimension is maxed; between the floor and here it ramps. Bounded so a
+ *  runaway count can't dominate a weighted composite. */
+const DEMAND_SATURATION_COUPLES = 10;
+
+/** Every weighted dimension, as a type. Lets a caller reason about WHICH
  *  dimension carried a score without re-deriving the weight table. */
 export type CompatDimension = keyof typeof COMPAT_WEIGHTS;
 
@@ -106,6 +151,36 @@ export type CompatInputs = {
    *  inquiries within the admin SLA → earns a responsiveness head-start.
    *  Undefined/false = no head-start (sits at neutral, never a penalty). */
   respondsFast?: boolean;
+  /** How many OTHER couples have INQUIRED with this vendor for the couple's
+   *  exact event date. Feeds the `demandPressure` dim (weight 0 outside the
+   *  "In demand right now" lens).
+   *
+   *  Three hard rules the caller must honour, and which this module enforces
+   *  again regardless:
+   *  1. INQUIRIES, not saves. A couple who merely shortlisted a vendor has not
+   *     competed for them — counting that is manufactured scarcity (owner,
+   *     2026-06-02: competition "starts at the inquiry (Stage 2), NEVER at
+   *     search (Stage 1)").
+   *  2. Below `MIN_DEMAND_COUPLE_COUNT` this resolves to NEUTRAL — no lift, no
+   *     reason phrase, no number.
+   *  3. Absent/null is NEUTRAL, never 0. A vendor nobody has inquired about is
+   *     unknown demand, not bad demand. */
+  demandCoupleCount?: number | null;
+  /** How NEW this vendor is on Setnayan, as a 0–1 ratio: 1.0 on the day they
+   *  first passed verification, decaying to 0 across the freshness window.
+   *  Feeds the `freshness` dim (weight 0 outside the "New here" lens).
+   *
+   *  The caller derives it with `freshnessRatioFrom` in `lib/ranking-lenses.ts`
+   *  off `MIN(vendor_tier_history.created_at) WHERE to_state = 'verified'` —
+   *  NOT off `vendor_profiles.created_at` (row-insert time; the ADMIN's date
+   *  for seeded profiles) and NOT off `last_verified_at` (overwritten by every
+   *  renewal, so an established vendor would read as brand new).
+   *
+   *  Null/absent → NEUTRAL, never 0. An unknown anchor withholds a newcomer's
+   *  head-start but can never make an established vendor read "New on
+   *  Setnayan" — the safe direction to fail. Past the window is ALSO null, not
+   *  0: being established is not a defect. */
+  freshnessRatio?: number | null;
   /** Admin-managed `platform_settings.firstlook_boost_weight` (0–0.5). The
    *  fast-responder blend scales the five-dimension score by (1 - boostWeight)
    *  and adds boostWeight for fast responders, so COMPAT_WEIGHTS still sum to 1
@@ -146,6 +221,39 @@ function reviewsSub(avgRating: number | null | undefined, reviewCount: number | 
 
 /** Verified + boosted → 0..1. Verified is the bulk of trust; boosted adds a
  *  small nudge. Unverified sits at the midpoint (not punished, not rewarded). */
+/**
+ * Same-date inquiry demand → 0..1. Shaped like `faithFit`: a LIFT for the
+ * positive case, NEUTRAL for everything else, and never a penalty — a vendor
+ * with no recorded demand must not be pushed below a vendor with some, because
+ * "nobody inquired" and "we have no data" are indistinguishable here.
+ *
+ * Below the privacy floor (or absent) → NEUTRAL. At the floor → a modest lift;
+ * ramping to a full 1.0 at `DEMAND_SATURATION_COUPLES` and no further.
+ */
+function demandSub(count: number | null | undefined): number {
+  if (count == null || !Number.isFinite(count) || count < MIN_DEMAND_COUPLE_COUNT) {
+    return NEUTRAL;
+  }
+  const span = DEMAND_SATURATION_COUPLES - MIN_DEMAND_COUPLE_COUNT;
+  const t = span > 0 ? clamp01((count - MIN_DEMAND_COUPLE_COUNT) / span) : 1;
+  // 0.7 at the floor → 1.0 at saturation.
+  return clamp01(NEUTRAL + (1 - NEUTRAL) * (0.25 + 0.75 * t));
+}
+
+/**
+ * Freshness → 0..1. Shaped like `faithFit` and `demandPressure`: a LIFT for the
+ * positive case, NEUTRAL for everything else, and NEVER a penalty.
+ *
+ * Being established must not cost a vendor anything — "we have no anchor" and
+ * "they were verified two years ago" both resolve to NEUTRAL, indistinguishable
+ * from each other and from every other unknown. Only a genuinely recent first
+ * verification lifts, and only inside the one lens that weights this dimension.
+ */
+function freshnessSub(ratio: number | null | undefined): number {
+  if (ratio == null || !Number.isFinite(ratio)) return NEUTRAL;
+  return clamp01(NEUTRAL + (1 - NEUTRAL) * clamp01(ratio));
+}
+
 function trustSub(verified: boolean | undefined, boosted: boolean | undefined): number {
   let s = verified ? 0.85 : 0.5;
   if (boosted) s += 0.15;
@@ -153,10 +261,13 @@ function trustSub(verified: boolean | undefined, boosted: boolean | undefined): 
 }
 
 /**
- * The seven per-dimension sub-scores (each 0..1) BEFORE weighting — the single
+ * The per-dimension sub-scores (each 0..1) BEFORE weighting — the single
  * implementation `computeCompatScore` itself consumes, exported so a caller can
  * explain a score without re-deriving (and inevitably drifting from) the math.
  * Every missing input still resolves to NEUTRAL here, exactly as in the score.
+ *
+ * Sub-scores are WEIGHT-INDEPENDENT by construction: a ranking lens changes the
+ * weights, never the sub-scores, so this function takes no weight vector.
  */
 export function compatSubScores(input: CompatInputs): Record<CompatDimension, number> {
   // Refinement fit: prefer the concrete music song-overlap, else the general
@@ -175,6 +286,8 @@ export function compatSubScores(input: CompatInputs): Record<CompatDimension, nu
     dateHeadroom: input.dateHeadroomRatio == null ? NEUTRAL : clamp01(input.dateHeadroomRatio),
     faithFit: input.faithMatch === true ? 0.95 : NEUTRAL,
     trust: trustSub(input.verified, input.boosted),
+    demandPressure: demandSub(input.demandCoupleCount),
+    freshness: freshnessSub(input.freshnessRatio),
   };
 }
 
@@ -187,13 +300,24 @@ export function compatSubScores(input: CompatInputs): Record<CompatDimension, nu
  * the function returns **null** — there is no reason to give, so the caller
  * must render none rather than invent one. A dimension scoring BELOW neutral
  * (e.g. booked on the date) can never win either.
+ *
+ * WEIGHT-AWARE (Explore_Replan §15.6): pass the ACTIVE LENS's vector so the
+ * reason pill explains the order the couple is actually looking at. Under "New
+ * here" (freshness 0.25, reviews 0.06) a newcomer's pill should read "New on
+ * Setnayan", not "Well reviewed" — the pill and the sort must never disagree.
+ * A dimension at weight 0 has a lift of exactly 0 and therefore can NEVER be
+ * returned, which is what keeps the two lens-only dimensions invisible in every
+ * caller that does not ask for them.
  */
-export function topCompatDimension(input: CompatInputs): CompatDimension | null {
+export function topCompatDimension(
+  input: CompatInputs,
+  weights: CompatWeights = COMPAT_WEIGHTS,
+): CompatDimension | null {
   const sub = compatSubScores(input);
   let best: CompatDimension | null = null;
   let bestLift = 0;
   for (const dim of Object.keys(COMPAT_WEIGHTS) as CompatDimension[]) {
-    const lift = COMPAT_WEIGHTS[dim] * (sub[dim] - NEUTRAL);
+    const lift = weights[dim] * (sub[dim] - NEUTRAL);
     if (lift > bestLift) {
       bestLift = lift;
       best = dim;
@@ -205,18 +329,36 @@ export function topCompatDimension(input: CompatInputs): CompatDimension | null 
 /**
  * Compute the 0–100 compatibility score + tier for one eligible vendor.
  * Inputs that are null/absent fall back to a neutral baseline (admit-unknown).
+ *
+ * `weights` is the RANKING LENS (Explore_Replan §15.0) — "a lens is a named
+ * weight vector handed to `computeCompatScore`", which is why this parameter
+ * exists at all. THE MATH DID NOT CHANGE, only the signature: the default is
+ * `COMPAT_WEIGHTS`, so every pre-existing single-argument caller
+ * (`_actions/category-search.ts`, `build-3state-actions.ts`,
+ * `build-3state-fallback-actions.ts`, `vendor-autoreply/auto-accept.ts`,
+ * `plan-budget-accordion.tsx`, `app/tour/vendors/page.tsx`) produces
+ * byte-for-byte the same number it produced before. That equality is asserted
+ * in `ranking-lenses.test.ts`, not merely intended.
+ *
+ * Every vector in the registry sums to 1, so the 0–100 range and the
+ * strong/good/fair tier thresholds mean the same thing under every lens.
  */
-export function computeCompatScore(input: CompatInputs): { score: number; tier: CompatTier } {
+export function computeCompatScore(
+  input: CompatInputs,
+  weights: CompatWeights = COMPAT_WEIGHTS,
+): { score: number; tier: CompatTier } {
   const sub = compatSubScores(input);
 
   const raw =
-    COMPAT_WEIGHTS.refinement * sub.refinement +
-    COMPAT_WEIGHTS.budgetFit * sub.budgetFit +
-    COMPAT_WEIGHTS.distance * sub.distance +
-    COMPAT_WEIGHTS.reviews * sub.reviews +
-    COMPAT_WEIGHTS.dateHeadroom * sub.dateHeadroom +
-    COMPAT_WEIGHTS.faithFit * sub.faithFit +
-    COMPAT_WEIGHTS.trust * sub.trust;
+    weights.refinement * sub.refinement +
+    weights.budgetFit * sub.budgetFit +
+    weights.distance * sub.distance +
+    weights.reviews * sub.reviews +
+    weights.dateHeadroom * sub.dateHeadroom +
+    weights.faithFit * sub.faithFit +
+    weights.trust * sub.trust +
+    weights.demandPressure * sub.demandPressure +
+    weights.freshness * sub.freshness;
 
   // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
   // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast
@@ -300,6 +442,28 @@ export function explainCompatScore(input: CompatInputs): string[] {
   // dateHeadroom (.08) — free on most candidate dates.
   if (input.dateHeadroomRatio != null && clamp01(input.dateHeadroomRatio) > NEUTRAL) {
     reasons.push('Free on your dates');
+  }
+
+  // demandPressure (0 globally; 0.22 inside the "In demand right now" lens) —
+  // a FACT with its own number, not a scarcity claim. The phrase states what
+  // was measured ("N couples inquired for your date") and nothing more: no
+  // "only N left", no "booking fast", no "almost gone" — there is no capacity
+  // counter behind any of those (vendor_schedule_pool_bookings has no
+  // cross-couple SELECT policy), so they would be invented. The
+  // `demandSub > NEUTRAL` gate means the privacy floor is already applied:
+  // this phrase can never render for fewer than MIN_DEMAND_COUPLE_COUNT.
+  const demandCount = input.demandCoupleCount;
+  if (demandCount != null && demandSub(demandCount) > NEUTRAL) {
+    reasons.push(`${demandCount} couples inquired for your date`);
+  }
+
+  // freshness (0 globally; 0.25 inside the "New here" lens) — a DATE FACT and
+  // nothing more. "New on Setnayan" states when they joined; it must never
+  // imply vetting, quality, curation or endorsement (§15.4), because the only
+  // thing measured is the age of a verification timestamp. The lens exists to
+  // give newcomers a chance to be seen, not to recommend them.
+  if (input.freshnessRatio != null && freshnessSub(input.freshnessRatio) > NEUTRAL) {
+    reasons.push('New on Setnayan');
   }
 
   // trust (.10) — verified pushes trust above neutral; unverified sits below it.

@@ -60,6 +60,7 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import {
   buildVendorVenueEvents,
   fetchViewerVenue,
@@ -76,10 +77,12 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import {
+  PACKAGE_ITEM_BRANCHING_SELECT,
   PACKAGE_ITEM_OPTION_SELECT,
   VENDOR_PACKAGE_SELECT,
   VENDOR_PACKAGE_ITEM_SELECT,
 } from '@/lib/vendor-packages';
+import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
@@ -103,6 +106,12 @@ import {
 } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import type { CardRecordRating } from '@/app/_components/card-record-section';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -880,6 +889,25 @@ export async function renderVendorBySlug({
     resolveServiceShowcaseMedia(activeServices),
   ]);
 
+  // CARD RECORD (owner-locked 2026-07-28) — each card's compiled history:
+  // booked count, event-type mix, anonymized ledger, milestone medals. ONE RPC
+  // for the WHOLE gallery: `service_card_records` is batched precisely because
+  // this page is force-dynamic, so a per-card reader would have meant one
+  // round-trip per card on every uncached public request.
+  //
+  // Read through `admin` (service-role). The RPC is deliberately NOT granted to
+  // anon — no browser calls it, and withholding anon EXECUTE also closes the
+  // id-enumeration path to draft and paused cards. It returns only
+  // de-identified aggregates (no name, id, exact date, venue, price or exact
+  // pax), with a minimum-N floor and a completed-month ledger boundary applied
+  // in SQL, so nothing here can under-suppress by forgetting a rule.
+  //
+  // Flag-gated so OFF costs not one extra query — the map stays empty, every
+  // card's `record` is null, and the gallery renders byte-identically to today.
+  const cardRecordByService = cardRecordEnabled()
+    ? await fetchServiceCardRecords(admin, activeServiceIds)
+    : new Map<string, CompiledCardRecord>();
+
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
   const eventTypeLabelByKey = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
@@ -1113,12 +1141,22 @@ export async function renderVendorBySlug({
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .maybeSingle();
       // Only surface "View thread" for non-declined threads — a declined
-      // thread has no active conversation to resume.
+      // thread has no active conversation to resume. The RULE lives in
+      // `hasLiveInquiry` (lib/shortlist-taxonomy.ts) so this surface and the
+      // event bench's three-action card can never drift on what "has an
+      // inquiry" means (Explore Replan slice D · spec §12.1 step 5). Only the
+      // PREDICATE is shared — the event SCOPING above (the couple's PRIMARY
+      // event) stays this page's own and must not be reused by the bench.
       const t = threadResult.data as
         | { thread_id: string; inquiry_status: string }
         | null;
-      if (t?.thread_id && t.inquiry_status !== 'declined') {
-        existingThreadId = t.thread_id;
+      if (
+        hasLiveInquiry({
+          threadId: t?.thread_id ?? null,
+          inquiryStatus: t?.inquiry_status ?? null,
+        })
+      ) {
+        existingThreadId = t?.thread_id ?? null;
       }
     }
   }
@@ -1140,6 +1178,23 @@ export async function renderVendorBySlug({
   // vendor that has ≥1 active service.
   const showInquiryComposer =
     bookable && coupleEventId !== null && composerInitial !== null;
+
+  // Early-booking LADDER on the composer's price line (owner-locked 2026-07-27).
+  // The composer only ever renders for a signed-in couple WITH an event, so the
+  // tier here is always the one THEIR date qualifies for — the same resolver the
+  // service card uses, so the two lines can never disagree. Suppressed when the
+  // vendor hides prices (a "−10%" reveals the underlying figure) and when their
+  // date qualifies for no rung. DISPLAY ONLY: the vendor still confirms the
+  // final price in their reply, which the copy says out loud.
+  const composerLeadTierNote: string | null = (() => {
+    if (hidePricesPublicly || !showInquiryComposer || composerInitial === null) return null;
+    const picked = pickBestDiscount(
+      discountsByService.get(composerInitial.vendor_service_id),
+      composerInitial.starting_price_php,
+      { eventDate: coupleEventDate, now: new Date() },
+    );
+    return typeof picked?.leadTier === 'number' ? picked.label : null;
+  })();
 
   // Compose-first Inquire (owner 2026-07-02) — a bookable vendor with ≥1 service
   // viewed by someone WITHOUT an event yet (signed-out, or signed-in with no
@@ -1170,6 +1225,16 @@ export async function renderVendorBySlug({
     showInquiryComposer && coupleEventId
       ? await resolveLivePax(supabase, coupleEventId)
       : null;
+
+  // Head count for the package configurator's per-head option upgrades
+  // ("+₱150/head"). SERVER-resolved, and the SAME number `lockPackage` resolves
+  // for itself — quoting a per-head upgrade at anything else is a display total
+  // that drifts from the charge. Only fetched when a package can actually be
+  // configured: flag on, signed-in host with an event, packages to show.
+  const packageLivePax =
+    packageCreditEnabled() && coupleEventId && vendorPackages.length > 0
+      ? ((await resolveLivePax(supabase, coupleEventId)) ?? 0)
+      : 0;
 
   // Phase 1b PR-3 · per-category requirements capture. The initial pick's
   // category IS the canonical_service (vendor_services.category ≈ 1:1 with
@@ -2168,6 +2233,22 @@ export async function renderVendorBySlug({
             servesByService={servesByService}
             showcaseByService={showcaseByService}
             hidePrices={hidePricesPublicly}
+            coupleEventDate={coupleEventDate}
+            cardRecordByService={cardRecordByService}
+            /* Reuses the SAME trusted aggregate the hero stars read — the only
+               source the anti-fraud lock permits for a public rating number —
+               so the record block can never disagree with the top of the page,
+               and costs no extra query. Vendor-level by nature: reviews carry
+               no service dimension, which is why the badge says "shop rating". */
+            cardRecordRating={
+              trustedReviewStats.trusted_review_count > 0 &&
+              trustedReviewStats.trusted_avg_rating > 0
+                ? {
+                    avg: trustedReviewStats.trusted_avg_rating,
+                    count: trustedReviewStats.trusted_review_count,
+                  }
+                : null
+            }
           />
         ) : null}
 
@@ -2194,6 +2275,7 @@ export async function renderVendorBySlug({
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
             hidePrices={hidePricesPublicly}
+            paxCount={packageLivePax}
           />
         ) : null}
 
@@ -2278,6 +2360,7 @@ export async function renderVendorBySlug({
                 vendorServiceId: composerInitial.vendor_service_id,
                 label: serviceLabel(composerInitial),
                 priceLabel: servicePriceLabel(composerInitial),
+                leadTierNote: composerLeadTierNote,
                 categoryKey: composerInitial.category,
               }}
               linked={(linkedByService.get(composerInitial.vendor_service_id) ?? []).map(
@@ -2597,6 +2680,9 @@ function ServicesPricingSection({
   servesByService,
   showcaseByService,
   hidePrices,
+  coupleEventDate,
+  cardRecordByService,
+  cardRecordRating,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2608,6 +2694,19 @@ function ServicesPricingSection({
   showcaseByService: Map<string, ServiceShowcaseMedia>;
   /** Council #6: vendor opted to hide public prices → strip every peso amount. */
   hidePrices: boolean;
+  /** The viewing couple's event date (ISO YYYY-MM-DD), when a signed-in couple
+   *  with an event is looking. Drives the early-booking LADDER: their date picks
+   *  the tier and the badge names it ("Booked 6+ months ahead · −10%"). null =
+   *  anonymous / no event → the badge advertises the ladder as "up to" instead
+   *  (owner-locked 2026-07-27). DISPLAY ONLY — nothing here is charged. */
+  coupleEventDate: string | null;
+  /** Compiled Card Record per service id. EMPTY when NEXT_PUBLIC_CARD_RECORD_
+   *  ENABLED is off (the reader is not even called), so every card's record is
+   *  null and the gallery renders exactly as it does today. */
+  cardRecordByService: Map<string, CompiledCardRecord>;
+  /** Shop-wide trusted rating rendered inside the record block. Vendor-level by
+   *  nature — reviews attach to the profile, not to a service. null → no stars. */
+  cardRecordRating: CardRecordRating | null;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2618,6 +2717,10 @@ function ServicesPricingSection({
     if (bucket) bucket.push(s);
     else byGroup.set(key, [s]);
   }
+
+  // ONE clock for every card on this render — the lead-time ladder must not be
+  // able to resolve two different tiers within a single page.
+  const now = new Date();
 
   // Build serializable coverage groups for the client gallery, preserving the
   // canonical SERVICE_GROUPS order + which groups render (behaviour-identical to
@@ -2637,6 +2740,10 @@ function ServicesPricingSection({
           servesByService.get(row.vendor_service_id),
           showcaseByService.get(row.vendor_service_id),
           hidePrices,
+          coupleEventDate,
+          now,
+          cardRecordByService.get(row.vendor_service_id) ?? null,
+          cardRecordRating,
         ),
       ),
     });
@@ -2675,6 +2782,15 @@ function toServiceCard(
   /** Council #6: when true the vendor opted to hide public prices — every peso
    *  amount below is suppressed (labels/inclusions still show; only figures go). */
   hidePrices: boolean,
+  /** Viewing couple's event date (ISO YYYY-MM-DD) or null — picks the
+   *  early-booking ladder tier (owner-locked 2026-07-27). */
+  coupleEventDate: string | null,
+  /** The render's single clock (injected — never Date.now() down here). */
+  now: Date,
+  /** This card's compiled record, or null when the flag is off. */
+  cardRecord: CompiledCardRecord | null,
+  /** Shop-wide trusted rating for the record block, or null. */
+  cardRecordRating: CardRecordRating | null,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2722,7 +2838,18 @@ function toServiceCard(
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
   // savings on the anchor, dropping expired offers). Suppressed when the vendor
   // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
-  const best = hidePrices ? null : pickBestDiscount(discounts, row.starting_price_php);
+  //
+  // Early-booking LADDER (owner-locked 2026-07-27): when the viewer is a couple
+  // with an event date, that date picks the tier and the badge names it
+  // ("Booked 6+ months ahead · −10%"); rungs they are too late for are dropped.
+  // Anonymous viewers see the ladder advertised as "Save up to 15% booking
+  // early". Display only — the quote still happens in chat.
+  const best = hidePrices
+    ? null
+    : pickBestDiscount(discounts, row.starting_price_php, {
+        eventDate: coupleEventDate,
+        now,
+      });
 
   // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
   // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
@@ -2769,6 +2896,11 @@ function toServiceCard(
     serves: serves ?? null,
     photos: showcase?.photos ?? [],
     videoUrl: showcase?.videoUrl ?? null,
+    // A card with no history shows NOTHING new — the record only exists once
+    // this card has actually been booked (owner: a zero-history card must not
+    // advertise its emptiness).
+    record: cardRecord && cardRecord.bookedCount > 0 ? cardRecord : null,
+    recordRating: cardRecord && cardRecord.bookedCount > 0 ? cardRecordRating : null,
   };
 }
 
@@ -3258,17 +3390,33 @@ async function fetchVendorPackagesWithItems(
     if (pkgsErr || !pkgs || pkgs.length === 0) return [];
 
     const packageIds = pkgs.map((p) => p.package_id);
-    const { data: items } = await admin
-      .from('vendor_package_items')
-      .select(
-        // `is_required` drives the "Always included" lock in the customize
-        // modal. It was missing here, so on this page every required line
-        // rendered as a normal unticking checkbox — the server still refused
-        // the removal, but the UI said otherwise.
-        VENDOR_PACKAGE_ITEM_SELECT,
-      )
-      .in('package_id', packageIds)
-      .order('display_order', { ascending: true });
+    // `is_required` drives the "Always included" lock in the customize modal. It
+    // was missing here, so on this page every required line rendered as a normal
+    // unticking checkbox — the server still refused the removal, but the UI said
+    // otherwise.
+    //
+    // The BRANCHING columns are appended only behind the credit flag, and only
+    // here — never on `lockPackage`'s own select. This fetch is best-effort (the
+    // catch below renders no packages at all), so if the branching migration has
+    // not landed the cost is a hidden section; the same names on the lock path
+    // would be a PostgREST 400 on a money action. See
+    // PACKAGE_ITEM_BRANCHING_SELECT.
+    //
+    // TWO WHOLE QUERIES, not one with a ternary select: postgrest-js parses the
+    // select string in the TYPE system, and a union of two literals makes that
+    // parser bail (`ParserError<"Unexpected input: …">`), which erases the row
+    // type. Each branch has to carry a single concrete literal.
+    const { data: items } = packageCreditEnabled()
+      ? await admin
+          .from('vendor_package_items')
+          .select(`${VENDOR_PACKAGE_ITEM_SELECT}, ${PACKAGE_ITEM_BRANCHING_SELECT}`)
+          .in('package_id', packageIds)
+          .order('display_order', { ascending: true })
+      : await admin
+          .from('vendor_package_items')
+          .select(VENDOR_PACKAGE_ITEM_SELECT)
+          .in('package_id', packageIds)
+          .order('display_order', { ascending: true });
 
     // CHOICE lines. A line is a choice iff it has options, so this join is what
     // makes them visible at all — without it the couple saw an inclusion with
@@ -3322,12 +3470,15 @@ function VendorPackagesSection({
   coupleEventId,
   isComingSoon,
   hidePrices,
+  paxCount,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
   hidePrices: boolean;
+  /** Server-resolved head count, so a per-head upgrade quotes at what it charges. */
+  paxCount: number;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -3351,7 +3502,13 @@ function VendorPackagesSection({
               </p>
             );
           } else if (coupleEventId) {
-            cta = <LockPackageModal eventId={coupleEventId} pkg={pkg} />;
+            cta = (
+              <LockPackageModal
+                eventId={coupleEventId}
+                pkg={pkg}
+                paxCount={paxCount}
+              />
+            );
           } else {
             cta = (
               <Link

@@ -352,7 +352,7 @@ function QrUploadBlock({
           <img
             src={currentUrl}
             alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-white/60 bg-white/70 object-contain"
+            className="h-40 w-40 rounded-md border border-ink/10 bg-white/70 object-contain"
           />
           <div className="flex-1 space-y-2 text-sm text-ink/65">
             <p>Currently shown to couples on order detail pages.</p>

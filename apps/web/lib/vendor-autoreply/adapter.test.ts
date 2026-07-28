@@ -81,8 +81,8 @@ function sources(p: Partial<SnapshotSources> = {}): SnapshotSources {
     inclusionsByService: new Map([['s1', [{ vendor_service_id: 's1', label: 'Pre-nup shoot', worth_php: 5000, sort_order: 0 }]]]),
     discountsByService: new Map([
       ['s1', [
-        { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', expires_at: null, conditions_md: null, sort_order: 0 },
-        { vendor_service_id: 's1', discount_type: 'promo', rate: 5, unit: 'pct', expires_at: '2027-01-01', conditions_md: null, sort_order: 1 },
+        { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 },
+        { vendor_service_id: 's1', discount_type: 'promo', rate: 5, unit: 'pct', min_lead_months: null, expires_at: '2027-01-01', conditions_md: null, sort_order: 1 },
       ]],
     ]),
     addonsByService: new Map([['s1', [{ id: 1, label: 'Extra album', from_price_php: 3000 }]]]),
@@ -120,7 +120,37 @@ test('maps service pricing + inclusions + addons', () => {
 
 test('expired discounts are pruned; active ones kept', () => {
   const s = must(toStoreSnapshot(sources(), NOW).services[0], 'service');
-  assert.deepEqual(s.discounts, [{ type: 'early_booking', rate: 10, unit: 'pct' }]);
+  // minLeadMonths is the early-booking ladder rung (owner-locked 2026-07-27);
+  // null here = a thresholdless legacy offer, which is what the fixture carries.
+  assert.deepEqual(s.discounts, [
+    { type: 'early_booking', rate: 10, unit: 'pct', minLeadMonths: null },
+  ]);
+});
+
+test('a laddered early_booking row carries its threshold into the auto-reply', () => {
+  const laddered = toStoreSnapshot(
+    sources({
+      discountsByService: new Map([
+        [
+          's1',
+          [
+            { vendor_service_id: 's1', discount_type: 'early_booking', rate: 15, unit: 'pct', min_lead_months: 12, expires_at: null, conditions_md: null, sort_order: 0 },
+            { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: 6, expires_at: null, conditions_md: null, sort_order: 1 },
+          ],
+        ],
+      ]),
+    }),
+    NOW,
+  );
+  const s = must(laddered.services[0], 'service');
+  assert.deepEqual(
+    s.discounts.map((d) => [d.rate, d.minLeadMonths]),
+    [
+      [15, 12],
+      [10, 6],
+    ],
+    'without the threshold the reply would list two indistinguishable "Early Booking" offers',
+  );
 });
 
 test('inactive services and packages are dropped', () => {

@@ -1384,7 +1384,7 @@ function MobileEventChip({
   return (
     <Link
       href={`/dashboard/${event.event_id}`}
-      className={`sn-press block rounded-2xl border border-white/70 bg-white/60 p-3 text-left ${
+      className={`sn-press block rounded-2xl border border-ink/15 bg-white/60 p-3 text-left ${
         finished ? 'opacity-75' : ''
       }`}
     >

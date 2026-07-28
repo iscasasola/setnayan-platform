@@ -19,6 +19,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   fetchEventVendors,
@@ -31,6 +32,13 @@ import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import {
+  allHoldingEventIds,
+  countInquiringCouples,
+  groupHoldsByVendor,
+  inquiryPairKey,
+  type SameDateHold,
+} from '@/lib/same-date-demand';
 import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -73,7 +81,17 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
-import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
+import { buildShortlistFolders, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import {
+  classifyAgainstBuildWindow,
+  convergenceBanner,
+  freeDaysLine,
+  resolveBuildDateWindow,
+  resolveProbeWindow,
+  type BuildDateWindow,
+  type ProbeWindow,
+  type TeamCalendarMember,
+} from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
@@ -184,7 +202,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       .select(
         'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
-      .eq('id', eventId)
+      // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
+      // bigserial (internal joins only) and `event_id` is the uuid every route
+      // param, URL and API surface uses. Sending a uuid to the bigint column
+      // makes PostgREST fail the WHOLE statement with 22P02 "invalid input
+      // syntax for type bigint" — never a row, never an error anybody read.
+      // Every one of the 13 sibling queries on this page already filters on
+      // `event_id`; this was the only one that did not. Guarded by
+      // lib/security/query-column-scan.ts (`scanSurrogateIdFilters`).
+      .eq('event_id', eventId)
       .maybeSingle(),
     // Hero photos (CLAUDE.md 2026-05-31 "finish the data wiring" · #8). The
     // card's photo ladder is service_primary_photo_url → manual_vendor_photo_url
@@ -192,6 +218,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // two. Resolve them here (mirrors event-home's locked-card avatar pass).
     fetchVendorPhotoMaps(supabase, eventId),
   ]);
+
+  // A FAILED read is not "no data". This one row carries the event date, the
+  // budget, the venue coordinates, the guest count and the Setnayan-AI
+  // entitlement, so `?? null` degrades the whole page into "couple who has
+  // filled in nothing" — the Unlock banner for a couple who already paid, an
+  // "add your venue" nudge for a couple who has one, and a budget/distance
+  // model with no inputs. Indistinguishable from a genuinely blank event, which
+  // is why the wrong filter column survived. Surface it the way the rest of the
+  // repo does (console + Sentry, non-fatal); the page still renders.
+  if (eventCtx.error) {
+    logQueryError('vendors/page events_host context', eventCtx.error, { event_id: eventId });
+  }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
   const eventDate = ev?.event_date ?? null;
@@ -285,7 +323,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -301,9 +339,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // Not-available badge on the accordion card so the couple sees where each
       // auto-inquiry stands. RLS: the couple is an event member → reads its own
       // event's threads.
+      // `thread_id` rides along (Explore Replan slice D · spec §12.1 step 3):
+      // ONE extra column on a select that already runs, so the bench card's
+      // "💬 Check inquiry" can link straight to the thread. A rail holds dozens
+      // of cards — a per-card `.maybeSingle()` probe is explicitly forbidden.
       supabase
         .from('chat_threads')
-        .select('vendor_profile_id, inquiry_status, created_at')
+        .select('thread_id, vendor_profile_id, inquiry_status, created_at')
         .eq('event_id', eventId)
         .in('vendor_profile_id', marketplaceIds),
       // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17 · migration
@@ -322,6 +364,40 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .from('vendor_profiles')
         .select('vendor_profile_id, inner_radius_km, outer_radius_km')
         .in('vendor_profile_id', marketplaceIds),
+      // FIRST-VERIFICATION ANCHOR for the "New here" lens (§15.1). The honest
+      // question is "when did this vendor become available to couples", and the
+      // ONLY column on vendor_profiles that looks like an answer —
+      // `last_verified_at` — is the wrong one: both admin approval paths
+      // overwrite it on EVERY approval (`admin/verify/actions.ts:150,:361`), so
+      // an established vendor who just renewed reads as brand new. Migration
+      // 20260516050000 also backfilled it to the migration's own NOW() for
+      // hand-approved rows. `vendor_profiles.created_at` is worse still — for
+      // admin-seeded profiles it is the ADMIN's date.
+      //
+      // `vendor_tier_history` is an append-only audit of verification_state
+      // TRANSITIONS, written only when the state actually MOVES
+      // (`toState !== fromState`). So a renewal of an already-verified vendor
+      // writes no row and cannot reset the anchor, while a demote→re-verify
+      // writes a SECOND row that MIN() correctly ignores. MIN(created_at) over
+      // to_state='verified' is therefore "first verified", by construction.
+      //
+      // Isolated select for the same reason as the rings read above: a failure
+      // here yields an empty map, which reads as "we don't know when they were
+      // verified" → freshnessRatio null → NEUTRAL. Freshness only ever LIFTS,
+      // so an absent anchor costs a genuinely-new vendor its head-start but can
+      // never make an established vendor falsely read "New on Setnayan". That
+      // is the safe direction to fail.
+      //
+      // Flag-gated so the flag-OFF page makes exactly the queries it makes in
+      // production today — the anchor only feeds a lens that cannot render
+      // while the flag is off, so paying for the round-trip would be waste.
+      isExploreReplanEnabled()
+        ? enrichmentAdmin
+            .from('vendor_tier_history')
+            .select('vendor_profile_id, created_at')
+            .in('vendor_profile_id', marketplaceIds)
+            .eq('to_state', 'verified')
+        : Promise.resolve({ data: null }),
     ]);
 
     type StatsRow = {
@@ -366,16 +442,38 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     for (const r of (ringsRes.data as RingRow[] | null) ?? []) {
       ringsByProfile.set(r.vendor_profile_id, r);
     }
+    // First-verification anchor — MIN(created_at) per vendor over the
+    // to_state='verified' transition rows. Reduced in JS rather than via a
+    // GROUP BY so this stays a plain PostgREST read (no RPC, no new object).
+    // Absent → the vendor simply has no anchor → NEUTRAL freshness.
+    const firstVerifiedAtByProfile = new Map<string, string>();
+    for (const h of (firstVerifiedRes.data as
+      | { vendor_profile_id: string; created_at: string | null }[]
+      | null) ?? []) {
+      if (!h.created_at) continue;
+      const prev = firstVerifiedAtByProfile.get(h.vendor_profile_id);
+      if (prev == null || h.created_at < prev) {
+        firstVerifiedAtByProfile.set(h.vendor_profile_id, h.created_at);
+      }
+    }
     const inquiryByProfile = new Map<string, ChatInquiryStatus>();
     // Pending-since (inquiry-accepted-visibility 2026-06-16) — when the couple
     // has reached out but the vendor hasn't accepted/quoted yet, remember WHEN
     // they reached out so the Shortlist's "Waiting for quotes" strip can show
     // how long it's been. Only `pending` threads are tracked here.
     const pendingSinceByProfile = new Map<string, string | null>();
+    // Slice D — thread id per profile, built in the SAME loop (spec §12.1 §3).
+    const threadIdByProfile = new Map<string, string>();
     for (const t of (threadsRes.data as
-      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus; created_at: string | null }[]
+      | {
+          thread_id: string | null;
+          vendor_profile_id: string;
+          inquiry_status: ChatInquiryStatus;
+          created_at: string | null;
+        }[]
       | null) ?? []) {
       inquiryByProfile.set(t.vendor_profile_id, t.inquiry_status);
+      if (t.thread_id) threadIdByProfile.set(t.vendor_profile_id, t.thread_id);
       if (t.inquiry_status === 'pending') {
         pendingSinceByProfile.set(t.vendor_profile_id, t.created_at ?? null);
       }
@@ -529,7 +627,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           budgetByPlanGroup,
         }),
         faith_match: faithMatch ? true : null,
+        // "New here" lens anchor (§15.1) — first verification, never row
+        // creation and never last-verification. Null → NEUTRAL freshness.
+        first_verified_at: firstVerifiedAtByProfile.get(pid) ?? null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
+        thread_id: threadIdByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
 
@@ -640,12 +742,39 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   // ── Same-date competition (spec §6a) — aggregate-only count of OTHER
-  // couples soft-holding the same vendor on the same wedding date. Admin
+  // couples interested in the same vendor on the same wedding date. Admin
   // client because RLS blocks couple→couple reads; we only ever surface the
-  // COUNT, never identities (RA 10173). Dedup by event. 0 → no chip; never
-  // fabricated. eq(event_date) is exact same-day (event_date is a date col);
-  // a type mismatch would undercount → no chip, the safe failure.
+  // COUNT, never identities (RA 10173). Dedup by event. eq(event_date) is exact
+  // same-day (event_date is a date col); a type mismatch would undercount → no
+  // chip, the safe failure.
+  //
+  // ── 2026-07-27 · TWO COUNTS, ONE QUERY PAIR (Explore_Replan §15.3)
+  // The legacy count answers the WRONG question. `status IN
+  // ('considering','contracted')` is written by merely SAVING a vendor
+  // (`explore/actions.ts` saveVendorToPicks, `onboarding/wedding/actions.ts`)
+  // with zero contact ever made. The owner's 2026-06-02 ruling
+  // (`Schedule_Matrix_and_Date_Finder_2026-06-02.md:141`, DECISION_LOG.md:470)
+  // is explicit: competition "starts at the inquiry (Stage 2), NEVER at search
+  // (Stage 1) … counting it as competition = manufactured scarcity (a fineable
+  // dark pattern)."
+  //
+  // So the replan build resolves an HONEST count alongside it: the same holds,
+  // narrowed to events that ALSO have a `chat_threads` row for that vendor —
+  // i.e. an inquiry was actually fired. `unlock-category.ts` is the clean
+  // pattern (it inserts 'considering' AND opens a thread); a saved-but-never-
+  // contacted vendor has no thread and contributes ZERO. The honest count is
+  // then FLOORED at MIN_DEMAND_COUPLE_COUNT — 06-02 §8.3, "Don't show a '1'":
+  // n=1 on a solo vendor plus an exact date in a small municipality is
+  // functionally re-identifying. Below the floor nothing leaves the server.
+  //
+  // The swap is FLAG-GATED. Flag OFF, `eyeingByVendorId` is byte-identical to
+  // production (save-count, no floor) and `demandByVendorId` is empty. Flag ON,
+  // BOTH read the honest floored count — a lens that says "3 couples inquired"
+  // must not sit beside a chip that says "1 also eyeing" from a different
+  // basis.
+  const honestDemand = isExploreReplanEnabled();
   const eyeingByVendorId = new Map<string, number>();
+  const demandByVendorId = new Map<string, number>();
   if (eventDate && marketplaceIds.length > 0) {
     try {
       const admin = createAdminClient();
@@ -656,20 +785,51 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .in('status', ['considering', 'contracted'])
         .neq('event_id', eventId)
         .eq('events.event_date', eventDate);
-      const otherEventsByProfile = new Map<string, Set<string>>();
-      for (const h of (holds ?? []) as Array<{
-        marketplace_vendor_id: string | null;
-        event_id: string;
-      }>) {
-        if (!h.marketplace_vendor_id) continue;
-        const set =
-          otherEventsByProfile.get(h.marketplace_vendor_id) ?? new Set<string>();
-        set.add(h.event_id);
-        otherEventsByProfile.set(h.marketplace_vendor_id, set);
+      const holdRows: SameDateHold[] = (
+        (holds ?? []) as Array<{ marketplace_vendor_id: string | null; event_id: string }>
+      ).map((h) => ({
+        marketplaceVendorId: h.marketplace_vendor_id,
+        eventId: h.event_id,
+      }));
+      const otherEventsByProfile = groupHoldsByVendor(holdRows);
+
+      // Inquiry discriminator — the (event, vendor) pairs that actually opened a
+      // thread. `chat_threads` is UNIQUE (event_id, vendor_profile_id), so a row
+      // is exactly "this couple reached out to this vendor". Bounded by the hold
+      // set above, so it adds one small read and never a table scan.
+      const inquiredPairs = new Set<string>();
+      const holdEventIds = allHoldingEventIds(holdRows);
+      if (honestDemand && holdEventIds.length > 0) {
+        const { data: inquiries } = await admin
+          .from('chat_threads')
+          .select('event_id, vendor_profile_id')
+          .in('event_id', holdEventIds)
+          .in('vendor_profile_id', marketplaceIds);
+        for (const t of (inquiries ?? []) as Array<{
+          event_id: string;
+          vendor_profile_id: string;
+        }>) {
+          inquiredPairs.add(inquiryPairKey(t.event_id, t.vendor_profile_id));
+        }
       }
+
+      // `countInquiringCouples` applies BOTH honesty rules — inquiry-only and
+      // the min-N floor — so a below-floor count never leaves this server.
+      const inquiringByProfile = honestDemand
+        ? countInquiringCouples(otherEventsByProfile, inquiredPairs)
+        : null;
+
       for (const v of vendors) {
-        if (!v.marketplace_vendor_id) continue;
-        const n = otherEventsByProfile.get(v.marketplace_vendor_id)?.size ?? 0;
+        const pid = v.marketplace_vendor_id;
+        if (!pid) continue;
+        if (inquiringByProfile) {
+          const n = inquiringByProfile.get(pid);
+          if (n == null) continue;
+          demandByVendorId.set(v.vendor_id, n);
+          eyeingByVendorId.set(v.vendor_id, n);
+          continue;
+        }
+        const n = otherEventsByProfile.get(pid)?.size ?? 0;
         if (n > 0) eyeingByVendorId.set(v.vendor_id, n);
       }
     } catch (e) {
@@ -984,10 +1144,177 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
+  // ── Explore Replan PR-G1 · build-candidate schedule convergence, SOFT tier ──
+  // Owner (§6): "when they add someone to the build, the options on the bench
+  // change … the goal is to bring everything down to one choice."
+  //
+  // The build's SHARED-DATE WINDOW = the intersection of every locked +
+  // candidate vendor's declared calendar, inside the couple's date-probe window
+  // (their onboarding date candidates, or the month they named). A bench vendor
+  // with no free day left in that window sinks behind a "Doesn't fit your build"
+  // divider naming the candidate it clashes with — and comes straight back when
+  // that candidate is removed.
+  //
+  // COST: exactly ONE extra read, and only when the flag is ON — the SAME
+  // batched `getBatchVendorAvailableDays` the date-fit badge above already uses,
+  // over the union of team + bench profiles. No per-card probe, no N+1, no new
+  // query pattern. Flag OFF ⇒ this whole block is a `null` and a pair of empty
+  // maps, and the bench renders byte-identically to production.
+  //
+  // FAIL-OPEN is preserved end-to-end: the helper hands back a full window on a
+  // read error, a vendor with no entry gets `null` (never a clash), and any
+  // throw clears everything. A calendar flake reads "free", never a false
+  // "booked" — and it certainly never sinks a vendor.
+  //
+  // This tier RESERVES NOTHING. It reads vendor-declared calendars and says so;
+  // that is precisely why it was unblocked from the lock-reserves-date gate that
+  // still holds the hard anchor tier (PR-G2).
+  const replanConvergence = isExploreReplanEnabled() && isBudgetBuildEnabled();
+  let buildDateWindow: BuildDateWindow | null = null;
+  let probeWindow: ProbeWindow | null = null;
+  let teamCalendar: TeamCalendarMember[] = [];
+  const freeDaysByVendorId = new Map<string, string[]>();
+  if (replanConvergence) {
+    try {
+      probeWindow = resolveProbeWindow({
+        eventDate,
+        precision: matchPrecision,
+        candidates: ev?.date_candidates ?? null,
+      });
+      // An ANCHORED window costs NOTHING: the couple has committed to a day, the
+      // soft tier stands down for the anchor tier, and the shipped `dateFit`
+      // badge above has already asked the calendar that exact question. Building
+      // the banner from the probe alone avoids re-running the same read.
+      if (probeWindow && !probeWindow.anchored) {
+        // The team = every LOCKED vendor plus every build candidate. Both come
+        // off rows already in memory (`vendors` + `buildPicksByGroup`), so the
+        // membership costs nothing. Only marketplace-connected picks can carry
+        // a calendar — an off-platform vendor never constrains the window.
+        // (Lock REQUESTS are not a state yet; when PR-H lands they join here.)
+        const candidateVendorIds = new Set([...buildPicksByGroup.values()].flat());
+        const lockedStatuses = new Set(LOCKED_VENDOR_STATUSES);
+        const profileByVendorId = new Map<string, string>();
+        const teamVendors: { vendorId: string; profileId: string; name: string }[] = [];
+        for (const v of vendors) {
+          if (!v.marketplace_vendor_id) continue;
+          profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+          const onTeam =
+            (v.status != null && lockedStatuses.has(v.status)) ||
+            candidateVendorIds.has(v.vendor_id);
+          if (onTeam) {
+            teamVendors.push({
+              vendorId: v.vendor_id,
+              profileId: v.marketplace_vendor_id,
+              name:
+                marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Your vendor',
+            });
+          }
+        }
+        const probeKeys = new Set(probeWindow.dayKeys);
+        const allProfileIds = [...new Set(profileByVendorId.values())];
+        if (allProfileIds.length > 0) {
+          const [ys, ms, ds] = probeWindow.rangeStart.split('-').map(Number);
+          const [ye, me, de] = probeWindow.rangeEnd.split('-').map(Number);
+          const availByProfile = await getBatchVendorAvailableDays(
+            createAdminClient(),
+            allProfileIds,
+            new Date(ys ?? 1970, (ms ?? 1) - 1, ds ?? 1),
+            new Date(ye ?? 1970, (me ?? 1) - 1, de ?? 1),
+          );
+          // Per-vendor free days, clipped to the probe window. A profile the
+          // helper could not answer for is simply absent → the card gets no
+          // line and no verdict.
+          for (const [vendorId, profileId] of profileByVendorId) {
+            const days = availByProfile.get(profileId);
+            if (!days) continue;
+            freeDaysByVendorId.set(
+              vendorId,
+              probeWindow.dayKeys.filter((k) => days.has(k)),
+            );
+          }
+          teamCalendar = teamVendors
+            .filter((t) => availByProfile.has(t.profileId))
+            .map((t) => ({
+              vendorId: t.vendorId,
+              name: t.name,
+              freeDays: new Set(
+                [...(availByProfile.get(t.profileId) ?? [])].filter((k) => probeKeys.has(k)),
+              ),
+            }));
+        }
+        buildDateWindow = resolveBuildDateWindow({
+          enabled: true,
+          probe: probeWindow,
+          members: teamCalendar,
+        });
+      } else if (probeWindow) {
+        // Anchored: banner only ("Your date is set: …"), no members, no read.
+        buildDateWindow = resolveBuildDateWindow({
+          enabled: true,
+          probe: probeWindow,
+          members: [],
+        });
+      }
+    } catch {
+      // Fail-open — no banner, no sinking, no disabled buttons. A broken
+      // calendar read must never cost the couple a vendor.
+      buildDateWindow = null;
+      probeWindow = null;
+      teamCalendar = [];
+      freeDaysByVendorId.clear();
+    }
+  }
+
+  // Per-card verdicts, resolved once here (server) rather than per render. NULL
+  // for every vendor when the tier isn't running — the client then partitions
+  // nothing and disables nothing.
+  const buildFitByVendorId = new Map<string, { fits: boolean; clashWith: string | null }>();
+  if (buildDateWindow && probeWindow) {
+    for (const v of vendors) {
+      const verdict = classifyAgainstBuildWindow({
+        window: buildDateWindow,
+        vendorFreeDays: freeDaysByVendorId.has(v.vendor_id)
+          ? new Set(freeDaysByVendorId.get(v.vendor_id))
+          : null,
+        vendorId: v.vendor_id,
+        members: teamCalendar,
+        probeDayKeys: probeWindow.dayKeys,
+      });
+      if (verdict) {
+        buildFitByVendorId.set(v.vendor_id, {
+          fits: verdict.fits,
+          clashWith: verdict.fits ? null : verdict.clashWith,
+        });
+      }
+    }
+  }
+
+  // The "Free: …" line, formatted ONCE per vendor against the probe window's
+  // size (name the days when the couple is choosing between a handful of
+  // candidate dates; count them when the window is a whole month).
+  const freeDaysLineByVendorId = new Map<string, string>();
+  if (probeWindow) {
+    for (const [vendorId, days] of freeDaysByVendorId) {
+      const line = freeDaysLine({ freeDays: days, windowSize: probeWindow.dayKeys.length });
+      if (line) freeDaysLineByVendorId.set(vendorId, line);
+    }
+  }
+
   const shortlistFolders = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
     dateFitByVendorId,
+    // ⚠ PRODUCT QUESTION, NOT AN IMPLEMENTATION CHOICE (surfaced in the PR).
+    // The same-date demand signal is already Setnayan-AI-gated everywhere it
+    // exists today — `buildPlanBudgetModel` is handed an EMPTY map when the
+    // couple doesn't own Setnayan AI. Whether the "In demand right now" lens
+    // should be paid-only is the owner's call; until they make it, this
+    // MIRRORS the shipped gate rather than quietly widening or narrowing it.
+    // AI off → no vendor carries a demand signal → the lens cannot
+    // discriminate → the visibility gate hides its chip. Nothing leaks.
+    demandByVendorId: aiActive ? demandByVendorId : undefined,
+    buildFitByVendorId,
+    freeDaysLineByVendorId,
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,
@@ -1061,6 +1388,31 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
+  // Explore Replan slice C · the ADAPTIVE CATEGORY SET. Tile-grain
+  // `event_category_decisions` rows (migration 20271016100000) carrying
+  // decision='excluded' are the categories the couple removed with "Not needed?
+  // Remove"; they leave the bench and reappear as "＋ Add to your plan" chips.
+  // Column-explicit, RLS-scoped, one query, and only behind the flag — OFF
+  // means no query at all and a byte-identical pre-replan bench. Fail-soft: a
+  // read error degrades to "nothing excluded", which can only ever show MORE
+  // categories, never hide one.
+  const excludedTiles: string[] = await (async () => {
+    if (!isExploreReplanEnabled()) return [];
+    try {
+      const { data } = await supabase
+        .from('event_category_decisions')
+        .select('tile')
+        .eq('event_id', eventId)
+        .eq('decision', 'excluded')
+        .not('tile', 'is', null);
+      return (data ?? [])
+        .map((r: { tile: string | null }) => r.tile)
+        .filter((t): t is string => typeof t === 'string' && t.length > 0);
+    } catch {
+      return [];
+    }
+  })();
+
   // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
   // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
   // and render its quick-view as the inspector column body — a new PRESENTATION
@@ -1103,6 +1455,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <WaitingForQuotes items={waitingForQuotes} />
       <PendingLockProposals eventId={eventId} proposals={pendingLockProposals} />
       <ShortlistCategories
+        // Explore Replan PR-E — the "Still needs your decision" doorways in the
+        // right rail push the SHIPPED `?tab=shortlist&open=<tile>` deep link
+        // from inside this same route. A soft nav re-renders but does not
+        // remount, and `initialOpenTile` is only read in the bench's state
+        // initialisers — so without this key the deep link would be a no-op
+        // in-page. Keyed on the tile so the bench re-seeds when (and only when)
+        // the requested category changes. Flag OFF → `undefined`, i.e. no key
+        // at all: reconciliation is exactly as it ships today.
+        key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
         initialOpenTile={sp.open ?? null}
@@ -1112,6 +1473,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // `buildPlanBudgetModel`; passed down, never re-queried.
         buildPickVendorIds={[...new Set([...buildPicksByGroup.values()].flat())]}
         daysUntilWedding={daysUntilWedding}
+        // Explore Replan PR-C — tile-level exclusions ("Not needed? Remove").
+        excludedTiles={excludedTiles}
+        // Explore Replan PR-G1 — the convergence banner between the Coverage
+        // Strip and the bench. Null on an open window (nothing to report yet)
+        // and whenever the tier isn't running.
+        convergence={convergenceBanner(buildDateWindow, { anchoredLabel: matchFormattedDate })}
       />
     </>
   );
@@ -1393,6 +1760,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             budgetPhp: buildAnchors.budget.php,
             region: buildAnchors.location.region,
           }}
+          // Explore Replan PR-E — the live plan snapshot the Plans panel already
+          // builds above. "Your team" reads locked-ness from it through
+          // `lockedGroupIdsOf`, so both surfaces share one authority. Pass-down,
+          // never a new query.
+          planPicks={currentPlan.picks}
         />
       </div>
     );

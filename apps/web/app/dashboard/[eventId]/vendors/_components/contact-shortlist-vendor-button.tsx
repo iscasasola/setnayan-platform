@@ -20,9 +20,28 @@ import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 export function ContactShortlistVendorButton({
   eventId,
   vendorId,
+  label = 'Contact vendor',
+  pendingLabel = 'Opening…',
+  ariaLabel,
+  className = 'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60',
+  wrapperClassName = 'mt-2',
+  errorClassName = 'mt-1 text-[11px] text-danger-700',
 }: {
   eventId: string;
   vendorId: string;
+  /**
+   * Presentation props (Explore Replan slice D). The bench's three-action card
+   * PORTS this shipped primitive rather than mounting a second composer, so it
+   * needs to wear the bench's own scoped `.slcat` classes and say "Inquire"
+   * instead of "Contact vendor". Every default below reproduces the legacy
+   * accordion's render EXACTLY, so its call site is untouched.
+   */
+  label?: string;
+  pendingLabel?: string;
+  ariaLabel?: string;
+  className?: string;
+  wrapperClassName?: string;
+  errorClassName?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -54,21 +73,22 @@ export function ContactShortlistVendorButton({
   };
 
   return (
-    <div className="mt-2">
+    <div className={wrapperClassName}>
       <button
         type="button"
         onClick={contact}
         disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
+        aria-label={ariaLabel}
+        className={className}
       >
         {pending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         ) : (
           <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         )}
-        {pending ? 'Opening…' : 'Contact vendor'}
+        {pending ? pendingLabel : label}
       </button>
-      {err ? <p className="mt-1 text-[11px] text-danger-700">{err}</p> : null}
+      {err ? <p className={errorClassName}>{err}</p> : null}
     </div>
   );
 }

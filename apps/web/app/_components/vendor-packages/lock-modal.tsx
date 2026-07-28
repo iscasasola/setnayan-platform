@@ -2,7 +2,15 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package as PackageIcon, X, Check, AlertCircle, Minus, Plus } from 'lucide-react';
+import {
+  Package as PackageIcon,
+  X,
+  Check,
+  AlertCircle,
+  Minus,
+  Plus,
+  MessageCircle,
+} from 'lucide-react';
 import {
   computeCustomization,
   formatCentavosPhp,
@@ -28,6 +36,11 @@ import {
   type ChoiceSelection,
 } from '@/lib/package-choice-tree';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { buildPackagePicksSummary, buildNotSentCopy } from '@/lib/package-picks-summary';
+import {
+  startServiceInquiry,
+  type StartServiceInquiryResult,
+} from '@/app/v/[slug]/inquiry-actions';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
 /**
@@ -66,10 +79,53 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  */
 const vendorConfirmsLabel = 'Your vendor confirms once payment is approved.';
 
+/**
+ * Everything the SECONDARY action needs — "Ask the vendor about this build
+ * instead" (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED).
+ *
+ * WHY IT IS A PROP AND NOT DERIVED HERE. `startServiceInquiry` opens a thread
+ * against a `vendor_services` row, and a package is not one — it carries a
+ * `primary_canonical_service`, not a service id. Resolving that mapping is the
+ * page's job (it already holds `activeServices`); this modal must never guess
+ * which service a package "is", because a wrong guess files the couple's build
+ * under the wrong category on the vendor's side.
+ *
+ * null / absent ⇒ the secondary action does not render at all and this modal is
+ * byte-identical to what ships today.
+ */
+export type PackageAskTarget = {
+  vendorProfileId: string;
+  /** Hybrid-anonymity display label — never the raw business name. */
+  vendorLabel: string;
+  /** The active vendor_service this inquiry is filed under. */
+  vendorServiceId: string;
+  /** Its canonical category, for thread_service_interests scoping. */
+  categoryKey: string | null;
+};
+
+/**
+ * 🚨 `sent` AND `not_sent` ARE DIFFERENT OUTCOMES, and the difference is the
+ * whole point of this state.
+ *
+ * The build message can legitimately fail to post — most commonly because the
+ * vendor has not accepted yet and the couple has already used their ONE
+ * pre-accept follow-up (`lib/chat-send.ts` accept-gate). The thread still
+ * exists, so it is tempting to collapse that into "sent". Doing so leaves the
+ * couple waiting on a quote for a build the vendor never received. `not_sent`
+ * carries the reason's own sentence and says plainly that it did not go.
+ */
+type AskState =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent'; threadHref: string }
+  | { kind: 'not_sent'; threadHref: string; message: string }
+  | { kind: 'error'; message: string };
+
 export function LockPackageModal({
   eventId,
   pkg,
   paxCount = 0,
+  ask = null,
 }: {
   eventId: string;
   pkg: VendorPackageWithItems;
@@ -81,6 +137,11 @@ export function LockPackageModal({
    * per-head upgrade prices at its minimum rather than at nothing.
    */
   paxCount?: number;
+  /**
+   * The "ask instead" doorway for a couple who has customized but is not ready
+   * to pay. null (the default) ⇒ not rendered.
+   */
+  ask?: PackageAskTarget | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,6 +149,7 @@ export function LockPackageModal({
   const [removedIds, setRemovedIds] = useState<string[]>([...defaultRemovedIds]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [askState, setAskState] = useState<AskState>({ kind: 'idle' });
   const dialogRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -242,9 +304,39 @@ export function LockPackageModal({
     [pendingRequiredChoices, unfinished],
   );
 
+  /**
+   * 📝 THE BUILD, AS A MESSAGE — built from the SAME render state the footer
+   * prints, never from a second computation.
+   *
+   * `tree` is the list on screen and `totals` is the number on screen. The
+   * serializer only formats what it is handed (see the header on
+   * lib/package-picks-summary.ts), so the message and the screen cannot
+   * disagree about a peso — and it annotates an option only where the option
+   * row above annotates it, so the message cannot invite a quote for something
+   * the screen presented as free.
+   */
+  const picksSummary = useMemo(
+    () =>
+      buildPackagePicksSummary({
+        packageName: pkg.package_name,
+        lines: tree,
+        // The WHOLE item list, unfiltered. Resolving which of them the couple
+        // unticked happens inside the tested serializer — this file must never
+        // hold a second local notion of which lines count (pinned by
+        // lib/package-followup-not-priced.test.ts).
+        allItems: pkg.items,
+        removedItemIds: removedIds,
+        selection,
+        bookingTotalCentavos: totals?.bookingTotalCentavos ?? null,
+        surchargeCentavos,
+      }),
+    [pkg, tree, removedIds, selection, totals, surchargeCentavos],
+  );
+
   function close() {
     setOpen(false);
     setError(null);
+    setAskState({ kind: 'idle' });
   }
 
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
@@ -305,6 +397,71 @@ export function LockPackageModal({
         return;
       }
       setError(result.message || 'Something went wrong.');
+    });
+  }
+
+  /**
+   * "Ask the vendor about this build instead" — the doorway for a couple who
+   * has customized but is not ready to pay.
+   *
+   * 💬 NOT A MONEY ACTION. It opens (or resumes) the ONE deduped
+   * `chat_threads` row through `startServiceInquiry` — the same action the
+   * public profile's Inquire composer calls, with the same
+   * `UNIQUE(event_id, vendor_profile_id)` dedupe — and carries the build as a
+   * display-only block in the message. Nothing is reserved, nothing is charged,
+   * no capacity is consumed, and the block says the total is an estimate.
+   */
+  function onAsk() {
+    if (!ask) return;
+    setError(null);
+    if (!totals) {
+      setError('We could not price this package. Please reload and try again.');
+      return;
+    }
+    setAskState({ kind: 'sending' });
+    startTransition(async () => {
+      const result: StartServiceInquiryResult = await startServiceInquiry({
+        vendorProfileId: ask.vendorProfileId,
+        // Event-scoped: this modal is always mounted for ONE event, so the
+        // inquiry is filed against that event and not the couple's primary one.
+        eventId,
+        initialServiceId: ask.vendorServiceId,
+        initialCategoryKey: ask.categoryKey,
+        alsoServiceIds: [],
+        requirements: { packagePicks: picksSummary },
+      });
+      if (result.status === 'ok') {
+        setAskState({
+          kind: 'sent',
+          threadHref: `/dashboard/${result.eventId}/messages/${result.threadId}`,
+        });
+        return;
+      }
+      if (result.status === 'ok_build_not_sent') {
+        // The thread opened but the build did NOT post. Say so, with the
+        // reason's own sentence — never "your build is in the message".
+        setAskState({
+          kind: 'not_sent',
+          threadHref: `/dashboard/${result.eventId}/messages/${result.threadId}`,
+          message: buildNotSentCopy(result.reason, ask.vendorLabel, result.message),
+        });
+        return;
+      }
+      if (result.status === 'not_signed_in' || result.status === 'not_secured') {
+        router.push(result.status === 'not_secured' ? '/signup' : '/login');
+        return;
+      }
+      if (result.status === 'no_event') {
+        setAskState({
+          kind: 'error',
+          message: 'Create your event first, then you can message this vendor.',
+        });
+        return;
+      }
+      setAskState({
+        kind: 'error',
+        message: result.message ?? 'Could not send that to the vendor.',
+      });
     });
   }
 
@@ -686,6 +843,81 @@ export function LockPackageModal({
               <p className="mt-2 text-center text-[10px] text-ink/45">
                 This goes on your event home. {vendorConfirmsLabel}
               </p>
+
+              {/* ── NOT READY TO PAY? ASK. ───────────────────────────────────
+                  A couple who has spent five minutes customizing and then
+                  hesitates has, until now, had exactly one way out of this
+                  screen: a money action. This is the other one — the same
+                  build, sent to the vendor as a question.
+
+                  Gated on the SAME `blockedItemIds` / `!totals` guard as Lock,
+                  and for the same reason: a package below a line's minimum is
+                  an UNFINISHED order, not a cheaper one, so sending its total
+                  would quote the vendor a number the finished build will not
+                  match. Flag-gated via the `ask` prop — absent ⇒ nothing here
+                  renders. */}
+              {ask ? (
+                askState.kind === 'sent' || askState.kind === 'not_sent' ? (
+                  <div className="mt-4 space-y-2 border-t border-ink/10 pt-4">
+                    {askState.kind === 'sent' ? (
+                      <p className="text-center text-xs text-ink/70">
+                        Sent to {ask.vendorLabel} — your build is in the message.
+                      </p>
+                    ) : (
+                      /* ⚠ NOT DELIVERED. The thread exists, the build does not:
+                         say which, and offer the conversation anyway so they
+                         are not stranded. Never soften this into "sent". */
+                      <p className="flex items-start gap-2 rounded-lg border border-warn-300/60 bg-warn-50/50 px-3 py-2 text-xs text-ink/80">
+                        <AlertCircle
+                          aria-hidden
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-600"
+                          strokeWidth={2}
+                        />
+                        <span>{askState.message}</span>
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const href = askState.threadHref;
+                        setOpen(false);
+                        router.push(href);
+                        router.refresh();
+                      }}
+                      className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
+                    >
+                      <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      {askState.kind === 'sent'
+                        ? 'View the conversation'
+                        : 'Open the conversation'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 border-t border-ink/10 pt-4">
+                    <button
+                      type="button"
+                      onClick={onAsk}
+                      disabled={isPending || blockedItemIds.size > 0 || !totals}
+                      className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      {askState.kind === 'sending'
+                        ? 'Sending…'
+                        : `Ask ${ask.vendorLabel} about this build instead`}
+                    </button>
+                    {askState.kind === 'error' ? (
+                      <p className="mt-2 text-center text-xs text-danger-700">
+                        {askState.message}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-center text-[10px] text-ink/45">
+                        Sends these choices as a message. Nothing is booked or paid,
+                        and the total goes across as an estimate.
+                      </p>
+                    )}
+                  </div>
+                )
+              ) : null}
             </footer>
           </div>
         </div>

@@ -159,7 +159,7 @@ export type VendorServiceDiscount = {
   unit: 'pct' | 'php';
   /**
    * Lead-time ladder rung (owner-locked 2026-07-27 · migration
-   * 20271017262879). For `early_booking` rows: the tier applies when the
+   * 20271017996549). For `early_booking` rows: the tier applies when the
    * couple's event is at least this many months away, and several such rows on
    * one service ARE the ladder (12+ → −15%, 6+ → −10%). NULL = no threshold —
    * legacy behaviour unchanged, and the only meaning for the other four types.

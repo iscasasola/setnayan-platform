@@ -127,7 +127,7 @@ export function parseDiscountRows(formData: DiscountFormData): DiscountDraft[] {
       typeof conditions[i] === 'string' ? (conditions[i] as string).trim() : '';
     const conditions_md = condRaw.length > 0 ? condRaw.slice(0, 1000) : null;
 
-    // The early-booking ladder rung (migration 20271017262879).
+    // The early-booking ladder rung (migration 20271017996549).
     const min_lead_months = parseMinLeadMonths(leadMonths[i], discount_type);
 
     out.push({ discount_type, rate, unit, min_lead_months, expires_at, conditions_md });

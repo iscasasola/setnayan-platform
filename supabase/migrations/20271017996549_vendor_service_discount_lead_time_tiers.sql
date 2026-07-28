@@ -1,4 +1,6 @@
--- vendor service discount lead time tiers
+-- Reallocated from 20271017262879: that prefix was handed out before the
+-- 20271017567807 papic reissue landed, so it would have sorted BELOW the
+-- applied head and silently never run (the exact class the reissue fixed).
 -- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
 -- existing migration. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied):
 --   • CREATE TABLE IF NOT EXISTS …   (+ ALTER TABLE … ENABLE ROW LEVEL SECURITY in the SAME migration)

@@ -474,7 +474,7 @@ async function replaceServiceLists(
         discount_type: d.discount_type,
         rate: d.rate,
         unit: d.unit,
-        // The early-booking ladder rung (migration 20271017262879).
+        // The early-booking ladder rung (migration 20271017996549).
         min_lead_months: d.min_lead_months,
         expires_at: d.expires_at,
         conditions_md: d.conditions_md,
@@ -1653,7 +1653,7 @@ export async function commitVendorService(formData: FormData) {
     rate: d.rate,
     unit: d.unit,
     // The early-booking ladder rung — save_vendor_service reads
-    // e->>'min_lead_months' (migration 20271017262879). Without this key the
+    // e->>'min_lead_months' (migration 20271017996549). Without this key the
     // WIZARD path would silently drop every tier the vendor just authored.
     min_lead_months: d.min_lead_months,
     expires_at: d.expires_at,

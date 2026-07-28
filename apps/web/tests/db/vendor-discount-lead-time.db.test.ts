@@ -2,7 +2,7 @@
  * vendor_service_discounts.min_lead_months — DB-level regression (executed, not
  * prose).
  *
- * Guards migration 20271017262879_vendor_service_discount_lead_time_tiers.sql —
+ * Guards migration 20271017996549_vendor_service_discount_lead_time_tiers.sql —
  * the early-booking LADDER (owner-locked 2026-07-27, DECISION_LOG "MAKER IS
  * ZERO STEPS" ruling ②). It ADDs one nullable INT to vendor_service_discounts
  * so several `early_booking` rows on one service can each carry their own

@@ -154,7 +154,7 @@ function ItemForm({
           <select
             name="dimension"
             defaultValue={item?.dimension ?? 'ceremonial'}
-            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-white/70 px-2 py-1.5 text-sm text-ink"
           >
             {DIMENSIONS.map((d) => (
               <option key={d} value={d}>
@@ -172,7 +172,7 @@ function ItemForm({
             required
             maxLength={120}
             placeholder="e.g. Catholic priest"
-            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -183,7 +183,7 @@ function ItemForm({
             defaultValue={item?.note ?? ''}
             maxLength={400}
             placeholder="Short helper sentence"
-            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -193,7 +193,7 @@ function ItemForm({
             name="sort_order"
             type="number"
             defaultValue={item?.sort_order ?? 0}
-            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -221,7 +221,7 @@ function ItemForm({
         <form action={deleteTraditionItem} className="mt-1">
           <input type="hidden" name="item_id" value={item.item_id} />
           <SubmitButton
-            className="inline-flex items-center rounded-md border border-white/60 bg-white/70 px-3 py-1 text-xs font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
+            className="inline-flex items-center rounded-md border border-ink/15 bg-white/70 px-3 py-1 text-xs font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
             pendingLabel="Removing…"
           >
             Remove

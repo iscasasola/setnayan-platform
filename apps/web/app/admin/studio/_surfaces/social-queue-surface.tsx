@@ -1315,7 +1315,7 @@ function TikTokManualPanel({ posts }: { posts: SocialPostRow[] }) {
                     alt="Story card preview — the 9:16 branded card image to attach to the TikTok post"
                     width={45}
                     height={80}
-                    className="shrink-0 rounded-md border border-white/60 bg-white/70 object-cover"
+                    className="shrink-0 rounded-md border border-ink/10 bg-white/70 object-cover"
                     style={{ width: 45, height: 80 }}
                   />
                   <div className="min-w-0 flex-1 space-y-0.5">
@@ -1405,7 +1405,7 @@ function ScheduledPostCard({
         </p>
       ) : (
         <>
-          <details className="rounded-md border border-white/60 bg-white/70">
+          <details className="rounded-md border border-ink/10 bg-white/70">
             <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
               Edit copy…
             </summary>
@@ -1509,7 +1509,7 @@ function EvergreenItemCard({ item }: { item: EvergreenItemRow }) {
       <pre className="line-clamp-3 whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
         {item.body}
       </pre>
-      <details className="rounded-md border border-white/60 bg-white/70">
+      <details className="rounded-md border border-ink/10 bg-white/70">
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">Edit…</summary>
         <form action={saveEvergreenItem} className="space-y-2 px-3 pb-3">
           <input type="hidden" name="item_id" value={item.item_id} />
@@ -1625,7 +1625,7 @@ function CardPreview({ postId, size = 56 }: { postId: string; size?: number }) {
       alt="Social card preview — the branded card image for this post"
       width={size}
       height={size}
-      className="shrink-0 rounded-md border border-white/60 bg-white/70 object-cover"
+      className="shrink-0 rounded-md border border-ink/10 bg-white/70 object-cover"
       style={{ width: size, height: size }}
     />
   );

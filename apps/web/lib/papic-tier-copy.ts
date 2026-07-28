@@ -217,6 +217,47 @@ export function papicFreeGrantPoints(config: PapicTierConfig): number {
 }
 
 /**
+ * The LIVE free-pool allowance, straight from the admin-editable column.
+ *
+ * WHY THIS EXISTS (2026-07-28). The doc above always claimed the live value was
+ * `papic_event_pool_config.free_grant_points` — but nothing ever read it.
+ * `fetchPapicTierConfig` queries a DIFFERENT table (`papic_tier_config`) and
+ * never sets `freeGrantPoints`, so `papicFreeGrantPoints()` could only ever
+ * return the fallback literal. The admin column was decorative.
+ *
+ * That was harmless while the free pool was unarmed and nothing displayed it.
+ * It stopped being harmless the moment the pool was armed (PR #3847/#3848): the
+ * GRANT writes a number, copy renders a number, and if an admin edits the column
+ * those two must not drift apart. An admin who sets the allowance to 90 and sees
+ * "about 90 photos" on the card while the meter still hands out 50 has been lied
+ * to by their own control.
+ *
+ * So this is the single live reader, and BOTH halves — the grant amount
+ * (lib/papic-free-grant.ts) and the display phrase — resolve through it.
+ * Falls back to PAPIC_FREE_GRANT_POINTS_FALLBACK in ONE place, as before.
+ */
+export async function fetchPapicFreeGrantPoints(
+  supabase: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('papic_event_pool_config')
+      .select('free_grant_points')
+      .eq('config_key', 'default')
+      .maybeSingle();
+    if (error || !data) return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+    const n = Number((data as { free_grant_points?: unknown }).free_grant_points);
+    // A non-positive or unparseable value must never mint a 0-point (or
+    // negative) grant — papic_event_point_grants CHECKs points > 0, so a bad
+    // config row would turn every event-creation arm into a silent failure and
+    // put us straight back to the unmetered state this whole line of work fixed.
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  } catch {
+    return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  }
+}
+
+/**
  * The honest capacity sentence for a points budget.
  *
  * NOT "N photos + M clips" — the budget is one purse, so clips eat into the

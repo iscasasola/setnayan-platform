@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchPapicFreeGrantPoints } from '@/lib/papic-tier-copy';
 
 /**
  * apps/web/lib/papic-free-grant.ts — ARM the Papic FREE pool.
@@ -21,13 +22,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Onboarding_Papic_AI_Cards_BUILD_SPEC_2026-07-27.md), because it would hand
  * every signup unlimited free photo + video storage.
  *
- * THE ONE NUMBER
- * ──────────────
+ * THE ONE NUMBER (corrected 2026-07-28)
+ * ─────────────────────────────────────
  * `papic_tier_config.free.points_per_day` is NULL by design — the One-Pool model
- * moved Free off any per-day budget onto the shared pool — so there is no config
- * row to read. 50 is owner-locked and lives in ONE constant here; migration
- * 20271017100000 writes the same literal, and `papic-free-grant.test.ts` pins the
- * two together so they can never drift.
+ * moved Free off any per-day budget onto the shared pool. The live allowance is
+ * the ADMIN-EDITABLE `papic_event_pool_config.free_grant_points`, read through
+ * the single reader `fetchPapicFreeGrantPoints()` in lib/papic-tier-copy.ts.
+ *
+ * The first cut of this module hardcoded 50 instead, which introduced a THIRD
+ * copy of the number (alongside `PAPIC_FREE_GRANT_POINTS_FALLBACK` and the
+ * migration literal) and — worse — meant the grant would ignore the admin
+ * control entirely. An admin who set the allowance to 90 would see copy say 90
+ * while the meter kept handing out 50. Display and enforcement now resolve
+ * through the same reader, and `PAPIC_FREE_GRANT_POINTS_FALLBACK` is the ONE
+ * fallback literal for both.
  *
  * IDEMPOTENCY IS NOT OPTIONAL
  * ───────────────────────────
@@ -60,13 +68,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * the two together are what make "every event is fenced" true in practice.
  */
 
-/**
- * The free shared-pool grant, in points. Owner-locked 2026-07-22, confirmed
- * 2026-07-27. Mirrored by migration 20271017100000 — change both or neither
- * (the unit test enforces it).
- */
-export const PAPIC_FREE_POOL_POINTS = 50;
-
 /** The `papic_event_point_grants.source` value reserved for the free pool. */
 export const PAPIC_FREE_GRANT_SOURCE = 'free_grant' as const;
 
@@ -78,13 +79,15 @@ export type FreePapicGrantRow = {
 };
 
 /**
- * The row we insert. PURE + unit-tested, so the shape (and the 50) is asserted
- * without a database.
+ * The row we insert. PURE + unit-tested, so the shape is asserted without a
+ * database. `points` is passed IN (resolved from the admin-editable config by
+ * the caller) rather than baked in — that is the whole point of the 2026-07-28
+ * correction.
  */
-export function freePapicGrantRow(eventId: string): FreePapicGrantRow {
+export function freePapicGrantRow(eventId: string, points: number): FreePapicGrantRow {
   return {
     event_id: eventId,
-    points: PAPIC_FREE_POOL_POINTS,
+    points,
     source: PAPIC_FREE_GRANT_SOURCE,
     note: 'Free pool — armed at event creation (owner-locked 2026-07-27).',
   };
@@ -107,9 +110,14 @@ export async function ensureFreePapicPoolGrantAdmin(
 ): Promise<boolean> {
   if (!eventId) return false;
   try {
+    // The admin-editable allowance. Resolved per call rather than cached: event
+    // creation is rare, the read is one indexed row, and a stale cache here would
+    // silently mint the OLD allowance after an admin edit — the exact drift this
+    // correction exists to remove.
+    const points = await fetchPapicFreeGrantPoints(admin);
     const { error } = await admin
       .from('papic_event_point_grants')
-      .insert(freePapicGrantRow(eventId));
+      .insert(freePapicGrantRow(eventId, points));
     if (!error) return true;
     // 23505 = unique_violation against papic_event_point_grants_one_free_per_event
     // → this event is ALREADY armed. That is the steady state (every call after

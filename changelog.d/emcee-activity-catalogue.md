@@ -100,3 +100,40 @@ migration prefix guard + doctor clean · production build green.
 SPEC IMPACT: Two new tables (`vendor_activities`, `event_activity_picks`) — the
 `vendor_songs` / `event_song_picks` pattern applied to host/MC. Logged in
 `DECISION_LOG.md` 2026-07-27. No pricing change: activities carry time, not money.
+
+---
+
+## 2026-07-28 · feat(vendor): the catalogue's surfaces — authoring, picking, and the one-tap draft
+
+The visible half, on top of the schema above.
+
+- **`/vendor-dashboard/activities`** — where a host/MC writes his segments down
+  once: name, how long it takes, where in the day, and what it is in his words.
+  Reorderable. Sibling of `/vendor-dashboard/repertoire` and deliberately the
+  same kind of screen. **Retire, never delete** — past couples' picks reference
+  these rows, so the only removal is a soft "stop offering".
+- **The couple's menu, on the schedule page** — renders only when a booked
+  host/MC actually has segments, so a couple without one sees nothing rather
+  than an empty panel or an advert. Tick, then **"Add N to my timeline"**.
+- **The bridge** — `applyActivityPicks` appends the picks after everything
+  already scheduled and stamps each with the block it became, so a second press
+  is a no-op. Un-ticking is refused once a segment is on the timeline: that is a
+  real block the couple may have retimed, and unpicking must not reach into
+  their day behind their back.
+
+### ⚠ A guest could have written the couple's picks — caught by a DB guard
+
+The picks policies were named `_host_` but copied `event_song_picks`' use of
+`current_event_ids()`, which returns an event for **any** `member_type` —
+invited guests included. Through the `FOR ALL` write policy, a guest could have
+added or removed the couple's chosen segments.
+
+`tests/db/couple-host-policy-scope.db.test.ts` T1 failed the build. That guard
+exists because ten policies had already made this exact mistake, two of them
+serious. Now scoped to `current_couple_event_ids()`.
+
+The lesson, written into the migration: **copying a sibling table's idiom is not
+evidence that idiom is right for a differently-named policy.**
+
+Verified: `tsc --noEmit` clean · `next lint` clean · **5152/5152 unit tests** ·
+**594/594 DB replay guards**.

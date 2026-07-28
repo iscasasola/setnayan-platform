@@ -33,7 +33,7 @@
 --     vendor_songs      ↔ vendor_activities      (the vendor's reusable list)
 --     event_song_picks  ↔ event_activity_picks   (the couple's picks)
 --
--- Same RLS idioms (`current_vendor_ids()` to author, `current_event_ids()` to
+-- Same RLS idioms (`current_vendor_ids()` to author, a couple-scoped id set to
 -- pick), same shape of read on the day-of desk. Nothing here is a new pattern;
 -- it is an existing one applied to a second trade.
 --
@@ -133,14 +133,25 @@ CREATE INDEX IF NOT EXISTS event_activity_picks_activity_idx
 
 ALTER TABLE public.event_activity_picks ENABLE ROW LEVEL SECURITY;
 
--- The couple reads + writes their own picks (current_event_ids idiom, exactly
--- as event_song_picks does).
+-- The COUPLE reads + writes their own picks.
+--
+-- ⚠ `current_couple_event_ids()`, NOT `current_event_ids()`. The first draft
+-- copied `event_song_picks`, which uses the member-wide function — and
+-- `current_event_ids()` returns an event for ANY `member_type`, invited guests
+-- included. These policies are named `_host_`, so with the member-wide function
+-- a guest would have been able to read the couple's picks AND, through the FOR
+-- ALL write policy, add or remove them. Caught by
+-- `tests/db/couple-host-policy-scope.db.test.ts` T1, which exists precisely
+-- because ten policies had already made this mistake (two of them serious). The
+-- lesson the guard encodes: a policy named couple/host must be scoped to the
+-- couple, and copying a sibling table's idiom is not evidence that idiom is
+-- right for a differently-named policy.
 DROP POLICY IF EXISTS event_activity_picks_host_select ON public.event_activity_picks;
 CREATE POLICY event_activity_picks_host_select
   ON public.event_activity_picks FOR SELECT
   TO authenticated
   USING (
-    event_id IN (SELECT public.current_event_ids())
+    event_id IN (SELECT public.current_couple_event_ids())
     OR public.is_admin()
   );
 
@@ -149,11 +160,11 @@ CREATE POLICY event_activity_picks_host_write
   ON public.event_activity_picks FOR ALL
   TO authenticated
   USING (
-    event_id IN (SELECT public.current_event_ids())
+    event_id IN (SELECT public.current_couple_event_ids())
     OR public.is_admin()
   )
   WITH CHECK (
-    event_id IN (SELECT public.current_event_ids())
+    event_id IN (SELECT public.current_couple_event_ids())
     OR public.is_admin()
   );
 

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6217
+# facts: 6238
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     718
-#   col       4448
-#   policy    820
+#   tpriv     720
+#   col       4462
+#   policy    825
 #   view      10
 #   func      217
 #
@@ -144,6 +144,7 @@ tpriv	public.editorial_vendor_media|authenticated	SIUD
 tpriv	public.event_access_requests|authenticated	SIU
 tpriv	public.event_action_log|anon	SIUD
 tpriv	public.event_action_log|authenticated	SIUD
+tpriv	public.event_activity_picks|authenticated	SIUD
 tpriv	public.event_appointments|anon	SIUD
 tpriv	public.event_appointments|authenticated	SIUD
 tpriv	public.event_blocked_users|anon	SIUD
@@ -546,6 +547,7 @@ tpriv	public.users|anon	SIUD
 tpriv	public.users|authenticated	SIUD
 tpriv	public.vendor_2307_filings|anon	SIUD
 tpriv	public.vendor_2307_filings|authenticated	SIUD
+tpriv	public.vendor_activities|authenticated	SIUD
 tpriv	public.vendor_activity_stats|anon	SIUD
 tpriv	public.vendor_activity_stats|authenticated	SIUD
 tpriv	public.vendor_ad_subscriptions|anon	SIUD
@@ -1392,6 +1394,10 @@ col	public.event_action_log.payload_json	anon=SIU authenticated=SIU
 col	public.event_action_log.performed_at	anon=SIU authenticated=SIU
 col	public.event_action_log.performed_by_role	anon=SIU authenticated=SIU
 col	public.event_action_log.performed_by_user_id	anon=SIU authenticated=SIU
+col	public.event_activity_picks.activity_id	anon=- authenticated=SIU
+col	public.event_activity_picks.created_at	anon=- authenticated=SIU
+col	public.event_activity_picks.event_id	anon=- authenticated=SIU
+col	public.event_activity_picks.scheduled_block_id	anon=- authenticated=SIU
 col	public.event_appointments.appointment_id	anon=SIU authenticated=SIU
 col	public.event_appointments.created_at	anon=SIU authenticated=SIU
 col	public.event_appointments.custom_label	anon=SIU authenticated=SIU
@@ -3976,6 +3982,16 @@ col	public.vendor_2307_filings.tax_year	anon=SIU authenticated=SIU
 col	public.vendor_2307_filings.totals	anon=SIU authenticated=SIU
 col	public.vendor_2307_filings.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_2307_filings.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_activities.activity_id	anon=- authenticated=SIU
+col	public.vendor_activities.block_type	anon=- authenticated=SIU
+col	public.vendor_activities.blurb	anon=- authenticated=SIU
+col	public.vendor_activities.created_at	anon=- authenticated=SIU
+col	public.vendor_activities.display_order	anon=- authenticated=SIU
+col	public.vendor_activities.duration_minutes	anon=- authenticated=SIU
+col	public.vendor_activities.is_offered	anon=- authenticated=SIU
+col	public.vendor_activities.label	anon=- authenticated=SIU
+col	public.vendor_activities.updated_at	anon=- authenticated=SIU
+col	public.vendor_activities.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_activity_stats.avg_response_minutes	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.booking_completion_rate_pct	anon=SIU authenticated=SIU
 col	public.vendor_activity_stats.couple_trust_score	anon=SIU authenticated=SIU
@@ -5326,6 +5342,9 @@ policy	public.event_access_requests|event_access_requests_own_read	mode=PERMISSI
 policy	public.event_access_requests|event_access_requests_own_withdraw	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((requester_user_id = auth.uid()) AND (status = 'pending'::text)) check=((requester_user_id = auth.uid()) AND (status = 'withdrawn'::text))
 policy	public.event_action_log|event_action_log_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.event_action_log|event_action_log_event_members_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_action_log.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))))) OR (EXISTS ( SELECT 1 FROM event_delegates ed WHERE ((ed.event_id = event_action_log.event_id) AND (ed.delegate_user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid()))) AND (ed.revoked_at IS NULL))))) check=NULL
+policy	public.event_activity_picks|event_activity_picks_booked_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (activity_id IN ( SELECT a.activity_id FROM vendor_activities a WHERE (a.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) check=NULL
+policy	public.event_activity_picks|event_activity_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
+policy	public.event_activity_picks|event_activity_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
 policy	public.event_appointments|event_appointments_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids))
 policy	public.event_appointments|event_appointments_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=NULL
 policy	public.event_appointments|event_appointments_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) check=(event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids))
@@ -5773,6 +5792,8 @@ policy	public.users|admin_full_access_users	mode=PERMISSIVE cmd=ALL roles=authen
 policy	public.users|user_owns_row	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
 policy	public.vendor_2307_filings|vendor_2307_filings_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_2307_filings.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL
 policy	public.vendor_2307_filings|vendor_2307_filings_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_activities|vendor_activities_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin()) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin())
+policy	public.vendor_activities|vendor_activities_signed_in_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.vendor_activity_stats|admins manage vendor activity stats	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.vendor_activity_stats|public read vendor activity stats	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.vendor_ad_subscriptions|vendor_ad_subscriptions_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_ad_subscriptions.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL

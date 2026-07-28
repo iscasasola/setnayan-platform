@@ -209,7 +209,7 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
             role="dialog"
             aria-modal="true"
             aria-label="Search and jump"
-            className="sn-pop-in mx-auto mt-[11vh] w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/70 bg-white/85 shadow-[0_60px_100px_-60px_rgba(30,26,18,0.6)] backdrop-blur-[30px] backdrop-saturate-150"
+            className="sn-pop-in mx-auto mt-[11vh] w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-ink/15 bg-white/85 shadow-[0_60px_100px_-60px_rgba(30,26,18,0.6)] backdrop-blur-[30px] backdrop-saturate-150"
           >
             <div className="flex items-center gap-3 border-b border-ink/10 px-4 py-3.5">
               <Search

@@ -80,7 +80,7 @@ function VendorProgress({
         {progress.map((p) => (
           <li
             key={p.category}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/55 px-2.5 py-1"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/55 px-2.5 py-1"
           >
             <span className="text-xs font-medium text-ink">{p.label}</span>
             <span

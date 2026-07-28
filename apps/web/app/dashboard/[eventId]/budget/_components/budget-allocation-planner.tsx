@@ -348,7 +348,7 @@ export function BudgetAllocationPlanner({
       {/* Save plan — sticky to the bottom so the couple can save from anywhere
           in the list. The save itself runs through a transition (pending state). */}
       <div className="sticky bottom-3 z-10 mt-2">
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/60 bg-white/80 p-3 shadow-lg backdrop-blur-xl">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/15 bg-white/80 p-3 shadow-lg backdrop-blur-xl">
           <button
             type="button"
             onClick={handleSave}

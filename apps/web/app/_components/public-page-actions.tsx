@@ -60,7 +60,7 @@ export function PublicPageActions({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4 print:hidden">
-      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/60 bg-cream/85 px-3 py-1.5 shadow-lg backdrop-blur">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-ink/15 bg-cream/85 px-3 py-1.5 shadow-lg backdrop-blur">
         {canShare && (
           <button
             type="button"

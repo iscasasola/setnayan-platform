@@ -526,13 +526,17 @@ export function LockPackageModal({
                                 />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm text-ink/85">{opt.option_label}</p>
-                                  <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                                    {!selectable
-                                      ? 'Ask your vendor — not part of this total'
-                                      : opt.price_delta_centavos > 0
-                                        ? `+${formatCentavosPhp(opt.price_delta_centavos)}`
-                                        : 'Included'}
-                                  </p>
+                                  {/* A ₱0 option shows NOTHING (owner 2026-07-28:
+                                      "included makes it seem like this is included
+                                      whether they pick it or not") — no extra cost
+                                      is just a blank, the pick still decides. */}
+                                  {!selectable || opt.price_delta_centavos > 0 ? (
+                                    <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                                      {!selectable
+                                        ? 'Ask your vendor — not part of this total'
+                                        : `+${formatCentavosPhp(opt.price_delta_centavos)}`}
+                                    </p>
+                                  ) : null}
                                 </div>
                               </label>
                             );

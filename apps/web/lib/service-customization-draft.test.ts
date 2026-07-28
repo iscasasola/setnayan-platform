@@ -328,14 +328,14 @@ test('an oversized payload is refused rather than turned into unbounded INSERTs'
 /* 4 · AMOUNT ONLY — "included" IS NEVER TYPED (owner-locked)                 */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-test('amount-only: 0 and blank both render as "included"', () => {
+test('amount-only: 0 and blank both render as a BLANK (owner 2026-07-28 — never the word "included")', () => {
   // The VALUE is empty…
   assert.equal(formatAmountInput(0), '');
   assert.equal(parseAmountInput(''), 0);
   assert.equal(formatAmountInput(parseAmountInput('')), '');
-  // …and the PLACEHOLDER is the word, so the vendor reads "included" without
-  // ever typing it. Owner-locked: the word is never a value.
-  assert.equal(INCLUDED_PLACEHOLDER, 'included');
+  // …and the PLACEHOLDER is empty too: "included" implied the thing came
+  // whether they picked it or not, so a ₱0 option now shows nothing at all.
+  assert.equal(INCLUDED_PLACEHOLDER, '');
   assert.equal(rendersAsIncluded(0), true);
   assert.equal(rendersAsIncluded(parseAmountInput('')), true);
   assert.equal(rendersAsIncluded(1), false);

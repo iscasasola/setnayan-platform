@@ -452,9 +452,10 @@ function LineRow({
                   placeholder={autoNamePlaceholder('option', oIdx)}
                   onChange={(e) => onPatchOption(item.ref, o.ref, { label: e.target.value })}
                 />
-                {/* AMOUNT ONLY. The vendor types digits; 0 or blank RENDERS as
-                    "included" — they never type the word. The standard pick IS
-                    the baseline, so its field is pinned at zero (DB CHECK
+                {/* AMOUNT ONLY. The vendor types digits; 0 or blank renders as
+                    a BLANK (owner 2026-07-28 — never the word "included", which
+                    read as comes-regardless). The standard pick IS the
+                    baseline, so its field is pinned at zero (DB CHECK
                     vendor_package_item_options_default_is_free). */}
                 <AmountInput
                   ariaLabel="Extra cost of this option"
@@ -579,8 +580,9 @@ function LineRow({
  * The amount-only money field: a STATIC `+₱` prefix that is never part of the
  * value, and live thousands-grouping as the vendor types (`80000` → `80,000`).
  *
- * A zero shows nothing and reads "included" from the placeholder — owner-locked:
- * the vendor never types that word, so it can never be typo'd into a number.
+ * A zero shows nothing at all — a blank, never the word "included" (owner
+ * 2026-07-28: the word read as comes-regardless-of-the-pick). Prose typed into
+ * the field still parses to 0, never to a stray number.
  */
 function AmountInput({
   ariaLabel,

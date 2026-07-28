@@ -708,6 +708,7 @@ export function CanvasMaker({
         title="Who it’s for"
         open={sheet === 'audience'}
         onClose={() => setSheet(null)}
+        confirmLabel={null}
       >
         {coverages.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -1128,12 +1129,21 @@ function CanvasSheet({
   title,
   open,
   onClose,
+  confirmLabel = 'Update card',
   children,
 }: {
   id: string;
   title: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * The explicit confirm at the sheet's foot (owner 2026-07-28: "pop ups must
+   * have update button to avoid confusion"). Edits already applied live — this
+   * button AFFIRMS and closes; it changes nothing. Pass null only when the
+   * sheet carries its own real submit (the audience sheet's "Save who it's
+   * for"), where a second confirm would compete with it.
+   */
+  confirmLabel?: string | null;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -1174,6 +1184,17 @@ function CanvasSheet({
         </header>
         <div className="sn-canvas-rise space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {children}
+          {confirmLabel !== null ? (
+            // type="button" is LOAD-BEARING: most sheets render INSIDE the one
+            // card <form> — a default-submit button here would submit the card.
+            <button
+              type="button"
+              onClick={onClose}
+              className="button-primary min-h-[44px] w-full"
+            >
+              {confirmLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

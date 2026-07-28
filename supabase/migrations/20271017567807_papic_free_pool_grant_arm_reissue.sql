@@ -1,3 +1,11 @@
+-- REISSUE of 20271017100000_papic_free_pool_grant_arm.sql, which NEVER RAN in prod:
+-- it shared its prefix with vendor_verified_requires_stamp, and the runner records
+-- versions by prefix — vendor_verified applied first and claimed the version, so
+-- this file's DDL was silently skipped forever (verified 2026-07-28: the unique
+-- index papic_event_point_grants_one_free_per_event is ABSENT in prod and the
+-- backfill INSERT wrote 0 rows). Content is byte-identical to the original, which
+-- is idempotent (IF NOT EXISTS / ON CONFLICT), so re-running is safe either way.
+--
 -- Papic FREE pool — ARM THE FENCE (owner-locked 2026-07-27: "free is 50 points").
 --
 -- THE BUG THIS CLOSES

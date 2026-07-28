@@ -65,12 +65,18 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  *
  * ⚠ EVERY NUMBER ON THIS SCREEN COMES FROM `choiceTotals`, which calls the same
  * `priceCustomizedPackage` the lock action calls, over the same narrowed option
- * ids (`chargeableOptionIds`). There is no local sum. A follow-up pick and a
- * second pick on a "choose 2 of 3" line are PREFERENCES: they are recorded for
- * the vendor but priced at exactly zero, because `lockPackage` reads its items
- * with a select that cannot see the columns that define them. `isOptionSelectable`
- * is what keeps that honest — inside that region only a zero-delta option is
- * offered, so a preference is always genuinely free.
+ * ids (`chargeableOptionIds`) and the same narrowed hours
+ * (`chargeableExtraHours`). There is no local sum.
+ *
+ * A follow-up pick, a second pick on a "choose 2 of 3", and an extra hour are
+ * all REAL MONEY as of 2026-07-28. They were priced at exactly zero until then,
+ * because `lockPackage` read its items with a select that could not see the
+ * columns defining them — so this screen printed prices the server could not
+ * commit. The select carries all five columns now and the credit engine resolves
+ * the shapes, so what this screen adds up is what the lock charges.
+ *
+ * `isOptionSelectable` is still what keeps the remainder honest: anything the
+ * pricer would NOT charge for is only offered when its delta is genuinely zero.
  */
 /**
  * What Lock actually promises. Owner ruling 2026-07-26 — a lock becomes real
@@ -356,6 +362,12 @@ export function LockPackageModal({
         // beyond the chargeable set is dropped there exactly as it was here.
         ...(choicesEnabled && totals.chargeableOptionIds.length > 0
           ? { chosen_option_ids: [...totals.chargeableOptionIds] }
+          : {}),
+        // The HOUR steppers, same contract: a quantity per line, already
+        // narrowed and clamped by the same function the server re-runs. The
+        // rate never leaves the database.
+        ...(choicesEnabled && Object.keys(totals.chargeableExtraHours).length > 0
+          ? { extra_hours: { ...totals.chargeableExtraHours } }
           : {}),
       });
       if (result.status === 'ok' || result.status === 'already_locked') {
@@ -702,16 +714,17 @@ export function LockPackageModal({
                       ) : null}
 
                       {/* QUANTITY — extra hours on an hourly line, bounded by
-                          `max_extra_hours`. Recorded as a request, not a
-                          charge: `lockPackage` reads its items with a select
-                          that carries neither column, so there is no way to
-                          commit an hour and no way to price one. */}
+                          `max_extra_hours` and CHARGED at the line's own
+                          `extra_hour_centavos`. The stepper sends a quantity;
+                          the server re-reads the rate and re-clamps against the
+                          same bounds, so what is shown here is what is billed. */}
                       {choicesEnabled && !removed && hours ? (
                         <div className="mt-1.5 ml-8 flex items-center gap-3 rounded-lg border border-ink/10 px-3 py-2">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-ink/85">Extra hours</p>
                             <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                              Up to {hours.max} · your vendor quotes these
+                              Up to {hours.max} ·{' '}
+                              {formatCentavosPhp(item.extra_hour_centavos ?? 0)} per hour
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">

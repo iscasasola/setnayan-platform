@@ -45,6 +45,7 @@ function price(over: Partial<PriceCustomizedPackageArgs> & { pkg: VendorPackageW
     paxCount: 0,
     additions: [],
     catalogue: [],
+    extraHours: {},
     ...over,
   });
 }

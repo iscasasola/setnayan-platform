@@ -77,7 +77,6 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import {
-  PACKAGE_ITEM_BRANCHING_SELECT,
   PACKAGE_ITEM_OPTION_SELECT,
   VENDOR_PACKAGE_SELECT,
   VENDOR_PACKAGE_ITEM_SELECT,
@@ -3601,28 +3600,22 @@ async function fetchVendorPackagesWithItems(
     // unticking checkbox — the server still refused the removal, but the UI said
     // otherwise.
     //
-    // The BRANCHING columns are appended only behind the credit flag, and only
-    // here — never on `lockPackage`'s own select. This fetch is best-effort (the
-    // catch below renders no packages at all), so if the branching migration has
-    // not landed the cost is a hidden section; the same names on the lock path
-    // would be a PostgREST 400 on a money action. See
-    // PACKAGE_ITEM_BRANCHING_SELECT.
+    // ONE QUERY. This used to be two — a flag-gated branch that appended
+    // `PACKAGE_ITEM_BRANCHING_SELECT` here and only here, because the shared
+    // constant deliberately withheld those five columns from `lockPackage`'s own
+    // select. That asymmetry WAS the ₱0 bug: this page could render a priced
+    // follow-up / pick-N / hour stepper that the lock path could not see, so it
+    // committed none of them. The columns now live in the shared constant, both
+    // money callers read them, and there is nothing left to append or to gate.
     //
-    // TWO WHOLE QUERIES, not one with a ternary select: postgrest-js parses the
-    // select string in the TYPE system, and a union of two literals makes that
-    // parser bail (`ParserError<"Unexpected input: …">`), which erases the row
-    // type. Each branch has to carry a single concrete literal.
-    const { data: items } = packageCreditEnabled()
-      ? await admin
-          .from('vendor_package_items')
-          .select(`${VENDOR_PACKAGE_ITEM_SELECT}, ${PACKAGE_ITEM_BRANCHING_SELECT}`)
-          .in('package_id', packageIds)
-          .order('display_order', { ascending: true })
-      : await admin
-          .from('vendor_package_items')
-          .select(VENDOR_PACKAGE_ITEM_SELECT)
-          .in('package_id', packageIds)
-          .order('display_order', { ascending: true });
+    // (The split was also structural, not stylistic: postgrest-js parses the
+    // select string in the TYPE system, so a union of two literals makes that
+    // parser bail and erases the row type. One literal, one query, no union.)
+    const { data: items } = await admin
+      .from('vendor_package_items')
+      .select(VENDOR_PACKAGE_ITEM_SELECT)
+      .in('package_id', packageIds)
+      .order('display_order', { ascending: true });
 
     // CHOICE lines. A line is a choice iff it has options, so this join is what
     // makes them visible at all — without it the couple saw an inclusion with

@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 124
+# facts: 129
 #   shadow  21
-#   omit    103
+#   omit    108
 shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
 shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
 shadow	app/admin/pricing/_surfaces/price-bands-surface.tsx	regionLabel	lib/region-source.ts
@@ -157,8 +157,13 @@ omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	parent_opt
 omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	pick_max
 omit	lib/budget.ts	vendor_package_items	PACKAGE_ITEM_AUTHORING_SELECT	pick_min
 omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	created_at
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	extra_hour_centavos
 omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	is_default_included
 omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	is_required
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	max_extra_hours
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	parent_option_id
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	pick_max
+omit	lib/budget.ts	vendor_package_items	VENDOR_PACKAGE_ITEM_SELECT	pick_min
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
 omit	lib/proposal-merge.ts	vendor_packages	VENDOR_PACKAGE_SELECT	description

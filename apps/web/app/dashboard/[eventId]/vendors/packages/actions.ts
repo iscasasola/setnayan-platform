@@ -13,7 +13,12 @@ import {
   priceCustomizedPackage,
   unresolvedRequiredChoices,
 } from '@/lib/package-credit-adapter';
-import { chargeableOptionIds } from '@/lib/package-choice-tree';
+import { chargeableExtraHours, chargeableOptionIds } from '@/lib/package-choice-tree';
+import {
+  buildPricingSnapshot,
+  readPricingSnapshot,
+  repriceAfterRemoval,
+} from '@/lib/package-pricing-snapshot';
 import {
   isRemovableItem,
   keptItems,
@@ -48,6 +53,33 @@ import {
  * locked → released + reverts every linked event_vendors row to
  * 'considering').
  */
+
+/**
+ * Reduce whatever arrived in `extra_hours` to a record of whole non-negative
+ * numbers, before any of it reaches the pricer.
+ *
+ * `chargeableExtraHours` clamps against each line's own `max_extra_hours` and
+ * the credit engine refuses anything outside those bounds — but both of those
+ * reason about NUMBERS, and a server action is handed JSON. A string, a NaN, an
+ * inherited key or a nested object has to stop here, because the alternative is
+ * a multiplier on money arriving from a browser.
+ *
+ * Drops rather than throws: a malformed hour request is not worth failing a
+ * booking over, and dropping means the couple is charged for zero extra hours
+ * rather than for a guess.
+ */
+function sanitiseHourRequest(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof key !== 'string' || key.length === 0) continue;
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
 
 export type LockPackageResult =
   | { status: 'ok'; bookingId: string }
@@ -180,7 +212,20 @@ export async function lockPackage(
   const requestedOptionIds = customizations.chosen_option_ids ?? [];
   const chosenOptionIds = chargeableOptionIds(pkg, removedIds, requestedOptionIds);
 
-  // ── The CREDIT engine (flag-dark) ────────────────────────────────────────
+  // The HOUR axis, narrowed by the same rule and the same tree: only a VISIBLE
+  // line the vendor actually priced by the hour may carry any, and the number is
+  // clamped to that line's own `max_extra_hours`. The browser sends a QUANTITY;
+  // `extra_hour_centavos` is re-read from the item row below, so no peso figure
+  // on this path ever came from a client.
+  const requestedExtraHours = sanitiseHourRequest(customizations.extra_hours);
+  const extraHours = chargeableExtraHours(
+    pkg,
+    removedIds,
+    requestedOptionIds,
+    requestedExtraHours,
+  );
+
+  // ── The CREDIT engine ────────────────────────────────────────────────────
   //
   // With the flag ON, ./package-credit becomes the single authority for every
   // number on this booking. It is a strict superset of the shipped math: with
@@ -194,17 +239,21 @@ export async function lockPackage(
   // problem, so we surface it instead of quietly falling back to a number. A
   // silent fallback here would be the worst of both: the couple is charged by
   // one model while being shown another.
-  if (packageCreditEnabled()) {
-    const unresolved = unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds);
-    if (unresolved.length > 0) {
-      // Owner rule: a required choice line must be PICKED, never defaulted.
-      // The modal blocks this, so reaching here means a stale or hand-rolled
-      // client — answer it as the product question it is, not as an error code.
-      return {
-        status: 'choice_required',
-        itemIds: unresolved,
-      };
-    }
+  //
+  // ⚠ NO LONGER FLAG-GATED. This check sat inside `if (packageCreditEnabled())`,
+  // which meant the owner's own rule — a required choice line must be PICKED,
+  // never defaulted — was unenforced on the branch production actually runs.
+  // `priceCustomizedPackage` now applies the whole refusal layer on BOTH
+  // branches (the flag chooses the pricing model, never the safety floor), so
+  // an unpicked required line refuses either way; running the check here first
+  // is what turns that refusal into the product question it actually is instead
+  // of a generic "could not be computed".
+  const unresolved = unresolvedRequiredChoices(pkg, removedIds, chosenOptionIds);
+  if (unresolved.length > 0) {
+    return {
+      status: 'choice_required',
+      itemIds: unresolved,
+    };
   }
 
   // ── Credit spent on the vendor's OTHER services ──────────────────────────
@@ -265,6 +314,7 @@ export async function lockPackage(
     paxCount: livePax,
     additions: creditAdditions,
     catalogue: creditCatalogue,
+    extraHours,
   });
   if (!creditTotals) {
     return {
@@ -275,6 +325,20 @@ export async function lockPackage(
 
   const bookingTotalCentavos = creditTotals.bookingTotalCentavos;
 
+  // 🧊 FREEZE THE PRICE. Everything that decided this total gets written down —
+  // every charged option's delta at THIS pax, every hour's rate and cap, and
+  // which pricing model produced it. `removeItemFromPackage` re-prices from
+  // this record and never from live vendor rows, so nothing the vendor edits
+  // afterwards (a rate, a cap, retiring an option, narrowing a pick range) and
+  // no flag flip can move an agreed number. See ./lib/package-pricing-snapshot.
+  const pricingSnapshot = buildPricingSnapshot({
+    pkg,
+    chosenOptionIds,
+    extraHours,
+    paxCount: livePax,
+    creditEnabled: packageCreditEnabled(),
+  });
+
   // Persist the SANITISED set, not the raw client object — otherwise a bogus id
   // survives in customizations_json and reads as truth to every later consumer.
   const persistedCustomizations: PackageCustomizationsStored = {
@@ -282,6 +346,19 @@ export async function lockPackage(
     ...(chosenOptionIds.length > 0
       ? { chosen_option_ids: chosenOptionIds }
       : { chosen_option_ids: undefined }),
+    // Same rule again, for the hour steppers: persist the NARROWED, clamped set,
+    // never the browser's. Storing a request the pricer declined would leave
+    // `customizations_json` disagreeing with `total_locked_centavos` — and this
+    // record is what tells the vendor what to deliver.
+    ...(Object.keys(extraHours).length > 0
+      ? { extra_hours: extraHours }
+      : { extra_hours: undefined }),
+    // 🧊 THE FREEZE. Every number that decided this total, written down: each
+    // charged option's delta at THIS pax, each hour's rate AND cap, and which
+    // pricing model produced them. `removeItemFromPackage` re-prices from this
+    // and never from live vendor rows, so a later rate edit, cap change, option
+    // retirement or flag flip cannot move an agreed price.
+    pricing_snapshot: pricingSnapshot,
     // Same rule as the option ids, and for the same reason: spreading
     // `customizations` carries the BROWSER's `credit_additions` verbatim, so an
     // id we refused to price (another vendor's service, or one with no
@@ -311,6 +388,9 @@ export async function lockPackage(
   }
   if (persistedCustomizations.credit_additions === undefined) {
     delete persistedCustomizations.credit_additions;
+  }
+  if (persistedCustomizations.extra_hours === undefined) {
+    delete persistedCustomizations.extra_hours;
   }
 
   // 5. Fetch vendor info for the cascaded event_vendors row metadata.
@@ -599,7 +679,9 @@ export async function removeItemFromPackage(formData: FormData) {
   const { data: booking } = await supabase
     .from('event_vendor_packages')
     .select(
-      'booking_id, event_id, package_id, status, customizations_json',
+      // `total_locked_centavos` is the number this removal must not exceed —
+      // see the never-increases invariant in `repriceAfterRemoval`.
+      'booking_id, event_id, package_id, status, customizations_json, total_locked_centavos',
     )
     .eq('booking_id', bookingId)
     .eq('event_id', eventId)
@@ -635,13 +717,21 @@ export async function removeItemFromPackage(formData: FormData) {
   // Update the customizations payload + recompute the math.
   // Options, so a choice line is still a choice line when we re-price. Without
   // this every line reads as plain and the surcharge vanishes.
+  // ⚠ NO `is_available` FILTER HERE, unlike the lock path — and that difference
+  // is a fix, not an oversight. On the LOCK path the filter is right: a retired
+  // option is not on offer, so nobody may newly pick it. On this path every
+  // pick is ALREADY LOCKED, and filtering made the row vanish so the charge
+  // silently disappeared with it — the couple's ₱5,000 upgrade erased because
+  // the vendor stopped offering it to new couples. The snapshot forces
+  // `is_available` back on for locked picks and synthesises the row outright if
+  // the vendor deleted it, so reading them all here just keeps the live
+  // `display_order` / `is_default` for the ones that still exist.
   const removeItemIds = (itemsRows ?? []).map((i) => i.item_id);
   const { data: removeOptionRows } = removeItemIds.length
     ? await supabase
         .from('vendor_package_item_options')
         .select(PACKAGE_ITEM_OPTION_SELECT)
         .in('item_id', removeItemIds)
-        .eq('is_available', true)
         .order('display_order', { ascending: true })
     : { data: [] as VendorPackageItemOptionRow[] };
   const removeOptionsByItem = new Map<string, VendorPackageItemOptionRow[]>();
@@ -668,12 +758,33 @@ export async function removeItemFromPackage(formData: FormData) {
     ...existingCustom,
     removed_item_ids: newRemoved,
   };
-  // Choices matter here too. This path used to price with `computeCustomization`
-  // alone, so removing ANY line from a package carrying a paid upgrade silently
-  // dropped the upgrade from the stored total while `chosen_option_ids` still
-  // recorded the pick — and the booking fee rides on that total.
-  const survivingOptionIds = newCustom.chosen_option_ids ?? [];
-  const removePax = (await resolveLivePax(supabase, eventId)) ?? 0;
+  // 🧊 RE-PRICE FROM THE FROZEN SNAPSHOT, NOT FROM LIVE VENDOR ROWS.
+  //
+  // A locked order is FROZEN. This path used to re-derive every number from a
+  // fresh fetch under the live flag, which produced three confirmed money bugs:
+  // already-locked hours re-billed at whatever rate the vendor now charges; a
+  // locked paid pick silently DELETED when the vendor retired its option (the
+  // options fetch below filtered on `is_available`); and the same booking
+  // re-priced UPWARD if the credit flag was rolled back, because deltas are
+  // pool-spend under one model and a flat surcharge under the other.
+  //
+  // `repriceAfterRemoval` replays the snapshot written at lock — every delta,
+  // every hour rate and cap, the pax that resolved them, and the pricing model
+  // that applied — so live rows now contribute only STRUCTURE, never a peso. It
+  // also runs the SAME `chargeableOptionIds` narrowing the lock ran, because
+  // dropping a line must drop the follow-up questions it revealed, and holds
+  // the invariant that a removal can never increase the total.
+  const snapshot = readPricingSnapshot(existingCustom.pricing_snapshot);
+  if (!snapshot) {
+    // No frozen record ⇒ nothing to freeze against, and re-deriving from live
+    // rows is exactly the bug class above. Refuse rather than guess — the same
+    // posture as the credit purchase with no recorded price below. Only
+    // bookings locked before the snapshot shipped can land here, and prod has
+    // none (0 locked bookings).
+    throw new Error(
+      'This booking was locked before prices were recorded. Ask support to re-price it before removing a line.',
+    );
+  }
 
   // Credit already spent on the vendor's other services survives a line removal
   // — the couple still bought those things. Re-pricing without them would hand
@@ -704,18 +815,46 @@ export async function removeItemFromPackage(formData: FormData) {
     unit_price_centavos: a.unit_price_centavos as number,
   }));
 
-  const totals = priceCustomizedPackage({
+  const repriced = repriceAfterRemoval({
     pkg,
+    snapshot,
     removedItemIds: newRemoved,
-    chosenOptionIds: survivingOptionIds,
-    creditEnabled: packageCreditEnabled(),
-    paxCount: removePax,
     additions: survivingAdditions,
     catalogue: survivingCatalogue,
+    lockedTotalCentavos: Number(booking.total_locked_centavos ?? 0),
   });
-  if (!totals) throw new Error('Package pricing could not be computed.');
-  const { remainingConsumableCentavos, bookingTotalCentavos: totalLockedCentavos } =
-    totals;
+  if (!repriced.ok) {
+    // 🚨 Both refusals are money guards, so neither falls back to a number.
+    // `total_increased` in particular means an input that should have been
+    // frozen moved: writing the bigger figure would reprice an agreed order as
+    // a side effect of the couple removing something, and the booking fee rides
+    // on that total.
+    throw new Error(
+      repriced.reason === 'total_increased'
+        ? 'Removing this line would increase the locked total, which should never happen. Ask support to check this booking.'
+        : 'Package pricing could not be computed.',
+    );
+  }
+  const {
+    remainingConsumableCentavos,
+    bookingTotalCentavos: totalLockedCentavos,
+    chosenOptionIds: survivingOptionIds,
+    extraHours: survivingExtraHours,
+  } = repriced;
+
+  // The stored record must say what the new total charges for. Writing the
+  // pre-removal picks back next to a post-removal total is how a receipt starts
+  // claiming an upgrade nobody is paying for any more. The SNAPSHOT is narrowed
+  // the same way, so the next removal replays the survivors and not the
+  // originals.
+  if (survivingOptionIds.length > 0) newCustom.chosen_option_ids = survivingOptionIds;
+  else delete newCustom.chosen_option_ids;
+  if (Object.keys(survivingExtraHours).length > 0) {
+    newCustom.extra_hours = survivingExtraHours;
+  } else {
+    delete newCustom.extra_hours;
+  }
+  newCustom.pricing_snapshot = repriced.snapshot;
 
   const removedItem = pkg.items.find((i) => i.item_id === itemId);
   if (!removedItem) throw new Error('Item not found in package');

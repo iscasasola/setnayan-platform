@@ -168,8 +168,15 @@ test('the audience sheet renders FROM audienceGroups, not from a local list', ()
   const canvas = readFileSync(CANVAS, 'utf8');
   assert.match(
     canvas,
-    /audienceGroups\(eventTypeOptions\)\.map\(/,
+    /audienceGroups\(audienceOptions\)\.map\(/,
     'the sheet must map the grouping helper — a local .filter() is how the five keys were lost',
+  );
+  // audienceOptions itself must derive from the ONE allowed-set helper (the
+  // same rule the server enforces on save) — never an ad-hoc filter.
+  assert.match(
+    canvas,
+    /allowedEventOptions\(eventTypeOptions,\s*selectedAllowed\)/,
+    'the rendered options must come from allowedEventOptions — chips outside the leaf’s allowed set are checkable-then-silently-dropped',
   );
   // The hardcoded arrays must NOT come back into the component; they live in
   // the tested module or nowhere.

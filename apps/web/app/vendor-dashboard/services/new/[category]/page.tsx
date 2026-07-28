@@ -11,7 +11,11 @@ import {
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
-import { fetchVendorCoverages, resolveCoverageLabels } from '@/lib/vendor-coverages';
+import {
+  fetchVendorCoverages,
+  getCoverageTaxonomy,
+  resolveCoverageLabels,
+} from '@/lib/vendor-coverages';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
@@ -113,12 +117,23 @@ export default async function NewServicePage({
   // coverage id → its CURRENT event_types / faiths, so the audience chips open
   // showing what the vendor already serves rather than an empty slate.
   const coverageAudience: Record<number, { eventTypes: string[]; faiths: string[] }> = {};
+  // coverage id → the leaf's allowed event types from the live taxonomy, so the
+  // audience chips render only what the server will keep on save. Fail-soft: a
+  // failed tree read leaves every id unmapped → null → full vocab (pre-fix
+  // behaviour), never a false restriction.
+  const coverageAllowed: Record<number, string[] | null> = {};
   if (canvas) {
+    const tree = await getCoverageTaxonomy().catch(() => []);
+    const allowedByLeaf = new Map<string, string[] | null>();
+    for (const p of tree)
+      for (const b of p.branches)
+        for (const l of b.leaves) allowedByLeaf.set(l.canonicalService, l.allowedEventTypes);
     for (const c of vendorCoverages) {
       coverageAudience[c.id] = {
         eventTypes: c.event_types ?? [],
         faiths: c.faiths ?? [],
       };
+      coverageAllowed[c.id] = allowedByLeaf.get(c.canonical_service) ?? null;
     }
   }
 
@@ -166,6 +181,7 @@ export default async function NewServicePage({
           eventTypeOptions={eventTypeOptions}
           faithOptions={faithOptions}
           coverageAudience={coverageAudience}
+          coverageAllowed={coverageAllowed}
         />
       ) : (
         <ServiceWizard

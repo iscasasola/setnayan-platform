@@ -3249,3 +3249,51 @@ html:active-view-transition .sn-page-enter { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .sn-veil, .sn-capiz { display:none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ZERO-STEP SERVICE CARD MAKER — motion (canvas-maker.tsx, flag-dark behind
+ * NEXT_PUBLIC_CANVAS_MAKER_ENABLED). Transcribed from artifact 15007a4d, which
+ * is the design spec for this surface.
+ *
+ * Three signals, and nothing else moves:
+ *   • a SHEET rises from the bottom edge when a card region is tapped,
+ *   • newly-revealed content (the coach chip, a sheet's body) RISES in, so the
+ *     eye is told something changed rather than having to notice,
+ *   • the health METER slides to its new width instead of jumping, so a
+ *     blocker being cleared is felt.
+ *
+ * The global `prefers-reduced-motion` freeze near the top of this file already
+ * neutralises all of it; the explicit guards below are belt-and-braces (same
+ * idiom as .subnav-lift / .sn-veil) because these three carry a from-state that
+ * must never be the resting state.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes sn-canvas-sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes sn-canvas-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.sn-canvas-sheet { animation: sn-canvas-sheet-up 280ms ease both; }
+.sn-canvas-rise  { animation: sn-canvas-rise 250ms ease both; }
+/* The meter is a width transition, not a keyframe — it animates from wherever
+ * it already was, so an edit that lifts the score reads as a climb. */
+.sn-canvas-meter { transition: width 450ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .sn-canvas-sheet,
+  .sn-canvas-rise { animation: none; opacity: 1; transform: none; }
+  .sn-canvas-meter { transition: none; }
+}
+/* Phone ergonomics for the whole canvas, including the SHIPPED editors it
+ * mounts (customization / inclusions / discounts / pricing). iOS zooms the
+ * viewport on focus for any control under 16px, which on a bottom sheet throws
+ * the vendor out of the sheet they just opened. Scoped to `.sn-canvas` so the
+ * editors render byte-identically everywhere else — this is the cheapest way to
+ * fix the zoom without forking a single component. (Artifact 15007a4d ships the
+ * same rule as its `@media(max-width:700px){.fld,.stsel{font-size:16px}}`.) */
+@media (max-width: 700px) {
+  .sn-canvas input:not([type='checkbox']):not([type='radio']),
+  .sn-canvas select,
+  .sn-canvas textarea { font-size: 16px; }
+}

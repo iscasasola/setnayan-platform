@@ -1,0 +1,1132 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  AlertCircle,
+  Check,
+  ChevronRight,
+  ImageIcon,
+  Pencil,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react';
+
+import { Field } from '@/app/_components/forms/field';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
+import { parseCustomizationDraft } from '@/lib/service-customization-draft';
+import {
+  cardHealthLinesFromDraft,
+  scoreCardHealth,
+  type CardHealthSheet,
+  type CardHealthSnapshot,
+} from '@/lib/card-health';
+import {
+  EMPTY_CANVAS_SNAPSHOT,
+  canvasSnapshotKey,
+  readCanvasFormSnapshot,
+  type CanvasFormSnapshot,
+} from '@/lib/canvas-form-snapshot';
+import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
+
+export type { AudienceOption };
+
+import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import {
+  InclusionsEditor,
+  DiscountsEditor,
+  PriceBracketsEditor,
+} from './service-list-editors';
+import { ShowcaseMediaFields } from './showcase-media-fields';
+import { CustomizationStep } from './customization-step';
+import { commitVendorService } from '../actions';
+import { updateCoverageServes } from '../coverage-actions';
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CANVAS MAKER — "THE MAKER IS ZERO STEPS. THE CARD IS THE FORM."
+ * (owner-locked 2026-07-27 · DECISION_LOG · artifact 15007a4d)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The vendor is shown THEIR OWN CARD — the thing couples will see — and edits
+ * it by touching it. Each region opens a small bottom sheet and the card
+ * visibly updates behind it. There is no step sequence, no Back/Continue, no
+ * progress bar. The design lineage is 7 steps → 4 → 0, and every collapse
+ * removed NAVIGATION, never content: everything the 6-step wizard could author,
+ * this authors.
+ *
+ * ── WHAT IS ACTUALLY NEW HERE (the delta, and only the delta) ──────────────
+ * COMPOSITION, plus two small pieces of chrome. Nothing about what gets saved
+ * is new:
+ *
+ *   reused verbatim   ServiceWizard's one-form mechanics · FileUpload (+ its
+ *                     watermark / compressImage / qrGuard) · ShowcaseMediaFields ·
+ *                     PricingBasisEditor + IncludedFlags · PriceBracketsEditor ·
+ *                     InclusionsEditor · DiscountsEditor · CustomizationStep
+ *                     (the #3846 merged editor) · Field · SubmitButton ·
+ *                     useModalA11y · the coverage chips from coverage-panel.tsx
+ *   genuinely new     the CanvasSheet container, the card face itself, and the
+ *                     card-health meter + one-line coach (lib/card-health.ts).
+ *
+ * ── THE CONSTRAINT THAT SHAPES EVERY LINE BELOW ───────────────────────────
+ * THE SERVER DOES NOT CHANGE. This is one `<form action={commitVendorService}>`
+ * carrying the EXACT field names the wizard carries — nothing added, nothing
+ * renamed, nothing dropped. `commitVendorService` cannot tell which component
+ * drew the screen. Two consequences you must preserve when editing this file:
+ *
+ *   1. SHEETS ARE NOT MODALS THAT UNMOUNT. Every sheet stays mounted and is
+ *      hidden with the `hidden` attribute — exactly the wizard's `show()`
+ *      mechanic. A `hidden` input still posts; an UNMOUNTED one does not, so
+ *      unmounting a closed sheet would silently drop whatever the vendor typed
+ *      in it. (This is also why the shipped <Sheet> primitive, which returns
+ *      null when closed, is deliberately NOT used here.)
+ *   2. NO NEW FIELD NAMES. lib/canvas-field-parity.test.ts fails the build if
+ *      this component's input-name set ever diverges from the wizard's.
+ *
+ * The audience chips are the one thing that cannot ride this form — the event
+ * types / faiths a card is discovered by live on `vendor_coverages`, which is
+ * written by a DIFFERENT shipped action (`updateCoverageServes`). They are
+ * therefore a SIBLING form, never a nested one (see
+ * scripts/lint-nested-forms.mjs for what nesting one would cost), and the
+ * parity scanner is told to skip exactly that block.
+ */
+
+type OtherCategory = { value: string; label: string };
+export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
+
+type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience';
+
+/** Where a card-health finding sends the vendor. 'title' is inline on the card. */
+const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
+  media: 'media',
+  price: 'price',
+  excl: 'excl',
+  custom: 'custom',
+  audience: 'audience',
+  title: 'title',
+};
+
+const line = 'var(--m-line)';
+const paper = 'var(--m-paper)';
+
+// ════════════════════════════════════════════════════════════════════════════
+// The canvas
+// ════════════════════════════════════════════════════════════════════════════
+
+export function CanvasMaker({
+  categoryValue,
+  categoryLabel,
+  otherCategories,
+  coverages = [],
+  vendorProfileId,
+  claimToken = null,
+  eventTypeOptions = [],
+  faithOptions = [],
+  coverageAudience = {},
+}: {
+  categoryValue: string;
+  categoryLabel: string;
+  otherCategories: OtherCategory[];
+  coverages?: { id: number; label: string }[];
+  vendorProfileId: string;
+  /** PR-C claim passthrough — identical contract to <ServiceWizard>. */
+  claimToken?: string | null;
+  /** Live `event_type_vocab`, for the audience sheet. Empty = section hidden. */
+  eventTypeOptions?: AudienceOption[];
+  /** FAITH_REGISTRY, for the audience sheet. */
+  faithOptions?: AudienceOption[];
+  /** coverage id → its CURRENT event_types / faiths, so the chips open truthful. */
+  coverageAudience?: Record<number, CoverageAudience>;
+}) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const [sheet, setSheet] = useState<SheetKey | null>(null);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [perk, setPerk] = useState('');
+  const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+
+  // Which coverage this card sits in. The PICKER lives in the audience sheet
+  // (it decides who finds the card), but the FIELD stays on the main form as a
+  // hidden input under its shipped name — same value, same server contract.
+  const [coverageId, setCoverageId] = useState<string>('');
+  const selectedCoverage = coverageId ? Number(coverageId) : null;
+
+  const [events, setEvents] = useState<string[]>([]);
+  const [faiths, setFaiths] = useState<string[]>([]);
+  // Re-seed the chips when the vendor moves the card to another coverage —
+  // showing coverage A's audience while pointed at coverage B would be a lie.
+  const seededFor = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (seededFor.current === selectedCoverage) return;
+    seededFor.current = selectedCoverage;
+    const next =
+      selectedCoverage != null
+        ? (coverageAudience[selectedCoverage] ?? { eventTypes: [], faiths: [] })
+        : { eventTypes: [], faiths: [] };
+    setEvents(next.eventTypes);
+    setFaiths(next.faiths);
+  }, [selectedCoverage, coverageAudience]);
+
+  // ★ Customization ships flag-dark behind the SAME flag the wizard uses, so a
+  // canvas and a wizard save carry identical payloads on both settings.
+  const customizationEnabled = packageAuthoringEnabled();
+
+  /**
+   * THE LIVE READ — the card must move while the vendor types, in every region.
+   *
+   * Same idiom as the shipped ServiceCardLivePreview, with two additions the
+   * canvas needs because the card is the ONLY preview there is:
+   *
+   *   • `click`, deferred a tick. The basis picker and the unit toggles are
+   *     `<button type="button">`s that write React-CONTROLLED hidden inputs —
+   *     no `input`/`change` event ever fires, and reading during the click
+   *     handler would read the value from BEFORE React committed. A `setTimeout
+   *     0` lands after the commit, so switching Fixed → Per hour repaints the
+   *     price line immediately instead of up to a poll away.
+   *   • a NO-OP BAIL. The poll exists for the controlled hidden inputs
+   *     (FileUpload, the list editors, the customization draft), which fire no
+   *     DOM event — but calling setState with a fresh object every tick would
+   *     re-render the whole tree, including the editor the vendor is typing
+   *     into, several times a second for nothing. Comparing the snapshot key
+   *     first makes an unchanged tick cost one FormData read and no render.
+   *
+   * Focus is safe either way: every field inside a sheet is UNCONTROLLED
+   * (`defaultValue`), so a parent re-render reconciles the same DOM node and
+   * leaves the caret alone. Only the card's own title and the Exclusive are
+   * controlled, and those are edited on the card face itself.
+   */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    let lastKey = '';
+    let deferred: ReturnType<typeof setTimeout> | null = null;
+    const read = () => {
+      try {
+        const next = readCanvasFormSnapshot(new FormData(form));
+        const key = canvasSnapshotKey(next);
+        if (key === lastKey) return;
+        lastKey = key;
+        setSnap(next);
+      } catch {
+        /* a mid-render read must never break the form */
+      }
+    };
+    const readAfterCommit = () => {
+      if (deferred) clearTimeout(deferred);
+      deferred = setTimeout(read, 0);
+    };
+    read();
+    form.addEventListener('input', read);
+    form.addEventListener('change', read);
+    form.addEventListener('click', readAfterCommit);
+    const tick = setInterval(read, 400);
+    return () => {
+      form.removeEventListener('input', read);
+      form.removeEventListener('change', read);
+      form.removeEventListener('click', readAfterCommit);
+      if (deferred) clearTimeout(deferred);
+      clearInterval(tick);
+    };
+  }, []);
+
+  const customizationLines = useMemo(() => {
+    const parsed = parseCustomizationDraft(snap.customizationRaw);
+    return parsed.ok ? cardHealthLinesFromDraft(parsed.items) : [];
+  }, [snap.customizationRaw]);
+
+  const healthSnapshot: CardHealthSnapshot = {
+    hasCover: snap.hasCover,
+    photoCount: snap.photoCount,
+    hasClip: snap.hasClip,
+    hasPrice: snap.hasPrice,
+    title,
+    exclusiveText: perk,
+    // The other half of the real gate — see CardHealthSnapshot.
+    inclusionLabels: snap.inclusionLabels,
+    discountConditions: snap.discountConditions,
+    lines: customizationLines,
+    eventTypes: events,
+    faiths,
+  };
+  const health = scoreCardHealth(healthSnapshot);
+
+  /** Everything the card's "What couples get" region shows, in reading order. */
+  const comesWith = useMemo(() => {
+    const fromLines = customizationLines
+      .filter((l) => l.state === 'required' || l.state === 'included')
+      .map((l) => l.label.trim())
+      .filter((l) => l.length > 0);
+    return [...fromLines, ...snap.inclusionLabels];
+  }, [customizationLines, snap.inclusionLabels]);
+
+  const audienceLabel = useMemo(() => {
+    const byKey = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
+    const evs = events.map((k) => byKey.get(k) ?? k);
+    const faithByKey = new Map(faithOptions.map((f) => [f.key, f.label]));
+    const fa =
+      faiths.length === 0 ? 'all faiths' : faiths.map((k) => faithByKey.get(k) ?? k).join(', ');
+    if (evs.length === 0) return 'Who is this for?';
+    return `${evs.slice(0, 3).join(' · ')}${evs.length > 3 ? ` +${evs.length - 3}` : ''} · ${fa}`;
+  }, [events, faiths, eventTypeOptions, faithOptions]);
+
+  /** The coach chip and the diagnostics rows both land here. */
+  const goTo = (target: CardHealthSheet | null) => {
+    if (target === null) return;
+    const key = SHEET_FOR_FINDING[target];
+    if (key === 'title') {
+      setSheet(null);
+      titleRef.current?.focus();
+      titleRef.current?.scrollIntoView({ block: 'center' });
+      return;
+    }
+    setSheet(key);
+  };
+
+  const blocked = health.blockers.length > 0;
+
+  return (
+    <div className="sn-canvas space-y-4">
+      <form ref={formRef} action={commitVendorService} className="space-y-4">
+        <input type="hidden" name="category" value={categoryValue} />
+        {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
+        {/* The coverage this card sits in. Chosen in the audience sheet; the
+            FIELD lives here under its shipped name so the payload is unchanged. */}
+        <input type="hidden" name="coverage_id" value={coverageId} />
+
+        {/* ── THE ONE PROGRESS SURFACE ──────────────────────────────────────
+            Owner 2026-07-27, on seeing two bars: there is EXACTLY ONE. The
+            sticky header carries the meter, the grade, the item count (which IS
+            the expand toggle), the coach chip, and the diagnostics beneath it.
+            Nothing health-shaped renders anywhere else on this page. */}
+        <HealthHeader
+          health={health}
+          open={diagnosticsOpen}
+          onToggle={() => setDiagnosticsOpen((v) => !v)}
+          onGo={goTo}
+        />
+
+        {/* ═══ THE CARD — every region is a control ═══════════════════════════ */}
+        <div
+          className="overflow-hidden rounded-2xl border"
+          style={{ borderColor: line, background: paper }}
+        >
+          {/* Media — a 1:1 cover (owner-locked square, 2026-07-27; the shipped
+              FileUpload variant="square" is the canonical picker for it), then
+              the 56px showcase strip and the clip pill, which is how the couple
+              side reads this card. One control: tapping anywhere opens Photos. */}
+          <button
+            type="button"
+            onClick={() => setSheet('media')}
+            aria-label="Edit photos"
+            className="block w-full"
+          >
+            <span className="flex justify-center" style={{ background: 'var(--m-orange-4)' }}>
+              <span className="relative flex aspect-square w-full max-w-[280px] flex-col items-center justify-center gap-1 text-sm">
+                {snap.hasCover ? (
+                  <>
+                    <Check aria-hidden className="h-5 w-5" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
+                    <span style={{ color: 'var(--m-orange-2)' }}>Cover set — tap to change</span>
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
+                    <span style={{ color: 'var(--m-slate-2)' }}>Add cover photo</span>
+                    <span
+                      className="font-mono text-[9px] uppercase tracking-[0.12em]"
+                      style={{ color: 'var(--m-orange-2)' }}
+                    >
+                      required
+                    </span>
+                  </>
+                )}
+              </span>
+            </span>
+            {snap.photoCount > 0 || snap.hasClip ? (
+              <span className="flex items-center gap-1.5 overflow-x-auto px-4 py-2">
+                {Array.from({ length: snap.photoCount }).map((_, i) => (
+                  <span
+                    key={i}
+                    aria-hidden
+                    className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg font-mono text-[8px]"
+                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                  >
+                    {i + 1}
+                  </span>
+                ))}
+                {snap.hasClip ? (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px]"
+                    style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+                  >
+                    ▶ clip
+                  </span>
+                ) : null}
+                <span className="sr-only">
+                  {snap.photoCount} showcase photo{snap.photoCount === 1 ? '' : 's'}
+                  {snap.hasClip ? ' and a clip' : ''}
+                </span>
+              </span>
+            ) : null}
+          </button>
+
+          {/* Title — edited INLINE on the card, never in a sheet. */}
+          <input
+            ref={titleRef}
+            id="title"
+            name="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={80}
+            aria-label="Service name"
+            placeholder={categoryLabel}
+            className="w-full border-0 bg-transparent px-4 pb-1 pt-3 text-[17px] font-semibold tracking-[-0.01em] outline-none placeholder:font-normal"
+            style={{ color: 'var(--m-ink)' }}
+          />
+
+          <CardRegion onClick={() => setSheet('price')} label="Edit price">
+            {snap.hasPrice ? (
+              <span style={{ color: 'var(--m-ink)' }}>{snap.priceLine}</span>
+            ) : (
+              <span style={{ color: 'var(--m-slate-3)' }}>
+                Add your price — or leave it as quote-on-request
+              </span>
+            )}
+          </CardRegion>
+
+          <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
+              <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+              {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
+            </span>
+          </CardRegion>
+
+          <CardRegion onClick={() => setSheet('custom')} label="Edit what couples get">
+            {comesWith.length ? (
+              <span className="flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--m-slate)' }}>
+                {comesWith.slice(0, 3).map((c) => (
+                  <span key={c} className="inline-flex items-center gap-1">
+                    <Check aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
+                    {c}
+                  </span>
+                ))}
+                {comesWith.length > 3 ? (
+                  <span style={{ color: 'var(--m-orange-2)' }}>+{comesWith.length - 3} more</span>
+                ) : null}
+              </span>
+            ) : (
+              <span style={{ color: 'var(--m-slate-3)' }}>
+                What couples get — inclusions, choices, add-ons
+              </span>
+            )}
+          </CardRegion>
+
+          <CardRegion onClick={() => setSheet('audience')} label="Edit who this is for">
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
+              <Users aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+              {audienceLabel}
+            </span>
+          </CardRegion>
+        </div>
+
+        {/* Comes with — bundles the vendor's OTHER cards. Only when they have
+            some; the couple reads it straight off the card. */}
+        {otherCategories.length > 0 ? (
+          <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
+            <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+              Comes with{snap.linkedCount > 0 ? ` · ${snap.linkedCount}` : ''}
+            </summary>
+            <div className="space-y-1.5 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
+              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                Other things you offer that come bundled with this one. Up to 6.
+              </p>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {otherCategories.map((c) => (
+                  <label
+                    key={c.value}
+                    className="flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                    style={{ borderColor: line, color: 'var(--m-slate)' }}
+                  >
+                    <input type="checkbox" name="linked" value={c.value} className="h-4 w-4 accent-terracotta" />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </details>
+        ) : null}
+
+        {/* ── Recap + publish. NO meter, NO second guidance line — the sticky
+            header is the only progress surface (owner 2026-07-27). ────────── */}
+        <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
+          <Recap k="Category" v={categoryLabel} />
+          <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
+          <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
+          <Recap
+            k="What couples get"
+            v={
+              comesWith.length
+                ? `${comesWith.length} line${comesWith.length === 1 ? '' : 's'}`
+                : '— none'
+            }
+          />
+          {snap.linkedCount > 0 ? (
+            <Recap k="Comes with" v={`${snap.linkedCount} service${snap.linkedCount === 1 ? '' : 's'}`} />
+          ) : null}
+        </dl>
+
+        <div className="flex flex-wrap gap-2">
+          <SubmitButton
+            name="publish"
+            value="true"
+            disabled={blocked}
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-50"
+            pendingLabel="Publishing…"
+          >
+            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Publish service
+          </SubmitButton>
+          <SubmitButton
+            name="publish"
+            value="false"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium"
+            style={{ borderColor: line, color: 'var(--m-slate)' }}
+            pendingLabel="Saving…"
+          >
+            Save as draft
+          </SubmitButton>
+        </div>
+
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          Availability is set on your Calendar, and payment terms are agreed in each
+          couple&rsquo;s inquiry — so this card stays simple.
+        </p>
+
+        {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
+            posts whether or not its sheet was ever opened. ═══════════════════ */}
+
+        <CanvasSheet
+          id="canvas-media"
+          title="Photos"
+          open={sheet === 'media'}
+          onClose={() => setSheet(null)}
+        >
+          <Field
+            label="Cover photo"
+            htmlFor="primary_photo_r2_key"
+            help="The first thing couples see, shown 1:1. PNG, JPEG, or WebP up to 5 MB. Required to publish."
+          >
+            {/* watermark: owner-locked 2026-07-03 — service COVERS carry the
+                SETNAYAN watermark like every other marketplace photo.
+                variant="square" is the canonical 1:1 picker (owner 2026-07-27). */}
+            <FileUpload
+              bucket="media"
+              pathPrefix={`vendors/${vendorProfileId}/services`}
+              name="primary_photo_r2_key"
+              maxSizeMB={5}
+              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+              watermark
+              compressImage
+              variant="square"
+              qrGuard
+            />
+          </Field>
+          <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
+        </CanvasSheet>
+
+        <CanvasSheet
+          id="canvas-price"
+          title="Price"
+          open={sheet === 'price'}
+          onClose={() => setSheet(null)}
+        >
+          <PricingBasisEditor
+            idPrefix="canvas"
+            category={categoryValue}
+            defaults={{
+              pricing_basis: 'fixed',
+              starting_price_php: null,
+              base_pax: null,
+              added_pax_price_php: null,
+              per_pax_price_php: null,
+              min_pax: null,
+              hour_base_php: null,
+              min_hours: null,
+              extra_hour_php: null,
+            }}
+            fixedExtra={<PriceBracketsEditor initial={[]} />}
+          />
+          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            Per head sets the minimum pax you can serve · per hour covers a first block
+            then bills each extra hour · per event is flat, whatever the hours or pax.
+            Either way the real number is quoted in each couple&rsquo;s inquiry.
+          </p>
+          <DiscountsEditor initial={[]} />
+          <Field label="Crew size (optional)" htmlFor="crew_size">
+            <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
+          </Field>
+          <IncludedFlags
+            idPrefix="canvas"
+            category={categoryValue}
+            defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+          />
+          <details className="rounded-lg border p-3" style={{ borderColor: line }}>
+            <summary className="cursor-pointer text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
+              Lead-time rules (advanced) — optional
+            </summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                Starting points the platform uses. Skip these and you can still publish.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
+                  <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" className="input-field" />
+                </Field>
+                <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
+                  <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} className="input-field" />
+                </Field>
+                <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
+                  <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} className="input-field" />
+                </Field>
+              </div>
+            </div>
+          </details>
+        </CanvasSheet>
+
+        <CanvasSheet
+          id="canvas-excl"
+          title="Setnayan Exclusive"
+          open={sheet === 'excl'}
+          onClose={() => setSheet(null)}
+        >
+          <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
+            <input
+              id="exclusive_perk_text"
+              name="exclusive_perk_text"
+              value={perk}
+              onChange={(e) => setPerk(e.target.value)}
+              maxLength={500}
+              placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
+              className="input-field"
+            />
+          </Field>
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            One thing couples only get by booking you through Setnayan. Required to{' '}
+            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>publish</span> — you can
+            save a draft without it.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setPerk(c)}
+                className="min-h-[34px] rounded-full border px-3 py-1 text-xs"
+                style={{ borderColor: line, background: paper, color: 'var(--m-slate)' }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </CanvasSheet>
+
+        <CanvasSheet
+          id="canvas-custom"
+          title="What couples get"
+          open={sheet === 'custom'}
+          onClose={() => setSheet(null)}
+        >
+          <InclusionsEditor initial={[]} />
+          {/* The #3846 merged customization editor, mounted whole. Flag-dark on
+              the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
+              field, exactly as the wizard behaves. */}
+          {customizationEnabled ? (
+            <CustomizationStep categoryValue={categoryValue} categoryLabel={categoryLabel} />
+          ) : null}
+        </CanvasSheet>
+      </form>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          parity:ignore-start
+          THE AUDIENCE SHEET IS A SIBLING FORM, NOT A NESTED ONE.
+
+          Who finds this card is `vendor_coverages.event_types` / `.faiths` —
+          rows the couple-side filters already read, written by the SHIPPED
+          `updateCoverageServes` action (services/coverage-actions.ts). It is a
+          different write from the card's, so it is a different form, placed
+          OUTSIDE the card form: nesting it would let a no-JS submit of the card
+          dispatch THIS action instead (see scripts/lint-nested-forms.mjs).
+
+          The chips, their field names and the "empty faiths = all faiths
+          welcomed" rule are lifted from coverage-panel.tsx — the only thing new
+          is the Life-events / Events split, which is presentation over ONE array.
+
+          `updateCoverageServes` redirects back to Services on success (shipped
+          behaviour, unchanged), so the button says so plainly rather than
+          quietly costing the vendor an unsaved card.
+          ═══════════════════════════════════════════════════════════════════ */}
+      <CanvasSheet
+        id="canvas-audience"
+        title="Who it’s for"
+        open={sheet === 'audience'}
+        onClose={() => setSheet(null)}
+      >
+        {coverages.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            This card isn&rsquo;t in a coverage yet, so nobody is searching for it. Add a
+            coverage from your Shop first — then come back and choose who it serves.
+          </p>
+        ) : (
+          <form action={updateCoverageServes} className="space-y-4">
+            <input type="hidden" name="coverage_id" value={coverageId} />
+            <label className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                This card sits in
+              </span>
+              {/* NO `name` — the picker drives the hidden coverage_id on BOTH
+                  forms. Giving it one would add a duplicate to the payload. */}
+              <select
+                value={coverageId}
+                onChange={(e) => setCoverageId(e.target.value)}
+                aria-label="Coverage this card sits in"
+                className="input-field cursor-pointer"
+              >
+                <option value="">— not assigned —</option>
+                {coverages.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* EVERY active vocab option renders, across these groups. The
+                split is presentation over ONE array; the grouping (and the
+                union invariant that keeps a new admin-added type from falling
+                through) lives in lib/canvas-audience-groups.ts, tested. A
+                `.filter()` here instead is exactly how five live event types
+                were silently strippable in the first cut. */}
+            {audienceGroups(eventTypeOptions).map((group) => (
+              <ChipGroup
+                key={group.id}
+                heading={group.heading}
+                blurb={group.blurb}
+                options={group.options}
+                coverageField="event_types"
+                selected={events}
+                onToggle={(k) => setEvents((cur) => toggle(cur, k))}
+                disabled={!coverageId}
+              />
+            ))}
+            <ChipGroup
+              heading="Faith"
+              blurb="Leave all off to welcome every faith. Faith unlocks you for a search; it never gates you out."
+              options={faithOptions}
+              coverageField="faiths"
+              selected={faiths}
+              onToggle={(k) => setFaiths((cur) => toggle(cur, k))}
+              disabled={!coverageId}
+            />
+
+            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              Who-it&rsquo;s-for is saved on your coverage, not on this card — saving it
+              returns you to Services. Publish or save this card as a draft first.
+            </p>
+            <SubmitButton
+              className="button-primary min-h-[44px] disabled:opacity-50"
+              pendingLabel="Saving…"
+              disabled={!coverageId || events.length === 0}
+            >
+              Save who it&rsquo;s for
+            </SubmitButton>
+          </form>
+        )}
+      </CanvasSheet>
+      {/* parity:ignore-end */}
+    </div>
+  );
+}
+
+function toggle(list: string[], key: string): string[] {
+  return list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+}
+
+// ── Card regions ────────────────────────────────────────────────────────────
+
+function CardRegion({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex min-h-[44px] w-full items-center gap-2 border-t px-4 py-2.5 text-left text-[13.5px]"
+      style={{ borderColor: line }}
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <Pencil aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+    </button>
+  );
+}
+
+function Recap({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt style={{ color: 'var(--m-slate-2)' }}>{k}</dt>
+      <dd className="text-right font-medium" style={{ color: 'var(--m-ink)' }}>
+        {v}
+      </dd>
+    </div>
+  );
+}
+
+// ── Health chrome ───────────────────────────────────────────────────────────
+
+const GRADE_LABEL: Record<string, string> = {
+  blocked: 'Blocked',
+  poor: 'Poor',
+  average: 'Average',
+  good: 'Good',
+  excellent: 'Excellent',
+};
+
+function gradeColour(grade: string): string {
+  if (grade === 'blocked' || grade === 'poor') return 'var(--m-blush-deep, var(--m-orange-2))';
+  if (grade === 'good' || grade === 'excellent') return 'var(--m-sage-deep, var(--m-orange-2))';
+  return 'var(--m-orange-2)';
+}
+
+/**
+ * THE ONE PROGRESS SURFACE (owner-locked 2026-07-27 — the owner saw two bars
+ * and called it out; artifact 15007a4d, label one-meter-11-cover).
+ *
+ * Everything that tells the vendor where they stand lives in this one sticky
+ * header and nowhere else: the meter, the grade + score, the item count that
+ * doubles as the diagnostics toggle, the single next-best action, and the
+ * diagnostics themselves collapsed beneath it. The count button disappears at
+ * zero items, so a clean card has nothing to expand.
+ *
+ * A second meter (or a health panel further down the page) is a REGRESSION, not
+ * an addition — the maker has no steps, and two progress readings that can
+ * disagree is exactly the confusion the zero-step design removed.
+ */
+function HealthHeader({
+  health,
+  open,
+  onToggle,
+  onGo,
+}: {
+  health: ReturnType<typeof scoreCardHealth>;
+  open: boolean;
+  onToggle: () => void;
+  onGo: (sheet: CardHealthSheet) => void;
+}) {
+  const colour = gradeColour(health.grade);
+  const items = [
+    ...health.blockers.map((f) => ({ f, tone: 'blocker' as const })),
+    ...health.warnings.map((f) => ({ f, tone: 'warning' as const })),
+    ...health.hints.map((f) => ({ f, tone: 'hint' as const })),
+  ];
+  return (
+    <div
+      className="sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6"
+      style={{
+        borderColor: line,
+        background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)',
+      }}
+    >
+      <div
+        className="h-2 overflow-hidden rounded-full"
+        style={{ background: 'color-mix(in srgb, var(--m-ink) 8%, transparent)' }}
+        role="progressbar"
+        aria-label="Card health"
+        aria-valuenow={health.score}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="sn-canvas-meter h-full rounded-full"
+          style={{ width: `${health.score}%`, background: colour }}
+        />
+      </div>
+
+      <div className="mt-1 flex items-baseline justify-between gap-3">
+        <p className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: colour }}>
+          {GRADE_LABEL[health.grade] ?? health.grade}{' '}
+          <span className="font-mono text-[10px] font-normal opacity-60">
+            {health.score}/100
+          </span>
+        </p>
+        {items.length > 0 ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls="canvas-diagnostics"
+            className="min-h-[34px] shrink-0 px-1 text-xs font-medium"
+            style={{ color: 'var(--m-slate-2)' }}
+          >
+            {items.length} item{items.length === 1 ? '' : 's'} {open ? '▴' : '▾'}
+          </button>
+        ) : null}
+      </div>
+
+      <CoachChip
+        label={health.nextAction.label}
+        ready={health.nextAction.sheet === null}
+        onGo={() => onGo(health.nextAction.sheet ?? 'media')}
+      />
+
+      {items.length > 0 && open ? (
+        <div id="canvas-diagnostics" className="sn-canvas-rise mt-2 space-y-1.5 pb-1">
+          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+            {health.band}
+          </p>
+          {items.map(({ f, tone }) => (
+            <FindingRow key={f.code + f.message} finding={f} tone={tone} onGo={onGo} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The coach — ALWAYS exactly one line. Never a list: the maker has no steps, so
+ * a stack of "you could also…" would just be the wizard's checklist wearing a
+ * different hat. When there is nothing left it turns green and says so rather
+ * than vanishing (a control that disappears reads as a bug, not as success).
+ */
+function CoachChip({
+  label,
+  ready,
+  onGo,
+}: {
+  label: string;
+  ready: boolean;
+  onGo: () => void;
+}) {
+  if (ready) {
+    return (
+      <p
+        className="sn-canvas-rise mt-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium"
+        style={{
+          borderColor: 'color-mix(in srgb, var(--m-sage-deep, var(--m-orange-2)) 40%, transparent)',
+          background: 'color-mix(in srgb, var(--m-sage, var(--m-orange-4)) 25%, transparent)',
+          color: 'var(--m-sage-deep, var(--m-ink))',
+        }}
+      >
+        {label}
+      </p>
+    );
+  }
+  return (
+    // `key` on the label so a NEW next-action re-mounts the chip and the rise
+    // animation replays — that flick is the whole signal that the goalposts moved.
+    <button
+      key={label}
+      type="button"
+      onClick={onGo}
+      className="sn-canvas-rise mt-1.5 block min-h-[38px] w-full rounded-lg border px-3 py-2 text-left text-[12.5px]"
+      style={{
+        borderColor: 'color-mix(in srgb, var(--m-orange-2) 45%, transparent)',
+        background: 'var(--m-orange-4)',
+        color: 'var(--m-orange-2)',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FindingRow({
+  finding,
+  tone,
+  onGo,
+}: {
+  finding: { code: string; message: string; sheet: CardHealthSheet };
+  tone: 'blocker' | 'warning' | 'hint';
+  onGo: (sheet: CardHealthSheet) => void;
+}) {
+  const colour =
+    tone === 'blocker'
+      ? 'var(--m-blush-deep, var(--m-orange-2))'
+      : tone === 'warning'
+        ? 'var(--m-orange-2)'
+        : 'var(--m-slate)';
+  return (
+    <button
+      type="button"
+      onClick={() => onGo(finding.sheet)}
+      className="flex min-h-[38px] w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs"
+      style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}
+    >
+      {tone === 'blocker' ? (
+        <X aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+      ) : tone === 'warning' ? (
+        <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+      ) : (
+        // A hint needs no glyph, but it does need the same gutter, so the three
+        // tones read as one list rather than three indents.
+        <span aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      )}
+      <span className="flex-1">{finding.message}</span>
+      <ChevronRight aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-50" strokeWidth={2} />
+    </button>
+  );
+}
+
+// ── Audience chips (the coverage-panel idiom, split for reading) ────────────
+// parity:ignore-start — belongs to the sibling coverage form above. The field
+// name here is `coverageField`, whose TYPE admits only the two shipped
+// vendor_coverages column names, so this passthrough can never grow a third.
+
+function ChipGroup({
+  heading,
+  blurb,
+  options,
+  coverageField,
+  selected,
+  onToggle,
+  disabled,
+}: {
+  heading: string;
+  blurb: string;
+  options: AudienceOption[];
+  /** The vendor_coverages column this group writes. Exhaustive by type. */
+  coverageField: 'event_types' | 'faiths';
+  selected: string[];
+  onToggle: (key: string) => void;
+  disabled: boolean;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.13em]" style={{ color: 'var(--m-slate-3)' }}>
+        {heading}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const on = selected.includes(o.key);
+          return (
+            <label
+              key={o.key}
+              className="inline-flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+              style={{
+                borderColor: on ? 'var(--m-orange-3)' : line,
+                background: on ? 'var(--m-orange-4)' : paper,
+                color: on ? 'var(--m-orange-2)' : 'var(--m-slate)',
+                opacity: disabled ? 0.5 : 1,
+              }}
+            >
+              {/* Controlled + visually hidden, exactly like coverage-panel's
+                  SelectChip: the label is the whole hit target and the checkbox
+                  is the single source of truth for what posts. */}
+              <input
+                type="checkbox"
+                name={coverageField}
+                value={o.key}
+                checked={on}
+                disabled={disabled}
+                onChange={() => onToggle(o.key)}
+                className="hidden"
+              />
+              {on ? <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} /> : null}
+              {o.label}
+            </label>
+          );
+        })}
+      </div>
+      <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>{blurb}</p>
+    </div>
+  );
+}
+// parity:ignore-end
+
+// ── The sheet container ─────────────────────────────────────────────────────
+
+/**
+ * A bottom sheet that NEVER unmounts.
+ *
+ * The shipped <Sheet> primitive (app/_components/sheet.tsx) returns null when
+ * closed, which is correct for a modal and fatal here: the sheets ARE the form,
+ * and an unmounted input posts nothing. So this keeps the shipped primitive's
+ * contract — role="dialog", aria-modal, aria-labelledby, Esc, focus trap +
+ * restore, scroll lock, backdrop-dismiss, all via the same `useModalA11y` hook —
+ * and swaps the unmount for the `hidden` attribute, exactly the mechanic the
+ * wizard uses to keep its inactive steps submitting.
+ *
+ * Two details that are load-bearing, not cosmetic:
+ *   • the root carries NO Tailwind display utility, because `.flex` would
+ *     out-cascade preflight's `[hidden]{display:none}` and the "hidden" sheet
+ *     would stay on screen;
+ *   • toggling display none→block restarts the CSS animation, which is why the
+ *     rise replays on every open without any JS.
+ */
+function CanvasSheet({
+  id,
+  title,
+  open,
+  onClose,
+  children,
+}: {
+  id: string;
+  title: string;
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose, containerRef: dialogRef });
+
+  return (
+    <div hidden={!open} className="fixed inset-0 z-40">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+      />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+        className="sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto max-h-[78dvh] w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none"
+        style={{ borderColor: line, background: paper }}
+      >
+        <header
+          className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur"
+          style={{ borderColor: line, background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)' }}
+        >
+          <h2 id={`${id}-title`} className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+            style={{ color: 'var(--m-slate-2)' }}
+          >
+            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </header>
+        <div className="sn-canvas-rise space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}

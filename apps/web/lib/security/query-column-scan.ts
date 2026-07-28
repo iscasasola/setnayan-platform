@@ -39,6 +39,7 @@ import {
   isTestFile,
   type SelectSite,
 } from './select-column-scan';
+import { stripComments } from './source-text';
 
 const FROM_RE = /\.from\(\s*'([a-z0-9_]+)'\s*\)/gi;
 
@@ -332,4 +333,97 @@ export function scanFilterSites(root: string = APP_ROOT): SelectSite[] {
 
 export function scanWriteSites(root: string = APP_ROOT): SelectSite[] {
   return scanWith(extractWriteSites, root);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// PART 3 — the RIGHT-NAME-WRONG-COLUMN case: filtering the events family on
+// its hidden surrogate `id`.
+//
+// Parts 1 and 2 both ask "does this column EXIST?". That question cannot catch
+// the defect below, because `id` exists — it is simply the wrong one:
+//
+//     .from('events_host').select(…).eq('id', eventId)   // ← eventId is a uuid
+//
+// `public.events` (and its host view `public.events_host`) carry BOTH
+// `id bigserial` — the hidden internal-join key, per the canonical-ID lock in
+// CLAUDE.md — and `event_id uuid`, which is what every route param, URL, QR
+// payload and server action actually holds. Sending the uuid to the bigint
+// column makes Postgres reject the statement outright:
+//
+//     22P02  invalid input syntax for type bigint: "…-…-…"
+//
+// PostgREST answers 400, supabase-js resolves `{ data: null, error }`, and the
+// caller's `?? null` renders that as "this couple has filled in nothing". No
+// column is missing, no type-checker complains, and the page looks merely
+// empty. Two live instances were found on 2026-07-28 —
+// `dashboard/[eventId]/vendors/page.tsx` (date, budget, venue coordinates,
+// guest count and the Setnayan-AI entitlement, all dark) and
+// `dashboard/[eventId]/find-date/page.tsx` (the schedule matrix built against a
+// null date). Both had shipped alongside a dozen sibling queries that filtered
+// on `event_id` correctly.
+//
+// THE INVARIANT. App code never holds an events bigserial: nothing exposes one,
+// and no route, action or component takes one as input. So ANY filter on
+// `'id'` against the events family is wrong regardless of the value passed —
+// which is why this check is on the column name alone and needs no type
+// inference. That also makes it cheap and exact: no false positives to
+// allow-list, and no ratchet to rot.
+//
+// SCOPE. Deliberately narrow. Other tables legitimately filter their integer
+// `id` (settings singletons on `.eq('id', 1)`, admin rows keyed off a numeric
+// form field, ids read back out of a prior row of the same table). Widening
+// this to "every table with an integer id" would flag ~200 correct call sites
+// and teach people to suppress it. If another table ever grows the same
+// uuid-public / bigint-internal split, add it here with the same reasoning.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Relations whose `id` is a hidden bigserial and whose PUBLIC key is
+ * `event_id uuid`. The view inherits the base table's shape.
+ */
+export const SURROGATE_ID_RELATIONS = new Set(['events', 'events_host']);
+
+/** The column app code must filter these relations on. */
+export const EVENTS_PUBLIC_KEY = 'event_id';
+
+const SURROGATE_ID_FILTER_RE = new RegExp(
+  `\\.(${FILTER_METHODS.join('|')})\\(\\s*'id'\\s*[,)]`,
+);
+
+/**
+ * Every `.from('events'|'events_host')` chain that filters on `'id'`.
+ * Reuses the same chain walk as `extractFilterSites` — see `readChain` for why
+ * attribution is a chain walk and not a character window.
+ *
+ * COMMENTS ARE STRIPPED FIRST, unlike the two older extractors. `readChain`
+ * skips comments BETWEEN links, but nothing stopped `FROM_RE` from matching a
+ * `.from('events_host')` written inside prose — and the PART 3 block above
+ * quotes the exact bad chain it exists to forbid, so the guard reported its own
+ * docstring on the first run. `stripComments` preserves every character
+ * position and newline, so line numbers stay exact; its docblock records that
+ * new code paths strip while the original phantom-column path deliberately does
+ * not.
+ */
+export function extractSurrogateIdFilterSites(raw: string, file: string): SelectSite[] {
+  const source = stripComments(raw);
+  const sites: SelectSite[] = [];
+  const fromRe = new RegExp(FROM_RE.source, 'gi');
+  let m: RegExpExecArray | null;
+  while ((m = fromRe.exec(source))) {
+    const table = m[1];
+    if (!table || !SURROGATE_ID_RELATIONS.has(table)) continue;
+    const scope = readChain(source, fromRe.lastIndex);
+    if (!SURROGATE_ID_FILTER_RE.test(scope)) continue;
+    sites.push({
+      file,
+      line: source.slice(0, m.index).split('\n').length,
+      table,
+      columns: ['id'],
+    });
+  }
+  return sites;
+}
+
+export function scanSurrogateIdFilters(root: string = APP_ROOT): SelectSite[] {
+  return scanWith(extractSurrogateIdFilterSites, root);
 }

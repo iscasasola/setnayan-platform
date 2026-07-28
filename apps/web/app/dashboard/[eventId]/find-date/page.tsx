@@ -23,6 +23,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEventVendors, type VendorStatus } from '@/lib/vendors';
 import { buildScheduleMatrix, type SchedulePick } from '@/lib/schedule-matrix';
 import type { EventDatePrecision } from '@/lib/events';
@@ -61,9 +62,21 @@ export default async function FindDatePage({ params }: Props) {
     supabase
       .from('events')
       .select('event_date, event_date_precision')
-      .eq('id', eventId)
+      // `event_id`, NOT `id` — same defect the sibling Vendors page carried.
+      // `events.id` is the hidden bigserial; the route param is the uuid. A
+      // uuid sent to the bigint column fails the whole statement with 22P02,
+      // so this read returned NOTHING and the matrix was built with a null
+      // date. Guarded by lib/security/query-column-scan.ts.
+      .eq('event_id', eventId)
       .maybeSingle(),
   ]);
+
+  // A failed read is not "no date" — `?? null` cannot tell them apart, which is
+  // exactly how the bad filter above stayed invisible. Surface it the way the
+  // rest of the repo does (console + Sentry, non-fatal): the page still renders.
+  if (eventRes.error) {
+    logQueryError('find-date/page events date read', eventRes.error, { event_id: eventId });
+  }
 
   const ev =
     (eventRes.data as { event_date: string | null; event_date_precision: unknown } | null) ?? null;

@@ -157,6 +157,15 @@ export type VendorServiceDiscount = {
   /** Positive rate; `unit` says whether it's a percent or a peso amount off. */
   rate: number;
   unit: 'pct' | 'php';
+  /**
+   * Lead-time ladder rung (owner-locked 2026-07-27 · migration
+   * 20271017262879). For `early_booking` rows: the tier applies when the
+   * couple's event is at least this many months away, and several such rows on
+   * one service ARE the ladder (12+ → −15%, 6+ → −10%). NULL = no threshold —
+   * legacy behaviour unchanged, and the only meaning for the other four types.
+   * Resolved by `applicableLeadTimeTier` (lib/vendor-lead-time-tier.ts).
+   */
+  min_lead_months: number | null;
   /** Required for `promo`; null for other types. */
   expires_at: string | null;
   conditions_md: string | null;
@@ -176,7 +185,9 @@ export async function fetchDiscountsByService(
   if (serviceIds.length === 0) return out;
   const { data, error } = await supabase
     .from('vendor_service_discounts')
-    .select('vendor_service_id,discount_type,rate,unit,expires_at,conditions_md,sort_order')
+    .select(
+      'vendor_service_id,discount_type,rate,unit,min_lead_months,expires_at,conditions_md,sort_order',
+    )
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
   if (error) return out;

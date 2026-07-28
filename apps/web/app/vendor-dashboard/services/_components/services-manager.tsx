@@ -1509,6 +1509,9 @@ function discountsToDrafts(
     discount_type: d.discount_type,
     rate: String(d.rate),
     unit: d.unit,
+    // Early-booking ladder rung (migration 20271017262879) — round-trips so a
+    // re-edit doesn't silently erase the tier the vendor already authored.
+    min_lead_months: d.min_lead_months != null ? String(d.min_lead_months) : '',
     expires_at: d.expires_at ? d.expires_at.slice(0, 10) : '',
     conditions_md: d.conditions_md ?? '',
   }));

@@ -12,7 +12,8 @@ import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
  *
  *   • InclusionsEditor    → inclusion_label[]  · inclusion_worth[]
  *   • DiscountsEditor     → discount_type[] · discount_rate[] · discount_unit[]
- *                           · discount_expires_at[] · discount_conditions_md[]
+ *                           · discount_min_lead_months[] · discount_expires_at[]
+ *                           · discount_conditions_md[]
  *   • PriceBracketsEditor → bracket_min_pax[] · bracket_max_pax[] · bracket_price[]
  *
  * The server action does a replace-all (DELETE by service+profile, INSERT) into
@@ -157,11 +158,37 @@ export type DiscountDraft = {
   discount_type: DiscountType | '';
   rate: string;
   unit: 'pct' | 'php';
+  /**
+   * Early-booking LADDER rung: how many months ahead the couple must book for
+   * this tier (owner-locked 2026-07-27). Several early_booking rows on one
+   * service ARE the ladder — 12 → −15%, 6 → −10% — and the couple's event date
+   * picks the rung automatically. '' = no threshold (and the only value the
+   * other four discount types ever carry). OPTIONAL on the draft so any surface
+   * building drafts today keeps compiling unchanged.
+   */
+  min_lead_months?: string;
   /** YYYY-MM-DD (date input value) or ''. */
   expires_at: string;
   conditions_md: string;
 };
 type DiscountRow = DiscountDraft & { key: number };
+
+/** The owner's example ladder, used only to seed a freshly added rung. */
+const LADDER_SEED_RUNGS = ['12', '6', '3'] as const;
+
+/**
+ * The next unused rung for a newly added Early Booking row. Purely a
+ * convenience default — the vendor can type anything, and blank is valid
+ * ("no threshold", today's behaviour).
+ */
+function nextLadderRung(rows: ReadonlyArray<DiscountRow>): string {
+  const taken = new Set(
+    rows
+      .filter((r) => r.discount_type === 'early_booking')
+      .map((r) => (r.min_lead_months ?? '').trim()),
+  );
+  return LADDER_SEED_RUNGS.find((m) => !taken.has(m)) ?? '';
+}
 
 export function DiscountsEditor({
   initial,
@@ -184,6 +211,7 @@ export function DiscountsEditor({
             discount_type: 'off_peak',
             rate: '',
             unit: 'pct',
+            min_lead_months: '',
             expires_at: seedExpiry ?? '',
             conditions_md: seedConditions ?? '',
           },
@@ -203,6 +231,10 @@ export function DiscountsEditor({
         discount_type: 'early_booking',
         rate: '',
         unit: 'pct',
+        // Seed the next rung of the owner's example ladder (12 → 6 → 3) so
+        // "Add discount" twice builds a real ladder instead of two identical
+        // 12-month tiers. Once those are taken, leave it blank to type.
+        min_lead_months: nextLadderRung(cur),
         expires_at: '',
         conditions_md: '',
       },
@@ -240,6 +272,13 @@ export function DiscountsEditor({
           Add as many as you like. Couples are shown the single best discount they
           qualify for. A Limited-Time Promo needs an expiry date.
         </p>
+        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+          Add more than one <strong>Early Booking</strong> row to build a ladder —
+          e.g. 12+ months ahead −15%, 6+ months −10%. The couple&rsquo;s event date
+          picks their tier automatically and names it on your card
+          (&ldquo;Booked 6+ months ahead · −10%&rdquo;); you still confirm the
+          final price in your reply.
+        </p>
 
         {rows.length > 0 ? (
           <div className="space-y-3">
@@ -267,6 +306,40 @@ export function DiscountsEditor({
                   </select>
                   <RowRemove onClick={() => remove(r.key)} label="Remove discount" />
                 </div>
+
+                {/* Lead-time LADDER rung (owner-locked 2026-07-27) — only an
+                    Early Booking tier has a threshold. A hidden input ALWAYS
+                    carries the value (same idiom as the unit toggle below) so
+                    getAll() stays index-aligned across every row regardless of
+                    type; the visible field is nameless and just drives state. */}
+                <input
+                  type="hidden"
+                  name="discount_min_lead_months"
+                  value={r.discount_type === 'early_booking' ? (r.min_lead_months ?? '') : ''}
+                />
+                {r.discount_type === 'early_booking' ? (
+                  <label className="flex items-center gap-2">
+                    <span
+                      className="shrink-0 text-[11px] font-medium"
+                      style={{ color: 'var(--m-slate)' }}
+                    >
+                      Book ≥
+                    </span>
+                    <input
+                      value={r.min_lead_months ?? ''}
+                      onChange={(e) => patch(r.key, { min_lead_months: e.target.value })}
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="e.g. 12"
+                      className="input-field w-24"
+                      aria-label="Months ahead the couple must book for this tier"
+                    />
+                    <span className="text-[11px]" style={{ color: 'var(--m-slate)' }}>
+                      months ahead
+                    </span>
+                  </label>
+                ) : null}
 
                 <div className="flex items-center gap-2">
                   <input

@@ -15,6 +15,10 @@ import {
   type VendorCategory,
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  parseDiscountRows,
+  type DiscountDraft,
+} from '@/lib/vendor-discount-rows';
 import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -137,78 +141,22 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
   return n;
 }
 
-const DISCOUNT_TYPES = ['early_booking', 'off_peak', 'bundle', 'promo', 'returning'] as const;
-type DiscountType = (typeof DISCOUNT_TYPES)[number];
-
 // (The legacy single-discount parser — discount_type/discount_value scalar
 // fields — was removed 2026-07-03 with wizard parity: the wizard now submits
 // the same multi-discount arrays as the inline form, parsed by
-// parseDiscountRows below.)
+// parseDiscountRows.)
 
 // ── List editors (service-card redesign · Phase 3b) ─────────────────────────
 // Three repeatable child-table lists submitted as parallel, index-aligned
 // arrays of HIDDEN inputs (formData.getAll). Each parses into validated draft
 // rows; the caller replace-alls them into the matching child table. Fully-blank
 // rows are ignored so an empty repeater cleanly clears the list.
-
-type DiscountUnit = 'pct' | 'php';
-type DiscountDraft = {
-  discount_type: DiscountType;
-  rate: number;
-  unit: DiscountUnit;
-  expires_at: string | null;
-  conditions_md: string | null;
-};
-
-/**
- * Parse the multi-discount rows (Phase 3b). Field arrays (index-aligned):
- *   discount_type[] · discount_rate[] · discount_unit[] ·
- *   discount_expires_at[] · discount_conditions_md[]
- * A row with a blank type AND blank rate is skipped. Validates: rate>0, type in
- * the enum, unit in (pct,php), and promo requires an expiry.
- */
-function parseDiscountRows(formData: FormData): DiscountDraft[] {
-  const types = formData.getAll('discount_type');
-  const rates = formData.getAll('discount_rate');
-  const units = formData.getAll('discount_unit');
-  const expiries = formData.getAll('discount_expires_at');
-  const conditions = formData.getAll('discount_conditions_md');
-  const out: DiscountDraft[] = [];
-  const n = types.length;
-  for (let i = 0; i < n; i++) {
-    const typeRaw = typeof types[i] === 'string' ? (types[i] as string).trim() : '';
-    const rateRaw = typeof rates[i] === 'string' ? (rates[i] as string).trim() : '';
-    if (typeRaw.length === 0 && rateRaw.length === 0) continue; // blank row → skip
-    if (!(DISCOUNT_TYPES as readonly string[]).includes(typeRaw)) {
-      throw new Error('Pick a discount type for each discount you add.');
-    }
-    const discount_type = typeRaw as DiscountType;
-    const rate = Number(rateRaw);
-    if (rateRaw.length === 0 || !Number.isFinite(rate) || rate <= 0) {
-      throw new Error('Each discount needs a positive amount.');
-    }
-    const unitRaw = typeof units[i] === 'string' ? (units[i] as string) : 'pct';
-    const unit: DiscountUnit = unitRaw === 'php' ? 'php' : 'pct';
-
-    const expRaw = typeof expiries[i] === 'string' ? (expiries[i] as string).trim() : '';
-    let expires_at: string | null = null;
-    if (expRaw.length > 0) {
-      const d = new Date(expRaw);
-      if (isNaN(d.getTime())) throw new Error('Discount expiry must be a valid date.');
-      expires_at = d.toISOString();
-    }
-    if (discount_type === 'promo' && expires_at === null) {
-      throw new Error('Limited-Time Promo discounts require an expiry date.');
-    }
-
-    const condRaw =
-      typeof conditions[i] === 'string' ? (conditions[i] as string).trim() : '';
-    const conditions_md = condRaw.length > 0 ? condRaw.slice(0, 1000) : null;
-
-    out.push({ discount_type, rate, unit, expires_at, conditions_md });
-  }
-  return out;
-}
+//
+// The DISCOUNT parser now lives in `@/lib/vendor-discount-rows` (imported at the
+// top of this file) — this module is `'use server'`, so nothing inside it can be
+// unit-tested, and the early-booking LADDER rule (owner-locked 2026-07-27) is
+// exactly the kind of rule that must be. Behaviour, validation order and the
+// vendor-facing error strings are unchanged by the move.
 
 type InclusionDraft = { label: string; worth_php: number | null };
 
@@ -526,6 +474,8 @@ async function replaceServiceLists(
         discount_type: d.discount_type,
         rate: d.rate,
         unit: d.unit,
+        // The early-booking ladder rung (migration 20271017262879).
+        min_lead_months: d.min_lead_months,
         expires_at: d.expires_at,
         conditions_md: d.conditions_md,
         sort_order: i,
@@ -1702,6 +1652,10 @@ export async function commitVendorService(formData: FormData) {
     discount_type: d.discount_type,
     rate: d.rate,
     unit: d.unit,
+    // The early-booking ladder rung — save_vendor_service reads
+    // e->>'min_lead_months' (migration 20271017262879). Without this key the
+    // WIZARD path would silently drop every tier the vendor just authored.
+    min_lead_months: d.min_lead_months,
     expires_at: d.expires_at,
     conditions_md: d.conditions_md,
     sort_order: i,

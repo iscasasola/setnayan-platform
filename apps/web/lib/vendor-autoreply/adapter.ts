@@ -47,7 +47,12 @@ function activeDiscounts(
   if (!ds) return [];
   return ds
     .filter((d) => !d.expires_at || Date.parse(d.expires_at) > now)
-    .map((d) => ({ type: d.discount_type, rate: d.rate, unit: d.unit }));
+    .map((d) => ({
+      type: d.discount_type,
+      rate: d.rate,
+      unit: d.unit,
+      minLeadMonths: d.min_lead_months,
+    }));
 }
 
 function toStoreService(row: VendorServiceRow, src: SnapshotSources, now: number): StoreService {

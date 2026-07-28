@@ -55,6 +55,7 @@ import {
   SaveToContinue,
   SaveGateHint,
 } from '@/app/_components/anon-gate/save-to-continue';
+import { onServiceInquiryFocus } from '@/lib/service-inquiry-focus';
 
 export type InquiryComposerService = {
   vendorServiceId: string;
@@ -75,6 +76,37 @@ export type SavedRequirements = {
   payload: Record<string, string[]>;
   specialRequest: string;
   autoSend: boolean;
+};
+
+/**
+ * EVERYTHING the composer needs to open on ONE specific service — the whole
+ * prop set it currently receives for `activeServices[0]`, resolved per service.
+ *
+ * WHY THIS EXISTS. The composer's `initial` has always been the vendor's FIRST
+ * active service, whichever card the couple was actually reading. Once the
+ * details sheet gives them a per-card "Inquire about this", that seam becomes a
+ * visible lie: they read card five, tapped Inquire, and the pop-up says card
+ * one. So the page hands over every service's context, and the composer swaps
+ * to whichever one the sheet names.
+ *
+ * The per-CATEGORY fields matter as much as the label: `requirementsFields` and
+ * `savedRequirements` are keyed by `canonical_service`, so re-pointing the
+ * composer without them would show a photographer's facets on a caterer's
+ * inquiry.
+ *
+ * Populated ONLY when `serviceDetailsEnabled()`. Empty ⇒ the bus is not even
+ * subscribed and every path below is the shipped one.
+ */
+export type InquiryComposerServiceDetail = InquiryComposerService & {
+  categoryKey: string | null;
+  /** Human category label, for the "keep this to reuse for other X" copy. */
+  categoryLabel: string | null;
+  /** This service's price-included "comes with" set. */
+  linked: { label: string }[];
+  /** The leaf's couple-facing multi_select facets. */
+  requirementsFields: RequirementField[];
+  /** The couple's saved template for (event, this category). */
+  savedRequirements: SavedRequirements | null;
 };
 
 type Props = {
@@ -159,6 +191,16 @@ type Props = {
    * viewer arrived via a /realstories credit chip). null = website default.
    */
   inquirySource?: string | null;
+  /**
+   * Per-service context for the details sheet's "Inquire about this"
+   * (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED). When the sheet names a service
+   * present here, the composer re-points `initial` / `linked` / `alsoOptions` /
+   * the requirements form at THAT service and opens.
+   *
+   * Empty (the default) ⇒ the focus bus is never subscribed and every prop
+   * above is used exactly as it is today.
+   */
+  serviceDetails?: InquiryComposerServiceDetail[];
 };
 
 type ModalState =
@@ -196,6 +238,7 @@ export function InquiryComposer({
   viewerIsAnonymous = false,
   referringChapterPublicId = null,
   inquirySource = null,
+  serviceDetails = [],
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -203,6 +246,11 @@ export function InquiryComposer({
   const [gateOpen, setGateOpen] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // ── Per-service focus (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) ──────────
+  // Which service the details sheet pointed us at. null = the server's default
+  // (`activeServices[0]`), i.e. exactly today's behaviour.
+  const [focusedServiceId, setFocusedServiceId] = useState<string | null>(null);
 
   // ── Requirements capture state (pre-filled from the saved template) ────────
   const [reqPayload, setReqPayload] = useState<Record<string, Set<string>>>(() =>
@@ -224,16 +272,78 @@ export function InquiryComposer({
   const autoCarry = shouldAutoCarryForward(aiActive, savedRequirements);
   const [autoState, setAutoState] = useState<AutoCarryState>({ kind: 'idle' });
 
-  const alsoById = useMemo(
-    () => new Map(alsoOptions.map((s) => [s.vendorServiceId, s])),
-    [alsoOptions],
+  // ── The ACTIVE service — the focused one, else the server's default ────────
+  // Every read below goes through these, so there is ONE place that decides
+  // which service this pop-up is about. With `serviceDetails` empty (flag off)
+  // `focused` is always null and each of these IS the prop it replaced.
+  const detailById = useMemo(
+    () => new Map(serviceDetails.map((d) => [d.vendorServiceId, d])),
+    [serviceDetails],
   );
-  const hasAlsoOptions = alsoOptions.length > 0;
+  const focused = focusedServiceId ? (detailById.get(focusedServiceId) ?? null) : null;
+  const activeInitial: InquiryComposerService & { categoryKey: string | null } = focused
+    ? {
+        vendorServiceId: focused.vendorServiceId,
+        label: focused.label,
+        priceLabel: focused.priceLabel,
+        leadTierNote: focused.leadTierNote ?? null,
+        categoryKey: focused.categoryKey,
+      }
+    : initial;
+  const activeLinked = focused ? focused.linked : linked;
+  const activeAlsoOptions: InquiryComposerService[] = focused
+    ? serviceDetails
+        .filter((d) => d.vendorServiceId !== focused.vendorServiceId)
+        .map((d) => ({
+          vendorServiceId: d.vendorServiceId,
+          label: d.label,
+          priceLabel: d.priceLabel,
+        }))
+    : alsoOptions;
+  const activeRequirementsFields = focused ? focused.requirementsFields : requirementsFields;
+  const activeSavedRequirements = focused ? focused.savedRequirements : savedRequirements;
+  const activeCategoryLabel = focused ? focused.categoryLabel : categoryLabel;
+
+  // Point the pop-up at the service the details sheet named, then open it.
+  //
+  // Subscribed only when the server handed over per-service context, so the
+  // shipped path adds not one listener. An id we were not given is IGNORED —
+  // the sheet cannot make this composer inquire about something the server did
+  // not serialize. This is always an EXPLICIT open, never an auto-send: the
+  // couple asked about THIS card, so they see the pop-up even when Setnayan
+  // AI's carry-forward would normally skip it.
+  useEffect(() => {
+    if (detailById.size === 0) return;
+    return onServiceInquiryFocus((id) => {
+      const detail = detailById.get(id);
+      if (!detail) return;
+      if (viewerIsAnonymous) {
+        // Opening a vendor thread needs a secured account — ask up front rather
+        // than letting them fill the pop-up and bounce on `not_secured`.
+        setGateOpen(true);
+        return;
+      }
+      setFocusedServiceId(id);
+      // Re-seed the capture form from THIS category's saved template, so the
+      // couple never sees a caterer's answers on a photographer's inquiry.
+      setChecked(new Set());
+      setReqPayload(seedReqPayload(detail.savedRequirements));
+      setSpecialRequest(detail.savedRequirements?.specialRequest ?? '');
+      setAutoSend(detail.savedRequirements?.autoSend ?? false);
+      setModal({ kind: 'open' });
+    });
+  }, [detailById, viewerIsAnonymous]);
+
+  const alsoById = useMemo(
+    () => new Map(activeAlsoOptions.map((s) => [s.vendorServiceId, s])),
+    [activeAlsoOptions],
+  );
+  const hasAlsoOptions = activeAlsoOptions.length > 0;
   // Proactive bundle nudge — LIVE by default (2026-06-21); kill-switch:
   // NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED=false (NEXT_PUBLIC inlined at build).
   const bundleNudge = process.env.NEXT_PUBLIC_BUNDLE_NUDGE_ENABLED !== 'false';
-  const anyAlsoChecked = alsoOptions.some((s) => checked.has(s.vendorServiceId));
-  const categoryName = (categoryLabel ?? '').trim() || 'this category';
+  const anyAlsoChecked = activeAlsoOptions.some((s) => checked.has(s.vendorServiceId));
+  const categoryName = (activeCategoryLabel ?? '').trim() || 'this category';
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -264,6 +374,10 @@ export function InquiryComposer({
 
   function closeModal() {
     setModal({ kind: 'closed' });
+    // Drop the details-sheet focus with the pop-up, so the next plain "Inquire"
+    // click is about the vendor's default service again rather than silently
+    // inheriting whichever card was last opened. No-op when the flag is off.
+    setFocusedServiceId(null);
     resetCaptureState();
   }
 
@@ -306,8 +420,8 @@ export function InquiryComposer({
     startTransition(async () => {
       const result: StartServiceInquiryResult = await startServiceInquiry({
         vendorProfileId,
-        initialServiceId: initial.vendorServiceId,
-        initialCategoryKey: initial.categoryKey,
+        initialServiceId: activeInitial.vendorServiceId,
+        initialCategoryKey: activeInitial.categoryKey,
         alsoServiceIds,
         requestBundleQuote: bundleNudge && wantBundle && alsoServiceIds.length > 0,
         requirements: {
@@ -357,8 +471,8 @@ export function InquiryComposer({
     startTransition(async () => {
       const result: StartServiceInquiryResult = await startServiceInquiry({
         vendorProfileId,
-        initialServiceId: initial.vendorServiceId,
-        initialCategoryKey: initial.categoryKey,
+        initialServiceId: activeInitial.vendorServiceId,
+        initialCategoryKey: activeInitial.categoryKey,
         // Auto-send carries only the saved per-category requirements — it never
         // auto-opts into the vendor's other "also ask about" services.
         alsoServiceIds: [],
@@ -463,29 +577,29 @@ export function InquiryComposer({
             <Check aria-hidden className="h-2.5 w-2.5 text-cream" strokeWidth={3} />
           </div>
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-            {initial.label}
+            {activeInitial.label}
           </span>
-          <span className="font-mono text-[11px] text-ink/55">{initial.priceLabel}</span>
+          <span className="font-mono text-[11px] text-ink/55">{activeInitial.priceLabel}</span>
         </div>
         {/* Early-booking tier, picked by THEIR event date (owner-locked
             2026-07-27). Display only — say so, because the quote is still the
             vendor's to confirm. */}
-        {initial.leadTierNote ? (
+        {activeInitial.leadTierNote ? (
           <p className="px-1 text-[11px] text-ink/60">
-            <span className="font-medium text-ink/75">{initial.leadTierNote}</span>{' '}
+            <span className="font-medium text-ink/75">{activeInitial.leadTierNote}</span>{' '}
             — {vendorLabel} confirms the final price in their reply.
           </p>
         ) : null}
       </fieldset>
 
       {/* Linked services — read-only ✓ included */}
-      {linked.length > 0 ? (
+      {activeLinked.length > 0 ? (
         <div className="space-y-1.5">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
             Comes with
           </p>
           <ul className="flex flex-wrap gap-1.5">
-            {linked.map((l, i) => (
+            {activeLinked.map((l, i) => (
               <li
                 key={`${l.label}-${i}`}
                 className="inline-flex items-center gap-1 rounded-full border border-success-300/60 bg-success-50 px-2.5 py-0.5 text-[12px] text-success-900"
@@ -517,7 +631,7 @@ export function InquiryComposer({
             </legend>
           )}
           <ul className="space-y-1.5">
-            {alsoOptions.map((s) => {
+            {activeAlsoOptions.map((s) => {
               const on = checked.has(s.vendorServiceId);
               return (
                 <li key={s.vendorServiceId}>
@@ -590,7 +704,7 @@ export function InquiryComposer({
             title={`Inquire with ${vendorLabel}`}
             subtitle="Tell them what you’re looking for."
             topSlot={inquiryTopSlot}
-            requirementsFields={requirementsFields}
+            requirementsFields={activeRequirementsFields}
             reqPayload={reqPayload}
             toggleFacet={toggleFacet}
             specialRequest={specialRequest}
@@ -696,7 +810,7 @@ export function InquiryComposer({
           title={`Inquire with ${vendorLabel}`}
           subtitle="Tell them what you’re looking for."
           topSlot={inquiryTopSlot}
-          requirementsFields={requirementsFields}
+          requirementsFields={activeRequirementsFields}
           reqPayload={reqPayload}
           toggleFacet={toggleFacet}
           specialRequest={specialRequest}

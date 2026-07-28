@@ -92,8 +92,12 @@ import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
   type InquiryComposerService,
+  type InquiryComposerServiceDetail,
   type SavedRequirements,
 } from './_components/inquiry-composer';
+import { serviceDetailsEnabled } from '@/lib/service-details-flag';
+import type { ServiceInquireMode } from './_components/service-details-sheet';
+import type { PackageAskTarget } from '@/app/_components/vendor-packages/lock-modal';
 import { fetchRequirementFields, type RequirementField } from '@/lib/requirements-capture';
 import { joinVendorWaitlist } from './waitlist-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -176,6 +180,13 @@ type Props = {
     // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
     // Server-validated in startServiceInquiry before any attribution stamp.
     ref_chapter?: string;
+    /**
+     * Deep link to ONE service's details sheet — a `vendor_services.public_id`
+     * (S89…), never the internal uuid. Matched client-side against the cards
+     * this page actually rendered, so an unknown / stale / forged value simply
+     * opens nothing. Inert unless `serviceDetailsEnabled()`.
+     */
+    service?: string;
   }>;
 };
 
@@ -700,6 +711,14 @@ export async function renderVendorBySlug({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const search = await searchParams;
+  // ONE read of the service-details flag for this render — it gates the card
+  // doorway, the sheet, the per-service composer context (and the extra reads
+  // that context needs) and the lock modal's "ask instead" action.
+  const detailsEnabled = serviceDetailsEnabled();
+  const openServicePublicId =
+    detailsEnabled && typeof search.service === 'string' && search.service.trim()
+      ? search.service.trim()
+      : null;
   const vendor = await fetchVendor(slug);
   // Hidden + archived vendors 404 from the public surface (don't leak the
   // existence of suspended / closed profiles). Coming-soon + verified render.
@@ -1186,15 +1205,23 @@ export async function renderVendorBySlug({
   // vendor hides prices (a "−10%" reveals the underlying figure) and when their
   // date qualifies for no rung. DISPLAY ONLY: the vendor still confirms the
   // final price in their reply, which the copy says out loud.
-  const composerLeadTierNote: string | null = (() => {
-    if (hidePricesPublicly || !showInquiryComposer || composerInitial === null) return null;
+  //
+  // ONE CLOCK for every tier resolved on this render — the same rule the
+  // services gallery already applies. Two `new Date()` calls could resolve two
+  // different rungs within a single page.
+  const leadTierClock = new Date();
+  const leadTierNoteFor = (s: VendorServiceRow): string | null => {
+    if (hidePricesPublicly || !showInquiryComposer) return null;
     const picked = pickBestDiscount(
-      discountsByService.get(composerInitial.vendor_service_id),
-      composerInitial.starting_price_php,
-      { eventDate: coupleEventDate, now: new Date() },
+      discountsByService.get(s.vendor_service_id),
+      s.starting_price_php,
+      { eventDate: coupleEventDate, now: leadTierClock },
     );
     return typeof picked?.leadTier === 'number' ? picked.label : null;
-  })();
+  };
+  const composerLeadTierNote: string | null = composerInitial
+    ? leadTierNoteFor(composerInitial)
+    : null;
 
   // Compose-first Inquire (owner 2026-07-02) — a bookable vendor with ≥1 service
   // viewed by someone WITHOUT an event yet (signed-out, or signed-in with no
@@ -1253,18 +1280,8 @@ export async function renderVendorBySlug({
   ] = requirementCategoryKey && coupleEventId
     ? await Promise.all([
         fetchRequirementFields(admin, requirementCategoryKey),
-        getEventPreference(supabase, coupleEventId, requirementCategoryKey).then((p) =>
-          p
-            ? {
-                payload: Object.fromEntries(
-                  Object.entries(p.attribute_payload ?? {})
-                    .filter(([, v]) => Array.isArray(v))
-                    .map(([k, v]) => [k, (v as unknown[]).filter((x): x is string => typeof x === 'string')]),
-                ),
-                specialRequest: p.special_request ?? '',
-                autoSend: p.auto_send ?? false,
-              }
-            : null,
+        getEventPreference(supabase, coupleEventId, requirementCategoryKey).then(
+          toSavedRequirements,
         ),
       ])
     : [[], null];
@@ -1273,6 +1290,111 @@ export async function renderVendorBySlug({
       ? displayServiceLabel(requirementCategoryKey)
       : requirementCategoryKey
     : null;
+
+  // ── PER-SERVICE inquiry context (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) ─
+  // The composer has always opened on `activeServices[0]`, whichever card the
+  // couple was reading. Once the details sheet offers a per-card "Inquire about
+  // this", that becomes a visible lie, so the composer needs EVERY service's
+  // context — including the per-CATEGORY requirement facets and the couple's
+  // saved template for each, which are keyed by canonical_service. Loading only
+  // the first service's would show a photographer's facets on a caterer's
+  // inquiry.
+  //
+  // DEDUPED BY CATEGORY, and only fetched when the sheet can actually open: with
+  // the flag off this is [] and the page runs exactly the two reads above.
+  const detailCategoryKeys =
+    detailsEnabled && showInquiryComposer && coupleEventId
+      ? Array.from(
+          new Set(
+            activeServices
+              .map((s) => s.category)
+              .filter((k): k is string => typeof k === 'string' && k.length > 0),
+          ),
+        )
+      : [];
+  const detailFieldsByCategory = new Map<string, RequirementField[]>();
+  const detailSavedByCategory = new Map<string, SavedRequirements | null>();
+  if (detailCategoryKeys.length > 0 && coupleEventId) {
+    const eventIdForPrefs = coupleEventId;
+    const resolved = await Promise.all(
+      detailCategoryKeys.map(async (key) => {
+        // Reuse what the default pick already loaded rather than asking twice.
+        if (key === requirementCategoryKey) {
+          return [key, requirementsFields, savedRequirements] as const;
+        }
+        const [fields, saved] = await Promise.all([
+          fetchRequirementFields(admin, key),
+          getEventPreference(supabase, eventIdForPrefs, key)
+            .then(toSavedRequirements)
+            .catch(() => null),
+        ]);
+        return [key, fields, saved] as const;
+      }),
+    );
+    for (const [key, fields, saved] of resolved) {
+      detailFieldsByCategory.set(key, fields);
+      detailSavedByCategory.set(key, saved);
+    }
+  }
+  // ── "Ask the vendor about this build instead" — the lock modal's secondary
+  //    action (same flag).
+  //
+  // A package is NOT a `vendor_service`, but `startServiceInquiry` files a
+  // thread against one and records it in `thread_service_interests`. The ONLY
+  // honest mapping is the package's OWN anchor — `primary_canonical_service` —
+  // matched against the vendor's active services.
+  //
+  // 🚫 NO `activeServices[0]` FALLBACK. An earlier cut fell back to the
+  // vendor's first active service, which would file a hotel's wedding package
+  // under, say, their "styling" card: a wrong interest seed the vendor reads as
+  // the couple's stated intent, and one that then feeds the shortlist and the
+  // build. A wrong signal is worse than a missing one.
+  //
+  // NO ANCHOR MATCH ⇒ NO TARGET, and the secondary action simply does not
+  // render for that package. `startServiceInquiry` hard-requires a real,
+  // vendor-owned, active `initialServiceId` (it rejects at both the empty-input
+  // guard and the `ownedById` ownership check), and none of its three shipped
+  // interest sources — 'initial' / 'linked' / 'couple_added' — describes "a
+  // package", nor does `thread_service_interests` carry a package dimension. So
+  // rather than widen a shipped action's invariants for this edge, the doorway
+  // is omitted: the couple can still inquire through the page's own composer,
+  // and nothing is mis-filed. Revisit if packages ever gain their own interest
+  // kind.
+  const packageAskTargets = new Map<string, PackageAskTarget>();
+  if (detailsEnabled && bookable && coupleEventId) {
+    for (const pkg of vendorPackages) {
+      const match = activeServices.find(
+        (s) => s.category === pkg.primary_canonical_service,
+      );
+      if (!match) continue;
+      packageAskTargets.set(pkg.package_id, {
+        vendorProfileId: vendor.vendor_profile_id,
+        // Hybrid-anonymity: the placeholder label, never the raw business name.
+        vendorLabel: displayLabel,
+        vendorServiceId: match.vendor_service_id,
+        categoryKey: match.category,
+      });
+    }
+  }
+
+  const composerServiceDetails: InquiryComposerServiceDetail[] =
+    detailCategoryKeys.length > 0
+      ? activeServices.map((s) => ({
+          vendorServiceId: s.vendor_service_id,
+          label: serviceLabel(s),
+          priceLabel: servicePriceLabel(s),
+          leadTierNote: leadTierNoteFor(s),
+          categoryKey: s.category,
+          categoryLabel: isCanonicalService(s.category)
+            ? displayServiceLabel(s.category)
+            : s.category,
+          linked: (linkedByService.get(s.vendor_service_id) ?? []).map((label) => ({
+            label,
+          })),
+          requirementsFields: detailFieldsByCategory.get(s.category) ?? [],
+          savedRequirements: detailSavedByCategory.get(s.category) ?? null,
+        }))
+      : [];
 
   // Phase 1b PR-5 · AI-gated auto carry-forward. Resolve whether Setnayan AI is
   // active for THIS couple's event so the composer can SKIP the pop-up and
@@ -2249,6 +2371,19 @@ export async function renderVendorBySlug({
                   }
                 : null
             }
+            /* The details sheet (flag-dark). OFF ⇒ every card renders as the
+               static div it does today and no sheet is mounted. */
+            detailsEnabled={detailsEnabled}
+            /* Which composer, if any, the sheet's "Inquire about this" can
+               reach — decided here because only the server knows. */
+            inquireMode={
+              showInquiryComposer
+                ? 'focus'
+                : anonComposerServices.length > 0
+                  ? 'anchor'
+                  : 'none'
+            }
+            openServicePublicId={openServicePublicId}
           />
         ) : null}
 
@@ -2276,6 +2411,10 @@ export async function renderVendorBySlug({
             isComingSoon={isComingSoon}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
+            /* Flag-dark secondary action: send the configured build to the
+               vendor as a question instead of locking it. Empty ⇒ the modal is
+               byte-identical to today. */
+            askTargets={packageAskTargets}
           />
         ) : null}
 
@@ -2367,6 +2506,10 @@ export async function renderVendorBySlug({
                 (label) => ({ label }),
               )}
               alsoOptions={composerAlso}
+              // Per-service context for the details sheet's "Inquire about
+              // this" (flag-dark). Empty ⇒ the composer keeps its
+              // activeServices[0] initial and subscribes to nothing.
+              serviceDetails={composerServiceDetails}
               // Phase 1b PR-3 — per-category requirements capture (core/FREE).
               requirementsFields={requirementsFields}
               savedRequirements={savedRequirements}
@@ -2683,6 +2826,9 @@ function ServicesPricingSection({
   coupleEventDate,
   cardRecordByService,
   cardRecordRating,
+  detailsEnabled,
+  inquireMode,
+  openServicePublicId,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2707,6 +2853,13 @@ function ServicesPricingSection({
   /** Shop-wide trusted rating rendered inside the record block. Vendor-level by
    *  nature — reviews attach to the profile, not to a service. null → no stars. */
   cardRecordRating: CardRecordRating | null;
+  /** `serviceDetailsEnabled()`. OFF ⇒ every card is the static div it is today
+   *  and the details sheet is never mounted. */
+  detailsEnabled: boolean;
+  /** How the sheet's "Inquire about this" behaves — see ServiceInquireMode. */
+  inquireMode: ServiceInquireMode;
+  /** `?service=<public id>` — opens that card's sheet on arrival. */
+  openServicePublicId: string | null;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2744,6 +2897,7 @@ function ServicesPricingSection({
           now,
           cardRecordByService.get(row.vendor_service_id) ?? null,
           cardRecordRating,
+          detailsEnabled,
         ),
       ),
     });
@@ -2759,13 +2913,48 @@ function ServicesPricingSection({
           Starting prices set by {businessName}. Final quotes happen in chat.
         </p>
       </header>
-      <ServicesGallery groups={groups} />
+      <ServicesGallery
+        groups={groups}
+        detailsEnabled={detailsEnabled}
+        inquireMode={inquireMode}
+        openServicePublicId={openServicePublicId}
+      />
     </section>
   );
 }
 
 /** Max inclusions listed before we collapse the rest into "+N more included". */
 const SERVICE_CARD_INCLUSION_LIMIT = 3;
+
+/**
+ * One `event_vendor_preferences` row → the composer's pre-fill shape.
+ *
+ * Extracted 2026-07-28 when the details sheet made this a PER-CATEGORY read
+ * instead of a single one: written twice, the two copies would eventually
+ * disagree about which JSONB values count as a valid pick, and the couple's
+ * saved answers would silently differ depending on which card they opened.
+ */
+function toSavedRequirements(
+  p: {
+    attribute_payload?: Record<string, unknown> | null;
+    special_request?: string | null;
+    auto_send?: boolean | null;
+  } | null,
+): SavedRequirements | null {
+  if (!p) return null;
+  return {
+    payload: Object.fromEntries(
+      Object.entries(p.attribute_payload ?? {})
+        .filter(([, v]) => Array.isArray(v))
+        .map(([k, v]) => [
+          k,
+          (v as unknown[]).filter((x): x is string => typeof x === 'string'),
+        ]),
+    ),
+    specialRequest: p.special_request ?? '',
+    autoSend: p.auto_send ?? false,
+  };
+}
 
 /**
  * Format one service row into the serializable card the client gallery renders.
@@ -2791,6 +2980,9 @@ function toServiceCard(
   cardRecord: CompiledCardRecord | null,
   /** Shop-wide trusted rating for the record block, or null. */
   cardRecordRating: CardRecordRating | null,
+  /** `serviceDetailsEnabled()` — gates the details-sheet-only payload below, so
+   *  the flag-OFF card ships exactly the bytes it ships today. */
+  detailsEnabled: boolean,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
@@ -2891,6 +3083,20 @@ function toServiceCard(
     discountLabel: best?.label ?? null,
     inclusions: shownInclusions,
     inclusionsMore,
+    // ── Details-sheet-only payload ────────────────────────────────────────
+    // A CONDITIONAL SPREAD, not `: []` / `: null` defaults. "Flag off ⇒
+    // byte-identical" has to cover the serialized RSC payload the browser
+    // downloads, not just the rendered DOM — shipping two extra keys per card
+    // to every anonymous visitor would quietly break that contract. With the
+    // flag off these keys are ABSENT, so the card streams exactly the bytes it
+    // streams today. Pinned by `service-details-dark.test.ts`.
+    ...(detailsEnabled
+      ? {
+          publicId: row.public_id,
+          // The sheet is the one place the "+N more included" tail is readable.
+          inclusionsFull: allInclusions,
+        }
+      : {}),
     notIncluded,
     priceDetail,
     serves: serves ?? null,
@@ -3471,6 +3677,7 @@ function VendorPackagesSection({
   isComingSoon,
   hidePrices,
   paxCount,
+  askTargets,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
@@ -3479,6 +3686,12 @@ function VendorPackagesSection({
   hidePrices: boolean;
   /** Server-resolved head count, so a per-head upgrade quotes at what it charges. */
   paxCount: number;
+  /**
+   * package_id → the "ask instead" inquiry target, when the service-details
+   * flag is on and the vendor has an active service to file the thread under.
+   * Empty (the flag-off default) ⇒ the lock modal shows only its Lock CTA.
+   */
+  askTargets: ReadonlyMap<string, PackageAskTarget>;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -3507,6 +3720,7 @@ function VendorPackagesSection({
                 eventId={coupleEventId}
                 pkg={pkg}
                 paxCount={paxCount}
+                ask={askTargets.get(pkg.package_id) ?? null}
               />
             );
           } else {

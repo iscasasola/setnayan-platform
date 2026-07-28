@@ -80,6 +80,7 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
@@ -108,6 +109,13 @@ export type ServicesManagerSearch = {
   error?: string;
   add?: string;
   requested?: string;
+  /**
+   * Set by commitVendorService on a CREATE only — 'live' | 'draft', the new
+   * card's actual state. Triggers the congratulations banner (owner
+   * 2026-07-28): care for the card, substance over count, events document onto
+   * the card, "you now have X active cards". Absent on edits and other saves.
+   */
+  created?: string;
   /**
    * How many blank customization names the last save filled in for the vendor
    * (★ Customization step · flag-dark). A blank name is auto-named, never
@@ -471,7 +479,38 @@ export async function VendorServicesManager({
           {decodeURIComponent(search.error)}
         </p>
       ) : null}
-      {search.saved ? (
+      {search.created === 'live' || search.created === 'draft' ? (
+        (() => {
+          // The congratulations moment (owner 2026-07-28) — replaces the plain
+          // "Services updated." for a CREATE. The active count is the same
+          // services array this page renders, so the number can never drift.
+          const congrats = buildServiceCardCongrats({
+            activeCount: services.filter((s) => s.is_active).length,
+            isDraft: search.created === 'draft',
+          });
+          return (
+            <div
+              role="status"
+              className="space-y-1.5 rounded-md border px-4 py-3 text-sm"
+              style={{ borderColor: 'var(--m-sage)', background: 'var(--m-sage)', color: 'var(--m-ink)' }}
+            >
+              <p className="font-semibold">{congrats.headline}</p>
+              {congrats.care.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p className="font-medium">{congrats.count}</p>
+              {Number(search.autonamed) > 0 ? (
+                <p style={{ color: 'var(--m-slate)' }}>
+                  {search.autonamed} customization line
+                  {Number(search.autonamed) === 1 ? '' : 's'} had no name, so we
+                  named {Number(search.autonamed) === 1 ? 'it' : 'them'} for you —
+                  rename any time.
+                </p>
+              ) : null}
+            </div>
+          );
+        })()
+      ) : search.saved ? (
         <p
           role="status"
           className="rounded-md border px-4 py-3 text-sm"

@@ -15,7 +15,9 @@ import {
 } from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { loadAiActivity } from '@/lib/setnayan-ai-activity';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
+import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
@@ -75,7 +77,21 @@ export default async function SetnayanAiPage({ params }: Props) {
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const eventType = (event as { event_type?: string | null }).event_type ?? 'wedding';
-  const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
+
+  // Capability copy is per event type (2026-07-28). Previously this page derived
+  // ONE word from a `=== 'wedding'` ternary while every capability body stayed
+  // frozen wedding prose — so a birthday was promised PH marriage paperwork
+  // tracking, and a corporate event was told "another COUPLE is eyeing your
+  // date". Now the profile supplies the terminology, and statutoryPackKey
+  // ('ph_marriage' on wedding, NULL on all 12 other seeded types) gates the
+  // license/Pre-Cana/PSA clause — derived, never named by type.
+  const profile = await resolveProfile(eventType);
+  const aiValueTerms: AiValueTerms = {
+    eventWord: profile.terminology.eventWord,
+    organizerNoun: profile.terminology.organizerNoun,
+    hasStatutoryPaperwork: profile.statutoryPackKey != null,
+  };
+  const eventWord = profile.terminology.eventWord;
 
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
@@ -176,7 +192,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </Link>
           </div>
 
-          <SetnayanAiValue mode="live" activity={activity} eventWord={eventWord} />
+          <SetnayanAiValue mode="live" activity={activity} terms={aiValueTerms} />
         </>
       ) : owns || !paywallOn ? (
         <>
@@ -206,7 +222,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </Link>
           </div>
 
-          <SetnayanAiValue mode="preview" eventWord={eventWord} />
+          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
         </>
       ) : (
         <>
@@ -225,7 +241,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <SetnayanAiValue mode="preview" eventWord={eventWord} />
+          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
 
           <div className="sn-tile p-5">
             {pricePhp != null && settings ? (

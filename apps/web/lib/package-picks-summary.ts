@@ -120,9 +120,12 @@ export type BuildPackagePicksArgs = {
    * actually see, in screen order, with their nesting depth. Passing the tree
    * rather than the package is what guarantees the message lists exactly the
    * lines the screen listed: a follow-up nobody revealed is not in the tree, so
-   * it cannot be in the message.
+   * it cannot be in the message. Since removal became reversible (2026-07-29),
+   * the tree also carries UNTICKED roots marked `removed: true` — those render
+   * on screen only so they can be re-ticked, and this builder keeps them out of
+   * the build lines (they appear under `removed` instead).
    */
-  lines: ReadonlyArray<{ item: VendorPackageItemRow; depth: number }>;
+  lines: ReadonlyArray<{ item: VendorPackageItemRow; depth: number; removed?: boolean }>;
   /**
    * `pkg.items` — handed over WHOLE, never pre-filtered by the caller.
    *
@@ -149,7 +152,13 @@ export function buildPackagePicksSummary(
 ): PackagePicksSummary {
   const removedIds = new Set(args.removedItemIds ?? []);
 
-  const lines: PackagePickLine[] = (args.lines ?? []).map(({ item, depth }) => {
+  // Removed roots now stay in the visible tree (marked) so the couple can
+  // re-tick them — but they are NOT part of the build. They belong only in
+  // `removed` below; mapping them here would advertise picks on a line the
+  // couple explicitly unticked.
+  const lines: PackagePickLine[] = (args.lines ?? [])
+    .filter((line) => !line.removed)
+    .map(({ item, depth }) => {
     const picked = pickedOptionsOn(item, args.selection);
     return {
       label: lineLabel(item),

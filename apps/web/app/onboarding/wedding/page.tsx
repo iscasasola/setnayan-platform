@@ -29,6 +29,10 @@ import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import { readServicesStepView } from '@/lib/onboarding/services-step-server';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 
@@ -129,8 +133,32 @@ export default async function OnboardingWeddingPage({
     if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
   }
 
+  // The services step (Papic + Setnayan AI), resolved server-side because the
+  // shell is a client component. Flag OFF ⇒ null ⇒ the shell drops the screen
+  // from buildSequence and this flow is byte-identical to today.
+  let servicesStepView = null;
+  let servicesStepAiValue = null;
+  if (onboardingServicesStepEnabled()) {
+    servicesStepView = await readServicesStepView(supabase, 'wedding');
+    if (servicesStepView.ai != null) {
+      const profile = await resolveProfile('wedding');
+      servicesStepAiValue = (
+        <SetnayanAiValue
+          mode="preview"
+          terms={{
+            eventWord: profile.terminology.eventWord,
+            organizerNoun: profile.terminology.organizerNoun,
+            hasStatutoryPaperwork: profile.statutoryPackKey != null,
+          }}
+        />
+      );
+    }
+  }
+
   return (
     <OnboardingShell
+      servicesStepView={servicesStepView}
+      servicesStepAiValue={servicesStepAiValue}
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}

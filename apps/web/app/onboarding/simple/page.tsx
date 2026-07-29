@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import { readServicesStepView } from '@/lib/onboarding/services-step-server';
+import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import { commitSimpleEvent } from './actions';
 
 export const metadata = { title: 'Create a Simple Event' };
@@ -40,6 +43,19 @@ export default async function SimpleOnboardingPage({
 
   const params = await searchParams;
   const errorMessage = params.error ? (ERROR_COPY[params.error] ?? params.error) : null;
+
+  // The services step. This route is NOT a wizard — it is one form — so "adding
+  // the step" means adding the card beneath the form, not inserting a screen.
+  //
+  // It is a ONE-card step here and that is not a special case: `simple_event` is
+  // `marketplaceEnabled = false`, so the vendor-free gate inside
+  // readServicesStepView returns `ai: null` and the assistant card never
+  // renders. Derived, never named by type — the same house rule as
+  // lib/papic-event-access.ts. The page's own promise ("everything else is
+  // Setnayan's in-app services") finally has something behind it.
+  const servicesStepView = onboardingServicesStepEnabled()
+    ? await readServicesStepView(supabase, 'simple_event')
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
@@ -107,6 +123,8 @@ export default async function SimpleOnboardingPage({
           </Link>
         </div>
       </form>
+
+      {servicesStepView ? <ServicesStep className="mt-10" view={servicesStepView} /> : null}
     </div>
   );
 }

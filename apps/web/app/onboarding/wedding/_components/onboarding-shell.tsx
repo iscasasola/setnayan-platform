@@ -58,6 +58,9 @@ import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
+import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -133,7 +136,13 @@ import { SDLoader } from '@/components/sd-loader';
    persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
    screens are filtered out and the flow is byte-identical to today. Order: the couple
    designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
+/* `services_step` (the Papic + Setnayan AI cards, flag-gated · 2026-07-29) sits
+   immediately BEFORE `congrats`. It is NOT a paywall screen and is deliberately
+   not added to PAYWALL_SCREENS: it takes no money and adds nothing to a cart —
+   it is the first time this funnel tells a couple that Papic exists at all. The
+   2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
+   `summary` stay filtered out exactly as before. */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -174,6 +183,11 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
 const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary']);
+// The services step (Papic + Setnayan AI cards). Module-level so every
+// buildSequence call site reads the same value, exactly like the flags above.
+// OFF (default) → the id is filtered out of FLOW_IDS and the wedding flow is
+// byte-identical to today: same screens, same indices, same progress fractions.
+const SERVICES_STEP_ENABLED = onboardingServicesStepEnabled();
 // Screens filtered OUT of the flow. REVERSIBLE — empty this set to restore every screen.
 //   • Owner 2026-06-22: pure no-input interstitials removed to run question→question —
 //     welcome · alaala_promise · team_intro · team_payoff · exp_reveal.
@@ -196,6 +210,7 @@ function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipp
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
     !(EXPERIENCE_QUIZ_ENABLED && PAYWALL_SCREENS.has(id)) &&       // flag ON drops the in-onboarding paywall tail (moves to the dashboard)
+    !(id === 'services_step' && !SERVICES_STEP_ENABLED) &&         // the Papic + Setnayan AI cards, dark until the owner flips the flag
     !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
@@ -218,6 +233,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // states the guardrail); chrome Continue advances, canContinue defaults true.
   alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
+  // The services step informs; it never asks for money — so its CTA is a plain
+  // acknowledgement, not "Add" or "Continue to checkout".
+  services_step:'Continue — Papic is on',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -1436,6 +1454,8 @@ export function OnboardingShell({
   dynamicTiles = [],
   budgetBands = BUDGET_BANDS_FALLBACK,
   nextPath = null,
+  servicesStepView = null,
+  servicesStepAiValue = null,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1495,6 +1515,19 @@ export function OnboardingShell({
    * keep precedence. Already safeNext()-validated in page.tsx.
    */
   nextPath?: string | null;
+  /**
+   * Services-step view-model (Papic + Setnayan AI), resolved server-side in
+   * page.tsx. NULL = the flag is off; the screen is already filtered out of the
+   * sequence by SERVICES_STEP_ENABLED, so this is the belt to that braces.
+   */
+  servicesStepView?: ServicesStepView | null;
+  /**
+   * The already-rendered <SetnayanAiValue mode="preview" …/> Server Component
+   * node. Forwarded verbatim to the step so its type-aware capability copy
+   * (#3865) is never re-authored — and so its server-only transitive imports
+   * never enter this client bundle.
+   */
+  servicesStepAiValue?: ReactNode;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -4387,6 +4420,30 @@ export function OnboardingShell({
               <div className="stayfree"><u onClick={() => aiAnswer(false)}>No thanks, I{'’'}ll browse on my own</u></div>
             </div>
           </section>
+
+          {/* 12b YOUR SERVICES — the Papic + Setnayan AI cards (flag-gated 2026-07-29).
+              Informational: Papic is already on and free, the assistant is introduced and
+              routed. No checkout, no cart — the paywall tail (plan/services/summary) stays
+              filtered out exactly as before. The screen is absent from the sequence unless
+              SERVICES_STEP_ENABLED, so the flag-off flow is byte-identical. */}
+          {/* Guarded on the VIEW, not just on the sequence: the other filtered-out
+              screens keep an inert <section> in the tree, but this one is new, so
+              rendering nothing at all is what makes flag-off emit byte-identical DOM
+              rather than one extra hidden node. */}
+          {servicesStepView ? (
+            <section className={`screen${activeId === 'services_step' ? ' active' : ''}`} id="screen-services_step">
+              <div className="eyebrow">Your services</div>
+              <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Your memories are already being kept.</h1>
+              <ServicesStep
+                className="mt-5"
+                view={servicesStepView}
+                /* interested_services' first reader (spec § 1.3) — the persona's derived
+                   service list orders the two Papic products, and nothing more. */
+                interestedServices={state.interestedServices}
+                aiValue={servicesStepAiValue}
+              />
+            </section>
+          ) : null}
 
           {/* 13 THE DASHBOARD BLOOM — congrats reveal: the couple's wedding website, already built.
               Hero masthead (MonoLockup + names + identity headline) → countdown → covert "Our Love

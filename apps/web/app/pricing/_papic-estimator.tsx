@@ -23,7 +23,8 @@
  *   • Papic One price    → platform_retail_catalog_v2, via papic_one_tiers
  *   • Papic One capacity → papic_one_tiers.points + papicBucketPhrase()
  *   • Papic Pool buckets → platform_retail_catalog_v2 (PAPIC_GUEST*)
- *   • free cameras       → papic_tier_config.free.seats_per_event
+ *   • free ONE camera    → PAPIC_FREE_ONE_CAMERA_COUNT (structural) +
+ *                          papic_event_pool_config.free_one_camera_points
  * `lib/papic-copy-guardrails.test.ts` fails CI if a literal creeps back.
  */
 
@@ -50,8 +51,23 @@ export type EstimatorPoolBucket = {
 };
 
 export type EstimatorRates = {
-  /** Free cameras every event gets, from papic_tier_config.free.seats_per_event. */
+  /**
+   * Free DEDICATED cameras every event gets — `PAPIC_FREE_ONE_CAMERA_COUNT`,
+   * zeroed when the admin allowance is 0.
+   *
+   * ⚠ NOT `papic_tier_config.free.seats_per_event`. That counts free SHARED-POOL
+   * seats, which belong to the other product entirely; reading it here quoted the
+   * pool's allowance on the dedicated tab and under-billed every multi-camera
+   * estimate. Fixed 2026-07-29 — see the block in page.tsx.
+   */
   freeCameras: number;
+  /**
+   * What the free camera actually holds (papicBucketPhrase over
+   * free_one_camera_points). Null when there is no free camera. Stated because
+   * the free camera's bucket is SMALLER than any paid rung — "1 free" without
+   * it reads as a free camera equal to a bought one.
+   */
+  freeCameraCapacity: string | null;
   /** Papic One — the dedicated-camera rung. null = the ladder is unreadable. */
   one: EstimatorOne | null;
   /** Papic Pool — the shared-pool buckets, in price order. Empty = none active. */
@@ -138,7 +154,10 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
   let productDetail = '';
   if (effectiveMode === 'one' && one) {
     productLabel = `Papic · ${one.label}`;
-    productDetail = `${cameras} camera${cameras === 1 ? '' : 's'} · first ${rates.freeCameras} free · ${paidCameras} × ${peso(one.pricePhp)}`;
+    productDetail =
+      rates.freeCameras > 0
+        ? `${cameras} camera${cameras === 1 ? '' : 's'} · ${rates.freeCameras} free · ${paidCameras} × ${peso(one.pricePhp)}`
+        : `${cameras} camera${cameras === 1 ? '' : 's'} × ${peso(one.pricePhp)}`;
   } else if (bucket) {
     productLabel = `Papic · ${bucket.label}`;
     productDetail = 'One shared pass for the whole event';
@@ -179,9 +198,21 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
         <div className="mt-6">
           <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
             {one.label} is a flat {peso(one.pricePhp)} per camera for the friends
-            or family you trust. Your first {rates.freeCameras}{' '}
-            camera{rates.freeCameras === 1 ? '' : 's'} are free — beyond that,
-            add as many as you like. Each camera shoots {one.capacity}.
+            or family you trust. Each camera shoots {one.capacity}.
+            {rates.freeCameras > 0 ? (
+              <>
+                {' '}
+                Your{' '}
+                {rates.freeCameras === 1
+                  ? 'first camera is'
+                  : `first ${rates.freeCameras} cameras are`}{' '}
+                free to try
+                {rates.freeCameraCapacity ? ` — ${rates.freeCameraCapacity}` : ''} —
+                beyond that, add as many as you like.
+              </>
+            ) : (
+              <> Add as many as you like — there is no cap.</>
+            )}
           </p>
           <div className="mt-5">
             <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -294,7 +325,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
         {effectiveMode === 'one'
-          ? `Papic One is a flat per-camera price with your first ${rates.freeCameras} free — no per-day or per-hour math. Add-ons are charged separately.`
+          ? `Papic One is a flat per-camera price${rates.freeCameras > 0 ? `, with ${rates.freeCameras} free to try` : ''} — no per-day or per-hour math. Add-ons are charged separately.`
           : 'Papic Pool is one flat pass for the whole event. Add-ons are charged separately.'}{' '}
         Estimate only — no charge is made here.
       </p>

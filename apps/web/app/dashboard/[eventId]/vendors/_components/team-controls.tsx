@@ -32,6 +32,11 @@ import {
   goToBuildTab,
   type RenamePlanRequest,
 } from '@/lib/budget-build';
+import {
+  benchFolderAnchorId,
+  benchTileAnchorId,
+  scrollBenchAnchor,
+} from '@/lib/bench-anchors';
 import { clearBuildPicks, removeBuildPick } from '../build-pick-actions';
 import {
   savePlanBuildNamed,
@@ -276,11 +281,34 @@ export function TeamSavePlan({
  * One "Still needs your decision" row — a doorway that opens that category on
  * the bench.
  *
- * The mechanism is the SHIPPED one, in three already-existing steps: push the
- * `?tab=shortlist&open=<tile>` deep link the page already reads into
- * `initialOpenTile`; ask the section bus to scroll to the bench; then settle on
- * the folder anchor `#slfold-<slug>` the accordion already renders — which is
- * precisely what the bench's own `openPlan` does after it expands a folder.
+ * The mechanism is the SHIPPED one: push the `?tab=shortlist&open=<tile>` deep
+ * link the page already reads into `initialOpenTile`, and ask the section bus to
+ * scroll to the bench.
+ *
+ * ── WHAT CHANGED 2026-07-29 (owner: "doesn't jump to the exact accordion cell")
+ * This used to finish with a 220ms `setTimeout` and then scroll to the FOLDER
+ * anchor. Both halves were wrong:
+ *
+ *   • the folder head is not the category — the category sat expanded somewhere
+ *     below it, and had no anchor of its own to aim at; and
+ *   • the push above re-keys the bench in `page.tsx`
+ *     (`key={`sl-${sp.open ?? ''}`}`), i.e. it REMOUNTS it. A fixed delay racing
+ *     a remount this component cannot observe was a coin flip, and it lost
+ *     silently: it ended in `?.scrollIntoView()` on a null.
+ *
+ * So the landing scroll now belongs to the bench, which owns that remount and
+ * therefore owns its timing (`shortlist-categories.tsx`, the `useLayoutEffect`
+ * beside `openPlan`). What stays here is only what a remount cannot cover:
+ *
+ *   • **no tile** — an entry-point plan group with no `catalogTile` (attire ·
+ *     music_entertainment · logistics). Nothing to deep-link to, so this scrolls
+ *     to the folder itself. It deliberately carries the CURRENT `?open=`
+ *     through: dropping it would re-key the bench and collapse it out from under
+ *     the very scroll this branch is performing.
+ *   • **the same row tapped twice** — `?open=` is unchanged, so there is no
+ *     re-key and no remount, so no mount effect fires. The anchor is already in
+ *     the DOM; scroll it directly instead of waiting for something that will
+ *     never happen.
  */
 export function TeamDecisionDoorway({
   eventId,
@@ -302,15 +330,22 @@ export function TeamDecisionDoorway({
     <button
       type="button"
       onClick={() => {
+        // Read BEFORE the push — `router.push` updates the URL asynchronously.
+        const currentOpen = new URLSearchParams(window.location.search).get('open');
+        const nextOpen = tile ?? currentOpen;
         const qs = new URLSearchParams({ tab: 'shortlist' });
-        if (tile) qs.set('open', tile);
+        if (nextOpen) qs.set('open', nextOpen);
         router.push(`/dashboard/${eventId}/vendors?${qs.toString()}`, { scroll: false });
+        // The section bus (mobile dock highlight + the shipped scroll to
+        // `#svc-shortlist`). Unchanged, and it is only ever the coarse move —
+        // whatever scrolls after it supersedes it.
         goToBuildTab('shortlist');
-        window.setTimeout(() => {
-          document
-            .getElementById(`slfold-${folderSlug}`)
-            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 220);
+        // `page.tsx` keys the bench on `?open=`, so this is exactly "will the
+        // bench remount?". When it will, and there is a tile to land on, the
+        // bench owns the scroll and this must not race it.
+        const willRemount = (currentOpen ?? '') !== (nextOpen ?? '');
+        if (tile && willRemount) return;
+        scrollBenchAnchor(tile ? benchTileAnchorId(tile) : benchFolderAnchorId(folderSlug));
       }}
       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-ink/5"
     >

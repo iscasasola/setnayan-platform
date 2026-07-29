@@ -46,12 +46,11 @@ import { applyBuildToWorking } from '../build-pick-actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
+import { requestPlanRename } from '@/lib/budget-build';
 import {
   sortSavedBuilds,
   displayBuildTitle,
-  autoBuildTitle,
   normalizeBuildTitle,
-  MAX_BUILD_TITLE_LEN,
 } from '@/lib/named-builds';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import {
@@ -109,9 +108,6 @@ export function BuildCompare({
   // Save-As: '' = create a new named build; a build_id = overwrite.
   const [overwriteId, setOverwriteId] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
-  // Set to the auto-generated title when a BLANK name was saved (§7a) — the
-  // surface then says plainly what it called the plan.
-  const [namedNotice, setNamedNotice] = useState<string | null>(null);
   // Per-cell inclusion expand state, keyed `${columnKey}::${groupId}`.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Confirm-first guard for Modify (it overwrites the working build).
@@ -182,21 +178,8 @@ export function BuildCompare({
   // Candidates = the live picks a plan may vary (locked ones are contracts).
   const candidateCount = currentPlan.picks.filter((p) => !p.locked).length;
 
-  // ── PR-F · a blank name NEVER blocks a save ───────────────────────────────
-  // Owner ruling (Integration_Contract_Booking_x_Explore_2026-07-27.md §7a):
-  // "saving builds blank will make us autocreate a name for the build". The
-  // shipped `autoBuildTitle` IS that namer — we surface the name it WILL pick as
-  // the placeholder so it's never a surprise, and confirm it after the save.
-  // There is deliberately no required-field validation and no content gate on
-  // this field: plan names are couple-private text, so trim + the
-  // MAX_BUILD_TITLE_LEN cap (normalizeBuildTitle) is the whole of it.
-  const autoNameHint = useMemo(() => {
-    const i = overwriteId ? orderedBuilds.findIndex((b) => b.build_id === overwriteId) : -1;
-    const target = i >= 0 ? orderedBuilds[i] : undefined;
-    return target
-      ? autoBuildTitle({ build_id: target.build_id, label: target.label, title: null }, i)
-      : autoBuildTitle({ build_id: '', label: null, title: null }, orderedBuilds.length);
-  }, [overwriteId, orderedBuilds]);
+  // (The blank-name auto-naming hint moved to `TeamSavePlan` with the save bar —
+  // spec §3 item 6. Only the flag-OFF bar remains here, and it has never had one.)
 
   const overUnder = (total: number | null) => {
     if (total == null || budgetPhp == null) return null;
@@ -227,10 +210,6 @@ export function BuildCompare({
       );
       if (!res.ok) setErr(res.error);
       else {
-        // §7a: a blank name is a valid save — say plainly what we called it, and
-        // point at the one-tap rename (the Rename control on the plan row).
-        if (replan && normalizeBuildTitle(name) === null) setNamedNotice(autoNameHint);
-        else setNamedNotice(null);
         setName('');
         setOverwriteId('');
         router.refresh();
@@ -339,64 +318,58 @@ export function BuildCompare({
         </p>
       </div>
 
-      {/* Save current plan as a free-form named build (new, or overwrite). */}
-      <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
-          <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
-          {replan ? 'Save your current candidates as' : 'Save your current plan as'}
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            // Spec §8.1 — saving NAMES it; the stored title caps at
-            // MAX_BUILD_TITLE_LEN, so stop the typing there rather than
-            // silently truncating on write.
-            maxLength={replan ? MAX_BUILD_TITLE_LEN : undefined}
-            // §7a: the placeholder IS the name a blank save will get, so the
-            // auto-name is never a surprise. Optional field — never validated.
-            placeholder={
-              replan ? `${autoNameHint} — or give it a name` : 'e.g. Garden wedding'
-            }
-            className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
-            aria-label={replan ? 'Plan name (optional — we’ll name it for you)' : 'Build name'}
-          />
-          <select
-            value={overwriteId}
-            onChange={(e) => setOverwriteId(e.target.value)}
-            className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-            aria-label="Save as a new build or overwrite an existing one"
-          >
-            <option value="">{replan ? 'as a new plan' : 'as a new build'}</option>
-            {orderedBuilds.map((b, i) => (
-              <option key={b.build_id} value={b.build_id}>
-                overwrite “{displayBuildTitle(b, i)}”
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={onSaveNamed}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-            {overwriteId ? 'Save' : replan ? 'Save plan' : 'Save As'}
-          </button>
+      {/* Save current plan as a free-form named build (new, or overwrite).
+          MOVED to "Your team" 2026-07-29 behind the replan flag
+          (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3 item 6) — you save
+          the team where the team is, not at the top of the panel that only
+          compares plans. A MOVE: flag ON this renders nothing, and
+          `TeamSavePlan` is the only save bar on the page. */}
+      {replan ? null : (
+        <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
+            <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
+            Save your current plan as
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              // §7a: the placeholder IS the name a blank save will get, so the
+              // auto-name is never a surprise. Optional field — never validated.
+              placeholder="e.g. Garden wedding"
+              className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+              aria-label="Build name"
+            />
+            <select
+              value={overwriteId}
+              onChange={(e) => setOverwriteId(e.target.value)}
+              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
+              aria-label="Save as a new build or overwrite an existing one"
+            >
+              <option value="">as a new build</option>
+              {orderedBuilds.map((b, i) => (
+                <option key={b.build_id} value={b.build_id}>
+                  overwrite “{displayBuildTitle(b, i)}”
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onSaveNamed}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+              {overwriteId ? 'Save' : 'Save As'}
+            </button>
+          </div>
+          {err ? <p className="text-xs text-danger-700">{err}</p> : null}
         </div>
-        {replan && !err ? (
-          <p className="text-xs text-ink/45">
-            {namedNotice ? (
-              <>
-                Saved — no name given, so we called it{' '}
-                <span className="font-medium text-ink/70">“{namedNotice}”</span>. Tap{' '}
-                <span className="text-ink/70">Rename</span> on its row below to change it.
-              </>
-            ) : (
-              <>A name is optional — leave it blank and we’ll name the plan for you.</>
-            )}
-          </p>
-        ) : null}
-        {err ? <p className="text-xs text-danger-700">{err}</p> : null}
-      </div>
+      )}
+
+      {/* Flag ON, Load / Delete need somewhere to report. Their only render site
+          USED to be inside the save card above — which, now that the card lives
+          on the team, would have left every error on this panel invisible.
+          Flag OFF this renders nothing: the card's own line (unchanged) has it. */}
+      {replan && err ? <p className="text-xs text-danger-700">{err}</p> : null}
 
       {/* ── PR-F · the Plans list: named rows + a first-class Load ───────────
           Each saved plan is a NAMED row you can load straight back into your
@@ -437,11 +410,18 @@ export function BuildCompare({
                       // Save-As bar with itself pre-selected as the overwrite
                       // target — typing + Save renames it in place (the shipped
                       // savePlanBuildNamed overwrite path, no new machinery).
+                      //
+                      // That bar now lives in "Your team" (spec §3 item 6), so
+                      // the handoff goes over the rename bus and we scroll the
+                      // couple to it — otherwise Rename would silently fill a
+                      // field they can't see.
                       onClick={() => {
-                        setNamedNotice(null);
                         setErr(null);
-                        setName(normalizeBuildTitle(b.title) ?? title);
-                        setOverwriteId(b.build_id);
+                        requestPlanRename({
+                          buildId: b.build_id,
+                          name: normalizeBuildTitle(b.title) ?? title,
+                        });
+                        goToBuildTab('build');
                       }}
                       disabled={pending}
                       aria-label={`Rename ${title}`}

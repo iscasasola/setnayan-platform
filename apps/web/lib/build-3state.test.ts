@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 
 import {
   resolveBuildPicks,
+  withAbsentQuotedAsAuto,
   DIM_BUDGET,
   type BuildStateMap,
   type QuotedVendor,
@@ -364,4 +365,77 @@ test('budgetRejected: Excluded + Locked rows never contribute a budget miss', ()
   // Tiny budget — but neither row is Auto, so neither produces a budget miss.
   const res = resolveBuildPicks({ states: s, quoted, budgetPhp: 1_000 });
   assert.equal(res.budgetRejected.length, 0);
+});
+
+// ── withAbsentQuotedAsAuto (Explore_Integration_BUILD_SPEC_2026-07-29 §4) ─────
+// The quote-fill row's one behavioural change: a FILLABLE group with no stored
+// state row proposes as Auto instead of resolving to nothing. Everything else
+// about the map is copied verbatim — an explicit row always wins.
+
+test('withAbsentQuotedAsAuto: absent fillable group becomes auto', () => {
+  const states: BuildStateMap = new Map();
+  const next = withAbsentQuotedAsAuto(states, [SINGLE_A, SINGLE_B]);
+  assert.deepEqual(next.get(SINGLE_A), { state: 'auto', pinnedVendorId: null });
+  assert.deepEqual(next.get(SINGLE_B), { state: 'auto', pinnedVendorId: null });
+  // Non-mutating: the caller's stored map is untouched.
+  assert.equal(states.size, 0);
+
+  // …and it actually fills: the same absent-row event now builds from its quotes.
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'v-cheap', planGroupId: SINGLE_A, costPhp: 10_000 },
+    { vendorId: 'v-dear', planGroupId: SINGLE_A, costPhp: 90_000 },
+  ];
+  assert.deepEqual(resolveBuildPicks({ states, quoted, budgetPhp: 100_000 }).picks, []);
+  assert.deepEqual(resolveBuildPicks({ states: next, quoted, budgetPhp: 100_000 }).picks, [
+    { planGroupId: SINGLE_A, vendorId: 'v-cheap' },
+  ]);
+});
+
+test('withAbsentQuotedAsAuto: explicit excluded row is respected, never flipped', () => {
+  const states: BuildStateMap = new Map([
+    [SINGLE_A, { state: 'excluded', pinnedVendorId: null }],
+  ]);
+  const next = withAbsentQuotedAsAuto(states, [SINGLE_A]);
+  assert.deepEqual(next.get(SINGLE_A), { state: 'excluded', pinnedVendorId: null });
+
+  // The excluded category still writes no pick and is still flagged to clear.
+  const quoted: QuotedVendor[] = [{ vendorId: 'v1', planGroupId: SINGLE_A, costPhp: 1_000 }];
+  const res = resolveBuildPicks({ states: next, quoted, budgetPhp: 100_000 });
+  assert.deepEqual(res.picks, []);
+  assert.deepEqual(res.clearGroupIds, [SINGLE_A]);
+});
+
+test('withAbsentQuotedAsAuto: explicit locked row keeps its pin', () => {
+  const states: BuildStateMap = new Map([
+    [SINGLE_A, { state: 'locked', pinnedVendorId: 'v-pinned' }],
+  ]);
+  const next = withAbsentQuotedAsAuto(states, [SINGLE_A]);
+  assert.deepEqual(next.get(SINGLE_A), { state: 'locked', pinnedVendorId: 'v-pinned' });
+
+  // The legacy lock+pin still resolves to its pin, not to the cheapest quote.
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'v-pinned', planGroupId: SINGLE_A, costPhp: 80_000 },
+    { vendorId: 'v-cheaper', planGroupId: SINGLE_A, costPhp: 10_000 },
+  ];
+  assert.deepEqual(resolveBuildPicks({ states: next, quoted, budgetPhp: 100_000 }).picks, [
+    { planGroupId: SINGLE_A, vendorId: 'v-pinned' },
+  ]);
+});
+
+test('withAbsentQuotedAsAuto: a group NOT fillable (decision excluded/complete) is skipped', () => {
+  // The caller drops decision-excluded / decision-complete groups from the
+  // fillable list. They must stay absent → they resolve to nothing, exactly as
+  // a category the couple removed should.
+  const states: BuildStateMap = new Map();
+  const next = withAbsentQuotedAsAuto(states, [SINGLE_A]); // SINGLE_B omitted.
+  assert.equal(next.has(SINGLE_B), false);
+  // Dimension keys are never synthesized either — they carry no vendor pick.
+  assert.equal(withAbsentQuotedAsAuto(new Map(), [DIM_BUDGET]).has(DIM_BUDGET), false);
+
+  const quoted: QuotedVendor[] = [
+    { vendorId: 'v-a', planGroupId: SINGLE_A, costPhp: 10_000 },
+    { vendorId: 'v-b', planGroupId: SINGLE_B, costPhp: 10_000 },
+  ];
+  const res = resolveBuildPicks({ states: next, quoted, budgetPhp: 100_000 });
+  assert.deepEqual(res.picks, [{ planGroupId: SINGLE_A, vendorId: 'v-a' }]);
 });

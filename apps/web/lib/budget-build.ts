@@ -135,6 +135,28 @@ export function goToBuildTab(tab: BudgetBuildTab) {
 }
 
 /**
+ * Rename bus — the SAME pattern as `BB_TAB_EVENT`, for the same reason.
+ *
+ * "Save current as a plan" moved from the Plans panel to "Your team" on
+ * 2026-07-29 (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3 item 6). The
+ * Plans panel's shipped **Rename** control worked by loading the plan's name
+ * into that Save-As bar with itself pre-selected as the overwrite target — pure
+ * `setState`, which stops working the moment the bar lives in a sibling
+ * component. The spec doesn't mention the coupling; this is what keeps Rename
+ * working rather than quietly losing it.
+ *
+ * Deliberately NOT new machinery: one CustomEvent, declared beside the tab bus
+ * that `build-compare.tsx` and `team-controls.tsx` already jump over.
+ */
+export const BB_RENAME_PLAN_EVENT = 'bb:rename-plan';
+export type RenamePlanRequest = { buildId: string; name: string };
+export function requestPlanRename(req: RenamePlanRequest) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(BB_RENAME_PLAN_EVENT, { detail: req }));
+  }
+}
+
+/**
  * Is the Services "Build" takeover active? LIVE by default (owner 2026-06-09).
  * Returns false ONLY when `BUDGET_BUILD_ENABLED=false` is explicitly set — the
  * kill-switch. Read server-side and passed down as a prop (NOT `NEXT_PUBLIC_*` —

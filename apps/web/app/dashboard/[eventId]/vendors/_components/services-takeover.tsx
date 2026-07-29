@@ -77,7 +77,11 @@ const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
  *  anchors / bus events stay `compare` and `budget`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   shortlist: 'Browse the bench',
-  build: 'Build your team',
+  // "Build your team" → **"Your team"** (2026-07-29 §2). The section is the
+  // people you chose — locked, mid-handshake, and candidates — not a verb. The
+  // owner's complaint was literal: "why does the build your team has build your
+  // plan and your team?" It named itself twice and then named a THIRD thing.
+  build: isExploreReplanEnabled() ? 'Your team' : 'Build your team',
   budget: isExploreReplanEnabled() ? 'Payments' : 'Your budget',
   compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
 };
@@ -106,6 +110,9 @@ export function ServicesTakeover({
    *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
   premium?: boolean;
 }) {
+  // Read once so the whole surface agrees within a render (same contract as
+  // `build-compare.tsx` / `build-locked.tsx`).
+  const replan = isExploreReplanEnabled();
   // Compare is the least-used + longest section → collapsed by default,
   // expandable in place. Selecting/scrolling to Compare auto-expands it.
   const [compareOpen, setCompareOpen] = useState(false);
@@ -217,29 +224,62 @@ export function ServicesTakeover({
             {buildSlot ?? <SectionStub tab="build" />}
           </ServiceSection>
 
-          {/* Budget — a compact lens of the full budget surface, right where the
-              spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
-          <ServiceSection
-            tab="budget"
-            heading={SECTION_HEADING.budget}
-            collapsible
-            open={budgetOpen}
-            onToggle={() => setBudgetOpen((v) => !v)}
-          >
-            {budgetSlot ?? <SectionStub tab="budget" />}
-          </ServiceSection>
+          {/* ORDER — Bench → Your team → Your plans → Payments
+              (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3, finally executing
+              the §2.2 ruling the code never caught up to). Plans sits next to the
+              team it branches from; Payments closes the journey rather than
+              interrupting it. Flag OFF keeps the shipped build → budget → compare.
+              Both are collapsed by default either way, and neither the `#svc-*`
+              anchors, the `?tab=` deep links nor the BB_TAB_EVENT bus care about
+              DOM order — they resolve by id. */}
+          {replan ? (
+            <>
+              <ServiceSection
+                tab="compare"
+                heading={SECTION_HEADING.compare}
+                collapsible
+                open={compareOpen}
+                onToggle={() => setCompareOpen((v) => !v)}
+              >
+                {compareSlot ?? <SectionStub tab="compare" />}
+              </ServiceSection>
+              <ServiceSection
+                tab="budget"
+                heading={SECTION_HEADING.budget}
+                collapsible
+                open={budgetOpen}
+                onToggle={() => setBudgetOpen((v) => !v)}
+              >
+                {budgetSlot ?? <SectionStub tab="budget" />}
+              </ServiceSection>
+            </>
+          ) : (
+            <>
+              {/* Budget — a compact lens of the full budget surface, right where the
+                  spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
+              <ServiceSection
+                tab="budget"
+                heading={SECTION_HEADING.budget}
+                collapsible
+                open={budgetOpen}
+                onToggle={() => setBudgetOpen((v) => !v)}
+              >
+                {budgetSlot ?? <SectionStub tab="budget" />}
+              </ServiceSection>
 
-          {/* Compare — collapsed by default (least-used + longest). Expands in
-              place; selecting/scrolling to it auto-opens (compareOpen). */}
-          <ServiceSection
-            tab="compare"
-            heading={SECTION_HEADING.compare}
-            collapsible
-            open={compareOpen}
-            onToggle={() => setCompareOpen((v) => !v)}
-          >
-            {compareSlot ?? <SectionStub tab="compare" />}
-          </ServiceSection>
+              {/* Compare — collapsed by default (least-used + longest). Expands in
+                  place; selecting/scrolling to it auto-opens (compareOpen). */}
+              <ServiceSection
+                tab="compare"
+                heading={SECTION_HEADING.compare}
+                collapsible
+                open={compareOpen}
+                onToggle={() => setCompareOpen((v) => !v)}
+              >
+                {compareSlot ?? <SectionStub tab="compare" />}
+              </ServiceSection>
+            </>
+          )}
         </div>
       </div>
     </section>

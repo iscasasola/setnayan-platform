@@ -10,7 +10,7 @@
  *             SILENTLY DESTROY the couple's other picks. Never replace.
  *
  * Every write path that could clear siblings — `setBuildPick` (per-pick add) and
- * `runBuild3State` (Compute/Build) — routes its decision through THIS predicate,
+ * `proposeBuildFromQuotes` (was `runBuild3State`) — routes its decision through THIS predicate,
  * so the guard can never be half-applied or quietly dropped in a refactor without
  * `build-pick-rules.test.ts` failing.
  *

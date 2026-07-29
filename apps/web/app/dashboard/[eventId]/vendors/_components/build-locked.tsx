@@ -36,11 +36,14 @@ import {
   teamMoney,
   type TeamDecisionInput,
 } from '@/lib/your-team';
+import type { PlanBuildSnapshot, SavedPlanBuild } from '../build-actions';
 import { AccordionLockButton } from './accordion-lock';
+import { QuoteFillRow, type FillableCategory } from './quote-fill';
 import {
   TeamClearCandidates,
   TeamDecisionDoorway,
   TeamRemoveCandidate,
+  TeamSavePlan,
 } from './team-controls';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
@@ -66,6 +69,9 @@ export function BuildLocked({
   eventId,
   summary,
   planPicks,
+  quoteFillable,
+  currentPlan,
+  savedBuilds,
 }: {
   model: PlanBudgetModel;
   eventId: string;
@@ -78,6 +84,11 @@ export function BuildLocked({
    * the section lists nothing (the flag-OFF path never reads it).
    */
   planPicks?: ReadonlyArray<PlansRowPick>;
+  /** Categories the quote-fill row can offer. Empty (or absent) → no row. */
+  quoteFillable?: ReadonlyArray<FillableCategory>;
+  /** For the relocated "Save current as a plan" (§3 item 6). Flag-ON only. */
+  currentPlan?: PlanBuildSnapshot;
+  savedBuilds?: SavedPlanBuild[];
 }) {
   const replan = isExploreReplanEnabled();
 
@@ -152,10 +163,16 @@ export function BuildLocked({
       })
     : { rows: [], hiddenCount: 0 };
 
+  // The quote-fill row's categories (spec §4). Resolved on the page; empty here
+  // means the row renders nothing at all, which is the whole point of the 0 state.
+  const fillable = replan ? (quoteFillable ?? []) : [];
+
   // Empty state — unchanged flag-OFF. Flag ON it must also stand down when there
-  // IS an open decision to show, or the doorways would hide behind "nothing yet".
+  // IS an open decision to show, or the doorways would hide behind "nothing yet"
+  // — and likewise when there are QUOTES TO FILL FROM, or the one row that turns
+  // a quote into a build would be unreachable on exactly the event that needs it.
   const nothingYet = lockedRows.length === 0 && toLockRows.length === 0;
-  if (nothingYet && !(replan && decisions.rows.length > 0)) {
+  if (nothingYet && !(replan && (decisions.rows.length > 0 || fillable.length > 0))) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-16 text-center">
         <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
@@ -178,48 +195,41 @@ export function BuildLocked({
   });
   const buffer = bufferTile(money.bufferPhp);
 
-  return (
-    <div className="mx-auto max-w-2xl space-y-5 px-1 py-2">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-2xl italic text-ink">
-          {replan ? 'Your team' : 'Lock your build'}
-        </h2>
-        <span className="font-display text-xl italic text-ink/80">{peso(model.chosenCentavos)}</span>
-      </div>
+  // ── The section pieces. Declared once, then ORDERED per flag below — flag OFF
+  // keeps today's exact sequence (heading → tiles → ready-to-lock → locked-in);
+  // flag ON follows the merged "Your team" order of spec §3 + §4. Extracting
+  // them is what lets the two orders share one implementation instead of two.
 
-      {/* Committed-anchor summary tiles (prototype `.lock-sum` / `.tiles`).
-          Flag ON adds the two money tiles the replan asks for — In build and
-          Buffer — and renames Committed to the plainer "Locked". */}
-      {replan ? (
-        <div className="grid grid-cols-2 gap-3">
-          <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
-          <LockTile k="Location" v={summary?.region ?? '—'} />
-          <LockTile k="Locked" v={pesoFromPhp(money.lockedPhp) ?? '—'} accent />
-          <LockTile k="In build" v={pesoFromPhp(money.inBuildPhp) ?? '—'} />
-          <LockTile k="Budget" v={pesoFromPhp(money.budgetPhp) ?? '—'} />
-          <LockTile k="Buffer" v={buffer.text} tone={buffer.tone} />
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
-          <LockTile k="Budget" v={pesoFromPhp(summary?.budgetPhp ?? null) ?? '—'} />
-          <LockTile k="Location" v={summary?.region ?? '—'} />
-          <LockTile k="Committed" v={peso(model.chosenCentavos)} accent />
-        </div>
-      )}
+  const tiles = replan ? (
+    <div className="grid grid-cols-2 gap-3">
+      <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
+      <LockTile k="Location" v={summary?.region ?? '—'} />
+      <LockTile k="Locked" v={pesoFromPhp(money.lockedPhp) ?? '—'} accent />
+      <LockTile k="In build" v={pesoFromPhp(money.inBuildPhp) ?? '—'} />
+      <LockTile k="Budget" v={pesoFromPhp(money.budgetPhp) ?? '—'} />
+      <LockTile k="Buffer" v={buffer.text} tone={buffer.tone} />
+    </div>
+  ) : (
+    <div className="grid grid-cols-2 gap-3">
+      <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
+      <LockTile k="Budget" v={pesoFromPhp(summary?.budgetPhp ?? null) ?? '—'} />
+      <LockTile k="Location" v={summary?.region ?? '—'} />
+      <LockTile k="Committed" v={peso(model.chosenCentavos)} accent />
+    </div>
+  );
 
-      {/* Nothing locked yet — the prototype's one-line orientation, shown only
-          when the rail has something else to offer (open decisions/candidates),
-          so it never competes with the full empty state above. */}
-      {replan && lockedRows.length === 0 ? (
-        <p className="text-sm text-ink/55">
-          Nothing locked yet — start with the reception venue. It sets your date and your location,
-          and everything else follows from those two.
-        </p>
-      ) : null}
+  // Nothing locked yet — the prototype's one-line orientation, shown only when
+  // the rail has something else to offer, so it never competes with the full
+  // empty state above.
+  const orientation =
+    replan && lockedRows.length === 0 ? (
+      <p className="text-sm text-ink/55">
+        Nothing locked yet — start with the reception venue. It sets your date and your location,
+        and everything else follows from those two.
+      </p>
+    ) : null;
 
-      {/* 1 · Ready to lock — build picks awaiting the hardened finalize. */}
-      {toLockRows.length > 0 && (
+  const readyToLock = toLockRows.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg italic text-ink/85">
@@ -286,10 +296,9 @@ export function BuildLocked({
             </div>
           ) : null}
         </section>
-      )}
+      );
 
-      {/* 2 · Locked in — the finalized, read-only list. */}
-      {lockedRows.length > 0 && (
+  const lockedIn = lockedRows.length > 0 && (
         <section className="space-y-2">
           <h3 className="font-display text-lg italic text-ink/85">Locked in</h3>
           <ul className="space-y-2">
@@ -314,35 +323,95 @@ export function BuildLocked({
             ))}
           </ul>
         </section>
-      )}
+      );
 
-      {/* 3 · Still needs your decision (PR-E) — urgency-ordered doorways back
-          onto the bench. Only the categories the couple is actually in: the ones
-          they've shortlisted or built into, plus the ones the planning clock has
-          opened. Locked and package-covered categories never appear. */}
-      {replan && decisions.rows.length > 0 && (
-        <section className="space-y-1">
-          <h3 className="font-display text-lg italic text-ink/85">Still needs your decision</h3>
-          <ul className="divide-y divide-ink/8">
-            {decisions.rows.map((d) => (
-              <li key={d.groupId}>
-                <TeamDecisionDoorway
-                  eventId={eventId}
-                  label={d.label}
-                  tile={d.tile}
-                  folderSlug={d.folderSlug}
-                  meta={decisionMeta(d.daysLeft, d.optionCount)}
-                />
-              </li>
-            ))}
-          </ul>
-          {decisions.hiddenCount > 0 ? (
-            <p className="px-2 pt-1 text-xs text-ink/45">
-              …and {decisions.hiddenCount} more to decide.
-            </p>
-          ) : null}
-        </section>
-      )}
+  // Still needs your decision (PR-E) — urgency-ordered doorways back onto the
+  // bench. Only the categories the couple is actually in: the ones they've
+  // shortlisted or built into, plus the ones the planning clock has opened.
+  // Locked and package-covered categories never appear.
+  const stillNeedsDecisionSection = replan && decisions.rows.length > 0 && (
+    <section className="space-y-1">
+      <h3 className="font-display text-lg italic text-ink/85">Still needs your decision</h3>
+      <ul className="divide-y divide-ink/8">
+        {decisions.rows.map((d) => (
+          <li key={d.groupId}>
+            <TeamDecisionDoorway
+              eventId={eventId}
+              label={d.label}
+              tile={d.tile}
+              folderSlug={d.folderSlug}
+              meta={decisionMeta(d.daysLeft, d.optionCount)}
+            />
+          </li>
+        ))}
+      </ul>
+      {decisions.hiddenCount > 0 ? (
+        <p className="px-2 pt-1 text-xs text-ink/45">
+          …and {decisions.hiddenCount} more to decide.
+        </p>
+      ) : null}
+    </section>
+  );
+
+  // ── FLAG OFF — today's exact order and markup, including this component's own
+  // <h2>. Nothing below the flag has moved.
+  if (!replan) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5 px-1 py-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-2xl italic text-ink">Lock your build</h2>
+          <span className="font-display text-xl italic text-ink/80">
+            {peso(model.chosenCentavos)}
+          </span>
+        </div>
+        {tiles}
+        {readyToLock}
+        {lockedIn}
+      </div>
+    );
+  }
+
+  // ── FLAG ON — "Your team", the MERGE (spec §3, ordered per the prototype's
+  // `renderTeam()`; the quote-fill row's position is §4's).
+  //
+  // NO INNER <h2> (spec §2): the section heading in `services-takeover.tsx`
+  // already says "Your team", and the total it used to carry is the "Locked"
+  // tile. Every section named itself twice; now none does.
+  return (
+    <div className="mx-auto max-w-2xl space-y-5 px-1 py-2">
+      {/* 1 · what is already yours */}
+      {orientation}
+      {lockedIn}
+
+      {/* 2 · handshake-in-progress — the slot PR-H's tracker lands in. */}
+
+      {/* 3 · what you are still weighing up */}
+      {readyToLock}
+
+      {/* 4 · the one row that turns quotes into a build (§4). Between "In your
+             build" and "Still needs your decision", because that is the order
+             of the question it answers: you have prices — want them in? */}
+      <QuoteFillRow
+        eventId={eventId}
+        fillable={fillable}
+        budgetPhp={summary?.budgetPhp ?? null}
+      />
+
+      {/* 5 · what you have not decided */}
+      {stillNeedsDecisionSection}
+
+      {/* 6 · the money, read AFTER the team it describes */}
+      {tiles}
+
+      {/* 7 · branch off a named alternative — moved here from the Plans panel
+             (spec §3 item 6): you save the team where the team is. */}
+      {currentPlan ? (
+        <TeamSavePlan
+          eventId={eventId}
+          currentPlan={currentPlan}
+          savedBuilds={savedBuilds ?? []}
+        />
+      ) : null}
     </div>
   );
 }

@@ -97,17 +97,7 @@ import { ServicesTakeover } from './_components/services-takeover';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
-import {
-  Build3StateControl,
-  type AnchorData,
-  type TaxonomyRow as Build3StateTaxonomyRow,
-} from './_components/build-3state-control';
-import {
-  DIM_DATE,
-  DIM_BUDGET,
-  DIM_LOCATION,
-  type BuildState,
-} from '@/lib/build-3state';
+import type { FillableCategory } from './_components/quote-fill';
 import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -1629,11 +1619,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // Build-tab anchors (PR D) — Date/Budget/Location with Flag/Pin. State lives
     // on the existing events columns (populated = Pinned, empty = Flagged); no
     // migration. Reuses the already-computed matchFormattedDate + precision.
-    const buildAnchors: AnchorData = {
+    // ⚠ KEPT (spec §7): the tri-state grid that also read these is deleted, but
+    // `BuildLocked`'s Date / Location summary tiles still do.
+    const buildAnchors = {
       date: {
         iso: ev?.event_date ?? null,
         label: matchFormattedDate,
-        candidateCount: ev?.date_candidates?.length ?? 0,
       },
       budget: {
         php:
@@ -1649,43 +1640,76 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // auto-fills them; finalized ones are the locked count.
     const buildChildren = model.folders.flatMap((f) => f.children);
 
-    // ── 3-State Build control (Phase 3d · Build_3State_Solver_2026-06-16.md).
-    // The Build tab is the Locked/Auto/Excluded control + Reset + Build. Rows =
-    // taxonomy categories with >=1 QUOTED inquiry (total_cost_php != null) + the
-    // 3 dimension rows. Resolved picks write to event_build_picks so Compare/Lock
-    // are unchanged.
+    // ── The quote-fill row's input (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+    // §4). The Lock/Auto/Hidden grid this used to feed is DELETED; the state map
+    // is now read-only legacy (nothing writes it) and only an explicit
+    // `'excluded'` row still speaks — the `stateOf` / `dimensionStates` wiring is
+    // gone with the grid it drove (spec §7).
     const buildStates = await getCategoryBuildStates(eventId);
-    const stateOf = (key: string): BuildState => buildStates.get(key)?.state ?? 'excluded';
 
-    // Taxonomy rows: every plan group that has >=1 quoted inquiry. Quoted =
-    // a pick with total_cost_php != null (the §3 quoted-inquiry gate, lifted
-    // from compute-time to row visibility). Options are that category's quotes.
-    const taxonomyRows: Build3StateTaxonomyRow[] = buildChildren
-      .map((c) => {
-        const options = c.picks
-          .filter((p) => p.total_cost_php != null)
-          .map((p) => ({
-            vendorId: p.vendor_id,
-            name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
-            pricePhp: p.rolled_cost_php ?? p.total_cost_php ?? null,
+    // Categories the couple REMOVED ("Not needed") or FINISHED ("✓ Covered").
+    // Rows key on EITHER grain — plan_group_id for complete, tile for excluded —
+    // so read both and bridge tile → group through the same `catalogTile` map
+    // the bench uses. Flag OFF → no query at all. Fail-soft to "nothing decided",
+    // which can only ever OFFER more, never silently drop a category.
+    const decidedGroupIds: Set<string> = await (async () => {
+      const out = new Set<string>();
+      if (!isExploreReplanEnabled()) return out;
+      try {
+        const { data } = await supabase
+          .from('event_category_decisions')
+          .select('plan_group_id, tile')
+          .eq('event_id', eventId)
+          .in('decision', ['excluded', 'complete']);
+        const groupByTile = new Map<string, string>();
+        for (const g of PLAN_GROUPS) {
+          if (g.catalogTile) groupByTile.set(g.catalogTile, g.id);
+        }
+        for (const r of (data ?? []) as Array<{ plan_group_id: string | null; tile: string | null }>) {
+          if (r.plan_group_id) out.add(r.plan_group_id);
+          if (r.tile) {
+            const viaTile = groupByTile.get(r.tile);
+            if (viaTile) out.add(viaTile);
+          }
+        }
+      } catch {
+        /* fail-soft */
+      }
+      return out;
+    })();
+
+    // FILLABLE = ≥1 quoted inquiry (total_cost_php != null) · no locked vendor ·
+    // no existing build pick · not decided above · no explicit 'excluded' state.
+    // `proposeBuildFromQuotes` re-derives the SAME five conditions server-side
+    // before it writes — this list only decides what the row SAYS.
+    const quoteFillable: FillableCategory[] = !isExploreReplanEnabled()
+      ? []
+      : buildChildren
+          .map((c) => ({
+            child: c,
+            options: c.picks
+              .filter((p) => p.total_cost_php != null)
+              .map((p) => ({
+                vendorId: p.vendor_id,
+                name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+                pricePhp: p.rolled_cost_php ?? p.total_cost_php ?? null,
+              })),
+          }))
+          .filter(
+            ({ child, options }) =>
+              options.length > 0 &&
+              !child.picks.some(
+                (p) => p.raw_status && LOCKED_VENDOR_STATUSES.includes(p.raw_status),
+              ) &&
+              child.buildPickVendorIds.length === 0 &&
+              !decidedGroupIds.has(child.groupId as string) &&
+              buildStates.get(child.groupId as string)?.state !== 'excluded',
+          )
+          .map(({ child, options }) => ({
+            groupId: child.groupId as string,
+            label: child.label,
+            options,
           }));
-        return { child: c, options };
-      })
-      .filter(({ options }) => options.length > 0)
-      .map(({ child, options }) => {
-        const st = buildStates.get(child.groupId as string);
-        return {
-          groupId: child.groupId as string,
-          label: child.label,
-          state: st?.state ?? 'excluded',
-          // Only honor a pin that's still one of this category's quotes.
-          pinnedVendorId:
-            st?.pinnedVendorId && options.some((o) => o.vendorId === st.pinnedVendorId)
-              ? st.pinnedVendorId
-              : null,
-          options,
-        };
-      });
 
     // "Build absorbs Lock" 2026-06-20 (PR2 · Vendor_Transaction_Lifecycle_2026-06-20.md):
     // the standalone Lock tab is gone. The 3-state assembler AND the lock surface
@@ -1742,16 +1766,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const buildSlot = (
       <div className="space-y-6">
         {showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
-        <Build3StateControl
-          eventId={eventId}
-          anchors={buildAnchors}
-          dimensionStates={{
-            [DIM_DATE]: stateOf(DIM_DATE),
-            [DIM_BUDGET]: stateOf(DIM_BUDGET),
-            [DIM_LOCATION]: stateOf(DIM_LOCATION),
-          }}
-          taxonomyRows={taxonomyRows}
-        />
+        {/* ONE card in this slot now (spec §3 — "Your team" is a MERGE). The
+            Lock/Auto/Hidden grid that used to sit above `BuildLocked` is deleted;
+            its one real capability — fill my build from my quotes — is the
+            quote-fill row INSIDE the team, where the result lands. */}
         <BuildLocked
           model={model}
           eventId={eventId}
@@ -1765,6 +1783,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // `lockedGroupIdsOf`, so both surfaces share one authority. Pass-down,
           // never a new query.
           planPicks={currentPlan.picks}
+          quoteFillable={quoteFillable}
+          // "Save current as a plan" RELOCATED here from the Plans panel
+          // (spec §3 item 6). Both were already resolved for `compareSlot` below.
+          currentPlan={currentPlan}
+          savedBuilds={savedBuilds}
         />
       </div>
     );

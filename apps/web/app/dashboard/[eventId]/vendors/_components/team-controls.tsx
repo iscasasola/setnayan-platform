@@ -22,13 +22,31 @@
  * All three are rendered only behind `isExploreReplanEnabled()` by their caller.
  */
 
-import { useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Circle, Eraser, X } from 'lucide-react';
+import { Bookmark, ChevronRight, Circle, Eraser, Loader2, X } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { haptic } from '@/lib/haptics';
-import { goToBuildTab } from '@/lib/budget-build';
+import {
+  BB_RENAME_PLAN_EVENT,
+  goToBuildTab,
+  type RenamePlanRequest,
+} from '@/lib/budget-build';
 import { clearBuildPicks, removeBuildPick } from '../build-pick-actions';
+import {
+  savePlanBuildNamed,
+  type PlanBuildSnapshot,
+  type SavedPlanBuild,
+} from '../build-actions';
+import { readPinMode } from './build-pin-mode';
+import { useSaveLoader } from '@/components/sd-loader';
+import {
+  autoBuildTitle,
+  displayBuildTitle,
+  normalizeBuildTitle,
+  sortSavedBuilds,
+  MAX_BUILD_TITLE_LEN,
+} from '@/lib/named-builds';
 
 /** ✕ — take ONE candidate back off the build. */
 export function TeamRemoveCandidate({
@@ -105,6 +123,152 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
       </button>
       {dialog}
     </>
+  );
+}
+
+/**
+ * "Save current as a plan" — RELOCATED VERBATIM 2026-07-29 from
+ * `build-compare.tsx` (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3 item 6).
+ * Same markup, same `savePlanBuildNamed` call, same blank-name auto-naming — it
+ * simply now sits on the surface that owns the team, next to the team it saves,
+ * instead of at the top of the panel that only COMPARES saved plans. A move, not
+ * a copy: the Plans panel no longer renders it behind the flag.
+ *
+ * Flag-ON only (its caller mounts it behind `isExploreReplanEnabled()`), so the
+ * `replan ?` ternaries the original carried are resolved to their replan side.
+ *
+ * The Plans panel's **Rename** control still reaches this bar — over
+ * `BB_RENAME_PLAN_EVENT`, the sibling of the tab bus both files already use.
+ */
+export function TeamSavePlan({
+  eventId,
+  currentPlan,
+  savedBuilds,
+}: {
+  eventId: string;
+  currentPlan: PlanBuildSnapshot;
+  savedBuilds: SavedPlanBuild[];
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState('');
+  // '' = create a new named plan; a build_id = overwrite that one.
+  const [overwriteId, setOverwriteId] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
+  // Set to the auto-generated title when a BLANK name was saved (§7a).
+  const [namedNotice, setNamedNotice] = useState<string | null>(null);
+  const save = useSaveLoader();
+
+  const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
+
+  // §7a "make renaming easy" — the Plans panel's Rename button loads that plan's
+  // name in here with itself pre-selected as the overwrite target; typing + Save
+  // renames it in place. Identical behaviour to when the bar lived over there.
+  useEffect(() => {
+    const onRename = (e: Event) => {
+      const req = (e as CustomEvent<RenamePlanRequest>).detail;
+      if (!req?.buildId) return;
+      setNamedNotice(null);
+      setErr(null);
+      setName(req.name);
+      setOverwriteId(req.buildId);
+    };
+    window.addEventListener(BB_RENAME_PLAN_EVENT, onRename);
+    return () => window.removeEventListener(BB_RENAME_PLAN_EVENT, onRename);
+  }, []);
+
+  // §7a: a blank name is a valid save — surface the name it WILL get as the
+  // placeholder so the auto-name is never a surprise.
+  const autoNameHint = useMemo(() => {
+    const i = overwriteId ? orderedBuilds.findIndex((b) => b.build_id === overwriteId) : -1;
+    const target = i >= 0 ? orderedBuilds[i] : undefined;
+    return target
+      ? autoBuildTitle({ build_id: target.build_id, label: target.label, title: null }, i)
+      : autoBuildTitle({ build_id: '', label: null, title: null }, orderedBuilds.length);
+  }, [overwriteId, orderedBuilds]);
+
+  function onSaveNamed() {
+    setErr(null);
+    if (currentPlan.picks.length === 0) {
+      setErr('Add some vendors to your build first — from the bench, then save.');
+      return;
+    }
+    startTransition(async () => {
+      const res = await save.run(
+        () =>
+          savePlanBuildNamed({
+            eventId,
+            rawName: name,
+            overwriteBuildId: overwriteId || null,
+            snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+          }),
+        { steps: ['Saving your plan'], hint: 'Saving' },
+      );
+      if (!res.ok) setErr(res.error);
+      else {
+        if (normalizeBuildTitle(name) === null) setNamedNotice(autoNameHint);
+        else setNamedNotice(null);
+        setName('');
+        setOverwriteId('');
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
+        <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
+        Save your current candidates as
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          // Spec §8.1 — saving NAMES it; the stored title caps at
+          // MAX_BUILD_TITLE_LEN, so stop the typing there rather than silently
+          // truncating on write.
+          maxLength={MAX_BUILD_TITLE_LEN}
+          placeholder={`${autoNameHint} — or give it a name`}
+          className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
+          aria-label="Plan name (optional — we’ll name it for you)"
+        />
+        <select
+          value={overwriteId}
+          onChange={(e) => setOverwriteId(e.target.value)}
+          className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
+          aria-label="Save as a new plan or overwrite an existing one"
+        >
+          <option value="">as a new plan</option>
+          {orderedBuilds.map((b, i) => (
+            <option key={b.build_id} value={b.build_id}>
+              overwrite “{displayBuildTitle(b, i)}”
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={onSaveNamed}
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+          {overwriteId ? 'Save' : 'Save plan'}
+        </button>
+      </div>
+      {!err ? (
+        <p className="text-xs text-ink/45">
+          {namedNotice ? (
+            <>
+              Saved — no name given, so we called it{' '}
+              <span className="font-medium text-ink/70">“{namedNotice}”</span>. Tap{' '}
+              <span className="text-ink/70">Rename</span> on its row in Your plans to change it.
+            </>
+          ) : (
+            <>A name is optional — leave it blank and we’ll name the plan for you.</>
+          )}
+        </p>
+      ) : null}
+      {err ? <p className="text-xs text-danger-700">{err}</p> : null}
+    </div>
   );
 }
 

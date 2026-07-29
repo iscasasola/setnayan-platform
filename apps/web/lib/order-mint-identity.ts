@@ -68,7 +68,9 @@ export class MintIdentityRefused extends Error {
 
 export type MintIdentityFault =
   | 'no-server-user'
-  | 'no-verified-order';
+  | 'no-verified-order'
+  | 'no-guest-event'
+  | 'no-guest-owner';
 
 /**
  * Who the server decided this row belongs to. Every field must come from a
@@ -269,5 +271,113 @@ export function paymentRowFor<T extends Record<string, unknown>>(
 ): T & { user_id: string; order_id: string; status: 'pending' } {
   const userId = requireNonBlank(identity.userId, 'no-server-user');
   const orderId = requireNonBlank(identity.verifiedOrderId, 'no-verified-order');
+  return { ...(fields as T), user_id: userId, order_id: orderId, status: 'pending' };
+}
+
+// ===========================================================================
+// THE GUEST DOOR (owner-locked 2026-07-29) — an order with no account behind it
+// ===========================================================================
+//
+// # Why a third door and not `userId: string | null`
+//
+// Relaxing `MintIdentity.userId` to nullable would make EVERY existing call
+// site able to mint an owner-less order by passing a value that happened to be
+// null — and `orderRowFor`'s entire job is that a missing identity is a REFUSAL,
+// not a default. Nine of the eleven roster entries have a real buyer and must
+// keep failing closed when they cannot find one. So the account-less case gets
+// its own narrower door, exactly as `compOrderRowFor` did for the ₱0 comp
+// shape.
+//
+// # What replaces `user_id = auth.uid()` here
+//
+// Nothing, and that is deliberate: there is no account to bind to. What binds
+// the row instead is the OWNER AXIS — the camera seat the buyer holds, or the
+// guest-QR identity they arrived with. Both are resolved server-side from a
+// credential the browser already had (a claimed `paparazzi_seats.claim_qr_token`
+// or the signed `setnayan_guest_session` cookie), never read off the form; the
+// call site names the gate it relies on in a comment above its call, same rule
+// as every other door.
+//
+// The axis is REQUIRED. An order with neither a seat nor a guest is an order
+// nobody can be shown to have placed, which is the state the removed
+// `user_id NOT NULL` used to make impossible, so it is refused here as well as
+// CHECKed in the database (migration 20271019639608).
+//
+// `userId` stays OPTIONAL and is stamped when present, so a signed-in host who
+// happens to tap the guest surface keeps their order in their own dashboard —
+// "attach the account when there is one, never require it".
+
+/**
+ * Who a GUEST order belongs to when there is no account. Exactly the fields the
+ * server resolved:
+ *
+ *  • `eventId` — the event the credential resolved to. NEVER a form value: it
+ *                comes off the seat row or the signed guest cookie, which is
+ *                what stops an order being attached to a stranger's event.
+ *  • `seatId`  — the claimed camera seat, or null on the guest-QR surface.
+ *  • `guestId` — the guest-QR identity, or null on the seat surface.
+ *  • `userId`  — a real signed-in account IF one happened to be present.
+ *                Anonymous auth sessions must be passed as null: an anonymous
+ *                claimer is not "an account the buyer has", and stamping it
+ *                would put the order in a dashboard nobody can sign back into.
+ */
+export type GuestMintIdentity = {
+  eventId: string;
+  seatId: string | null;
+  guestId: string | null;
+  userId: string | null;
+};
+
+/**
+ * Build an `orders` INSERT payload for a purchase with no account behind it.
+ *
+ * @throws {MintIdentityRefused} when no event resolved, or when neither owner
+ *         axis is present.
+ */
+export function guestOrderRowFor<T extends Record<string, unknown> & OrderStatusField>(
+  identity: GuestMintIdentity,
+  fields: T & Forbid<OrderIdentityColumn>,
+): T & { user_id: string | null; event_id: string; vendor_profile_id: null } {
+  const eventId = requireNonBlank(identity.eventId, 'no-guest-event');
+  const hasSeat = typeof identity.seatId === 'string' && identity.seatId.trim().length > 0;
+  const hasGuest = typeof identity.guestId === 'string' && identity.guestId.trim().length > 0;
+  if (!hasSeat && !hasGuest) throw new MintIdentityRefused('no-guest-owner');
+  const userId =
+    typeof identity.userId === 'string' && identity.userId.trim().length > 0
+      ? identity.userId
+      : null;
+  return {
+    ...(fields as T),
+    user_id: userId,
+    event_id: eventId,
+    vendor_profile_id: null,
+  };
+}
+
+/**
+ * Build a `payments` INSERT payload for a guest order.
+ *
+ * `verifiedOrderId` must be an order the caller PROVED is theirs. For a guest
+ * that proof is the bearer `papic_guest_orders.access_token` they presented —
+ * the account-less equivalent of the RLS-scoped `orders` read the signed-in
+ * path uses, and the same guarantee: `payments_owner_insert` never checked that
+ * `order_id` belonged to the payer, so the binding has to be made here.
+ *
+ * `status` is STAMPED `'pending'` and forbidden, identically to
+ * {@link paymentRowFor}. This is the load-bearing half of the activation gate:
+ * a payer who could write their own status would settle their own order, and
+ * points are granted ONLY when an admin approves.
+ *
+ * @throws {MintIdentityRefused} when no verified order id.
+ */
+export function guestPaymentRowFor<T extends Record<string, unknown>>(
+  identity: { verifiedOrderId: string; userId: string | null },
+  fields: T & Forbid<PaymentIdentityColumn>,
+): T & { user_id: string | null; order_id: string; status: 'pending' } {
+  const orderId = requireNonBlank(identity.verifiedOrderId, 'no-verified-order');
+  const userId =
+    typeof identity.userId === 'string' && identity.userId.trim().length > 0
+      ? identity.userId
+      : null;
   return { ...(fields as T), user_id: userId, order_id: orderId, status: 'pending' };
 }

@@ -41,7 +41,11 @@ type Filter = 'pending' | 'all' | 'orders_needing_quote';
 type PaymentJoined = {
   payment_id: string;
   order_id: string;
-  user_id: string;
+  // NULL for a GUEST order — one minted from a Papic capture surface by
+  // somebody with no Setnayan account (owner-locked 2026-07-29). The buyer
+  // column renders `buyerLabel()` rather than a bare dash so the blank reads as
+  // intent, not as a broken join.
+  user_id: string | null;
   amount_php: number;
   channel: string;
   reference_number: string | null;
@@ -77,6 +81,8 @@ type PaymentJoined = {
 
 type OrderJoined = {
   order_id: string;
+  // NULL for a GUEST order — see the note on PaymentJoined.user_id.
+  user_id: string | null;
   public_id: string;
   reference_code: string;
   description: string;
@@ -87,6 +93,20 @@ type OrderJoined = {
   created_at: string;
   user: { email: string | null; public_id: string } | null;
 };
+
+/**
+ * Who to show in the buyer column.
+ *
+ * A GUEST order has no account and therefore no email — deliberately, not
+ * because a join failed. Saying so out loud matters at the reconciliation desk:
+ * an admin looking at a ₱1,000 transfer with a dash where the buyer should be
+ * has no way to tell "guest purchase" from "something is wrong with this row",
+ * and the safe reaction to the second is to not approve it.
+ */
+function buyerLabel(email: string | null | undefined, userId: string | null | undefined): string {
+  if (email) return email;
+  return userId ? '—' : 'Guest · no account';
+}
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
   await requireAdmin();
@@ -115,7 +135,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     const { data } = await admin
       .from('orders')
       .select(
-        'order_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
+        'order_id,user_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
       )
       .eq('status', 'submitted')
       .order('created_at', { ascending: true })
@@ -274,7 +294,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
                 {o.public_id} · ref <span className="text-terracotta-700">{o.reference_code}</span>
               </p>
-              <p className="text-sm font-semibold text-ink">{o.user?.email ?? '—'}</p>
+              <p className="text-sm font-semibold text-ink">{buyerLabel(o.user?.email, o.user_id)}</p>
             </div>
             <span
               className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
@@ -421,7 +441,7 @@ function PaymentsList({
                   Order {p.order?.public_id ?? '—'} · ref{' '}
                   <span className="text-terracotta-700">{p.order?.reference_code ?? '—'}</span>
                 </p>
-                <p className="text-sm font-semibold text-ink">{p.user?.email ?? '—'}</p>
+                <p className="text-sm font-semibold text-ink">{buyerLabel(p.user?.email, p.user_id)}</p>
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <span

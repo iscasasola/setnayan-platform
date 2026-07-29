@@ -6,6 +6,7 @@ import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
+import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -38,7 +39,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default async function PapicGuestPage() {
+export default async function PapicGuestPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ papic_buy_error?: string }>;
+}) {
+  const buyError = (await searchParams)?.papic_buy_error ?? null;
   const session = await readGuestSession();
 
   if (!session) {
@@ -167,6 +173,7 @@ export default async function PapicGuestPage() {
   }
 
   return (
+    <>
     <PapicGuestCapture
       guestName={guestName}
       eventName={eventName}
@@ -181,5 +188,13 @@ export default async function PapicGuestPage() {
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
     />
+    {/* Guest "Add shots" doorway (owner-locked 2026-07-29), flag-dark behind
+        NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
+        is byte-identical today. No seat token: this surface's identity is the
+        signed setnayan_guest_session cookie, which the buy action re-reads. The
+        guest camera shoots from the SHARED pool by definition, so only the pool
+        rungs are on offer (canReloadOwnCamera stays false). */}
+    <PapicGuestBuyPanel returnTo="/papic/guest" error={buyError} />
+    </>
   );
 }

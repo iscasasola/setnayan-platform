@@ -16,6 +16,7 @@ import {
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from '@/lib/papic-one';
 import {
   provisionPanoodCamerasAdmin,
   panoodCameraCapForSku,
@@ -163,11 +164,13 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
 }
 
 /**
- * Papic One — grant a purchased point bucket into the event capture pool.
+ * Papic POOL — grant a purchased top-up into the SHARED event capture pool.
  *
  * The couple bought N shots; this is where N becomes real. ONE row into
- * papic_event_point_grants (source 'topup_order', order_id set), which
- * lib/papic-event-pool.ts sums into the pool total.
+ * papic_event_point_grants (source 'topup_order', order_id set, seat_id LEFT
+ * NULL — that is what makes it shared), which lib/papic-event-pool.ts sums into
+ * the pool total. Papic ONE is the other half of the two-type model and takes
+ * the seat-scoped path in grantPapicCameraPoints below.
  *
  * IDEMPOTENT BY order_id — a re-approved order must never double-grant, and the
  * grants ledger is additive with no unique constraint to lean on, so the guard
@@ -196,7 +199,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
       points,
       source: 'topup_order',
       order_id: ctx.orderId,
-      note: `Papic One · ${ctx.serviceKey}`,
+      note: `Papic Pool · ${ctx.serviceKey}`,
     });
     if (error) {
       console.error('[sku-activation] Papic One grant insert failed (non-fatal):', {
@@ -222,14 +225,22 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
 }
 
 /**
- * Papic One — grant a purchased point bucket PER PAID CAMERA into the shared
- * event pool (owner 2026-07-22 · Papic_One_Pool_Model_Spec §0: ₱100/camera →
- * 250 pts each). The buy order's service_key is PAPIC_CAMERAS (the per-camera
- * buy order — NOT the mini seat's own sku_code PAPIC_CAMERA_MINI_DAY). Delegates
- * to the SQL engine papic_grant_camera_points, which counts THIS order's mini
- * seats (250 × N in one grant) and is idempotent by order_id — a re-approval
- * never double-grants. Repeatable: each new per-camera order is a distinct
- * order_id and grants again. Reversal is symmetric via reversePapicPassPoints
+ * Papic ONE — grant a purchased bucket DEDICATED to one camera (owner-locked
+ * 2026-07-29: 50 pts ₱50 · 100 pts ₱100, per camera, reloadable, no cap).
+ *
+ * Delegates to the SQL engine papic_grant_camera_points, which resolves the
+ * order shape itself so this hook stays the single conversion point for all
+ * three One service_keys:
+ *   • a papic_one_orders row → grant its snapshotted points to ITS camera. Same
+ *     path for a NEW camera and for a RELOAD of one that already exists, which
+ *     is what lets a couple add shots mid-event without reissuing a QR.
+ *   • no such row → a legacy multi-camera PAPIC_CAMERAS order: the ₱50 rung's
+ *     points to each mini seat of that order.
+ * Every shape writes seat-scoped grants, and papic_event_pool_status counts only
+ * seat_id IS NULL rows — so a One camera's shots stay unshared.
+ *
+ * Idempotent by order_id (a re-approval never double-grants) and repeatable
+ * across DISTINCT orders. Reversal is symmetric via reversePapicPassPoints
  * (deletes every grant by order_id, regardless of source).
  *
  * NON-FATAL per the dispatcher contract: a failure leaves a paid order with no
@@ -927,10 +938,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     }
   },
 
-  // Papic One — the PURCHASED point buckets (owner session 2026-07-20; corpus
-  // Papic_Pricing_Lock_2026-07-20.md § 2.3 + § 11). A paid tier grants its points
-  // into papic_event_point_grants; the pool sums grants into its total, so the
-  // repeatable top-up needs no extra machinery — it is just another row.
+  // Papic POOL — the SHARED, additive top-up rungs (owner-locked 2026-07-29:
+  // +3,000 ₱1,000 · +6,000 ₱2,000 · +10,000 ₱3,000). A paid rung grants its
+  // points into papic_event_point_grants with seat_id NULL, and the pool sums
+  // exactly those rows — so "additive and repeatable" needs no extra machinery,
+  // it is just another row. Every rung is repeatable now; the old is_topup gate
+  // (only unlockable at 10,000 points held) is cleared by 20271019231590.
   //
   // These are SELF-BOUNDING buckets, deliberately NOT listed in
   // papic_event_pool_config.pass_service_codes (the guest-derived fence for the
@@ -938,13 +951,25 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
+  // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
+  // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
+  // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement
+  // must still convert on approval, and the deactivated tier row makes that
+  // conversion resolve to ZERO points rather than the retired value.
   PAPIC_GUEST_TOPUP: grantPapicPassPoints,
 
-  // Papic One — the per-camera buy order (owner 2026-07-22). service_key is
-  // PAPIC_CAMERAS (the buy order), NOT the mini seat's sku_code
-  // PAPIC_CAMERA_MINI_DAY. 250 pts per paid camera into the SAME shared event
-  // pool, repeatable (each buy is its own order_id) + idempotent per order.
+  // Papic ONE — a DEDICATED camera with its own unshared balance (owner-locked
+  // 2026-07-29: 50 pts ₱50 · 100 pts ₱100, per camera, reloadable, no cap).
+  //
+  // THREE service_keys, ONE hook, on purpose. papic_grant_camera_points resolves
+  // the order shape itself — a papic_one_orders row (a single-camera buy OR a
+  // reload of a camera that already exists) or a legacy multi-camera
+  // PAPIC_CAMERAS order — so the order->points conversion stays single-sourced
+  // instead of forking per SKU. Every shape writes seat-scoped grants, which is
+  // what keeps a One camera's shots out of the shared pool.
   PAPIC_CAMERAS: grantPapicCameraPoints,
+  [PAPIC_ONE_50_SKU]: grantPapicCameraPoints,
+  [PAPIC_ONE_100_SKU]: grantPapicCameraPoints,
 
   // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
   // controller. On approval, PROVISION the tier's camera-operator seats so the

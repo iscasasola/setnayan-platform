@@ -56,6 +56,7 @@ import {
   PAPIC_RUNGS,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
 // papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
@@ -81,6 +82,7 @@ import {
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
+import { PapicOneCard } from './_components/papic-one-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -117,6 +119,7 @@ type Props = {
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
+    papic_one_error?: string;
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -161,6 +164,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
+    papic_one_error: papicOneError,
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
@@ -330,6 +334,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // backfill somehow missed and (b) any creation-time write that failed its
   // best-effort attempt. Idempotent — the partial unique index collapses repeats.
   await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
@@ -585,6 +596,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           the cameras it meters — deliberately NOT in the add-on region below,
           which PR #3581 (PoolGalleryCard) is concurrently editing. */}
       <HostPoolMeterCard eventId={eventId} />
+
+      {/* Papic ONE — buy a dedicated camera, or RELOAD one that already exists
+          (owner-locked 2026-07-29). Mounted right under the pool meter because
+          the two are the two halves of the model: the meter is the SHARED pool,
+          this is the camera that does not share. Minimal by design — the
+          polished card ships with the onboarding cards; what could not wait is
+          the doorway, because the free One camera is armed for every event from
+          this PR onward and a camera nobody can reload is a dead end. */}
+      <PapicOneCard eventId={eventId} error={papicOneError ?? null} />
 
       {/* Your Papic look — the event-wide capture template the couple picks
           once. Baked into every camera's photos (seats, guests) on

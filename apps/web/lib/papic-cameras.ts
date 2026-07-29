@@ -140,13 +140,28 @@ export const PAPIC_CAMERA_INDEX_BASE = 200;
 export const PAPIC_FREE_CAMERA_INDEX_BASE = 100;
 
 /**
+ * The ONE free Papic One camera every event gets (owner-locked 2026-07-29).
+ *
+ * A DEDICATED camera — its own QR, its own small unshared balance — so a couple
+ * can feel what "Papic One" actually is before paying for one. Distinct from the
+ * 3 free cameras above, which all draw the SHARED event pool.
+ *
+ * Fixed index 110: clear of the free shared range (100..102) and the paid range
+ * (>= 200), so "does this event already have its free One?" is a unique-key
+ * question. The seat + its 5-point grant are minted by the SQL function
+ * `papic_ensure_free_one_camera` (migration 20271019231590), which is idempotent
+ * on both halves; lib/papic-one.ts is the app-side wrapper.
+ */
+export const PAPIC_FREE_ONE_CAMERA_INDEX = 110;
+
+/**
  * Last-resort fallbacks if the catalog row is missing. Live prices come from the
  * catalog. Owner ladder 2026-07-20 (migration 20270828150000): Mini ₱100 · Max
  * ₱200. Ltd is DEACTIVATED — its constant survives for lineage only, so a stale
  * read of a retired rung cannot quote ₱0.
  */
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 100;
-export const PAPIC_CAMERA_MINI_FALLBACK_PHP = 100; // same rung as roll (see the alias note above)
+export const PAPIC_CAMERA_MINI_FALLBACK_PHP = 50; // Papic One ₱50 / 50 shots — owner-locked 2026-07-29 (was ₱100)
 export const PAPIC_CAMERA_LTD_FALLBACK_PHP = 50; // retired rung — lineage only
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 200; // "Papic Max" — capped at 500 pts, so no longer "Unli"
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
@@ -663,12 +678,22 @@ export function mintPapicReferenceCode(): string {
 /** The free funnel per-camera SKU — provisioned by provisionFreeCamerasAdmin below. */
 export const PAPIC_CAMERA_FREE_SKU = 'PAPIC_CAMERA_FREE';
 
+/**
+ * The ONE free Papic One camera's seat SKU (owner-locked 2026-07-29). Its own
+ * code, not PAPIC_CAMERA_FREE, because the two free camera kinds meter against
+ * different things: PAPIC_CAMERA_FREE seats draw the SHARED pool, this one draws
+ * its own 5-point dedicated grant. It must be in PER_CAMERA_SKUS below or
+ * papicPerCameraTier() returns null and the seat escapes enforcement entirely.
+ */
+export const PAPIC_CAMERA_ONE_FREE_SKU = 'PAPIC_CAMERA_ONE_FREE';
+
 const PER_CAMERA_SKUS: ReadonlySet<string> = new Set([
   PAPIC_CAMERA_ROLL_SKU, // legacy ₱30 rung (== Mini)
   PAPIC_CAMERA_MINI_SKU,
   PAPIC_CAMERA_LTD_SKU,
   PAPIC_CAMERA_UNLIMITED_SKU,
   PAPIC_CAMERA_FREE_SKU,
+  PAPIC_CAMERA_ONE_FREE_SKU,
 ]);
 
 /**
@@ -728,11 +753,21 @@ export function papicTierDailyLimit(
 //   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
 //     atomic record-layer gate (papic/actions.recordSeatCapture).
 
-/** Points one capture costs. The 7× clip weight mirrors the tier ladder's math
- *  (owner override 2026-07-22: a 10-second clip is worth 7 points, up from the
- *  earlier 5-second / 3-point clip — Papic_One_Pool_Model_Spec §0). */
+/** Points one capture costs.
+ *
+ *  The clip weight has moved twice, always by owner call, always upward as the
+ *  clip itself got longer: 5-second/3 pts -> 10-second/7 pts (2026-07-22,
+ *  Papic_One_Pool_Model_Spec §0) -> 10-second/8 pts (owner-locked 2026-07-29,
+ *  with the two-type Pool/One model). 8 is what a 10-second clip costs against
+ *  EVERY balance — the shared Papic Pool and a Papic One camera's own dedicated
+ *  bucket alike, because there is one currency, not two.
+ *
+ *  This is the ONLY place either weight is written. Both enforcement seams
+ *  (app/api/upload presign + app/papic/actions record) and every display surface
+ *  derive from here via papicCaptureCost / lib/papic-tier-copy.ts, and
+ *  lib/papic-copy-guardrails.test.ts fails CI if a surface re-grows a literal. */
 export const PAPIC_POINTS_PER_PHOTO = 1;
-export const PAPIC_POINTS_PER_CLIP = 7;
+export const PAPIC_POINTS_PER_CLIP = 8;
 
 /** Points a capture of `kind` spends against the camera's daily budget. */
 export function papicCaptureCost(kind: 'photo' | 'clip'): number {
@@ -774,6 +809,45 @@ export function resolvePointsGate(
   if (allowed === true) return 'allow';
   if (allowed === false) return 'exhausted';
   return 'blocked';
+}
+
+/**
+ * The shared-pool reserve's TRI-STATE result, decoded.
+ *
+ * `papic_reserve_event_points_for_seat` (migration 20271019231590) returns
+ *   1 = booked · 0 = refused (pool exhausted) · -1 = not applicable, because the
+ * seat is a Papic ONE camera that was already metered against its OWN dedicated
+ * balance by the per-seat gate.
+ *
+ * A plain boolean would collapse 1 and -1 into "true", and the CALLER needs the
+ * difference: it decides whether a later failure has shared-pool points to
+ * unwind. Release what was never booked and every aborted upload from a
+ * dedicated camera silently REFUNDS the couple's shared pool.
+ *
+ * Pure + unit-tested. Returns the gate verdict and whether points were actually
+ * booked; an indeterminate value is fail-CLOSED ('blocked'), same posture as
+ * resolvePointsGate.
+ */
+export function resolveEventPoolReserve(
+  errorCode: string | null | undefined,
+  result: unknown,
+): { gate: PointsGateVerdict; booked: boolean } {
+  if (errorCode != null) {
+    return {
+      gate: isMissingRpcErrorCode(errorCode) ? 'allow' : 'blocked',
+      booked: false,
+    };
+  }
+  // null / undefined is INDETERMINATE, not zero. Number(null) is 0, which would
+  // read a missing result as "pool exhausted" — a wrong-but-plausible verdict is
+  // worse than a blocked one, because it teaches the couple their pool is empty.
+  if (result === null || result === undefined) return { gate: 'blocked', booked: false };
+  const n = typeof result === 'number' ? result : Number(result);
+  if (!Number.isFinite(n)) return { gate: 'blocked', booked: false };
+  if (n === 1) return { gate: 'allow', booked: true };
+  if (n === -1) return { gate: 'allow', booked: false };
+  if (n === 0) return { gate: 'exhausted', booked: false };
+  return { gate: 'blocked', booked: false };
 }
 
 /**

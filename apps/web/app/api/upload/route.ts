@@ -412,11 +412,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // is a pure no-op there and today's behaviour is byte-identical. Pool =
         // clamp(guests × 150, 5,000, 30,000) pts, admin-tunable in
         // papic_event_pool_config. Same fail-CLOSED posture as the seat gate.
+        //
+        // ..._FOR_SEAT (owner-locked 2026-07-29): a PAPIC ONE camera holds its
+        // OWN unshared balance, which the seat probe above already read, so the
+        // shared pool must not bound it — the RPC returns MAXINT for a dedicated
+        // seat. Without this, a One camera would be refused a presigned URL the
+        // moment the event's free 50-pt pool ran dry, despite having its own
+        // shots left, and the two budgets would be co-enforced instead of
+        // separate.
         let eventGate: PointsGateVerdict;
         try {
           const { data: poolLeft, error: poolErr } = await admin.rpc(
-            'papic_event_points_remaining',
-            { p_event_id: seat.event_id as string },
+            'papic_event_points_remaining_for_seat',
+            {
+              p_event_id: seat.event_id as string,
+              p_seat_id: seat.seat_id as string,
+            },
           );
           eventGate = resolvePointsGate(
             poolErr ? (poolErr.code ?? 'unknown') : null,

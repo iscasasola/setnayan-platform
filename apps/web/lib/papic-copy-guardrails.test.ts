@@ -11,7 +11,8 @@
  *   • the homepage price rows: "First 5 cameras · 10 photos + 3 videos each"
  *     and `cap: 9000`.
  * Meanwhile enforcement runs on capture POINTS resolved from the admin-editable
- * `papic_tier_config` (1 photo = 1 pt · one 10-second clip = 7 pts).
+ * `papic_tier_config` (1 photo = 1 pt · one 10-second clip = 8 pts —
+ * owner-locked 2026-07-29, up from 7).
  *
  * Fixing the strings once would only buy a few weeks. THIS test is the fix: it
  * fails CI the moment a Papic display surface re-grows a literal photo count, a
@@ -136,7 +137,7 @@ test('papicCapacityPhrase is derived — it tracks the budget, whatever it is', 
 });
 
 test('papicCapacityShort states the honest clip equivalent', () => {
-  // 20 points = 20 photos OR 2 clips (7 pts each · §0), not "20 photos + 2 clips".
+  // 20 points = 20 photos OR 2 clips (8 pts each), not "20 photos + 2 clips".
   assert.match(papicCapacityShort(20), /~20 photos\/day/);
   assert.match(papicCapacityShort(20), /~2 ten-second clips/);
   assert.match(papicCapacityShort(null), /unlimited/i);

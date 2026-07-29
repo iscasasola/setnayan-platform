@@ -15,6 +15,7 @@ import {
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
@@ -553,6 +554,13 @@ export async function commitOnboardingWedding(
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
   // a miss here is self-healed on the first Papic-studio render.
   await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

@@ -28,3 +28,10 @@ b30742ba764b469dfe954b93fc6acedb3d5e4917:.gitleaksignore:generic-api-key:8
 # `gitleaks:allow` added at c2f40393b, and gitleaks-action scans every commit
 # in the PR range, so the historical fingerprint must be pinned here too.
 b616f6804a6ebd405717ff676c0434a85223aa3d:apps/web/lib/papic-pool-gallery.ts:generic-api-key:76
+#
+# generic-api-key false-positives on the SKU code string 'PAPIC_GUEST_6K'
+# (entropy 3.52) inside the two-type-model migration — a catalog service_code
+# in an IN (...) list and a seed comment, not a credential. Pinned on the
+# introducing commit because gitleaks-action scans every commit in the PR range.
+f03e1fcdcfb264660d5c5c5626def658615191fb:supabase/migrations/20271019231590_papic_two_type_model_pool_topups_and_dedicated_one_cameras.sql:generic-api-key:127
+f03e1fcdcfb264660d5c5c5626def658615191fb:supabase/migrations/20271019231590_papic_two_type_model_pool_topups_and_dedicated_one_cameras.sql:generic-api-key:842

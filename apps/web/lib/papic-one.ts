@@ -48,7 +48,7 @@ export type PapicOneTier = {
  * Fallbacks — used ONLY when papic_one_tiers is unreadable (pre-migration).
  * Owner-locked 2026-07-29; the DB is the source of truth.
  */
-const FALLBACK_ONE_TIERS: readonly PapicOneTier[] = Object.freeze([
+export const FALLBACK_ONE_TIERS: readonly PapicOneTier[] = Object.freeze([
   { serviceCode: PAPIC_ONE_50_SKU, points: 50, sortOrder: 10 },
   { serviceCode: PAPIC_ONE_100_SKU, points: 100, sortOrder: 20 },
 ]);

@@ -109,9 +109,10 @@ export default async function OnboardingWeddingPage({
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
   // committed event yet (lazy commit at the final button) → estimated_pax is
-  // unknown → pass no pax → PAPIC_GUEST renders "from ₱2,999" via
-  // formatSkuPriceLabel (matches /pricing's public no-pax behavior). The
-  // authoritative pax charge is still recomputed server-side at order time by
+  // unknown → pass no pax. No live SKU is pax-priced since the 2026-07-29
+  // two-type Papic reprice (PAPIC_GUEST is now a flat ₱1,000 pool top-up), so
+  // every label renders as a flat "₱X" — matching /pricing's public behavior.
+  // The authoritative charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
 

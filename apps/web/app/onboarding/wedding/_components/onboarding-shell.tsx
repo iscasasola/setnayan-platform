@@ -1097,15 +1097,15 @@ function DateCalendar({
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic Pool — add shots', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic One — dedicated camera', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
-  papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
+  papic_guest: "One shared pool of shots that every guest's phone can spend from — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
-  papic_seats: "Five trusted friends, five cameras roaming the venue — the candid angles a single photographer can't catch from the front of the aisle.",
+  papic_seats: "A camera of its own for the friend who always sees the moment first — its own QR, its own shots that nobody else can spend. Add as many as you like, reload any of them whenever one runs low.",
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
   thank_you: "A personalised thank-you video to send after the wedding — beats handwriting 200 cards, feels more like you.",
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
@@ -1124,8 +1124,9 @@ const BUNDLE_BENEFIT: Record<string, string> = {
    arrives as `pricing.svc[inappKey]` (built in page.tsx by buildOnboardingPricing from
    platform_retail_catalog_v2 + platform_package_catalog — the SAME source /pricing reads).
    `pricing.svc[k].set` = Setnayan price (pesos · catalog), `.label` = display string
-   (pax-correct "from ₱X"), `.out` = illustrative "if hired elsewhere" market anchor (NOT a
-   Setnayan price · lives in onboarding-pricing.ts OUT_ANCHORS, no DB column exists for it). */
+   ("₱X"; "from ₱X" only if a pax curve is ever switched back on — none is live), `.out` =
+   illustrative "if hired elsewhere" market anchor (NOT a Setnayan price · lives in
+   onboarding-pricing.ts OUT_ANCHORS, no DB column exists for it; 0 = no anchor). */
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
 /* Comma thousands-separators for the numeric text boxes (guest count + budget).
    Strips non-digits then groups, so the box shows "1,355,000" live while typing
@@ -1156,8 +1157,14 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
   custom_qr: 'custom-qr-guest',
   indoor_blueprint: 'indoor-blueprint',
 };
+/* "You save ₱X vs <this>" — only rendered when the service HAS a market anchor
+   (onboarding-pricing.ts OUT_ANCHORS) worth more than the Setnayan price.
+   Both Papic keys are deliberately absent: their anchors were removed with the
+   2026-07-29 two-type reprice ("5 hired photographers" / "20+ disposable cams"
+   were sized against a ₱2,999 five-seat pack and a pax-priced guest pass,
+   neither of which exists any more), so no savings line renders for them. */
 const INAPP_VS: Record<string, string> = {
-  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
+  advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
 /* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
@@ -2662,10 +2669,11 @@ export function OnboardingShell({
   /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
   const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
-  // Live SELLING price from the admin catalog (pricing.svc[k].set). For the
-  // pax SKU (PAPIC_GUEST) this aggregate uses the floor — onboarding has no
-  // committed pax; the authoritative charge is recomputed at order time. The
-  // `out` market anchors are illustrative (not Setnayan prices).
+  // Live SELLING price from the admin catalog (pricing.svc[k].set). Every live
+  // SKU is flat-priced since the 2026-07-29 Papic reprice (PAPIC_GUEST was the
+  // last pax-curve row); the authoritative charge is still recomputed at order
+  // time. The `out` market anchors are illustrative (not Setnayan prices) and
+  // are 0 for both Papic keys, so neither contributes to this "saved" figure.
   const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
   const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
   const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
@@ -4524,7 +4532,13 @@ export function OnboardingShell({
                   <div className="svc-dpad">
                     <div className="svc-dnm">{BUNDLE_ITEMS[fk] ?? fk}</div>
                     <div className="svc-ddesc">{BUNDLE_BENEFIT[fk] ?? ''}</div>
-                    <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
+                    {/* The struck-through compare-at renders ONLY when there is a real
+                        anchor above our price. It used to render unconditionally, so any
+                        service without an OUT_ANCHOR — the two Papic cards since the
+                        2026-07-29 reprice, and every SKU taking the missing-row degrade
+                        path — showed a crossed-out "₱0" beside its price, which reads as
+                        "this used to be free". Same condition as the savings line below. */}
+                    <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span>{save > 0 && <span className="svc-dwas">{pesoB(p.out)}</span>}</div>
                     {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
                     <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
                       {added ? '♥ Saved to your wedding' : '♡ Save to my wedding'}
@@ -4577,10 +4591,10 @@ export function OnboardingShell({
                   })}
                 </div>
                 {(() => {
-                  // Live catalog SELLING prices. For the pax SKU (PAPIC_GUEST) this
-                  // aggregate uses the floor `set` (onboarding has no committed pax);
-                  // the authoritative charge is recomputed at order time. This is an
-                  // onboarding estimate — do NOT "fix" it into a hardcode.
+                  // Live catalog SELLING prices. Every live SKU is flat-priced since
+                  // the 2026-07-29 Papic reprice; the authoritative charge is still
+                  // recomputed at order time. This is an onboarding estimate — do NOT
+                  // "fix" it into a hardcode.
                   const setTotal = state.interestedServices.reduce((s, k) => s + (pricing.svc[k]?.set ?? 0), 0);
                   const promo = Math.round(setTotal * ONBOARDING_PROMO);
                   const due = setTotal - promo;

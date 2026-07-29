@@ -22,6 +22,7 @@ import {
   papicCameraOrderPaid,
   papicCaptureCost,
   resolvePointsGate,
+  resolveEventPoolReserve,
   type PointsGateVerdict,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
@@ -404,24 +405,40 @@ export async function recordSeatCapture(
         // The flat per-event PASS (PAPIC_UNLOCK / PAPIC_UNLOCK_LTD / the
         // ₱1,499 flat pass) used to bypass metering entirely — this is the
         // missing bound. Pool = clamp(guests × 150, 5,000, 30,000) points,
-        // event-LIFETIME, admin-tunable in papic_event_pool_config; top-ups add
-        // via papic_event_point_grants. The RPC allows unconditionally for
-        // every NON-pass event, so today's behaviour is unchanged there. Same
-        // fail-CLOSED posture as the seat reserve — money logic.
+        // event-LIFETIME, admin-tunable in papic_event_pool_config; Papic Pool
+        // top-ups add via papic_event_point_grants. The RPC allows
+        // unconditionally for every NON-pass event, so today's behaviour is
+        // unchanged there. Same fail-CLOSED posture as the seat reserve — money
+        // logic.
+        //
+        // ..._FOR_SEAT (owner-locked 2026-07-29): a PAPIC ONE camera has its own
+        // unshared balance, which the seat reserve above already charged. The
+        // shared pool must therefore stand DOWN for it — otherwise one photo is
+        // paid for twice, and a dedicated camera would stop shooting the moment
+        // the event's free 50-pt pool ran dry, which is exactly the coupling
+        // "unshared" exists to remove. The RPC is byte-identical to
+        // papic_reserve_event_points for every non-dedicated seat.
         let eventGate: PointsGateVerdict = 'allow';
         let eventBooked = false;
         if (seatGate !== 'blocked') {
           try {
             const admin = createAdminClient();
             const { data: poolOk, error: poolErr } = await admin.rpc(
-              'papic_reserve_event_points',
-              { p_event_id: seat.event_id, p_cost: cost },
+              'papic_reserve_event_points_for_seat',
+              {
+                p_event_id: seat.event_id,
+                p_seat_id: seat.seat_id,
+                p_cost: cost,
+              },
             );
-            eventGate = resolvePointsGate(
+            const verdict = resolveEventPoolReserve(
               poolErr ? (poolErr.code ?? 'unknown') : null,
-              poolOk === true ? true : poolOk === false ? false : null,
+              poolOk,
             );
-            eventBooked = poolOk === true;
+            eventGate = verdict.gate;
+            // FALSE for a dedicated camera even though the gate allows: nothing
+            // was booked, so nothing may be released if a later step aborts.
+            eventBooked = verdict.booked;
           } catch {
             eventGate = 'blocked';
           }

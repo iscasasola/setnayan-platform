@@ -13,8 +13,9 @@
  *   (b) FREE POOL CAP — the event-creation trigger seeds exactly ONE 50-pt
  *       free_grant, the pool applies, the 51st capture is refused, and a free
  *       event (owning no PAPIC_GUEST order) can still record via the pool.
- *   (c) ONE GRANT — Papic One grants 250 pts PER paid mini camera into the same
- *       pool (2 cameras = 500), idempotent by order_id.
+ *   (c) ONE GRANT — Papic One grants the ₱50 rung's points PER paid mini camera
+ *       DEDICATED to that camera (owner-locked 2026-07-29), idempotent by
+ *       order_id, and those points stay OUT of the shared pool.
  *   (d) FREE SHARED POOL (Fix 1) — a free event's tier='free' seats meter ONLY
  *       against the single 50-pt free_grant pool (no per-seat 20/day reserve);
  *       a seat capture decrements the same pool a guest phone reads, and the
@@ -180,10 +181,11 @@ function makePoolAdmin(): SupabaseClient {
 
 // ── (a) POOL BINDING — the R4 fence, photo + clip, fail-closed ──────────────
 test('pool binds a priced grant — photo + clip, fail-closed, never partial', async () => {
-  // Clip weight is DERIVED (owner 2026-07-22 · §0 raised it 3 → 7); the pool is
-  // sized to one photo of headroom over an exact clip so both fits are exact.
-  const clip = papicCaptureCost('clip'); // 7
-  const poolPts = clip + 1; // 8
+  // Clip weight is DERIVED (3 → 7 on 2026-07-22, → 8 owner-locked 2026-07-29);
+  // the pool is sized to one photo of headroom over an exact clip so both fits
+  // are exact, whatever the weight becomes next.
+  const clip = papicCaptureCost('clip');
+  const poolPts = clip + 1;
   const eventId = await createEvent('Pool Binding E');
   // Isolate to a known N: drop the auto-seeded free_grant, add a poolPts top-up.
   await db.query(`DELETE FROM public.papic_event_point_grants WHERE event_id = $1`, [eventId]);
@@ -254,15 +256,28 @@ test('free grant is exactly 50, caps the pool, and lets a free event record', as
   assert.equal(await reserve(eventId, 1), false, '51st capture refused');
 });
 
-// ── (c) ONE GRANT — 250 per paid mini camera, idempotent ────────────────────
-test('Papic One grants 250 per paid camera (2 → 500), idempotent by order', async () => {
+// ── (c) ONE GRANT — dedicated per camera, out of the pool, idempotent ───────
+// Owner-locked 2026-07-29: Papic One is a DEDICATED camera. The grant must land
+// on the SEAT (papic_event_point_grants.seat_id), and the shared pool must not
+// count it — otherwise "unshared" is a claim the ledger contradicts.
+test('Papic One grants the rung per paid camera, DEDICATED and out of the pool', async () => {
   const eventId = await createEvent('One Grant G');
   const userId = await createUser(`papic-one-${randomUUID()}@test.dev`);
+
+  // The rung's points come from papic_one_tiers — read, never assumed, so this
+  // test tracks an admin reprice instead of pinning a number that can drift.
+  const rung = await db.query<{ points: number }>(
+    `SELECT points FROM public.papic_one_tiers WHERE service_code = 'PAPIC_CAMERA_MINI_DAY'`,
+  );
+  const per = Number(rung.rows[0]!.points);
+  assert.ok(per > 0, 'the ₱50 Papic One rung is seeded');
+
+  const poolBefore = (await poolStatus(eventId)).total;
 
   const order = await db.query<{ order_id: string }>(
     `INSERT INTO public.orders
        (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
-     VALUES ($1, $2, 'PAPIC_CAMERAS', 'Papic One x2', 200, 'paid', $3)
+     VALUES ($1, $2, 'PAPIC_CAMERAS', 'Papic One x2', 100, 'paid', $3)
      RETURNING order_id`,
     [eventId, userId, `SN${randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()}`],
   );
@@ -281,7 +296,7 @@ test('Papic One grants 250 per paid camera (2 → 500), idempotent by order', as
     `SELECT public.papic_grant_camera_points($1, $2) AS total`,
     [eventId, orderId],
   );
-  assert.equal(Number(granted.rows[0]!.total), 500, '2 cameras × 250 = 500 granted');
+  assert.equal(Number(granted.rows[0]!.total), per * 2, '2 cameras × the rung');
 
   const sum = async () => {
     const r = await db.query<{ s: number }>(
@@ -291,18 +306,39 @@ test('Papic One grants 250 per paid camera (2 → 500), idempotent by order', as
     );
     return Number(r.rows[0]!.s);
   };
-  assert.equal(await sum(), 500, 'one camera_grant row of 500 for the order');
+  assert.equal(await sum(), per * 2, 'both cameras granted');
 
-  const seatCount = await db.query<{ c: number }>(
-    `SELECT COUNT(*) AS c FROM public.paparazzi_seats
-      WHERE paid_order_id = $1 AND tier = 'mini'`,
+  // DEDICATION, asserted three ways: every grant carries a seat, each camera
+  // holds exactly its own rung, and the SHARED pool is completely unmoved.
+  const unscoped = await db.query<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM public.papic_event_point_grants
+      WHERE order_id = $1 AND seat_id IS NULL`,
     [orderId],
   );
-  assert.equal(Number(seatCount.rows[0]!.c), 2, '2 mini seats for the order');
+  assert.equal(Number(unscoped.rows[0]!.c), 0, 'no Papic One grant is unscoped');
+
+  const seats = await db.query<{ seat_id: string }>(
+    `SELECT seat_id FROM public.paparazzi_seats WHERE paid_order_id = $1 AND tier = 'mini' ORDER BY seat_index`,
+    [orderId],
+  );
+  assert.equal(seats.rows.length, 2, '2 mini seats for the order');
+  for (const row of seats.rows) {
+    const ded = await db.query<{ v: number }>(
+      `SELECT public.papic_seat_dedicated_points($1) AS v`,
+      [row.seat_id],
+    );
+    assert.equal(Number(ded.rows[0]!.v), per, 'each camera holds exactly its own rung');
+  }
+
+  assert.equal(
+    (await poolStatus(eventId)).total,
+    poolBefore,
+    'dedicated points never inflate the SHARED pool',
+  );
 
   // Idempotent: a re-approval must not double-grant.
   await db.query(`SELECT public.papic_grant_camera_points($1, $2)`, [eventId, orderId]);
-  assert.equal(await sum(), 500, 're-approval does not double-grant');
+  assert.equal(await sum(), per * 2, 're-approval does not double-grant');
 });
 
 // ── (d) FREE = ONE shared 50-pt pool, NO per-seat reserve (Fix 1) ────────────

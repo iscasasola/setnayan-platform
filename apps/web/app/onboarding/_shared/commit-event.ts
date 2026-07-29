@@ -20,6 +20,7 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 
@@ -127,6 +128,13 @@ export async function commitOnboardingEvent(
   // a miss here is self-healed on the first Papic-studio render, and must never
   // cost the couple their event.
   await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

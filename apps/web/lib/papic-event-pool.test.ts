@@ -144,12 +144,13 @@ test('only function-not-found fails OPEN (the seam-cutover carve-out)', () => {
   assert.equal(resolvePointsGate('PGRST202', null), 'allow');
 });
 
-test('exhaustion is reached in POINTS, so a clip costs 7× a photo', () => {
+test('exhaustion is reached in POINTS, so a clip costs 8× a photo', () => {
   // The event fence spends the same currency as the per-camera ladder — a clip
-  // must not sneak through a pool with fewer than 7 points left.
+  // must not sneak through a pool with fewer than 8 points left (owner-locked
+  // 2026-07-29: the 10-second clip moved from 7 points to 8).
   assert.equal(papicCaptureCost('photo'), 1);
-  assert.equal(papicCaptureCost('clip'), 7);
-  const poolLeft = 6;
+  assert.equal(papicCaptureCost('clip'), 8);
+  const poolLeft = 7;
   assert.equal(
     resolvePointsGate(null, poolLeft >= papicCaptureCost('clip')),
     'exhausted',

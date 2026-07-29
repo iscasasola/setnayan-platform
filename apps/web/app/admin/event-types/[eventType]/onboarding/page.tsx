@@ -24,12 +24,30 @@ export const dynamic = 'force-dynamic';
 type Params = Promise<{ eventType: string }>;
 type SearchParams = Promise<{ ok?: string; error?: string }>;
 
-/** key → human label (internal tool): papic_seats → "Papic Seats". */
+/**
+ * Explicit labels for keys whose STRING no longer describes the product.
+ *
+ * The in-app service keys are stable identifiers written into every saved
+ * onboarding draft, so they are never renamed — but `papic_seats` stopped
+ * meaning "5 seats" and `papic_guest` stopped meaning "a pax-priced guest
+ * pass" at the 2026-07-29 two-type lock. Humanizing them would show an admin
+ * "Papic Seats" for a dedicated ₱50 camera. Same names the couple sees in the
+ * wedding shell's BUNDLE_ITEMS.
+ */
+const SERVICE_KEY_LABELS: Record<string, string> = {
+  papic_seats: 'Papic One — dedicated camera',
+  papic_guest: 'Papic Pool — add shots',
+};
+
+/** key → human label (internal tool): advanced_website → "Advanced Website". */
 function humanize(key: string): string {
-  return key
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+  return (
+    SERVICE_KEY_LABELS[key] ??
+    key
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  );
 }
 
 export default async function EventTypeOnboardingPage({

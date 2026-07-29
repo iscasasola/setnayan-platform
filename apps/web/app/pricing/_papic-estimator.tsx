@@ -20,9 +20,10 @@
  * catalog + the admin-editable papic_tier_config (owner 2026-07-20 — "make
  * every Papic price/capacity claim honest and derived, never hardcoded"). This
  * file must never spell a rung, a photo/clip count, or a free-camera count:
- *   • Papic One price + capacity → papic_tier_config + papicCapacityShort()
- *   • Papic Pool buckets         → platform_retail_catalog_v2 (PAPIC_GUEST*)
- *   • free cameras               → papic_tier_config.free.seats_per_event
+ *   • Papic One price    → platform_retail_catalog_v2, via papic_one_tiers
+ *   • Papic One capacity → papic_one_tiers.points + papicBucketPhrase()
+ *   • Papic Pool buckets → platform_retail_catalog_v2 (PAPIC_GUEST*)
+ *   • free cameras       → papic_tier_config.free.seats_per_event
  * `lib/papic-copy-guardrails.test.ts` fails CI if a literal creeps back.
  */
 
@@ -32,9 +33,9 @@ import { useState } from 'react';
 export type EstimatorOne = {
   /** papic_tier_config.display_title — "Papic One". */
   label: string;
-  /** Flat price per camera, from the tier's catalog rate SKU. */
+  /** Flat price per camera, from the rung's catalog SKU. */
   pricePhp: number;
-  /** Derived capacity sentence (papicCapacityShort) — never written here. */
+  /** Derived capacity sentence (papicBucketPhrase) — never written here. */
   capacity: string;
 };
 

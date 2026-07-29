@@ -778,8 +778,20 @@ export function keptItems(
   pkg: VendorPackageWithItems,
   removedItemIds: ReadonlyArray<string>,
 ): ReadonlyArray<VendorPackageItemRow> {
+  return keptItemRows(pkg.items, removedItemIds);
+}
+
+/**
+ * The same rule over bare rows, for callers that hold items without a package
+ * object (the budget reads `vendor_package_items` for many packages at once).
+ * ONE definition — `keptItems` delegates here; do not fork the predicate.
+ */
+export function keptItemRows(
+  items: ReadonlyArray<VendorPackageItemRow>,
+  removedItemIds: ReadonlyArray<string>,
+): ReadonlyArray<VendorPackageItemRow> {
   const removedSet = new Set(removedItemIds);
-  return pkg.items.filter((item) => {
+  return items.filter((item) => {
     // BELT over the database's BRACE. A follow-up is CONDITIONAL — the couple
     // is shown it only once its parent option is picked — so it must never
     // cascade into a booked event_vendors row off the back of a lock. The

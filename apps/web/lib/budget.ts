@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORY_LABEL, type EventVendorRow } from './vendors';
+import {
+  VENDOR_PACKAGE_ITEM_SELECT,
+  keptItemRows,
+  type VendorPackageItemRow,
+} from './vendor-packages';
+import {
+  readPricingSnapshot,
+  snapshotChargeLines,
+} from './package-pricing-snapshot';
 
 export type LineItemRow = {
   line_item_id: string;
@@ -54,6 +63,65 @@ export type VendorControlledLineItem = {
 };
 
 export type VendorPriceSource = 'manual' | 'package' | 'service' | 'pending';
+
+/**
+ * The budget lines a locked package booking is ACTUALLY made of.
+ *
+ * This used to list EVERY `vendor_package_items` row minus `removed_item_ids`
+ * — the same bug class the booking receipt already fixed: an optional ADD-ON
+ * (`is_default_included = FALSE`, never inside `total_price_centavos`) showed
+ * at its replacement value as a cost nobody paid, and every FOLLOW-UP (forced
+ * to `is_default_included = FALSE` by the DB CHECK) landed as a cost even when
+ * its parent option was never picked and the line was never shown.
+ *
+ * The truthful budget = the KEPT BASE LINES (`keptItemRows`, the one shared
+ * definition of "lines that survived customization") at their included values,
+ * PLUS the CHARGED PICKS AND EXTRA HOURS from the pricing snapshot at their
+ * FROZEN lock-time deltas (`snapshotChargeLines` — the same itemisation the
+ * receipt and vendor workspace render). Legacy bookings with no snapshot show
+ * base lines only, exactly as they were priced. Pure, so the rule is testable
+ * without a database.
+ */
+export function packageBudgetLineItems(args: {
+  items: ReadonlyArray<VendorPackageItemRow>;
+  /** The booking's raw `customizations_json` column, whatever shape it holds. */
+  customizationsJson: unknown;
+  vendorBusinessName: string;
+}): VendorControlledLineItem[] {
+  const cj = args.customizationsJson as { removed_item_ids?: unknown } | null;
+  const removedItemIds = Array.isArray(cj?.removed_item_ids)
+    ? (cj!.removed_item_ids as unknown[]).filter((v): v is string => typeof v === 'string')
+    : [];
+
+  const base: VendorControlledLineItem[] = keptItemRows(args.items, removedItemIds).map(
+    (it) => ({
+      source_id: `pkg:${it.item_id}`,
+      source_kind: 'package' as const,
+      label: it.service_description || it.canonical_service,
+      // vendor_package_items.replacement_value_centavos is BIGINT centavos;
+      // convert to PHP for the budget snapshot's NUMERIC PHP semantics.
+      amount_php: Number(it.replacement_value_centavos) / 100,
+      vendor_business_name: args.vendorBusinessName,
+    }),
+  );
+
+  // Charged picks + extra hours, at the deltas frozen at lock. ₱0 picks are in
+  // the delivery list on the receipt, but a budget tracks MONEY — only lines
+  // with an amount belong here.
+  const charges: VendorControlledLineItem[] = snapshotChargeLines(
+    readPricingSnapshot(args.customizationsJson),
+  )
+    .filter((line) => line.amountCentavos > 0)
+    .map((line) => ({
+      source_id: `pkgcharge:${line.key}`,
+      source_kind: 'package' as const,
+      label: line.detail ? `${line.label} — ${line.detail}` : line.label,
+      amount_php: line.amountCentavos / 100,
+      vendor_business_name: args.vendorBusinessName,
+    }));
+
+  return [...base, ...charges];
+}
 
 export type VendorBudgetSummary = {
   vendor: EventVendorRow;
@@ -299,35 +367,19 @@ export async function buildVendorPricingLookup(
     }
   }
 
-  // Resolve package items for every locked booking in one query.
+  // Resolve package items for every locked booking in one query — through the
+  // CANONICAL select, so `keptItemRows` can apply the one shared definition of
+  // "lines in the booking" (is_default_included, follow-up parentage, required).
   const packageIds = Array.from(new Set(packageBookings.map((b) => b.package_id)));
-  const itemsByPackageId = new Map<
-    string,
-    Array<{
-      item_id: string;
-      canonical_service: string;
-      service_description: string;
-      replacement_value_centavos: number;
-      display_order: number;
-    }>
-  >();
+  const itemsByPackageId = new Map<string, VendorPackageItemRow[]>();
   if (packageIds.length > 0) {
     const itemsRes = await supabase
       .from('vendor_package_items')
-      .select(
-        'item_id, package_id, canonical_service, service_description, replacement_value_centavos, display_order',
-      )
+      .select(VENDOR_PACKAGE_ITEM_SELECT)
       .in('package_id', packageIds)
       .order('display_order', { ascending: true });
     if (!itemsRes.error || isMissingRelation(itemsRes.error)) {
-      for (const row of (itemsRes.data ?? []) as Array<{
-        item_id: string;
-        package_id: string;
-        canonical_service: string;
-        service_description: string;
-        replacement_value_centavos: number;
-        display_order: number;
-      }>) {
+      for (const row of (itemsRes.data ?? []) as unknown as VendorPackageItemRow[]) {
         const arr = itemsByPackageId.get(row.package_id) ?? [];
         arr.push(row);
         itemsByPackageId.set(row.package_id, arr);
@@ -335,11 +387,11 @@ export async function buildVendorPricingLookup(
     }
   }
 
-  // Also resolve which items the host REMOVED from each booking via the
-  // customization modal — those line items should NOT appear in budget
-  // tracking even though they're still in vendor_package_items. We re-read
-  // the bookings to get customizations_json.
-  const removedItemIdsByBookingId = new Map<string, Set<string>>();
+  // The bookings' raw customizations_json — carries BOTH the host's removals
+  // and (post charge-path, 2026-07-28) the frozen pricing snapshot the charged
+  // picks and hours are itemized from. Kept raw; packageBudgetLineItems owns
+  // the defensive parse.
+  const customizationsByBookingId = new Map<string, unknown>();
   if (packageBookings.length > 0) {
     const customRes = await supabase
       .from('event_vendor_packages')
@@ -351,10 +403,9 @@ export async function buildVendorPricingLookup(
     if (!customRes.error) {
       for (const row of (customRes.data ?? []) as Array<{
         booking_id: string;
-        customizations_json: { removed_item_ids?: string[] } | null;
+        customizations_json: unknown;
       }>) {
-        const removed = row.customizations_json?.removed_item_ids ?? [];
-        removedItemIdsByBookingId.set(row.booking_id, new Set(removed));
+        customizationsByBookingId.set(row.booking_id, row.customizations_json);
       }
     }
   }
@@ -368,21 +419,13 @@ export async function buildVendorPricingLookup(
     const booking = packageBookings.find((b) => b.booking_id === bookingId);
     if (!booking) continue;
     const items = itemsByPackageId.get(booking.package_id) ?? [];
-    const removed = removedItemIdsByBookingId.get(bookingId) ?? new Set<string>();
     const vendorBusinessName =
       profileNameById.get(ev.marketplace_vendor_id as string) ?? ev.vendor_name;
-    const controlled: VendorControlledLineItem[] = items
-      .filter((it) => !removed.has(it.item_id))
-      .map((it) => ({
-        source_id: `pkg:${it.item_id}`,
-        source_kind: 'package' as const,
-        label: it.service_description || it.canonical_service,
-        // vendor_package_items.replacement_value_centavos is BIGINT
-        // centavos; convert to PHP for the budget snapshot's NUMERIC PHP
-        // semantics (matches event_vendor_line_items.amount_php).
-        amount_php: Number(it.replacement_value_centavos) / 100,
-        vendor_business_name: vendorBusinessName,
-      }));
+    const controlled: VendorControlledLineItem[] = packageBudgetLineItems({
+      items,
+      customizationsJson: customizationsByBookingId.get(bookingId) ?? null,
+      vendorBusinessName,
+    });
     if (controlled.length > 0) {
       lookup.set(ev.vendor_id, {
         priceSource: 'package',

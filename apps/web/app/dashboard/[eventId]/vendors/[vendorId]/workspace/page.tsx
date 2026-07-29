@@ -72,6 +72,11 @@ import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
 import { parseRemovedItemIds, workspaceSections } from './package-sections';
+import {
+  readPricingSnapshot,
+  snapshotChargeLines,
+  type SnapshotChargeLine,
+} from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
@@ -711,6 +716,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // ./package-sections for the ruling and the shared helper.
   let packageIncludedItems: ReadonlyArray<VendorPackageItemRow> = [];
   let packageAddOnItems: ReadonlyArray<VendorPackageItemRow> = [];
+  /** The couple's charged picks + extra hours, itemised from the lock snapshot. */
+  let packageChoiceLines: ReadonlyArray<SnapshotChargeLine> = [];
 
   if (ev.event_vendor_package_id) {
     const { data: bookingRow, error: bookingErr } = await supabase
@@ -748,10 +755,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           // removal id. An absent column reads as `undefined` → falsy, so a
           // required line carrying a stale removal id would have vanished from
           // this page while the vendor was still delivering and charging for
-          // it. `parent_option_id` is appended rather than folded into the
-          // constant — see the note on PACKAGE_ITEM_AUTHORING_COLUMNS for why
-          // the branching columns stay off the shared couple-side list.
-          .select(`${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id`)
+          // it. `parent_option_id` used to be appended here; it is inside the
+          // constant now (the charge path needs it on every money read), so
+          // appending it would ask PostgREST for the same column twice.
+          .select(VENDOR_PACKAGE_ITEM_SELECT)
           .eq('package_id', booking.package_id)
           .order('display_order', { ascending: true }),
       ]);
@@ -786,6 +793,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         );
         packageIncludedItems = included;
         packageAddOnItems = addOns;
+        // 🧾 THE CHOICES BEHIND THE TOTAL — from the frozen snapshot already on
+        // the booking row this page loads, so no extra query.
+        //
+        // `lockedTotal` above now contains follow-up option deltas, every pick
+        // on a pick-N line, and extra hours, and none of it appeared anywhere on
+        // this surface. The extra hours matter most here: this is the vendor's
+        // own workspace, and they were never told about time the couple bought
+        // and paid for.
+        packageChoiceLines = snapshotChargeLines(
+          readPricingSnapshot(
+            (booking.customizations_json as { pricing_snapshot?: unknown } | null)
+              ?.pricing_snapshot,
+          ),
+        );
       }
     }
   }
@@ -1216,6 +1237,57 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   strokeWidth={1.75}
                 />
                 <span>{it.service_description}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null;
+
+  /* 🧾 THE COUPLE'S CHOICES — picks and extra hours, itemised from the lock
+     snapshot. This is the half of the booking the vendor could not see: the
+     locked total already contained these charges, and nothing on any surface
+     named them. Extra hours especially — the vendor is owed time here.
+
+     Amounts ARE printed, unlike the add-ons section above, and the reason is
+     the opposite one: these were charged. A ₱0 pick still shows, because a
+     choice the vendor must honour is delivery information whether or not it
+     cost anything. */
+  const choicesSection =
+      packageChoiceLines.length > 0 ? (
+        <section
+          aria-labelledby="choices-heading"
+          className="rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6"
+        >
+          <h2
+            id="choices-heading"
+            className="mb-2 flex items-center gap-2 font-display text-lg italic text-ink"
+          >
+            <Circle aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+            Their choices
+          </h2>
+          <p className="mb-3 text-xs text-ink/55">
+            What was picked when this package was locked, at the prices agreed
+            then. These are part of the locked total.
+          </p>
+          <ul className="space-y-2">
+            {packageChoiceLines.map((line) => (
+              <li
+                key={line.key}
+                className="flex items-start justify-between gap-3 text-sm text-ink/75"
+              >
+                <span className="min-w-0 flex-1">
+                  {line.label}
+                  {line.detail ? (
+                    <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                      {line.detail}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 font-mono text-xs text-ink/70">
+                  {line.amountCentavos > 0
+                    ? `+${formatCentavosPhp(line.amountCentavos)}`
+                    : 'Included'}
+                </span>
               </li>
             ))}
           </ul>
@@ -1962,6 +2034,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {backNav}
         {heroSection}
         {includedSection}
+        {choicesSection}
         {addOnsSection}
         {statusSection}
         <div className="grid gap-5 lg:grid-cols-2">
@@ -2317,6 +2390,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <div className="space-y-6">
           {coupleCompletionSection}
           {includedSection}
+          {choicesSection}
           {addOnsSection}
           {marketplaceInfoSection}
           {notesSection}

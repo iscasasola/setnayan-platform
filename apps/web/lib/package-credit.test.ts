@@ -927,6 +927,275 @@ test('choosing an option on a line that is not included is refused', () => {
 });
 
 /* ──────────────────────────────────────────────────────────────────────── */
+/* 💰 THE TWO REFUSALS THAT WERE LIFTED (2026-07-28)                        */
+/*                                                                          */
+/* `option_on_excluded_item` and `multiple_options_for_item` used to make    */
+/* the engine null out for a revealed FOLLOW-UP and for a PICK-N line —      */
+/* which `priceCustomizedPackage` turned into a hard lock failure. That is   */
+/* why the couple-side configurator priced both at ₱0. They are priced now;  */
+/* what these tests pin is that the refusals still fire everywhere they      */
+/* legitimately should, because widening what can be PRICED must not widen   */
+/* what can be GUESSED.                                                     */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/** A parent line whose premium option reveals a follow-up. */
+function branchedItems(): CreditItem[] {
+  return [
+    {
+      item_id: 'lechon',
+      is_required: false,
+      is_default_included: true,
+      replacement_value_centavos: 100_000,
+      options: [
+        { option_id: 'lechon-std', price_delta_centavos: 0, is_default: true, is_available: true },
+        { option_id: 'lechon-whole', price_delta_centavos: 50_000, is_default: false, is_available: true },
+      ],
+    },
+    {
+      // The LEGAL database shape: the CHECK forces a follow-up to not-included.
+      item_id: 'style',
+      is_required: false,
+      is_default_included: false,
+      parent_option_id: 'lechon-whole',
+      replacement_value_centavos: 300_000,
+      options: [
+        { option_id: 'style-crispy', price_delta_centavos: 0, is_default: true, is_available: true },
+        { option_id: 'style-boneless', price_delta_centavos: 20_000, is_default: false, is_available: true },
+      ],
+    },
+  ];
+}
+
+const branchedPkg = () =>
+  pkg({ items: branchedItems(), is_consumable_flexible: true, consumable_budget_centavos: 0 });
+
+test('a REVEALED follow-up is resolved and its own pick is charged', () => {
+  const r = ok(
+    computePackageCredit({
+      pkg: branchedPkg(),
+      chosenOptionIds: ['lechon-whole', 'style-boneless'],
+    }),
+  );
+  assert.equal(r.spentCreditCentavos, 50_000 + 20_000, 'the follow-up pick was not charged');
+  // The follow-up is REVEALED, not KEPT: it must never cascade a booked row, so
+  // it is reported in its own list.
+  assert.deepEqual(r.keptItemIds, ['lechon']);
+  assert.deepEqual(r.revealedItemIds, ['style']);
+  // And its own ₱3,000 replacement value stays out of the pool entirely — the
+  // sticker price never contained it, so it cannot be freed.
+  assert.equal(r.availableCreditCentavos, 0);
+});
+
+test('a follow-up under the vendor DEFAULT is revealed too', () => {
+  // "In force" means picked OR the default on an optional line the couple left
+  // alone — otherwise a follow-up hanging off the standard option would be
+  // invisible until they re-picked the option they already had.
+  const items = branchedItems();
+  items[1]!.parent_option_id = 'lechon-std';
+  const r = ok(computePackageCredit({ pkg: pkg({ items }), chosenOptionIds: [] }));
+  assert.deepEqual(r.revealedItemIds, ['style']);
+});
+
+test('a follow-up whose parent is NOT in force refuses the pick', () => {
+  // 🚨 THE GUARD THAT HAD TO SURVIVE THE LIFT. The couple picked the standard
+  // lechon, so `style` was never asked — an option on it is money for a question
+  // nobody answered, and it fails closed rather than being billed.
+  failsWith(
+    computePackageCredit({
+      pkg: branchedPkg(),
+      chosenOptionIds: ['lechon-std', 'style-boneless'],
+    }),
+    'option_on_excluded_item',
+  );
+});
+
+test('a plain ADD-ON is still refused — not-included is not the same as follow-up', () => {
+  // The distinction the lift turns on. An add-on has no parent, so nothing can
+  // put it in the booking; a follow-up has one, and buying it is what does.
+  const items = branchedItems();
+  items[1]!.parent_option_id = null;
+  failsWith(
+    computePackageCredit({ pkg: pkg({ items }), chosenOptionIds: ['lechon-whole', 'style-boneless'] }),
+    'option_on_excluded_item',
+  );
+});
+
+test('a follow-up never cascades: revealed ids stay out of keptItemIds', () => {
+  const r = ok(
+    computePackageCredit({
+      pkg: branchedPkg(),
+      chosenOptionIds: ['lechon-whole', 'style-boneless'],
+    }),
+  );
+  assert.equal(
+    r.keptItemIds.includes('style'),
+    false,
+    'a conditional line became a booked event_vendors row',
+  );
+});
+
+/** A "choose 2 of 3" line, each alternative priced. */
+function pickNPkg(over: Partial<CreditItem> = {}) {
+  return pkg({
+    items: [
+      {
+        item_id: 'sides',
+        is_required: false,
+        is_default_included: true,
+        replacement_value_centavos: 0,
+        pick_min: 2,
+        pick_max: 3,
+        options: [
+          { option_id: 's1', price_delta_centavos: 0, is_default: true, is_available: true },
+          { option_id: 's2', price_delta_centavos: 4_000, is_default: false, is_available: true },
+          { option_id: 's3', price_delta_centavos: 7_000, is_default: false, is_available: true },
+        ],
+        ...over,
+      },
+    ],
+  });
+}
+
+test('a pick-N line admits pick_max options and charges EVERY delta', () => {
+  const r = ok(computePackageCredit({ pkg: pickNPkg(), chosenOptionIds: ['s2', 's3'] }));
+  assert.equal(r.spentCreditCentavos, 4_000 + 7_000, 'only one pick was charged');
+  assert.equal(r.selections.length, 2);
+});
+
+test('a pick-N line BELOW its minimum refuses — an unfinished order is not an order', () => {
+  failsWith(
+    computePackageCredit({ pkg: pickNPkg(), chosenOptionIds: ['s2'] }),
+    'pick_below_minimum',
+  );
+  // And with nothing picked at all: one default cannot answer two questions, so
+  // it must not quietly stand in for them.
+  failsWith(
+    computePackageCredit({ pkg: pickNPkg(), chosenOptionIds: [] }),
+    'pick_below_minimum',
+  );
+});
+
+test('a pick-N line ABOVE its maximum still refuses', () => {
+  failsWith(
+    computePackageCredit({ pkg: pickNPkg({ pick_max: 2 }), chosenOptionIds: ['s1', 's2', 's3'] }),
+    'multiple_options_for_item',
+  );
+});
+
+test('an ordinary line still takes exactly one — the unchanged default', () => {
+  // `pick_min`/`pick_max` null is every row written before branching, and the
+  // error it raises is the one it always raised.
+  failsWith(
+    computePackageCredit({
+      pkg: pickNPkg({ pick_min: null, pick_max: null }),
+      chosenOptionIds: ['s2', 's3'],
+    }),
+    'multiple_options_for_item',
+  );
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* Extra hours — a quantity axis, billed as SPEND                           */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+const hourlyPkg = (over: Partial<CreditItem> = {}) =>
+  pkg({
+    items: [
+      {
+        item_id: 'photo',
+        is_required: false,
+        is_default_included: true,
+        replacement_value_centavos: 0,
+        extra_hour_centavos: 50_000,
+        max_extra_hours: 4,
+        ...over,
+      },
+    ],
+  });
+
+test('extra hours bill at the line’s own rate, as credit SPEND', () => {
+  const r = ok(computePackageCredit({ pkg: hourlyPkg(), extraHours: { photo: 3 } }));
+  assert.equal(r.extraHoursCentavos, 3 * 50_000);
+  // Spend, not a straight surcharge: it drains the pool before it touches the
+  // price, exactly like a premium option or a catalogue buy.
+  assert.equal(r.spentCreditCentavos, 3 * 50_000);
+});
+
+test('extra hours past the cap are REFUSED, never clamped', () => {
+  // The caller clamps against the same bounds; a value outside them means the
+  // two disagree, and billing the nearest legal number would charge for
+  // something nobody was quoted.
+  failsWith(
+    computePackageCredit({ pkg: hourlyPkg(), extraHours: { photo: 5 } }),
+    'invalid_extra_hours',
+  );
+  failsWith(
+    computePackageCredit({ pkg: hourlyPkg(), extraHours: { photo: 1.5 } }),
+    'invalid_extra_hours',
+  );
+});
+
+test('extra hours on a line with no rate, or no line at all, are refused', () => {
+  failsWith(
+    computePackageCredit({ pkg: hourlyPkg({ extra_hour_centavos: null }), extraHours: { photo: 2 } }),
+    'extra_hours_not_offered',
+  );
+  failsWith(
+    computePackageCredit({ pkg: hourlyPkg(), extraHours: { 'not-a-line': 2 } }),
+    'extra_hours_not_offered',
+  );
+});
+
+test('extra hours on a REMOVED line are refused', () => {
+  failsWith(
+    computePackageCredit({
+      pkg: hourlyPkg(),
+      removedItemIds: ['photo'],
+      extraHours: { photo: 2 },
+    }),
+    'extra_hours_not_offered',
+  );
+});
+
+test('zero extra hours are a no-op, not an error', () => {
+  const r = ok(computePackageCredit({ pkg: hourlyPkg(), extraHours: { photo: 0 } }));
+  assert.equal(r.extraHoursCentavos, 0);
+});
+
+test('a follow-up cycle terminates instead of hanging the request', () => {
+  // The DB refuses a cycle by trigger; an in-memory object cannot be refused,
+  // and an unbounded walk inside a server action is a hung booking.
+  const r = ok(
+    computePackageCredit({
+      pkg: pkg({
+        items: [
+          {
+            item_id: 'a',
+            is_required: false,
+            is_default_included: true,
+            replacement_value_centavos: 0,
+            parent_option_id: 'ob',
+            options: [{ option_id: 'oa', price_delta_centavos: 0, is_default: true, is_available: true }],
+          },
+          {
+            item_id: 'b',
+            is_required: false,
+            is_default_included: false,
+            replacement_value_centavos: 0,
+            parent_option_id: 'oa',
+            options: [{ option_id: 'ob', price_delta_centavos: 0, is_default: true, is_available: true }],
+          },
+        ],
+      }),
+      chosenOptionIds: [],
+    }),
+  );
+  // `a` is itself a follow-up, so it is not a root and nothing is reached.
+  assert.deepEqual(r.keptItemIds, []);
+  assert.deepEqual(r.revealedItemIds, []);
+});
+
+/* ──────────────────────────────────────────────────────────────────────── */
 /* The result tuple RECONCILES — no phantom refunds                         */
 /*                                                                          */
 /* Two identities must hold for every accepted input, or a caller writing    */

@@ -17,6 +17,7 @@
 import {
   chosenOptionsSurchargeCentavos,
   computeCustomization,
+  extraHoursSurchargeCentavos,
   isRemovableItem,
   type VendorPackageItemRow,
   type VendorPackageWithItems,
@@ -46,6 +47,19 @@ function toCreditItem(item: VendorPackageItemRow): CreditItem {
     is_required: item.is_required === true,
     is_default_included: item.is_default_included === true,
     replacement_value_centavos: item.replacement_value_centavos,
+    // ── The BRANCHING columns. `VENDOR_PACKAGE_ITEM_SELECT` now carries all
+    // five, so both money callers see them; before that widening they arrived
+    // `undefined` here and every line read as a top-level, exactly-one line —
+    // which is precisely why a follow-up pick and a second pick billed ₱0.
+    //
+    // `?? null` / `?? undefined` rather than a default of 1: the engine's
+    // `pickBounds` is what turns "not set" into exactly-one, and duplicating
+    // that default here would be a second place for it to drift.
+    parent_option_id: item.parent_option_id ?? null,
+    pick_min: item.pick_min ?? null,
+    pick_max: item.pick_max ?? null,
+    extra_hour_centavos: item.extra_hour_centavos ?? null,
+    max_extra_hours: item.max_extra_hours ?? null,
     // A line is a CHOICE iff this is non-empty, so an unfetched `options`
     // (undefined) must stay a plain line rather than becoming an empty choice.
     ...(item.options && item.options.length > 0
@@ -126,6 +140,16 @@ export type PriceCustomizedPackageArgs = {
   additions: ReadonlyArray<CreditAddition>;
   /** SERVER-read prices for those buys. Never a client number. */
   catalogue: ReadonlyArray<CreditCatalogueEntry>;
+  /**
+   * item_id → extra hours beyond the line's `min_hours`. A QUANTITY only; the
+   * rate is re-read from the item row, never sent.
+   *
+   * ⚠ MUST ALREADY BE NARROWED — like `chosenOptionIds`, pass what
+   * `chargeableExtraHours` returned, not what the browser sent. Both money
+   * callers do; that shared narrowing is what makes the shown total and the
+   * committed total the same computation.
+   */
+  extraHours: Readonly<Record<string, number>>;
 };
 
 export function priceCustomizedPackage({
@@ -136,6 +160,7 @@ export function priceCustomizedPackage({
   paxCount,
   additions,
   catalogue,
+  extraHours,
 }: PriceCustomizedPackageArgs): {
   bookingTotalCentavos: number;
   remainingConsumableCentavos: number;
@@ -144,40 +169,70 @@ export function priceCustomizedPackage({
 } | null {
   const legacy = computeCustomization(pkg, removedItemIds);
 
-  if (!creditEnabled) {
-    // Credit is OFF, so there is no pool to consume and no catalogue buy can be
-    // funded. Refuse rather than silently dropping the additions — a caller
-    // that asked to spend credit must not be told the booking simply cost less.
-    if (additions.length > 0) return null;
-    // Flag OFF: the shipped math, plus any option surcharge. On a package with
-    // no choices this is byte-identical to what shipped before choices existed,
-    // and a choice line sits on its standard option, whose delta the DB pins
-    // to 0 — so this cannot quote below what the vendor charges either.
-    return {
-      bookingTotalCentavos:
-        legacy.totalLockedCentavos +
-        chosenOptionsSurchargeCentavos(pkg, removedItemIds, chosenOptionIds),
-      remainingConsumableCentavos: legacy.remainingConsumableCentavos,
-      availableCreditCentavos: legacy.remainingConsumableCentavos,
-      overspendCentavos: 0,
-    };
-  }
-
-  const credit = computePackageCredit({
+  // ── 🚦 THE SAFETY FLOOR RUNS ON BOTH BRANCHES ────────────────────────────
+  //
+  // THE FLAG CHOOSES THE PRICING MODEL, NEVER THE SAFETY FLOOR.
+  //
+  // Every refusal the branching shapes need — below `pick_min`, above
+  // `pick_max`, an option on a line the booking does not contain, hours on a
+  // line with no hourly rate or past its cap — lived only inside
+  // `computePackageCredit`, which the legacy branch below never calls. So the
+  // flag-OFF path (the one production actually runs) priced a 1-of-2 pick set
+  // instead of refusing it, and quoted it CHEAPER than the finished order —
+  // the exact thing this wave's own invariant forbids: "an unfinished order is
+  // never a cheaper one, refuse rather than quote less."
+  //
+  // The floor is the engine itself, called for its VERDICT and not its numbers.
+  // That is deliberate: a second hand-written copy of these rules is how the
+  // two would drift, and drift on a refusal layer means one branch silently
+  // permitting what the other refuses. The credit MATH stays flag-gated below;
+  // only the yes/no is shared.
+  const verdict = computePackageCredit({
     pkg: toCreditPackage(pkg),
     removedItemIds: allowedRemovals(pkg, removedItemIds),
     chosenOptionIds,
     paxCount,
     additions,
     catalogue,
+    extraHours,
   });
-  if (!credit.ok) return null;
+  if (!verdict.ok) return null;
 
+  if (!creditEnabled) {
+    // Credit is OFF, so there is no pool to consume and no catalogue buy can be
+    // funded. Refuse rather than silently dropping the additions — a caller
+    // that asked to spend credit must not be told the booking simply cost less.
+    if (additions.length > 0) return null;
+    // Flag OFF: the shipped math, plus any option surcharge, plus any extra
+    // hours. On a package with no choices this is byte-identical to what shipped
+    // before choices existed, and a choice line sits on its standard option,
+    // whose delta the DB pins to 0 — so this cannot quote below what the vendor
+    // charges either.
+    //
+    // ⚠ THE BRANCHING SHAPES ARE PRICED ON THIS PATH TOO. The two flags are
+    // independent: `packageAuthoringEnabled()` is what lets a vendor CREATE a
+    // follow-up / pick-N / hourly line, and it is not this one. Leaving those
+    // shapes at ₱0 here would mean "credit off" silently gave the couple every
+    // upgrade for free.
+    return {
+      bookingTotalCentavos:
+        legacy.totalLockedCentavos +
+        chosenOptionsSurchargeCentavos(pkg, removedItemIds, chosenOptionIds) +
+        extraHoursSurchargeCentavos(pkg, removedItemIds, extraHours),
+      remainingConsumableCentavos: legacy.remainingConsumableCentavos,
+      availableCreditCentavos: legacy.remainingConsumableCentavos,
+      overspendCentavos: 0,
+    };
+  }
+
+  // Flag ON: the engine's NUMBERS, from the same call whose verdict already
+  // cleared the floor above. One evaluation, so the branch that prices and the
+  // branch that merely validates can never see different results.
   return {
-    bookingTotalCentavos: credit.bookingTotalCentavos,
-    remainingConsumableCentavos: credit.remainingCreditCentavos,
-    availableCreditCentavos: credit.availableCreditCentavos,
-    overspendCentavos: credit.overspendCentavos,
+    bookingTotalCentavos: verdict.bookingTotalCentavos,
+    remainingConsumableCentavos: verdict.remainingCreditCentavos,
+    availableCreditCentavos: verdict.availableCreditCentavos,
+    overspendCentavos: verdict.overspendCentavos,
   };
 }
 

@@ -24,6 +24,11 @@ import {
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { releasePackage, removeItemFromPackage } from '../actions';
 import { receiptSections } from './receipt-sections';
+import {
+  readPricingSnapshot,
+  snapshotChargeLines,
+  snapshotChargeTotalCentavos,
+} from '@/lib/package-pricing-snapshot';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const dynamic = 'force-dynamic';
@@ -69,10 +74,10 @@ export default async function PackageBookingPage({ params }: Props) {
       // `undefined` → falsy → the receipt would have printed a line the vendor
       // marked mandatory (and is still charging for) under "Removed". Both the
       // lock path and /v/[slug] already SELECT it via this same constant.
-      // `parent_option_id` is appended rather than folded into the constant —
-      // see the note on PACKAGE_ITEM_AUTHORING_COLUMNS for why the branching
-      // columns stay off the shared couple-side list.
-      `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id`,
+      // `parent_option_id` used to be appended here; it is inside the constant
+      // now (the charge path needs it on every money read), so appending it
+      // would ask PostgREST for the same column twice.
+      VENDOR_PACKAGE_ITEM_SELECT,
     )
     .eq('package_id', typedBooking.package_id)
     .order('display_order', { ascending: true });
@@ -94,6 +99,19 @@ export default async function PackageBookingPage({ params }: Props) {
 
   const customizations = typedBooking.customizations_json as PackageCustomizations;
   const removedItemIds = customizations.removed_item_ids ?? [];
+
+  // 🧾 WHAT THE COUPLE ACTUALLY PAID EXTRA FOR — read from the frozen snapshot
+  // already on this row, so no new query.
+  //
+  // The total above now includes follow-up option deltas, every pick on a
+  // pick-N line, and extra hours; none of it was itemised anywhere. The three
+  // lists below are LINE lists and deliberately exclude follow-ups, so a
+  // charged follow-up upgrade appeared in the number and nowhere in the words —
+  // and the vendor, whom this record is supposed to tell what to deliver, was
+  // never shown the hours the couple bought.
+  const pricingSnapshot = readPricingSnapshot(customizations.pricing_snapshot);
+  const chargeLines = snapshotChargeLines(pricingSnapshot);
+  const chargeTotalCentavos = snapshotChargeTotalCentavos(pricingSnapshot);
 
   // Vendor info for the header
   const { data: vendor } = await supabase
@@ -216,6 +234,44 @@ export default async function PackageBookingPage({ params }: Props) {
           </p>
         ) : null}
       </section>
+
+      {/* 🧾 Your choices — the itemisation behind the total */}
+      {chargeLines.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+            Your choices ({chargeLines.length})
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {chargeLines.map((line) => (
+              <li
+                key={line.key}
+                className="flex items-start justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink/85">{line.label}</p>
+                  {line.detail ? (
+                    <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                      {line.detail}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="shrink-0 font-mono text-sm text-ink/80">
+                  {/* A ₱0 pick is a CHOICE the vendor must still honour, not a
+                      charge — showing "+₱0" would read as a priced upgrade. */}
+                  {line.amountCentavos > 0
+                    ? `+${formatCentavosPhp(line.amountCentavos)}`
+                    : 'Included'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {chargeTotalCentavos > 0 ? (
+            <p className="mt-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              {formatCentavosPhp(chargeTotalCentavos)} of the total above
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {/* Included items */}
       {includedItems.length > 0 ? (

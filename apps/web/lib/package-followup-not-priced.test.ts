@@ -1,5 +1,6 @@
 /**
- * A FOLLOW-UP LINE IS NEVER PRICED, NEVER CASCADED, NEVER OFFERED AS AN ADD-ON.
+ * A FOLLOW-UP LINE IS NEVER IN THE STICKER PRICE, NEVER CASCADED, NEVER OFFERED
+ * AS AN ADD-ON.
  *
  * A follow-up (`parent_option_id != null`, migration 20271012816361) is shown
  * to the couple only once one specific option is picked on another line. It is
@@ -7,6 +8,22 @@
  * `total_price_centavos` — doing so would charge every couple for a line most
  * of them are never shown, inflate the booking fee computed off that total, and
  * cascade an `event_vendors` row at lock for a service nobody chose.
+ *
+ * ── ⚠ THE TITLE NARROWED ON 2026-07-28 — READ THIS BEFORE EDITING ───────────
+ * This file used to be called "never PRICED", and that is no longer true. A
+ * follow-up whose parent option is in force now has its OWN options charged for,
+ * because the couple reached it by buying that parent. Two different claims live
+ * here and only one of them was relaxed:
+ *
+ *   STILL TRUE   the follow-up LINE's own `replacement_value_centavos` is never
+ *                in the price, never in the credit pool, never refundable, and
+ *                never a cascaded `event_vendors` row. That is what every test
+ *                below asserts, and none of it moved.
+ *   NOW FALSE    "an option picked on a follow-up costs zero." It costs what the
+ *                vendor said it costs — but ONLY once its parent is picked, which
+ *                is the narrowing (`chargeableOptionIds`) rather than this file's
+ *                helpers. The one test here that conflated the two is rewritten
+ *                below to compose the narrowing explicitly.
  *
  * ── THREE LAYERS, TESTED SEPARATELY ─────────────────────────────────────────
  *   BRACE  the database: `vendor_package_items_followup_not_default_included_ck`
@@ -41,6 +58,7 @@ import {
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from './vendor-packages';
+import { chargeableOptionIds } from './package-choice-tree';
 
 type Over = Partial<VendorPackageItemRow> & { item_id: string };
 
@@ -197,7 +215,17 @@ test('"removing" a follow-up grows no consumable pool on a flexible package', ()
   assert.equal(remainingConsumableCentavos, 500_00);
 });
 
-test('a follow-up’s own upgrade adds nothing to the surcharge while unpicked', () => {
+test('a follow-up’s own upgrade adds nothing while its parent is unpicked', () => {
+  // ⚠ REWRITTEN 2026-07-28, and the rewrite is the point. This used to call
+  // `chosenOptionsSurchargeCentavos` with a RAW option id and assert 0, which
+  // read as "a follow-up option is never priced". It is priced now — so the
+  // assertion has to name the thing that actually decides: the NARROWING.
+  //
+  // `chargeableOptionIds` walks the visible tree, `boneless` sits on a follow-up
+  // nothing revealed (there is no parent line here at all), so the id is dropped
+  // before any pricer sees it — and the surcharge over the narrowed set is 0.
+  // Falsifiable in the right direction: stop narrowing and this goes red at
+  // ₱2,000, which is exactly the charge nobody agreed to.
   const p = pkg([
     item({ item_id: 'base' }),
     {
@@ -224,7 +252,82 @@ test('a follow-up’s own upgrade adds nothing to the surcharge while unpicked',
       ],
     },
   ]);
-  assert.equal(chosenOptionsSurchargeCentavos(p, [], ['boneless']), 0);
+  const narrowed = chargeableOptionIds(p, [], ['boneless']);
+  assert.deepEqual(narrowed, [], 'an unrevealed follow-up pick reached the pricer');
+  assert.equal(chosenOptionsSurchargeCentavos(p, [], narrowed), 0);
+});
+
+test('a follow-up line still moves no money OF ITS OWN, even when charged on', () => {
+  // The claim that did NOT change, stated against the shape that now costs
+  // money. `boneless` is a real ₱2,000 charge once its parent is picked — but
+  // the follow-up LINE's ₱3,000 `replacement_value_centavos` must stay out of
+  // the price and out of the pool, because the sticker price never contained it.
+  const p = pkg([
+    item({
+      item_id: 'lechon',
+      options: [
+        {
+          option_id: 'std',
+          item_id: 'lechon',
+          option_label: 'Standard',
+          price_delta_centavos: 0,
+          is_default: true,
+          is_available: true,
+          display_order: 0,
+        },
+        {
+          option_id: 'opt-lechon',
+          item_id: 'lechon',
+          option_label: 'Whole lechon',
+          price_delta_centavos: 1_000_00,
+          is_default: false,
+          is_available: true,
+          display_order: 1,
+        },
+      ],
+    }),
+    {
+      ...legalFollowUp,
+      options: [
+        {
+          option_id: 'crispy',
+          item_id: 'followup',
+          option_label: 'Crispy',
+          price_delta_centavos: 0,
+          is_default: true,
+          is_available: true,
+          display_order: 0,
+        },
+        {
+          option_id: 'boneless',
+          item_id: 'followup',
+          option_label: 'Boneless',
+          price_delta_centavos: 2_000_00,
+          is_default: false,
+          is_available: true,
+          display_order: 1,
+        },
+      ],
+    },
+  ]);
+
+  // Revealed: BOTH deltas are charged — ₱1,000 for the parent, ₱2,000 for the
+  // follow-up's own pick.
+  const narrowed = chargeableOptionIds(p, [], ['opt-lechon', 'boneless']);
+  assert.deepEqual(narrowed, ['opt-lechon', 'boneless']);
+  assert.equal(chosenOptionsSurchargeCentavos(p, [], narrowed), 3_000_00);
+
+  // And the LINE contributes nothing in either direction — no value in the
+  // total, and "removing" it refunds nothing.
+  const base = computeCustomization(p, []);
+  assert.equal(base.totalLockedCentavos, 10_000_00);
+  assert.equal(computeCustomization(p, ['followup']).removedTotalCentavos, 0);
+
+  // Nor does it cascade a booked vendor row.
+  assert.deepEqual(
+    keptItems(p, []).map((i) => i.item_id),
+    ['lechon'],
+  );
 });
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -248,13 +351,17 @@ test('the vendor workspace add-on list excludes follow-ups', () => {
   // without the filter.
   const src = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
   assert.match(src, /parent_option_id == null/);
-  // STRENGTHENED, not relaxed. The select is now
-  // `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id` — a template literal, so
-  // the old single-quote pattern could no longer match. This pins the same
-  // thing plus the canonical constant, which is what had silently dropped both
+  // The select is the BARE canonical constant again (2026-07-28). It used to be
+  // `${VENDOR_PACKAGE_ITEM_SELECT}, parent_option_id`, because the constant
+  // deliberately withheld the branching columns from the couple-side money path;
+  // now that it carries all five, appending one would ask PostgREST for the same
+  // column twice. What is pinned is unchanged in substance: this page reads
+  // through the canonical constant, which is what had silently dropped both
   // `item_id` (no removal id could ever match a line without it) and
-  // `is_required` from this page.
-  assert.match(src, /\$\{VENDOR_PACKAGE_ITEM_SELECT\}, parent_option_id/);
+  // `is_required` from it. The APPEND is asserted absent so the two cannot
+  // quietly come back apart.
+  assert.match(src, /\.select\(VENDOR_PACKAGE_ITEM_SELECT\)/);
+  assert.doesNotMatch(src, /\$\{VENDOR_PACKAGE_ITEM_SELECT\}, parent_option_id/);
 });
 
 test('the booked-package detail list excludes follow-ups', () => {
@@ -265,10 +372,12 @@ test('the booked-package detail list excludes follow-ups', () => {
   // asserted by its own suite; this still pins the follow-up half at source.
   const src = read('app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx');
   assert.match(src, /parent_option_id == null/);
-  // Terminator-agnostic: the select is now `${VENDOR_PACKAGE_ITEM_SELECT},
-  // parent_option_id` — the canonical constant rather than a hand-typed copy,
-  // which is what had silently dropped `is_required` from this page.
-  assert.match(src, /parent_option_id['`]/);
+  // Same flip as the workspace page: the append is gone because the canonical
+  // constant carries the column now. What matters is that this page still reads
+  // through that constant rather than a hand-typed copy, which is what had
+  // silently dropped `is_required` from it.
+  assert.match(src, /^\s*VENDOR_PACKAGE_ITEM_SELECT,$/m);
+  assert.doesNotMatch(src, /\$\{VENDOR_PACKAGE_ITEM_SELECT\}, parent_option_id/);
 });
 
 test('the lock modal builds its list from the choice tree, not a raw item list', () => {

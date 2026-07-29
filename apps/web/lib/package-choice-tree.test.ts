@@ -10,22 +10,38 @@
  *
  * ── WHAT IS BEING PINNED ────────────────────────────────────────────────────
  *   1. An UNPICKED follow-up contributes exactly 0 and cascades nothing.
- *   2. A PICKED follow-up is RENDER-ONLY and contributes exactly 0 — see the
- *      ruling in the module header of ./package-choice-tree. It is pinned here
- *      so the day someone makes it chargeable, they have to come and change a
- *      test that says, in words, why it was not.
+ *   2. A PICKED follow-up IS charged (flipped 2026-07-28) — its own option's
+ *      delta lands on the total, exactly like any other choice line's. It was
+ *      pinned at 0 while `VENDOR_PACKAGE_ITEM_SELECT` withheld
+ *      `parent_option_id`, so whoever made it chargeable had to come here and
+ *      rewrite a test that said, in words, why it was not. That is what
+ *      happened; both halves of the story are kept in the tests below.
  *   3. Unpicking a parent removes its whole subtree — grandchildren included.
  *   4. Display total === committed total, asserted by running the LOCK PATH's
- *      own composition over the same inputs.
- *   5. Pick-N: below the minimum blocks, at the minimum passes, above the
- *      maximum is refused.
+ *      own composition over the same inputs, across a matrix that now includes a
+ *      selection exercising every priced axis at once.
+ *   5. Pick-N: below the minimum REFUSES TO PRICE AT ALL (it used to merely cost
+ *      the same as a finished order), at the minimum passes, above the maximum
+ *      is clamped by the narrowing and refused by the engine.
+ *   6. Extra hours bill at the line's own rate, clamped to its own cap, and only
+ *      on a line the booking actually contains.
+ *
+ * ── THE ONE RULE UNDER ALL OF THEM ──────────────────────────────────────────
+ * VISIBILITY BOUNDS CHARGEABILITY. Widening what can be billed did not widen
+ * what can be billed WITHOUT BEING SHOWN: every new charge is gated on the same
+ * `visibleLineTree` walk the couple's screen renders from, so a follow-up whose
+ * parent was never picked is dropped by the narrowing and refused by the engine.
+ * Several tests below assert exactly that pairing, because it is the guarantee
+ * that had to survive the flip.
  *
  * ── NEUTRALISATION (proof these tests can fail) ─────────────────────────────
  * Delete the follow-up guard in `keptItems` (@/lib/vendor-packages) — the line
  * `if (item.parent_option_id != null) return false;` — and
- * "an unpicked follow-up contributes zero even in its ILLEGAL in-memory shape"
- * fails with a WRONG TOTAL: ₱15,000 against the expected ₱10,000. A wrong
- * number, not merely a wrong list. Verified 2026-07-27, then restored.
+ * "a picked follow-up still never cascades an event_vendors row" fails: the
+ * conditional line becomes a booked vendor row. Separately, drop the
+ * `.slice(0, pickBounds(item).max)` in `effectivePicksOn` and
+ * "picks beyond pick_max are CLAMPED by the narrowing" fails with a wrong TOTAL.
+ * Both verified 2026-07-28, then restored.
  *
  * Pure module — no mocks, no env, no clock.
  * `pnpm --filter @setnayan/web test:unit`
@@ -34,6 +50,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  chargeableExtraHours,
+  chargeableExtraHoursForSelection,
   chargeableOptionIds,
   chargeableOptionIdsForSelection,
   choiceTotals,
@@ -164,16 +182,19 @@ function commit({
   p,
   removed = [],
   requested,
+  requestedHours = {},
   creditEnabled,
   paxCount = 0,
 }: {
   p: VendorPackageWithItems;
   removed?: string[];
   requested: ReadonlyArray<string>;
+  requestedHours?: Record<string, number>;
   creditEnabled: boolean;
   paxCount?: number;
 }) {
   const chosenOptionIds = chargeableOptionIds(p, removed, requested);
+  const extraHours = chargeableExtraHours(p, removed, requested, requestedHours);
   return priceCustomizedPackage({
     pkg: p,
     removedItemIds: removed,
@@ -182,6 +203,7 @@ function commit({
     paxCount,
     additions: [],
     catalogue: [],
+    extraHours,
   });
 }
 
@@ -294,14 +316,18 @@ test('picking the parent option REVEALS the follow-up', () => {
   );
 });
 
-test('a PICKED follow-up is priced at exactly zero — the slice ruling', () => {
-  // ⚖️ RULED, NOT OVERLOOKED. `lockPackage` reads its items with
-  // VENDOR_PACKAGE_ITEM_SELECT, which asks for no `parent_option_id`; the
-  // server therefore cannot tell a follow-up from a top-level line, and the
-  // credit engine independently refuses an option on a not-included line
-  // (`option_on_excluded_item`) — which would fail the whole lock, not just the
-  // upgrade. So a picked follow-up is RENDER-ONLY here, and zero is the honest
-  // price. Making it chargeable means teaching the LOCK PATH first.
+test('a PICKED follow-up IS charged — the lock path was taught first', () => {
+  // ⚖️ THE RULING REVERSED, 2026-07-28, and the order of operations is the whole
+  // story. This asserted ₱0 for as long as `VENDOR_PACKAGE_ITEM_SELECT` withheld
+  // `parent_option_id`: the server could not tell a follow-up from a top-level
+  // line, so pricing one would have been a guess, and the credit engine refused
+  // the shape outright (`option_on_excluded_item`) — which failed the whole lock,
+  // not just the upgrade. Zero was the honest price for a screen the server
+  // could not honour.
+  //
+  // The select now carries all five branching columns and the engine resolves a
+  // revealed follow-up like any other choice line, so the ₱5,000 the couple was
+  // shown is the ₱5,000 they are charged.
   const p = branchingPkg();
   const totals = choiceTotals({
     pkg: p,
@@ -312,9 +338,49 @@ test('a PICKED follow-up is priced at exactly zero — the slice ruling', () => 
   });
 
   assert.ok(totals);
-  // ₱10,000 base + ₱2,000 for `premium`. The ₱5,000 truffle adds NOTHING.
-  assert.equal(totals.bookingTotalCentavos, 12_000_00);
-  assert.deepEqual(totals.chargeableOptionIds, ['premium']);
+  // ₱10,000 base + ₱2,000 `premium` + ₱5,000 `truffle`.
+  assert.equal(totals.bookingTotalCentavos, 17_000_00);
+  assert.deepEqual(totals.chargeableOptionIds, ['premium', 'truffle']);
+});
+
+test('a follow-up whose parent is NOT picked is dropped, never billed', () => {
+  // 🚨 THE OTHER HALF, and the one that has to keep holding now that a follow-up
+  // can cost money. `main` sits on its free standard, so `side` is not revealed —
+  // a stale page (or a hand-rolled payload) naming `truffle` anyway must move no
+  // money at all, because the question was never asked.
+  const p = branchingPkg();
+
+  // Dropped by the narrowing, before the pricer ever sees it.
+  assert.deepEqual(chargeableOptionIds(p, [], ['std', 'truffle']), ['std']);
+
+  const totals = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: sel({ main: ['std'], side: ['truffle'] }),
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(totals);
+  assert.equal(totals.bookingTotalCentavos, 10_000_00, 'an unrevealed follow-up billed');
+});
+
+test('the ENGINE refuses an unrevealed follow-up pick that dodges the narrowing', () => {
+  // Belt and brace, and they are genuinely independent: the narrowing DROPS,
+  // the engine REFUSES. This is the path a hand-rolled client takes — straight
+  // to `priceCustomizedPackage` with an id the tree would have discarded — and
+  // it must fail closed rather than price something nobody was quoted.
+  const p = branchingPkg();
+  const priced = priceCustomizedPackage({
+    pkg: p,
+    removedItemIds: [],
+    chosenOptionIds: ['std', 'truffle'], // NOT narrowed — `side` is not revealed
+    creditEnabled: true,
+    paxCount: 0,
+    additions: [],
+    catalogue: [],
+    extraHours: {},
+  });
+  assert.equal(priced, null, 'the engine priced an option on a line not in the booking');
 });
 
 test('a picked follow-up still never cascades an event_vendors row', () => {
@@ -325,23 +391,47 @@ test('a picked follow-up still never cascades an event_vendors row', () => {
   );
 });
 
-test('a PRICED follow-up option is never offered — a preference must be free', () => {
-  // The other half of "zero-priced": if a priced option were pickable, the
-  // couple would be shown an upgrade nobody bills them for, and the vendor
-  // would owe it. Free options in that region stay pickable.
+test('a PRICED follow-up option IS offered, because it is now charged for', () => {
+  // The mirror of the flip above. This asserted `false` while a follow-up pick
+  // cost ₱0 — offering a priced option there would have shown the couple an
+  // upgrade nobody billed and handed the vendor a bill they never agreed to.
+  // Now that the pick is charged, refusing it would hide an upgrade the vendor
+  // is offering and the couple would happily pay for.
+  //
+  // ⚠ The RULE did not change: `isOptionSelectable` still says "only a
+  // zero-delta option may be offered where the pricer would not charge". It says
+  // TRUE here because it asks the boundary function, and the boundary moved.
   const p = branchingPkg();
   const side = p.items.find((i) => i.item_id === 'side')!;
   const selection = sel({ main: ['premium'] });
 
   assert.equal(
     isOptionSelectable(p, [], side, side.options![1]!, selection, 0),
-    false,
-    'the ₱5,000 truffle must not be offered on a line nothing charges for',
+    true,
+    'the ₱5,000 truffle is chargeable on a revealed follow-up, so it is offered',
   );
   assert.equal(
     isOptionSelectable(p, [], side, side.options![0]!, selection, 0),
     true,
-    'a free follow-up option is a genuine preference and stays pickable',
+    'the free follow-up option stays pickable',
+  );
+});
+
+test('a follow-up option is NOT offered while its parent is unpicked', () => {
+  // The guard that has to survive the flip: `side` is not revealed at all when
+  // `main` sits on its standard option, so nothing on it is chargeable and the
+  // priced option must stay refused. (The modal never renders the line in this
+  // state — `visibleLineTree` omits it — but the two rules are independent and
+  // this pins the one that decides money.)
+  const p = branchingPkg();
+  const side = p.items.find((i) => i.item_id === 'side')!;
+  const selection = sel({ main: ['std'] });
+
+  assert.equal(visibleLineIds(p, [], selection).includes('side'), false);
+  assert.equal(
+    isOptionSelectable(p, [], side, side.options![1]!, selection, 0),
+    false,
+    'a priced option on an unrevealed follow-up must never be offered',
   );
 });
 
@@ -550,6 +640,47 @@ const equalityCases: Array<{
     ]),
     selection: sel({ sides: ['s1', 's3'] }),
   },
+  {
+    // 💰 THE INVARIANT CASE. Every axis the charge-path widening turned on, in
+    // one selection, all carrying real money: a revealed follow-up with a priced
+    // pick, a pick-N line with TWO priced picks, and an hour stepper. If the
+    // display and the commit can diverge at all, this is the cell that shows it.
+    name: 'branched + pick-N + extra hours, every axis priced',
+    p: pkg([
+      item({ item_id: 'base' }),
+      item({
+        item_id: 'main',
+        options: [
+          opt({ option_id: 'std', is_default: true, display_order: 0 }),
+          opt({ option_id: 'premium', price_delta_centavos: 2_000_00, display_order: 1 }),
+        ],
+      }),
+      item({
+        item_id: 'style',
+        parent_option_id: 'premium',
+        is_default_included: false,
+        options: [
+          opt({ option_id: 'plain', is_default: true, display_order: 0 }),
+          opt({ option_id: 'boneless', price_delta_centavos: 1_200_00, display_order: 1 }),
+        ],
+      }),
+      item({
+        item_id: 'sides',
+        pick_min: 2,
+        pick_max: 3,
+        options: [
+          opt({ option_id: 's1', is_default: true, display_order: 0 }),
+          opt({ option_id: 's2', price_delta_centavos: 400_00, display_order: 1 }),
+          opt({ option_id: 's3', price_delta_centavos: 700_00, display_order: 2 }),
+        ],
+      }),
+      item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
+    ]),
+    selection: {
+      picks: { main: ['premium'], style: ['boneless'], sides: ['s2', 's3'] },
+      extraHours: { photo: 3 },
+    },
+  },
 ];
 
 for (const creditEnabled of [false, true]) {
@@ -564,11 +695,13 @@ for (const creditEnabled of [false, true]) {
       });
       assert.ok(displayed, 'the configurator could not price this');
 
-      // (a) What the modal actually submits: the chargeable ids it priced.
+      // (a) What the modal actually submits: the chargeable ids AND the
+      //     chargeable hours it priced.
       const asSubmitted = commit({
         p: c.p,
         removed: c.removed ?? [],
         requested: displayed.chargeableOptionIds,
+        requestedHours: { ...displayed.chargeableExtraHours },
         creditEnabled,
         paxCount: c.paxCount ?? 0,
       });
@@ -579,14 +712,16 @@ for (const creditEnabled of [false, true]) {
         'the couple was quoted one number and would be charged another',
       );
 
-      // (b) The hostile/stale case: a client that submits EVERY id it holds,
-      //     including follow-up picks and extra pick-N picks. The lock re-runs
-      //     the same narrowing, so the total must not move.
+      // (b) The hostile/stale case: a client that submits EVERY id and EVERY
+      //     hour it holds, including picks on hidden follow-ups and picks past
+      //     `pick_max`. The lock re-runs the same narrowing, so the total must
+      //     not move in either direction.
       const everything = Object.values(c.selection.picks).flat();
       const asAbused = commit({
         p: c.p,
         removed: c.removed ?? [],
         requested: everything,
+        requestedHours: { ...(c.selection.extraHours ?? {}) },
         creditEnabled,
         paxCount: c.paxCount ?? 0,
       });
@@ -609,6 +744,26 @@ test('the chargeable set is the SAME function the lock path narrows with', () =>
     chargeableOptionIdsForSelection(p, [], selection),
     chargeableOptionIds(p, [], Object.values(selection.picks).flat()),
   );
+  // ⚠ AND IT SURVIVES THE ROUND TRIP THROUGH THE WIRE. The browser holds a
+  // grouped `ChoiceSelection`; the server is handed a FLAT id list with no
+  // grouping and no click order in it. The two must reach the same answer, or
+  // the shared function is shared in name only.
+  assert.deepEqual(
+    chargeableOptionIdsForSelection(p, [], selection),
+    ['premium', 'truffle'],
+  );
+});
+
+test('the chargeable HOURS are one function across the wire too', () => {
+  const p = pkg([
+    item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
+  ]);
+  const selection: ChoiceSelection = { picks: {}, extraHours: { photo: 9 } };
+  assert.deepEqual(
+    chargeableExtraHoursForSelection(p, [], selection),
+    chargeableExtraHours(p, [], [], selection.extraHours ?? {}),
+  );
+  assert.deepEqual(chargeableExtraHoursForSelection(p, [], selection), { photo: 4 });
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -655,8 +810,13 @@ test('pick-N with NOTHING picked blocks — an unfinished order, not a cheaper o
     ['sides'],
   );
 
-  // 🚫 And it is NOT cheaper. Answering fewer questions must never reduce the
-  // price — the vendor priced the package assuming every question is answered.
+  // 🚫 STRENGTHENED, not relaxed. This used to assert "unfinished costs the same
+  // as finished" — true, but the weaker of the two available guarantees, and it
+  // only held because a pick-N line could not move money at all. Now that every
+  // pick carries its own delta, an unfinished line has NO price rather than a
+  // coincidentally-equal one: the engine refuses below `pick_min`, so there is
+  // no number to quote and the modal blocks on `null` as well as on
+  // `unfinishedChoiceLines`. An unfinished order is not an order.
   const empty = choiceTotals({
     pkg: p,
     removedItemIds: [],
@@ -664,6 +824,8 @@ test('pick-N with NOTHING picked blocks — an unfinished order, not a cheaper o
     creditEnabled: true,
     paxCount: 0,
   });
+  assert.equal(empty, null, 'a package below a line’s minimum was given a price');
+
   const full = choiceTotals({
     pkg: p,
     removedItemIds: [],
@@ -671,8 +833,20 @@ test('pick-N with NOTHING picked blocks — an unfinished order, not a cheaper o
     creditEnabled: true,
     paxCount: 0,
   });
-  assert.ok(empty && full);
-  assert.equal(empty.bookingTotalCentavos, full.bookingTotalCentavos);
+  assert.ok(full, 'answering every question must price');
+});
+
+test('pick_min unmet REFUSES the lock, it does not quote less', () => {
+  // The commit half of the assertion above, run through the lock path's own
+  // composition. `lockPackage` turns this null into a hard error rather than
+  // writing a booking at a price nobody agreed to.
+  const p = pickNPkg();
+  assert.equal(
+    commit({ p, requested: ['s1'], creditEnabled: true }),
+    null,
+    'one of two required picks priced anyway',
+  );
+  assert.ok(commit({ p, requested: ['s1', 's2'], creditEnabled: true }));
 });
 
 test('pick-N AT the minimum passes', () => {
@@ -725,10 +899,11 @@ test('a REQUIRED choice line is never defaulted — it blocks until picked', () 
   assert.deepEqual(unfinishedChoiceLines(p, [], sel({ course: ['fish'] })), []);
 });
 
-test('only the FIRST pick on a pick-N line is chargeable, and the rest must be free', () => {
-  // The boundary, stated as a rule rather than as a side effect: the lock path
-  // narrows to one option per line, so a second PRICED pick could never be
-  // charged — and is therefore never offered.
+test('EVERY pick on a pick-N line is chargeable, and each adds its own delta', () => {
+  // 💰 THE MONEY FLIP. This asserted the opposite: only the first pick could be
+  // charged (`resolveChosenOption` returned one option per line), so a second
+  // PRICED pick was refused rather than shown as an upgrade nobody would bill.
+  // A "choose 2 of 3" therefore charged for one premium side and delivered two.
   const p = pkg([
     item({
       item_id: 'sides',
@@ -745,34 +920,45 @@ test('only the FIRST pick on a pick-N line is chargeable, and the rest must be f
   const line = sides(p);
   const [, paid_b, paid_c, free_d] = line.options! as VendorPackageItemOptionRow[];
 
-  // One priced pick: chargeable, so offered.
   assert.equal(isOptionSelectable(p, [], line, paid_b!, sel(), 0), true);
-  // A SECOND priced pick: not chargeable, so refused.
+  // A SECOND priced pick is now chargeable, so it is offered — in BOTH orders.
   assert.equal(
     isOptionSelectable(p, [], line, paid_c!, sel({ sides: ['paid_b'] }), 0),
-    false,
+    true,
   );
-  // And the reverse order too — picking the later priced option first must not
-  // let an earlier priced one in and silently demote it to free.
   assert.equal(
     isOptionSelectable(p, [], line, paid_b!, sel({ sides: ['paid_c'] }), 0),
-    false,
+    true,
   );
-  // A free option that sorts AFTER the priced pick is fine: `resolveChosenOption`
-  // still resolves to the priced one, so nothing is misquoted.
   assert.equal(
     isOptionSelectable(p, [], line, free_d!, sel({ sides: ['paid_b'] }), 0),
     true,
   );
+
+  // And the number: both deltas land, not just the first in display order.
+  const totals = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: sel({ sides: ['paid_b', 'paid_c'] }),
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(totals);
+  assert.equal(totals.bookingTotalCentavos, 10_000_00 + 1_500_00 + 2_500_00);
+  assert.deepEqual(totals.chargeableOptionIds, ['paid_b', 'paid_c']);
 });
 
-test('a free option that would STEAL the chargeable slot is refused', () => {
-  // ⚠ SUBTLE, AND FOUND BY THE TEST ABOVE FAILING. "Free options are always
-  // safe" is wrong. `resolveChosenOption` charges for whichever picked option
-  // comes FIRST in display order, so adding a free option that sorts EARLIER
-  // than an already-picked priced one moves the charge onto the free one — the
-  // couple's ₱1,500 upgrade silently becomes ₱0 and the vendor still delivers
-  // it. Refused, in the only direction that costs nobody money.
+test('the order-dependent "stolen chargeable slot" is gone, not merely guarded', () => {
+  // ⚠ THIS TEST USED TO ASSERT A REFUSAL, and the refusal existed to paper over
+  // an order-dependence: only ONE option per line was charged — whichever came
+  // first in display order — so picking a priced option and THEN a free one that
+  // sorts earlier silently moved the charge onto the free one. The couple's
+  // ₱1,500 upgrade became ₱0 and the vendor still delivered it, so
+  // `isOptionSelectable` had to refuse the free option to keep the quote honest.
+  //
+  // Charging every pick on its own delta removes the hazard at the root: there
+  // is no single "chargeable slot" left to steal, so both options are offered
+  // AND the priced one keeps its price whichever order they were picked in.
   const p = pkg([
     item({
       item_id: 'sides',
@@ -787,7 +973,71 @@ test('a free option that would STEAL the chargeable slot is refused', () => {
   const line = sides(p);
   assert.equal(
     isOptionSelectable(p, [], line, line.options![0]!, sel({ sides: ['paid_b'] }), 0),
-    false,
+    true,
+  );
+
+  const withBoth = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: sel({ sides: ['paid_b', 'free_a'] }),
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  const withPaidOnly = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: sel({ sides: ['paid_b'] }),
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(withBoth && withPaidOnly);
+  assert.equal(
+    withBoth.bookingTotalCentavos,
+    withPaidOnly.bookingTotalCentavos,
+    'adding a FREE option changed the price — the slot-steal is back',
+  );
+  assert.equal(withBoth.bookingTotalCentavos, 10_000_00 + 1_500_00);
+});
+
+test('picks beyond pick_max are CLAMPED by the narrowing, in display order', () => {
+  // The tree DROPS the excess (a stale page must not fail a money action); the
+  // engine REFUSES it (a hand-rolled payload must not be priced by guess). Both
+  // postures are asserted, because they are the two different callers.
+  const p = pkg([
+    item({
+      item_id: 'sides',
+      pick_min: 1,
+      pick_max: 2,
+      options: [
+        opt({ option_id: 'a', price_delta_centavos: 1_00, is_default: true, display_order: 0 }),
+        opt({ option_id: 'b', price_delta_centavos: 2_00, display_order: 1 }),
+        opt({ option_id: 'c', price_delta_centavos: 4_00, display_order: 2 }),
+      ],
+    }),
+  ]);
+  // NOTE: `a` is the default and the DB pins a default's delta to 0; this
+  // fixture is in-memory, where no constraint applies, so the deltas are chosen
+  // to make "which two survived" unambiguous from the total alone.
+
+  // Three picks on a choose-2 line → the first two in DISPLAY order survive,
+  // regardless of the order the ids arrived in.
+  assert.deepEqual(chargeableOptionIds(p, [], ['c', 'b', 'a']), ['a', 'b']);
+  assert.deepEqual(chargeableOptionIds(p, [], ['a', 'b', 'c']), ['a', 'b']);
+
+  // The engine's own posture on the same over-long list: refuse outright.
+  assert.equal(
+    priceCustomizedPackage({
+      pkg: p,
+      removedItemIds: [],
+      chosenOptionIds: ['a', 'b', 'c'], // NOT narrowed
+      creditEnabled: true,
+      paxCount: 0,
+      additions: [],
+      catalogue: [],
+      extraHours: {},
+    }),
+    null,
+    'the engine priced more picks than the line takes',
   );
 });
 
@@ -815,11 +1065,13 @@ test('extra hours are clamped to the line’s own cap', () => {
   assert.equal(extraHoursOn(line, { picks: {}, extraHours: { photo: -3 } }), 0);
 });
 
-test('extra hours move NO money — the lock path cannot see the columns', () => {
-  // Same ruling as the follow-up: `lockPackage` reads with a select carrying
-  // neither `max_extra_hours` nor `extra_hour_centavos`, and
-  // PackageCustomizationsInput has no quantity field at all. A stepper that
-  // silently changed the total would be a quote the server cannot honour.
+test('extra hours MOVE money — billed at the line’s own rate', () => {
+  // Flipped with the follow-up ruling and for the same reason: `lockPackage`
+  // read with a select carrying neither `max_extra_hours` nor
+  // `extra_hour_centavos`, and `PackageCustomizationsInput` had no quantity
+  // field at all — so the stepper was a request the server could not honour and
+  // ₱0 was the honest answer. The select carries both columns now and the
+  // payload carries the quantity, so 4 hours at ₱500 is ₱2,000 on the total.
   const p = pkg([
     item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
   ]);
@@ -838,7 +1090,129 @@ test('extra hours move NO money — the lock path cannot see the columns', () =>
     paxCount: 0,
   });
   assert.ok(withHours && without);
-  assert.equal(withHours.bookingTotalCentavos, without.bookingTotalCentavos);
+  assert.equal(without.bookingTotalCentavos, 10_000_00);
+  assert.equal(withHours.bookingTotalCentavos, 10_000_00 + 4 * 500_00);
+  assert.deepEqual(withHours.chargeableExtraHours, { photo: 4 });
+});
+
+test('extra hours are CLAMPED to the line’s cap before anything is billed', () => {
+  // The stepper cannot exceed the cap, but a stale page or a hand-rolled payload
+  // can. The narrowing clamps (a money action must not fail over it) and the
+  // engine refuses an unclamped value (a price nobody was quoted must not be
+  // charged) — the same two postures as the option boundary.
+  const p = pkg([
+    item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
+  ]);
+  assert.deepEqual(chargeableExtraHours(p, [], [], { photo: 99 }), { photo: 4 });
+  assert.deepEqual(chargeableExtraHours(p, [], [], { photo: -3 }), {});
+  // Zero is omitted rather than recorded — an untouched stepper is not a request.
+  assert.deepEqual(chargeableExtraHours(p, [], [], { photo: 0 }), {});
+
+  const clamped = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: { picks: {}, extraHours: { photo: 99 } },
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(clamped);
+  assert.equal(clamped.bookingTotalCentavos, 10_000_00 + 4 * 500_00, 'billed past the cap');
+
+  assert.equal(
+    priceCustomizedPackage({
+      pkg: p,
+      removedItemIds: [],
+      chosenOptionIds: [],
+      creditEnabled: true,
+      paxCount: 0,
+      additions: [],
+      catalogue: [],
+      extraHours: { photo: 99 }, // NOT clamped
+    }),
+    null,
+    'the engine billed hours past the cap instead of refusing',
+  );
+});
+
+test('hours on a line with no hourly rate are dropped, then refused', () => {
+  // `max_extra_hours` caps an hourly model that already exists; a cap with no
+  // rate is not something anyone knows how to bill, so it is not a stepper and
+  // it is not a charge.
+  const p = pkg([item({ item_id: 'photo', max_extra_hours: 4 })]);
+  assert.deepEqual(chargeableExtraHours(p, [], [], { photo: 3 }), {});
+  assert.equal(
+    priceCustomizedPackage({
+      pkg: p,
+      removedItemIds: [],
+      chosenOptionIds: [],
+      creditEnabled: true,
+      paxCount: 0,
+      additions: [],
+      catalogue: [],
+      extraHours: { photo: 3 },
+    }),
+    null,
+  );
+});
+
+test('hours on a line the couple removed leave with the line', () => {
+  const p = pkg([
+    item({ item_id: 'base' }),
+    item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
+  ]);
+  assert.deepEqual(chargeableExtraHours(p, ['photo'], [], { photo: 4 }), {});
+  const totals = choiceTotals({
+    pkg: p,
+    removedItemIds: ['photo'],
+    selection: { picks: {}, extraHours: { photo: 4 } },
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(totals);
+  // Non-flexible package: the ₱1,000 line value comes off, and none of its
+  // hours are billed.
+  assert.equal(totals.bookingTotalCentavos, 9_000_00);
+});
+
+test('extra hours on a REVEALED follow-up are billed; on a hidden one they are not', () => {
+  // Follow-ups carry the hour axis too, and it is bounded by the same visibility
+  // rule as their options: no reveal, no charge.
+  const p = pkg([
+    item({
+      item_id: 'main',
+      options: [
+        opt({ option_id: 'std', is_default: true, display_order: 0 }),
+        opt({ option_id: 'premium', price_delta_centavos: 2_000_00, display_order: 1 }),
+      ],
+    }),
+    item({
+      item_id: 'extracover',
+      parent_option_id: 'premium',
+      is_default_included: false,
+      extra_hour_centavos: 300_00,
+      max_extra_hours: 3,
+    }),
+  ]);
+
+  const revealed = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: { picks: { main: ['premium'] }, extraHours: { extracover: 2 } },
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(revealed);
+  assert.equal(revealed.bookingTotalCentavos, 10_000_00 + 2_000_00 + 2 * 300_00);
+
+  const hidden = choiceTotals({
+    pkg: p,
+    removedItemIds: [],
+    selection: { picks: { main: ['std'] }, extraHours: { extracover: 2 } },
+    creditEnabled: true,
+    paxCount: 0,
+  });
+  assert.ok(hidden);
+  assert.equal(hidden.bookingTotalCentavos, 10_000_00, 'hours billed on a hidden line');
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */

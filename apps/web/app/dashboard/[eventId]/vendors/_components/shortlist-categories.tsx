@@ -72,6 +72,8 @@ import {
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
+import { benchSearchScopeForTile } from '@/lib/bench-category-search';
+import { CategorySearchOverlay } from './category-search-overlay';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import {
   coverageBadgeOf,
@@ -856,6 +858,36 @@ export function ShortlistCategories({
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
+  // ── In-place category search (2026-07-29) ─────────────────────────────────
+  // Owner: "clicking find more doesn't search specifically for that category.
+  // and it jumps to a new page, it needs to stay on that page."
+  //
+  // `CategorySearchOverlay` is the shipped answer — an in-place, hard-scoped
+  // full-page sheet, built precisely to replace the marketplace JUMP from the
+  // Find / Add buttons. It has only ever been mounted by the pre-takeover
+  // `plan-budget-accordion.tsx`; when this bench was built its rail-end card
+  // kept the old `/explore?tile=` <Link>. This is that same overlay, mounted
+  // the same way, with the same state + close handling. Nothing new.
+  //
+  // `searched` is why the close needs a refresh: the sheet ADDS-AND-STAYS, and
+  // `saveVendorToPicks` revalidates `/dashboard/[eventId]` (the overview page)
+  // — not this nested route — so nothing repaints the rail on its own. One soft
+  // `router.refresh()` on close, and only when something was actually added.
+  const [search, setSearch] = useState<{
+    groupId: string;
+    tile: string;
+    label: string;
+  } | null>(null);
+  const [searchAdded, setSearchAdded] = useState(false);
+  const openSearch = (tile: string, label: string) => {
+    setSearchAdded(false);
+    setSearch({ ...benchSearchScopeForTile(tile), label });
+  };
+  const closeSearch = () => {
+    setSearch(null);
+    if (searchAdded) router.refresh();
+    setSearchAdded(false);
+  };
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
@@ -1794,17 +1826,42 @@ export function ShortlistCategories({
                                   })}
                                 />
                               ))}
+                              {/* Rail-end card. BOTH labels ("Find more" /
+                                  "＋ Add another X" — slice D's
+                                  `railEndIsAddAnother`, untouched) open the SAME
+                                  in-place sheet: it is one job with two framings.
+                                  Flag OFF keeps the shipped `/explore?tile=`
+                                  <Link> exactly as it ships. `.slcat .act>*`
+                                  styles the button and the link identically —
+                                  the sibling "Add manually" card is already a
+                                  <button> in the same wrapper. */}
                               <span className="act find">
-                                <Link href={t.exploreHref} prefetch={false}>
-                                  {addAnother ? (
-                                    <Plus size={20} strokeWidth={1.9} aria-hidden />
-                                  ) : (
-                                    <Search size={20} strokeWidth={1.75} aria-hidden />
-                                  )}
-                                  <span className="at">
-                                    {addAnother ? cardAddAnother(t.label) : 'Find more'}
-                                  </span>
-                                </Link>
+                                {replan ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openSearch(t.tile, t.label)}
+                                  >
+                                    {addAnother ? (
+                                      <Plus size={20} strokeWidth={1.9} aria-hidden />
+                                    ) : (
+                                      <Search size={20} strokeWidth={1.75} aria-hidden />
+                                    )}
+                                    <span className="at">
+                                      {addAnother ? cardAddAnother(t.label) : 'Find more'}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <Link href={t.exploreHref} prefetch={false}>
+                                    {addAnother ? (
+                                      <Plus size={20} strokeWidth={1.9} aria-hidden />
+                                    ) : (
+                                      <Search size={20} strokeWidth={1.75} aria-hidden />
+                                    )}
+                                    <span className="at">
+                                      {addAnother ? cardAddAnother(t.label) : 'Find more'}
+                                    </span>
+                                  </Link>
+                                )}
                               </span>
                               <span className="act manual">
                                 <button
@@ -1849,12 +1906,29 @@ export function ShortlistCategories({
                             </div>
                           ) : (
                             <div className="find-set">
-                              <Link href={t.exploreHref} className="fr find" prefetch={false}>
-                                <span className="fr-i">
-                                  <Search size={16} strokeWidth={1.75} aria-hidden />
-                                </span>
-                                <span className="fr-t">Find {t.label}</span>
-                              </Link>
+                              {/* Empty-category doorway — same swap as the
+                                  rail-end card above. `.fr` already resets
+                                  button chrome (the "Add manually" sibling is a
+                                  <button> with the same class). */}
+                              {replan ? (
+                                <button
+                                  type="button"
+                                  className="fr find"
+                                  onClick={() => openSearch(t.tile, t.label)}
+                                >
+                                  <span className="fr-i">
+                                    <Search size={16} strokeWidth={1.75} aria-hidden />
+                                  </span>
+                                  <span className="fr-t">Find {t.label}</span>
+                                </button>
+                              ) : (
+                                <Link href={t.exploreHref} className="fr find" prefetch={false}>
+                                  <span className="fr-i">
+                                    <Search size={16} strokeWidth={1.75} aria-hidden />
+                                  </span>
+                                  <span className="fr-t">Find {t.label}</span>
+                                </Link>
+                              )}
                               <button
                                 type="button"
                                 className="fr manual"
@@ -1944,6 +2018,24 @@ export function ShortlistCategories({
             setManual(null);
             router.refresh();
           }}
+        />
+      ) : null}
+
+      {/* In-place category search (2026-07-29) — the SHIPPED overlay, mounted
+          the same way `plan-budget-accordion.tsx` mounts it: rendered at the
+          component root so its portal + fixed positioning escape the accordion's
+          `overflow:hidden` collapse wrappers. It owns its own focus trap,
+          scroll-lock and Escape (`useModalA11y`), so nothing extra is needed
+          here. Flag-gated by construction: `search` can only be set by the
+          replan-only buttons above. */}
+      {search ? (
+        <CategorySearchOverlay
+          eventId={eventId}
+          groupId={search.groupId}
+          tile={search.tile}
+          label={search.label}
+          onClose={closeSearch}
+          onAdded={() => setSearchAdded(true)}
         />
       ) : null}
 

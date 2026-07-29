@@ -61,6 +61,7 @@ import {
   canonicalServicesForTile,
   canonicalServicesForFolder,
 } from '@/lib/vendor-counts';
+import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventPreferences } from '@/lib/event-preferences';
 import {
   fetchCategoryFacets,
@@ -197,11 +198,39 @@ const EMPTY: CategorySearchResult = {
   facetDefaults: {},
 };
 
-/** Forward group → canonical services. Tightest-first: a leaf's single
+/** Forward scope → canonical services. Tightest-first: a leaf's single
  *  canonical hint, else its tile's canonical set, else the whole parent
  *  folder (guarantees a non-empty scope for parent-level groups). Mirrors
- *  the marketplace [Search] deep-link's scoping sources. */
-function canonicalsForGroup(groupId: string): string[] {
+ *  the marketplace [Search] deep-link's scoping sources.
+ *
+ *  ── TILE SCOPE WINS WHEN GIVEN (2026-07-29) ─────────────────────────────
+ *  The Vendors-tab BENCH is built from TILES, not plan groups, and a `tile`
+ *  input means "the couple tapped THIS row". It is preferred over the group for
+ *  two independent reasons:
+ *
+ *   1. **Coverage.** Only 22 of the 69 wedding tiles are the `catalogTile` of
+ *      any plan group. Without a tile branch two thirds of the bench could not
+ *      open the in-place overlay at all and would keep jumping to `/explore` —
+ *      which is the owner's complaint.
+ *   2. **Correct width.** For 13 of those 22 the group is much NARROWER than
+ *      the row, because `subcategoryHint` collapses it to a single canonical:
+ *      "Coordinator" would search 1 of its 12 canonical services, "Catering" 1
+ *      of 5, "Hair & makeup" 1 of 6. Scoping a row to a fraction of itself reads
+ *      as "the search is missing vendors" — a worse bug than the page jump.
+ *
+ *  The tile is never WIDER than the row either (it is the row), so it is the
+ *  only scope that is exactly right. `groupId` keeps its other two jobs
+ *  untouched — the last-minute config key (`planning_deadlines.ref_key`) and
+ *  the Budget-Planner allocation leaf — and both already fail open on a miss.
+ *
+ *  No `tile` ⇒ the shipped group path, byte for byte. That is the accordion. */
+function canonicalsForScope(groupId: string, tile: string): string[] {
+  if (tile) {
+    const fromTile = canonicalServicesForTile(tile as WeddingTile);
+    if (fromTile.length > 0) return fromTile;
+    // A tile with no canonicals at all (`editorial`) falls through to the group
+    // rather than returning an empty scope that would read as "no vendors".
+  }
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
   if (g.subcategoryHint) return [g.subcategoryHint];
@@ -229,7 +258,12 @@ function distanceKm(
 
 export async function searchCategoryVendors(input: {
   eventId: string;
+  /** Plan group to scope to. May be `''` when the caller is the bench and the
+   *  row's tile is finer than every plan group — `tile` then carries the scope. */
   groupId: string;
+  /** Bench TILE scope (2026-07-29). Optional and additive: the accordion still
+   *  passes only `groupId` and behaves exactly as before. See `canonicalsForScope`. */
+  tile?: string | null;
   query?: string;
   verifiedOnly?: boolean;
   maxKm?: number | null;
@@ -249,7 +283,9 @@ export async function searchCategoryVendors(input: {
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
-  if (!eventId || !groupId) return EMPTY;
+  const tile = String(input.tile ?? '').trim();
+  // Either key alone is a valid scope; neither is not.
+  if (!eventId || (!groupId && !tile)) return EMPTY;
 
   // Smart-sort SOFT re-rank gate (NEXT_PUBLIC_SMART_SORT_ENABLED · lib/smart-sort-flag).
   // OFF by default: every smart-sort read + comparator below is guarded by this
@@ -258,7 +294,7 @@ export async function searchCategoryVendors(input: {
   // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
   const smartSort = isSmartSortEnabled();
 
-  const groupCanonicals = canonicalsForGroup(groupId);
+  const groupCanonicals = canonicalsForScope(groupId, tile);
   if (groupCanonicals.length === 0) return EMPTY;
 
   // Auth + membership gate in one RLS-bounded read: events RLS restricts to

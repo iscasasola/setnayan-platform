@@ -348,6 +348,14 @@ export function PapicSeatCapture({
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
 
+  // Points exhaustion arrives ASYNC — as `camera_points_exhausted` from
+  // recordSeatCapture / the presign route — because pack seats carry no
+  // client-side cap (photoCap/clipCap are null for them). Without this
+  // page-level latch the exhausted panel below could only ever fire off the
+  // cap props, i.e. never for a pack seat, and a dry camera kept looking like
+  // a working one that silently refuses every shot.
+  const [outOfShots, setOutOfShots] = useState(false);
+
   const photoFull = photoCap != null && photos >= photoCap;
   const clipFull = clipCap != null && clips >= clipCap;
   const clipsAllowed = clipCap == null || clipCap > 0;
@@ -632,6 +640,7 @@ export function PapicSeatCapture({
             if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
             else setClips(clipCap ?? ((n) => n));
             patchShot(shot.id, { status: 'capped' });
+            setOutOfShots(true);
             announceOutOfShots();
             return;
           }
@@ -681,6 +690,7 @@ export function PapicSeatCapture({
           if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
           else setClips(clipCap ?? ((n) => n));
           patchShot(shot.id, { status: 'capped' });
+          setOutOfShots(true);
           announceOutOfShots();
           return;
         }
@@ -1114,8 +1124,9 @@ export function PapicSeatCapture({
   }
 
   // One gesture shutter, so "all used up" means BOTH kinds are exhausted (a
-  // photo-only seat just needs photos gone). Paid seats are uncapped → never full.
-  const allFull = photoFull && (clipFull || !clipsAllowed);
+  // photo-only seat just needs photos gone). Pack seats carry no client cap, so
+  // for them the ONLY exhaustion signal is the async `outOfShots` latch above.
+  const allFull = outOfShots || (photoFull && (clipFull || !clipsAllowed));
 
   const countLabel = capped
     ? `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}${

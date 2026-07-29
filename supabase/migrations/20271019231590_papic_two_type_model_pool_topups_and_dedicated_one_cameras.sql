@@ -749,7 +749,7 @@ BEGIN
     INSERT INTO public.paparazzi_seats
       (event_id, seat_index, sku_code, tier, claim_qr_token)
     VALUES (p_event_id, 110, 'PAPIC_CAMERA_ONE_FREE', 'free',
-            translate(encode(gen_random_bytes(24), 'base64'), '+/=', '-_'))
+            translate(encode(extensions.gen_random_bytes(24), 'base64'), '+/=', '-_'))
     ON CONFLICT (event_id, seat_index) DO NOTHING;
 
     SELECT seat_id INTO v_seat

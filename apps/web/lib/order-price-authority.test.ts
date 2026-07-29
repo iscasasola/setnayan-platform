@@ -153,6 +153,17 @@ const ORDER_MINTERS: Record<string, string> = {
     'Papic camera/window buys. Amount is a server-computed quote (quote.totalPhp / ' +
     'quote.frozenBillPhp); the form supplies quantities and windows, never pesos. ' +
     'Already service-role before SEC-4b — unchanged.',
+  'app/papic/buy/actions.ts':
+    'GUEST-bought Papic — a pool top-up or a reload of the buyer’s OWN camera, at the same rungs ' +
+    'the host pays (owner-locked 2026-07-29). The form carries a service_code CHOICE only; points ' +
+    'come from papic_pass_tiers / papic_one_tiers and the peso figure from ' +
+    'platform_retail_catalog_v2 (is_active re-checked before the order exists), both server-side. ' +
+    'Service-role write. THE ORDER HAS NO ACCOUNT: identity is stamped via guestOrderRowFor, whose ' +
+    'owner axis (claimed paparazzi_seats.claim_qr_token, or the signed setnayan_guest_session ' +
+    'cookie) replaces user_id — and the event_id comes off that credential, never off the form, ' +
+    'which is what stops an order being attached to a stranger’s event. A One reload additionally ' +
+    'requires the requested seat to BE the held seat (resolveGuestReloadTarget) and to already hold ' +
+    'a dedicated balance.',
   'app/vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts':
     'Vendor photo-challenge SKU. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch moved to the file’s existing `admin` client (the ₱0 branch was ' +
@@ -715,8 +726,12 @@ test('every converted mint stamps its identity columns through order-mint-identi
     for (const payload of orderInsertPayloads(src)) {
       // `compOrderRowFor` is the ₱0-comp sibling — it stamps the SAME three
       // identity columns (plus status / requested / confirmed), so a payload
-      // built by it satisfies this test for the same reason.
-      if (/\b(orderRowFor|compOrderRowFor)\s*\(/.test(payload)) continue;
+      // built by it satisfies this test for the same reason. `guestOrderRowFor`
+      // is the account-less sibling: there is no `auth.uid()` to stamp, so it
+      // stamps the OWNER AXIS instead (a claimed seat or a guest-QR identity)
+      // and refuses to build a payload at all when neither resolved — the same
+      // fail-closed guarantee, expressed against the only identity a guest has.
+      if (/\b(orderRowFor|compOrderRowFor|guestOrderRowFor)\s*\(/.test(payload)) continue;
       if (!/\buser_id\s*:/.test(payload)) continue;
       offenders.push(`${rel} → orders insert sets user_id by hand`);
     }

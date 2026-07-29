@@ -8,6 +8,8 @@ import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
+import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
+import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -23,12 +25,12 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ bridge?: string }>;
+  searchParams: Promise<{ bridge?: string; papic_buy_error?: string }>;
 };
 
 export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
-  const { bridge } = await searchParams;
+  const { bridge, papic_buy_error: buyError } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
   const bridgeEnabled =
@@ -119,6 +121,26 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // the server re-gates on write (recordSeatCapture). Fail-closed → OFF by default.
   const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
 
+  // Guest "Add shots" doorway (owner-locked 2026-07-29), flag-dark behind
+  // NEXT_PUBLIC_PAPIC_GUEST_BUY — the panel self-gates and renders null when the
+  // flag is off, so this page is byte-identical today.
+  //
+  // Only a camera that ALREADY holds a dedicated balance may be reloaded: one
+  // that shoots from the shared pool has no private balance to top up, and
+  // granting it one would silently move it off the pool the host is watching
+  // (papic_reserve_event_points_for_seat returns -1 the moment a seat has
+  // dedicated points). Read display-only here; the buy action re-checks it.
+  // Behind the flag, so the flag-off path does not even pay for the round-trip.
+  const canReloadOwnCamera = papicGuestBuyEnabled()
+    ? Number(
+        (
+          await admin.rpc('papic_seat_dedicated_points', {
+            p_seat_id: seat.seat_id as string,
+          })
+        ).data,
+      ) > 0
+    : false;
+
   return (
     <>
       <PapicSeatCapture
@@ -141,6 +163,12 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
           eventId={(seat.event_id as string) ?? ''}
         />
       ) : null}
+      <PapicGuestBuyPanel
+        seatToken={token}
+        returnTo={`/papic/seat/${token}`}
+        error={buyError ?? null}
+        canReloadOwnCamera={canReloadOwnCamera}
+      />
     </>
   );
 }

@@ -90,6 +90,28 @@ function isCapCode(code: string | null | undefined): boolean {
   return code != null && CAP_CODES.has(code);
 }
 
+/**
+ * Announce that the camera just refused a shot for want of points.
+ *
+ * A window CustomEvent rather than a callback prop, so this ~1,400-line
+ * safety-critical component does not grow a new piece of page-level state (and
+ * three new setter calls) to move one boolean to a sibling. The guest "Add
+ * shots" panel listens when NEXT_PUBLIC_PAPIC_GUEST_BUY is on; when it is off
+ * nothing is mounted and this dispatch is a no-op, so the camera renders
+ * byte-identically either way.
+ *
+ * Fire-and-forget by contract: it must never be able to break a capture, hence
+ * the guard + swallow.
+ */
+function announceOutOfShots(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('papic:out-of-shots'));
+  } catch {
+    /* a missing CustomEvent constructor must not break the camera */
+  }
+}
+
 /** Friendly, paparazzo-facing copy for a tag failure. The camera never breaks
  *  on a tag miss — these just steer the next scan. */
 function tagErrorMessage(error: string): string {
@@ -610,6 +632,7 @@ export function PapicSeatCapture({
             if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
             else setClips(clipCap ?? ((n) => n));
             patchShot(shot.id, { status: 'capped' });
+            announceOutOfShots();
             return;
           }
           if (result.error === 'clip_too_long') {
@@ -658,6 +681,7 @@ export function PapicSeatCapture({
           if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
           else setClips(clipCap ?? ((n) => n));
           patchShot(shot.id, { status: 'capped' });
+          announceOutOfShots();
           return;
         }
         const code = err instanceof Error ? err.message : '';

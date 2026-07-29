@@ -138,6 +138,25 @@ type Props = {
   storyToken?: string | null;
 };
 
+/**
+ * Announce that the guest camera just refused a shot for want of points.
+ *
+ * A window CustomEvent rather than a callback prop, so this ~1,400-line
+ * component does not grow page-level state to move one boolean to a sibling.
+ * The guest "Add shots" panel listens when NEXT_PUBLIC_PAPIC_GUEST_BUY is on;
+ * when it is off nothing is mounted and this dispatch is a no-op, so the camera
+ * renders byte-identically either way. Fire-and-forget: it must never be able
+ * to break a capture.
+ */
+function announceOutOfShots(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('papic:out-of-shots'));
+  } catch {
+    /* a missing CustomEvent constructor must not break the camera */
+  }
+}
+
 export function PapicGuestCapture({
   guestName,
   eventName,
@@ -385,6 +404,7 @@ export function PapicGuestCapture({
       if (res.status === 409 || json.status === 'quota_exhausted') {
         setRemaining(0);
         setSaveError(null);
+        announceOutOfShots();
         return;
       }
       // UGC moderation gates enforced server-side in the capture RPC.
@@ -628,6 +648,7 @@ export function PapicGuestCapture({
         if (res.status === 409 || json.status === 'quota_exhausted') {
           setRemaining(0);
           setSaveError(null);
+          announceOutOfShots();
           return;
         }
         if (json.status === 'blocked') {

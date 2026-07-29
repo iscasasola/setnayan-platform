@@ -26,6 +26,8 @@ import {
   orderRowFor,
   compOrderRowFor,
   paymentRowFor,
+  guestOrderRowFor,
+  guestPaymentRowFor,
 } from './order-mint-identity';
 
 /* ── 1 · STAMPING ───────────────────────────────────────────────────────────── */
@@ -296,5 +298,114 @@ test('compOrderRowFor forbids the call site setting status or either amount', ()
   assert.deepEqual(
     [_compRejectsStatus, _compRejectsRequested, _compRejectsConfirmed],
     [false, false, false],
+  );
+});
+
+/* ── 4 · THE GUEST DOOR (owner-locked 2026-07-29) ───────────────────────────── */
+//
+// An order with no account behind it. `user_id` is gone as the binding, so the
+// OWNER AXIS is what these tests hold: an order that names neither a camera
+// seat nor a guest-QR identity is refused, exactly as an order with no user is.
+
+test('guestOrderRowFor stamps the event and the seat, and leaves user_id null', () => {
+  const row = guestOrderRowFor(
+    { eventId: 'event-1', seatId: 'seat-1', guestId: null, userId: null },
+    { service_key: 'PAPIC_ONE_100', requested_total_php: 100 },
+  );
+  assert.equal(row.event_id, 'event-1');
+  assert.equal(row.user_id, null);
+  assert.equal(row.vendor_profile_id, null);
+  assert.equal(row.service_key, 'PAPIC_ONE_100');
+});
+
+test('guestOrderRowFor accepts a guest-QR identity as the owner axis', () => {
+  const row = guestOrderRowFor(
+    { eventId: 'event-1', seatId: null, guestId: 'guest-1', userId: null },
+    { service_key: 'PAPIC_GUEST', requested_total_php: 1000 },
+  );
+  assert.equal(row.event_id, 'event-1');
+  assert.equal(row.user_id, null);
+});
+
+test('⭐ guestOrderRowFor REFUSES when NEITHER owner axis is present', () => {
+  // This is the invariant the removed `user_id NOT NULL` used to provide: an
+  // order nobody can be shown to have placed must not be writable.
+  assert.throws(
+    () =>
+      guestOrderRowFor(
+        { eventId: 'event-1', seatId: null, guestId: null, userId: null },
+        { service_key: 'PAPIC_GUEST' },
+      ),
+    (e: unknown) => e instanceof MintIdentityRefused && e.fault === 'no-guest-owner',
+  );
+  // Blank strings are not an owner either.
+  assert.throws(
+    () =>
+      guestOrderRowFor(
+        { eventId: 'event-1', seatId: '  ', guestId: '', userId: null },
+        { service_key: 'PAPIC_GUEST' },
+      ),
+    (e: unknown) => e instanceof MintIdentityRefused && e.fault === 'no-guest-owner',
+  );
+});
+
+test('guestOrderRowFor REFUSES without an event — the credential resolved nothing', () => {
+  assert.throws(
+    () =>
+      guestOrderRowFor(
+        { eventId: '', seatId: 'seat-1', guestId: null, userId: null },
+        { service_key: 'PAPIC_GUEST' },
+      ),
+    (e: unknown) => e instanceof MintIdentityRefused && e.fault === 'no-guest-event',
+  );
+});
+
+test('the guest refusal message is the SAME constant — never an oracle', () => {
+  for (const identity of [
+    { eventId: '', seatId: 'seat-1', guestId: null, userId: null },
+    { eventId: 'event-1', seatId: null, guestId: null, userId: null },
+  ]) {
+    assert.throws(
+      () => guestOrderRowFor(identity, { service_key: 'X' }),
+      (e: unknown) => e instanceof Error && e.message === MINT_IDENTITY_REFUSED,
+    );
+  }
+});
+
+test('a real account IS attached when one happens to be present', () => {
+  // "Attach their account when there is one, never require it."
+  const row = guestOrderRowFor(
+    { eventId: 'event-1', seatId: 'seat-1', guestId: null, userId: 'user-9' },
+    { service_key: 'PAPIC_GUEST' },
+  );
+  assert.equal(row.user_id, 'user-9');
+});
+
+test('guestPaymentRowFor STAMPS pending and binds to the verified order', () => {
+  const row = guestPaymentRowFor(
+    { verifiedOrderId: 'order-1', userId: null },
+    { amount_php: 1000, channel: 'gcash' },
+  );
+  assert.equal(row.status, 'pending');
+  assert.equal(row.order_id, 'order-1');
+  assert.equal(row.user_id, null);
+});
+
+test('⭐ a guest payment cannot mint itself a non-pending status', () => {
+  // The load-bearing half of the activation gate: a payer who could write their
+  // own status would settle their own order, and points are granted only when
+  // an admin approves.
+  const smuggled = { amount_php: 1000, channel: 'gcash', status: 'matched' } as unknown as {
+    amount_php: number;
+    channel: string;
+  };
+  const row = guestPaymentRowFor({ verifiedOrderId: 'order-1', userId: null }, smuggled);
+  assert.equal(row.status, 'pending');
+});
+
+test('guestPaymentRowFor REFUSES without a verified order id', () => {
+  assert.throws(
+    () => guestPaymentRowFor({ verifiedOrderId: '', userId: null }, { amount_php: 1 }),
+    (e: unknown) => e instanceof MintIdentityRefused && e.fault === 'no-verified-order',
   );
 });

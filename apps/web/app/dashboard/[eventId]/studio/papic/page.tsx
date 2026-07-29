@@ -82,6 +82,7 @@ import {
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
+import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicOneCard } from './_components/papic-one-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
@@ -605,6 +606,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           the doorway, because the free One camera is armed for every event from
           this PR onward and a camera nobody can reload is a dead end. */}
       <PapicOneCard eventId={eventId} error={papicOneError ?? null} />
+
+      {/* Guests chipped in (owner-locked 2026-07-29) — flag-dark behind
+          NEXT_PUBLIC_PAPIC_GUEST_BUY, self-gating to null when off, when the
+          viewer is not a member, or when no guest has bought anything. Sits
+          directly under the two cards it reports on, because a guest's purchase
+          lands in exactly one of them: a pool top-up in the meter above, a One
+          reload on the camera card. NOTIFICATION ONLY — there is no control
+          here, deliberately: the host is told, not asked. */}
+      <GuestContributionsCard eventId={eventId} />
 
       {/* Your Papic look — the event-wide capture template the couple picks
           once. Baked into every camera's photos (seats, guests) on

@@ -1270,3 +1270,77 @@ test('an unavailable option is never selectable', () => {
   const main = p.items[0]!;
   assert.equal(isOptionSelectable(p, [], main, main.options![1]!, sel(), 0), false);
 });
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* REVERSIBLE REMOVAL (2026-07-29) — an unticked root stays on screen,        */
+/* worth nothing, until the couple re-ticks it. Before this, `visibleLineTree`*/
+/* dropped removed roots outright: the line vanished for the session, every   */
+/* removed-state style in the lock modal was unreachable dead code, and the   */
+/* "+₱X back to budget" copy promised an experiment the UI couldn't finish.   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+test('a removed root STAYS VISIBLE, marked, so it can be re-ticked', () => {
+  const p = branchingPkg();
+  const tree = visibleLineTree(p, ['main'], sel());
+  const main = tree.find((l) => l.item.item_id === 'main');
+  assert.ok(main, 'the unticked line must stay on screen');
+  assert.equal(main!.removed, true);
+  assert.equal(main!.depth, 0);
+  // …and everything NOT removed is explicitly marked as such.
+  for (const l of tree) {
+    if (l.item.item_id !== 'main') assert.equal(l.removed, false);
+  }
+});
+
+test('a removed root reveals NO follow-ups, even with its option still selected', () => {
+  const p = branchingPkg();
+  // The couple picked `premium` (which reveals `side`), THEN unticked the line.
+  const tree = visibleLineTree(p, ['main'], sel({ main: ['premium'] }));
+  assert.equal(
+    tree.some((l) => l.item.item_id === 'side'),
+    false,
+    'a removed root must not keep revealing its subtree',
+  );
+});
+
+test('a removed root is NEVER chargeable — options and hours both', () => {
+  const p = branchingPkg();
+  assert.deepEqual(
+    chargeableOptionIds(p, ['main'], ['premium', 'truffle']),
+    [],
+    'picks on a removed line must not survive the narrowing',
+  );
+  const hourly = pkg([
+    item({ item_id: 'base' }),
+    item({ item_id: 'photo', extra_hour_centavos: 500_00, max_extra_hours: 4 }),
+  ]);
+  assert.deepEqual(
+    chargeableExtraHours(hourly, ['photo'], [], { photo: 3 }),
+    {},
+    'hours on a removed line must not survive the narrowing',
+  );
+});
+
+test('remove → re-tick is a perfect roundtrip, on screen and in money', () => {
+  const p = branchingPkg();
+  const never = visibleLineTree(p, [], sel({ main: ['premium'] }));
+  const restored = visibleLineTree(p, [], sel({ main: ['premium'] }));
+  assert.deepEqual(restored, never);
+  for (const creditEnabled of [true, false]) {
+    const a = commit({ p, removed: [], requested: ['premium'], creditEnabled });
+    const b = commit({ p, removed: [], requested: ['premium'], creditEnabled });
+    assert.deepEqual(b, a, `re-ticked commit must equal never-removed (credit=${creditEnabled})`);
+  }
+});
+
+test('flat consumers keep BOOKING semantics — a removed line is not in them', () => {
+  const p = branchingPkg();
+  assert.equal(visibleLineIds(p, ['main'], sel()).includes('main'), false);
+  // A removed pick-N line below its minimum must NOT block the lock button.
+  const pn = pickNPkg();
+  assert.deepEqual(
+    unfinishedChoiceLines(pn, ['sides'], sel()).map((i) => i.item_id),
+    [],
+    'a removed line cannot hold the CTA hostage over picks it no longer needs',
+  );
+});

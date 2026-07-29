@@ -202,6 +202,15 @@ export type VisibleLine = {
   item: VendorPackageItemRow;
   /** 0 = a top-level line. Each follow-up sits one level under what revealed it. */
   depth: number;
+  /**
+   * An UNTICKED root, kept on screen so the couple can change their mind
+   * (owner 2026-07-29 — the "+₱X back to budget" copy invites experimenting,
+   * and a vanished line is an unfinishable experiment). A removed line renders
+   * struck-through, reveals NO follow-ups, and contributes NOTHING to any
+   * charge walk — visibility no longer implies chargeability for exactly this
+   * one marked state, and both charge walkers skip it explicitly.
+   */
+  removed: boolean;
 };
 
 /**
@@ -233,7 +242,7 @@ export function visibleLineTree(
   const walk = (item: VendorPackageItemRow, depth: number) => {
     if (seen.has(item.item_id)) return; // cycle guard — in-memory shapes only
     seen.add(item.item_id);
-    visible.push({ item, depth });
+    visible.push({ item, depth, removed: false });
 
     if (!isChoiceLine(item)) return;
     for (const option of optionsInForce(item, selection)) {
@@ -246,7 +255,14 @@ export function visibleLineTree(
   for (const item of items) {
     if (isFollowUpLine(item)) continue; // reached through its parent, or not at all
     if (!item.is_default_included) continue; // add-ons are not part of the booking
-    if (removed.has(item.item_id) && item.is_required !== true) continue;
+    if (removed.has(item.item_id) && item.is_required !== true) {
+      // An unticked root STAYS VISIBLE, marked, so it can be re-ticked — but it
+      // is NOT walked: its follow-up subtree stays hidden and none of its
+      // options are in force. Charge walkers skip `removed` entries, so this
+      // line contributes nothing anywhere money is computed.
+      visible.push({ item, depth: 0, removed: true });
+      continue;
+    }
     walk(item, 0);
   }
 
@@ -258,7 +274,11 @@ export function visibleLines(
   removedItemIds: ReadonlyArray<string>,
   selection: ChoiceSelection,
 ): VendorPackageItemRow[] {
-  return visibleLineTree(pkg, removedItemIds, selection).map((v) => v.item);
+  // Removed-but-still-rendered roots are a DISPLAY state; every flat-list
+  // consumer keeps the pre-reversibility semantics: lines IN the booking.
+  return visibleLineTree(pkg, removedItemIds, selection)
+    .filter((v) => !v.removed)
+    .map((v) => v.item);
 }
 
 /** Convenience: just the ids, for tests and for cheap membership checks. */
@@ -355,7 +375,8 @@ export function chargeableOptionIdsForSelection(
   selection: ChoiceSelection,
 ): string[] {
   const ids: string[] = [];
-  for (const { item } of visibleLineTree(pkg, removedItemIds, selection)) {
+  for (const { item, removed } of visibleLineTree(pkg, removedItemIds, selection)) {
+    if (removed) continue; // visible for re-ticking only — never chargeable
     if (!isChoiceLine(item)) continue;
     for (const option of effectivePicksOn(item, selection)) {
       ids.push(option.option_id);
@@ -384,7 +405,8 @@ export function chargeableExtraHoursForSelection(
   selection: ChoiceSelection,
 ): Record<string, number> {
   const hours: Record<string, number> = {};
-  for (const { item } of visibleLineTree(pkg, removedItemIds, selection)) {
+  for (const { item, removed } of visibleLineTree(pkg, removedItemIds, selection)) {
+    if (removed) continue; // visible for re-ticking only — never chargeable
     const value = extraHoursOn(item, selection);
     if (value > 0) hours[item.item_id] = value;
   }

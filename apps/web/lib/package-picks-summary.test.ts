@@ -527,3 +527,24 @@ test('a missing vendor label degrades to a sentence that still reads', () => {
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+test('a removed-but-visible root lands ONLY under `removed`, never as a build line (2026-07-29 reversible removal)', () => {
+  const summary = buildPackagePicksSummary({
+    packageName: 'Weekend Wedding Collection',
+    lines: [
+      { item: coverage, depth: 0 },
+      { item: mainCourse, depth: 0, removed: true },
+    ],
+    allItems: [coverage, mainCourse],
+    removedItemIds: [mainCourse.item_id],
+    selection: { picks: { [mainCourse.item_id]: ['o-lechon'] } },
+    bookingTotalCentavos: 10000000,
+    surchargeCentavos: 0,
+  });
+  assert.deepEqual(
+    summary.lines.map((l) => l.label),
+    [coverage.service_description],
+    'the unticked line must not appear as part of the build',
+  );
+  assert.equal(summary.removed.length, 1, 'it appears exactly once, under removed');
+});

@@ -75,23 +75,47 @@ export const TAB_META: Record<
 };
 
 /**
- * The Explore-Replan display label for a tab (`Explore_Replan_BUILD_SPEC_2026-07-27.md`
- * §3 PR-F). The `compare` section is reframed as **"Plans"** — the couple saves
- * NAMED plans, loads one back, and compares them side by side; "Compare" named
- * the view, not the thing.
+ * The Explore-Replan display label for a tab (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+ * §2, executing `Explore_Replan_BUILD_SPEC_2026-07-27.md` §3 PR-F).
  *
- * LABEL ONLY: the tab KEY stays `'compare'`, so `?tab=compare` deep links, the
- * `BB_TAB_EVENT` bus, the `#svc-compare` anchor and the
- * `customer.budget-subnav.compare` nav slot are all untouched. Every label
- * consumer (the mobile section sub-nav via `customer-menu.ts`, the takeover's
- * own `SectionStub`) reads through here so the two can't drift.
+ * Two renames, one word per concept:
+ *   - `compare` → **"Plans"** — the couple saves NAMED plans, loads one back,
+ *     and compares them side by side; "Compare" named the view, not the thing.
+ *   - `budget` → **"Payments"** — on THIS page the section is the payments lens
+ *     ("what's paid, what's due"). "Budget" is the money TARGET and belongs to
+ *     the tile + `/budget`, the canonical editor. One word, one concept.
+ *
+ * LABEL ONLY: the tab KEYS stay `'compare'` / `'budget'`, so `?tab=` deep links,
+ * the `BB_TAB_EVENT` bus, the `#svc-*` anchors and the
+ * `customer.budget-subnav.*` nav slots are all untouched. Every label consumer
+ * (the mobile section sub-nav via `customer-menu.ts`, the takeover's own
+ * `SectionStub`) reads through here so the two can't drift.
  *
  * Flag-gated: with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED` off this returns exactly
  * `TAB_META[tab].label`, i.e. today's production strings.
  */
 export function tabLabel(tab: BudgetBuildTab): string {
-  if (tab === 'compare' && isExploreReplanEnabled()) return 'Plans';
+  if (isExploreReplanEnabled()) {
+    if (tab === 'compare') return 'Plans';
+    if (tab === 'budget') return 'Payments';
+  }
   return TAB_META[tab].label;
+}
+
+/**
+ * The Explore-Replan sub-heading for a tab — the `tabLabel` counterpart for
+ * `TAB_META[tab].blurb`, so a renamed section can't keep the old section's
+ * sentence. Only `budget` moves: the section is the payments lens, and the
+ * budget TARGET is set at `/dashboard/[eventId]/budget` (the canonical editor),
+ * which is exactly where the lens's own link points.
+ *
+ * Flag-gated the same way — OFF returns `TAB_META[tab].blurb` verbatim.
+ */
+export function tabBlurb(tab: BudgetBuildTab): string {
+  if (tab === 'budget' && isExploreReplanEnabled()) {
+    return 'What’s paid, what’s due — and the doorway to your full budget.';
+  }
+  return TAB_META[tab].blurb;
 }
 
 /**

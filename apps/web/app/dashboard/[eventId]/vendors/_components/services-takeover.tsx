@@ -40,6 +40,7 @@ import {
   BUDGET_BUILD_TABS,
   TAB_META,
   tabLabel,
+  tabBlurb,
   BB_TAB_EVENT,
   goToBuildTab,
   type BudgetBuildTab,
@@ -69,12 +70,15 @@ export { BB_TAB_EVENT, goToBuildTab };
 const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
 
 /** Per-section intro copy — the single-scroll headings the strip scrolls between.
- *  `compare` is reframed as "Your plans" behind the Explore-Replan flag (PR-F);
- *  the section KEY / anchor / bus event stay `compare`. */
+ *  Behind the Explore-Replan flag (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+ *  §2 — one word, one concept): `compare` is reframed as "Your plans" (PR-F) and
+ *  `budget` as "Payments" — on this page the section is the payments lens, while
+ *  "budget" stays the money TARGET (the tile + `/budget`). The section KEYS /
+ *  anchors / bus events stay `compare` and `budget`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   shortlist: 'Browse the bench',
   build: 'Build your team',
-  budget: 'Your budget',
+  budget: isExploreReplanEnabled() ? 'Payments' : 'Your budget',
   compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
 };
 
@@ -244,8 +248,12 @@ export function ServicesTakeover({
 
 /**
  * One stacked section of the single-scroll surface: an anchored `<section>` with
- * a serif heading. Compare passes `collapsible` → the body sits behind a
- * "Show comparison" disclosure (controlled by the parent so the nav can open it).
+ * a serif heading. Compare AND Budget/Payments pass `collapsible` → the body sits
+ * behind a plain "Show" / "Hide" disclosure (controlled by the parent so the nav
+ * can open it). The label was hardcoded `'Show comparison'` until 2026-07-29 —
+ * a live copy bug, since the SAME button opens the Payments section
+ * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §5). The heading already names
+ * the section, so the button only has to name the verb.
  */
 function ServiceSection({
   tab,
@@ -262,7 +270,7 @@ function ServiceSection({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const { blurb } = TAB_META[tab];
+  const blurb = tabBlurb(tab);
   const bodyId = `${sectionId(tab)}-body`;
   // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — the bench only, and only
   // behind the flag. The heading keeps its exact pre-replan classes when the ⓘ
@@ -296,7 +304,7 @@ function ServiceSection({
             aria-controls={bodyId}
             className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
           >
-            {open ? 'Hide' : 'Show comparison'}
+            {open ? 'Hide' : 'Show'}
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
               strokeWidth={2}
@@ -384,7 +392,8 @@ function ExploreInfoToggle() {
 
 /** Fallback body when a slot isn't supplied (e.g. a slot still being built). */
 function SectionStub({ tab }: { tab: BudgetBuildTab }) {
-  const { icon: Icon, blurb } = TAB_META[tab];
+  const { icon: Icon } = TAB_META[tab];
+  const blurb = tabBlurb(tab);
   const label = tabLabel(tab);
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-12 text-center">

@@ -322,9 +322,14 @@ export function BuildCompare({
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
       {dialog}
       <div className="space-y-1">
-        <h2 className="font-display text-2xl italic text-ink">
-          {replan ? 'Plans' : 'Compare your plans'}
-        </h2>
+        {/* No card title inside a named section — the section heading ("Your
+            plans", `services-takeover.tsx`) is the only title
+            (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §2: today each
+            section names itself twice). Flag-ON only: with the replan OFF this
+            component still renders standalone-ish copy, so it keeps its own h2. */}
+        {replan ? null : (
+          <h2 className="font-display text-2xl italic text-ink">Compare your plans</h2>
+        )}
         <p className="text-sm text-ink/60">
           {replan
             ? 'Name a set of candidates as a plan, load one back any time, and put them side by side'

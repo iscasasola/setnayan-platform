@@ -359,6 +359,22 @@ export function papicOneRungPhrase(points: number, pricePhp: number): string {
 }
 
 /**
+ * The point CURRENCY, as two short terms a couple can read side by side.
+ *
+ * This is the one sentence that makes every other Papic number legible: without
+ * it "50 shots" and "8" are unrelated figures. Both weights interpolate the
+ * constants in lib/papic-cameras.ts, so the 7 → 8 clip reprice (owner-locked
+ * 2026-07-29) moved this line without anyone editing a surface — which is the
+ * entire reason it lives here and not in the card.
+ */
+export function papicPointCurrencyTerms(): readonly [string, string] {
+  return [
+    `1 photo = ${PAPIC_POINTS_PER_PHOTO} pt`,
+    `10-second clip = ${PAPIC_POINTS_PER_CLIP} pts`,
+  ];
+}
+
+/**
  * The honest capacity sentence for a LIFETIME bucket of points (a Papic One
  * camera, or the shared pool) as opposed to a per-day budget.
  *

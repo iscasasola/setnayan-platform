@@ -22,10 +22,14 @@ import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
 // as a literal (owner 2026-07-20 · guarded by lib/papic-copy-guardrails.test.ts).
 import {
   papicBucketPhrase,
-  papicFreeCameraCount,
   papicOneRungPhrase,
 } from '@/lib/papic-tier-copy';
-import { readPapicOneTiers, readPapicTierConfig } from '@/lib/papic-tier-config-read';
+import {
+  readPapicOneTiers,
+  readPapicTierConfig,
+  readPapicFreeOneCameraPoints,
+} from '@/lib/papic-tier-config-read';
+import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -195,16 +199,21 @@ export default async function PricingPage() {
   // Reads in parallel · helpers return [] on error, so the page still renders a
   // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
   // were removed 2026-06-29 (both deactivated).
-  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers] = await Promise.all([
-    fetchV2CustomerCatalog(),
-    fetchV2VendorCatalog(),
-    // Papic capacity + caps are DERIVED from the admin-editable tier config —
-    // never spelled as literals here (owner 2026-07-20). See lib/papic-tier-copy.ts.
-    readPapicTierConfig(),
-    // …except the Papic ONE shot counts, which live in `papic_one_tiers`. See
-    // the ladder block below for why reading them from the tier config was a lie.
-    readPapicOneTiers(),
-  ]);
+  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints] =
+    await Promise.all([
+      fetchV2CustomerCatalog(),
+      fetchV2VendorCatalog(),
+      // Papic capacity + caps are DERIVED from the admin-editable tier config —
+      // never spelled as literals here (owner 2026-07-20). See lib/papic-tier-copy.ts.
+      readPapicTierConfig(),
+      // …except the Papic ONE shot counts, which live in `papic_one_tiers`. See
+      // the ladder block below for why reading them from the tier config was a lie.
+      readPapicOneTiers(),
+      // …and the free ONE camera's bucket, which lives in a third place again:
+      // papic_event_pool_config.free_one_camera_points. See the free-camera
+      // block below for why the tier config's seat count was the wrong number.
+      readPapicFreeOneCameraPoints(),
+    ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
   // single ₱499 charge, access until the event date. The prior ₱499→₱799/28-day
@@ -242,7 +251,28 @@ export default async function PricingPage() {
     })
     .filter((r): r is { tier: (typeof papicOneTiers)[number]; pricePhp: number } => r !== null)
     .sort((a, b) => a.pricePhp - b.pricePhp);
-  const papicFreeCameras = papicFreeCameraCount(papicTierConfig);
+  // 🚨 THE FREE CAMERA ON *THIS* PRODUCT IS ONE, NOT THREE (fixed 2026-07-29).
+  //
+  // Both surfaces below used to read `papicFreeCameraCount(papicTierConfig)` —
+  // i.e. `papic_tier_config.free.seats_per_event`, which is 3. That number is a
+  // Papic POOL fact: three free SHARED seats (seat_index 100..102) that spend the
+  // event's shared point pool. Papic ONE is the DEDICATED product, and it gets
+  // exactly ONE free camera — `papic_ensure_free_one_camera` pins it to a single
+  // fixed seat_index and two unique constraints make a second impossible.
+  //
+  // So the One tab quoted the POOL's free-seat count on a product that gives one
+  // dedicated camera, and the estimator billed for that many fewer cameras than
+  // a couple would actually buy. Under the 2026-07-29 two-type lock the free tier is
+  // "unlimited POOL cameras sharing one purse, plus ONE free dedicated camera" —
+  // the three shared seats aren't a One allowance at all, and quoting them here
+  // was the last place the retired per-seat model still spoke.
+  //
+  // The free camera's own bucket is smaller than any paid rung, so the copy says
+  // so rather than implying a free camera equals a bought one.
+  const papicFreeOneCameras = papicFreeOnePoints > 0 ? PAPIC_FREE_ONE_CAMERA_COUNT : 0;
+  const papicOneLadderPhrase = papicOneLadder
+    .map(({ tier, pricePhp }) => papicOneRungPhrase(tier.points, pricePhp))
+    .join(' · ');
   const papicOneTitle = papicTierConfig.mini.displayTitle;
   const papicFromPhp = papicOneLadder.length
     ? Math.min(...papicOneLadder.map((r) => r.pricePhp))
@@ -262,11 +292,12 @@ export default async function PricingPage() {
           is_token_able: false,
           description:
             `A camera of its own for someone you trust — its own QR, and shots ` +
-            `nobody else can spend. Your first ${papicFreeCameras} ` +
-            `camera${papicFreeCameras === 1 ? '' : 's'} are free; after that, ` +
-            papicOneLadder
-              .map(({ tier, pricePhp }) => papicOneRungPhrase(tier.points, pricePhp))
-              .join(' · ') +
+            `nobody else can spend. ` +
+            (papicFreeOneCameras > 0
+              ? `Your ${papicFreeOneCameras === 1 ? 'first camera is' : `first ${papicFreeOneCameras} cameras are`} ` +
+                `free to try — ${papicBucketPhrase(papicFreeOnePoints)}. Then ` +
+                papicOneLadderPhrase
+              : papicOneLadderPhrase) +
             `. Reload any camera any time.`,
           build_status: 'live',
           billing_period: 'one_time',
@@ -376,7 +407,12 @@ export default async function PricingPage() {
   const papicOneRung = papicOneLadder[0] ?? null;
 
   const estimatorRates: EstimatorRates = {
-    freeCameras: papicFreeCameras,
+    // ONE free dedicated camera, not the three shared-pool seats — see the
+    // papicFreeOneCameras block above. This makes the quote go UP for anyone
+    // estimating more than one camera, which is the correct direction: they
+    // were previously quoted for two fewer paid cameras than they would buy.
+    freeCameras: papicFreeOneCameras,
+    freeCameraCapacity: papicFreeOnePoints > 0 ? papicBucketPhrase(papicFreeOnePoints) : null,
     one: papicOneRung
       ? {
           label: papicOneTitle,

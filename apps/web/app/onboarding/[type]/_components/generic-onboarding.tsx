@@ -28,6 +28,8 @@ import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
 import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
+import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
+import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -64,6 +66,19 @@ type Props = {
    * / flag-off) makes the flow byte-identical.
    */
   prefill?: OnboardingPrefill;
+  /**
+   * The services step's server-resolved view-model (Papic + Setnayan AI).
+   * NULL = the NEXT_PUBLIC_ONBOARDING_SERVICES_STEP flag is off ⇒ the screen is
+   * dropped from `screens` and this flow renders byte-identical to today.
+   */
+  servicesStepView?: ServicesStepView | null;
+  /**
+   * The already-rendered <SetnayanAiValue mode="preview" …/> (a Server
+   * Component node), forwarded straight through to the step. Passed as a node
+   * rather than re-rendered here so its server-only transitive imports stay out
+   * of this client bundle — and so its copy is never re-authored (spec § 1.4).
+   */
+  servicesStepAiValue?: React.ReactNode;
 };
 
 type Draft = {
@@ -98,6 +113,8 @@ export function GenericOnboarding(props: Props) {
     resume,
     nextPath = null,
     prefill = EMPTY_PREFILL,
+    servicesStepView = null,
+    servicesStepAiValue = null,
   } = props;
   const router = useRouter();
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
@@ -148,9 +165,15 @@ export function GenericOnboarding(props: Props) {
       ...(specialtyFields.length > 0 ? ['specialty'] : []),
       ...axisIds, // for_whom · feel · energy · roots · effort
       'reveal',
+      // The services step sits AFTER the persona reveal (so `planServices` is
+      // already derived and can order the two Papic products) and BEFORE
+      // congrats. Absent entirely when the flag is off — not hidden, not
+      // skipped: the array is shorter, so the progress bar, the step indices
+      // and every draft key are identical to today.
+      ...(servicesStepView ? ['services'] : []),
       'congrats',
     ],
-    [questions, axisIds, specialtyFields, prefillDetails],
+    [questions, axisIds, specialtyFields, prefillDetails, servicesStepView],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -533,6 +556,23 @@ export function GenericOnboarding(props: Props) {
           ) : (
             <Title>Answer a few more to see your plan.</Title>
           )}
+        </div>
+      );
+    }
+    if (screen === 'services' && servicesStepView) {
+      return (
+        <div>
+          <Eyebrow>Your services</Eyebrow>
+          <Title>Your memories are already being kept.</Title>
+          <ServicesStep
+            className="mt-6"
+            view={servicesStepView}
+            // interested_services' FIRST reader (spec § 1.3): the persona pack's
+            // derived service list orders the two Papic products. Nothing else —
+            // both always render, at their real prices.
+            interestedServices={planServices}
+            aiValue={servicesStepAiValue}
+          />
         </div>
       );
     }

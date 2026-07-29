@@ -53,6 +53,9 @@ const PAPIC_COPY_FILES = [
   'app/pricing/_papic-estimator.tsx',
   'app/_components/home/pricing-data.ts',
   'app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx',
+  // The onboarding services step (2026-07-29) — the FIRST place most couples
+  // ever read a Papic number, and the one with the least room to be wrong.
+  'app/onboarding/_shared/services-step.tsx',
 ];
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');

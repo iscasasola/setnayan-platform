@@ -22,6 +22,9 @@ import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
 import { getSelfPersonalization } from '@/lib/self-personalization';
 import { deriveOnboardingPrefill, EMPTY_PREFILL } from '@/lib/onboarding/prefill';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import { readServicesStepView } from '@/lib/onboarding/services-step-server';
+import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value';
 import { GenericOnboarding } from './_components/generic-onboarding';
 
 export const dynamic = 'force-dynamic';
@@ -84,8 +87,33 @@ export default async function GenericOnboardingPage({
     ? deriveOnboardingPrefill(type, await getSelfPersonalization())
     : EMPTY_PREFILL;
 
+  // The services step (Papic + Setnayan AI). Flag OFF ⇒ null ⇒ the wizard drops
+  // the screen from its sequence and the flow is byte-identical to today.
+  //
+  // Both halves are resolved HERE, on the server: the wizard is a client
+  // component, so the live catalog + the vendor-free AI gate cannot be read
+  // where the cards are shown. `aiValue` is the type-aware capability list
+  // rendered as a Server Component and passed down as a node — its own copy is
+  // owned by #3865 and is never re-authored in onboarding.
+  const servicesStepView = onboardingServicesStepEnabled()
+    ? await readServicesStepView(supabase, type)
+    : null;
+  const aiValueNode =
+    servicesStepView?.ai != null ? (
+      <SetnayanAiValue
+        mode="preview"
+        terms={{
+          eventWord: profile.terminology.eventWord,
+          organizerNoun: profile.terminology.organizerNoun,
+          hasStatutoryPaperwork: profile.statutoryPackKey != null,
+        }}
+      />
+    ) : null;
+
   return (
     <GenericOnboarding
+      servicesStepView={servicesStepView}
+      servicesStepAiValue={aiValueNode}
       eventType={type}
       label={row.label}
       emoji={row.emoji ?? '🎉'}

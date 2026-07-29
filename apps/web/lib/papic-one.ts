@@ -188,6 +188,56 @@ export function papicOneOrderRow(input: {
 export const PAPIC_FREE_ONE_POINTS_FALLBACK = 5;
 
 /**
+ * How many free Papic One cameras an event gets: exactly ONE.
+ *
+ * This is STRUCTURAL, not a tunable, which is why it is a constant here rather
+ * than another admin column. `papic_ensure_free_one_camera` pins the free One
+ * camera to a FIXED `seat_index` (110), so "does this event already have one?"
+ * is a unique-key question — the (event_id, seat_index) UNIQUE plus the partial
+ * index `papic_event_point_grants_one_free_camera_per_seat` make a second one
+ * impossible. The admin column tunes the POINTS on that camera
+ * (`free_one_camera_points`), never the count.
+ *
+ * ⚠ NOT the same number as `papicFreeCameraCount()`. That one reads
+ * `papic_tier_config.free.seats_per_event` (3) and counts the free SHARED-POOL
+ * seats — cameras that spend the event's shared 50-point pool. Those are a Papic
+ * POOL fact. Reading it as a Papic One allowance is exactly the confusion that
+ * made /pricing tell couples "your first 3 cameras are free" on the DEDICATED
+ * product, where only one is.
+ */
+export const PAPIC_FREE_ONE_CAMERA_COUNT = 1;
+
+/**
+ * The LIVE dedicated-point allowance on the free One camera, straight from the
+ * admin-editable column — the sibling of `fetchPapicFreeGrantPoints` in
+ * lib/papic-tier-copy.ts, and for the same reason: `papic_ensure_free_one_camera`
+ * reads this column to decide what to MINT, so any surface that quotes the number
+ * must read the same column or the two drift the moment an admin edits it.
+ *
+ * Never throws; falls back to PAPIC_FREE_ONE_POINTS_FALLBACK in ONE place.
+ */
+export async function fetchPapicFreeOneCameraPoints(
+  db: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await db
+      .from('papic_event_pool_config')
+      .select('free_one_camera_points')
+      .eq('config_key', 'default')
+      .maybeSingle();
+    if (error || !data) return PAPIC_FREE_ONE_POINTS_FALLBACK;
+    const n = Number((data as { free_one_camera_points?: unknown }).free_one_camera_points);
+    // A 0 here is MEANINGFUL, not a miss: the SQL treats `<= 0` as "don't arm a
+    // free camera at all", so a surface must be able to render that state (and
+    // drop the free rung) rather than substituting the fallback and promising a
+    // camera the meter will never mint.
+    return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : PAPIC_FREE_ONE_POINTS_FALLBACK;
+  } catch {
+    return PAPIC_FREE_ONE_POINTS_FALLBACK;
+  }
+}
+
+/**
  * Arm the ONE free Papic One camera for an event: a dedicated seat plus its
  * 5-point dedicated grant.
  *

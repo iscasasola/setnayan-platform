@@ -22,7 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -71,6 +71,7 @@ import {
   restoreTileToPlan,
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
 import {
   coverageBadgeOf,
@@ -200,6 +201,27 @@ const SLCAT_CSS = `
 @media (prefers-reduced-motion:reduce){.slcat .fold-collapse,.slcat .cat-collapse,.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{transition:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
 .slcat .fold-body .cat:first-child{border-top:0}
+/* ── Deep-link landing offset (2026-07-29) ──────────────────────────────────
+   '#slfold-*' (folder card) and '#sltile-*' (leaf category row) are the two
+   anchors every "jump me to that category" doorway aims at, always with
+   block:'start'. Flush at the top of the viewport tucks the row UNDER the
+   sticky chrome, so each anchor carries its own clearance instead:
+
+     • MOBILE (<1024px) — ServicesTakeover hides '.shell-topbar' outright
+       ('@media (max-width:1023px){.shell-topbar{display:none}}'), so nothing is
+       pinned at the top of this page. 14px is breathing room from the viewport
+       edge, not a clearance. (The bottom chrome — CustomerBottomNav +
+       CustomerSectionSubnav — sits BELOW the landed row and so cannot cover it;
+       the takeover already reserves its height with its own bottom padding.)
+     • DESKTOP (≥1024px) — '.shell-topbar' is 'sticky top-0' and REVEALS on an
+       upward scroll, which is exactly the direction a doorway scrolls. 96px is
+       the same clearance the takeover's own section anchors use for it
+       ('ServiceSection' → 'scroll-mt-24'); one number, one reason.
+
+   Attribute selectors, not '.cat'/'.fold', so this only ever applies to the
+   rows that actually carry an anchor. */
+.slcat [id^="slfold-"],.slcat [id^="sltile-"]{scroll-margin-top:14px}
+@media (min-width:1024px){.slcat [id^="slfold-"],.slcat [id^="sltile-"]{scroll-margin-top:96px}}
 .slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
 /* Leaf row LEFT — icon + name. The icon is a bare glyph (no disc): the folder
    head owns the disc, so the two levels stay visually ranked. '.cat-l' carries
@@ -815,9 +837,13 @@ export function ShortlistCategories({
   // Shortlist and back re-seeds this from the (server-fixed) prop and re-opens the
   // folder even if the couple collapsed it. Acceptable for a deep-link entry; a
   // persistent-mount fix on the takeover is a deferred follow-up.
-  const deepLinkFolder = initialOpenTile
-    ? (folders.find((f) => f.tiles.some((t) => t.tile === initialOpenTile))?.folder ?? null)
+  const deepLinkFolderRow = initialOpenTile
+    ? (folders.find((f) => f.tiles.some((t) => t.tile === initialOpenTile)) ?? null)
     : null;
+  const deepLinkFolder = deepLinkFolderRow?.folder ?? null;
+  // Its SLUG (≠ its key) — the folder anchor is built from the slug, and the
+  // mount scroll below needs it as a fallback target.
+  const deepLinkFolderSlug = deepLinkFolderRow?.slug ?? null;
   // Level 1: which folder is open. ALL COLLAPSED by default (owner 2026-06-16
   // "we want the parent categories to collapse so we can find the other services
   // faster") — the surface opens as a tight list of the ~10 parent categories, so
@@ -1151,10 +1177,55 @@ export function ShortlistCategories({
     setOpenFolder(folder);
     setOpenTile(tile);
     // Scroll the folder into view after it expands (next frame).
+    //
+    // Target unchanged (the FOLDER anchor): this path expands a folder that was
+    // collapsed, and while the 0fr→1fr transition runs the leaf rows have no
+    // height yet, so aiming at the leaf here would land on a position that no
+    // longer exists 240ms later. The mount path below has no such problem —
+    // there the folder is open on the FIRST paint, so nothing animates.
+    // Routed through the shared helper only so reduced motion is honoured.
     window.setTimeout(() => {
-      document.getElementById(`slfold-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollBenchAnchor(benchFolderAnchorId(slug));
     }, 60);
   }
+
+  // ── Deep-link landing — THE BENCH OWNS THIS SCROLL (2026-07-29) ────────────
+  // Fixes the owner's "still needs your decision doesn't jump to the exact
+  // accordion cell". Two defects, one handler:
+  //
+  //  1. There was no leaf anchor at all — only `#slfold-<slug>` — so the
+  //     doorway could not aim at the category even in principle. The leaf row
+  //     now renders `#sltile-<tile>` (see `benchTileAnchorId`).
+  //  2. The doorway guessed a 220ms `setTimeout` after `router.push`. That push
+  //     changes `page.tsx`'s `key={`sl-${sp.open ?? ''}`}`, which REMOUNTS this
+  //     component — and a caller cannot observe a remount it does not own. The
+  //     miss was silent, because it ended in `?.scrollIntoView()` on a null.
+  //
+  // So the scroll moves here, where the remount is observable: this effect IS
+  // the remount. No millisecond is guessed. `useLayoutEffect` + one frame is
+  // exact rather than hopeful, because `openFolder`/`openTile` are seeded in the
+  // `useState` initialisers above — `.fold.open` / `.cat.open` are therefore
+  // present on the FIRST paint, no expand transition runs, and layout is final
+  // by the time the frame callback fires. (The frame is only there to let the
+  // browser complete that first paint before we measure it.)
+  //
+  // Mount-only on purpose: `initialOpenTile` is fixed for a component instance
+  // (the page re-keys on it), so a changed deep link arrives as a NEW mount.
+  useLayoutEffect(() => {
+    // Flag OFF → byte-identical to today, including this doing nothing: the
+    // checklist's `?open=` deep link lands the category open but unscrolled,
+    // exactly as it ships.
+    if (!replan || !deepLinkFolderSlug || !initialOpenTile) return;
+    const frame = requestAnimationFrame(() => {
+      // Falls back to the folder if the leaf row isn't on the bench (the tile
+      // is pinned in-plan by `resolveInPlanTiles`, so this is belt-and-braces).
+      if (!scrollBenchAnchor(benchTileAnchorId(initialOpenTile))) {
+        scrollBenchAnchor(benchFolderAnchorId(deepLinkFolderSlug));
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Bench search — filter folders to tiles (or their considered vendors) matching
   // the query; while searching, every matching folder + tile shows expanded.
@@ -1468,7 +1539,7 @@ export function ShortlistCategories({
         return (
           <section
             key={folder.folder}
-            id={`slfold-${folder.slug}`}
+            id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}`}
           >
             <button
@@ -1563,7 +1634,17 @@ export function ShortlistCategories({
                   );
                   const CatIcon = tileIcon(t.tile);
                   return (
-                    <div key={t.tile} className={`cat${tileOpen ? ' open' : ''}`}>
+                    <div
+                      key={t.tile}
+                      // THE LEAF ANCHOR (2026-07-29). The bench used to render
+                      // only `#slfold-*`, so "jump to this category" doorways
+                      // could aim no closer than the folder head — the exact
+                      // cell had no scroll target at all. Flag OFF → `undefined`
+                      // → the attribute is not emitted and the DOM is
+                      // byte-identical to today.
+                      id={replan ? benchTileAnchorId(t.tile) : undefined}
+                      className={`cat${tileOpen ? ' open' : ''}`}
+                    >
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button
                           (not nested in the head button — buttons can't nest). */}

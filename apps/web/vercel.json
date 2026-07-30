@@ -2,6 +2,11 @@
   "regions": [
     "sin1"
   ],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
   "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in claude/*) exit 0;; esac; cd \"$(git rev-parse --show-toplevel)\" && git diff --quiet HEAD^ HEAD -- apps/web packages/shared package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json",
   "crons": []
 }

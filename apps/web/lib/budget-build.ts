@@ -32,8 +32,10 @@ import { isExploreReplanEnabled } from './explore-replan-flag';
  * The standalone "Lock" tab was REMOVED 2026-06-20 ("Build absorbs Lock" —
  * Vendor_Transaction_Lifecycle_2026-06-20.md Phase 1 PR2): the lock action +
  * the locked-service display now live inside the Build tab, so the couple's
- * whole assemble→lock loop happens in one place. `BuildLocked` renders below
- * `Build3StateControl` in the Build slot.
+ * whole assemble→lock loop happens in one place. `BuildLocked` is now the ONLY
+ * card in the Build slot — the tri-state Lock/Auto/Hidden grid that used to sit
+ * above it was deleted (Explore Replan spec §3, "Your team" is a MERGE), and
+ * its one real capability moved into the quote-fill row inside the team.
  */
 export const BUDGET_BUILD_TABS = ['shortlist', 'build', 'budget', 'compare'] as const;
 export type BudgetBuildTab = (typeof BUDGET_BUILD_TABS)[number];

@@ -44,7 +44,6 @@ import {
 } from '../build-actions';
 import { applyBuildToWorking } from '../build-pick-actions';
 import { useSaveLoader } from '@/components/sd-loader';
-import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
 import { requestPlanRename } from '@/lib/budget-build';
 import {
@@ -204,7 +203,7 @@ export function BuildCompare({
             eventId,
             rawName: name,
             overwriteBuildId: overwriteId || null,
-            snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+            snapshot: currentPlan,
           }),
         { steps: ['Saving your build'], hint: 'Saving' },
       );

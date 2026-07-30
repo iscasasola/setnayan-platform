@@ -61,8 +61,11 @@ export type PlanBuildSnapshot = {
   budgetPhp: number | null;
   totalPhp: number;
   picks: PlanBuildPick[];
-  // Which dimension led the solve when this build was saved (Pin solver Phase
-  // 3a). Optional + forward-compat: pre-3a snapshots have no pinMode.
+  // LEGACY, READ-ONLY: which dimension led the solve when this build was saved
+  // (Pin solver Phase 3a). NOTHING writes it any more — the "What's fixed?"
+  // control (`build-pin-mode.tsx`) that was its only author was deleted
+  // 2026-07-30, and no reader ever consumed the value. Kept optional so old
+  // JSONB snapshots that carry it still parse.
   pinMode?: 'budget' | 'services' | 'date';
 };
 

@@ -173,3 +173,228 @@ test('each group is alphabetical, so the desk does not reshuffle between renders
   });
   assert.deepEqual(m.gaps.map((e) => e.title), ['Anak', 'Malaya', 'Zamboanga']);
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * 5 · THE HOST'S PLAYLIST — `buildHostPlaylist()` (Song Desk PR 2)
+ *
+ * A second crossing with a genuinely different failure surface from the first:
+ * the picks are FREE TEXT (`song_label` + nullable `artist`), never resolved to a
+ * `songs` row, so the join is by normalised text and the artist rules are the
+ * part that can be quietly wrong. The claims this PR is accountable for:
+ *
+ *   1. THE FUZZY JOIN IS RIGHT — case and padding are ignored; a named artist
+ *      must agree; a blank artist on EITHER side lets the title decide; and the
+ *      answer does not depend on repertoire row order.
+ *   2. THE BANNED LIST IS READ THE OTHER WAY UP — the hazard is a banned song
+ *      the act DOES play, and it must never be counted as a normal gap.
+ *   3. THE NIGHT READS LIKE THE NIGHT — chronological, empty moments dropped,
+ *      `banned_songs` never rendered as a moment.
+ *   4. IT CANNOT THROW ON THE FLOOR — null lists, a labelless row, and an
+ *      unknown slot (which would throw inside `groupPicksBySlot`'s fixed Record)
+ *      are all survivable.
+ *
+ * Neutralisation check (2026-07-30 — actually run, numbers as measured):
+ *
+ *   • artist rules → plain full-key equality (`title|artist` both sides): 3 red
+ *     (both blank-artist cases + the ragged-repertoire row, whose match rests on
+ *     a blank artist). The case/padding test SURVIVES, correctly — equal keys are
+ *     equal either way, so it pins normalisation, not the artist rules.
+ *   • `hazardCount` inverted to count NOT-in-repertoire: exactly 2 red, both in
+ *     §5.2 and nothing else. That isolation is the claim — the banned crossing is
+ *     asserted independently of the moment crossing, so one cannot mask the other.
+ *   • empty moments kept instead of dropped: 14 red. Broad because the shape of
+ *     `moments` shifts under every index-based assertion; informative only as
+ *     coverage, not as a targeted probe.
+ *
+ * This is also how the "exact artist match beats a blank-artist one" preference
+ * in the first draft got deleted: no mutation of it could turn anything red,
+ * because it could not change an answer. An unkillable branch was the tell.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+import { buildHostPlaylist } from './song-desk';
+import type { PlaylistPickRow, PlaylistSlotType } from './playlist';
+
+let seq = 0;
+const pick = (
+  slot: PlaylistSlotType,
+  song_label: string,
+  artist: string | null = null,
+  notes: string | null = null,
+): PlaylistPickRow => {
+  seq += 1;
+  return {
+    pick_id: `pick-${seq}`,
+    public_id: `S89P-${seq}`,
+    event_id: 'evt-1',
+    slot_type: slot,
+    song_label,
+    artist,
+    notes,
+    sort_order: seq,
+    created_by_user_id: 'user-1',
+    created_at: '2026-07-30T00:00:00Z',
+    updated_at: '2026-07-30T00:00:00Z',
+  };
+};
+
+// ── 5.1 · The fuzzy join ────────────────────────────────────────────────────
+
+test('a pick matches the repertoire despite case and padding', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('first_dance', '  beautiful IN white ', 'westlife')],
+    repertoire: [song(1, 'Beautiful In White', 'Westlife')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+  assert.equal(m.gapCount, 0);
+});
+
+test('both sides name an artist and they disagree → NOT a match', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('open_floor', 'Perfect', 'One Direction')],
+    repertoire: [song(1, 'Perfect', 'Ed Sheeran')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, false);
+  assert.equal(m.gapCount, 1);
+});
+
+test('the couple named no artist → the title decides, and we show whose it is', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Perfect')],
+    repertoire: [song(1, 'Perfect', 'Ed Sheeran')],
+  });
+  const entry = m.moments[0]?.entries[0];
+  assert.equal(entry?.inRepertoire, true);
+  assert.equal(entry?.artist, ''); // the couple's field stays empty
+  assert.equal(entry?.matchedArtist, 'Ed Sheeran'); // ours, from the match
+});
+
+test('the REPERTOIRE names no artist → the title still decides', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Kahit Kailan', 'South Border')],
+    repertoire: [song(1, 'Kahit Kailan', '')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+  // The pick named an artist, so we do not echo one back at them.
+  assert.equal(m.moments[0]?.entries[0]?.matchedArtist, '');
+});
+
+test('a named artist matches among several same-title songs', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Perfect', 'One Direction')],
+    repertoire: [song(1, 'Perfect', 'Ed Sheeran'), song(2, 'Perfect', 'One Direction')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+});
+
+test('two same-title songs and a blank pick resolve the same way every render', () => {
+  const forward = buildHostPlaylist({
+    picks: [pick('dinner', 'Perfect')],
+    repertoire: [song(1, 'Perfect', 'One Direction'), song(2, 'Perfect', 'Ed Sheeran')],
+  });
+  const reversed = buildHostPlaylist({
+    picks: [pick('dinner', 'Perfect')],
+    repertoire: [song(2, 'Perfect', 'Ed Sheeran'), song(1, 'Perfect', 'One Direction')],
+  });
+  assert.equal(
+    forward.moments[0]?.entries[0]?.matchedArtist,
+    reversed.moments[0]?.entries[0]?.matchedArtist,
+  );
+});
+
+// ── 5.2 · The banned list is crossed the other way up ───────────────────────
+
+test('a banned song the act PLAYS is the hazard', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('banned_songs', 'Wonderwall', 'Oasis')],
+    repertoire: [song(1, 'Wonderwall', 'Oasis')],
+  });
+  assert.equal(m.hazardCount, 1);
+  assert.equal(m.banned[0]?.inRepertoire, true);
+});
+
+test('a banned song the act does NOT play is no hazard and no gap', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('banned_songs', 'Wonderwall', 'Oasis')],
+    repertoire: [],
+  });
+  assert.equal(m.hazardCount, 0);
+  assert.equal(m.gapCount, 0); // banned songs are anti-picks, never gaps
+});
+
+test('banned picks are excluded from the positive count and from the moments', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Ikaw'), pick('banned_songs', 'Wonderwall')],
+    repertoire: [],
+  });
+  assert.equal(m.positiveCount, 1);
+  assert.deepEqual(m.moments.map((x) => x.slot), ['dinner']);
+  assert.equal(m.banned.length, 1);
+});
+
+// ── 5.3 · The night reads like the night ────────────────────────────────────
+
+test('moments render chronologically, not in pick order', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('open_floor', 'Jopay'), pick('processional', 'Canon in D'), pick('dinner', 'Ikaw')],
+    repertoire: [],
+  });
+  assert.deepEqual(m.moments.map((x) => x.slot), ['processional', 'dinner', 'open_floor']);
+});
+
+test('moments with no picks are dropped, not rendered empty', () => {
+  const m = buildHostPlaylist({ picks: [pick('first_dance', 'Ikaw')], repertoire: [] });
+  assert.equal(m.moments.length, 1);
+});
+
+test('a moment carries the couple-facing label, not the column value', () => {
+  const m = buildHostPlaylist({ picks: [pick('banned_songs', 'X'), pick('cocktail_hour', 'Sway')], repertoire: [] });
+  assert.equal(m.moments[0]?.label, 'Cocktail hour');
+});
+
+test("the couple's note survives to the surface", () => {
+  const m = buildHostPlaylist({
+    picks: [pick('first_dance', 'Ikaw', 'Yeng Constantino', 'the acoustic version, please')],
+    repertoire: [],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.notes, 'the acoustic version, please');
+});
+
+test('picks keep their sort_order within a moment', () => {
+  const first = pick('open_floor', 'Alapaap');
+  const second = pick('open_floor', 'Buloy');
+  const m = buildHostPlaylist({ picks: [first, second], repertoire: [] });
+  assert.deepEqual(m.moments[0]?.entries.map((e) => e.title), ['Alapaap', 'Buloy']);
+});
+
+// ── 5.4 · It cannot throw on the floor ──────────────────────────────────────
+
+test('null lists produce an empty playlist, not a throw', () => {
+  const m = buildHostPlaylist({ picks: null, repertoire: null });
+  assert.equal(m.isEmpty, true);
+  assert.equal(m.moments.length, 0);
+  assert.equal(m.banned.length, 0);
+});
+
+test('an unknown slot is dropped instead of throwing inside groupPicksBySlot', () => {
+  const rogue = { ...pick('dinner', 'Ikaw'), slot_type: 'after_party' as PlaylistSlotType };
+  const m = buildHostPlaylist({ picks: [rogue, pick('dinner', 'Anak')], repertoire: [] });
+  assert.deepEqual(m.moments[0]?.entries.map((e) => e.title), ['Anak']);
+});
+
+test('a labelless row is dropped', () => {
+  const m = buildHostPlaylist({ picks: [pick('dinner', '   '), pick('dinner', 'Anak')], repertoire: [] });
+  assert.equal(m.positiveCount, 1);
+});
+
+test('a ragged repertoire row cannot break the index', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Anak')],
+    repertoire: [{ title: 'Anak' } as Song, song(1, 'Anak', 'Freddie Aguilar')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+});
+
+test('isEmpty is false when only banned songs exist', () => {
+  const m = buildHostPlaylist({ picks: [pick('banned_songs', 'Wonderwall')], repertoire: [] });
+  assert.equal(m.isEmpty, false);
+});

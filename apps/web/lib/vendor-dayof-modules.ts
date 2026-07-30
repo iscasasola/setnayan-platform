@@ -137,7 +137,9 @@ export function familiesForServices(
   eventTiles?: readonly string[] | null,
 ): Set<DayOfFamily> {
   const out = new Set<DayOfFamily>();
-  const eventSet = eventTiles ? new Set(eventTiles) : null;
+  // Empty ≠ "narrow to nothing" — see the same guard in
+  // vendor-specialization-gate.ts. An empty array would hide every module.
+  const eventSet = eventTiles && eventTiles.length > 0 ? new Set(eventTiles) : null;
   for (const s of services ?? []) {
     if (eventSet && !eventSet.has(s)) continue;
     const folder = TILE_PARENT[s as WeddingTile];

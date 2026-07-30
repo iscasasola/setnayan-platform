@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -35,8 +36,11 @@ async function fetchBookedTiles(
   const { data: brief } = await supabase.rpc('get_vendor_event_brief', {
     p_event_id: eventId,
   });
-  const tiles = (brief as { booked_categories?: unknown } | null)?.booked_categories;
-  return Array.isArray(tiles) ? (tiles as string[]) : null;
+  const raw = (brief as { booked_categories?: unknown } | null)?.booked_categories;
+  // `booked_categories` speaks the COUPLE-SIDE category vocabulary (`band_dj`),
+  // `services` speaks the TILE vocabulary (`live_band`). Translate before any
+  // caller intersects them — see tilesForVendorCategories().
+  return tilesForVendorCategories(Array.isArray(raw) ? (raw as string[]) : null);
 }
 
 /**

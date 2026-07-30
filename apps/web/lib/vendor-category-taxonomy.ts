@@ -197,3 +197,54 @@ export function validateVendorCategoryMapping(
   }
   return drift;
 }
+
+/**
+ * Translate a list of couple-side `event_vendors.category` values into the
+ * canonical TILE vocabulary that `vendor_profiles.services` speaks.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * The day-of surfaces narrow a vendor's own service tiles to "the tiles booked
+ * on THIS event", so a supplier who does both coordination and music gets the
+ * desk for the role they were actually booked in. The event-side signal comes
+ * from `get_vendor_event_brief().booked_categories`, which is in the COUPLE-SIDE
+ * category vocabulary (`band_dj`, `planner_coordinator`, `host_emcee`), while
+ * `services` is in the TILE vocabulary (`live_band`, `coordinator`, `host_mc`).
+ *
+ * Intersecting them directly can never match, so every narrowed vendor resolved
+ * to zero tiles and every specialization desk was unreachable in production —
+ * `live_band` ∉ {`band_dj`}. This is the translation that was missing.
+ *
+ * ── RETURN CONTRACT ────────────────────────────────────────────────────────
+ * `null` means "no usable narrowing signal — do not narrow", NOT "narrow to
+ * nothing". That distinction is the whole bug: callers gate on
+ * `eventTiles ? … : null`, where an empty array is truthy and silently excludes
+ * every tile. We return `null` when the input is absent AND when it maps to no
+ * tiles at all (e.g. every booked category is exempt, like `misc`), because in
+ * both cases the event simply cannot say which role the vendor holds.
+ *
+ * Narrowing is a REFINEMENT, never the gate. Access is still decided by
+ * booking + services + entitlement, so declining to narrow cannot widen who
+ * gets in — it only avoids locking out a vendor the event data can't classify.
+ *
+ * Unrecognised values pass through unchanged: an unmapped string is more likely
+ * a tile already than a category we must drop on the floor.
+ */
+export function tilesForVendorCategories(
+  categories: readonly string[] | null | undefined,
+): string[] | null {
+  if (!categories) return null;
+  const table = VENDOR_CATEGORY_CANONICAL as Record<string, CanonicalMapping | undefined>;
+  const out = new Set<string>();
+  for (const raw of categories) {
+    if (typeof raw !== 'string') continue;
+    const mapping = table[raw];
+    if (!mapping) {
+      out.add(raw);
+      continue;
+    }
+    if (mapping.kind === 'tile') out.add(mapping.tile);
+    else if (mapping.kind === 'tiles') for (const t of mapping.tiles) out.add(t);
+    // 'exempt' contributes no tile by design.
+  }
+  return out.size > 0 ? [...out] : null;
+}

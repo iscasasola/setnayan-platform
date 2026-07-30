@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-30 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-31 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -70,11 +70,15 @@ export default function PrivacyPage() {
             NPC registration will be filed under this business name.
           </p>
           <p className="pt-2">
-            Cross-border data transfers — Singapore (Supabase), United States
-            (Cloudflare R2 PH-region buckets), United States (Anthropic Console
-            for Setnayan AI), and United States (Google LLC, when you connect
-            the optional Google Drive or YouTube integrations) — are subject to
-            RA 10173 § 21 and the provider&rsquo;s adequacy commitments.
+            Cross-border data transfers — Singapore (Supabase, our database,
+            which is also where any biometric face vector is stored), the APAC
+            region (Cloudflare R2, our media storage, which holds photos,
+            videos, and the selfie image you upload if you enrol a face),
+            United States (Anthropic Console for Setnayan AI), and United States
+            (Google LLC, when you connect the optional Google Drive or YouTube
+            integrations) — are subject to RA 10173 § 21 and the
+            provider&rsquo;s adequacy commitments. None of our infrastructure is
+            hosted inside the Philippines.
             Third-party identity-verification providers (such as Persona,
             Veriff, or Onfido) are <strong>not currently active</strong> — the
             integration is a stub with no personal data flowing to them; we will

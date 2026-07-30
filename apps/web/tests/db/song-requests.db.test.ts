@@ -423,3 +423,61 @@ test('the gate helper is not callable by anon or authenticated', async () => {
     for (const row of r.rows) assert.equal(row.ok, false, `${role} must not EXECUTE the gate`);
   }
 });
+
+// ─── 7 · The window is a PAID switch (20271020159662) ───────────────────────
+//
+// Opening the window is the song_desk specialization, which is sold from tier
+// `solo` up. RLS on vendor_dayof_configs is row-level and can only ask "is this
+// your row" — so the column privilege is what stops a free-tier band PATCHing
+// `song_requests_open` straight through PostgREST. These tests are that claim.
+
+test('authenticated cannot WRITE song_requests_open, by either verb', async () => {
+  for (const priv of ['INSERT', 'UPDATE']) {
+    const r = await db.query<{ ok: boolean }>(
+      `SELECT has_column_privilege('authenticated', 'public.vendor_dayof_configs',
+                                   'song_requests_open', $1) AS ok`,
+      [priv],
+    );
+    assert.equal(
+      r.rows[0]!.ok,
+      false,
+      `authenticated must NOT hold ${priv} on song_requests_open — it is the paid switch`,
+    );
+  }
+});
+
+test('authenticated can still READ its own switch — reading it is not the sale', async () => {
+  const r = await db.query<{ ok: boolean }>(
+    `SELECT has_column_privilege('authenticated', 'public.vendor_dayof_configs',
+                                 'song_requests_open', 'SELECT') AS ok`,
+  );
+  assert.equal(r.rows[0]!.ok, true);
+});
+
+test('the module override still writes — the fix must not break the configurator', async () => {
+  for (const col of ['enabled_modules', 'updated_at', 'vendor_profile_id', 'event_id']) {
+    for (const priv of ['INSERT', 'UPDATE']) {
+      const r = await db.query<{ ok: boolean }>(
+        `SELECT has_column_privilege('authenticated', 'public.vendor_dayof_configs', $1, $2) AS ok`,
+        [col, priv],
+      );
+      assert.equal(r.rows[0]!.ok, true, `authenticated lost ${priv} on ${col}`);
+    }
+  }
+});
+
+test('service_role keeps the write — it is the only path the gated action has', async () => {
+  const r = await db.query<{ ok: boolean }>(
+    `SELECT has_column_privilege('service_role', 'public.vendor_dayof_configs',
+                                 'song_requests_open', 'UPDATE') AS ok`,
+  );
+  assert.equal(r.rows[0]!.ok, true);
+});
+
+test('anon holds nothing on vendor_dayof_configs at all', async () => {
+  const r = await db.query<{ priv: string }>(
+    `SELECT privilege_type AS priv FROM information_schema.role_table_grants
+     WHERE table_schema='public' AND table_name='vendor_dayof_configs' AND grantee='anon'`,
+  );
+  assert.deepEqual(r.rows, [], 'anon must hold nothing on the act’s day-of config');
+});

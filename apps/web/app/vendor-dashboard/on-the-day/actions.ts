@@ -2,11 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { saveDayOfOverride } from '@/lib/vendor-dayof-config';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
+import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import {
   buildVendorStatusDraft,
   normalizeRequestBody,
@@ -14,6 +17,22 @@ import {
   type DayRequestRow,
   type DayRequestStatus,
 } from '@/lib/day-requests';
+
+/**
+ * The taxonomy tiles this vendor is actually BOOKED under on this event, or
+ * null when the brief can't say — in which case callers fall back to the
+ * vendor's full `services[]`, the same best-effort the live console uses.
+ */
+async function fetchBookedTiles(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+): Promise<string[] | null> {
+  const { data: brief } = await supabase.rpc('get_vendor_event_brief', {
+    p_event_id: eventId,
+  });
+  const tiles = (brief as { booked_categories?: unknown } | null)?.booked_categories;
+  return Array.isArray(tiles) ? (tiles as string[]) : null;
+}
 
 /**
  * Persist the vendor's day-of module override for one booking.
@@ -43,15 +62,7 @@ export async function saveDayOfModules(
   const booking = bookings.find((b) => b.eventId === eventId);
   if (!booking) return { ok: false, error: 'You are not booked on this event.' };
 
-  // Event-scoped tiles for this booking (best-effort — the brief RPC carries
-  // booked_categories; if unavailable we fall back to the vendor's services).
-  let eventTiles: string[] | null = null;
-  const { data: brief } = await supabase.rpc('get_vendor_event_brief', {
-    p_event_id: eventId,
-  });
-  if (brief && Array.isArray((brief as { booked_categories?: unknown }).booked_categories)) {
-    eventTiles = (brief as { booked_categories: string[] }).booked_categories;
-  }
+  const eventTiles = await fetchBookedTiles(supabase, eventId);
 
   // Only persist ids that are genuinely available to this vendor for this event.
   const available = new Set(
@@ -68,6 +79,92 @@ export async function saveDayOfModules(
   if (!res.ok) return { ok: false, error: res.error ?? 'Could not save.' };
 
   revalidatePath('/vendor-dashboard/on-the-day');
+  return { ok: true };
+}
+
+/**
+ * Open or close the act's guest-song-requests window for one booking.
+ *
+ * THE ONLY WRITE PATH to `vendor_dayof_configs.song_requests_open`. Migration
+ * 20271020159662 withdrew that column's INSERT/UPDATE privilege from
+ * `authenticated`, because RLS is row-level and could only ask "is this your
+ * row" — never "did you pay for the song desk". A free-tier band could PATCH
+ * the column straight through PostgREST and start collecting requests it had
+ * not bought.
+ *
+ * So the entitlement is checked HERE, in the one place the rule lives, and the
+ * write goes out as service_role. Resolving it in TypeScript rather than SQL is
+ * deliberate: `resolveVendorSpecializationAccessForVendor` folds in the admin
+ * free-window promotion and the mid-event lapse, and a SQL copy of those rules
+ * would drift from the copy every render path already uses.
+ *
+ * Because service_role bypasses RLS entirely, the two checks RLS used to make
+ * are re-made explicitly above the write: the caller owns the vendor profile,
+ * and that profile is booked on this event.
+ */
+export async function setSongRequestsOpen(
+  eventId: string,
+  open: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, error: 'No vendor profile.' };
+
+  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  if (!bookings.some((b) => b.eventId === eventId)) {
+    return { ok: false, error: 'You are not booked on this event.' };
+  }
+
+  const eventTiles = await fetchBookedTiles(supabase, eventId);
+  const access = await resolveVendorSpecializationAccessForVendor(
+    supabase,
+    profile.vendor_profile_id,
+    { services: profile.services, eventTiles },
+  );
+  if (!holdsSpecialization(access, 'song_desk')) {
+    return { ok: false, error: 'The song desk is part of a paid plan.' };
+  }
+
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: updated, error: updateError } = await admin
+    .from('vendor_dayof_configs')
+    .update({ song_requests_open: open, updated_at: now })
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('event_id', eventId)
+    .select('config_id');
+  if (updateError) return { ok: false, error: updateError.message };
+  if (updated && updated.length > 0) {
+    revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+    return { ok: true };
+  }
+
+  // No override row yet. It must be seeded with the vendor's CURRENT defaults,
+  // never with the column default of `[]`: `enabled_modules` is a present-row
+  // override that `resolveModules` treats as authoritative, so an empty array
+  // means "every module off". Inserting the bare flag would silently switch off
+  // this vendor's entire generic day-of kit as a side effect of opening the
+  // requests window.
+  const defaults = resolveModules(profile.services, eventTiles, null)
+    .filter((m) => m.enabled)
+    .map((m) => m.id);
+
+  const { error: insertError } = await admin.from('vendor_dayof_configs').insert({
+    vendor_profile_id: profile.vendor_profile_id,
+    event_id: eventId,
+    enabled_modules: defaults,
+    song_requests_open: open,
+    updated_at: now,
+  });
+  if (insertError) return { ok: false, error: insertError.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   return { ok: true };
 }
 

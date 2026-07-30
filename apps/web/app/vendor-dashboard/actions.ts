@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -177,7 +178,31 @@ function parseCompatibilityArray(
  * matches the component-level `maxFiles=10` so a hostile client can't
  * balloon the column.
  */
-function parsePortfolioRefs(raw: FormDataEntryValue[], max = 10): string[] {
+function parsePortfolioRefs(
+  raw: FormDataEntryValue[],
+  max: number,
+  vendorProfileId: string,
+): string[] {
+  // ── 🔴 SEC-1: EVERY ref is pinned to THIS vendor's own folder ──────────────
+  //
+  // The `startsWith('r2://')` check below used to be the only validation, and it
+  // was not enough by a wide margin. `/v/[slug]` — the PUBLIC vendor page —
+  // resolves this column through `resolvePortfolioUrls` → `displayUrlForStoredAsset`,
+  // which is precisely the function `lib/r2-client-ref.ts` documents as signing
+  // "any r2:// ref for any of the five buckets with no tenancy check whatsoever".
+  //
+  // So a vendor could put `r2://setnayan-vendor-verification/vendors/{someone
+  // else}/verification/dti.pdf` into their OWN portfolio array and their own
+  // public profile would publish it — another vendor's DTI / BIR 2303 / Mayor's
+  // Permit, i.e. government ID documents, served to the open internet. Worse than
+  // the paperwork lane (#3902), which at least required a signed-in host.
+  //
+  // `vendorOwnedMediaPolicy` pins both halves: the PUBLIC media bucket (never a
+  // private one) and the `vendors/{thisVendor}/` prefix. A ref that fails is
+  // DROPPED rather than throwing — a portfolio is a list, and one bad entry must
+  // not fail an otherwise valid profile save — but it can never be stored, so the
+  // publish path has nothing to sign.
+  const policy = vendorOwnedMediaPolicy(vendorProfileId);
   const out: string[] = [];
   for (const item of raw) {
     if (typeof item !== 'string') continue;
@@ -185,6 +210,7 @@ function parsePortfolioRefs(raw: FormDataEntryValue[], max = 10): string[] {
     if (trimmed.length === 0) continue;
     if (!trimmed.startsWith('r2://')) continue;
     if (out.includes(trimmed)) continue;
+    if (!parseClientRef(trimmed, policy)) continue; // not this vendor's own media
     out.push(trimmed);
     if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
   }
@@ -292,11 +318,16 @@ export async function saveVendorProfile(formData: FormData) {
   // FULL_VENDOR_PROFILE_SELECT). One read, reused for both caps below.
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state, business_slug')
+    .select('tier_state, business_slug, vendor_profile_id')
     .eq('user_id', user.id)
     .maybeSingle();
   const tierRowTyped = tierRow as
-    | { tier_state?: string | null; business_slug?: string | null }
+    | {
+        tier_state?: string | null;
+        business_slug?: string | null;
+        // SEC-1: needed to pin every portfolio ref to this vendor's own folder.
+        vendor_profile_id?: string | null;
+      }
     | null;
   const caps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
   const portfolioMax = caps.portfolioPhotos;
@@ -385,9 +416,16 @@ export async function saveVendorProfile(formData: FormData) {
     contact_email: nullIfBlank(formData.get('contact_email')),
     contact_phone: nullIfBlank(formData.get('contact_phone')),
     is_published: formData.get('is_published') === 'on',
+    // SEC-1: refs are pinned to this vendor's own media folder. The `?? ''`
+    // fail-closed default cannot cost a vendor their gallery: `vendor_profile_id`
+    // is the PK of a row selected by this user's OWN user_id, so it is non-null
+    // whenever the row exists — and when it does NOT exist the write below is an
+    // `UPDATE … .eq('user_id')` that touches 0 rows, so nothing is persisted
+    // either way. Fail-closed, never "publish whatever was posted".
     portfolio_r2_keys: parsePortfolioRefs(
       formData.getAll('portfolio_r2_keys'),
       portfolioMax,
+      tierRowTyped?.vendor_profile_id ?? '',
     ),
     // Featured videos — external URLs (YouTube/Vimeo inline · IG/FB/TikTok
     // link-out). Validated + capped at 10 to match the DB CHECK. Additive
@@ -799,9 +837,13 @@ export async function updateVendorProfileField(
           }
         | null;
       const portfolioMax = tierCaps(asVendorTier(tr?.tier_state)).portfolioPhotos;
+      // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
+      // `vendor_profile_id` is the PK of this user's own row, and the patch below
+      // is an UPDATE keyed on `user_id`, so a missing id writes nothing at all.
       const refs = parsePortfolioRefs(
         formData.getAll('portfolio_r2_keys'),
         portfolioMax,
+        tr?.vendor_profile_id ?? '',
       );
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
       // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.

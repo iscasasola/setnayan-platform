@@ -51,6 +51,7 @@ import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { isVendorSurfaceServiceKey } from '@/lib/vendor-surface-service-keys';
 import { AI_SUB_SKU } from '@/lib/setnayan-ai-subscription';
 import {
   resolveOrderChargeCentavos,
@@ -384,6 +385,30 @@ export async function submitOrderAction(
   //     it is no longer a legitimate 'unknown': it reaches
   //     resolveOrderChargeCentavos only via a forged POST, and is refused there.
   //
+  // ── SEC-4b · vendor-surface keys are not sellable here ────────────────────
+  // Runs BEFORE the sellability gate because it is NOT a pricing question. The
+  // four `vendor_*__<id>` families encode a vendor-owned target in the key, and
+  // activateOrderSku's PREFIX_HOOKS provision straight off that string with no
+  // check that the order relates to the owning vendor.
+  //
+  // ⚠ This is defence in depth, not a live fix: SEC-7 already refuses these at
+  // resolveOrderChargeCentavos ('no_price_source'), because none of them has a
+  // catalog row. That protection is a PRICING accident, though — add one of
+  // these prefixes to platform_retail_catalog_v2 and SEC-7 will resolve a price
+  // and wave it through. This check does not care what the catalog says.
+  //
+  // Nothing legitimate is lost: each family is minted by its own
+  // vendor-dashboard action (branches / team / custom plan / the booking-fee
+  // lock), never by the couple drawer.
+  if (isVendorSurfaceServiceKey(serviceKey)) {
+    return {
+      ok: false,
+      // Deliberately generic — it must not confirm whether the referenced
+      // charge / branch / profile exists.
+      reason: 'That service is not available from this checkout.',
+    };
+  }
+
   // Fails CLOSED on a read error. This knowingly reverses the older "a transient
   // read failure NEVER blocks an order" stance for THIS check only: a checkout
   // blocked for thirty seconds beats an order created at a client-supplied price.

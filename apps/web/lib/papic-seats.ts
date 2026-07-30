@@ -38,7 +38,15 @@ import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlement
  */
 
 export const PAPIC_SEATS_SERVICE_KEY = 'PAPIC_SEATS';
-export const PAPIC_SEATS_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
+
+// PAPIC_SEATS_PRICE_PHP (₱2,999) DELETED 2026-07-30 — a loaded gun with nothing
+// holding it. Nothing referenced it, and the price it carried is retired twice
+// over: the two-type lock (owner 2026-07-29) replaced the 5-seat pass with Papic
+// Pool top-ups and per-camera Papic One reloads, and the PAPIC_SEATS catalog row
+// itself is inactive. A hardcoded peso constant sitting next to a live service key
+// is how a stale price gets reintroduced by a well-meaning autocomplete — prices
+// come from platform_retail_catalog_v2, and a code with no active row must refuse
+// rather than fall back (see api/v1/billing/initialize-maya/route.ts readSkuPrice).
 
 /**
  * Login-free seat claim flag (owner-gated · 2026-06-21).

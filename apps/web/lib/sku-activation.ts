@@ -1114,6 +1114,82 @@ async function recomputeVendorExtraSeats(
 }
 
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
+/**
+ * SEC-4b · THE ORDER MUST OWN WHAT IT PROVISIONS.
+ *
+ * The four `vendor_*__<id>` hooks below read their TARGET out of the service_key
+ * string and act on it. Nothing downstream ever asked whether the ORDER belongs
+ * to the vendor that owns that target — so an order minted from any other
+ * surface (couple checkout, a comp grant, a hand-inserted row) could settle a
+ * stranger's booking fee, activate a stranger's branch, or promote a stranger's
+ * Custom plan.
+ *
+ * This resolves the OWNING vendor of the target and compares it with the order's
+ * own `vendor_profile_id`. Couple-side checkout pins that column to NULL, so a
+ * couple-minted row can never match and is refused here regardless of how it was
+ * created.
+ *
+ * ⚠ THIS IS THE ORIGIN-INDEPENDENT GATE, and the load-bearing one of the pair.
+ * Its sibling — `isVendorSurfaceServiceKey` in couple checkout (landed
+ * separately) — only guards ONE door, and what actually blocks that door today
+ * is SEC-7's pricing refusal rather than the guard itself. This check holds for
+ * every origin, including ones with no pricing step at all: a comp grant, an
+ * admin-minted bespoke order from /admin/custom-plans, or any future minter.
+ *
+ * THROWS rather than returning false. The dispatcher's catch logs it and leaves
+ * the order recoverable (an admin can refund) — which is the right outcome:
+ * money may have moved, but the wrong tenant is not provisioned. Failing OPEN
+ * here would defeat the whole check.
+ */
+async function assertOrderOwnsVendorTarget(
+  ctx: ActivationContext,
+  targetVendorProfileId: string | null,
+): Promise<void> {
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const orderVendorId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+
+  if (!orderVendorId || !targetVendorProfileId || orderVendorId !== targetVendorProfileId) {
+    throw new Error(
+      `SEC-4b: order ${ctx.orderId} (vendor_profile_id=${orderVendorId ?? 'null'}) may not ` +
+        `provision ${ctx.serviceKey}, which belongs to vendor ` +
+        `${targetVendorProfileId ?? 'unknown'}. Refusing to activate.`,
+    );
+  }
+}
+
+/** The vendor that owns a branch, or null when the branch is unknown. */
+async function branchOwnerVendorId(
+  ctx: ActivationContext,
+  branchId: string,
+): Promise<string | null> {
+  const { data } = await ctx.admin
+    .from('vendor_branches')
+    .select('parent_vendor_profile_id')
+    .eq('branch_id', branchId)
+    .maybeSingle();
+  return (
+    (data as { parent_vendor_profile_id?: string | null } | null)?.parent_vendor_profile_id ?? null
+  );
+}
+
+/** The vendor that owns a booking-fee charge, or null when unknown. */
+async function chargeOwnerVendorId(
+  ctx: ActivationContext,
+  chargeId: string,
+): Promise<string | null> {
+  const { data } = await ctx.admin
+    .from('booking_fee_charges')
+    .select('vendor_profile_id')
+    .eq('charge_id', chargeId)
+    .maybeSingle();
+  return (data as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+}
+
 const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
@@ -1130,6 +1206,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const chargeId = chargeIdFromBookingFeeLockServiceKey(ctx.serviceKey);
       if (!chargeId) return;
+      // SEC-4b: the paying order must belong to the charge's own vendor.
+      await assertOrderOwnsVendorTarget(ctx, await chargeOwnerVendorId(ctx, chargeId));
       const settled = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -1146,6 +1224,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const branchId = branchIdFromServiceKey(ctx.serviceKey);
       if (!branchId) return;
+      // SEC-4b: the paying order must belong to the branch's parent vendor.
+      await assertOrderOwnsVendorTarget(ctx, await branchOwnerVendorId(ctx, branchId));
       const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
       await ctx.admin
         .from('vendor_branches')
@@ -1177,6 +1257,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
+      // SEC-4b: the key names the vendor directly — the order must be theirs.
+      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
       const paidSeats = await recomputeVendorExtraSeats(ctx.admin, vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -1216,6 +1298,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
+      // SEC-4b: the key names the vendor directly — the order must be theirs.
+      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
 
       // (0) Idempotency — already activated this order? (Lets us exclude 'active'
       //     from the candidate set below without turning a re-approval into a

@@ -48,6 +48,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
+import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
@@ -543,9 +544,16 @@ export async function submitOrderAction(
   // which uploads direct-to-R2 and emits the r2:// ref. Fallback to legacy
   // <input type="file" name="screenshot"> covers any future drift.
   let screenshotUrl: string | null = null;
+  // SEC-1: the order row does not exist yet here, so the ref is bound to the
+  // event + the buyer's own user id — the two server-known keys the drawer and
+  // the historical uploader write under. A bare `startsWith('r2://')` accepted
+  // any key in any bucket, which an admin then renders while reconciling.
   if (
     typeof screenshotRefRaw === 'string' &&
-    screenshotRefRaw.trim().startsWith('r2://')
+    parseClientRef(
+      screenshotRefRaw.trim(),
+      inlineCheckoutProofPolicy(eventIdClean, user.id),
+    )
   ) {
     screenshotUrl = screenshotRefRaw.trim();
   } else {

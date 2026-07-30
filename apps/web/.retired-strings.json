@@ -12,19 +12,31 @@
       "pattern": "Pareto",
       "retired_at": "2026-05-17",
       "reason": "Not in canonical SKU table; never shipped. Re-appeared on /features per Sweep 5 drift audit.",
-      "allow_paths": ["apps/web/lib/taxonomy.ts"]
+      "allow_paths": [
+        "apps/web/lib/taxonomy.ts"
+      ]
     },
     {
       "pattern": "Custom Monogram Pack",
       "retired_at": "2026-05-14",
       "reason": "Superseded by Bespoke Monogram (iteration 0037). CLAUDE.md 2026-05-14 row. Live SKU code 'custom_monogram_pack' still exists in service_catalog and is referenced by the Panood setup page — that surface is allow-listed pending a separate spec-vs-code reconciliation ticket.",
-      "allow_paths": ["apps/web/app/dashboard/[eventId]/studio/panood/setup/page.tsx"]
+      "allow_paths": [
+        "apps/web/app/dashboard/[eventId]/studio/panood/setup/page.tsx"
+      ]
     },
     {
       "pattern": "href=\"/apply\"",
       "retired_at": "2026-05-18",
       "reason": "Route doesn't exist; was primary CTA on /features per snapshot drift #1 (Live_Site_Snapshot_2026-05-18). Use href=\"/signup\" instead.",
       "allow_paths": []
+    },
+    {
+      "pattern": "also eyeing your date",
+      "retired_at": "2026-07-30",
+      "reason": "Manufactured scarcity worded off a SAVE, not an inquiry. Owner ruling 2026-06-02 (Schedule_Matrix_and_Date_Finder_2026-06-02.md:141 / DECISION_LOG): demand 'starts at the inquiry (Stage 2), NEVER at search (Stage 1) ... counting it as competition = manufactured scarcity (a fineable dark pattern)'. The shipped signal is inquiry-only and floored at MIN_DEMAND_COUPLE_COUNT=3; its one supported phrasing is the measurement itself, 'N couples inquired for your date' (lib/compat-score.ts). Was live on public marketing (studio-card-demo.tsx) and sold to vendors as a feature (vendor-grow-sections.tsx) - both fixed 2026-07-30.",
+      "allow_paths": [
+        "apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx"
+      ]
     }
   ]
 }

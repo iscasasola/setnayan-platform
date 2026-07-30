@@ -836,7 +836,17 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
             <span className="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[6px] font-medium text-emerald-700">Verified</span>
             <span className="rounded px-1.5 py-0.5 text-[6px] font-medium text-cream" style={{ background: MULB }}>Setnayan</span>
           </div>
-          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 also eyeing your date</span>
+          {/* The demand chip, worded EXACTLY as the app words it. It used to quote a
+              number nothing produced, phrased around the browsing act (the retired
+              wording is pinned in `.retired-strings.json`) — an act the product
+              deliberately refuses to count as demand. The owner's
+              2026-06-02 ruling: demand "starts at the inquiry (Stage 2), NEVER at
+              search (Stage 1) … counting it as competition = manufactured scarcity
+              (a fineable dark pattern)". The shipped signal is inquiry-only and
+              floored at MIN_DEMAND_COUPLE_COUNT = 3, and its one supported phrasing
+              is the measurement itself (`lib/compat-score.ts`). So 3 is the smallest
+              number this chip can honestly show, and this is the sentence it shows. */}
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 couples inquired for your date</span>
         </div>
       </div>
     ),

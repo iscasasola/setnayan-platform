@@ -17,6 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { findOrCreateSongId } from '@/lib/songs';
 import {
   PLAYLIST_SLOT_TYPES,
   PLAYLIST_VIBES,
@@ -84,6 +85,15 @@ export async function addPlaylistPick(formData: FormData) {
       ? (maxRow!.sort_order as number) + 100
       : 100;
 
+  // Resolve the catalogue identity at WRITE time (PR 3 · migration
+  // 20271022319040). Three readers used to answer "is this the same song?" by
+  // normalising strings — the tray, the band's repertoire crossing, and the
+  // vendor match score. Resolving once here replaces all three fuzzy joins with
+  // an id. Best-effort: an uncatalogued song (a family composition, a spelling
+  // they prefer) stores NULL and keeps its text, which is a legitimate pick and
+  // not an error.
+  const songId = await findOrCreateSongId(supabase, trimmedLabel, artist ?? '');
+
   const { error } = await supabase.from('event_playlist_picks').insert({
     event_id: eventId,
     slot_type: slotRaw,
@@ -92,6 +102,7 @@ export async function addPlaylistPick(formData: FormData) {
     notes,
     sort_order: nextSortOrder,
     created_by_user_id: user.id,
+    song_id: songId,
   });
   if (error) throw new Error(error.message);
 
@@ -119,6 +130,7 @@ export async function updatePlaylistPick(formData: FormData) {
     song_label?: string;
     artist?: string | null;
     notes?: string | null;
+    song_id?: number | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -135,6 +147,26 @@ export async function updatePlaylistPick(formData: FormData) {
 
   const notesRaw = formData.get('notes');
   if (notesRaw !== null) patch.notes = nullIfBlank(notesRaw);
+
+  // ⚠ RE-RESOLVE WHENEVER THE TEXT MOVES. A stale `song_id` is worse than a null
+  // one: it would keep crossing against the OLD song in the tray, the band's
+  // repertoire match and the vendor score, invisibly, while the couple looks at
+  // the new title. So any edit to label or artist re-resolves — and needs BOTH
+  // final values, which means reading the row for whichever side was not sent.
+  if (patch.song_label !== undefined || patch.artist !== undefined) {
+    const { data: current } = await supabase
+      .from('event_playlist_picks')
+      .select('song_label, artist')
+      .eq('pick_id', pickId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const finalLabel = patch.song_label ?? (current?.song_label as string | undefined) ?? '';
+    const finalArtist =
+      patch.artist !== undefined ? patch.artist : ((current?.artist as string | null) ?? null);
+    patch.song_id = finalLabel
+      ? await findOrCreateSongId(supabase, finalLabel, finalArtist ?? '')
+      : null;
+  }
 
   const { error } = await supabase
     .from('event_playlist_picks')

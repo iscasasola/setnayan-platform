@@ -458,6 +458,46 @@ export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
 }
 
 /**
+ * A buyer's payment-proof screenshot on their OWN order.
+ *
+ * ⚠ Unlike `budgetPaymentProofPolicy` above, this one IS a confidentiality
+ * boundary: the uploader (`orders/[orderId]/page.tsx`,
+ * `booking-fees/[orderId]/page.tsx`) writes to the PRIVATE thread-files bucket,
+ * and the stored ref is later presigned and rendered **to an admin** on the
+ * reconciliation screen. `displayUrlForStoredAsset` signs whatever bucket the
+ * ref names, so an unchecked ref here is a read oracle over every private
+ * bucket, with an admin's eyeballs as the output device.
+ *
+ * `orderId` is safe to key on: both call sites load the order with
+ * `.eq('user_id', user.id)` before this runs, so the caller has already been
+ * proven to own it.
+ */
+export function orderPaymentProofPolicy(orderId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`payments/${orderId}/`],
+  };
+}
+
+/**
+ * The same screenshot, but posted from the inline checkout drawer BEFORE the
+ * order row exists — so it cannot be keyed on `order_id`. The drawer uploads
+ * under the event; accept the buyer's own user id too, since that is the other
+ * server-known key the historical uploader used.
+ */
+export function inlineCheckoutProofPolicy(
+  eventId: string | null,
+  userId: string,
+): ClientRefPolicy {
+  // The AI subscription is the one eventless SKU, so `eventId` is legitimately
+  // null there. Emit only the prefixes that are real — a `${null}` interpolated
+  // into a prefix would be a degenerate rule that silently matches nothing.
+  const prefixes = [`payment-screenshots/inline-checkout/${userId}/`];
+  if (eventId) prefixes.unshift(`payment-screenshots/inline-checkout/${eventId}/`);
+  return { bucket: 'setnayan-thread-files', prefixes };
+}
+
+/**
  * A vendor's proof-of-downpayment / remembrance photo on a locked-QR invite.
  *
  * ⚠ The uploader writes to a FLAT, untenanted `locked-qr-proof/` prefix

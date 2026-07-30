@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paymentRowFor } from '@/lib/order-mint-identity';
+import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
@@ -80,7 +81,14 @@ export async function logBookingFeePayment(formData: FormData) {
   // Optional screenshot proof — direct-to-R2 ref (r2://…) from <FileUpload>.
   let screenshotUrl: string | null = null;
   const screenshotRefRaw = formData.get('screenshot_ref');
-  if (typeof screenshotRefRaw === 'string' && screenshotRefRaw.trim().startsWith('r2://')) {
+  // SEC-1: `startsWith('r2://')` is NOT a check. The ref is a form field, so a
+  // bare scheme test let a vendor pin ANY key in ANY bucket onto their own fee
+  // row — and an admin then renders it presigned on the reconciliation screen.
+  // Bind it to this order's private-bucket prefix instead.
+  if (
+    typeof screenshotRefRaw === 'string' &&
+    parseClientRef(screenshotRefRaw.trim(), orderPaymentProofPolicy(orderId))
+  ) {
     screenshotUrl = screenshotRefRaw.trim();
   }
 

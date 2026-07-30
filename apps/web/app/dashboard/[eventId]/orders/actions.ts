@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
+import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { paymentRowFor } from '@/lib/order-mint-identity';
@@ -165,9 +166,12 @@ export async function logPayment(formData: FormData) {
   // (1) takes precedence — if both are present we trust the explicit ref.
   let screenshotUrl: string | null = null;
   const screenshotRefRaw = formData.get('screenshot_ref');
+  // SEC-1: bind the client-supplied ref to THIS order's private-bucket prefix.
+  // A bare `startsWith('r2://')` let the buyer pin any key in any bucket onto
+  // their own order, which an admin then renders presigned while reconciling.
   if (
     typeof screenshotRefRaw === 'string' &&
-    screenshotRefRaw.trim().startsWith('r2://')
+    parseClientRef(screenshotRefRaw.trim(), orderPaymentProofPolicy(orderId))
   ) {
     screenshotUrl = screenshotRefRaw.trim();
   } else {

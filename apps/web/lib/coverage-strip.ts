@@ -202,7 +202,7 @@ export function coverageBadgeOf(t: CoverageTile):
  *    holding a locked vendor. (Not "all categories": an unplanned tile is not a
  *    pending decision.)
  *  • more — categories in this folder that are NOT in the couple's plan, i.e.
- *    the "＋ Add to your plan" pool PR-C will make interactive. Presentational
+ *    the "＋ Add to your event" pool PR-C will make interactive. Presentational
  *    here.
  * "✓ All covered" replaces the three only when the folder has planned
  * categories and none of them is still open.

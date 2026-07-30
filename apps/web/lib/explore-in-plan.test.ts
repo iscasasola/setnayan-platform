@@ -184,12 +184,16 @@ test('LOCKED_VENDOR_STATUSES is the committed-booking set the bench already uses
 // ── copy lives in ONE file (spec §11.3) ─────────────────────────────────────
 
 test('every PR-C string is non-empty and lives in explore-info-copy', () => {
+  // "plan" is RESERVED on this surface (Integration spec §2 — a *plan* is a
+  // saved alternative team you compare, never the category set). The visible
+  // heading and BOTH aria-labels must agree: a screen reader saying "plan" over
+  // an "event" chip pool is the regression these three lines pin together.
   assert.ok(ADD_TO_PLAN_HEADING.includes('Add to your event'));
   assert.ok(REMOVE_FROM_PLAN_LABEL.length > 0);
   assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('unlock'));
   assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('never cancels'));
-  assert.equal(addToPlanChipLabel('Catering'), 'Add Catering to your plan');
-  assert.equal(removeFromPlanButtonLabel('Catering'), 'Remove Catering from your plan');
+  assert.equal(addToPlanChipLabel('Catering'), 'Add Catering to your event');
+  assert.equal(removeFromPlanButtonLabel('Catering'), 'Remove Catering from your event');
   assert.equal(categoryHintButtonLabel('Catering'), 'What does Catering cover?');
   assert.ok(folderEmptyInPlan('Food & Drink').startsWith('Nothing from Food & Drink'));
 });

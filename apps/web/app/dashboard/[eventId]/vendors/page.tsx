@@ -1381,7 +1381,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Explore Replan slice C · the ADAPTIVE CATEGORY SET. Tile-grain
   // `event_category_decisions` rows (migration 20271016100000) carrying
   // decision='excluded' are the categories the couple removed with "Not needed?
-  // Remove"; they leave the bench and reappear as "＋ Add to your plan" chips.
+  // Remove"; they leave the bench and reappear as "＋ Add to your event" chips.
   // Column-explicit, RLS-scoped, one query, and only behind the flag — OFF
   // means no query at all and a byte-identical pre-replan bench. Fail-soft: a
   // read error degrades to "nothing excluded", which can only ever show MORE

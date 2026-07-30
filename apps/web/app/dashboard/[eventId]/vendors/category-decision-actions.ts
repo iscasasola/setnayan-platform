@@ -139,7 +139,7 @@ export async function excludeTileFromPlan(input: {
 }
 
 /**
- * "＋ Add to your plan" — clear a tile-level exclusion so the category returns
+ * "＋ Add to your event" — clear a tile-level exclusion so the category returns
  * to the bench. Deleting the row (rather than writing an 'included' decision)
  * keeps absence as the default and matches slice A's Reopen.
  */

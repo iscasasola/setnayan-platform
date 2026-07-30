@@ -52,8 +52,15 @@ import { Expandable } from './_components/expandable';
 import { CountUp } from '@/app/_components/count-up';
 import { AlaalaTile, AlaalaTileSkeleton } from './_components/alaala-tile';
 import { CreatorBenefits } from './_components/creator-benefits';
+import { getDashboardShell } from '@/lib/dashboard-shell';
 import {
-  HomeCommandBar,
+  getSwitcherData,
+  type SwitcherData,
+} from '@/app/_components/account-switcher/get-switcher-data';
+import { HomeRail } from './_components/home-rail';
+import { HomeBoard, buildHomeBoardTiles } from './_components/home-board';
+import { HomePillNav } from './_components/home-pill-nav';
+import {
   type HomeCommandItem,
 } from './_components/home-command-bar';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -691,10 +698,81 @@ export default async function LauncherPage({
     },
   ];
 
+  // ── Rail data (moved here from (launcher)/layout.tsx, 2026-07-30) ──────────
+  // The launcher's chrome now renders INSIDE the page so identity, search and
+  // the account capsule share one sticky row instead of stacking two. Both
+  // reads fail soft: a switcher fetch that throws degrades to a minimal panel
+  // (same fallback the layout used) rather than costing the user their only
+  // sign-out.
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: profile?.display_name ?? null,
+    email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
+    photoUrl: null,
+    events: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: false },
+  };
+  const [shellRes, switcherData] = await Promise.all([
+    getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),
+    getSwitcherData(user.id).catch((err: unknown) => {
+      logQueryError(
+        'LauncherPage (switcher data)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+      );
+      return minimalSwitcherFallback;
+    }),
+  ]);
+
+  // ── Board tiles — REAL aggregates only, all already computed above ─────────
+  // `soonest` is the nearest DATED upcoming event; undated events legitimately
+  // have nothing to say here, so the line is omitted rather than guessed.
+  const soonest = [...upcoming]
+    .filter((e) => dateKey(e))
+    .sort((a, b) => (dateKey(a)! < dateKey(b)! ? -1 : 1))[0];
+  const shopNeedsTotal = roles.hasVendorAccess
+    ? roles.vendorProfiles.reduce(
+        (sum, vp) => sum + shopNeedCount(vp.vendor_profile_id),
+        0,
+      )
+    : 0;
+  const topShop = roles.hasVendorAccess
+    ? [...roles.vendorProfiles].sort(
+        (a, b) =>
+          shopNeedCount(b.vendor_profile_id) -
+          shopNeedCount(a.vendor_profile_id),
+      )[0]
+    : undefined;
+  const boardTiles = buildHomeBoardTiles({
+    activeCount: active.length,
+    needsTotal,
+    nextEventLabel: soonest ? `Next: ${soonest.display_name}` : null,
+    topWatchName: watchRows[0]?.name ?? null,
+    hasVendorAccess: roles.hasVendorAccess,
+    shopNeedsTotal,
+    shopCount: roles.vendorProfiles.length,
+    topShopName:
+      topShop && shopNeedsTotal > 0 ? topShop.business_name : null,
+    hasAdminAccess: roles.hasAdminAccess,
+    adminOpenTotal,
+    finishedCount: finished.length,
+  });
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+      {/* ONE chrome row: identity · search · bell · account. Replaces the
+          layout's separate top bar AND the full-width search block that used to
+          sit under this header (owner 2026-07-30 — twice). */}
+      <HomeRail
+        userId={user.id}
+        unreadCount={shellRes.unreadCount}
+        switcherData={switcherData}
+        commandItems={commandItems}
+      />
+
       <header
-        className="sn-reveal mb-5 space-y-2 sm:mb-8"
+        className="sn-reveal mb-5 space-y-2 sm:mb-6"
         style={{ animationDelay: '0.24s' }}
       >
         <p className="text-[13px] text-[color:var(--sn-ink-500)]">
@@ -714,34 +792,19 @@ export default async function LauncherPage({
               : 'Pick up where you left off.'}
           </span>
         </h1>
-        {/* The Watch line (prototype hero stat) — REAL aggregates only: active
-            event count + the summed "needs a decision" total. Hidden when
-            nothing is waiting so it never fabricates urgency. */}
-        {active.length > 0 && needsTotal > 0 ? (
-          <p className="pt-1 text-[12.5px] text-[color:var(--sn-ink-500)]">
-            <span className="font-mono font-bold text-[color:var(--sn-gold-700)]">
-              {active.length}
-            </span>{' '}
-            {active.length === 1 ? 'event' : 'events'} in motion ·{' '}
-            <span className="font-mono font-bold text-[color:var(--sn-gold-700)]">
-              <CountUp value={needsTotal} delayMs={900} />
-            </span>{' '}
-            {needsTotal === 1 ? 'thing needs' : 'things need'} you
-          </p>
-        ) : null}
       </header>
 
-      {/* The deterministic search & jump bar (⌘K) — client-side filtering over
-          the user's own events/spaces/destinations. No LLM (Setnayan AI Rule 1). */}
-      <div className="sn-reveal mb-6 sm:mb-10" style={{ animationDelay: '0.32s' }}>
-        <HomeCommandBar items={commandItems} />
-      </div>
+      {/* The board — the same aggregates the old one-line stat printed, but each
+          number is now a door with its own context line. Capability-gated: the
+          shop/HQ tiles exist only for a user who has them. */}
+      <HomeBoard tiles={boardTiles} />
 
       {/* EVENTS — ongoing + upcoming as glass cards, date descending (newest on
           top, owner 2026-07-13 ordering). Completed stay behind "Show all".
           Each card jumps into its event dashboard — an allowed navigation. */}
       <section
-        className="sn-reveal mb-7 sm:mb-6"
+        id="events"
+        className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.4s' }}
       >
         <SectionLabel
@@ -1051,6 +1114,9 @@ export default async function LauncherPage({
           </Expandable>
         </div>
       </section>
+
+      {/* Phone-only thumb nav. Every target is a link this page already renders. */}
+      <HomePillNav hasSpaces={hasConsole} />
     </div>
   );
 }

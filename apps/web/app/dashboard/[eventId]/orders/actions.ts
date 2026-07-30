@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { uploadPublicAsset } from '@/lib/storage';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
@@ -152,18 +151,21 @@ export async function logPayment(formData: FormData) {
     );
   }
 
-  // Optional screenshot — TWO supported shapes:
+  // Optional screenshot — ONE supported shape: `<FileUpload name="screenshot_ref">`
+  // uploads direct-to-R2 client-side (PRIVATE thread-files bucket) and emits an
+  // `r2://bucket/key` hidden input, which we store verbatim in `screenshot_url`.
   //
-  //   (1) New flow (preferred): `<FileUpload name="screenshot_ref">` uploads
-  //       direct-to-R2 client-side and emits an `r2://bucket/key` hidden
-  //       input. We store that ref verbatim in `screenshot_url`.
-  //
-  //   (2) Legacy flow: a `<input type="file" name="screenshot">` for forms
-  //       that haven't been migrated yet (or admin tooling that pre-dates
-  //       the new component). We pipe the file through `uploadPublicAsset`
-  //       the same way the old code did and store the resulting public URL.
-  //
-  // (1) takes precedence — if both are present we trust the explicit ref.
+  // ⛔ The legacy `<input type="file" name="screenshot">` fallback was DELETED
+  // 2026-07-30. It piped the file through `uploadPublicAsset` — the PUBLIC
+  // `setnayan-media` bucket — three lines under the comment promising payment
+  // proofs never go there. A payment proof is a bank / GCash transfer
+  // screenshot: account numbers and names, served unsigned to anyone with the
+  // key. It had no live producer (the app's only `name="screenshot"` input,
+  // `papic/order/[token]/page.tsx`, posts to `submitPapicGuestPayment`, which
+  // uploads server-side to the private bucket and mints its own ref), so this
+  // was a loaded gun rather than a live leak — the next page to render that
+  // field name would have published proofs to the open internet with no code
+  // change. `payment-proof-public-bucket.test.ts` keeps it deleted.
   let screenshotUrl: string | null = null;
   const screenshotRefRaw = formData.get('screenshot_ref');
   // SEC-1: bind the client-supplied ref to THIS order's private-bucket prefix.
@@ -174,20 +176,6 @@ export async function logPayment(formData: FormData) {
     parseClientRef(screenshotRefRaw.trim(), orderPaymentProofPolicy(orderId))
   ) {
     screenshotUrl = screenshotRefRaw.trim();
-  } else {
-    const screenshotFile = formData.get('screenshot');
-    if (screenshotFile instanceof File && screenshotFile.size > 0) {
-      const result = await uploadPublicAsset({
-        pathPrefix: `payment-screenshots/${orderId}`,
-        file: screenshotFile,
-      });
-      if (!result.ok) {
-        return redirect(
-          `/dashboard/${eventId}/orders/${orderId}?error=${encodeURIComponent(result.error)}`,
-        );
-      }
-      screenshotUrl = result.publicUrl;
-    }
   }
 
   // Task 8 pilot hardening (2026-06-01): client-supplied idempotency key

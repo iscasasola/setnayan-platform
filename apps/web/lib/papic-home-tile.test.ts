@@ -18,6 +18,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -182,4 +185,68 @@ test('the nudge gate fails CLOSED on an empty id', async () => {
   // "nothing shot yet" — but with no event there is nothing to nudge about. The
   // caller only asks when it holds a real event, and this pins the cheap path.
   assert.equal(await countPapicCaptures(makeDb({ crew: 5 }), ''), 0);
+});
+
+/* ── The bento contract (owner 2026-07-30) ─────────────────────────────────────
+ *
+ * "always hold a slot. since that is the foundation of the app."
+ *
+ * The first cut (PR #3895) gave Papic a slot only when one was free, which left a
+ * couple with a full dashboard and no captures yet seeing no Papic at all once
+ * they dismissed the nudge. The owner reversed it. These are source-scan guards
+ * in the repo's existing idiom (cf. papic-copy-guardrails / panood-retirement),
+ * because the rule lives in a 400-line server component that a unit test cannot
+ * render — and the failure mode is silent: the tile just stops appearing.
+ */
+const DASHBOARD_SRC = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashboard', '[eventId]', '_components', 'event-dashboard.tsx'),
+  'utf8',
+);
+
+test('the Papic mini is pushed UNCONDITIONALLY — it always holds a slot', () => {
+  assert.match(
+    DASHBOARD_SRC,
+    /if \(papicMini\) miniTiles\.push\(papicMini\);/,
+    'Papic must be pushed on its own existence alone. Any extra condition here '
+      + '(preCapture, a free-slot check, a length test) re-creates the bug the owner '
+      + 'reversed on 2026-07-30: a full dashboard showing no Papic at all.',
+  );
+  // No index arithmetic — an earlier cut spliced at a fixed index and silently
+  // put Papic AFTER Messages whenever Schedule had nothing to show.
+  assert.equal(
+    /miniTiles\.splice\(/.test(DASHBOARD_SRC),
+    false,
+    'order must be structural (push order), not a splice index',
+  );
+});
+
+test('Papic outranks Messages, and NEVER Guests / Budget / Schedule', () => {
+  const at = (needle: string) => DASHBOARD_SRC.indexOf(needle);
+  const papic = at('if (papicMini) miniTiles.push(papicMini);');
+  const guests = at('key="guests"');
+  const budget = at('key="budget"');
+  const messages = at('key="messages"');
+  for (const [name, idx] of [['guests', guests], ['budget', budget], ['messages', messages]] as const) {
+    assert.ok(idx > -1, `expected to find the ${name} mini`);
+  }
+  assert.ok(papic > guests && papic > budget, 'Papic must never displace Guests or Budget');
+  assert.ok(
+    papic < messages,
+    'Papic must be pushed BEFORE Messages — on a fully-populated dashboard the cap '
+      + 'makes Messages yield, and that is the intended trade (threads are transient '
+      + 'and carry their own nav badge; the open count also shows in the digest).',
+  );
+});
+
+test('the ≤4 blur budget is still enforced, and still explained', () => {
+  // "Always hold a slot" was a statement about PRIORITY, not a licence to put a
+  // ninth backdrop-filter layer on the couple's first screen. If someone raises
+  // this, it should be a deliberate, documented decision — not a side effect of
+  // adding a tile.
+  assert.match(DASHBOARD_SRC, /const MAX_MINIS = 4;/);
+  assert.match(
+    DASHBOARD_SRC,
+    /if \(miniTiles\.length > MAX_MINIS\) miniTiles\.length = MAX_MINIS;/,
+    'the cap must actually trim',
+  );
 });

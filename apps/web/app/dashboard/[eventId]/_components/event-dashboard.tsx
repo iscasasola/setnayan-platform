@@ -1176,6 +1176,13 @@ export async function EventDashboard({
     </Link>
   ) : null;
 
+  // Pushed HERE, ahead of Messages, so the priority order is structural rather
+  // than index arithmetic: Guests → Budget → Schedule → PAPIC → Messages, in
+  // every combination of which minis have data. (An earlier cut spliced at a
+  // fixed index, which silently put Papic *after* Messages whenever Schedule had
+  // nothing to show.) The cap below is what makes the order bite.
+  if (papicMini) miniTiles.push(papicMini);
+
   if (unreadCount > 0) {
     miniTiles.push(
       <Link
@@ -1198,30 +1205,29 @@ export async function EventDashboard({
     );
   }
 
-  // ── The blur budget is REAL, so Papic earns its slot rather than taking it ──
+  // ── PAPIC ALWAYS HOLDS A SLOT (owner 2026-07-30: "always hold a slot. since
+  //    that is the foundation of the app.") ─────────────────────────────────
   //
-  // § 1.6 of the rollout plan (quoted at the top of this bento block) budgets
-  // "focal(1) + digest(1) + ≤4 minis + chrome(2) ≤ 8" glass layers above the
-  // fold, and `backdrop-filter` is the expensive part. Four minis already exist
-  // (Guests · Budget · Schedule · Messages), so an unconditional fifth would
-  // quietly break a documented performance budget — the PR-G mockup drew a
-  // 3-across bento and missed that this is a capped 2×2.
+  // The first cut of this (PR #3895) let Papic take a slot only when one was
+  // free, so a couple with a full dashboard who had not shot yet saw no Papic at
+  // all once they dismissed the nudge. The owner reversed that: Papic is the
+  // product's foundation, so it is GUARANTEED a slot, always.
   //
-  // So: Papic is appended, then the array is trimmed to the cap. Push order IS
-  // the priority, and the ONE re-order is deliberate — once photos are landing,
-  // Papic is the freshest thing happening at the event and outranks unread
-  // threads (which keep their own nav badge one tap away). Before the first
-  // photo it stays last, taking a slot only when one is genuinely free, and the
-  // nudge in slotAfterBento does the introducing instead. That split is the whole
-  // reason the owner picked A *and* B.
+  // ⚠ WHY THE CAP STAYS 4 RATHER THAN GROWING TO 5. § 1.6 of the rollout plan
+  // (quoted at the top of this bento block) budgets "focal(1) + digest(1) + ≤4
+  // minis + chrome(2) ≤ 8" glass layers above the fold, and `backdrop-filter` is
+  // the expensive part of every one of them. "Always hold a slot" is a statement
+  // about Papic's PRIORITY, not a licence to put a ninth blur layer on the
+  // couple's first screen — so Papic is ranked instead of appended, and the
+  // budget is untouched.
+  //
+  // Push order IS the priority — Papic is pushed above, ahead of Messages — so on
+  // a fully-populated dashboard it is MESSAGES that yields its tile: the least
+  // structural of the five (unread vendor threads are transient, they carry their
+  // own nav badge, and the open count also renders in the decisions digest
+  // directly above this grid). Guests, Budget and Schedule are never displaced,
+  // and Papic is never dropped.
   const MAX_MINIS = 4;
-  if (papicMini) {
-    if (!papicHome?.preCapture && miniTiles.length >= MAX_MINIS) {
-      miniTiles.splice(MAX_MINIS - 1, 0, papicMini);
-    } else {
-      miniTiles.push(papicMini);
-    }
-  }
   if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
 
   const inspectorMaster = (

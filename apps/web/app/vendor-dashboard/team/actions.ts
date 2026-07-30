@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { revokeAllSessions } from '@/lib/force-logout';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import {
   VENDOR_TEAM_ROLES,
@@ -374,7 +374,7 @@ export async function buyExtraSeat(formData: FormData) {
   // resolved, never client-supplied — and `canBuyExtraSeats(ctx.tierState)` is
   // the Enterprise/Custom gate. Both ids handed to `orderRowFor` come from
   // there, so a form field can never reach an identity column.
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
 
   const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')

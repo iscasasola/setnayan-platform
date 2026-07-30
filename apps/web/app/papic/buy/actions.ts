@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { rateLimit } from '@/lib/rate-limit';
 import { mintPapicReferenceCode } from '@/lib/papic-cameras';
@@ -300,7 +300,7 @@ export async function startPapicGuestPurchase(formData: FormData) {
       platform: 'web',
     },
   );
-  const { data: order, error: orderErr } = await admin
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
     .from('orders')
     .insert(orderRow)
     .select('order_id')
@@ -441,7 +441,7 @@ export async function submitPapicGuestPayment(formData: FormData) {
       .eq('order_id', guestOrder!.order_id);
   }
 
-  const { error: payErr } = await admin.from('payments').insert(
+  const { error: payErr } = await createMoneyWriterClient().from('payments').insert(
     guestPaymentRowFor(
       { verifiedOrderId: String(guestOrder!.order_id), userId: order?.user_id ?? null },
       {

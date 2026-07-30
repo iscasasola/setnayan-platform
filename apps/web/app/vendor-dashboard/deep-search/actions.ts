@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
@@ -258,7 +258,7 @@ export async function runVendorDeepSearch(
   // tier/verification read → the SKU is_active reject → `deepSearchAiConfigured`.
   // Reuses the `admin` client already created above for the allowance count —
   // one service-role client per request, not two.
-  const { data: orderRow, error: oErr } = await admin
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert(
       orderRowFor(
@@ -279,7 +279,7 @@ export async function runVendorDeepSearch(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await admin.from('payments').insert(
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert(
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {
@@ -294,7 +294,7 @@ export async function runVendorDeepSearch(
   if (pErr) {
     // Same client that minted it — a mixed-client compensation is how a
     // rollback silently stops rolling back.
-    await admin.from('orders').delete().eq('order_id', orderId);
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Deep Search payment. Please try again.');
   }
 

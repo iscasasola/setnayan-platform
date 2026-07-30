@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -723,7 +723,7 @@ export async function purchasePapicCameras(formData: FormData) {
   // VAT for the customer invoice, same as every other SKU).
   const isFree = quote.totalPhp === 0;
   const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await admin
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: eventId,
@@ -889,7 +889,7 @@ export async function activatePapicLimited(formData: FormData) {
   const description = `Papic ${tierLabel} — ${guestCount} guest camera${
     guestCount === 1 ? '' : 's'
   }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
-  const { data: order, error: orderErr } = await admin
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: eventId,
@@ -1036,7 +1036,7 @@ export async function purchasePapicExtras(formData: FormData) {
       ? ` · ${windowLabel}`
       : ` · ${win.days} day${win.days === 1 ? '' : 's'}`
   }`;
-  const { data: order, error: orderErr } = await admin
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: eventId,
@@ -1259,7 +1259,7 @@ export async function purchasePapicOneCamera(formData: FormData) {
 
   const win = await fetchEventPapicWindow(admin, eventId);
   const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await admin
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: eventId,

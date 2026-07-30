@@ -12,7 +12,7 @@ import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -2184,7 +2184,7 @@ export async function finalizeVendor(
   // ----------------------------------------------------------------------
   if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
     try {
-      await collectBookingFeeAtLock(createAdminClient(), { eventVendorId: vendorId });
+      await collectBookingFeeAtLock(createMoneyWriterClient(), { eventVendorId: vendorId });
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(`[finalizeVendor] booking-fee collect failed for vendor_id=${vendorId} event_id=${eventId}:`, e);

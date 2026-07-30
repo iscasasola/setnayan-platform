@@ -761,6 +761,10 @@ function NodeCard({
   if (node.type === 'vendor') {
     kv.push(['Verified (marketplace)', fmtCount(node.count)]);
     kv.push(['All orgs', fmtCount(counts.detail.vendorTotalOrgs)]);
+  } else if (node.type === 'papic') {
+    // Seats are the node number (the unit of entitlement); captures are volume.
+    kv.push(['Captures', fmtCount(counts.detail.papicPhotos)]);
+    kv.push(['Guest-side captures', fmtCount(counts.detail.papicGuestCaptures)]);
   } else if (node.type === 'billing') {
     kv.push(['Active subscriptions', fmtCount(counts.detail.billingActiveSubs)]);
     // F11: NO static price row here. A hardcoded "₱100 / token" survived two
@@ -1377,6 +1381,7 @@ function TablesView({
 
   const TYPE_NODE: Record<UgatEntityType, string> = {
     community: 'TYPE-SAMAHAN',
+    papic: 'TYPE-PAPIC',
     user: 'TYPE-USERS',
     event: 'TYPE-EVENTS',
     guest: 'TYPE-GUESTS',

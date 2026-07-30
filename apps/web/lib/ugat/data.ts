@@ -49,6 +49,8 @@ export interface UgatCounts {
   taxonomy: number;
   /** Samahan: non-archived communities (the live groups). */
   community: number;
+  /** Papic: provisioned paparazzi seats — the unit of entitlement. */
+  papic: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -66,6 +68,10 @@ export interface UgatCounts {
      * stated basis and its own surface.
      */
     communityMembers: number;
+    /** Captures across the whole platform (papic_photos rows). */
+    papicPhotos: number;
+    /** Guest-side captures (the Papic One shape). */
+    papicGuestCaptures: number;
   };
   /** Epoch ms the counts were computed (shown as "live · updated Xs ago"). */
   computedAt: number;
@@ -135,6 +141,9 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     walletRows,
     communitiesLive,
     communityMemberRows,
+    papicSeats,
+    papicPhotoRows,
+    papicGuestCaptureRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -180,6 +189,13 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // Membership TALLY only. Never select user_id here: the roster is personal
     // data about third parties (J14's trap), and a head-count needs no identities.
     headCount(admin, 'community_members'),
+    // Papic: SEATS are the node number — a seat is the unit of entitlement, and
+    // it is the hub of the 17-table cluster (J16).
+    headCount(admin, 'paparazzi_seats'),
+    // Capture volumes as sub-figures. Counts only: capture rows carry geo,
+    // device and EXIF metadata, none of which an admin roll-up needs.
+    headCount(admin, 'papic_photos'),
+    headCount(admin, 'papic_guest_captures'),
   ]);
 
   return {
@@ -194,6 +210,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     billing: activeSubs,
     taxonomy: taxLeaves,
     community: communitiesLive,
+    papic: papicSeats,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -204,6 +221,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
       taxonomyRefinementSets: refinementSets,
       ordersPending,
       communityMembers: communityMemberRows,
+      papicPhotos: papicPhotoRows,
+      papicGuestCaptures: papicGuestCaptureRows,
     },
     computedAt: Date.now(),
   };
@@ -213,7 +232,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
 // fields. Without the bump a cached v1 payload keeps being served for up to 60s
 // and the new sub-figures read as undefined — which renders as a plausible-
 // looking blank rather than an error, the worst kind of wrong.
-const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v2'], {
+// v2 → v3 for the added `papic` count + its two capture sub-figures. Same reason
+// as the v1→v2 bump: a stale payload renders the new figures as undefined, which
+// looks like a plausible blank rather than an error.
+const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v3'], {
   revalidate: 60,
 });
 
@@ -708,6 +730,7 @@ export interface UgatSearchGroup {
 
 const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
   community: 'TYPE-SAMAHAN',
+  papic: 'TYPE-PAPIC',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

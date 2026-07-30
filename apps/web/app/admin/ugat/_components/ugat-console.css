@@ -42,6 +42,9 @@
   /* Samahan — teal, the one hue-family gap left in the warm-to-cool ladder, so
      the tenth node reads as its own thing rather than a shade of Guests. */
   --ug-e-community: #2f8f8a; --ug-e-community-bg: #e6f2f1;
+  /* Papic — rose. The capture cluster reads as its own thing rather than a
+     shade of guests (green) or services (orange-red). */
+  --ug-e-papic: #b0517a; --ug-e-papic-bg: #f7e9ef;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

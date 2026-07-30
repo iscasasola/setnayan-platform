@@ -43,6 +43,34 @@ test('every entity type in the union has both a node and a vocab entry', () => {
   assert.deepEqual(vocabTypes, nodeTypes, 'vocab and node type sets must match exactly');
 });
 
+test('the Papic node is anchored on the SEAT, not the photo', () => {
+  const papic = UGAT_TYPE_BY_ID['TYPE-PAPIC'];
+  assert.ok(papic, 'TYPE-PAPIC missing');
+  // paparazzi_seats is the hub (6 inbound FKs); a seat is the unit of
+  // entitlement and captures hang off it. Anchoring on papic_photos would put
+  // the node on the volume table rather than the concept.
+  assert.equal(papic.table, 'paparazzi_seats');
+  assert.equal(papic.countKey, 'papic');
+  // all five bonds resolve to real nodes
+  for (const eg of papic.edges) assert.ok(UGAT_TYPE_BY_ID[eg.to], `dangling edge → ${eg.to}`);
+  assert.equal(papic.edges.length, 5);
+});
+
+test('the Papic↔Vendor joint records the booking-vs-org grain trap', () => {
+  // papic_missions.vendor_id points at event_vendors (a BOOKING), not at a
+  // vendor org — the same misleading name as J7. If this prose ever loses that
+  // warning, a join written against the wrong grain silently returns nothing.
+  const j = jointsForEdge('TYPE-PAPIC', 'TYPE-VENDORS')[0];
+  assert.ok(j, 'Papic↔Vendors joint missing');
+  assert.match(j.traps, /event_vendors/);
+  assert.ok(
+    j.claims.some(
+      (c) => c.kind === 'fk' && c.table === 'papic_missions' && c.references === 'event_vendors',
+    ),
+    'the booking-grain FK must be claimed, not just described',
+  );
+});
+
 test('the Samahan node is wired to communities and its two joints', () => {
   const samahan = UGAT_TYPE_BY_ID['TYPE-SAMAHAN'];
   assert.ok(samahan, 'TYPE-SAMAHAN missing');

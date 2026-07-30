@@ -37,7 +37,12 @@ import type {
   UgatTablePage,
   UgatSearchGroup,
 } from '@/lib/ugat/data';
-import { fetchUgatTable, fetchUgatSearch, fetchUgatSavedSearch } from '../actions';
+import {
+  fetchUgatTable,
+  fetchUgatSearch,
+  fetchUgatSavedSearch,
+  fetchUgatCounts,
+} from '../actions';
 import './ugat-console.css';
 
 /* ── inline icon helper (SVG innerHTML, no network — same set as the map) ── */
@@ -108,8 +113,18 @@ const LAST_VERIFIED_AT = UGAT_FINDINGS.reduce(
 /* ═════════════════════════════════════════════════════════════════════════
    THE CONSOLE
    ═════════════════════════════════════════════════════════════════════════ */
+/**
+ * How often an open tab re-reads the counts.
+ *
+ * Deliberately SLOWER than the 60s `unstable_cache` window behind
+ * `getUgatCounts`, so a poll usually lands on a freshly-revalidated entry
+ * instead of racing one. Polling faster would not produce fresher numbers — it
+ * would just re-serve the same cached value more often.
+ */
+const COUNT_POLL_MS = 75_000;
+
 export function UgatConsole({
-  counts,
+  counts: initialCounts,
   savedSearches,
   nowMs,
 }: {
@@ -123,6 +138,64 @@ export function UgatConsole({
    */
   nowMs: number;
 }) {
+  /**
+   * Live counts. Seeded from the server render, then refreshed while the tab is
+   * actually being looked at.
+   *
+   * The status line has always read "Counts are live (updated …)" while the
+   * numbers were frozen at page load — a tab left open overnight showed a
+   * stale figure under a label promising the opposite. This makes the existing
+   * claim true.
+   */
+  const [counts, setCounts] = useState<UgatCounts>(initialCounts);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const refresh = async () => {
+      // Never poll a backgrounded tab: an admin with the map parked in a
+      // background tab for a working day would otherwise generate a request
+      // every 75s forever, for numbers nobody is reading.
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const next = await fetchUgatCounts();
+        if (!cancelled) setCounts(next);
+      } catch {
+        // A failed refresh keeps the last good numbers. The status line's
+        // relative timestamp then ages visibly, which is the honest signal —
+        // better than a spinner or a silently-frozen figure.
+      }
+    };
+
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(refresh, COUNT_POLL_MS);
+    };
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh(); // catch up immediately on return, then resume ticking
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
   const [control, setControl] = useState<Control>('map');
   const [resolution, setResolution] = useState<Resolution>('entities');
   const [health, setHealth] = useState(false);

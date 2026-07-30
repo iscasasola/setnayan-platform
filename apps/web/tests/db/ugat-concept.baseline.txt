@@ -44,8 +44,11 @@ supplier_vendor_skus | declined — same deferred supplies vertical as supplies_
 # Each line is a missing node, not a decision. Promote it by adding a node to
 # UGAT_TYPES (with joints and their REQUIRED claims), then delete the line.
 
-papic_* | map-backlog — PAPIC capture subsystem, 13+ tables. Largest single gap and a flagship SKU; first candidate for promotion.
-paparazzi_* | map-backlog — Papic seat and claim tables under the original naming; belongs with the Papic node when it lands
+# ✅ PROMOTED 2026-07-30 — Papic is now TYPE-PAPIC in lib/ugat/graph.ts with joints
+# J16-J20 (events · users · guests · orders · vendors). Its two backlog lines were
+# deleted rather than kept, which is the whole shape of this file working: the
+# stale-line check would have failed if they had been left behind.
+# First entry off the map-backlog. 42 to go.
 panood_* | map-backlog — Panood / Live Studio broadcast subsystem
 live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
 patiktok_* | map-backlog — Patiktok recording subsystem

@@ -38,7 +38,8 @@ export type UgatEntityType =
   | 'thread'
   | 'billing'
   | 'taxonomy'
-  | 'community';
+  | 'community'
+  | 'papic';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -307,6 +308,45 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'owns', to: 'TYPE-EVENTS' },
     ],
   },
+  {
+    /**
+     * PAPIC — the candid-capture subsystem. 17 tables, the largest single
+     * cluster on the platform and the first concept promoted off the
+     * map-backlog (2026-07-30).
+     *
+     * NAMING LOCK: the two product types are **Papic Pool** and **Papic One**.
+     * Never print "Papic Guest" as a product name. Several TABLES still carry
+     * the older `papic_guest_*` naming (`papic_guest_captures`,
+     * `papic_guest_orders`) — table names are facts and are cited as-is, but
+     * they are not product names.
+     *
+     * `paparazzi_seats` is the hub (6 inbound FKs), not `papic_photos`: a seat
+     * is the unit of entitlement, and captures hang off it.
+     */
+    id: 'TYPE-PAPIC',
+    type: 'papic',
+    name: 'Papic',
+    blurb: 'candid capture — seats, captures, missions',
+    countKey: 'papic',
+    icon: 'camera',
+    color: 'var(--ug-e-papic)',
+    colorBg: 'var(--ug-e-papic-bg)',
+    table: 'paparazzi_seats',
+    x: 420,
+    y: 620,
+    fields: [
+      { key: 'pk', name: 'paparazzi_seats.seat_id', note: 'the unit of entitlement' },
+      { key: 'fk', name: 'event_id', note: 'CASCADE — seats die with the event' },
+      { key: '', name: 'papic_photos', note: '39 cols · the capture table' },
+    ],
+    edges: [
+      { verb: 'scoped to', to: 'TYPE-EVENTS' },
+      { verb: 'claimed by', to: 'TYPE-USERS' },
+      { verb: 'captures', to: 'TYPE-GUESTS' },
+      { verb: 'paid via', to: 'TYPE-ORDERS' },
+      { verb: 'missions for', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -332,6 +372,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'group',
     color: 'var(--ug-e-community)',
     colorBg: 'var(--ug-e-community-bg)',
+  },
+  papic: {
+    label: 'Papic',
+    icon: 'camera',
+    color: 'var(--ug-e-papic)',
+    colorBg: 'var(--ug-e-papic-bg)',
   },
 };
 
@@ -368,6 +414,8 @@ export const UGAT_ICON_PATHS: Record<string, string> = {
   // read as the same thing at a glance.
   group:
     '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><path d="M1.5 18a4 4 0 0 1 4-3.5"/><path d="M22.5 18a4 4 0 0 0-4-3.5"/>',
+  camera:
+    '<path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.2-2h7.6l1.2 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/>',
 };
 
 export function ugatIcon(name: string, cls?: string): string {
@@ -1056,6 +1104,121 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary. A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
     traps:
       'ON DELETE SET NULL means deleting a samahan SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
+  },
+  {
+    id: 'J16',
+    claims: [
+      { kind: 'table', table: 'paparazzi_seats' },
+      { kind: 'fk', table: 'paparazzi_seats', column: 'event_id', references: 'events' },
+      { kind: 'table', table: 'papic_photos' },
+      { kind: 'fk', table: 'papic_photos', column: 'event_id', references: 'events' },
+      {
+        kind: 'fk',
+        table: 'papic_photos',
+        column: 'paparazzi_seat_id',
+        references: 'paparazzi_seats',
+      },
+    ],
+    chain: 14,
+    pair: ['TYPE-PAPIC', 'TYPE-EVENTS'],
+    title: 'Papic → Event (scoping)',
+    joint: 'paparazzi_seats',
+    cardinality: 'One-to-many · every seat, capture and mission is event-scoped',
+    implementedBy:
+      'paparazzi_seats is the HUB of the 17-table Papic cluster (6 inbound FKs) — not papic_photos. A SEAT is the unit of entitlement; captures hang off it. Both seats and papic_photos carry event_id ON DELETE CASCADE.',
+    writtenBy:
+      'Seat provisioning on SKU activation (provisionPapicSeats) · seat re-issue · the capture upload path',
+    guardedBy: 'current_event_ids() — the event-scoped RLS spine',
+    traps:
+      'Event deletion CASCADEs the entire Papic cluster — seats, captures, missions, usage counters — in one shot. There is no tombstone and no soft-delete: capture metadata is gone, not archived, which sits awkwardly beside the 5-year originals-retention promise.',
+  },
+  {
+    id: 'J17',
+    claims: [
+      { kind: 'fk', table: 'paparazzi_seats', column: 'claimer_user_id', references: 'users' },
+    ],
+    chain: 15,
+    pair: ['TYPE-PAPIC', 'TYPE-USERS'],
+    title: 'Papic ↔ User (seat claim)',
+    joint: 'paparazzi_seats',
+    cardinality: 'One claimer per seat · a user may hold seats across several events',
+    implementedBy:
+      'paparazzi_seats.claimer_user_id REFERENCES users. A seat is claimed via a QR flow rather than username/password, so the claimer is bound at claim time, not at provisioning.',
+    writtenBy: 'The seat-claim QR flow',
+    guardedBy: 'Event-scoped seat tokens — a seat token only works for its bound event',
+    traps:
+      'ON DELETE NO ACTION, unlike event_id’s CASCADE: deleting a user who holds a seat FAILS rather than orphaning the seat. That is the safer default, but it is one of the FK classes behind the broken admin "Delete user" action.',
+  },
+  {
+    id: 'J18',
+    claims: [
+      { kind: 'table', table: 'papic_guest_captures' },
+      { kind: 'fk', table: 'papic_guest_captures', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'paparazzi_seats', column: 'guest_id', references: 'guests' },
+      // `no_column`, NOT `no_fk`: the column does not exist at all, so a
+      // "has no FK" claim would be vacuous — and the guard says so, which is how
+      // this line got corrected. Asserting the ABSENCE is the real point (see
+      // the trap below: papic_photos carries no guest bond whatsoever).
+      { kind: 'no_column', table: 'papic_photos', column: 'guest_id' },
+    ],
+    chain: 16,
+    pair: ['TYPE-PAPIC', 'TYPE-GUESTS'],
+    title: 'Papic ↔ Guest (capture + seat holding)',
+    joint: 'papic_guest_captures',
+    cardinality: 'Many captures per guest · a guest may also hold a seat',
+    implementedBy:
+      'Two distinct bonds. papic_guest_captures.guest_id (CASCADE) is the Papic One side — a guest’s own captures. paparazzi_seats.guest_id (NO ACTION) is a guest HOLDING a shooting seat. NOTE the product names are Papic Pool and Papic One; the `papic_guest_*` tables predate that naming and are not product names.',
+    writtenBy: 'Guest capture upload · seat assignment to a guest',
+    guardedBy: 'current_event_ids() plus guest-scoped policies — guest scope is NOT couple scope',
+    traps:
+      'papic_photos has NO guest_id: tagging a photo to a guest is a SEPARATE relation, not a column on the photo. Reading papic_photos expecting a guest bond finds nothing. Also the two guest bonds disagree on delete behaviour — captures CASCADE, seats do not.',
+  },
+  {
+    id: 'J19',
+    claims: [
+      { kind: 'fk', table: 'paparazzi_seats', column: 'paid_order_id', references: 'orders' },
+      { kind: 'table', table: 'papic_one_orders' },
+      { kind: 'fk', table: 'papic_one_orders', column: 'order_id', references: 'orders' },
+      { kind: 'table', table: 'papic_guest_orders' },
+      { kind: 'table', table: 'papic_event_point_grants' },
+    ],
+    chain: 17,
+    pair: ['TYPE-PAPIC', 'TYPE-ORDERS'],
+    title: 'Papic → Order (entitlement)',
+    joint: 'papic_one_orders',
+    cardinality:
+      'One paying order per seat/grant · several order tables, one per purchase shape',
+    implementedBy:
+      'THREE parallel order bonds, one per purchase shape: paparazzi_seats.paid_order_id (a bought seat), papic_one_orders (Papic One), papic_guest_orders (the guest-purchased shape). papic_event_point_grants carries the capture-point allowance an order buys.',
+    writtenBy: 'SKU activation on admin payment approval — never on purchase alone',
+    guardedBy: 'requireAdmin on the activation path; order_ledger rows as idempotency guards',
+    traps:
+      'Entitlement activates on ADMIN APPROVAL, not on order creation — an ownership reader is not an active reader. And three separate order tables means "is Papic paid for?" has three answers depending on shape; there is no single column to read.',
+  },
+  {
+    id: 'J20',
+    claims: [
+      { kind: 'table', table: 'papic_missions' },
+      { kind: 'fk', table: 'papic_missions', column: 'vendor_id', references: 'event_vendors' },
+      { kind: 'table', table: 'papic_photo_challenge_sponsorships' },
+      {
+        kind: 'fk',
+        table: 'papic_photo_challenge_sponsorships',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+    ],
+    chain: 18,
+    pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
+    title: 'Papic ↔ Vendor (missions + sponsorship)',
+    joint: 'papic_missions',
+    cardinality: 'Many missions per booked vendor · sponsorships per vendor org',
+    implementedBy:
+      'Two bonds at DIFFERENT grains. papic_missions.vendor_id references event_vendors — the BOOKING, not the vendor org (the same misleading column name as J7). papic_photo_challenge_sponsorships.vendor_profile_id references the org directly.',
+    writtenBy: 'Vendor mission authoring · sponsored-challenge purchase',
+    guardedBy: 'current_vendor_ids() for the vendor side; event scope for the mission side',
+    traps:
+      '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. The two vendor bonds are at different grains (booking vs org), so they are NOT interchangeable and a join written against the wrong one silently returns nothing.',
   },
 ];
 

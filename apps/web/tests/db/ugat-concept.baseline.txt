@@ -1,0 +1,93 @@
+# Ugat concept-coverage baseline — things that look like a subsystem but are not
+# (yet) on /admin/ugat/map.
+#
+# FORMAT   <table or prefix_*> | <reason>
+# READ BY  tests/db/ugat-concept-coverage.db.test.ts  (inside a REQUIRED check)
+#
+# ── HOW TO USE THIS FILE ───────────────────────────────────────────────────
+# The check fails when something subsystem-shaped has no home. There are two
+# honest answers, and adding a line here is the SECOND one:
+#
+#   1. It IS a concept  → add a node to UGAT_TYPES in lib/ugat/graph.ts.
+#                         The check greens itself; do NOT also add a line here.
+#   2. It is NOT        → one line here, with a real reason.
+#
+# A key ending in `_*` covers a whole family, so declining a 13-table subsystem
+# is one readable line rather than thirteen identical ones.
+#
+# ── THE TWO PREFIXES, AND WHY THEY DIFFER ──────────────────────────────────
+# `declined`    — genuinely not a product entity. Ops, internal tooling,
+#                 deferred verticals. These stay off the map permanently.
+# `map-backlog` — a REAL product subsystem the map has never covered. This is an
+#                 admission, not a decision. Each one is a candidate node.
+#
+# That distinction is the whole point of seeding this honestly. When the guard
+# first ran (2026-07-30) it found 59 unaccounted things, and the great majority
+# were real product — Papic (13 tables), the person spine, packages, seating, the
+# song desk. The map shipped as "slice 1", platform-level only, and had never
+# covered them. Writing `declined` against Papic would have been a lie that read
+# as green, so the backlog is recorded instead of hidden.
+#
+# The count of `map-backlog` lines is a debt figure. It should shrink.
+
+# ══ DECLINED — not product entities ═════════════════════════════════════════
+
+seo_* | declined — SEO health and telemetry tooling; observability, not a product entity
+platform_* | declined — platform ops config and internal registries; the map documents product entities, not our own plumbing
+admin_* | declined — internal admin queues and approval plumbing; the console is the surface, not a mapped entity
+concierge_* | declined — the retired "Concierge" naming (now Setnayan AI): trial-abuse tooling plus its knowledge-chunk store. Enforcement and retrieval plumbing, not a product entity.
+social_* | declined — outbound social scheduling and queue tooling; marketing ops, not a product entity
+supplies_orders | declined — the supplies marketplace is a DEFERRED third vertical (iteration 0018), not in V1 scope
+supplier_vendor_skus | declined — same deferred supplies vertical as supplies_orders
+
+# ══ MAP-BACKLOG — real product subsystems the map has never covered ═════════
+# Each line is a missing node, not a decision. Promote it by adding a node to
+# UGAT_TYPES (with joints and their REQUIRED claims), then delete the line.
+
+papic_* | map-backlog — PAPIC capture subsystem, 13+ tables. Largest single gap and a flagship SKU; first candidate for promotion.
+paparazzi_* | map-backlog — Papic seat and claim tables under the original naming; belongs with the Papic node when it lands
+panood_* | map-backlog — Panood / Live Studio broadcast subsystem
+live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
+patiktok_* | map-backlog — Patiktok recording subsystem
+people | map-backlog — the PERSON SPINE. Counsel-gated and currently empty, but a real concept and the basis of the family tree.
+person_* | map-backlog — person-to-person connections and stewardships; same person spine as `people`
+households | map-backlog — guest household grouping; part of the person and guest cluster
+dependents | map-backlog — guardian-held dependent records; part of the person spine
+vendor_packages | map-backlog — vendor package builder; a first-class product concept
+vendor_package_items | map-backlog — package line items; belongs with the vendor_packages node
+vendor_proposals | map-backlog — vendor proposal system
+proposal_* | map-backlog — proposal amendments and versioning; belongs with vendor_proposals
+vendor_contracts | map-backlog — contract intelligence and e-signature (iteration 0032)
+vendor_reviews | map-backlog — vendor review and rating system
+vendor_schedule_* | map-backlog — vendor schedule pools and calendar services
+vendor_branches | map-backlog — multi-branch vendor locations
+vendor_coverages | map-backlog — vendor service coverage areas
+vendor_verification_* | map-backlog — vendor verification application flow
+vendor_event_* | map-backlog — per-event vendor access grants
+event_vendor_* | map-backlog — the event↔vendor booking cluster (9 tables): unlocks incl. 3D Plan, line items, working notes, policy acknowledgements. Joint J7 documents the booking bond itself but no node owns this cluster.
+vendor_ig_* | map-backlog — vendor Instagram connections
+event_tables | map-backlog — seating chart tables (iteration 0008)
+event_floor_* | map-backlog — floor plan and venue geometry
+event_schedule_* | map-backlog — day-of schedule blocks
+event_type_* | map-backlog — event-type vocab and onboarding config; likely belongs under the taxonomy node
+event_vendor_line_items | map-backlog — per-vendor budget line items
+songs | map-backlog — the song catalogue behind the song desk
+chat_messages | map-backlog — message bodies. Threads ARE mapped and their contents are not, which is an odd seam in the map.
+discount_codes | map-backlog — discount code system (parent table)
+discount_code_* | map-backlog — discount code eligibility and redemption
+booking_fee_* | map-backlog — booking fee charges and ledger
+token_* | map-backlog — token burn bands and grant log; vendor wallet plumbing, dormant since the pack sale was retired 2026-07-21. The BILLING node covers subscriptions but not the token side.
+comp_grants | map-backlog — comp and unlimited-use grants issued by admin
+bespoke_monogram_* | map-backlog — monogram generation (iteration 0037)
+moodboard_* | map-backlog — mood board asset library
+creator_chapters | map-backlog — creator profile chapters
+couple_* | map-backlog — couple brief and intake records
+budget_* | map-backlog — budget allocation config and bands
+coordinator_access_* | map-backlog — coordinator access consent records (the propose-not-execute model)
+wedding_* | map-backlog — wedding destination and tradition reference data
+photo_delivery_* | map-backlog — photo delivery artifacts and Drive integration
+user_* | declined — per-user appendages of the ALREADY-MAPPED users node (devices, AI subscription, preferences). Note the family sensor cannot see that `users` is mapped, because the mapped table is plural and the family prefix is singular — the same singular/plural seam as communities vs community_*. These are attributes of a mapped concept, not a new one.
+service_catalog | map-backlog — the SKU catalogue. Arguably belongs under the services node; needs a deliberate call.
+service_categories | map-backlog — category tree; the real FK target of onboarding_refinements.tile_id
+canonical_service_schemas | map-backlog — per-leaf attribute schemas; taxonomy cluster
+faith_vocab | map-backlog — faith and ceremony vocabulary; taxonomy cluster

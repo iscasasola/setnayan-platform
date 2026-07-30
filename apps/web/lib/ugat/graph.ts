@@ -35,7 +35,8 @@ export type UgatEntityType =
   | 'order'
   | 'thread'
   | 'billing'
-  | 'taxonomy';
+  | 'taxonomy'
+  | 'community';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -277,6 +278,33 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'tags cards', to: 'TYPE-SERVICES' },
     ],
   },
+  {
+    // Samahan (Tagalog: an association / a group one belongs to). Scoped to
+    // COMMUNITIES only — deliberately not "People & Samahan". The person spine
+    // (people / person_connections / dependents) is a separate concern behind a
+    // counsel gate; folding both under one node would give the map two
+    // contradictory ideas of what a "person" is.
+    id: 'TYPE-SAMAHAN',
+    type: 'community',
+    name: 'Samahan',
+    blurb: 'private groups — barkada · parish · clan · org',
+    countKey: 'community',
+    icon: 'group',
+    color: 'var(--ug-e-community)',
+    colorBg: 'var(--ug-e-community-bg)',
+    table: 'communities',
+    x: 250,
+    y: 60,
+    fields: [
+      { key: 'pk', name: 'community_id', note: 'UUID · public_id S89C-…' },
+      { key: '', name: 'kind', note: 'barkada · parish · clan · org · other' },
+      { key: '', name: 'archived', note: 'soft-retire, never deleted' },
+    ],
+    edges: [
+      { verb: 'members', to: 'TYPE-USERS' },
+      { verb: 'owns', to: 'TYPE-EVENTS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -297,6 +325,12 @@ export const UGAT_TYPE_VOCAB: Record<
   thread: { label: 'Thread', icon: 'chat', color: 'var(--ug-e-thread)', colorBg: 'var(--ug-e-thread-bg)' },
   billing: { label: 'Billing', icon: 'wallet', color: 'var(--ug-e-billing)', colorBg: 'var(--ug-e-billing-bg)' },
   taxonomy: { label: 'Taxonomy', icon: 'layers', color: 'var(--ug-e-tax)', colorBg: 'var(--ug-e-tax-bg)' },
+  community: {
+    label: 'Samahan',
+    icon: 'group',
+    color: 'var(--ug-e-community)',
+    colorBg: 'var(--ug-e-community-bg)',
+  },
 };
 
 /* ── inline Lucide-style icon paths (no network; SVG innerHTML) ── */
@@ -328,6 +362,10 @@ export const UGAT_ICON_PATHS: Record<string, string> = {
   lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
   externalLink: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   bolt: '<path d="M13 2 3 14h7l-1 8 10-12h-7z"/>',
+  // Samahan — three figures, distinct from `users` (Guests) so two nodes never
+  // read as the same thing at a glance.
+  group:
+    '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><path d="M1.5 18a4 4 0 0 1 4-3.5"/><path d="M22.5 18a4 4 0 0 0-4-3.5"/>',
 };
 
 export function ugatIcon(name: string, cls?: string): string {
@@ -874,6 +912,38 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Couple onboarding quiz · preference picker on the dashboard',
     guardedBy: 'current_event_ids() — the event-scoped RLS spine',
     traps: 'The two halves of matching have UNEQUAL integrity: couple picks are FK-anchored (this joint); vendor cards are string-glued (chain 8 · F9).',
+  },
+  {
+    id: 'J14',
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Samahan ↔ User (membership)',
+    joint: 'community_members',
+    cardinality:
+      'Many-to-many · UNIQUE(community_id, user_id) — one membership row per (person, samahan)',
+    implementedBy:
+      'community_members — role ∈ organizer / member. Both FKs CASCADE: deleting the samahan or the auth user removes the row outright (no tombstone).',
+    writtenBy:
+      'Samahan create (creator seeded as organizer) · invite-token redemption at /samahan/join/[token]',
+    guardedBy:
+      'current_organizer_community_ids() — the organizer-scoped helper introduced with this cluster',
+    traps:
+      'The roster is PERSONAL DATA about third parties (RA 10173): an admin surface may show member TALLIES but must not enumerate identities without a stated basis. Note community_invite_tokens is UNIQUE per community and carries NO expiry — one live token per samahan, forever, until rotated.',
+  },
+  {
+    id: 'J15',
+    chain: 13,
+    pair: ['TYPE-SAMAHAN', 'TYPE-EVENTS'],
+    title: 'Samahan → Event (ownership)',
+    joint: null,
+    cardinality: 'One-to-many · direct FK, no joint table — events.community_id',
+    implementedBy:
+      'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = a personal event, which is the default and the overwhelming majority.',
+    writtenBy: 'Event creation when the host picks a community-class event',
+    guardedBy:
+      'CHECK events_community_class_consistency — a DB-level backstop pairing community_id with the event class, so the app gate cannot be bypassed',
+    traps:
+      'ON DELETE SET NULL means deleting a samahan SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
   },
 ];
 

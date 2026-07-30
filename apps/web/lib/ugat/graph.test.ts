@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   UGAT_TYPES,
   UGAT_TYPE_BY_ID,
+  UGAT_TYPE_VOCAB,
   UGAT_FINDINGS,
   UGAT_JOINTS,
   UGAT_FINDING_STALE_AFTER_DAYS,
@@ -17,15 +18,41 @@ import {
 } from './graph';
 import { scoreUgatMatch } from './data-pure';
 
-/* ── the nine platform type nodes are complete + consistent ── */
+/* ── the platform type nodes are complete + consistent ── */
 
-test('there are exactly nine type nodes, one per entity type', () => {
-  assert.equal(UGAT_TYPES.length, 9);
+test('type nodes are one-per-entity-type with unique ids', () => {
+  // The real invariant is the 1:1 correspondence, NOT a magic number. The old
+  // assertion pinned "exactly nine" three separate ways, so adding the tenth
+  // node (Samahan, 2026-07-30) failed CI three times for no defect — a count
+  // that must be hand-edited to add a node is a speed bump, not a guard.
+  assert.ok(UGAT_TYPES.length >= 10, 'type nodes should not be lost');
   const types = new Set(UGAT_TYPES.map((t) => t.type));
-  assert.equal(types.size, 9);
-  // every node id is unique
+  assert.equal(types.size, UGAT_TYPES.length, 'each node must have a distinct entity type');
   const ids = new Set(UGAT_TYPES.map((t) => t.id));
-  assert.equal(ids.size, 9);
+  assert.equal(ids.size, UGAT_TYPES.length, 'each node must have a distinct id');
+});
+
+test('every entity type in the union has both a node and a vocab entry', () => {
+  // This is what "exactly nine" was really protecting: a type added to the
+  // union but never given a node (or a vocab row) renders as a blank chip.
+  for (const t of UGAT_TYPES) {
+    assert.ok(UGAT_TYPE_VOCAB[t.type], `${t.type} has a node but no vocab entry`);
+  }
+  const vocabTypes = Object.keys(UGAT_TYPE_VOCAB).sort();
+  const nodeTypes = UGAT_TYPES.map((t) => t.type).sort();
+  assert.deepEqual(vocabTypes, nodeTypes, 'vocab and node type sets must match exactly');
+});
+
+test('the Samahan node is wired to communities and its two joints', () => {
+  const samahan = UGAT_TYPE_BY_ID['TYPE-SAMAHAN'];
+  assert.ok(samahan, 'TYPE-SAMAHAN missing');
+  assert.equal(samahan.table, 'communities');
+  assert.equal(samahan.countKey, 'community');
+  // J14 (membership, via community_members) and J15 (ownership, a direct FK)
+  assert.equal(jointsForEdge('TYPE-SAMAHAN', 'TYPE-USERS')[0]?.joint, 'community_members');
+  const ownership = jointsForEdge('TYPE-SAMAHAN', 'TYPE-EVENTS')[0];
+  assert.ok(ownership, 'Samahan→Events joint missing');
+  assert.equal(ownership.joint, null, 'events.community_id is a direct FK, not a joint table');
 });
 
 test('every type-node edge points at a real type node', () => {

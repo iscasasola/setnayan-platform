@@ -47,6 +47,8 @@ export interface UgatCounts {
   billing: number;
   /** Taxonomy: folders · tiles · leaves · refinement sets (leaf count as the node number). */
   taxonomy: number;
+  /** Samahan: non-archived communities (the live groups). */
+  community: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -57,6 +59,13 @@ export interface UgatCounts {
     taxonomyLeaves: number;
     taxonomyRefinementSets: number;
     ordersPending: number;
+    /**
+     * Total membership ROWS across all communities — a tally, never identities.
+     * The roster is personal data about third parties (RA 10173), so the admin
+     * map counts memberships and stops there; naming members needs its own
+     * stated basis and its own surface.
+     */
+    communityMembers: number;
   };
   /** Epoch ms the counts were computed (shown as "live · updated Xs ago"). */
   computedAt: number;
@@ -124,6 +133,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     taxFolders,
     refinementSets,
     walletRows,
+    communitiesLive,
+    communityMemberRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -163,6 +174,12 @@ async function loadUgatCounts(): Promise<UgatCounts> {
           0,
         );
       }, () => 0),
+    // Samahan: LIVE groups only — `archived` is a soft-retire, so counting all
+    // rows would inflate the node with groups nobody is in anymore.
+    headCount(admin, 'communities', (q) => q.eq('archived', false)),
+    // Membership TALLY only. Never select user_id here: the roster is personal
+    // data about third parties (J14's trap), and a head-count needs no identities.
+    headCount(admin, 'community_members'),
   ]);
 
   return {
@@ -176,6 +193,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // Composite billing figure: active subs + wallets that hold tokens.
     billing: activeSubs,
     taxonomy: taxLeaves,
+    community: communitiesLive,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -185,12 +203,17 @@ async function loadUgatCounts(): Promise<UgatCounts> {
       taxonomyLeaves: taxLeaves,
       taxonomyRefinementSets: refinementSets,
       ordersPending,
+      communityMembers: communityMemberRows,
     },
     computedAt: Date.now(),
   };
 }
 
-const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v1'], {
+// Key bumped v1 → v2 for the added `community` + `detail.communityMembers`
+// fields. Without the bump a cached v1 payload keeps being served for up to 60s
+// and the new sub-figures read as undefined — which renders as a plausible-
+// looking blank rather than an error, the worst kind of wrong.
+const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v2'], {
   revalidate: 60,
 });
 
@@ -213,7 +236,8 @@ export type UgatTableKey =
   | 'services'
   | 'orders'
   | 'threads'
-  | 'billing';
+  | 'billing'
+  | 'communities';
 
 /** A generic display row. `cells` are pre-formatted strings the table renders. */
 export interface UgatRow {
@@ -248,6 +272,8 @@ const TABLE_COLUMNS: Record<UgatTableKey, string[]> = {
   orders: ['Reference', 'Service key', 'Status', 'Amount'],
   threads: ['Event × Vendor', 'Status', 'Last activity'],
   billing: ['Vendor', 'Kind', 'Detail'],
+  // "Members" is a TALLY column, never a roster — see the communities case.
+  communities: ['Samahan', 'Kind', 'Members'],
 };
 
 function fmtDate(v: string | null | undefined): string {
@@ -597,6 +623,53 @@ async function loadUgatTableInner(
         }));
         return base;
       }
+      case 'communities': {
+        // GROUP-LEVEL ONLY. A samahan is an entity and may be listed; its ROSTER
+        // is personal data about third parties (RA 10173 · joint J14's trap), so
+        // this reads member TALLIES and never selects a single user_id. If a
+        // future surface needs to name members, it needs its own stated basis —
+        // not a widened select here.
+        const { data, count, error } = await admin
+          .from('communities')
+          .select('community_id, public_id, name, kind, archived, created_at', {
+            count: 'exact',
+          })
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        base.total = count ?? 0;
+
+        // One extra query for the tallies on THIS page only, counted in JS.
+        // Selecting community_id alone keeps identities out of the payload.
+        const ids = (data ?? []).map((c: any) => c.community_id).filter(Boolean);
+        const memberTally = new Map<string, number>();
+        if (ids.length) {
+          const { data: ms } = await admin
+            .from('community_members')
+            .select('community_id')
+            .in('community_id', ids);
+          for (const m of ms ?? [])
+            memberTally.set(m.community_id, (memberTally.get(m.community_id) ?? 0) + 1);
+        }
+
+        base.rows = (data ?? []).map((c: any) => ({
+          id: c.community_id,
+          type: 'community' as const,
+          name: c.name || c.public_id || 'Samahan',
+          // No href: there is no /admin communities surface yet. The first one
+          // to ship should wire it here rather than inventing a second link.
+          status: [c.archived ? 'archived' : 'live', c.archived ? 'neutral' : 'ok'] as [
+            string,
+            'ok' | 'wait' | 'neutral' | 'report',
+          ],
+          cells: [
+            c.name || c.public_id || 'Samahan',
+            c.kind ?? '—',
+            `${memberTally.get(c.community_id) ?? 0} members`,
+          ],
+        }));
+        return base;
+      }
       default:
         return base;
     }
@@ -634,6 +707,7 @@ export interface UgatSearchGroup {
 }
 
 const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
+  community: 'TYPE-SAMAHAN',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

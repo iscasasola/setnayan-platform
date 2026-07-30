@@ -35,6 +35,192 @@ async function fetchBookedTiles(
 }
 
 /**
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  THE SONG DESK GATE — one definition, because it is now the paywall.      ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ *
+ * Owner-locked 2026-07-30: guest song requests are ALWAYS ON, and **seeing the
+ * requests** is the paid part. That moved the sale off the open/close switch and
+ * onto the inbox, so migration 20271020224218 removed the booked-vendor leg from
+ * `event_song_requests_read` / `_decide` — booked is not paid, and RLS is
+ * row-level so it can never ask the paid question.
+ *
+ * Everything an act does with its song desk therefore comes through here:
+ * signed in → owns the profile → booked on this event → HOLDS `song_desk` →
+ * service_role. Three callers share this one gate rather than keeping three
+ * copies of the check, because three copies of a paywall is three chances for
+ * one of them to drift open.
+ *
+ * WHY THE ENTITLEMENT STAYS IN TYPESCRIPT (settled by PR #3876, restated because
+ * it is the reason this function exists at all):
+ * `resolveVendorSpecializationAccessForVendor` folds in the admin free-window
+ * promotion and the mid-event lapse. A SQL copy of those rules would drift from
+ * the copy every render path already uses, and a drifting paywall fails open.
+ *
+ * ⚠ THE FRAME IS NOT AUTHORISATION. `resolveVendorSpecializationAccess` is
+ * imported by the render path (`vendor-dayof-frame.ts` · `specialization-slot.tsx`
+ * · `live/[eventId]/page.tsx`); a mounted component proves nothing about a query.
+ * That gap WAS the PR #3876 defect. Do not add a fourth caller that re-implements
+ * this — call it.
+ *
+ * ⚠ OWNER PATH ONLY, deliberately, and unchanged from PR #3876: a day-of
+ * *grantee* (crew) cannot pause requests or decide them. Widening that is a
+ * product call, not a side effect of a security fix.
+ */
+type SongDeskGate =
+  | {
+      ok: true;
+      supabase: Awaited<ReturnType<typeof createClient>>;
+      profile: { vendor_profile_id: string; services: string[] };
+      /** The tiles this vendor is booked under — reused by callers that seed a
+       *  `vendor_dayof_configs` row, so the brief is fetched once. */
+      eventTiles: string[] | null;
+    }
+  | { ok: false; error: string };
+
+async function requireSongDeskAct(eventId: string): Promise<SongDeskGate> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, error: 'No vendor profile.' };
+
+  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
+  if (!bookings.some((b) => b.eventId === eventId)) {
+    return { ok: false, error: 'You are not booked on this event.' };
+  }
+
+  const eventTiles = await fetchBookedTiles(supabase, eventId);
+  const access = await resolveVendorSpecializationAccessForVendor(
+    supabase,
+    profile.vendor_profile_id,
+    { services: profile.services, eventTiles },
+  );
+  if (!holdsSpecialization(access, 'song_desk')) {
+    return { ok: false, error: 'The song desk is part of a paid plan.' };
+  }
+
+  return { ok: true, supabase, profile, eventTiles };
+}
+
+/** One guest request, as the act's inbox reads it. */
+export type ActSongRequest = {
+  requestId: string;
+  title: string;
+  /** May be '' — a guest can type a title with no artist. */
+  artist: string;
+  /** 'guest' = an RSVP'd wedding guest · 'open' = a scanned walk-in. */
+  origin: 'guest' | 'open';
+  /** The name they gave, or '' when they gave none. */
+  requesterName: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+};
+
+/**
+ * The act's request inbox — the surface the owner made the paid part.
+ *
+ * Reads as service_role because {@link requireSongDeskAct} has already answered
+ * every question RLS used to answer, plus the one it could not (did you pay).
+ * Ordered pending-first then newest-first: on a venue floor the undecided rows
+ * are the only ones anyone can act on, which is the same opinion `buildSongDesk`
+ * applies to gaps.
+ *
+ * Returns [] rather than throwing on a denied gate — a day-of surface renders a
+ * short list far better than it renders an exception. Callers that need to tell
+ * "not entitled" from "no requests yet" should call the gate themselves.
+ */
+export async function fetchActSongRequests(eventId: string): Promise<ActSongRequest[]> {
+  const gate = await requireSongDeskAct(eventId);
+  if (!gate.ok) return [];
+
+  const { data, error } = await createAdminClient()
+    .from('event_song_requests')
+    .select('request_id, origin, requester_name, status, created_at, songs(title, artist)')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+
+  const rows = (data as unknown[]).flatMap((row) => {
+    const r = row as {
+      request_id: string;
+      origin: string;
+      requester_name: string | null;
+      status: string;
+      created_at: string;
+      songs: unknown;
+    };
+    const song = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as
+      | { title?: string; artist?: string }
+      | undefined;
+    const title = song?.title?.trim();
+    if (!title) return []; // a request with no resolvable song is not a row anyone can act on
+    return [
+      {
+        requestId: r.request_id,
+        title,
+        artist: song?.artist?.trim() ?? '',
+        origin: r.origin === 'open' ? ('open' as const) : ('guest' as const),
+        requesterName: r.requester_name?.trim() ?? '',
+        status:
+          r.status === 'accepted'
+            ? ('accepted' as const)
+            : r.status === 'declined'
+              ? ('declined' as const)
+              : ('pending' as const),
+        createdAt: r.created_at,
+      },
+    ];
+  });
+
+  // Pending first, then newest — a stable two-key sort so the list does not
+  // reshuffle under the act's thumb between renders.
+  const rank = (s: ActSongRequest['status']) => (s === 'pending' ? 0 : 1);
+  return rows.sort((a, b) => rank(a.status) - rank(b.status) || b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Accept or decline one request.
+ *
+ * ACCEPT IS THE SETLIST (owner, 2026-07-27) and accepting does NOT file the song
+ * into a set (owner, 2026-07-30) — a request lands mid-song, and making a
+ * musician answer "which set?" in that moment is a decision they do not need. So
+ * this writes a status and nothing else: no ordering table, no `played` state.
+ *
+ * `event_id` is re-asserted in the WHERE clause even though `request_id` is a
+ * primary key, so a request from another event cannot be decided by id alone —
+ * service_role bypasses RLS, which means every scope the policy used to enforce
+ * has to be written out here.
+ */
+export async function decideActSongRequest(
+  eventId: string,
+  requestId: string,
+  decision: 'accepted' | 'declined',
+): Promise<{ ok: boolean; error?: string }> {
+  const gate = await requireSongDeskAct(eventId);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const { error } = await createAdminClient()
+    .from('event_song_requests')
+    .update({
+      status: decision,
+      decided_by_vendor_profile_id: gate.profile.vendor_profile_id,
+      // The CHECK constraint pairs these: a non-pending row MUST carry a
+      // decided_at, so writing the status without it fails the insert.
+      decided_at: new Date().toISOString(),
+    })
+    .eq('request_id', requestId)
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/**
  * Persist the vendor's day-of module override for one booking.
  *
  * The client sends the full set of module ids it wants ON for `eventId`. We:
@@ -83,52 +269,40 @@ export async function saveDayOfModules(
 }
 
 /**
- * Open or close the act's guest-song-requests window for one booking.
+ * PAUSE or resume the act's guest song requests for one booking.
+ *
+ * ⚠ THE MEANING OF THIS FUNCTION INVERTED ON 2026-07-30. It used to OPEN a window
+ * that defaulted closed; requests are now ALWAYS ON (owner-locked, migration
+ * 20271020224218) and `song_requests_open` means **not paused**. `open: false` is
+ * therefore a pause the act applies on the night — a flood during dinner, a set
+ * they want undisturbed — not a feature they forgot to switch on. The parameter
+ * keeps its name because the column does; the UI copy says "Pause requests".
+ *
+ * ⚠ A PAUSE PAUSES THE ROOM, not just this act's view. The request pool is
+ * per-EVENT (one inbox, `UNIQUE (event_id, song_id)`), so with two acts booked a
+ * paused quartet also silences the band. That is the safe direction — over-pausing
+ * disappoints a guest, under-pausing floods a band that asked for silence — and
+ * splitting it per-act means splitting the inbox first. See the migration header.
  *
  * THE ONLY WRITE PATH to `vendor_dayof_configs.song_requests_open`. Migration
  * 20271020159662 withdrew that column's INSERT/UPDATE privilege from
  * `authenticated`, because RLS is row-level and could only ask "is this your
  * row" — never "did you pay for the song desk". A free-tier band could PATCH
- * the column straight through PostgREST and start collecting requests it had
- * not bought.
+ * the column straight through PostgREST. That gate still stands and still
+ * matters: always-on retired the window as a *setup step*, but the pause is a
+ * paid control.
  *
- * So the entitlement is checked HERE, in the one place the rule lives, and the
- * write goes out as service_role. Resolving it in TypeScript rather than SQL is
- * deliberate: `resolveVendorSpecializationAccessForVendor` folds in the admin
- * free-window promotion and the mid-event lapse, and a SQL copy of those rules
- * would drift from the copy every render path already uses.
- *
- * Because service_role bypasses RLS entirely, the two checks RLS used to make
- * are re-made explicitly above the write: the caller owns the vendor profile,
- * and that profile is booked on this event.
+ * Entitlement + booking + identity all come from {@link requireSongDeskAct};
+ * because service_role bypasses RLS entirely, that gate is the only thing
+ * standing between a caller and this write.
  */
 export async function setSongRequestsOpen(
   eventId: string,
   open: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not signed in.' };
-
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
-
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
-  if (!bookings.some((b) => b.eventId === eventId)) {
-    return { ok: false, error: 'You are not booked on this event.' };
-  }
-
-  const eventTiles = await fetchBookedTiles(supabase, eventId);
-  const access = await resolveVendorSpecializationAccessForVendor(
-    supabase,
-    profile.vendor_profile_id,
-    { services: profile.services, eventTiles },
-  );
-  if (!holdsSpecialization(access, 'song_desk')) {
-    return { ok: false, error: 'The song desk is part of a paid plan.' };
-  }
+  const gate = await requireSongDeskAct(eventId);
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const { profile, eventTiles } = gate;
 
   const admin = createAdminClient();
   const now = new Date().toISOString();

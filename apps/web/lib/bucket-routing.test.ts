@@ -41,6 +41,23 @@ test('singular payment-screenshot/ prefix also routes private (legacy safety)', 
   );
 });
 
+test('off-platform vendor-payment receipts route PRIVATE (F10, 2026-07-30)', () => {
+  // These wrote to the PUBLIC media bucket until 2026-07-30: the couple's
+  // bank-transfer screenshot for an off-platform vendor payment, carrying
+  // reference numbers and partial account numbers. Same PII class as the
+  // checkout proofs above; the client now passes bucket="thread-files" and this
+  // prefix rule makes the routing sufficient on its own.
+  assert.equal(bucketForPrefix('payment-proof/events/evt-123'), 'threadFiles');
+  assert.equal(bucketForPrefix('/payment-proof/events/evt-123'), 'threadFiles');
+});
+
+test('the OLD receipt prefix would have leaked — proving the fix is the prefix, not luck', () => {
+  // The original path was `events/<id>/payment-proof`, which starts with
+  // "events/" and therefore takes the public default. Pinned so nobody
+  // "tidies" the prefix back to an event-first shape and silently re-opens it.
+  assert.equal(bucketForPrefix('events/evt-123/payment-proof'), 'media');
+});
+
 test('public-asset prefixes still route to the media bucket', () => {
   assert.equal(bucketForPrefix('merchant-qr/vendor-1'), 'media');
   assert.equal(bucketForPrefix('vendor-logo/vendor-1'), 'media');

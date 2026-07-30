@@ -47,7 +47,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { uploadPublicAsset } from '@/lib/storage';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -540,9 +539,18 @@ export async function submitOrderAction(
     };
   }
 
-  // Resolve the screenshot ref. Drawer uses <FileUpload name="screenshot_ref">
-  // which uploads direct-to-R2 and emits the r2:// ref. Fallback to legacy
-  // <input type="file" name="screenshot"> covers any future drift.
+  // Resolve the screenshot ref. The drawer uses <FileUpload name="screenshot_ref">,
+  // which uploads direct-to-R2 (PRIVATE thread-files bucket) and emits the r2:// ref.
+  //
+  // ⛔ The legacy `<input type="file" name="screenshot">` fallback was DELETED
+  // 2026-07-30: it wrote payment proofs — bank / GCash screenshots carrying
+  // account numbers and names — to the PUBLIC `setnayan-media` bucket, which is
+  // served unsigned to anyone holding the key. Nothing produced that field on
+  // this action, so it was a loaded gun rather than a live leak. Removing it is
+  // safe to fail: a submit with no valid ref falls through to the existing
+  // "A payment screenshot is required." reject below, so the buyer is told
+  // rather than silently having their proof published.
+  // `payment-proof-public-bucket.test.ts` keeps it deleted.
   let screenshotUrl: string | null = null;
   // SEC-1: the order row does not exist yet here, so the ref is bound to the
   // event + the buyer's own user id — the two server-known keys the drawer and
@@ -556,18 +564,6 @@ export async function submitOrderAction(
     )
   ) {
     screenshotUrl = screenshotRefRaw.trim();
-  } else {
-    const screenshotFile = formData.get('screenshot');
-    if (screenshotFile instanceof File && screenshotFile.size > 0) {
-      const result = await uploadPublicAsset({
-        pathPrefix: `payment-screenshots/inline-checkout/${user.id}`,
-        file: screenshotFile,
-      });
-      if (!result.ok) {
-        return { ok: false, reason: result.error };
-      }
-      screenshotUrl = result.publicUrl;
-    }
   }
 
   if (!screenshotUrl) {

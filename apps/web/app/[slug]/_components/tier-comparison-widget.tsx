@@ -73,7 +73,17 @@ export function TierComparisonWidget({ limited, eventNoun }: { limited: boolean;
           <p className="font-medium text-ink">Free · One-tap sign-up</p>
           <ul className="space-y-1 text-sm text-ink/75">
             <li>· Everything in Public</li>
-            <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
+            {/* NAMES THE PRODUCT (2026-07-30). This card pitched guest capture as
+                "Shutter" and never once said "Papic" — the guest-facing surface for
+                the couple's flagship capture product, selling it anonymously. A
+                guest who reads "Papic" here can recognise it on the couple's site,
+                in the help centre and on /papic; "Shutter" is a button, not a
+                product. No count and no price: what this event actually holds is
+                resolved on the capture surface itself. */}
+            <li>
+              · <strong>Papic</strong> — shoot candids for the couple from your own
+              phone
+            </li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             {papicGamesEnabled() ? (
               <li>· <strong>Papic Challenges</strong> — fun mini-quests</li>

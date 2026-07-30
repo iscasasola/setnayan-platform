@@ -1,3 +1,5 @@
+import type { UgatSchemaClaim } from './schema-claims';
+
 /**
  * lib/ugat/graph.ts — the STATIC map registry for the Ugat Console (slice 1).
  *
@@ -777,11 +779,31 @@ export interface UgatJoint {
   traps: string;
   /** Cross-reference to a health finding, if this joint has one. */
   healthId?: string;
+  /**
+   * Structural assertions this joint makes about the schema, checked against a
+   * migration replay by tests/db/ugat-schema-claims.db.test.ts.
+   *
+   * REQUIRED, not optional — an unclaimed joint is the loophole. Three
+   * references to non-existent columns (events.qr_revoked_at,
+   * payment_inbox_messages, order_ledger_entries) sat in this registry looking
+   * authoritative for 25 days precisely because nothing was checking.
+   *
+   * Author claims from the prod snapshot or the replay, NEVER from the prose
+   * above — the prose is the thing that goes stale.
+   */
+  claims: UgatSchemaClaim[];
 }
 
 export const UGAT_JOINTS: UgatJoint[] = [
   {
     id: 'J1',
+    claims: [
+      { kind: 'table', table: 'event_members' },
+      { kind: 'column', table: 'event_members', column: 'guest_id' },
+      { kind: 'column', table: 'event_members', column: 'member_type' },
+      // The trap: vendor_id exists as a column but is dead (no FK).
+      { kind: 'no_fk', table: 'event_members', column: 'vendor_id' },
+    ],
     chain: 1,
     pair: ['TYPE-USERS', 'TYPE-EVENTS'],
     title: 'User ↔ Event',
@@ -795,6 +817,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J2',
+    claims: [
+      { kind: 'table', table: 'guest_claims' },
+      { kind: 'column', table: 'guest_claims', column: 'claimer_user_id' },
+      { kind: 'column', table: 'guest_claims', column: 'target_guest_id' },
+      // The whole point of this joint: a guest is NOT a user until they claim.
+      { kind: 'no_column', table: 'guests', column: 'user_id' },
+    ],
     chain: 2,
     pair: ['TYPE-USERS', 'TYPE-GUESTS'],
     title: 'Guest → User (claim)',
@@ -808,6 +837,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J3',
+    claims: [{ kind: 'fk', table: 'guests', column: 'event_id', references: 'events' }],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
     title: 'Guest → Event',
@@ -821,6 +851,12 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J4',
+    claims: [
+      { kind: 'table', table: 'vendor_team_members' },
+      // vendor_profile_id, NOT vendor_id — the obvious guess is wrong here.
+      { kind: 'column', table: 'vendor_team_members', column: 'vendor_profile_id' },
+      { kind: 'column', table: 'vendor_team_members', column: 'user_id' },
+    ],
     chain: 4,
     pair: ['TYPE-USERS', 'TYPE-VENDORS'],
     title: 'User ↔ Vendor org',
@@ -834,6 +870,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J5',
+    claims: [
+      { kind: 'table', table: 'chat_threads' },
+      { kind: 'column', table: 'chat_threads', column: 'event_id' },
+      { kind: 'column', table: 'chat_threads', column: 'vendor_profile_id' },
+      // Still present, but NO LONGER the reveal gate — see F5. The column
+      // outliving its meaning is why the trap prose needed correcting.
+      { kind: 'column', table: 'chat_threads', column: 'vendor_first_reply_at' },
+    ],
     chain: 5,
     pair: ['TYPE-VENDORS', 'TYPE-THREADS'],
     title: 'Event ↔ Vendor (conversation)',
@@ -849,6 +893,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J7',
+    claims: [
+      { kind: 'table', table: 'event_vendors' },
+      // THE trap this joint exists for: the column is NAMED vendor_id but holds
+      // the BOOKING id, which is exactly why it carries no vendor FK.
+      { kind: 'column', table: 'event_vendors', column: 'vendor_id' },
+      { kind: 'column', table: 'event_vendors', column: 'category_key' },
+    ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
     title: 'Event ↔ Vendor (booking)',
@@ -862,6 +913,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J8',
+    claims: [
+      { kind: 'table', table: 'vendor_service_attributes' },
+      { kind: 'column', table: 'vendor_service_attributes', column: 'vendor_profile_id' },
+      { kind: 'column', table: 'vendor_service_attributes', column: 'canonical_service' },
+      // F9's core assertion, now machine-checked in BOTH directions: the day a
+      // real FK lands here, this claim fails and the trap prose must be deleted
+      // rather than left warning about a problem someone already fixed.
+      { kind: 'no_fk', table: 'vendor_services', column: 'category' },
+    ],
     chain: 8,
     pair: ['TYPE-SERVICES', 'TYPE-TAXONOMY'],
     title: 'Service card → Taxonomy',
@@ -876,6 +936,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J9',
+    claims: [
+      { kind: 'table', table: 'event_software_activations_v2' },
+      { kind: 'column', table: 'event_software_activations_v2', column: 'event_id' },
+      // service_code, NOT service_key — orders uses service_key, activations
+      // uses service_code, and the two are joined by string.
+      { kind: 'column', table: 'event_software_activations_v2', column: 'service_code' },
+      { kind: 'no_fk', table: 'orders', column: 'service_key' },
+    ],
     chain: 9,
     pair: ['TYPE-SERVICES', 'TYPE-ORDERS'],
     title: 'Order → Event feature (activation)',
@@ -889,6 +957,12 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J10',
+    claims: [
+      { kind: 'table', table: 'vendor_subscriptions' },
+      { kind: 'column', table: 'vendor_subscriptions', column: 'vendor_id' },
+      { kind: 'column', table: 'vendor_subscriptions', column: 'tier' },
+      { kind: 'column', table: 'vendor_subscriptions', column: 'status' },
+    ],
     chain: 10,
     pair: ['TYPE-VENDORS', 'TYPE-BILLING'],
     title: 'Vendor → Subscription',
@@ -902,19 +976,43 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J13',
+    claims: [
+      { kind: 'table', table: 'onboarding_refinements' },
+      // ⚠ CORRECTED 2026-07-30 by this very check, on its first run. The
+      // registry said tile_id was an FK into `canonical_service_taxonomy`. It
+      // is not, and could not be: that table's PK is on `canonical_service`,
+      // and NOTHING in the schema references it at all. The real FK targets
+      // `service_categories`. The joint's POINT still stands — couple picks are
+      // FK-anchored where vendor cards are string-glued — but it was anchored
+      // to a different table than the prose claimed for 25 days.
+      {
+        kind: 'fk',
+        table: 'onboarding_refinements',
+        column: 'tile_id',
+        references: 'service_categories',
+      },
+    ],
     chain: 11,
     pair: ['TYPE-EVENTS', 'TYPE-TAXONOMY'],
     title: 'Event → Taxonomy (preferences)',
     joint: 'onboarding_refinements',
     cardinality: 'Many per event — one row per refinement pick made in onboarding',
     implementedBy:
-      'onboarding_refinements.tile_id IS a real FK into canonical_service_taxonomy — the one safe anchor in the taxonomy cluster. Preference picks land here and drive the leaf-match engine.',
+      'onboarding_refinements.tile_id IS a real FK — into service_categories, NOT canonical_service_taxonomy (corrected 2026-07-30; the registry named the wrong table for 25 days). Preference picks land here and drive the leaf-match engine.',
     writtenBy: 'Couple onboarding quiz · preference picker on the dashboard',
     guardedBy: 'current_event_ids() — the event-scoped RLS spine',
-    traps: 'The two halves of matching have UNEQUAL integrity: couple picks are FK-anchored (this joint); vendor cards are string-glued (chain 8 · F9).',
+    traps:
+      'The two halves of matching have UNEQUAL integrity: couple picks are FK-anchored (this joint); vendor cards are string-glued (chain 8 · F9). ⚠ And the anchor is service_categories — NOTHING in the entire schema carries a foreign key into canonical_service_taxonomy, whose PK is on canonical_service, not tile_id. That strengthens F9 rather than softening it: the canonical taxonomy has no referential integrity pointing at it from anywhere.',
   },
   {
     id: 'J14',
+    claims: [
+      { kind: 'table', table: 'community_members' },
+      { kind: 'column', table: 'community_members', column: 'community_id' },
+      { kind: 'column', table: 'community_members', column: 'role' },
+      { kind: 'unique', table: 'community_members', columns: ['community_id', 'user_id'] },
+      { kind: 'table', table: 'community_invite_tokens' },
+    ],
     chain: 12,
     pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
     title: 'Samahan ↔ User (membership)',
@@ -932,6 +1030,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J15',
+    claims: [
+      { kind: 'fk', table: 'events', column: 'community_id', references: 'communities' },
+      { kind: 'table', table: 'communities' },
+    ],
     chain: 13,
     pair: ['TYPE-SAMAHAN', 'TYPE-EVENTS'],
     title: 'Samahan → Event (ownership)',

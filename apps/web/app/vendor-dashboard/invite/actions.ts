@@ -10,6 +10,7 @@
  */
 
 import { redirect } from 'next/navigation';
+import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
@@ -159,9 +160,33 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (initialPaid <= 0) fail('downpayment');
   if (initialPaid > totalPhp) fail('overpaid');
   // Proof of the received downpayment is required; a remembrance photo optional.
-  const proofRef = String(formData.get('proof_r2_ref') ?? '').trim() || null;
+  // SEC-1 (lane #2, last two paths): both refs are client-supplied, so they are
+  // pinned to the flat `locked-qr-proof/` prefix in the PUBLIC media bucket that
+  // `locked-qr-generator.tsx` actually uploads to.
+  //
+  // ⚠ Honest severity: LATENT, not live. `vendor_locked_qr_tokens.proof_r2_key`
+  // is written here and — verified by grep — never resolved through
+  // `displayUrlForStoredAsset` / `presignDisplayUrl` anywhere today, so there is
+  // no signing path to abuse yet. The guard is here so that the day someone
+  // builds a UI that DOES display it, the ref is already trustworthy rather than
+  // arbitrary. That is the cheap half of the lesson from #3909/#3911: the write is
+  // where a ref becomes trustworthy, and adding the pin after a reader appears is
+  // how these become oracles in the first place.
+  //
+  // ⚠ Containment, not tenancy: `locked-qr-proof/` is FLAT (no vendor segment), so
+  // this proves the bucket + prefix, not ownership — the same limitation
+  // `editorialVendorMediaPolicy` documents. Tightening it needs the uploader to
+  // move to `locked-qr-proof/{vendorProfileId}/`.
+  const proofRefRaw = String(formData.get('proof_r2_ref') ?? '').trim() || null;
+  const proofRef =
+    proofRefRaw && parseClientRef(proofRefRaw, lockedQrProofPolicy()) ? proofRefRaw : null;
   if (!proofRef) fail('proof');
-  const remembranceRef = String(formData.get('remembrance_r2_ref') ?? '').trim() || null;
+  const remembranceRefRaw =
+    String(formData.get('remembrance_r2_ref') ?? '').trim() || null;
+  const remembranceRef =
+    remembranceRefRaw && parseClientRef(remembranceRefRaw, lockedQrProofPolicy())
+      ? remembranceRefRaw
+      : null;
 
   // Contract: required only when the vendor HAS saved (non-cancelled) contracts
   // to pick from — a vendor with none can issue without one (owner 2026-07).

@@ -458,6 +458,19 @@ export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
 }
 
 /**
+ * A vendor's proof-of-downpayment / remembrance photo on a locked-QR invite.
+ *
+ * ⚠ The uploader writes to a FLAT, untenanted `locked-qr-proof/` prefix
+ * (`locked-qr-generator.tsx`), so this contains the ref to the public media bucket
+ * under that prefix — it cannot prove the object belongs to this vendor.
+ * Containment, not ownership, exactly like `editorialVendorMediaPolicy`. Tightening
+ * it needs the uploader to move to `locked-qr-proof/{vendorProfileId}/`.
+ */
+export function lockedQrProofPolicy(): ClientRefPolicy {
+  return { prefixes: ['locked-qr-proof/'] };
+}
+
+/**
  * Vendor-submitted editorial media for a couple's site.
  *
  * ⚠ The uploader writes to a FLAT, untenanted `editorial-vendor/` prefix

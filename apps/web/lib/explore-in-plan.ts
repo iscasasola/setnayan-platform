@@ -2,7 +2,7 @@
  * explore-in-plan.ts — the pure engine behind the ADAPTIVE CATEGORY SET on the
  * Explore bench (Explore Replan PR-C · `Explore_Replan_BUILD_SPEC_2026-07-27.md`
  * §3 PR-C · design §5.2 "the bench shows only the couple's in-plan categories;
- * each folder ends with a ＋ Add to your plan chip pool; every non-locked
+ * each folder ends with a ＋ Add to your event chip pool; every non-locked
  * category has a Not needed? Remove control").
  *
  * Everything that can be decided without a DOM lives here so it is unit
@@ -11,7 +11,7 @@
  *
  * ── THE TWO SETS, AND WHY THEY ARE NOT ONE ─────────────────────────────────
  * `inPlan` is BENCH MEMBERSHIP: a tile in it renders as a category row, a tile
- * outside it renders as an "＋ Add to your plan" chip. `coverage` is COVERAGE
+ * outside it renders as an "＋ Add to your event" chip. `coverage` is COVERAGE
  * STRIP membership — the tiles the strip draws and the denominator of
  * "Covered X of Y".
  *
@@ -66,7 +66,7 @@ export type InPlanResolution = {
   seeded: boolean;
   /** Bench rows. */
   inPlan: Set<string>;
-  /** "＋ Add to your plan" chips, in `allTiles` order. */
+  /** "＋ Add to your event" chips, in `allTiles` order. */
   pool: string[];
   /** Coverage Strip membership + the "Covered X of Y" denominator. */
   coverage: Set<string>;

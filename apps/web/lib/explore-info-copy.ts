@@ -141,22 +141,31 @@ export function categoryHintButtonLabel(label: string): string {
    a one-file diff, so none of these strings may be inlined in JSX. */
 
 /**
- * Heading above a folder's "not in your plan" chip pool. Says "event", not
+ * Heading above a folder's "not in your event" chip pool. Says "event", not
  * "plan" — the couple thinks in terms of the event they are building, and
  * `EXPLORE_INFO_STRIP` above names the same container the same way.
+ *
+ * ⚠ "PLAN" IS A RESERVED WORD in this surface's copy
+ * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §2, one word / one concept):
+ * a **plan** is a saved, named alternative team you compare — never the set of
+ * categories your event covers. Every string in this block therefore says
+ * *event*, aria-labels included. The EXPORT NAMES keep `…PLAN…` on purpose:
+ * they are also `explore-in-plan.ts`'s internal vocabulary (`notInPlan`,
+ * `inPlanTiles`), which is a concept, not copy.
  */
 export const ADD_TO_PLAN_HEADING = '＋ Add to your event';
 
-/** aria-label on one pool chip. */
+/** aria-label on one pool chip. Mirrors the heading above — a screen reader must
+ *  not say "plan" over a pool the eye reads as "event". */
 export function addToPlanChipLabel(label: string): string {
-  return `Add ${label} to your plan`;
+  return `Add ${label} to your event`;
 }
 
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
 export function removeFromPlanButtonLabel(label: string): string {
-  return `Remove ${label} from your plan`;
+  return `Remove ${label} from your event`;
 }
 
 /**
@@ -167,9 +176,10 @@ export function removeFromPlanButtonLabel(label: string): string {
 export const REMOVE_BLOCKED_LOCKED =
   'This category has a locked vendor. Unlock (or undo) that booking first — removing a category never cancels a booking.';
 
-/** A folder whose in-plan set is empty but whose pool is not. */
+/** A folder whose in-plan set is empty but whose pool is not. Visible copy, so
+ *  it takes the same noun as the heading and the ⓘ panel. */
 export function folderEmptyInPlan(folderLabel: string): string {
-  return `Nothing from ${folderLabel} in your plan yet — add below if you need it.`;
+  return `Nothing from ${folderLabel} in your event yet — add below if you need it.`;
 }
 
 /* ── Three-action card (slice D · spec §3 PR-D, §12.1) ─────────────────────

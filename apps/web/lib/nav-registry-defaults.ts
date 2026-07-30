@@ -1028,63 +1028,25 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 4,
   },
-  // (The "customer.budget-subnav.summary" slot was removed 2026-06-25 — owner
-  // "start with shortlist right away": the Services takeover's Summary cover
-  // tab is gone, so its sub-nav child default went too, mirroring the 2026-06-20
-  // lock-tab removal below. Shortlist is now the first (sortOrder 0) section.)
-  {
-    key: "customer.budget-subnav.shortlist",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=shortlist",
-    label: "Shortlist",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Bookmark",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.budget-subnav.build",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=build",
-    label: "Build",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Hammer",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
-    key: "customer.budget-subnav.budget",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/vendors?tab=budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 2,
-  },
-  {
-    key: "customer.budget-subnav.compare",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=compare",
-    label: "Compare",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Scale",
-    customRef: null,
-    sortOrder: 3,
-  },
-  // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
-  // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now
-  // lives inside the Build tab, so its sub-nav child + slot default went too.
-  // customer-menu.ts derives the Explore children from BUDGET_BUILD_TABS, which
-  // no longer includes 'lock'.)
+  // (The whole "customer.budget-subnav.*" AREA was removed 2026-07-30 — the
+  // Marketplace takeover's mobile 4-chip dock is gone (Explore replan PR-3
+  // #3877: the page is one scroll, and the Coverage Strip is the navigator), so
+  // these four slots described a nav element that no longer renders. An orphan
+  // slot is worse than a missing one: /admin/menus offers it as renameable, and
+  // the rename appears to do nothing. Removed: .shortlist · .build · .budget ·
+  // .compare — VERIFIED against prod first, `nav_slot_override` held ZERO rows
+  // for any of them, so no admin customisation was discarded.
+  //
+  // Two earlier siblings had already gone the same way: .summary (2026-06-25 —
+  // owner "start with shortlist right away") and .lock (2026-06-20 — "Build
+  // absorbs Lock" PR2; customer-menu.ts derives the Explore children from
+  // BUDGET_BUILD_TABS, which no longer includes 'lock').
+  //
+  // ⚠ With the replan flag OFF the dock returns (customer-menu.ts still emits
+  // the children + their `slotKey`s on that path), and an unknown slotKey falls
+  // through to the child's CODE default label/icon — so it renders identically
+  // to today; it simply stops being admin-editable. That is the intended trade:
+  // the dock is not coming back.
   // Studio docked sub-nav — the 4 sections of the /add-ons hub (customer-menu
   // redesign 2026-06-17). The mobile <SubNav> overlays these admin overrides on
   // its code defaults (lib/customer-menu.ts child.slotKey).

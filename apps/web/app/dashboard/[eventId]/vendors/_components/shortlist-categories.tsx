@@ -421,7 +421,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 /* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
    Three quiet affordances on the SHIPPED accordion, not a new surface: the ⓘ
    beside a category name, the "Not needed? Remove" line at the foot of an open
-   category, and the "＋ Add to your plan" chip pool at the foot of a folder.
+   category, and the "＋ Add to your event" chip pool at the foot of a folder.
    Every token is the bench's own — no new colour, no new type scale. */
 .slcat .cat-info{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;margin-left:6px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:var(--m-r-full);cursor:pointer;font:inherit;font-family:var(--serif);font-style:italic;font-size:12px;font-weight:600;line-height:1;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
 .slcat .cat-info:hover{background:rgba(30,26,18,.07);color:var(--mulberry)}
@@ -819,7 +819,7 @@ export function ShortlistCategories({
   /**
    * Explore Replan slice C — tiles the couple removed with "Not needed?
    * Remove" (`event_category_decisions` rows at TILE grain, decision
-   * ='excluded'). They leave the bench and reappear as "＋ Add to your plan"
+   * ='excluded'). They leave the bench and reappear as "＋ Add to your event"
    * chips at the foot of their folder. Empty (the default / flag off) → the
    * pre-replan render, byte for byte.
    */
@@ -1166,7 +1166,7 @@ export function ShortlistCategories({
   }
   // ── Adaptive category set (Explore Replan PR-C · decision #6) ─────────────
   // The bench shows the couple's IN-PLAN tiles; the rest sit in a per-folder
-  // "＋ Add to your plan" chip pool. The rule itself is pure and unit-tested in
+  // "＋ Add to your event" chip pool. The rule itself is pure and unit-tested in
   // lib/explore-in-plan.ts — including the reason `inPlan` and `coverage` are
   // two sets (a wedding has no onboarding plan to seed from, and collapsing its
   // ~53-row bench to whatever is already shortlisted would be an amputation,
@@ -1559,7 +1559,7 @@ export function ShortlistCategories({
             ? folderSummaryOf(coverageByFolder.get(folder.folder) ?? [], plannedTileSet)
             : null;
         // PR-C — split the folder's (already search-filtered) tiles into the
-        // rows the couple planned and the "＋ Add to your plan" chips. Flag OFF
+        // rows the couple planned and the "＋ Add to your event" chips. Flag OFF
         // → every tile is a row, exactly as today.
         const rowTiles = inPlanTiles
           ? folder.tiles.filter((t) => inPlanTiles.has(t.tile))
@@ -1968,7 +1968,7 @@ export function ShortlistCategories({
                     </div>
                   );
                 })}
-                {/* "＋ Add to your plan" (PR-C · decision #6) — everything in
+                {/* "＋ Add to your event" (PR-C · decision #6) — everything in
                     this folder the couple is NOT planning, as a chip pool at
                     the foot of the folder body. Tapping one clears the
                     exclusion and opens the category. */}

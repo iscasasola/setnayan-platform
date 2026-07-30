@@ -45,6 +45,7 @@ import {
   TeamRemoveCandidate,
   TeamSavePlan,
 } from './team-controls';
+import { TeamSummaryChip } from './team-summary-chip';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 const pesoFromPhp = (php: number | null) =>
@@ -410,6 +411,22 @@ export function BuildLocked({
           eventId={eventId}
           currentPlan={currentPlan}
           savedBuilds={savedBuilds ?? []}
+        />
+      ) : null}
+
+      {/* 8 · the MOBILE team summary chip (Integration spec §5, owner-approved
+             2026-07-29) — the one replacement PR-3's removed dock actually
+             needed. Rendered from here because this is where the three numbers
+             already are; it portals to <body> and floats above the bottom nav,
+             so its position in this tree doesn't matter. Suppressed when there
+             is nothing to report: a chip reading "0 locked · 0 in build" is
+             noise, and the section is one scroll away regardless. */}
+      {lockedRows.length > 0 || toLockRows.length > 0 ? (
+        <TeamSummaryChip
+          lockedCount={lockedRows.length}
+          inBuildCount={toLockRows.length}
+          bufferText={buffer.text}
+          bufferTone={buffer.tone}
         />
       ) : null}
     </div>

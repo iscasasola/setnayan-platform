@@ -1,0 +1,746 @@
+{
+  "builtAtCommit": "c273ae01500bb9876b8f703b401e50fc7537670f",
+  "generatedAt": "2026-07-30",
+  "source": {
+    "nodes": 31200,
+    "edges": 67637
+  },
+  "areas": [
+    {
+      "id": "lib",
+      "label": "lib",
+      "blurb": "the shared library everything depends on",
+      "size": 10287,
+      "hubs": [
+        {
+          "path": "apps/web/lib/supabase/admin.ts",
+          "dependents": 589
+        },
+        {
+          "path": "apps/web/lib/supabase/server.ts",
+          "dependents": 576
+        },
+        {
+          "path": "apps/web/lib/vendor-profile.ts",
+          "dependents": 110
+        },
+        {
+          "path": "apps/web/lib/vendors.ts",
+          "dependents": 101
+        },
+        {
+          "path": "apps/web/lib/auth.ts",
+          "dependents": 97
+        },
+        {
+          "path": "apps/web/lib/admin/require-admin.ts",
+          "dependents": 96
+        },
+        {
+          "path": "apps/web/lib/uploads.ts",
+          "dependents": 96
+        },
+        {
+          "path": "apps/web/lib/supabase/error-detect.ts",
+          "dependents": 85
+        }
+      ]
+    },
+    {
+      "id": "couple",
+      "label": "Couple dashboard",
+      "blurb": "the host’s event workspace",
+      "size": 3279,
+      "hubs": [
+        {
+          "path": "apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
+          "dependents": 15
+        },
+        {
+          "path": "apps/web/app/dashboard/[eventId]/vendors/actions.ts",
+          "dependents": 15
+        },
+        {
+          "path": "apps/web/app/dashboard/[eventId]/studio/papic/actions.ts",
+          "dependents": 11
+        },
+        {
+          "path": "apps/web/app/dashboard/[eventId]/guests/quick-add-actions.ts",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/dashboard/[eventId]/budget/actions.ts",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/dashboard/[eventId]/studio/mood-board/actions.ts",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/dashboard/(account)/create-event/_components/event-types.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/dashboard/(account)/create-event/wedding-guard.ts",
+          "dependents": 4
+        }
+      ]
+    },
+    {
+      "id": "migrations",
+      "label": "Migrations",
+      "blurb": "the schema’s whole history",
+      "size": 2024,
+      "hubs": []
+    },
+    {
+      "id": "admin",
+      "label": "Admin console",
+      "blurb": "the internal operations surfaces",
+      "size": 1977,
+      "hubs": [
+        {
+          "path": "apps/web/app/admin/moodboard-library/_components/color-range-manipulator.tsx",
+          "dependents": 6
+        },
+        {
+          "path": "apps/web/app/admin/_components/mobile-landing-grid.tsx",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/admin/settings/actions.ts",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/admin/_components/admin-nav-groups.tsx",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/admin/discount-codes/actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/admin/integrations/actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/admin/secrets/actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/admin/vendors/actions.ts",
+          "dependents": 4
+        }
+      ]
+    },
+    {
+      "id": "site",
+      "label": "Public site",
+      "blurb": "marketing, help, guest-facing pages",
+      "size": 1828,
+      "hubs": [
+        {
+          "path": "apps/web/app/[slug]/_components/editorial/data.ts",
+          "dependents": 13
+        },
+        {
+          "path": "apps/web/app/[slug]/_lib/types.ts",
+          "dependents": 11
+        },
+        {
+          "path": "apps/web/app/[slug]/_lib/site-identity.ts",
+          "dependents": 8
+        },
+        {
+          "path": "apps/web/app/[slug]/_components/reveal/reveal-templates.ts",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/realstories/_components/share-buttons.tsx",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/[slug]/_components/editorial/compose.ts",
+          "dependents": 6
+        },
+        {
+          "path": "apps/web/app/tour/_lib/sample-event.ts",
+          "dependents": 6
+        },
+        {
+          "path": "apps/web/app/papic/actions.ts",
+          "dependents": 5
+        }
+      ]
+    },
+    {
+      "id": "vendor",
+      "label": "Vendor dashboard",
+      "blurb": "the vendor’s business surfaces",
+      "size": 1632,
+      "hubs": [
+        {
+          "path": "apps/web/app/vendor-dashboard/on-the-day/actions.ts",
+          "dependents": 8
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/_components/collapsible.tsx",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/performance/_components/count-up.tsx",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/_components/tier-gate.tsx",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/manpower/actions.ts",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/clients/[eventId]/actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/on-the-day/_components/pahina-console.tsx",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/specialization-registry.tsx",
+          "dependents": 4
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "label": "Shared components",
+      "blurb": "cross-surface UI",
+      "size": 1515,
+      "hubs": [
+        {
+          "path": "apps/web/app/_components/submit-button.tsx",
+          "dependents": 212
+        },
+        {
+          "path": "apps/web/components/skeletons/index.tsx",
+          "dependents": 161
+        },
+        {
+          "path": "apps/web/components/sd-loader/index.ts",
+          "dependents": 60
+        },
+        {
+          "path": "apps/web/components/sd-loader/use-save-loader.ts",
+          "dependents": 55
+        },
+        {
+          "path": "apps/web/app/_components/file-upload.tsx",
+          "dependents": 32
+        },
+        {
+          "path": "apps/web/app/_components/forms/form-flash.tsx",
+          "dependents": 25
+        },
+        {
+          "path": "apps/web/app/_components/confirm-form.tsx",
+          "dependents": 24
+        },
+        {
+          "path": "apps/web/app/_components/toast/toast-provider.tsx",
+          "dependents": 23
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "label": "Root config",
+      "blurb": "workspace and build configuration",
+      "size": 575,
+      "hubs": [
+        {
+          "path": "apps/web/sentry.edge.config.ts",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/sentry.server.config.ts",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "web-scripts",
+      "label": "Web scripts",
+      "blurb": "lint guards, generators, seeds",
+      "size": 468,
+      "hubs": [
+        {
+          "path": "apps/web/scripts/seed-demo-vendors.ts",
+          "dependents": 2
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "blurb": "db replay and integration guards",
+      "size": 459,
+      "hubs": [
+        {
+          "path": "apps/web/tests/db/replay-migrations.ts",
+          "dependents": 60
+        },
+        {
+          "path": "apps/web/tests/db/exposure-surface.ts",
+          "dependents": 2
+        },
+        {
+          "path": "apps/web/tests/db/schema-snapshot.ts",
+          "dependents": 2
+        },
+        {
+          "path": "apps/web/tests/db/pglite-postgrest.ts",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "label": "API routes",
+      "blurb": "route handlers and webhooks",
+      "size": 422,
+      "hubs": []
+    },
+    {
+      "id": "onboarding",
+      "label": "Onboarding",
+      "blurb": "event creation and first-run",
+      "size": 284,
+      "hubs": [
+        {
+          "path": "apps/web/app/onboarding/wedding/_data/experience-personas.ts",
+          "dependents": 7
+        },
+        {
+          "path": "apps/web/app/onboarding/wedding/_components/onboarding-pricing.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/onboarding/wedding/_data/wedding-cities.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/onboarding/_shared/services-step.tsx",
+          "dependents": 3
+        },
+        {
+          "path": "apps/web/app/onboarding/wedding/_data/refinements.ts",
+          "dependents": 3
+        },
+        {
+          "path": "apps/web/app/onboarding/wedding/types.ts",
+          "dependents": 3
+        },
+        {
+          "path": "apps/web/app/onboarding/wedding/actions.ts",
+          "dependents": 2
+        },
+        {
+          "path": "apps/web/app/onboarding/_shared/commit-event.ts",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "scripts",
+      "label": "Repo scripts",
+      "blurb": "repo-level tooling",
+      "size": 116,
+      "hubs": [
+        {
+          "path": "scripts/lib/beat-grid.mjs",
+          "dependents": 2
+        },
+        {
+          "path": "scripts/migration-doctor.mjs",
+          "dependents": 2
+        },
+        {
+          "path": "scripts/check-migration-timestamps.mjs",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "vendor-public",
+      "label": "Public vendor page",
+      "blurb": "the marketplace-facing profile",
+      "size": 104,
+      "hubs": [
+        {
+          "path": "apps/web/app/v/[slug]/inquiry-actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/services-gallery.tsx",
+          "dependents": 2
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/inquiry-composer.tsx",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/service-details-sheet.tsx",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/share-button.tsx",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/venue-matched-events.tsx",
+          "dependents": 1
+        },
+        {
+          "path": "apps/web/app/v/[slug]/_components/verified-price-card.tsx",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "mobile",
+      "label": "Mobile",
+      "blurb": "the native shells",
+      "size": 72,
+      "hubs": []
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "blurb": "the Tauri wrapper",
+      "size": 36,
+      "hubs": []
+    },
+    {
+      "id": "actions",
+      "label": "Shared actions",
+      "blurb": "cross-surface server actions",
+      "size": 34,
+      "hubs": [
+        {
+          "path": "apps/web/app/_actions/plan3d-demo-actions.ts",
+          "dependents": 5
+        },
+        {
+          "path": "apps/web/app/_actions/demo-session-actions.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/_actions/run-of-show.ts",
+          "dependents": 4
+        },
+        {
+          "path": "apps/web/app/_actions/thread-call-actions.ts",
+          "dependents": 3
+        },
+        {
+          "path": "apps/web/app/_actions/webrtc-telemetry-actions.ts",
+          "dependents": 1
+        }
+      ]
+    },
+    {
+      "id": "packages",
+      "label": "Packages",
+      "blurb": "workspace packages",
+      "size": 27,
+      "hubs": []
+    },
+    {
+      "id": "other",
+      "label": "Other",
+      "blurb": "unclassified — see areaForPath",
+      "size": 21,
+      "hubs": []
+    },
+    {
+      "id": "githooks",
+      "label": "Git hooks",
+      "blurb": "pre-push guards",
+      "size": 2,
+      "hubs": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "couple",
+      "to": "lib",
+      "weight": 4527
+    },
+    {
+      "from": "vendor",
+      "to": "lib",
+      "weight": 2162
+    },
+    {
+      "from": "site",
+      "to": "lib",
+      "weight": 1851
+    },
+    {
+      "from": "admin",
+      "to": "lib",
+      "weight": 1690
+    },
+    {
+      "from": "api",
+      "to": "lib",
+      "weight": 770
+    },
+    {
+      "from": "components",
+      "to": "lib",
+      "weight": 522
+    },
+    {
+      "from": "couple",
+      "to": "components",
+      "weight": 485
+    },
+    {
+      "from": "site",
+      "to": "components",
+      "weight": 269
+    },
+    {
+      "from": "admin",
+      "to": "components",
+      "weight": 260
+    },
+    {
+      "from": "vendor",
+      "to": "components",
+      "weight": 213
+    },
+    {
+      "from": "onboarding",
+      "to": "lib",
+      "weight": 191
+    },
+    {
+      "from": "vendor-public",
+      "to": "lib",
+      "weight": 189
+    },
+    {
+      "from": "actions",
+      "to": "lib",
+      "weight": 84
+    },
+    {
+      "from": "web-scripts",
+      "to": "lib",
+      "weight": 53
+    },
+    {
+      "from": "couple",
+      "to": "site",
+      "weight": 33
+    },
+    {
+      "from": "tests",
+      "to": "lib",
+      "weight": 32
+    },
+    {
+      "from": "components",
+      "to": "actions",
+      "weight": 19
+    },
+    {
+      "from": "vendor-public",
+      "to": "components",
+      "weight": 17
+    },
+    {
+      "from": "lib",
+      "to": "site",
+      "weight": 15
+    },
+    {
+      "from": "config",
+      "to": "lib",
+      "weight": 13
+    },
+    {
+      "from": "site",
+      "to": "couple",
+      "weight": 11
+    },
+    {
+      "from": "onboarding",
+      "to": "couple",
+      "weight": 10
+    },
+    {
+      "from": "site",
+      "to": "actions",
+      "weight": 8
+    },
+    {
+      "from": "api",
+      "to": "web-scripts",
+      "weight": 7
+    },
+    {
+      "from": "lib",
+      "to": "components",
+      "weight": 7
+    },
+    {
+      "from": "lib",
+      "to": "couple",
+      "weight": 7
+    },
+    {
+      "from": "web-scripts",
+      "to": "tests",
+      "weight": 7
+    },
+    {
+      "from": "lib",
+      "to": "onboarding",
+      "weight": 6
+    },
+    {
+      "from": "vendor",
+      "to": "actions",
+      "weight": 6
+    },
+    {
+      "from": "onboarding",
+      "to": "components",
+      "weight": 5
+    },
+    {
+      "from": "couple",
+      "to": "vendor",
+      "weight": 4
+    },
+    {
+      "from": "couple",
+      "to": "vendor-public",
+      "weight": 4
+    },
+    {
+      "from": "vendor",
+      "to": "site",
+      "weight": 4
+    },
+    {
+      "from": "actions",
+      "to": "site",
+      "weight": 3
+    },
+    {
+      "from": "admin",
+      "to": "site",
+      "weight": 3
+    },
+    {
+      "from": "components",
+      "to": "site",
+      "weight": 3
+    },
+    {
+      "from": "site",
+      "to": "vendor-public",
+      "weight": 3
+    },
+    {
+      "from": "vendor",
+      "to": "admin",
+      "weight": 3
+    },
+    {
+      "from": "api",
+      "to": "site",
+      "weight": 2
+    },
+    {
+      "from": "api",
+      "to": "components",
+      "weight": 2
+    },
+    {
+      "from": "components",
+      "to": "couple",
+      "weight": 2
+    },
+    {
+      "from": "couple",
+      "to": "onboarding",
+      "weight": 2
+    },
+    {
+      "from": "lib",
+      "to": "tests",
+      "weight": 2
+    },
+    {
+      "from": "onboarding",
+      "to": "site",
+      "weight": 2
+    },
+    {
+      "from": "admin",
+      "to": "vendor",
+      "weight": 1
+    },
+    {
+      "from": "admin",
+      "to": "onboarding",
+      "weight": 1
+    },
+    {
+      "from": "admin",
+      "to": "couple",
+      "weight": 1
+    },
+    {
+      "from": "components",
+      "to": "vendor",
+      "weight": 1
+    },
+    {
+      "from": "components",
+      "to": "vendor-public",
+      "weight": 1
+    },
+    {
+      "from": "lib",
+      "to": "actions",
+      "weight": 1
+    },
+    {
+      "from": "site",
+      "to": "vendor",
+      "weight": 1
+    },
+    {
+      "from": "vendor",
+      "to": "couple",
+      "weight": 1
+    },
+    {
+      "from": "web-scripts",
+      "to": "onboarding",
+      "weight": 1
+    }
+  ]
+}

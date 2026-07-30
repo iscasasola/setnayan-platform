@@ -267,8 +267,12 @@ test('legit · every real uploader prefix is accepted by its own policy', () => 
     [`events/${EVENT_A}/guest-selfies/${GUEST_A}/uuid.jpg`, guestSelfiePolicy(EVENT_A, GUEST_A)],
     // add-payment-method.tsx
     [`vendors/${VENDOR_A}/payment-qr/uuid-qr.png`, vendorPaymentQrPolicy(VENDOR_A)],
-    // editorial-media-studio.tsx (flat prefix — containment only)
-    ['editorial-vendor/uuid-still.jpg', editorialVendorMediaPolicy()],
+    // editorial-media-studio.tsx — TENANTED as of SEC-1 lane #3 (was a flat
+    // `editorial-vendor/` prefix that could only be contained, never owned).
+    [
+      `editorial-vendor/${VENDOR_A}/${EVENT_A}/uuid-still.jpg`,
+      editorialVendorMediaPolicy(VENDOR_A, EVENT_A),
+    ],
   ];
   for (const [key, policy] of cases) {
     const got = parseClientRef(`r2://setnayan-media/${key}`, policy);

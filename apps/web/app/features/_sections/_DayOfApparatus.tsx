@@ -58,7 +58,7 @@ const COPY: Record<
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
+        body: 'Two shapes, both in the browser — no app to install. Papic Pool is one shared purse of shots any guest’s phone can spend from after scanning the event QR; Papic One is a camera of its own for someone you trust, with its own shots nobody else can spend. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
       },
       {
         tagline: 'TikTok-format booth at the venue',
@@ -101,7 +101,7 @@ const COPY: Record<
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Native iOS/Android app para sa mga kaibigan at pamilya. Gesture shutter, QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
+        body: 'Dalawang klase, pareho sa browser — walang app na i-install. Ang Papic Pool ay isang shared na shots na pwedeng gamitin ng kahit sinong guest pagka-scan ng event QR; ang Papic One ay sariling camera para sa pinagkakatiwalaan mo, may sariling shots na walang ibang makakagamit. QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
       },
       {
         tagline: 'TikTok-format booth sa venue',

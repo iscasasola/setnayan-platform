@@ -111,7 +111,9 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
-        Our paparazzo
+        {/* Was the singular "Our paparazzo" — Papic Pool has no limit on how many
+            phones shoot, so the badge should not imply one appointed shooter. */}
+        Our paparazzi
       </span>
     );
   }

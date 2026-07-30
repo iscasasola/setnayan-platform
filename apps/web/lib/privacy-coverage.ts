@@ -113,12 +113,12 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   guest_columns: {
     privacySensitive: true,
     declaredIn: [],
-    note: 'NOT DECLARED YET (on purpose — honest drift): guest-authored columns publish guest text + bylines to the open web after couple approval. Owed before activation: a /privacy section for guest-authored publication + a ROPA activity. Held fail-closed (control inactive AND GUEST_COLUMNS_ENABLED env flag off).',
+    note: 'NOT IN THE FILING YET (honest drift — declaredIn stays empty on purpose). Guest-authored columns publish guest text + a roster-name byline to the open web after couple approval. ✅ The /privacy disclosure LANDED 2026-07-30 ("Guest-written columns on an event page"). ⏳ Still owed: the ROPA activity — deferred to JANUARY 2027 per the owner ("we will do everything on january 2027 but let this run truthfully until then"), which is why the public disclosure shipped now and this note stays red. ⚠ The control itself is ACTIVE in prod since 2026-07-27 — the old wording here claimed "held fail-closed (control inactive)", which was untrue; GUEST_COLUMNS_ENABLED is the only remaining gate, so verify that env flag before assuming this is dark.',
   },
   papic_pool_gallery: {
     privacySensitive: true,
     declaredIn: [],
-    note: 'NOT DECLARED YET (on purpose — honest drift): the shared pool exposes every guest’s clean-screened captures (web copies) to all session guests, plus self-link tagging. Owed before activation: a /privacy section for event-wide pool sharing + a ROPA activity. Held fail-closed (control inactive AND NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag off AND the couple’s per-event toggle).',
+    note: 'NOT IN THE FILING YET (honest drift — declaredIn stays empty on purpose). The shared pool exposes every guest’s clean-screened captures (web copies) to all session guests of that event, plus self-link tagging. ✅ The /privacy disclosure LANDED 2026-07-30 ("The shared pool: other guests at the same event can see your shots", under Photos and videos). ⏳ Still owed: the ROPA activity — folded into the drafted row 21 refresh, deferred to JANUARY 2027 per the owner. ⚠ The control itself is ACTIVE in prod since 2026-07-27 — the old wording here claimed "held fail-closed (control inactive)", which was untrue; NEXT_PUBLIC_PAPIC_POOL_GALLERY and the couple’s per-event toggle are the remaining gates.',
   },
   same_date_demand: {
     privacySensitive: true,

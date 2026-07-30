@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-26 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-30 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -287,6 +287,21 @@ export default function PrivacyPage() {
             photos delivered privately to the couple.
           </p>
           <p className="pt-2">
+            <strong>
+              The shared pool: other guests at the same event can see your shots.
+            </strong>{' '}
+            When the host turns on the shared pool for their event, the photos and
+            clips guests capture there become visible to the{' '}
+            <em>other signed-in guests of that same event</em> — not only to the
+            couple, and not to the public or to anyone outside the event. Only the
+            compressed web copies are shared, only after they pass the automatic
+            screening that runs on every capture, and the sharing never crosses
+            events: a pool is scoped to the one celebration. Guests can also link
+            themselves to a photo they appear in. If you would rather your shots
+            went only to the couple, ask the host to leave the shared pool off for
+            their event, or capture without it.
+          </p>
+          <p className="pt-2">
             <strong>FaceBlock.</strong> A guest who does not want to appear on an
             event&rsquo;s live photo wall can turn on FaceBlock. We then generate
             a server-side copy with detected faces blurred into the pixels and
@@ -356,10 +371,12 @@ export default function PrivacyPage() {
           </p>
           <p className="pt-2">
             <strong>Calls are never recorded.</strong> Setnayan does not record,
-            store, or listen to the audio or video of a call — the media never
-            reaches our servers at all. We keep only the fact that a call took
-            place on a conversation: who started it, whether it was voice or
-            video, when it began, and when it ended.
+            store, or listen to the audio or video of a call. On a direct
+            connection the media never touches our infrastructure at all; on a
+            relayed connection it passes through the Cloudflare relay described
+            above in transit only, and is not retained there or by us. We keep
+            only the fact that a call took place on a conversation: who started
+            it, whether it was voice or video, when it began, and when it ended.
           </p>
         </Section>
 
@@ -696,6 +713,29 @@ export default function PrivacyPage() {
           </ol>
           <p className="pt-2 text-xs text-ink/55">
             Per CLAUDE.md decision-log 2026-05-19 row 426.
+          </p>
+        </Section>
+
+        <Section title="Guest-written columns on an event page">
+          <p>
+            If a host turns this on, guests can write a short message — a title
+            and a few sentences — for the event&rsquo;s page. A column you submit
+            is <strong>published on the open web</strong> once the couple approves
+            it, alongside a byline drawn from the name on the event&rsquo;s guest
+            list, and can be read by anyone who opens the page.
+          </p>
+          <p className="pt-2">
+            <strong>Nothing is published automatically.</strong> A column starts as
+            a submission only. It reaches the page when two things happen: it
+            passes the automatic screening applied to guest-written content, and
+            the couple approves it. The couple can decline it, with a note back to
+            you, and you can edit and resubmit.
+          </p>
+          <p className="pt-2">
+            <strong>You can take it down.</strong> Withdraw your own column at any
+            time and it comes off the page. If your guest record is deleted, or the
+            event is, your column goes with it. We record the moment you agreed to
+            publication when you submit, so consent is never assumed.
           </p>
         </Section>
 

@@ -30,6 +30,12 @@ function intro(over: Partial<UgatIntrospection> = {}): UgatIntrospection {
     ]),
     fks: new Set(['guests.event_id->events']),
     uniques: new Set([uniqueKey('event_members', ['event_id', 'user_id'])]),
+    checks: new Map([
+      [
+        'events.events_community_class_consistency',
+        "CHECK (((community_id IS NULL) OR (event_type = ANY (ARRAY['simple_event'::text]))))",
+      ],
+    ]),
     ...over,
   };
 }
@@ -150,6 +156,61 @@ test('unique: a dropped UNIQUE is caught', () => {
 test('unique: column ORDER does not matter', () => {
   const f = verifyUgatClaims(
     owner([{ kind: 'unique', table: 'event_members', columns: ['user_id', 'event_id'] }]),
+    intro(),
+  );
+  assert.deepEqual(f, []);
+});
+
+/* ── check constraints (added 2026-07-30, after one slipped through) ── */
+
+test('check: a satisfied named constraint passes', () => {
+  const f = verifyUgatClaims(
+    owner([
+      { kind: 'check', table: 'events', name: 'events_community_class_consistency' },
+    ]),
+    intro(),
+  );
+  assert.deepEqual(f, []);
+});
+
+test('check: a missing constraint is caught', () => {
+  const f = verifyUgatClaims(
+    owner([{ kind: 'check', table: 'events', name: 'no_such_rule' }]),
+    intro(),
+  );
+  assert.equal(f.length, 1);
+  assert.match(f[0]!.detail, /no CHECK constraint named/);
+});
+
+test('check: `mentions` catches a constraint REWRITTEN under the same name', () => {
+  // The case that motivated this kind. J15's prose claimed the rule pairs
+  // community_id with "the event class" — no such column exists; it tests
+  // event_type. Existence alone would have passed and kept the lie alive.
+  const f = verifyUgatClaims(
+    owner([
+      {
+        kind: 'check',
+        table: 'events',
+        name: 'events_community_class_consistency',
+        mentions: 'event_class',
+      },
+    ]),
+    intro(),
+  );
+  assert.equal(f.length, 1);
+  assert.match(f[0]!.detail, /does NOT mention "event_class"/);
+});
+
+test('check: `mentions` passes when the constraint really does test that column', () => {
+  const f = verifyUgatClaims(
+    owner([
+      {
+        kind: 'check',
+        table: 'events',
+        name: 'events_community_class_consistency',
+        mentions: 'event_type',
+      },
+    ]),
     intro(),
   );
   assert.deepEqual(f, []);

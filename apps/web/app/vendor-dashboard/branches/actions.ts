@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
@@ -138,7 +138,7 @@ async function startBranchPayment(
   // fetchBranchFeePhp, the vendor_branches rows) deliberately keeps the SESSION
   // client so RLS keeps scoping it. Removing the parameter makes it impossible
   // for a later edit to reach for "the client that's already in scope" here.
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
   const identity = { userId, eventId: null, vendorProfileId };
 
   const { data: orderRow, error: oErr } = await moneyWriter

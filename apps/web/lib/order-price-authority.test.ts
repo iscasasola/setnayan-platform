@@ -594,8 +594,11 @@ test('the bespoke-amount admin path stays admin-gated and service-role', () => {
   );
   assert.match(
     src,
-    /const \{ data: orderRow, error: oErr \} = await admin\s*\n\s*\.from\('orders'\)/,
-    'the admin mint must go through the service-role client, not the caller session',
+    // Either service-role constructor satisfies this — `createMoneyWriterClient`
+    // IS `createAdminClient` plus a refusal of the dev anon fallback. Pinning one
+    // identifier made a legitimate refactor read as a regression.
+    /const \{ data: orderRow, error: oErr \} = await (admin|createMoneyWriterClient\(\))\s*\n\s*\.from\('orders'\)/,
+    'the admin mint must go through a service-role client, not the caller session',
   );
 });
 
@@ -611,8 +614,12 @@ function mintClients(src: string, table: 'orders' | 'payments'): string[] {
   const out: string[] = [];
   for (const m of [...src.matchAll(re)]) {
     const before = src.slice(0, m.index).trimEnd();
-    if (before.endsWith('createAdminClient()')) {
-      out.push('createAdminClient()');
+    // Inline construction: `createAdminClient().from('orders').insert(…)` and
+    // the money-writer equivalent. Without this the trailing-identifier regex
+    // below sees a `)` and reports `<unresolved>`, which reads as an offender.
+    const inline = SERVICE_ROLE_CONSTRUCTORS.find((c) => before.endsWith(`${c}()`));
+    if (inline) {
+      out.push(`${inline}()`);
       continue;
     }
     const id = /([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(before);
@@ -621,11 +628,28 @@ function mintClients(src: string, table: 'orders' | 'payments'): string[] {
   return out;
 }
 
+/**
+ * The two constructors that yield a service-role client. `createMoneyWriterClient`
+ * IS `createAdminClient` plus a refusal of the dev anon-key fallback — so it is
+ * service-role by construction, and both satisfy the two tests below.
+ */
+const SERVICE_ROLE_CONSTRUCTORS = ['createAdminClient', 'createMoneyWriterClient'] as const;
+
 /** Is `id` bound in this file to a service-role client? */
 function isServiceRoleClient(src: string, id: string): boolean {
-  if (id === 'createAdminClient()') return true;
+  const inline = SERVICE_ROLE_CONSTRUCTORS.some((c) => id === `${c}()`);
+  if (inline) return true;
   const bind = new RegExp(`\\bconst\\s+${id}\\s*=\\s*(await\\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`).exec(src);
-  return bind?.[2] === 'createAdminClient';
+  return SERVICE_ROLE_CONSTRUCTORS.includes(
+    (bind?.[2] ?? '') as (typeof SERVICE_ROLE_CONSTRUCTORS)[number],
+  );
+}
+
+/** …and is it the MONEY writer specifically (the one that refuses the fallback)? */
+function isMoneyWriterClient(src: string, id: string): boolean {
+  if (id === 'createMoneyWriterClient()') return true;
+  const bind = new RegExp(`\\bconst\\s+${id}\\s*=\\s*(await\\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`).exec(src);
+  return bind?.[2] === 'createMoneyWriterClient';
 }
 
 /**
@@ -742,5 +766,69 @@ test('every converted mint stamps its identity columns through order-mint-identi
     'an order payload sets its identity columns literally instead of via orderRowFor(). Under ' +
       'service_role nothing checks them any more — orderRowFor stamps them from the id ' +
       'supabase.auth.getUser() returned and makes the hand-written form a compile error.',
+  );
+});
+
+/**
+ * Every statement that WRITES money — insert or delete, orders or payments.
+ * Broader than `mintClients`, which only looks at `.insert`: DELETE on both
+ * tables was revoked from the session roles too (migration 20271024090000), so
+ * a delete degrades exactly as badly as a mint.
+ */
+function moneyWriteClients(src: string): Array<{ client: string; what: string }> {
+  const out: Array<{ client: string; what: string }> = [];
+  for (const table of ['orders', 'payments'] as const) {
+    for (const verb of ['insert', 'delete'] as const) {
+      const re = new RegExp(
+        `\\.from\\(\\s*['"]${table}['"]\\s*\\)[\\s\\S]{0,80}?\\.${verb}\\b`,
+        'g',
+      );
+      for (const m of [...src.matchAll(re)]) {
+        const before = src.slice(0, m.index).trimEnd();
+        const inline = SERVICE_ROLE_CONSTRUCTORS.find((c) => before.endsWith(`${c}()`));
+        const id = /([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(before);
+        out.push({
+          client: inline ? `${inline}()` : id ? id[1]! : '<unresolved>',
+          what: `${table}.${verb}`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+test('every money write uses the MONEY writer, not the degrading admin client', () => {
+  // `createAdminClient()` falls back to the ANON key in `next dev` when
+  // SUPABASE_SERVICE_ROLE_KEY is unset. That is right for a read — the page
+  // renders with empty admin data instead of dying — and wrong for a write to
+  // orders/payments, where INSERT and DELETE are both revoked from anon: the
+  // statement fails with a bare 42501 that each action absorbs into its generic
+  // "please try again". `createMoneyWriterClient()` refuses the fallback and
+  // names the missing variable instead.
+  //
+  // This is a DX/diagnosability rule, not a security boundary — both clients are
+  // service-role in production, where the fallback is not reachable at all. It
+  // is enforced here so a future money write cannot quietly pick the degrading
+  // client and reintroduce the baffling-afternoon failure mode.
+  const offenders: string[] = [];
+  const roots = ['app', 'lib'].map((d) => join(WEB, d)).filter((d) => existsSync(d));
+  for (const root of roots) {
+    for (const file of collectTs(root)) {
+      const rel = relative(WEB, file);
+      if (rel.endsWith('.test.ts')) continue;
+      const src = readFileSync(file, 'utf8');
+      for (const { client, what } of moneyWriteClients(src)) {
+        if (!isMoneyWriterClient(src, client)) {
+          offenders.push(`${rel} → ${client}.${what}(…)`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'a money write (orders/payments insert or delete) uses a client other than ' +
+      'createMoneyWriterClient(). Use it so a missing SUPABASE_SERVICE_ROLE_KEY fails with a ' +
+      'named error instead of a bare 42501 swallowed by the action\'s generic retry message.',
   );
 });

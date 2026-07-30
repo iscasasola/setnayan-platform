@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookingFeeEnabled, BOOKING_FEE_SCHEDULE_VERSION } from '@/lib/booking-fee-gate';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { createMoneyWriterClient } from '@/lib/supabase/admin';
 // `booking-fee.ts` is a pure value → value module (no I/O, no `server-only`),
 // so importing it from this `.server.ts` file is fine in both directions.
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
@@ -148,7 +149,7 @@ export async function collectBookingFeeAtLock(
   // the 2026-07-25 taper a ₱1M booking is billed ₱14,000 (1.40%), so the money
   // document the vendor reads overstated its own rate. Keep it derived: a
   // reprice must move the copy with the math, in one place.
-  const { data: orderRow, error: oErr } = await admin
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: eventId,
@@ -171,7 +172,7 @@ export async function collectBookingFeeAtLock(
   // A pending payment row so the order lands in the /admin/payments queue and
   // the existing reconcile → approvePaymentCore → activateOrderSku settle bridge
   // fires on approval (mirrors ai-addon-actions). Channel 'manual' (BDO/GCash).
-  const { error: pErr } = await admin.from('payments').insert({
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert({
     order_id: orderId,
     user_id: payerUserId,
     amount_php: amountPhp,
@@ -183,7 +184,7 @@ export async function collectBookingFeeAtLock(
   if (pErr) {
     // Roll back the just-created order so a retry re-mints cleanly (the charge
     // stays live; the next lock re-issues). Best-effort.
-    await admin.from('orders').delete().eq('order_id', orderId);
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return { status: 'skipped', reason: pErr.message };
   }
 

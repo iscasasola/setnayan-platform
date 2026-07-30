@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
@@ -238,7 +238,7 @@ export async function sponsorPhotoChallenge(
   // double-click can never mint two sponsorships.
   if (pricePhp <= 0) {
     const referenceCode = generateReferenceCode();
-    const { data: freeOrder, error: foErr } = await admin
+    const { data: freeOrder, error: foErr } = await createMoneyWriterClient()
       .from('orders')
       .insert(
         // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
@@ -268,7 +268,7 @@ export async function sponsorPhotoChallenge(
     if (grantErr) {
       // Roll the audit order back so a retry re-mints cleanly and no 'paid' order
       // is left claiming an entitlement that was never written.
-      await admin.from('orders').delete().eq('order_id', freeOrderId);
+      await createMoneyWriterClient().from('orders').delete().eq('order_id', freeOrderId);
       return err('Could not turn on Papic Challenges right now. Please try again.');
     }
 
@@ -320,7 +320,7 @@ export async function sponsorPhotoChallenge(
   // → the sponsored dedupe → the pending-order double-charge guard → the SKU
   // is_active reject. Every gate stays BEFORE pricing, as the file header
   // requires. Reuses the `admin` client created above.
-  const { data: orderRow, error: oErr } = await admin
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert(
       orderRowFor(
@@ -341,7 +341,7 @@ export async function sponsorPhotoChallenge(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await admin.from('payments').insert(
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert(
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {
@@ -356,7 +356,7 @@ export async function sponsorPhotoChallenge(
   if (pErr) {
     // Same client that minted it — a mixed-client compensation is how a
     // rollback silently stops rolling back.
-    await admin.from('orders').delete().eq('order_id', orderId);
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Papic Challenges payment. Please try again.');
   }
 

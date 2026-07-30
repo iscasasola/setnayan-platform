@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
@@ -195,7 +195,7 @@ export async function activateVendorAiAddon(
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
     const referenceCode = generateReferenceCode();
-    const { data: orderRow } = await admin
+    const { data: orderRow } = await createMoneyWriterClient()
       .from('orders')
       .insert(
         // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
@@ -257,7 +257,7 @@ export async function activateVendorAiAddon(
   // backstop → `isTierAtLeast(tier,'solo')` → `verification_state === 'verified'`
   // → the SKU is_active reject. The free-first-cycle branch above keeps its own
   // admin client and its atomic is-null-guarded trial claim, untouched.
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
 
   const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')

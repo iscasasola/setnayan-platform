@@ -44,7 +44,7 @@
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
@@ -718,7 +718,7 @@ export async function submitOrderAction(
     insertPayload.voucher_discount_centavos = Number(voucherDiscountCentavos);
   }
 
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
 
   const { data: orderRow, error: orderErr } = await moneyWriter
     .from('orders')

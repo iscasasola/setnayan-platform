@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -126,7 +126,7 @@ export async function logBookingFeePayment(formData: FormData) {
   //
   // Promotion to paid is untouched: it stays the admin-only /admin/payments
   // approve path (approvePaymentCore → activateOrderSku → the settle bridge).
-  const { error } = await createAdminClient().from('payments').insert(
+  const { error } = await createMoneyWriterClient().from('payments').insert(
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
@@ -138,7 +138,7 @@ export async function logPayment(formData: FormData) {
   // a payment only when the couple granted the 'checkout' scope at invite
   // time (coordinator_access_consents.scopes). Flag OFF = exact current
   // behavior (helper returns true without reading).
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
   const checkoutAllowed = await coordinatorMoneyScopeAllowed(
     moneyWriter,
     eventId,

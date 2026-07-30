@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
@@ -216,7 +216,7 @@ export async function requestCustomPlan(formData: FormData) {
   // clamps every knob, so the form carries the COMPOSITION and never a peso
   // figure. The `vendor_custom_plans` write above stays on the SESSION client so
   // RLS keeps scoping it — only the money rows are elevated.
-  const moneyWriter = createAdminClient();
+  const moneyWriter = createMoneyWriterClient();
 
   const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')

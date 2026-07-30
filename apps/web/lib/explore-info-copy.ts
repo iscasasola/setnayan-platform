@@ -41,9 +41,14 @@ export const EXPLORE_INFO_TITLE = 'How Explore works';
 export const EXPLORE_INFO_WHAT =
   'Browse every service your event needs: open a folder, open a category, and its vendors appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
-/** §11.1 — what the Coverage Strip means. */
+/**
+ * §11.1 — what the Coverage Strip means. Names the strip "your event" to match
+ * `ADD_TO_PLAN_HEADING` below: the chip pool adds INTO this strip, so the two
+ * must call the container the same thing or the panel explains a noun the
+ * button never uses.
+ */
 export const EXPLORE_INFO_STRIP =
-  'The strip at the top is your plan, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
+  'The strip at the top is your event, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
 
 /** §11.1 — the lock handshake, one line (spec §7). */
 export const EXPLORE_INFO_HANDSHAKE =
@@ -135,8 +140,12 @@ export function categoryHintButtonLabel(label: string): string {
    chip pool. Rule 3 above applies to this copy too — a wording change must stay
    a one-file diff, so none of these strings may be inlined in JSX. */
 
-/** Heading above a folder's "not in your plan" chip pool. */
-export const ADD_TO_PLAN_HEADING = '＋ Add to your plan';
+/**
+ * Heading above a folder's "not in your plan" chip pool. Says "event", not
+ * "plan" — the couple thinks in terms of the event they are building, and
+ * `EXPLORE_INFO_STRIP` above names the same container the same way.
+ */
+export const ADD_TO_PLAN_HEADING = '＋ Add to your event';
 
 /** aria-label on one pool chip. */
 export function addToPlanChipLabel(label: string): string {

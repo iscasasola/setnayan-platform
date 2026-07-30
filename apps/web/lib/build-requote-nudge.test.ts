@@ -8,10 +8,14 @@
  *   • The copy is opportunity-framed and NEVER prints the budget number, and
  *     points at /vendor-dashboard/proposals.
  *
- * The flag-dark guard + the date/location gate are enforced at the call site
- * (runBuild3State returns early when BUILD_3STATE_ENABLED is off; only quoted,
- * date/location-passing vendors ever reach `candidates`), so this suite drives
- * the pure decision the call site delegates to.
+ * The gating lives at the call site, not here: the resolver that fires these
+ * nudges is `proposeBuildFromQuotes` (`build-3state-actions.ts`, renamed from
+ * `runBuild3State` 2026-07-29), reachable only from the quote-fill row that
+ * `vendors/page.tsx` mounts behind `isExploreReplanEnabled()`. There is no
+ * `BUILD_3STATE_ENABLED` early-return — that flag exists nowhere in the code.
+ * The date/location gate is upstream too (only quoted, date/location-passing
+ * vendors ever reach `candidates`), so this suite drives the pure decision the
+ * call site delegates to.
  *
  * Run via the repo's `test:unit` script.
  */

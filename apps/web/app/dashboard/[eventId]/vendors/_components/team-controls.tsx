@@ -43,7 +43,6 @@ import {
   type PlanBuildSnapshot,
   type SavedPlanBuild,
 } from '../build-actions';
-import { readPinMode } from './build-pin-mode';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
   autoBuildTitle,
@@ -205,7 +204,7 @@ export function TeamSavePlan({
             eventId,
             rawName: name,
             overwriteBuildId: overwriteId || null,
-            snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+            snapshot: currentPlan,
           }),
         { steps: ['Saving your plan'], hint: 'Saving' },
       );

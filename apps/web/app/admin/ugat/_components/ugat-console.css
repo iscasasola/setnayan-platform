@@ -39,6 +39,9 @@
   --ug-e-thread: #2f6fb0; --ug-e-thread-bg: #eaf1f8;
   --ug-e-billing: #b5852a; --ug-e-billing-bg: #f8f0dd;
   --ug-e-tax: #c98a2b; --ug-e-tax-bg: #f9efdb;
+  /* Samahan — teal, the one hue-family gap left in the warm-to-cool ladder, so
+     the tenth node reads as its own thing rather than a shade of Guests. */
+  --ug-e-community: #2f8f8a; --ug-e-community-bg: #e6f2f1;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

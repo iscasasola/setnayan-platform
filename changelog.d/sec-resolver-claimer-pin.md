@@ -22,7 +22,18 @@
 **What landed:**
 
 - `REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE … TO authenticated, service_role`, mirroring the sibling lockdown at `20270515967165:147-148`.
-- A new `public.assert_claimer_is_caller(UUID)` invoked as the first statement of the resolver. `NULL` claimer passes (the only shape any caller uses); a JWT-less context passes (`service_role` and trigger paths, which have no `auth.uid()`); admins are exempt; anything else raises `42501`.
+- The claimer check **inline** as the resolver's first statement. `NULL` claimer passes (the only shape any caller uses); a JWT-less context passes (`service_role` and trigger paths, which have no `auth.uid()`); admins are exempt; anything else raises `42501`.
+
+**The exposure freeze caught the first draft, and the lesson generalises.** That draft extracted the check into a small `public.assert_claimer_is_caller()` helper. CI failed:
+
+```
+✗ func public.assert_claimer_is_caller(p_claimer uuid)
+    added: exec=anon,authenticated
+```
+
+Note **`anon`** — despite a `REVOKE ALL … FROM PUBLIC` in the same migration. Supabase's default privileges grant `EXECUTE` to `anon`/`authenticated` **explicitly** on new functions in `public`, and revoking from `PUBLIC` does not remove an explicit role grant. This is the default-ACL exposure that produced the 368-table sweep, applied to functions rather than tables.
+
+Adding `REVOKE … FROM anon` would have worked. Inlining is better: **a security fix should not widen the published surface in order to close a hole.** No new grantable object now exists.
 - The resolver body is the **shipped body reproduced verbatim** plus that one statement — verified by diffing the extracted function against `origin/main`, which shows only the three added lines. From here on this file is the live definition.
 - A post-condition `DO` block that **fails the migration** if `PUBLIC` still holds `EXECUTE` after the replace. `CREATE OR REPLACE FUNCTION` preserves an existing ACL, so the revoke survives — but a silently-restored `PUBLIC EXECUTE` is precisely the defect being closed, so it is asserted rather than assumed.
 

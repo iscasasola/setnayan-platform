@@ -51,33 +51,21 @@ GRANT EXECUTE ON FUNCTION public.resolve_or_claim_person(
 ) TO authenticated, service_role;
 
 -- ── 2 · Identity: a claimer may only be the caller ──────────────────────────
--- Enforced by a wrapper guard so the resolver's own body stays untouched: the
--- guard runs BEFORE any read/write, raises on mismatch, and is a no-op for the
--- service_role (server-side seeding) and for admins.
-CREATE OR REPLACE FUNCTION public.assert_claimer_is_caller(p_claimer UUID)
-RETURNS VOID
-LANGUAGE plpgsql
-STABLE
-SECURITY INVOKER
-SET search_path = public
-AS $$
-BEGIN
-  -- NULL claimer = "leave unclaimed", the only shape any current caller uses.
-  IF p_claimer IS NULL THEN RETURN; END IF;
-  -- service_role / trigger context has no JWT subject — trusted server paths.
-  IF auth.uid() IS NULL THEN RETURN; END IF;
-  IF p_claimer <> auth.uid() AND NOT public.is_admin() THEN
-    RAISE EXCEPTION 'resolve_or_claim_person: p_claimer must be the calling account'
-      USING ERRCODE = '42501';
-  END IF;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.assert_claimer_is_caller(UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.assert_claimer_is_caller(UUID) TO authenticated, service_role;
-
-COMMENT ON FUNCTION public.assert_claimer_is_caller(UUID) IS
-  'SEC 2026-07-30: a person-claim may only ever nominate the calling account. Called at the top of resolve_or_claim_person. NULL claimer and JWT-less (service_role / trigger) contexts pass through; admins are exempt. Raises 42501 otherwise.';
+-- INLINE, deliberately. The first draft extracted this into a small
+-- public.assert_claimer_is_caller() helper — and the exposure freeze correctly
+-- failed the build:
+--
+--     ✗ func public.assert_claimer_is_caller(p_claimer uuid)
+--         added: exec=anon,authenticated
+--
+-- Note `anon`, despite a REVOKE ALL … FROM PUBLIC. Supabase's default
+-- privileges grant EXECUTE to anon/authenticated EXPLICITLY on new functions in
+-- `public`, and revoking from PUBLIC does not remove an explicit role grant —
+-- the same root cause as the default-ACL table exposure, applied to functions.
+--
+-- Adding a REVOKE for anon would have worked, but the better answer is to add no
+-- new grantable object at all: a security fix should not widen the published
+-- surface to close a hole. The check therefore lives in the resolver body below.
 
 -- ── 2b · Wire the guard in. The resolver body below is the SHIPPED body from
 -- 20270514555975 reproduced VERBATIM, with exactly one statement added as the
@@ -109,8 +97,18 @@ DECLARE
                       nullif(trim(concat_ws(' ', nullif(trim(p_first_name), ''),
                                                  nullif(trim(p_last_name), ''))), ''));
 BEGIN
-  -- SEC 2026-07-30: a claim may only ever nominate the calling account.
-  PERFORM public.assert_claimer_is_caller(p_claimer);
+  -- SEC 2026-07-30 · a claim may only ever nominate the CALLING account.
+  -- Inline rather than a helper — see §2 on why a new public function would
+  -- itself widen the exposure surface. NULL claimer ("leave unclaimed") is the
+  -- only shape any current caller uses; a JWT-less context is service_role or a
+  -- trigger, both trusted server paths; admins are exempt.
+  IF p_claimer IS NOT NULL
+     AND auth.uid() IS NOT NULL
+     AND p_claimer <> auth.uid()
+     AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'resolve_or_claim_person: p_claimer must be the calling account'
+      USING ERRCODE = '42501';
+  END IF;
 
   -- No email AND no claimer → a name-only guest (weak signal). Do NOT auto-seed;
   -- signal "skip" to the caller so it leaves the link null until a confirm.

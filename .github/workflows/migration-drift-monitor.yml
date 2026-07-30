@@ -20,13 +20,20 @@ name: migration-drift-monitor
 # variable) and, like that workflow, GREEN no-ops until they are set.
 
 on:
-  schedule:
-    # Every 2 hours. Frequent enough to catch an out-of-band apply the same
-    # afternoon; cheap enough to not spam. (cron is UTC.)
-    - cron: '0 */2 * * *'
-  # Re-check right after an apply run finishes, so a jam is caught immediately.
+  # ── The 2-hourly schedule was REMOVED 2026-07-30 (Setnayan is cron-free —
+  # owner 2026-07-12, after stuck Vercel crons; memory
+  # project_setnayan_cron_free). Drift is now caught by the EVENT that can cause
+  # it: an apply finishing. ──
+  #
+  # ⚠ `deploy-prod` is listed FIRST and matters most. Since the
+  # migrate-then-deploy cutover it is the primary applier — it runs
+  # `db push --include-all` on every push to main, while `supabase-migrations`
+  # only fires on merges touching supabase/migrations/**. Watching only the
+  # latter (as this did) would have meant the drift check almost never ran after
+  # the cutover: a schedule removed without re-pointing this list would have been
+  # a silent loss of coverage, not a saving.
   workflow_run:
-    workflows: ['supabase-migrations']
+    workflows: ['deploy-prod', 'supabase-migrations']
     types: [completed]
   workflow_dispatch:
 

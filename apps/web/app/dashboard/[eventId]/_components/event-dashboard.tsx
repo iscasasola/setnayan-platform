@@ -8,6 +8,7 @@ import {
   Store,
   MessageSquare,
   ListChecks,
+  Camera,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -58,6 +59,7 @@ import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -206,6 +208,7 @@ export async function EventDashboard({
     seatAssignmentsRes,
     scheduleBlocks,
     hostAccounts,
+    papicHome,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -506,6 +509,12 @@ export async function EventDashboard({
         return [] as HostAccountView[];
       }
     })(),
+    // Papic on home (PR-G · owner picked options A + B on 2026-07-30). ONE
+    // resolver feeds BOTH the mini-tile below and the "your free camera is ready"
+    // nudge the Home mounts in slotAfterBento, so the two can never disagree —
+    // and it rides this existing batch rather than adding a round-trip. Returns
+    // null (⇒ neither surface renders) when the event has no Papic signal at all.
+    resolvePapicHomeTile(adminClient, supabase, eventId),
   ]);
 
   const event = eventRes.data;
@@ -1131,6 +1140,42 @@ export async function EventDashboard({
       </Link>,
     );
   }
+  // ── Papic (PR-G · option A) ──────────────────────────────────────────────
+  // Pre-capture it leads with shots ready (the honest thing to say when nothing
+  // has been shot); from the first photo it flips to photos gathered, which is
+  // the number a couple actually wants on their home page during the run-up
+  // (owner default, PR-G question 2). Both figures derive from
+  // lib/papic-home-tile.ts — the pool figure is the same `papic_event_pool_status`
+  // the capture path meters against, so the tile and the fence cannot disagree.
+  const papicMini = papicHome ? (
+    <Link
+      key="papic"
+      href={`${base}/studio/papic`}
+      className="sn-tile sn-press flex flex-col text-left"
+    >
+      <span className="sn-eye">
+        <Camera aria-hidden strokeWidth={1.75} />
+        Papic
+      </span>
+      <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
+        <CountUp
+          value={papicHome.preCapture ? papicHome.shotsLeft : papicHome.photosGathered}
+          delayMs={700}
+        />
+      </span>
+      <span className="mt-0.5 block text-[11.5px] text-ink/55">
+        {papicHome.preCapture
+          ? papicHome.cameras === 1
+            ? 'shots ready · 1 camera out'
+            : `shots ready · ${papicHome.cameras} cameras out`
+          : papicHome.shotsLeft > 0
+            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} shots left`
+            : 'photos gathered'}
+      </span>
+      {miniFoot('Open Papic')}
+    </Link>
+  ) : null;
+
   if (unreadCount > 0) {
     miniTiles.push(
       <Link
@@ -1152,6 +1197,32 @@ export async function EventDashboard({
       </Link>,
     );
   }
+
+  // ── The blur budget is REAL, so Papic earns its slot rather than taking it ──
+  //
+  // § 1.6 of the rollout plan (quoted at the top of this bento block) budgets
+  // "focal(1) + digest(1) + ≤4 minis + chrome(2) ≤ 8" glass layers above the
+  // fold, and `backdrop-filter` is the expensive part. Four minis already exist
+  // (Guests · Budget · Schedule · Messages), so an unconditional fifth would
+  // quietly break a documented performance budget — the PR-G mockup drew a
+  // 3-across bento and missed that this is a capped 2×2.
+  //
+  // So: Papic is appended, then the array is trimmed to the cap. Push order IS
+  // the priority, and the ONE re-order is deliberate — once photos are landing,
+  // Papic is the freshest thing happening at the event and outranks unread
+  // threads (which keep their own nav badge one tap away). Before the first
+  // photo it stays last, taking a slot only when one is genuinely free, and the
+  // nudge in slotAfterBento does the introducing instead. That split is the whole
+  // reason the owner picked A *and* B.
+  const MAX_MINIS = 4;
+  if (papicMini) {
+    if (!papicHome?.preCapture && miniTiles.length >= MAX_MINIS) {
+      miniTiles.splice(MAX_MINIS - 1, 0, papicMini);
+    } else {
+      miniTiles.push(papicMini);
+    }
+  }
+  if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
 
   const inspectorMaster = (
     <div className="relative">

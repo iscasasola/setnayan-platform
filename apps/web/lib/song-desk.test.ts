@@ -234,6 +234,10 @@ const pick = (
     created_by_user_id: 'user-1',
     created_at: '2026-07-30T00:00:00Z',
     updated_at: '2026-07-30T00:00:00Z',
+    // Unresolved by default: the fixture mirrors a hand-typed studio pick, which
+    // is exactly the case the text fallback exists for. Tests that need a
+    // resolved id set it explicitly.
+    song_id: null,
   };
 };
 
@@ -541,4 +545,161 @@ test('a vibe on banned_songs is ignored — you cannot ask for a feel you don’
   });
   assert.equal(m.moments.length, 0, 'banned_songs is never a moment');
   assert.equal(m.isEmpty, true);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * 7 · THE UNSORTED TRAY + THE RESOLVED ID  (Song Desk PR 3)
+ *
+ * Owner-answered: "onboarding feeds the studio". Two mechanisms, and the risk in
+ * each is a WRONG ANSWER rather than a crash:
+ *
+ *   • the tray must not HIDE a song (a false "already placed" loses a pick the
+ *     couple made and they never learn why), and must not OFFER one twice (a
+ *     false "not placed" invites the duplicate this PR exists to end);
+ *   • `song_id` is now the first pass of the repertoire crossing, so it must win
+ *     over the text rule — and a resolved id must not resurrect the old fuzzy
+ *     behaviour behind it.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+import { buildUnsortedTray } from './song-desk';
+
+/** A playlist pick that HAS been resolved to a catalogue song. */
+const placedPick = (
+  slot: PlaylistSlotType,
+  label: string,
+  artist: string | null,
+  songId: number | null,
+): PlaylistPickRow => ({ ...pick(slot, label, artist), song_id: songId });
+
+// ── 7.1 · the tray ─────────────────────────────────────────────────────────
+
+test('an onboarding pick with no home lands in the tray', () => {
+  const t = buildUnsortedTray({ flatPicks: [song(1, 'Ikaw', 'Yeng')], placed: [] });
+  assert.deepEqual(t.map((e) => e.title), ['Ikaw']);
+});
+
+test('a pick already placed by RESOLVED ID is not offered again', () => {
+  const t = buildUnsortedTray({
+    flatPicks: [song(1, 'Ikaw', 'Yeng')],
+    placed: [placedPick('open_floor', 'Ikaw', 'Yeng', 1)],
+  });
+  assert.deepEqual(t, [], 'the id pass must catch it without touching the text');
+});
+
+test('a pick placed with DIFFERENT TEXT but the same id is not offered again', () => {
+  // ⚠ THE ID PASS IS THE ONLY THING THAT CAN CATCH THIS, and that is the point of
+  // the test. An earlier version used "ikaw " vs "Ikaw" — but the blank-artist
+  // text rule already swallowed that, so deleting the id pass killed nothing and
+  // the branch was untested rather than proven. Real case: the couple placed the
+  // song, then RENAMED the pick (a nickname, a translation, a typo they kept).
+  // `updatePlaylistPick` re-resolves the id, so the identity survives text the
+  // normaliser can never reconcile — and the tray must not re-offer the song.
+  const t = buildUnsortedTray({
+    flatPicks: [song(1, 'Ikaw', 'Yeng Constantino')],
+    placed: [placedPick('open_floor', 'our song (the slow one)', 'the band', 1)],
+  });
+  assert.deepEqual(t, [], 'only the resolved id can connect these two rows');
+});
+
+test('an UNRESOLVED placed pick still hides its song, by normalised text', () => {
+  // Rows written before the migration (or uncatalogued) carry song_id null. The
+  // text pass is what stops them re-offering the same song.
+  const t = buildUnsortedTray({
+    flatPicks: [song(1, 'Ikaw', 'Yeng Constantino')],
+    placed: [placedPick('open_floor', '  IKAW ', 'yeng constantino', null)],
+  });
+  assert.deepEqual(t, []);
+});
+
+test('a studio pick with a BLANK artist still counts as placing the song', () => {
+  // Onboarding rows carry a catalogue artist; a couple typing in the studio often
+  // leaves it empty. Without this pass the tray would re-offer every such song.
+  const t = buildUnsortedTray({
+    flatPicks: [song(2, 'Perfect', 'Ed Sheeran')],
+    placed: [placedPick('first_dance', 'Perfect', null, null)],
+  });
+  assert.deepEqual(t, []);
+});
+
+test('a BANNED song is not offered back from the tray', () => {
+  // Offering a song the couple explicitly forbade would be the worst possible
+  // suggestion, so the text pass deliberately includes the banned list.
+  const t = buildUnsortedTray({
+    flatPicks: [song(2, 'Perfect', 'Ed Sheeran')],
+    placed: [placedPick('banned_songs', 'Perfect', 'Ed Sheeran', 2)],
+  });
+  assert.deepEqual(t, []);
+});
+
+test('a DIFFERENT song sharing nothing stays in the tray', () => {
+  const t = buildUnsortedTray({
+    flatPicks: [song(1, 'Ikaw', 'Yeng'), song(745, 'Through the Years', 'Kenny Rogers')],
+    placed: [placedPick('open_floor', 'Ikaw', 'Yeng', 1)],
+  });
+  assert.deepEqual(t.map((e) => e.title), ['Through the Years']);
+});
+
+test('the tray is alphabetical and de-duplicated', () => {
+  const t = buildUnsortedTray({
+    flatPicks: [song(3, 'Zamboanga'), song(1, 'Anak'), song(1, 'Anak'), song(2, 'Malaya')],
+    placed: [],
+  });
+  assert.deepEqual(t.map((e) => e.title), ['Anak', 'Malaya', 'Zamboanga']);
+});
+
+test('the tray survives null lists and ragged rows', () => {
+  assert.deepEqual(buildUnsortedTray({ flatPicks: null, placed: null }), []);
+  const t = buildUnsortedTray({
+    flatPicks: [{ song_id: 1, title: 'Anak' } as Song, { title: 'no id' } as Song],
+    placed: [],
+  });
+  assert.deepEqual(t.map((e) => e.title), ['Anak']);
+  assert.equal(t[0]?.artist, '', 'a missing artist is empty string, never undefined');
+});
+
+// ── 7.2 · the resolved id wins the repertoire crossing ─────────────────────
+
+test('a RESOLVED pick matches the repertoire by id, ignoring the text entirely', () => {
+  const m = buildHostPlaylist({
+    // Text that would never match: different title AND different artist.
+    picks: [placedPick('dinner', 'totally different words', 'someone else', 1)],
+    repertoire: [song(1, 'Ikaw', 'Yeng Constantino')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+  assert.equal(m.gapCount, 0);
+});
+
+test('a resolved pick the act does NOT play is still a gap', () => {
+  const m = buildHostPlaylist({
+    picks: [placedPick('dinner', 'Ikaw', 'Yeng', 1)],
+    repertoire: [song(999, 'Something Else')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, false);
+  assert.equal(m.gapCount, 1);
+});
+
+test('an id match shows NO matchedArtist — the id is the identity', () => {
+  const m = buildHostPlaylist({
+    picks: [placedPick('dinner', 'Ikaw', null, 1)],
+    repertoire: [song(1, 'Ikaw', 'Yeng Constantino')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.matchedArtist, '', 'echoing it back adds noise');
+});
+
+test('an UNRESOLVED pick still falls back to the text rule', () => {
+  // PR 2's fuzzy pass is not deleted by PR 3 — it becomes the second pass.
+  const m = buildHostPlaylist({
+    picks: [placedPick('dinner', 'Perfect', null, null)],
+    repertoire: [song(2, 'Perfect', 'Ed Sheeran')],
+  });
+  assert.equal(m.moments[0]?.entries[0]?.inRepertoire, true);
+  assert.equal(m.moments[0]?.entries[0]?.matchedArtist, 'Ed Sheeran');
+});
+
+test('a banned song resolved by id is still the hazard', () => {
+  const m = buildHostPlaylist({
+    picks: [placedPick('banned_songs', 'Perfect', 'Ed Sheeran', 2)],
+    repertoire: [song(2, 'Perfect', 'Ed Sheeran')],
+  });
+  assert.equal(m.hazardCount, 1);
 });

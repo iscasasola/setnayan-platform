@@ -40,7 +40,10 @@ import {
   PLAYLIST_SLOT_HINTS,
   type PlaylistSlotType,
 } from '@/lib/playlist';
+import { fetchEventSongRequests } from '@/lib/songs';
+import { buildUnsortedTray } from '@/lib/song-desk';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
+import { UnsortedTray } from './_components/unsorted-tray';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -58,10 +61,13 @@ export default async function PlaylistPage({ params }: Props) {
   // Fetch event + booked Music vendor (if any) in parallel with picks.
   // Music vendor detection: scan event_vendors for confirmed bookings
   // matching the four Music canonical categories.
-  const [picksRaw, vibes, eventRow, musicVendorRow] = await Promise.all([
+  const [picksRaw, vibes, flatPicks, eventRow, musicVendorRow] = await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
     // The feel per moment (PR 4) — same event scope, so it joins the batch.
     fetchSlotVibes(supabase, eventId),
+    // The couple's FLAT onboarding picks (PR 3) — the tray is these minus
+    // whatever is already placed in a moment.
+    fetchEventSongRequests(supabase, eventId),
     // ⚠ `display_name`, NOT `event_name` — public.events has no `event_name`
     // column and never has. PostgREST 42703'd the WHOLE query, so
     // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
@@ -90,6 +96,7 @@ export default async function PlaylistPage({ params }: Props) {
   // own editor shows empty slots to fill — so it reads through to the rows; the
   // distinction exists for the vendor song desk, which otherwise turns a denied
   // read into a claim about what the couple did.
+  const unsorted = buildUnsortedTray({ flatPicks, placed: picksRaw.rows });
   const grouped = groupPicksBySlot(picksRaw.rows);
   const positiveCount = countPositivePicks(picksRaw.rows);
   const bookedMusic = musicVendorRow.data;
@@ -168,6 +175,11 @@ export default async function PlaylistPage({ params }: Props) {
 
       {/* 8 slot sections · one per canonical slot type. Each is a client
           island wrapping the inline add/edit/delete form. */}
+      {/* The tray answers "where did my songs go?", which is asked before any
+          other question on this page — so it sits above the moments. It renders
+          nothing once everything is placed. */}
+      <UnsortedTray eventId={eventId} entries={unsorted} />
+
       <div className="space-y-5">
         {PLAYLIST_SLOT_TYPES.map((slot) => (
           <PlaylistSlotSection

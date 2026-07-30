@@ -199,10 +199,17 @@ export type PlaylistPickRow = {
   created_by_user_id: string;
   created_at: string;
   updated_at: string;
+  /**
+   * OPTIONAL resolved catalogue identity, for CROSSING only (migration
+   * 20271022319040). `song_label`/`artist` stay the display truth — nothing
+   * renders from the joined row. NULL = uncatalogued, and every consumer keeps
+   * its normalised-text fallback.
+   */
+  song_id: number | null;
 };
 
 const SELECT =
-  'pick_id,public_id,event_id,slot_type,song_label,artist,notes,sort_order,created_by_user_id,created_at,updated_at';
+  'pick_id,public_id,event_id,slot_type,song_label,artist,notes,sort_order,created_by_user_id,created_at,updated_at,song_id';
 
 /**
  * The result of a playlist read, with "denied" distinguishable from "empty".

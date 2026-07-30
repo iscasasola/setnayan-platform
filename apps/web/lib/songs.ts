@@ -324,12 +324,41 @@ export async function fetchEventSongPickIds(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<number[]> {
-  const { data, error } = await supabase
-    .from('event_song_picks')
-    .select('song_id')
-    .eq('event_id', eventId);
-  if (error || !data) return [];
-  return (data as { song_id: number }[]).map((r) => r.song_id);
+  // ⚠ BOTH LISTS SINCE 2026-07-30 (owner: "the matcher reads BOTH").
+  //
+  // The couple picks songs in two places — flat at onboarding (`event_song_picks`)
+  // and per-moment in the playlist studio (`event_playlist_picks`) — and this
+  // function feeds the vendor "% match". Reading only the first meant **a song
+  // assigned to `first_dance` counted for nothing**, so a couple who did their
+  // planning in the studio got match scores computed from a partial list.
+  //
+  // The studio side is the resolved `song_id` added by migration 20271022319040;
+  // rows that could not be resolved contribute nothing here, which is the honest
+  // outcome — a match score is money-adjacent, so it must never count a guess.
+  // (`buildHostPlaylist` still shows those rows to the band via its text
+  // fallback; being un-countable is not the same as being invisible.)
+  const [flat, slotted] = await Promise.all([
+    supabase.from('event_song_picks').select('song_id').eq('event_id', eventId),
+    supabase
+      .from('event_playlist_picks')
+      .select('song_id')
+      .eq('event_id', eventId)
+      // Anti-picks are the opposite of a preference: counting a banned song
+      // toward a band's compatibility would invert the whole score.
+      .neq('slot_type', 'banned_songs')
+      .not('song_id', 'is', null),
+  ]);
+
+  const ids = new Set<number>();
+  for (const res of [flat, slotted]) {
+    if (res.error || !res.data) continue;
+    for (const row of res.data as { song_id: number | null }[]) {
+      if (typeof row.song_id === 'number' && Number.isFinite(row.song_id)) ids.add(row.song_id);
+    }
+  }
+  // A song chosen in BOTH places is one song, not two — the overlap ratio divides
+  // by this length, so a duplicate would quietly deflate every vendor's score.
+  return [...ids];
 }
 
 /**

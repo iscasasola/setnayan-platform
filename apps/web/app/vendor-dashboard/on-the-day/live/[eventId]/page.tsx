@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -193,7 +194,7 @@ export default async function VendorOnTheDayLivePage({
   ]);
   const blocks = blocksRaw ?? [];
 
-  const eventTiles = brief?.booked_categories ?? null;
+  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 

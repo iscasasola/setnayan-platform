@@ -55,6 +55,8 @@ import type { PGlite } from '@electric-sql/pglite';
 import { MIGRATIONS_DIR, createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 const MIGRATION_FILE = '20271008178212_revoke_orders_payments_insert_from_session_roles.sql';
+/** The DELETE half — a separate migration because the #3738 repair never merged. */
+const DELETE_LANE_MIGRATION_FILE = '20271024090000_sec4b_close_the_delete_lane_on_orders_payments.sql';
 
 /** A real, currently-sold SKU — so the attack is the one described, not a fiction. */
 const REAL_SKU = 'PAPIC_GUEST';
@@ -158,6 +160,11 @@ before(async () => {
   // + DROP TRIGGER IF EXISTS), and its own post-conditions run again here — so
   // this line alone would fail if the revoke did not take.
   await db.exec(readFileSync(join(MIGRATIONS_DIR, MIGRATION_FILE), 'utf8'));
+  // Same reasoning for the DELETE half: the harness's blanket GRANT ALL re-adds
+  // DELETE, so without re-applying this file the delete-lane tests below would be
+  // exercising the PRE-FIX schema and their denials would be false negatives.
+  // Its own post-condition block RAISEs if the revoke does not take.
+  await db.exec(readFileSync(join(MIGRATIONS_DIR, DELETE_LANE_MIGRATION_FILE), 'utf8'));
 
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email) VALUES ('sec4b-attacker@example.com') RETURNING id`,
@@ -269,9 +276,14 @@ test('positive control: the same session CAN read and cancel its own order', asy
   );
   assert.equal(seen.rows[0]!.n, '1', 'the user cannot even SELECT their own order — the session wiring is broken');
 
-  // SELECT/UPDATE/DELETE are deliberately NOT revoked. Self-cancel must survive
+  // SELECT/UPDATE stay granted. Self-cancel must survive
   // (app/dashboard/[eventId]/orders/actions.ts cancelOrder is a session-role
   // UPDATE); a revoke that overreached would break it silently.
+  //
+  // ⚠ DELETE used to be in that list. It is revoked as of migration
+  // 20271024090000 — see the delete-lane tests at the bottom of this file. The
+  // earlier wording here ("DELETE deliberately NOT revoked") described the state
+  // the #3738 repair was written to fix, and that repair never merged.
   const err = await tryQuery(
     `UPDATE public.orders SET status = 'cancelled' WHERE order_id = $1`,
     [legitOrderId],
@@ -528,4 +540,140 @@ test('NEUTRALISATION: with the fix fully removed, the ₱1 attack SUCCEEDS', asy
   );
   assert.equal(back.rows[0]!.ins, false, 'the grant leaked out of the neutralisation transaction');
   assert.equal(back.rows[0]!.trg, '1', 'the guard trigger leaked out of the neutralisation transaction');
+});
+
+/* ── 8 · THE DELETE LANE — the half that #3738's repair never landed ──────────
+ *
+ * Migration 20271008178212 closed INSERT. Its adversarial review found DELETE was
+ * the other half of the same lane; the repair commit was written 54 minutes before
+ * #3738 merged and never landed, so DELETE stayed open in prod until 2026-07-30
+ * (verified there: has_table_privilege('authenticated','public.orders','DELETE')
+ * was TRUE, with orders_owner_write PERMISSIVE FOR ALL and no RESTRICTIVE
+ * counterpart). Closed by 20271024090000. These tests are what keep it closed.
+ */
+
+test('META: the catalog agrees — DELETE is gone for both session roles, kept for the server', async () => {
+  for (const role of ['authenticated', 'anon']) {
+    for (const table of ['public.orders', 'public.payments']) {
+      const r = await db.query<{ del: boolean }>(
+        `SELECT has_table_privilege($1, $2, 'DELETE') AS del`,
+        [role, table],
+      );
+      assert.equal(r.rows[0]!.del, false, `${role} still holds DELETE on ${table} — the lane is open`);
+    }
+  }
+  for (const table of ['public.orders', 'public.payments']) {
+    const s = await db.query<{ del: boolean }>(
+      `SELECT has_table_privilege('service_role', $1, 'DELETE') AS del`,
+      [table],
+    );
+    assert.equal(s.rows[0]!.del, true, `service_role lost DELETE on ${table} — compensating rollbacks are broken`);
+  }
+});
+
+test('THE ATTACK: an authenticated user cannot DELETE their own PAID order', async () => {
+  await asAttacker();
+  const err = await tryQuery(`DELETE FROM public.orders WHERE order_id = $1`, [legitOrderId]);
+
+  assert.ok(err, 'THE PAID ORDER WAS DELETED — the SEC-4b delete lane is open');
+  assert.match(err as string, /permission denied/i, `rejected, but not by the privilege: ${err}`);
+
+  await asService();
+  const still = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.orders WHERE order_id = $1`,
+    [legitOrderId],
+  );
+  assert.equal(still.rows[0]!.n, '1', 'the order vanished despite the error');
+  await reset();
+});
+
+test('the CASCADE is why it mattered — the payment row survives the refused delete', async () => {
+  // orders' ON DELETE CASCADE children in prod include payments, receipts,
+  // order_ledger, vendor_payouts and discount_code_redemptions. One refused
+  // DELETE is therefore also a preserved BIR receipt and a preserved audit trail.
+  //
+  // ⚠ This test mints its OWN order + payment rather than reusing legitOrderId.
+  // With the fix neutralised, an earlier test's delete succeeds and cascades the
+  // shared payment away — so a "count before == count after" on the shared row
+  // would then compare 0 to 0 and PASS while the hole was wide open. That is the
+  // pass-for-the-wrong-reason this file exists to prevent; caught by mutation.
+  await asService();
+  const own = await db.query<{ id: string }>(
+    `INSERT INTO public.orders
+       (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
+     VALUES ($1, $2, $3, 'cascade probe', 2999, 'submitted', $4)
+     RETURNING order_id AS id`,
+    [eventId, attackerUid, REAL_SKU, nextRef()],
+  );
+  const ownId = own.rows[0]!.id;
+  await db.query(
+    `INSERT INTO public.payments (order_id, user_id, amount_php, channel, paid_at)
+     VALUES ($1, $2, 2999, 'gcash', CURRENT_DATE)`,
+    [ownId, attackerUid],
+  );
+
+  const before = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.payments WHERE order_id = $1`,
+    [ownId],
+  );
+  assert.equal(before.rows[0]!.n, '1', 'fixture did not land — the assertion below would be vacuous');
+
+  await asAttacker();
+  await tryQuery(`DELETE FROM public.orders WHERE order_id = $1`, [ownId]);
+
+  await asService();
+  const after = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.payments WHERE order_id = $1`,
+    [ownId],
+  );
+  assert.equal(after.rows[0]!.n, '1', 'the cascade fired — the payment record was destroyed with the order');
+
+  // Clean up our own fixture so later tests see the world unchanged.
+  await db.query(`DELETE FROM public.orders WHERE order_id = $1`, [ownId]);
+  await reset();
+});
+
+test('a user cannot DELETE a payment row directly either', async () => {
+  await asAttacker();
+  const err = await tryQuery(`DELETE FROM public.payments WHERE order_id = $1`, [legitOrderId]);
+  assert.ok(err, 'a session role deleted a payment row');
+  assert.match(err as string, /permission denied/i, `rejected, but not by the privilege: ${err}`);
+  await reset();
+});
+
+test('DIFFERENTIAL: the identical DELETE succeeds as service_role', async () => {
+  // Proves the refusals above are the GRANT and not a broken fixture — the same
+  // statement must work for the server. Wrapped in an explicit transaction that
+  // rolls back, so the shared order (and its cascade children) survive for the
+  // remaining tests. `tryQueryTx` cannot be used here: SAVEPOINT is only legal
+  // inside an already-open transaction block.
+  await asService();
+  await db.exec('BEGIN');
+  let err: string | null;
+  try {
+    err = await tryQuery(`DELETE FROM public.orders WHERE order_id = $1`, [legitOrderId]);
+  } finally {
+    await db.exec('ROLLBACK');
+  }
+  assert.equal(err, null, `service_role could not delete the order: ${err}`);
+  await reset();
+
+  const still = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.orders WHERE order_id = $1`,
+    [legitOrderId],
+  );
+  assert.equal(still.rows[0]!.n, '1', 'the differential delete leaked out of its transaction');
+});
+
+test('self-cancel still works — the revoke did not overreach onto UPDATE', async () => {
+  await asAttacker();
+  const err = await tryQuery(
+    `UPDATE public.orders SET status = 'cancelled' WHERE order_id = $1`,
+    [legitOrderId],
+  );
+  assert.equal(err, null, `cancel is the supported verb and it broke: ${err}`);
+
+  await asService();
+  await db.query(`UPDATE public.orders SET status = 'submitted' WHERE order_id = $1`, [legitOrderId]);
+  await reset();
 });

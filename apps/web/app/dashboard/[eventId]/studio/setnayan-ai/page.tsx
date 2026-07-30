@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
@@ -135,10 +135,20 @@ export default async function SetnayanAiPage({ params }: Props) {
   // type's tier on the load ladder — ₱1,499 Wedding · ₱899 Debut/Corporate ·
   // ₱499 standard · ₱99 light · ₱0 no-vendors — resolved from the catalog (never
   // hardcoded; last-resort fallback in lib/setnayan-ai-type-pricing.ts). The
-  // order still charges SETNAYAN_AI (the entitlement); checkout re-resolves this
-  // same per-type amount server-side. Tier E (no vendors) → 0 → no buy shown;
-  // any unreadable read → 0 → the buy block degrades to its graceful fallback.
-  const typePricePhp = await resolveSetnayanAiTypePricePhp(supabase, eventType).catch(() => 0);
+  // order still charges SETNAYAN_AI (the entitlement). Tier E (no vendors) → 0 →
+  // no buy shown; any unreadable read → 0 → the buy block degrades gracefully.
+  //
+  // ⚠ RESOLVED THROUGH THE SHARED SWITCH (2026-07-30). This used to call
+  // `resolveSetnayanAiTypePricePhp` directly and UNGATED, while the charge path
+  // takes the per-type branch only when `setnayan_ai_per_event_pricing_enabled` is
+  // on. With the flag OFF that showed a `date` host ₱99 and charged ₱1,499 — a
+  // mismatch in the customer's disfavour. `resolveSetnayanAiDisplayPricePhp` makes
+  // one switch decide both, so the shown and charged prices cannot disagree in
+  // either flag state. (The comment previously here claimed checkout re-resolves
+  // this amount unconditionally. It did not.)
+  const typePricePhp = await resolveSetnayanAiDisplayPricePhp(supabase, eventType).catch(
+    () => 0,
+  );
   const pricePhp = typePricePhp > 0 ? typePricePhp : null;
   const priceLabel =
     pricePhp != null ? `₱${Math.round(pricePhp).toLocaleString('en-PH')}` : null;

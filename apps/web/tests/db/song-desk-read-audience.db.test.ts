@@ -62,14 +62,39 @@ async function songPicksQual(): Promise<string> {
 }
 
 // ─── ① · crew belong to the act ─────────────────────────────────────────────
+//
+// ⚠ THESE THREE WERE REWRITTEN 2026-07-30 (migration 20271021788625). PR 1c
+// admitted crew and grantees by spelling the audiences out INSIDE this policy —
+// a `vendor_profiles UNION vendor_team_members` subquery plus an EXISTS on
+// `vendor_event_access_grants`, all wrapped in a category gate. Removing that
+// category gate (it was the last mount-vs-read mismatch on the desk) let the
+// whole predicate collapse onto the two shared helpers, so the audiences are now
+// admitted BY those helpers rather than by literal SQL in this policy. Same
+// people, one less copy of the rule. The tests therefore assert the property —
+// "crew are admitted" — at the layer that now decides it.
 
-test('the playlist read admits vendor TEAM MEMBERS, not just the profile owner', async () => {
+test('the playlist read delegates to the ONE shared definition of booked', async () => {
   const qual = await playlistQual();
   assert.ok(
-    qual.includes('vendor_team_members'),
-    'crew read zero playlist rows without this — and PR #3885 told them the couple had written nothing',
+    qual.includes('current_vendor_booked_event_ids'),
+    'the act itself reads via the shared helper, not a hand-rolled join',
   );
-  assert.ok(qual.includes('vendor_profiles'), 'the owner leg must survive alongside it');
+});
+
+test('…and that shared definition really does include vendor TEAM MEMBERS', async () => {
+  // The property PR 1c actually cared about: crew read zero before, because this
+  // policy hand-rolled "profile owner". Now it inherits the helper, so the claim
+  // has to be checked where the helper defines it.
+  const r = await db.query<{ def: string }>(
+    `SELECT pg_get_functiondef(p.oid) AS def
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname='public' AND p.proname='current_vendor_booked_event_ids'`,
+  );
+  assert.equal(r.rows.length, 1);
+  assert.ok(
+    r.rows[0]!.def.includes('vendor_team_members'),
+    'crew would read zero playlist rows again — this is the regression PR 1c fixed',
+  );
 });
 
 // ─── ② · the grant is real authorisation ────────────────────────────────────
@@ -77,22 +102,22 @@ test('the playlist read admits vendor TEAM MEMBERS, not just the profile owner',
 test('the playlist read admits DAY-OF GRANTEES', async () => {
   const qual = await playlistQual();
   assert.ok(
-    qual.includes('vendor_event_access_grants'),
+    qual.includes('current_vendor_dayof_grant_event_ids'),
     'the page authorises a grantee via the admin client; the policy has to agree',
   );
 });
 
-test('a grantee leg is bound to the SAME vendor, so a florist’s crew cannot read the band’s playlist', async () => {
-  // The whole reason this is an EXISTS against the grants table rather than a
-  // reuse of `current_vendor_dayof_grant_event_ids()`: that helper returns
-  // event_ids and drops the vendor binding. Losing the binding would let any
-  // grantee on the event read a music act's playlist.
-  const qual = await playlistQual();
-  assert.ok(
-    qual.includes('vendor_profile_id') && qual.includes('marketplace_vendor_id'),
-    'the grant must be tied to the booked vendor row, not just to the event',
+test('the grantee helper only returns LIVE grants', async () => {
+  // PR 1c protected this with `revoked_at IS NULL` written into the policy's own
+  // EXISTS. That clause now lives in the helper, so the guarantee is checked
+  // there — a revoked grant must never read a playlist.
+  const r = await db.query<{ def: string }>(
+    `SELECT pg_get_functiondef(p.oid) AS def
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname='public' AND p.proname='current_vendor_dayof_grant_event_ids'`,
   );
-  assert.ok(qual.includes('revoked_at'), 'a revoked grant must not read anything');
+  assert.equal(r.rows.length, 1);
+  assert.ok(r.rows[0]!.def.includes('revoked_at'), 'a revoked grant must read nothing');
 });
 
 test('event_song_picks admits grantees WITHOUT losing the booked-vendor leg', async () => {
@@ -125,24 +150,43 @@ test('`current_vendor_booked_event_ids()` was NOT widened to grantees', async ()
 
 // ─── The category gate must survive the audience widening ──────────────────
 
-test('the playlist read is still MUSIC-ONLY, on the legacy vendor_category vocabulary', async () => {
-  // The audit's first hypothesis was that this list had drifted from
-  // MUSIC_CANONICALS (live_band / choir / orchestra / wedding_singer / dj). It
-  // had not: these are the legacy `vendor_category` ENUM values, which is what
-  // `event_vendors.category` holds and what real prod bookings carry. Rewriting
-  // them to the canonical keys would break every booking, so this test pins the
-  // vocabulary as much as the gate.
+test('the hardcoded legacy category list is GONE — the desk mounts and reads on the same terms', async () => {
+  // ⚠ THIS TEST REVERSED ON 2026-07-30 (owner: "fix the song desk"). It used to
+  // assert the category gate was PRESENT and pinned to the legacy vocabulary. The
+  // gate turned out to be the last mount-vs-read mismatch on this desk: the
+  // specialization is granted on MUSIC_CANONICALS tiles (live_band · dj · choir ·
+  // orchestra · wedding_singer) while the read gated on legacy enum values
+  // (band_dj · host_emcee · choir · string_quartet), and NO legacy category maps
+  // to `orchestra` or `wedding_singer`. So a booked orchestra held `song_desk`,
+  // mounted the desk, and read zero playlist rows.
+  //
+  // Extending the list would have kept a taxonomy in SQL, where it drifted
+  // silently for the whole life of the feature. Dropping it matches the sibling
+  // policy `event_song_picks_booked_vendor_read`, which is deliberately not
+  // narrowed for exactly this reason. ⚠ Consequence, owner-visible: ANY booked
+  // vendor can now read the playlist, not only music acts.
   const qual = await playlistQual();
-  for (const cat of ['band_dj', 'host_emcee', 'choir', 'string_quartet']) {
-    assert.ok(qual.includes(cat), `the category gate lost ${cat}`);
-  }
-  for (const key of ['live_band', 'wedding_singer', 'orchestra']) {
+  for (const cat of ['band_dj', 'host_emcee', 'string_quartet']) {
     assert.ok(
-      !qual.includes(key),
-      `${key} is a MUSIC_CANONICALS taxonomy key, not a vendor_category enum value — wrong vocabulary for this column`,
+      !qual.includes(cat),
+      `${cat} is still in the predicate — a hand-kept taxonomy in SQL is what caused the drift`,
     );
   }
-  assert.ok(qual.includes('contracted'), 'the booked-status gate must survive too');
+  assert.ok(
+    qual.includes('current_vendor_booked_event_ids'),
+    'the read must gate on the ONE shared definition of booked instead',
+  );
+});
+
+test('a booked ORCHESTRA or WEDDING SINGER can now read — the case the old gate excluded', async () => {
+  // The regression this whole change exists for, asserted as the property rather
+  // than the string: whatever the predicate says, it must not depend on the
+  // vendor's category, because the mount does not.
+  const qual = await playlistQual();
+  assert.ok(
+    !qual.includes('ev.category') && !qual.includes('category ='),
+    'the predicate still branches on event_vendors.category — orchestra/wedding_singer have no legacy value',
+  );
 });
 
 // ─── ③ · both tables lose the default ACL ───────────────────────────────────

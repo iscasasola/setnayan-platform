@@ -553,8 +553,18 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your guests become the photographers — every candid and clip in your gallery by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
-    freeTrial: 'Free to try',
-    serviceKey: 'PAPIC_SEATS',
+    freeTrial: 'Free to start',
+    // NO serviceKey, deliberately (2026-07-30). It used to be 'PAPIC_SEATS' —
+    // the ₱2,999 five-seat pass, `is_active = false` in prod and retired by the
+    // two-type lock (owner 2026-07-29), with zero orders ever placed against it.
+    // A dead key here was not cosmetic: `isRecommendable()` on the Studio hub
+    // requires only `Boolean(entry.serviceKey)`, so a coordinator could
+    // "Recommend" a SKU no couple can buy, and `isOwned()` could never be true
+    // so the owner deep-link never fired. Papic has no single SKU to point at
+    // any more — it is two products across five active rows (Pool 3k/6k/10k +
+    // One 50/100), which is what `variablePricing` already declares. Its own
+    // surface fetches the live rungs and owns the buy. Do NOT repoint this at a
+    // Pool or One SKU: that would name one rung as "the" Papic price.
     variablePricing: true,
     poster: {
       motion: 'pulse',
@@ -583,26 +593,58 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // renders this row as buyable MUST call it (it carries the permanent
     // travel deny + the anniversary controller split + the phase ladder).
     //
-    // Deliberately `coming_soon` — pill "Soon", not clickable, no price shown.
-    // Flipping it to 'live' is blocked on the verdict's own Phase-0 gates that
-    // are NOT in this PR: 0b (the owner DB action repricing PAPIC_GUEST off the
-    // pax curve — the live catalog row still says ₱2,999, so a live card would
-    // advertise the wrong price), 0c (the event-scoped points pool), 0d/0e
-    // (ROPA row + DPO sign-off on the RSVP consent text). addOnHref already
-    // routes this key at the real Papic set-up surface, so the flip is a
-    // one-word change with no 404.
+    // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
+    // and the flip is the owner's 2026-07-29 two-type lock catching up with the
+    // doorway: Pool is deliberately on sale. Verified against prod, not assumed —
+    // `PAPIC_GUEST` ₱1,000 · `PAPIC_GUEST_6K` ₱2,000 · `PAPIC_GUEST_10K` ₱3,000 are
+    // all `is_active = true` (the pax-priced ₱2,999 row is `PAPIC_GUEST_TOPUP`,
+    // now inactive), so the two gates this comment named as blockers are closed:
+    // 0b (the repricing off the pax curve — done) and 0c (the event-scoped points
+    // pool — shipped in `20271019231590` + #3847/#3848, and every event in prod
+    // holds a `free_grant` row). The card was the LAST "Soon" pill on a product
+    // already selling through the studio and the guest buy sheet (#3874).
+    //
+    // ⚠ 0d/0e (the guest-media ROPA row + DPO sign-off on the RSVP consent text)
+    // are STILL OPEN — see `Papic_Access_Scope_Council_Verdict_2026-07-20.md` §0.5
+    // + `Papic_Compliance_Delta_2026-07-20.md` §2.2 (`[PENDING DPO]`). They are not
+    // a blocker for THIS card and never were, because the sale they gate went live
+    // on 2026-07-29 without them: guests are already shooting and already buying
+    // top-ups. Escalated to the owner as a live compliance item in its own right
+    // (spec §5) rather than being silently absorbed by a card flip. A doorway to
+    // an already-open door is not the thing to hold hostage.
+    //
+    // Still gated by `papicGuestPassAccess()` (travel deny + anniversary
+    // controller split + phase ladder) — that predicate is event-type ELIGIBILITY,
+    // not a darkness switch, and widening it stays an owner/DPO call.
     key: 'papic-guest',
-    tags: ['Photos', 'Capture', 'Day-of', 'Soon'],
+    // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen
+    // technical ids (never-rename-technical-ids lock) from before the products
+    // were named. The owner's 2026-07-30 correction: **there are exactly two
+    // Papic products — Papic Pool and Papic One. "Papic Guest" is not one of
+    // them and must never appear in user-facing copy.** Label, blurb, CTA and
+    // tags below say Pool; only the id says guest. 'Shared' is the browse tag —
+    // it is the one word that distinguishes Pool from One.
+    tags: ['Photos', 'Capture', 'Day-of', 'Shared'],
     surface: 'rsvp',
     opensDirect: true,
     label: 'Papic Pool',
     Icon: Camera,
     iteration: '0012',
-    status: 'coming_soon',
+    status: 'web_v1',
     category: 'photography',
-    blurb: 'One pass for the whole celebration — every guest on the list gets a camera, all day.',
-    cta: 'See the pass',
+    // The old blurb sold the RETIRED pax pass: "every guest on the list gets a
+    // camera, all day" was a per-guest promise on a product that now meters SHOTS,
+    // not people — and "on the list" was the roster framing the pool doesn't use
+    // (any phone that scans the event QR shoots from it). No number here: the
+    // rungs and the free allowance are derived on the surface this card opens.
+    blurb: 'One shared pool of shots for the whole celebration — start free, add more any time.',
+    cta: 'Open the pool',
     studioGroup: 'capture',
+    // Every event is auto-armed with a free shared pool (`ensureFreePapicPoolGrantAdmin`),
+    // so the honest pill is the free-entry chip, not the ₱1,000 cheapest top-up —
+    // which as a headline would misprice a product whose entry cost is zero. The
+    // real ladder is one tap away, fully derived, on the Papic surface.
+    freeTrial: 'Free to start',
     serviceKey: 'PAPIC_GUEST',
     poster: {
       motion: 'pulse',

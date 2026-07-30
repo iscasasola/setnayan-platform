@@ -30,7 +30,7 @@
  * must never be the page that 500s, and the bento's own law is
  * "real-data-or-nothing: each tile renders only when its own data exists".
  *
- * ── ⚠ WHY THE COUNTS USE THE ADMIN CLIENT AND A `isCoupleMember` GATE ────────
+ * ── ⚠ WHY THE COUNTS USE THE ADMIN CLIENT AND AN EXPLICIT VIEWER GATE ───────
  * (Fixed 2026-07-30, same day it shipped — the first cut passed the viewer's own
  * session client for the three counts and that was WRONG.)
  *
@@ -50,13 +50,22 @@
  *
  * The fix removes the whole silent-zero class rather than patching around it:
  * the counts read through the SERVICE-ROLE client (so a zero means zero), and the
- * caller passes `isCoupleMember` explicitly. A viewer who is not a couple member
- * gets `null` — no tile, no nudge, no wrong number. That is deliberately
- * CONSERVATIVE: it shows a non-couple viewer nothing rather than quietly widening
- * couple-only capture data to them, which would be a privacy decision and not
- * mine to make. Extending Papic's home presence to coordinators is a real
- * question, and it needs either an RLS extension or an owner ruling — not a
- * service-role read slipped in behind a display fix.
+ * caller passes `canViewPapicCounts` explicitly. A viewer who is not permitted gets
+ * `null` — no tile, no nudge, no wrong number.
+ *
+ * ── 🔓 WHO IS PERMITTED (owner ruling 2026-07-30) ────────────────────────────
+ * The couple, **and a delegated coordinator**. This shipped couple-only for a day,
+ * deliberately conservative, because widening couple-only capture data was a
+ * privacy call and not mine to make. The owner has now made it: a coordinator runs
+ * the event and already sees the guest list, schedule and vendors, so an aggregate
+ * shot/photo COUNT sits squarely inside that remit.
+ *
+ * ⚠ Note precisely what did and did not widen. Coordinators may see the NUMBERS on
+ * home; **the RLS on the three capture tables is untouched**, so no coordinator
+ * gained access to a photo. And because the counts come from the service-role
+ * client, `canViewPapicCounts` is the ONLY thing standing between a viewer and the
+ * figures — which is why it has no default here and defaults FALSE at the
+ * component boundary.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -147,7 +156,7 @@ export async function countPapicCaptures(
  *
  * Fails to `false` — an unreadable count must not conjure a nudge onto the page.
  *
- * ⚠ Takes the SERVICE-ROLE client and an explicit `isCoupleMember`, for exactly the
+ * ⚠ Takes the SERVICE-ROLE client and an explicit `canViewPapicCounts`, for exactly the
  * reason in the header note: read through a coordinator's session the capture count
  * is silently 0 under couple-only RLS, which would have shown "your free camera is
  * ready" on an event already mid-shoot.
@@ -155,9 +164,9 @@ export async function countPapicCaptures(
 export async function papicNudgeShouldShow(
   admin: SupabaseClient,
   eventId: string,
-  isCoupleMember: boolean,
+  canViewPapicCounts: boolean,
 ): Promise<boolean> {
-  if (!isCoupleMember) return false;
+  if (!canViewPapicCounts) return false;
   try {
     return (await countPapicCaptures(admin, eventId)) === 0;
   } catch {
@@ -174,16 +183,17 @@ export async function papicNudgeShouldShow(
  *   shot yet". See the header note.
  * @param eventId the event. The CALLER has already established that this viewer
  *   may read it (event-home gates on an RLS `events` read → notFound()).
- * @param isCoupleMember whether this viewer is a couple member of the event — the
- *   only role whose RLS permits the capture tables. `false` ⇒ `null` ⇒ neither
- *   surface renders. Never default this to true.
+ * @param canViewPapicCounts may this viewer be shown Papic's figures — the couple,
+ *   or a delegated coordinator (owner 2026-07-30). `false` ⇒ `null` ⇒ neither
+ *   surface renders. **Never default this to true**: the counts bypass RLS by
+ *   design, so this flag is the authorisation.
  */
 export async function resolvePapicHomeTile(
   admin: SupabaseClient,
   eventId: string,
-  isCoupleMember: boolean,
+  canViewPapicCounts: boolean,
 ): Promise<PapicHomeTile | null> {
-  if (!eventId || !isCoupleMember) return null;
+  if (!eventId || !canViewPapicCounts) return null;
 
   const [pool, cameras, photosGathered] = await Promise.all([
     fetchEventPoolStatus(admin, eventId),

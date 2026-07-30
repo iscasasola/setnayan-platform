@@ -52,6 +52,7 @@ import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -315,25 +316,23 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     // declined, and they have no live enrollment (self-hides once enrolled).
     // Reuses papicGuestOwned (no second PAPIC_GUEST read).
     //
-    // ⚠ THE `eventOwnsPapicSeats()` HALF WAS DEAD AND IS REMOVED (2026-07-30).
-    // `PAPIC_SEATS` is `is_active = false` in prod with zero orders ever, retired by
-    // the 2026-07-29 two-type lock — so that operand could never be true and was
-    // costing every guest page-load an extra orders read for a guaranteed `false`.
+    // ── WIDENED 2026-07-30 (owner: "widen it"), and gated on the capability's own
+    //    control rather than on a purchase. Twin of the note in _lib/loaders.ts. ──
     //
-    // ⚠⚠ AND IT IS DELIBERATELY *NOT* WIDENED TO "every event has Papic" — which is
-    // what the promotion BUILD SPEC's PR-D proposed for its three sibling surfaces.
-    // This prompt asks a guest for a SELFIE: biometric data, RA 10173 § 13(b)
-    // sensitive personal information. Three facts make widening the wrong default
-    // today: (1) auto face-matching is DORMANT — no hosted model, so an enrollment
-    // delivers the guest nothing and QR-scan tagging carries the load; (2) the live
-    // /privacy page still DENIES processing biometrics; (3) verdict gates 0d/0e —
-    // the guest-media ROPA row and DPO sign-off that the RSVP consent text names
-    // face-sorted delivery — are `[PENDING DPO]` since 2026-07-20. The owner's
-    // standing posture is document-not-block with a *disclose-then-enable*
-    // guardrail; here the disclosure is knowingly wrong, so that guardrail argues
-    // against collecting MORE biometrics from MORE people for a feature that does
-    // nothing yet. Widen this the day 0d/0e close (spec §5 item 11) — one line.
-    if (guest.rsvp_status !== 'declined' && papicGuestOwned) {
+    // Was `papicGuestOwned` (an ACTIVE `PAPIC_GUEST` pack), so a guest at an event
+    // running on the free pool — every event — was never offered enrollment while
+    // their photos were being taken. Two corrections behind the change, both read
+    // from code rather than the register: auto face-matching is NOT dormant (the
+    // descriptors are extracted CLIENT-SIDE and posted with the capture, so no
+    // hosted model is needed — `lib/face-match.ts` + guest-capture route), and the
+    // `face_enrollment` data-privacy control is ACTIVE in prod (approved
+    // 2026-07-16). The gate is now that same control — the one face-match.ts:52
+    // checks before matching or persisting a descriptor — so a selfie is asked for
+    // only where it can be used, and a DPO revocation retires the prompt by itself.
+    if (
+      guest.rsvp_status !== 'declined' &&
+      (await isDataPrivacyControlActive('face_enrollment'))
+    ) {
       const { data: liveEnrollment } = await admin
         .from('guest_face_enrollments')
         .select('id')

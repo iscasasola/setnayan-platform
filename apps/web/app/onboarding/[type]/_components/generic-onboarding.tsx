@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { isGatedLifeType } from '@/lib/life-event-gate';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -85,6 +86,7 @@ type Draft = {
   v: 1;
   startedAt: number;
   displayName: string;
+  honoree: string;
   dateValue: string;
   pax: string;
   region: string;
@@ -120,7 +122,16 @@ export function GenericOnboarding(props: Props) {
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
   const [step, setStep] = useState(0);
+  const [blockedBy, setBlockedBy] = useState<
+    { eventId: string; displayName: string } | null
+  >(null);
   const [displayName, setDisplayName] = useState('');
+  // The celebrant. Asked only for the five gated life types — it is the key the
+  // one-in-planning cap counts on, and the generic flow never collected it, so
+  // a second birthday/debut/christening/graduation/gender-reveal was refused
+  // forever with a generic error (fixed 2026-07-31).
+  const [honoree, setHonoree] = useState('');
+  const gatedLifeType = isGatedLifeType(eventType);
   const [dateValue, setDateValue] = useState('');
   const [pax, setPax] = useState('');
   const [region, setRegion] = useState('');
@@ -158,6 +169,7 @@ export function GenericOnboarding(props: Props) {
     () => [
       'welcome',
       'name',
+      ...(gatedLifeType ? ['honoree'] : []),
       'date',
       'pax',
       'region',
@@ -173,7 +185,7 @@ export function GenericOnboarding(props: Props) {
       ...(servicesStepView ? ['services'] : []),
       'congrats',
     ],
-    [questions, axisIds, specialtyFields, prefillDetails, servicesStepView],
+    [questions, axisIds, specialtyFields, prefillDetails, servicesStepView, gatedLifeType],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -189,6 +201,7 @@ export function GenericOnboarding(props: Props) {
         const d = JSON.parse(raw) as Draft;
         if (d && d.v === 1 && Date.now() - d.startedAt < DRAFT_TTL_MS) {
           setDisplayName(d.displayName ?? '');
+          setHonoree(d.honoree ?? '');
           setDateValue(d.dateValue ?? '');
           setPax(d.pax ?? '');
           setRegion(d.region ?? '');
@@ -212,12 +225,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, dateValue, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, dateValue, pax, region, axes, details, specialtyValues]);
 
   const screen = screens[step]!;
   const axisIndex = axisIds.indexOf(screen);
@@ -296,6 +309,7 @@ export function GenericOnboarding(props: Props) {
     const payload: GenericOnboardingPayload = {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
+      honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
       region: region || null,
       venueLatitude: null,
       venueLongitude: null,
@@ -347,6 +361,24 @@ export function GenericOnboarding(props: Props) {
       return;
     }
     setCommitting(false);
+    if (res.error === 'life_event_exists') {
+      // NOT an error state — a real product rule (one in-planning event per
+      // person, per kind). Walk the user back to the honoree question instead
+      // of stranding them on the last screen with "try again": retrying is
+      // exactly what CANNOT work, and there is no archive control anywhere in
+      // the app to clear the other event.
+      setBlockedBy(res.blocking ?? null);
+      const idx = screens.indexOf('honoree');
+      if (idx >= 0) {
+        setStep(idx);
+        setError(null);
+      } else {
+        setError(
+          'You already have one of these in planning. Finish or archive it first.',
+        );
+      }
+      return;
+    }
     setError(
       res.error === 'not_authenticated'
         ? 'sign_in'
@@ -391,6 +423,39 @@ export function GenericOnboarding(props: Props) {
             placeholder={`e.g. ${label} of the Year`}
             className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
           />
+        </div>
+      );
+    }
+    if (screen === 'honoree') {
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          <Title>Who are we celebrating?</Title>
+          <p className="mt-2 text-ink/55">
+            Their first name is enough. It keeps each {label.toLowerCase()} on its
+            own plan, so you can have one for each person.
+          </p>
+          <input
+            autoFocus
+            value={honoree}
+            onChange={(e) => {
+              setHonoree(e.target.value);
+              if (blockedBy) setBlockedBy(null);
+            }}
+            placeholder="e.g. Nina"
+            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
+          />
+          {/* The refusal lands HERE, next to the field that resolves it — the
+              whole reason the old generic error was a dead end is that the user
+              was told "try again" on a screen with nothing to change. */}
+          {blockedBy ? (
+            <p className="mt-4 rounded-[var(--m-r-md)] border border-[color:var(--sn-gold-300)] bg-[color:var(--sn-gold-100)]/70 px-4 py-3 text-sm text-ink/75">
+              You already have a {label.toLowerCase()} in planning
+              {blockedBy.displayName ? ` — “${blockedBy.displayName}”` : ''}. If
+              this one is for someone else, put their name above and we’ll keep
+              the two apart.
+            </p>
+          ) : null}
         </div>
       );
     }

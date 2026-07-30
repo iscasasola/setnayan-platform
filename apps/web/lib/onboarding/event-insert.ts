@@ -46,6 +46,10 @@ export function buildGenericEventInsert(
   return {
     event_type: payload.eventType,
     display_name: payload.displayName,
+    // Life-event gate (2026-07-17): the cardinality key. The generic onboarding
+    // did not collect this until 2026-07-31, so every gated life event it
+    // created was UNLABELED and contended for the same per-type singleton slot.
+    honoree_label: payload.honoreeLabel?.trim() || null,
     // Date-anchor model (2026-07-12): per-type default anchor_kind from the
     // authored map. Keeps the generic path consistent with createWeddingEvent.
     anchor_kind: anchorForType(payload.eventType).kind,

@@ -77,9 +77,19 @@ function makeDb(counts: Counts) {
   return { from: (name: string) => chainFor(name) } as unknown as SupabaseClient;
 }
 
-/** An admin stub whose `papic_event_pool_status` RPC returns one shaped row. */
-function makeAdmin(pool: { total?: number; remaining?: number } | null) {
+/**
+ * The service-role stub: it answers BOTH the pool RPC and the three head-counts,
+ * because production now reads all four through the admin client (see the module
+ * header — a couple-only RLS denial returns `count: 0` with no error, so a
+ * session-client count could not be trusted to mean "nothing shot").
+ */
+function makeAdmin(
+  pool: { total?: number; remaining?: number } | null,
+  counts: Counts = {},
+) {
+  const db = makeDb(counts) as unknown as { from: (n: string) => unknown };
   return {
+    from: (name: string) => db.from(name),
     rpc() {
       if (!pool) return Promise.resolve({ data: null, error: null });
       return Promise.resolve({
@@ -104,20 +114,16 @@ function makeAdmin(pool: { total?: number; remaining?: number } | null) {
 test('no Papic signal at all ⇒ null, so NEITHER surface renders', async () => {
   // A pre-arming event: no pool, no camera, nothing shot. The tile must not
   // render "0 shots ready" and the nudge must not offer a camera that is not there.
-  const got = await resolvePapicHomeTile(makeAdmin(null), makeDb({}), 'evt-1');
+  const got = await resolvePapicHomeTile(makeAdmin(null, {}), 'evt-1', true);
   assert.equal(got, null);
 });
 
 test('an empty eventId is not a query — it is null', async () => {
-  assert.equal(await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }), makeDb({}), ''), null);
+  assert.equal(await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, {}), '', true), null);
 });
 
 test('a freshly-armed event is preCapture: shots + camera, nothing shot', async () => {
-  const got = await resolvePapicHomeTile(
-    makeAdmin({ total: 50, remaining: 50 }),
-    makeDb({ seats: 1 }),
-    'evt-1',
-  );
+  const got = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, { seats: 1 }), 'evt-1', true);
   assert.ok(got);
   assert.equal(got.preCapture, true, 'nothing shot yet');
   assert.equal(got.shotsLeft, 50);
@@ -127,11 +133,7 @@ test('a freshly-armed event is preCapture: shots + camera, nothing shot', async 
 });
 
 test('the FIRST capture flips preCapture — this retires the nudge', async () => {
-  const got = await resolvePapicHomeTile(
-    makeAdmin({ total: 50, remaining: 49 }),
-    makeDb({ seats: 1, crew: 1 }),
-    'evt-1',
-  );
+  const got = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 49 }, { seats: 1, crew: 1 }), 'evt-1', true);
   assert.ok(got);
   assert.equal(got.preCapture, false, 'one photo is enough — the nudge has done its job');
   assert.equal(got.photosGathered, 1);
@@ -141,11 +143,7 @@ test('crew + guest captures are counted TOGETHER', async () => {
   // The couple does not care which surface a photo came from, and counting only
   // one table would leave a guest-only event looking untouched.
   assert.equal(await countPapicCaptures(makeDb({ crew: 12, guest: 30 }), 'evt-1'), 42);
-  const got = await resolvePapicHomeTile(
-    makeAdmin({ total: 3050, remaining: 2900 }),
-    makeDb({ seats: 4, crew: 12, guest: 30 }),
-    'evt-1',
-  );
+  const got = await resolvePapicHomeTile(makeAdmin({ total: 3050, remaining: 2900 }, { seats: 4, crew: 12, guest: 30 }), 'evt-1', true);
   assert.ok(got);
   assert.equal(got.photosGathered, 42);
   assert.equal(got.preCapture, false);
@@ -155,7 +153,7 @@ test('an unreadable pool degrades to zero shots without hiding a real camera', a
   // fetchEventPoolStatus fails to EVENT_POOL_ABSENT by design (it is a DISPLAY
   // read, never the gate). The event still HAS a camera and photos, so the tile
   // must still render — just without a shots figure to quote.
-  const got = await resolvePapicHomeTile(makeAdmin(null), makeDb({ seats: 2, crew: 5 }), 'evt-1');
+  const got = await resolvePapicHomeTile(makeAdmin(null, { seats: 2, crew: 5 }), 'evt-1', true);
   assert.ok(got, 'a camera and 5 photos are a real Papic story');
   assert.equal(got.shotsLeft, 0);
   assert.equal(got.shotsTotal, 0);
@@ -164,20 +162,16 @@ test('an unreadable pool degrades to zero shots without hiding a real camera', a
 });
 
 test('a failing capture-count table is a zero, not a crash', async () => {
-  const got = await resolvePapicHomeTile(
-    makeAdmin({ total: 50, remaining: 50 }),
-    makeDb({ seats: 1, crew: 9, failTable: 'papic_photos' }),
-    'evt-1',
-  );
+  const got = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, { seats: 1, crew: 9, failTable: 'papic_photos' }), 'evt-1', true);
   assert.ok(got);
   assert.equal(got.photosGathered, 0, 'the crew read failed; it must not throw');
   assert.equal(got.preCapture, true);
 });
 
 test('the nudge gate shows ONLY before the first capture', async () => {
-  assert.equal(await papicNudgeShouldShow(makeDb({}), 'evt-1'), true);
-  assert.equal(await papicNudgeShouldShow(makeDb({ crew: 1 }), 'evt-1'), false);
-  assert.equal(await papicNudgeShouldShow(makeDb({ guest: 1 }), 'evt-1'), false);
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, {}), 'evt-1', true), true);
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, { crew: 1 }), 'evt-1', true), false);
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, { guest: 1 }), 'evt-1', true), false);
 });
 
 test('the nudge gate fails CLOSED on an empty id', async () => {
@@ -248,5 +242,44 @@ test('the ≤4 blur budget is still enforced, and still explained', () => {
     DASHBOARD_SRC,
     /if \(miniTiles\.length > MAX_MINIS\) miniTiles\.length = MAX_MINIS;/,
     'the cap must actually trim',
+  );
+});
+
+/* ── The coordinator lie (found + fixed 2026-07-30, same day it shipped) ───────
+ *
+ * All three capture tables are couple-only in RLS, event-home also renders for
+ * coordinators and multi-host moderators, and **an RLS denial returns `count: 0`
+ * with NO error**. The first cut passed the viewer's own session client, so a
+ * coordinator on a wedding mid-shoot resolved `photosGathered = 0` ⇒
+ * `preCapture = true` and was shown "N shots ready · 0 cameras out" plus the
+ * "your free camera is ready" nudge.
+ *
+ * Latent in prod (every `event_members` row is `couple` today), live the moment
+ * one coordinator exists. These pin the fix in both directions.
+ */
+test('a NON-couple viewer gets null — no tile, no nudge, no wrong number', async () => {
+  // Deliberately conservative: showing a coordinator nothing beats either lying to
+  // them or quietly widening couple-only capture data to them. Extending Papic to
+  // coordinators is an owner/RLS decision, not a display fix.
+  const got = await resolvePapicHomeTile(
+    makeAdmin({ total: 3050, remaining: 900 }, { seats: 6, crew: 400, guest: 900 }),
+    'evt-1',
+    false,
+  );
+  assert.equal(got, null, 'a rich, busy event still yields null for a non-couple viewer');
+});
+
+test('the nudge NEVER shows to a non-couple viewer, even pre-capture', async () => {
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, {}), 'evt-1', false), false);
+});
+
+test('isCoupleMember is not defaulted anywhere — a forgetful caller gets NO tile', () => {
+  // The component prop defaults to FALSE on purpose: a caller that forgets to
+  // thread it renders no tile, never a wrong one.
+  assert.match(DASHBOARD_SRC, /isCoupleMember = false,/, 'the prop must default false');
+  assert.match(
+    DASHBOARD_SRC,
+    /resolvePapicHomeTile\(adminClient, eventId, isCoupleMember\)/,
+    'the tile read must be gated on the flag, and must not take a session client',
   );
 });

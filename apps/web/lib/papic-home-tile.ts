@@ -29,6 +29,34 @@
  * degrades on its own. `null` means BOTH surfaces render nothing — event-home
  * must never be the page that 500s, and the bento's own law is
  * "real-data-or-nothing: each tile renders only when its own data exists".
+ *
+ * ── ⚠ WHY THE COUNTS USE THE ADMIN CLIENT AND A `isCoupleMember` GATE ────────
+ * (Fixed 2026-07-30, same day it shipped — the first cut passed the viewer's own
+ * session client for the three counts and that was WRONG.)
+ *
+ * All three capture tables are **couple-only** in RLS — `papic_photos_couple_full`,
+ * `papic_guest_captures_couple_read` and `paparazzi_seats_couple_full` each require
+ * `event_members.member_type = 'couple'`. But event-home ALSO renders for
+ * coordinators and multi-host moderators (`events` carries `events_moderator_read`
+ * + `community_member_can_read_events`), and **an RLS denial returns `count: 0`
+ * with NO error** — indistinguishable, from the count alone, from "nothing has
+ * been shot".
+ *
+ * So a coordinator on a wedding with thousands of photos would have resolved
+ * `photosGathered = 0` ⇒ `preCapture = true`, and been shown a tile reading
+ * "N shots ready · 0 cameras out" plus the "your free camera is ready" nudge, on
+ * an event that has been shooting for hours. Latent in prod today (every
+ * `event_members` row is `couple`), live the moment one coordinator exists.
+ *
+ * The fix removes the whole silent-zero class rather than patching around it:
+ * the counts read through the SERVICE-ROLE client (so a zero means zero), and the
+ * caller passes `isCoupleMember` explicitly. A viewer who is not a couple member
+ * gets `null` — no tile, no nudge, no wrong number. That is deliberately
+ * CONSERVATIVE: it shows a non-couple viewer nothing rather than quietly widening
+ * couple-only capture data to them, which would be a privacy decision and not
+ * mine to make. Extending Papic's home presence to coordinators is a real
+ * question, and it needs either an RLS extension or an owner ruling — not a
+ * service-role read slipped in behind a display fix.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -118,13 +146,20 @@ export async function countPapicCaptures(
  * all: the nudge quotes no figure.
  *
  * Fails to `false` — an unreadable count must not conjure a nudge onto the page.
+ *
+ * ⚠ Takes the SERVICE-ROLE client and an explicit `isCoupleMember`, for exactly the
+ * reason in the header note: read through a coordinator's session the capture count
+ * is silently 0 under couple-only RLS, which would have shown "your free camera is
+ * ready" on an event already mid-shoot.
  */
 export async function papicNudgeShouldShow(
-  db: SupabaseClient,
+  admin: SupabaseClient,
   eventId: string,
+  isCoupleMember: boolean,
 ): Promise<boolean> {
+  if (!isCoupleMember) return false;
   try {
-    return (await countPapicCaptures(db, eventId)) === 0;
+    return (await countPapicCaptures(admin, eventId)) === 0;
   } catch {
     return false;
   }
@@ -133,23 +168,27 @@ export async function papicNudgeShouldShow(
 /**
  * Resolve both surfaces' view-model in one batch.
  *
- * @param admin  service-role client — REQUIRED for the pool status: the ledger
- *   tables carry no read policy on purpose (see lib/papic-event-pool.ts), so the
- *   couple's session cannot read their own balance.
- * @param db     the request-scoped (couple / coordinator) client for the capture
- *   counts and the camera count, matching how the galleries hub reads them.
+ * @param admin service-role client. Required for the pool status (the ledger
+ *   tables carry no read policy on purpose — see lib/papic-event-pool.ts) AND for
+ *   the three counts, so an RLS-shaped silent zero can never masquerade as "nothing
+ *   shot yet". See the header note.
+ * @param eventId the event. The CALLER has already established that this viewer
+ *   may read it (event-home gates on an RLS `events` read → notFound()).
+ * @param isCoupleMember whether this viewer is a couple member of the event — the
+ *   only role whose RLS permits the capture tables. `false` ⇒ `null` ⇒ neither
+ *   surface renders. Never default this to true.
  */
 export async function resolvePapicHomeTile(
   admin: SupabaseClient,
-  db: SupabaseClient,
   eventId: string,
+  isCoupleMember: boolean,
 ): Promise<PapicHomeTile | null> {
-  if (!eventId) return null;
+  if (!eventId || !isCoupleMember) return null;
 
   const [pool, cameras, photosGathered] = await Promise.all([
     fetchEventPoolStatus(admin, eventId),
-    countLiveCameras(db, eventId),
-    countPapicCaptures(db, eventId),
+    countLiveCameras(admin, eventId),
+    countPapicCaptures(admin, eventId),
   ]);
 
   const shotsLeft = pool.applies ? pool.remainingPoints : 0;

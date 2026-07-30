@@ -78,7 +78,7 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
   ]);
 
   const desk = buildSongDesk({ requests, repertoire });
-  const playlist = buildHostPlaylist({ picks, repertoire });
+  const playlist = buildHostPlaylist({ picks: picks.rows, repertoire });
 
   return (
     <div className="space-y-4">
@@ -102,7 +102,12 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
         />
       ) : null}
 
-      <HostPlaylist playlist={playlist} desk={desk} coupleName={coupleName} />
+      <HostPlaylist
+        playlist={playlist}
+        desk={desk}
+        coupleName={coupleName}
+        readFailed={picks.failed}
+      />
 
       {desk.spare.length > 0 ? <Spare entries={desk.spare} /> : null}
 
@@ -144,12 +149,32 @@ function HostPlaylist({
   playlist,
   desk,
   coupleName,
+  readFailed,
 }: {
   playlist: HostPlaylistModel;
   desk: SongDeskModel;
   coupleName: string;
+  /** The read errored or was denied — say nothing about what the couple did. */
+  readFailed: boolean;
 }) {
   if (playlist.isEmpty) {
+    // A DENIED READ IS NOT AN EMPTY PLAYLIST, and this surface used to conflate
+    // them. Two RLS gaps (crew and day-of grantees — migration 20271020710612)
+    // meant the confident sentence below was shown to exactly the people who
+    // needed the list, as if the couple had not written one. Both gaps are
+    // closed; this branch is the guard that stops the class from coming back,
+    // because the next gap will not announce itself either.
+    if (readFailed) {
+      return (
+        <>
+          <ConsoleRule />
+          <p className="text-sm leading-relaxed text-ink/70">
+            We couldn’t load the running order just now — that’s on us, not on{' '}
+            {coupleName}. Your requests above are unaffected.
+          </p>
+        </>
+      );
+    }
     if (desk.noRequests) return null; // Coverage already said it.
     return (
       <>

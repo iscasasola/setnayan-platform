@@ -82,8 +82,13 @@ export default async function PlaylistPage({ params }: Props) {
 
   if (!eventRow.data) redirect('/dashboard');
 
-  const grouped = groupPicksBySlot(picksRaw);
-  const positiveCount = countPositivePicks(picksRaw);
+  // `.rows` because a failed read is now distinguishable from an empty one
+  // (lib/playlist.ts). This surface behaves the same either way — the couple's
+  // own editor shows empty slots to fill — so it reads through to the rows; the
+  // distinction exists for the vendor song desk, which otherwise turns a denied
+  // read into a claim about what the couple did.
+  const grouped = groupPicksBySlot(picksRaw.rows);
+  const positiveCount = countPositivePicks(picksRaw.rows);
   const bookedMusic = musicVendorRow.data;
 
   return (

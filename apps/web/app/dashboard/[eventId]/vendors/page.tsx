@@ -39,6 +39,7 @@ import {
   inquiryPairKey,
   type SameDateHold,
 } from '@/lib/same-date-demand';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -765,7 +766,27 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const honestDemand = isExploreReplanEnabled();
   const eyeingByVendorId = new Map<string, number>();
   const demandByVendorId = new Map<string, number>();
-  if (eventDate && marketplaceIds.length > 0) {
+
+  // ── DPO GATE (2026-07-30) ────────────────────────────────────────────────
+  // This whole block is the marketplace's only CROSS-COUPLE disclosure: couple A
+  // learns something about couple B's booking behaviour. It is now a Data-Privacy
+  // control the owner approves at /admin/data-privacy (`same_date_demand`, seeded
+  // 'inactive'), because §6 decision 3 of the Explore handoff had logged "no
+  // opt-out, no DPO sign-off" and then closed it by writing prose. Prose is not a
+  // gate — the owner went looking for the sign-off and there was nothing to sign.
+  //
+  // ⚠⚠ IT GATES THE ENTIRE BLOCK, NOT `honestDemand`. Setting `honestDemand =
+  // false` would fall through to the raw save-count branch below — the
+  // manufactured-scarcity path the 2026-06-02 ruling forbids — so gating the
+  // PRIVACY control off would have switched the DARK PATTERN back on. Not
+  // approved ⇒ both maps stay empty ⇒ no chip, no lens, no count. The cross-couple
+  // read is the same disclosure whichever counting rule is applied to it, and it
+  // is worse under the save-count rule, so one gate covers both.
+  //
+  // Reads through the cached service-role helper; any failure returns false
+  // (fail-closed), so an unreachable control table also means no demand signal.
+  const demandApproved = await isDataPrivacyControlActive('same_date_demand');
+  if (demandApproved && eventDate && marketplaceIds.length > 0) {
     try {
       const admin = createAdminClient();
       const { data: holds } = await admin

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6238
+# facts: 6217
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     720
-#   col       4462
+#   tpriv     716
+#   col       4445
 #   policy    825
 #   view      10
 #   func      217
@@ -380,10 +380,6 @@ tpriv	public.panood_screens|anon	SIUD
 tpriv	public.panood_screens|authenticated	SIUD
 tpriv	public.paparazzi_seats|anon	SIUD
 tpriv	public.paparazzi_seats|authenticated	SIUD
-tpriv	public.papic_event_point_grants|anon	SIUD
-tpriv	public.papic_event_point_grants|authenticated	SIUD
-tpriv	public.papic_event_pool_config|anon	SIUD
-tpriv	public.papic_event_pool_config|authenticated	SIUD
 tpriv	public.papic_event_pool_usage|anon	SIUD
 tpriv	public.papic_event_pool_usage|authenticated	SIUD
 tpriv	public.papic_guest_captures|anon	SIUD
@@ -590,7 +586,7 @@ tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
 tpriv	public.vendor_date_waitlist|authenticated	SIUD
-tpriv	public.vendor_dayof_configs|authenticated	SIU
+tpriv	public.vendor_dayof_configs|authenticated	S
 tpriv	public.vendor_deep_search_uses|anon	SIUD
 tpriv	public.vendor_deep_search_uses|authenticated	SIUD
 tpriv	public.vendor_disputes|anon	SIUD
@@ -2940,23 +2936,6 @@ col	public.paparazzi_seats.tier	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.updated_at	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_from	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_until	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.created_at	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.event_id	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.grant_id	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.note	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.order_id	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.points	anon=SIU authenticated=SIU
-col	public.papic_event_point_grants.source	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.camera_grant_points	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.ceiling_points	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.config_key	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.floor_points	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.free_grant_points	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.is_active	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.pass_service_codes	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.points_per_guest	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.soft_stop_pct	anon=SIU authenticated=SIU
-col	public.papic_event_pool_config.updated_at	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.created_at	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.event_id	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.points_used	anon=SIU authenticated=SIU
@@ -4237,7 +4216,7 @@ col	public.vendor_dayof_configs.config_id	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.created_at	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.enabled_modules	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.event_id	anon=- authenticated=SIU
-col	public.vendor_dayof_configs.song_requests_open	anon=- authenticated=SIU
+col	public.vendor_dayof_configs.song_requests_open	anon=- authenticated=S
 col	public.vendor_dayof_configs.updated_at	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_deep_search_uses.created_at	anon=SIU authenticated=SIU

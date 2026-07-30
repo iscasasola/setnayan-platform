@@ -110,6 +110,43 @@ const remoteImagePatterns = [
 // strict default-src/script-src the comment above deferred, so the
 // Babel-standalone keynote decks are unaffected. New embed origins later
 // extend this one list.
+/**
+ * REPORT-ONLY CSP (2026-07-30) — the measurement step the comment above deferred.
+ *
+ * The deferral is right that a strict `default-src`/`script-src` "would have to
+ * enumerate every external origin we load" — and that list is a GUESS until it is
+ * measured. Guessing it wrong takes the site down, which is the same long-tail trap
+ * that made a fail-closed allowlist the wrong call for `/api/upload`'s media
+ * prefixes. So this header BLOCKS NOTHING; it names the origins we believe we use
+ * and reports whatever it actually catches to /api/csp-report.
+ *
+ * ⚠ `'unsafe-inline'` + `'unsafe-eval'` are DELIBERATELY kept in `script-src`. A
+ * strict script-src here would fire on Next's own inline hydration bootstrap on
+ * every single page load and drown the signal — the unknown worth measuring is the
+ * ORIGIN allowlist, not inline-ness. Removing them is a later step that needs a
+ * nonce in middleware, and it should be measured on its own.
+ *
+ * Enforcement is a SEPARATE, owner-reviewed change once the reports are boring.
+ * Never flip this to the enforcing header in the same PR that changes the policy.
+ */
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  // Origins named in the deferral comment above, plus the embeds already trusted by
+  // the enforced `frame-src`. Anything MISSING here is precisely what the reports
+  // will surface.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
+  "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
+  "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  'report-uri /api/csp-report',
+].join('; ');
+
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -295,6 +332,15 @@ const nextConfig: NextConfig = {
         // frame-ancestors-only for now.
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      {
+        // Report-only CSP — measurement, blocks nothing. Excludes /keynote and
+        // /proto: those are dated internal pitch decks that execute inline
+        // Babel-standalone from public/, so they would emit a constant stream of
+        // known, uninteresting violations and bury the origins we are here to find.
+        // (They are already robots-disallowed and are not product surfaces.)
+        source: '/((?!keynote|proto).*)',
+        headers: [{ key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY }],
       },
       {
         source: '/sw.js',

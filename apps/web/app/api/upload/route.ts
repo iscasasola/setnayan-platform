@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
-import { pathPrefixIsAcceptable } from '@/lib/r2-client-ref';
+import { pathPrefixIsAcceptable, privateBucketRootIsAllowed } from '@/lib/r2-client-ref';
 import {
   encodeR2Ref,
   presignDisplayUrl,
@@ -530,6 +530,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
   const bucketName = R2_BUCKETS[bucketKey];
+
+  // SEC-1 lane #1 — a PRIVATE bucket may only be written under a root segment
+  // that belongs to it. Keys are minted server-side so nothing is overwritable;
+  // what this stops is write POLLUTION across flows — arbitrary bytes landing in
+  // `vendors/…/verification/` (which an admin reviews to approve a business) or in
+  // `thread-files` (dispute evidence) from an unrelated surface. Public media is
+  // deliberately untouched: see the note on PRIVATE_BUCKET_ROOTS for why a
+  // fail-closed allowlist over its long prefix tail would be the riskier change.
+  //
+  // Containment, not tenancy: this proves the prefix family fits the bucket, not
+  // that the caller owns the id inside it. Same deliberately non-specific refusal.
+  if (!privateBucketRootIsAllowed(bucketName, pathPrefix)) {
+    return NextResponse.json(
+      { error: 'That upload location isn’t allowed.' },
+      { status: 400 },
+    );
+  }
 
   const filenameRaw = typeof body.filename === 'string' ? body.filename : '';
   if (filenameRaw.length === 0) {

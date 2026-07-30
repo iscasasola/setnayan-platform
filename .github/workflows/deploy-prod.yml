@@ -16,7 +16,34 @@ name: deploy-prod
 # Vercel deploy (via a Deploy Hook). Vercel still builds; it's just triggered by
 # this Action AFTER db push succeeds, so the schema is always ahead of the code.
 #
-# ─── CUTOVER (owner, one-time) ───────────────────────────────────────
+# ─── ✅ CUTOVER DONE 2026-07-30 ──────────────────────────────────────
+# Hook `migrate-then-deploy` (branch main) created in Vercel; secret
+# VERCEL_DEPLOY_HOOK_URL added; verified by a manual dispatch — gate printed
+# "✅ Configured", `db push` ran, hook returned HTTP 201, and Vercel showed a
+# deployment carrying deployHookName=migrate-then-deploy. Vercel's native git
+# auto-deploy for `main` is now OFF via apps/web/vercel.json
+# ("git.deploymentEnabled.main": false) — JSON takes no comments, so this is the
+# note for it. Between the secret landing and that line merging, every push to
+# main built TWICE (Vercel's own trigger + this hook); the vercel.json line is
+# what ends that.
+#
+# ⛔ DO **NOT** ADD A `schedule:` TRIGGER TO THIS WORKFLOW.
+# It was proposed as a safety-net for skipped runs and it is a trap: the
+# "Trigger Vercel production deploy" step below is gated ONLY on
+# `steps.gate.outputs.enabled`, never on whether `db push` actually applied
+# anything — so a cron would POST the deploy hook on every firing. At the
+# '17,47 * * * *' cadence that is ~48 production builds a day of unchanged code.
+# The migration safety-net belongs in `supabase-migrations.yml`, which already
+# has that cron and never deploys anything.
+#
+# And a skipped run here is NOT the hole it looks like: the hook deploys the
+# `main` REF, not a pinned SHA (deployHookRef=main), so whichever run survives a
+# concurrency supersession deploys main's tip — which already contains the
+# commits whose runs were dropped. Same self-healing shape as
+# `db push --include-all`. Verify with `gh run list`, dispatch manually if a
+# burst really did drop the last one, and leave the cron alone.
+#
+# ─── CUTOVER (owner, one-time — kept for lineage) ─────────────────────
 # Until the cutover this workflow is a GREEN NO-OP and Vercel's native git
 # auto-deploy stays in charge — so MERGING this file changes NOTHING. Flip it on
 # in ONE maintenance window (order matters — avoid both a no-deployer gap and

@@ -3,6 +3,9 @@ import { ArrowRight, Ban, CircleAlert, Music, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventSongRequests, fetchVendorSongs } from '@/lib/songs';
 import { fetchPlaylistPicks } from '@/lib/playlist';
+import { fetchSongRequestsPaused } from '@/lib/vendor-dayof-config';
+import { fetchActSongRequests } from '../../../../actions';
+import { RequestsInbox } from './requests-inbox';
 import {
   buildHostPlaylist,
   buildSongDesk,
@@ -69,12 +72,17 @@ import type { SpecializationSurfaceProps } from '../specialization-registry';
 export async function SongDesk({ eventId, vendorProfileId, coupleName }: SpecializationSurfaceProps) {
   const supabase = await createClient();
 
-  // Independent reads (two key off the event, one off the vendor) → one parallel
-  // batch, matching the repertoire page's own perf idiom.
-  const [requests, repertoire, picks] = await Promise.all([
+  // Independent reads → one parallel batch, matching the repertoire page's own
+  // perf idiom. `fetchActSongRequests` is the odd one out: it re-resolves auth +
+  // booking + entitlement internally and reads as service_role, because the guest
+  // request inbox is the paid part (owner 2026-07-30) and RLS cannot ask "did you
+  // pay". Its own gate is the boundary; this component just renders the result.
+  const [requests, repertoire, picks, guestRequests, paused] = await Promise.all([
     fetchEventSongRequests(supabase, eventId),
     fetchVendorSongs(supabase, vendorProfileId),
     fetchPlaylistPicks(supabase, eventId),
+    fetchActSongRequests(eventId),
+    fetchSongRequestsPaused(supabase, vendorProfileId, eventId),
   ]);
 
   const desk = buildSongDesk({ requests, repertoire });
@@ -82,6 +90,13 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
 
   return (
     <div className="space-y-4">
+      {/* The inbox goes FIRST. Everything else on this desk is reference — what
+          the couple chose, what you play, what the night looks like — and none of
+          it is waiting on the act. A pending request is the only thing on the
+          screen that someone is standing there expecting an answer to. */}
+      <RequestsInbox eventId={eventId} requests={guestRequests} paused={paused} />
+
+      <ConsoleRule />
       <Coverage desk={desk} coupleName={coupleName} />
 
       {desk.gaps.length > 0 ? (

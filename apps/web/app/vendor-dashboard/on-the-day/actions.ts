@@ -10,6 +10,8 @@ import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
+import { PLAYLIST_SLOT_TYPES } from '@/lib/playlist';
+import { nextSetPosition } from '@/lib/vendor-sets';
 import {
   buildVendorStatusDraft,
   normalizeRequestBody,
@@ -17,6 +19,9 @@ import {
   type DayRequestRow,
   type DayRequestStatus,
 } from '@/lib/day-requests';
+
+/** The eleven canonical moments — a set's anchor must be one of them. */
+const VALID_PLAYLIST_SLOTS = new Set<string>(PLAYLIST_SLOT_TYPES);
 
 /**
  * The taxonomy tiles this vendor is actually BOOKED under on this event, or
@@ -594,5 +599,194 @@ export async function setEventAccessGrant(
   }
 
   revalidatePath('/vendor-dashboard/on-the-day');
+  return { ok: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETS — the band's 1–6 named sets for one booking. (Song Desk PR 5)
+//
+// Owner: "the band can set 1/2/3/4/5/6 sets, and name the x number of songs per
+// set" · "they can place songs per set. they can choose." No auto-fill, no
+// recommender, so there is nothing here that suggests anything.
+//
+// RLS IS THE BOUNDARY on these two tables (migration 20271022422205) — the act's
+// own org plus day-of grantees, via `current_vendor_profile_ids()` and
+// `current_vendor_dayof_grant_event_ids()`. These actions run under the CALLER'S
+// OWN client, not service_role: unlike the requests inbox, a set is not the paid
+// part, so there is no entitlement question RLS cannot answer. The booking
+// re-checks below exist to return a friendly error instead of an opaque policy
+// violation, the same as `saveDayOfModules`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type SetActionResult = { ok: boolean; error?: string };
+
+/**
+ * Create the next set for this booking.
+ *
+ * The position is chosen server-side — the lowest free number 1–6, so deleting
+ * Set 3 of 4 and adding again refills the gap rather than jumping to 5. A band
+ * should never have to renumber their own night.
+ */
+export async function createVendorEventSet(
+  eventId: string,
+  name: string,
+  slotType: string,
+): Promise<SetActionResult> {
+  const trimmed = name.trim().slice(0, 60);
+  if (trimmed.length === 0) return { ok: false, error: 'Give the set a name.' };
+  if (!VALID_PLAYLIST_SLOTS.has(slotType)) return { ok: false, error: 'Pick which moment it covers.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, error: 'No vendor profile.' };
+
+  const { data: existing } = await supabase
+    .from('vendor_event_sets')
+    .select('position')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+
+  const position = nextSetPosition((existing as { position: number }[] | null) ?? []);
+  if (position === null) {
+    return { ok: false, error: `Six sets is the most you can have.` };
+  }
+
+  const { error } = await supabase.from('vendor_event_sets').insert({
+    event_id: eventId,
+    vendor_profile_id: profile.vendor_profile_id,
+    position,
+    name: trimmed,
+    slot_type: slotType,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/** Rename a set, or re-anchor it to a different moment. */
+export async function updateVendorEventSet(
+  eventId: string,
+  setId: string,
+  patch: { name?: string; slotType?: string },
+): Promise<SetActionResult> {
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim().slice(0, 60);
+    if (trimmed.length === 0) return { ok: false, error: 'A set needs a name.' };
+    update.name = trimmed;
+  }
+  if (patch.slotType !== undefined) {
+    if (!VALID_PLAYLIST_SLOTS.has(patch.slotType)) return { ok: false, error: 'Unknown moment.' };
+    update.slot_type = patch.slotType;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('vendor_event_sets')
+    .update(update)
+    .eq('set_id', setId)
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/** Delete a set. Its songs cascade — the set is the unit, not the songs. */
+export async function deleteVendorEventSet(
+  eventId: string,
+  setId: string,
+): Promise<SetActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('vendor_event_sets')
+    .delete()
+    .eq('set_id', setId)
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/**
+ * Place one song from the act's OWN repertoire into a set.
+ *
+ * ⚠ THE REPERTOIRE CHECK IS HERE, not in the schema. The FK points at `songs`
+ * rather than `vendor_songs` on purpose (migration header): a composite FK would
+ * CASCADE-delete a placed set song the moment a band tidied their repertoire
+ * mid-event, losing the setlist they are playing from. So the rule "you may only
+ * place what you play" is enforced at the door and never retroactively.
+ */
+export async function addSongToVendorEventSet(
+  eventId: string,
+  setId: string,
+  songId: number,
+): Promise<SetActionResult> {
+  if (!Number.isFinite(songId)) return { ok: false, error: 'Unknown song.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, error: 'No vendor profile.' };
+
+  const { data: owned } = await supabase
+    .from('vendor_songs')
+    .select('song_id')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('song_id', songId)
+    .maybeSingle();
+  if (!owned) {
+    return { ok: false, error: 'Add it to your repertoire first — a set only holds songs you play.' };
+  }
+
+  // Append: gap-100 after the current last, the same idiom the couple's playlist
+  // uses, so inserting between two songs later needs no bulk renumber.
+  const { data: last } = await supabase
+    .from('vendor_event_set_songs')
+    .select('position')
+    .eq('set_id', setId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const position = ((last?.position as number | undefined) ?? 0) + 100;
+
+  const { error } = await supabase
+    .from('vendor_event_set_songs')
+    .insert({ set_id: setId, song_id: songId, position });
+  if (error) {
+    // The UNIQUE (set_id, song_id) constraint speaking: twice in one set is
+    // always a mistake, and saying so beats a raw Postgres string.
+    if (error.code === '23505') return { ok: false, error: 'That song is already in this set.' };
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/** Take a song out of a set. The song stays in the repertoire. */
+export async function removeSongFromVendorEventSet(
+  eventId: string,
+  setSongId: string,
+): Promise<SetActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('vendor_event_set_songs')
+    .delete()
+    .eq('set_song_id', setSongId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   return { ok: true };
 }

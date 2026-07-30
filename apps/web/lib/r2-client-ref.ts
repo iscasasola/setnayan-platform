@@ -368,6 +368,64 @@ export function vendorVerificationDocPolicy(vendorProfileId: string): ClientRefP
 }
 
 /**
+ * SEC-1 lane #1 — which ROOT SEGMENT may be written to which PRIVATE bucket.
+ *
+ * `/api/upload`'s generic branch lets any authenticated caller name the bucket
+ * AND the pathPrefix. Keys are minted server-side (`randomUUID()`), so nothing
+ * can be overwritten — the exposure is WRITE POLLUTION: putting arbitrary bytes
+ * into a private bucket under a prefix belonging to a different flow. That
+ * matters because humans and jobs read those prefixes: an admin reviews
+ * `vendors/…/verification/` to approve a business, and dispute evidence is read
+ * out of `thread-files`. Junk landing there is not a disclosure, it is an
+ * integrity and review-queue problem.
+ *
+ * ⚠ SCOPED TO THE FOUR PRIVATE BUCKETS ON PURPOSE. `setnayan-media` is public by
+ * design (`R2_PUBLIC_URL` serves it unsigned) and carries the overwhelming
+ * majority of call sites with a genuinely long tail of prefixes — `events/`,
+ * `vendors/`, `editorial/`, `hero-videos/`, `hero-frames/`, `living-heroes/`,
+ * `editorial-vendor/`, `locked-qr-proof/`, `papic/`, `profile-photo/`,
+ * `onboarding/`, `zone-walkthroughs/`, `taxonomy/`… A fail-closed allowlist over
+ * THAT set would be a production risk out of proportion to the benefit, because
+ * one missed prefix silently breaks a real upload. Media pollution is a cost and
+ * abuse-rate concern, tracked separately; the private buckets are the security
+ * boundary, and their call sites are few enough to enumerate exhaustively (they
+ * were, by grepping every `bucket="…"` / `bucket: '…'` occurrence).
+ *
+ * ⚠ THIS IS CONTAINMENT, NOT TENANCY. It proves the prefix FAMILY belongs to the
+ * bucket; it does NOT prove the caller owns the id inside it — `paperwork/{other
+ * event}/…` still satisfies this map. Per-flow tenancy binding is the remaining
+ * half of lane #1 and needs each call site to authorise its own id (the
+ * `paperworkScanPolicy` treatment, applied at ~40 sites). What this closes is
+ * the cross-BUCKET jump, which is the part no call site can defend against.
+ */
+const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new Map([
+  // Payment screenshots · dispute evidence · chat attachments.
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots'])],
+  // Scanned legal paperwork (shares the bucket with contracts + receipts).
+  ['setnayan-vendor-contracts', new Set(['paperwork'])],
+  // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.
+  ['setnayan-vendor-verification', new Set(['vendors'])],
+  // Admin-authored catalogue art.
+  ['setnayan-samples', new Set(['refinements', 'taxonomy'])],
+]);
+
+/**
+ * Fail-closed for the private buckets, permissive for public media.
+ *
+ * `sanitisedPrefix` must already have been through `sanitizePathPrefix` +
+ * `pathPrefixIsAcceptable`; this only judges the ROOT segment against the bucket.
+ */
+export function privateBucketRootIsAllowed(
+  bucket: R2BucketName,
+  sanitisedPrefix: string,
+): boolean {
+  const allowed = PRIVATE_BUCKET_ROOTS.get(bucket);
+  if (!allowed) return true; // public media — not this function's business
+  const root = sanitisedPrefix.split('/')[0] ?? '';
+  return allowed.has(root);
+}
+
+/**
  * A couple's scanned legal paperwork — PSA / CENOMAR / marriage licence.
  *
  * ⚠ TARGETS A PRIVATE BUCKET, so it names it explicitly. The uploader writes to

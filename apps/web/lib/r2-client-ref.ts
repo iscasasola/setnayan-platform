@@ -368,6 +368,38 @@ export function vendorVerificationDocPolicy(vendorProfileId: string): ClientRefP
 }
 
 /**
+ * A couple's scanned legal paperwork — PSA / CENOMAR / marriage licence.
+ *
+ * ⚠ TARGETS A PRIVATE BUCKET, so it names it explicitly. The uploader writes to
+ * `paperwork/{eventId}/{documentType}/…` in `setnayan-vendor-contracts`
+ * (`paperwork/page.tsx` → `<FileUpload bucket="vendor-contracts">`), which shares
+ * a bucket with signed contracts and platform receipts. Scoping to the EVENT
+ * segment is what stops one host naming another event's paperwork — or any
+ * contract key — and having it signed back to them.
+ *
+ * Deliberately scoped to the event and NOT to the document type: the host may
+ * legitimately re-file a scan under a corrected type, and the tenancy that
+ * matters is the event.
+ */
+export function paperworkScanPolicy(eventId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-vendor-contracts',
+    prefixes: [`paperwork/${eventId}/`],
+  };
+}
+
+/**
+ * A host's own off-platform payment receipt on the budget ledger.
+ *
+ * Public media bucket, so there is no confidentiality delta (see the bucket note
+ * at the top of this file) — this is containment and attribution: it stops a
+ * payment row pointing at an object that has nothing to do with this event.
+ */
+export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`budget/${eventId}/`, `payments/${eventId}/`] };
+}
+
+/**
  * Vendor-submitted editorial media for a couple's site.
  *
  * ⚠ The uploader writes to a FLAT, untenanted `editorial-vendor/` prefix

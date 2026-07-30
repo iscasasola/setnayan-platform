@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { parseClientRef, budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -445,7 +446,17 @@ export async function logPayment(formData: FormData) {
   // FileUpload widget submits an `r2://media/…` ref; absent an upload the
   // field is blank → stored NULL. Column added by migration
   // 20260820000000_vendor_payment_methods.sql (nullable TEXT).
-  const proofR2Key = nullIfBlank(formData.get('proof_r2_key'));
+  // SEC-1 follow-up (deferred lane #2): client-supplied ref → the sanctioned
+  // gate. This one lands in the PUBLIC media bucket, so unlike the paperwork lane
+  // there is no confidentiality delta — the value here is containment and
+  // attribution: a payment row must not point at an object belonging to another
+  // event. A ref that fails the policy is dropped to NULL rather than throwing,
+  // because the receipt is OPTIONAL evidence and losing the attachment must never
+  // cost the host the payment record itself.
+  const proofRefRaw = nullIfBlank(formData.get('proof_r2_key'));
+  const proofR2Key = proofRefRaw
+    ? (parseClientRef(proofRefRaw, budgetPaymentProofPolicy(eventId))?.key ?? null)
+    : null;
 
   // Optional installment attribution (Phase 2 PR-C) — when the booking has a
   // frozen payment plan (event_vendor_payment_plan.instances_json), the host can

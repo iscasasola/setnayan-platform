@@ -27,7 +27,6 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -786,11 +785,24 @@ export const loadGuestContext = cache(
     // "Register your face if you haven't yet" — day-of catch for a guest who
     // skipped the optional RSVP selfie. Shown across the WHOLE pre-event window
     // (not just the day) so guests enroll early — but only when this event has
-    // candid capture (Papic guest camera or crew seats), the guest hasn't
-    // declined, and they have NO active enrollment. Self-hides the moment they
-    // add a selfie. Two cheap targeted reads, gated to skip work when irrelevant.
+    // candid capture ON as a purchase, the guest hasn't declined, and they have NO
+    // active enrollment. Self-hides the moment they add a selfie.
+    //
+    // ⚠ THE `eventOwnsPapicSeats()` HALF WAS DEAD AND IS REMOVED (2026-07-30) —
+    // `PAPIC_SEATS` is `is_active = false` in prod, zero orders ever, retired by the
+    // 2026-07-29 two-type lock. It could never be true, so it was buying every
+    // guest page-load an extra orders read for a guaranteed `false`.
+    //
+    // ⚠⚠ NOT widened to "every event has Papic" (which the promotion BUILD SPEC's
+    // PR-D proposed) — this prompt collects a SELFIE, i.e. RA 10173 § 13(b)
+    // sensitive personal information, while auto face-matching is DORMANT (an
+    // enrollment gains the guest nothing today; QR-scan tagging carries the load),
+    // the live /privacy page still DENIES biometrics, and verdict gates 0d/0e (the
+    // guest-media ROPA row + DPO sign-off that the RSVP consent text names
+    // face-sorted delivery) are `[PENDING DPO]` since 2026-07-20. Disclose, then
+    // enable — see the twin note in [slug]/hub/page.tsx and spec §5 item 11.
     let needsFaceEnroll = false;
-    if (papicGuestActive || (await eventOwnsPapicSeats(admin, event.event_id))) {
+    if (papicGuestActive) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment } = await admin
           .from('guest_face_enrollments')

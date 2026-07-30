@@ -5,7 +5,7 @@ import { Camera, Radio, Image as ImageIcon, ArrowRight, Images } from 'lucide-re
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventPapicSeatsActive } from '@/lib/papic-seats';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -31,9 +31,20 @@ type Props = { params: Promise<{ eventId: string }> };
  * service, not the vendor.
  *
  * Ownership reuses the canonical per-service checks (same as the Day-of launch
- * hub): Papic = `eventOwnsPapicSeats()`, Panood = `resolveAddOnState() ===
+ * hub): Papic = `eventPapicActive()`, Panood = `resolveAddOnState() ===
  * 'launch'`. Couple OR delegated coordinator. The couple's own uploaded photos
  * (`events.our_photos`) are always shown — they're self-curated, not gated.
+ *
+ * ⚠ THE PAPIC CARD USED TO GATE ON `eventPapicSeatsActive()` AND SO COULD NEVER
+ * APPEAR (fixed 2026-07-30). `PAPIC_SEATS` (the ₱2,999 five-seat pass) is
+ * `is_active = false` in prod with zero orders ever, and the 2026-07-29 two-type
+ * lock retired it. The consequence was worse here than a missing upsell: photos
+ * ALREADY IN `papic_photos` / `papic_guest_captures` — shot from the free pool or a
+ * free camera — had no card on the couple's own gallery hub, so real captured media
+ * was unreachable from the surface built to reach it. `eventPapicActive()` is the
+ * canonical predicate (any live seat row OR an active Papic-inclusive SKU), and both
+ * free allowances arm at event creation, so the card now renders for every event —
+ * 'collecting' until the first shot lands, then 'ready' with the live count.
  */
 export default async function GalleriesHubPage({ params }: Props) {
   const { eventId } = await params;
@@ -65,8 +76,8 @@ export default async function GalleriesHubPage({ params }: Props) {
     return error ? 0 : count ?? 0;
   };
 
-  const [ownsPapic, panoodState, papicPhotoCount, guestCaptureCount, eventRow] = await Promise.all([
-    eventPapicSeatsActive(supabase, eventId),
+  const [hasPapic, panoodState, papicPhotoCount, guestCaptureCount, eventRow] = await Promise.all([
+    eventPapicActive(supabase, eventId),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
     // `LIVE_STUDIO` ₱2,999. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
@@ -98,14 +109,14 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   const sources: Source[] = [];
 
-  if (ownsPapic) {
+  if (hasPapic) {
     const ready = papicCount > 0;
     sources.push({
       key: 'papic',
       name: 'Papic — candid photos',
       blurb: ready
         ? 'Every shot your friends caught, ready to view and download.'
-        : "We're gathering the photos your crew and guests captured.",
+        : "As your guests and cameras shoot, every photo gathers here.",
       state: ready ? 'ready' : 'collecting',
       count: ready ? papicCount : null,
       viewLabel: ready ? 'View & download' : 'Open Papic',

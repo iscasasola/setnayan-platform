@@ -4,7 +4,7 @@ import { MonitorPlay, Radio, Camera, ArrowRight, Plus, Rocket, Globe, ExternalLi
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventPapicSeatsActive } from '@/lib/papic-seats';
+import { eventPapicActive } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -19,7 +19,7 @@ type Props = { params: Promise<{ eventId: string }> };
  * Day-of Services LAUNCH hub — the "Services" tab of the Day-of menu (Event
  * Lifecycle Menu, PR2). One place to START every owned live service on the
  * wedding day: Panood "Go live", Live Wall "Open the wall", Papic "Hand out
- * seats". The individual launch surfaces already exist (`/studio/panood/
+ * cameras". The individual launch surfaces already exist (`/studio/panood/
  * broadcast`, `/live`, `/studio/papic/crew`); this gathers them with their
  * day-of verb and an upsell for anything not yet owned, so the Day-of Services
  * tab points at a real hub instead of one bare console.
@@ -27,8 +27,22 @@ type Props = { params: Promise<{ eventId: string }> };
  * Ownership is read with the canonical per-service checks (reuse, not reinvent):
  * Live Wall = `eventOwnsSku('LIVE_WALL')` (orders-backed + bundle-aware — the
  * /live page's own gate after the PR4 dead-unlock repair), Papic
- * = `eventOwnsPapicSeats()`, Panood = `resolveAddOnState().state === 'launch'`.
+ * = `eventPapicActive()`, Panood = `resolveAddOnState().state === 'launch'`.
  * Couple OR delegated coordinator (mirrors /live + /guests/checkin).
+ *
+ * ⚠ PAPIC'S GATE WAS `eventPapicSeatsActive()` AND THAT CARD COULD NEVER LIGHT UP
+ * (fixed 2026-07-30). `PAPIC_SEATS` — the ₱2,999 five-seat pass — is
+ * `is_active = false` in prod with ZERO orders ever placed, and the 2026-07-29
+ * two-type lock retired the product outright. So on the one page that exists to
+ * say "start this now, it's your wedding day", Papic was permanently stuck on the
+ * upsell branch for EVERY couple — including couples whose event already holds a
+ * free shot pool and a free camera. Now gated on `eventPapicActive()`, the
+ * canonical "is Papic going for this event" predicate (lib/papic-seats.ts): any
+ * live `paparazzi_seats` row OR an active Papic-inclusive SKU. Both free
+ * allowances are armed at event creation (`ensureFreePapicPoolGrantAdmin` +
+ * `ensureFreePapicOneCameraAdmin` in create-event/actions.ts), and the free camera
+ * IS a seat row — so in practice this reads true for every event, which is the
+ * truth of the two-type model rather than a hardcoded `true`.
  */
 export default async function LaunchHubPage({ params }: Props) {
   const { eventId } = await params;
@@ -47,7 +61,7 @@ export default async function LaunchHubPage({ params }: Props) {
   }
 
   const base = `/dashboard/${eventId}`;
-  const [ownsLiveWall, panoodState, ownsPapic, eventRes] = await Promise.all([
+  const [ownsLiveWall, panoodState, hasPapic, eventRes] = await Promise.all([
     eventSkuActive(supabase, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
@@ -55,7 +69,7 @@ export default async function LaunchHubPage({ params }: Props) {
     // keying on `panood` means the first couple who actually PAYS resolves to
     // not-owned — an "Add" button on the day of their wedding instead of "Go live".
     resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),
-    eventPapicSeatsActive(supabase, eventId),
+    eventPapicActive(supabase, eventId),
     // Slug + date drive the public-site preview cards below — the ONLY new read
     // this page needs (owner R5 Option A). Slug builds the `/[slug]?phase=` link;
     // event_date feeds the SAME getLifecyclePhase the public engine uses so we can
@@ -107,14 +121,18 @@ export default async function LaunchHubPage({ params }: Props) {
     {
       key: 'papic',
       name: 'Papic — candid capture',
-      // When owned, the 5 seats are already provisioned on payment approval — say
-      // so, so the day-of host knows the links are READY to hand out (no setup
-      // step), not something still to configure.
-      blurb: ownsPapic
-        ? 'Your photo crew is ready — share these 5 seat links so the day is caught from every angle.'
-        : 'Hand shooter seats to friends so the day is caught from every angle.',
-      owned: ownsPapic,
-      launchLabel: 'Share the 5 links',
+      // ⚠ "share these 5 seat links" / "Share the 5 links" / "shooter seats" was
+      // the retired five-seat pass talking (owner naming lock 2026-07-30: the two
+      // products are Papic Pool and Papic One — there is no seat pass and no
+      // "seat link"). It also stated a COUNT the app cannot honour: Papic One has
+      // no seat cap, and Pool cameras are unlimited by construction — any phone
+      // that scans the event QR shoots from the shared pool. No number here: the
+      // crew page derives what this event actually holds.
+      blurb: hasPapic
+        ? 'Your cameras are ready — hand them out and the day gets caught from every angle.'
+        : 'Hand a camera to anyone you trust and the day gets caught from every angle.',
+      owned: hasPapic,
+      launchLabel: 'Hand out cameras',
       launchHref: `${base}/studio/papic/crew`,
       addHref: `${base}/studio/papic`,
       Icon: Camera,

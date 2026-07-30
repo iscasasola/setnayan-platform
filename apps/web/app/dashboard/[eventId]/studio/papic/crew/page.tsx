@@ -139,14 +139,14 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           Your photo crew
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Share a seat link (or QR) with each person you want shooting. They claim
-          it from their own phone — no app to install — and every photo they take
+          Share a link (or QR) with each person you want shooting. They claim it
+          from their own phone — no app to install — and every photo they take
           lands in your gallery in real time.
         </p>
         {seats.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-ink/55">
-              {claimedCount} of {seats.length} seats claimed.
+              {claimedCount} of {seats.length} cameras claimed.
             </p>
             <Link
               href={`${backLink}/crew/print`}
@@ -164,13 +164,18 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       {seatSet === 'provisioned' && (
         <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          Your five seats are ready. Share a link with each friend below.
+          {/* ⚠ Was "Your five seats are ready" — a hardcoded count from the
+              retired PAPIC_SEATS pass. Papic One has no seat cap and Pool
+              cameras are unlimited, so the number is read off the roster we
+              just fetched, never spelled. */}
+          Your {seats.length === 1 ? 'camera is' : `${seats.length} cameras are`} ready.
+          Share a link with each friend below.
         </div>
       )}
       {seatSet === 'reissued' && (
         <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          Seat reissued — the old link no longer works. Share the fresh one.
+          Camera reissued — the old link no longer works. Share the fresh one.
         </div>
       )}
       {seatError && (

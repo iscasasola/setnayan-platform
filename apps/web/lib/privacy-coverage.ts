@@ -120,6 +120,11 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
     declaredIn: [],
     note: 'NOT DECLARED YET (on purpose — honest drift): the shared pool exposes every guest’s clean-screened captures (web copies) to all session guests, plus self-link tagging. Owed before activation: a /privacy section for event-wide pool sharing + a ROPA activity. Held fail-closed (control inactive AND NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag off AND the couple’s per-event toggle).',
   },
+  same_date_demand: {
+    privacySensitive: true,
+    declaredIn: [],
+    note: 'NOT DECLARED YET (on purpose — honest drift). The only CROSS-COUPLE disclosure on the marketplace: couple A is told how many OTHER couples inquired with the same vendor for the same exact date. Two mitigations are already in the resolver — inquiry-only (a mere save counts zero, per the 2026-06-02 manufactured-scarcity ruling) and a server-side min-3 floor (n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying) — but there is NO per-couple opt-out: a couple cannot exclude their own inquiry from other couples’ counts, and that is the gap a DPO ruling has to speak to. Owed before activation: a /privacy paragraph on aggregate cross-couple demand + a ROPA activity. Held fail-closed (control seeded inactive AND the Explore-replan flag AND a min-3 floor that prod cannot currently reach — 0 chat_threads).',
+  },
 };
 
 export type FilingActivityGap = { docKey: string; activity: string; note: string };

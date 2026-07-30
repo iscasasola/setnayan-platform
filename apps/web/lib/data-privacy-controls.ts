@@ -44,7 +44,8 @@ export type PrivacyControlKey =
   | 'antifraud_trust_signals'
   | 'device_fingerprint'
   | 'guest_columns'
-  | 'papic_pool_gallery';
+  | 'papic_pool_gallery'
+  | 'same_date_demand';
 
 /**
  * Risk-grouped sections for the board. `group` is the KIND of data a control
@@ -231,6 +232,16 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Automated processing of couple messages',
     riskNote:
       'Automated processing of couple chat + event data on the vendor’s behalf. The live /privacy notice needs a Vendor-AI section (purpose + legal basis) before this activates; couple-faith consumption must stay unwired. DPO sign-off required.',
+  },
+  {
+    key: 'same_date_demand',
+    group: 'automated_ai',
+    title: 'Same-date demand signal ("In demand right now")',
+    description:
+      'Counts the OTHER couples who have inquired with the same vendor for the same exact date, shows that number to this couple ("N couples inquired for your date"), and feeds it to the "In demand right now" ranking lens as a sub-score. Inquiry-only — a saved-but-never-contacted vendor counts as zero — and floored at 3 couples server-side, so a below-floor count never leaves the server.',
+    category: 'Cross-couple activity disclosure',
+    riskNote:
+      'Tells one couple something about other couples\u2019 booking behaviour — the only signal on the marketplace that does. The min-3 floor exists because n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying; the inquiry-only rule exists because counting a mere SAVE as competition is manufactured scarcity (owner ruling 2026-06-02: "a fineable dark pattern"). There is NO per-couple opt-out — a couple cannot exclude their own inquiry from other couples\u2019 counts. /privacy + ROPA do not declare this cross-couple aggregation yet. DPO ruling required before couples start messaging vendors.',
   },
   {
     key: 'vendor_deep_search',

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { requireClientRef, paperworkScanPolicy } from '@/lib/r2-client-ref';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -340,8 +341,28 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
   const currentStatus = (current as { status?: PaperworkStatus } | null)?.status
     ?? 'not_started';
 
+  // ── SEC-1 follow-up: the ref is CLIENT-SUPPLIED, so it goes through the one
+  //    sanctioned gate before it is stored. ─────────────────────────────────
+  //
+  // This upload targets `setnayan-vendor-contracts` — a PRIVATE bucket it shares
+  // with signed contracts and platform receipts (paperwork/page.tsx →
+  // `<FileUpload bucket="vendor-contracts">`). Storing the raw field let a host
+  // put ANY key from that bucket on their OWN paperwork row, and the paperwork
+  // page then resolves stored refs to signed display URLs — i.e. a cross-tenant
+  // read oracle for another couple's PSA/CENOMAR or a vendor's contract, reached
+  // entirely through a row the host legitimately owns. (The RLS-scoped UPDATE
+  // below stops them writing to someone else's row; it cannot stop them naming
+  // someone else's KEY on their own.)
+  //
+  // `requireClientRef` refuses non-specifically, so a refusal never reveals
+  // whether the object exists. Deferred lane #2 of the #3729 list.
+  const { key: documentR2Key } = requireClientRef(
+    r2KeyRaw.trim(),
+    paperworkScanPolicy(eventId),
+  );
+
   const patch: Record<string, unknown> = {
-    document_r2_key: r2KeyRaw.trim(),
+    document_r2_key: documentR2Key,
   };
 
   // Auto-flip to received if the host hasn't already marked it received.

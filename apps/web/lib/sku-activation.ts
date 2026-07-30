@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
+import {
+  orderMayProvisionVendorTarget,
+  vendorTargetRefusalMessage,
+} from '@/lib/vendor-target-ownership';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
@@ -1153,11 +1157,18 @@ async function assertOrderOwnsVendorTarget(
   const orderVendorId =
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
 
-  if (!orderVendorId || !targetVendorProfileId || orderVendorId !== targetVendorProfileId) {
+  // The RULE lives in lib/vendor-target-ownership.ts — pure, and unit-tested
+  // there. This module cannot be imported by a test (it reaches `server-only`
+  // transitively via the concierge actions), so keeping the decision here would
+  // leave it provable only by reading it.
+  if (!orderMayProvisionVendorTarget(orderVendorId, targetVendorProfileId)) {
     throw new Error(
-      `SEC-4b: order ${ctx.orderId} (vendor_profile_id=${orderVendorId ?? 'null'}) may not ` +
-        `provision ${ctx.serviceKey}, which belongs to vendor ` +
-        `${targetVendorProfileId ?? 'unknown'}. Refusing to activate.`,
+      vendorTargetRefusalMessage({
+        orderId: ctx.orderId,
+        serviceKey: ctx.serviceKey,
+        orderVendorProfileId: orderVendorId,
+        targetVendorProfileId,
+      }),
     );
   }
 }

@@ -87,17 +87,31 @@ for (const hook of HOOKS) {
   });
 }
 
-test('the gate FAILS CLOSED — a null on either side is a refusal', () => {
-  // Couple checkout pins orders.vendor_profile_id to NULL, so "null never
-  // matches" is exactly what stops a couple-minted row provisioning a vendor
-  // object. A `==` or a null-tolerant comparison would reopen it.
+test('the gate delegates to the TESTED rule, and still throws', () => {
+  // The decision moved to lib/vendor-target-ownership.ts so it could be
+  // exercised rather than merely read — this module reaches `server-only`
+  // transitively and cannot be imported by a test. What must stay true here is
+  // that the gate calls that rule (not a second, untested copy of it) and still
+  // THROWS on refusal rather than returning quietly.
   const fn = SRC.slice(
     SRC.indexOf('async function assertOrderOwnsVendorTarget('),
     SRC.indexOf('/** The vendor that owns a branch'),
   );
-  assert.match(fn, /!orderVendorId \|\| !targetVendorProfileId/, 'the null guards are gone');
-  assert.match(fn, /orderVendorId !== targetVendorProfileId/, 'the identity comparison is gone');
+  assert.match(
+    fn,
+    /if \(!orderMayProvisionVendorTarget\(orderVendorId, targetVendorProfileId\)\)/,
+    'the gate no longer delegates to the tested rule — a second copy of the ' +
+      'decision here would be untested by construction',
+  );
   assert.match(fn, /throw new Error\(/, 'the gate no longer throws — it must not return quietly');
+  assert.match(fn, /vendorTargetRefusalMessage\(/, 'the refusal message is no longer the tested one');
+
+  // …and the rule is imported from the pure module, not redefined locally.
+  assert.match(
+    SRC,
+    /import \{[\s\S]{0,120}orderMayProvisionVendorTarget[\s\S]{0,120}\} from '@\/lib\/vendor-target-ownership'/,
+    'the pure rule is not imported — is there a local shadow?',
+  );
 });
 
 test('the resolvers read ownership from the OWNING table, not from the key', () => {

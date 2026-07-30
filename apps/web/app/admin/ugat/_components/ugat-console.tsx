@@ -17,9 +17,13 @@ import {
   UGAT_FINDINGS,
   UGAT_FINDINGS_BY_ID,
   UGAT_JOINTS,
+  UGAT_FINDING_STALE_AFTER_DAYS,
   platformEdges,
   findingsForType,
   findingForEdge,
+  openUgatFindings,
+  findingAgeDays,
+  isFindingStale,
   jointsForEdge,
   type UgatTypeMeta,
   type UgatFinding,
@@ -87,15 +91,35 @@ function relTime(ms: number): string {
   return `${m}m ago`;
 }
 
+/* ── finding roll-ups (the registry is static, so these are module constants) ──
+   The overlay counts what still NEEDS ATTENTION, never the registry length.
+   Until 2026-07-30 the badge read UGAT_FINDINGS.length and showed "9" while six
+   were already fixed — the surface whose whole job is truth was crying wolf. */
+const OPEN_FINDINGS = openUgatFindings();
+const OPEN_FINDING_COUNT = OPEN_FINDINGS.length;
+const FIXED_FINDING_COUNT = UGAT_FINDINGS.length - OPEN_FINDING_COUNT;
+const LAST_VERIFIED_AT = UGAT_FINDINGS.reduce(
+  (max, f) => (f.verifiedAt > max ? f.verifiedAt : max),
+  '',
+);
+
 /* ═════════════════════════════════════════════════════════════════════════
    THE CONSOLE
    ═════════════════════════════════════════════════════════════════════════ */
 export function UgatConsole({
   counts,
   savedSearches,
+  nowMs,
 }: {
   counts: UgatCounts;
   savedSearches: UgatSavedSearch[];
+  /**
+   * Server-computed clock for finding staleness. Injected rather than read from
+   * Date.now() in here: this is a client component, and a locally-read clock
+   * renders a different staleness string on the server than on the client,
+   * which React reports as a hydration mismatch.
+   */
+  nowMs: number;
 }) {
   const [control, setControl] = useState<Control>('map');
   const [resolution, setResolution] = useState<Resolution>('entities');
@@ -137,7 +161,7 @@ export function UgatConsole({
 
   const edges = useMemo(() => platformEdges(), []);
 
-  const findingCount = UGAT_FINDINGS.length;
+  const findingCount = OPEN_FINDING_COUNT;
 
   const closePanels = useCallback(() => {
     setOpenNode(null);
@@ -200,7 +224,7 @@ export function UgatConsole({
           type="button"
           className={`ug-healthbtn${health ? ' on' : ''}`}
           onClick={() => setHealth((h) => !h)}
-          title="Toggle the 2026-07-05 audit overlay"
+          title={`Audit overlay — ${OPEN_FINDING_COUNT} open · ${FIXED_FINDING_COUNT} fixed · last re-verified ${LAST_VERIFIED_AT}`}
         >
           <span className="ug-hb-dot" />
           Health
@@ -272,6 +296,7 @@ export function UgatConsole({
           resolution={resolution}
           health={health}
           highlight={highlight}
+          nowMs={nowMs}
           onNodeClick={openTypeNode}
           onEdgeClick={(a, b) => {
             setOpenNode(null);
@@ -338,7 +363,11 @@ export function UgatConsole({
           />
         )}
         {openFinding && UGAT_FINDINGS_BY_ID[openFinding] && (
-          <FindingCard finding={UGAT_FINDINGS_BY_ID[openFinding]} onClose={closePanels} />
+          <FindingCard
+            finding={UGAT_FINDINGS_BY_ID[openFinding]}
+            onClose={closePanels}
+            nowMs={nowMs}
+          />
         )}
       </aside>
     </div>
@@ -355,6 +384,7 @@ function MapCanvas({
   resolution,
   health,
   highlight,
+  nowMs,
   onNodeClick,
   onEdgeClick,
   onFindingClick,
@@ -365,6 +395,8 @@ function MapCanvas({
   resolution: Resolution;
   health: boolean;
   highlight: string | null;
+  /** Server clock — see the note on UgatConsole's own nowMs prop. */
+  nowMs: number;
   onNodeClick: (id: string) => void;
   onEdgeClick: (a: string, b: string) => void;
   onFindingClick: (id: string) => void;
@@ -372,6 +404,12 @@ function MapCanvas({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ x: 40, y: 40, k: 0.92 });
   const panning = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+
+  // Open findings nobody has re-checked inside the staleness window.
+  const staleOpenCount = useMemo(
+    () => OPEN_FINDINGS.filter((f) => isFindingStale(f, nowMs)).length,
+    [nowMs],
+  );
 
   // fit-to-view on mount
   const fit = useCallback(() => {
@@ -581,7 +619,12 @@ function MapCanvas({
               const vocab = UGAT_TYPE_VOCAB[n.type];
               const w = nodeWidth(n);
               const h = 40;
-              const nodeFindings = health ? findingsForType(n.type) : [];
+              // OPEN findings only. findingsForType() returns fixed history too,
+              // and painting that on the canvas is what made six closed findings
+              // keep showing red markers for 25 days.
+              const nodeFindings = health
+                ? findingsForType(n.type).filter((f) => f.status !== 'fixed')
+                : [];
               const worst = nodeFindings.some((f) => f.sev === 'red')
                 ? 'red'
                 : nodeFindings.some((f) => f.sev === 'amber')
@@ -671,7 +714,13 @@ function MapCanvas({
         {health && (
           <div className="ug-healthnote">
             <Ico name="alert" />
-            Health overlay — as of the 2026-07-05 audit. Live telemetry coming (slice 2).
+            Health overlay — re-verified {LAST_VERIFIED_AT} · {OPEN_FINDING_COUNT} open ·{' '}
+            {FIXED_FINDING_COUNT} fixed (kept as history).
+            {staleOpenCount > 0 && (
+              <span className="ug-stale">
+                {staleOpenCount} unchecked &gt; {UGAT_FINDING_STALE_AFTER_DAYS}d — re-verify
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -712,8 +761,14 @@ function NodeCard({
     kv.push(['All orgs', fmtCount(counts.detail.vendorTotalOrgs)]);
   } else if (node.type === 'billing') {
     kv.push(['Active subscriptions', fmtCount(counts.detail.billingActiveSubs)]);
-    kv.push(['Tokens in circulation', fmtCount(counts.detail.billingTokensInCirculation)]);
-    kv.push(['Rate', '₱100 / token']);
+    // F11: NO static price row here. A hardcoded "₱100 / token" survived two
+    // owner decisions (the reprice to flat ₱200, then the outright retirement
+    // of the pack sale on 2026-07-21) — this panel was committing the very
+    // drift F2 exists to flag. Prices belong in the catalog, never in code.
+    kv.push([
+      'Tokens in circulation',
+      `${fmtCount(counts.detail.billingTokensInCirculation)} (dormant — sale retired)`,
+    ]);
     kv.push(['Commission', '0%']);
   } else if (node.type === 'order') {
     kv.push(['Pending payment', fmtCount(counts.detail.ordersPending)]);
@@ -1019,26 +1074,57 @@ function EdgeRow({
 /* ═════════════════════════════════════════════════════════════════════════
    FINDING CARD — the 5-step binding trace (static 2026-07-05 audit)
    ═════════════════════════════════════════════════════════════════════════ */
-function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () => void }) {
+function FindingCard({
+  finding,
+  onClose,
+  nowMs,
+}: {
+  finding: UgatFinding;
+  onClose: () => void;
+  nowMs: number;
+}) {
+  const fixed = finding.status === 'fixed';
+  const stale = isFindingStale(finding, nowMs);
+  const ageDays = findingAgeDays(finding, nowMs);
   return (
     <>
       <div className="ug-card-head">
         <div
           className="ug-av"
           style={{
-            background: finding.sev === 'red' ? 'var(--ug-report-bg)' : 'var(--ug-wait-bg)',
-            color: finding.sev === 'red' ? 'var(--ug-report)' : 'var(--ug-wait)',
+            background: fixed
+              ? 'var(--ug-ok-bg)'
+              : finding.sev === 'red'
+                ? 'var(--ug-report-bg)'
+                : 'var(--ug-wait-bg)',
+            color: fixed
+              ? 'var(--ug-ok)'
+              : finding.sev === 'red'
+                ? 'var(--ug-report)'
+                : 'var(--ug-wait)',
           }}
         >
-          <Ico name="alert" />
+          <Ico name={fixed ? 'check' : 'alert'} />
         </div>
         <div className="ug-ti">
           <div className="ug-nm">{finding.title}</div>
           <div className="ug-row2">
-            <span className={`ug-badge ${finding.sev === 'red' ? 'report' : 'wait'}`}>
-              {finding.sev === 'red' ? 'Confirmed broken' : 'Drift risk'}
-            </span>
+            {/* Status leads. A closed finding must never wear "Confirmed broken". */}
+            {fixed ? (
+              <span className="ug-badge fixed">Fixed</span>
+            ) : finding.status === 'mitigated' ? (
+              <span className="ug-badge wait">Mitigated</span>
+            ) : (
+              <span className={`ug-badge ${finding.sev === 'red' ? 'report' : 'wait'}`}>
+                {finding.sev === 'red' ? 'Confirmed broken' : 'Drift risk'}
+              </span>
+            )}
             <span className="ug-id">{finding.id}</span>
+            {stale && (
+              <span className="ug-stale" title={`Last verified ${ageDays} days ago`}>
+                STALE — re-verify
+              </span>
+            )}
           </div>
         </div>
         <button type="button" className="ug-card-x" onClick={onClose} aria-label="Close">
@@ -1048,8 +1134,17 @@ function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () =
 
       <div className="ug-status-line">
         <Ico name="info" />
-        <span>As of the 2026-07-05 audit — live telemetry coming (slice 2).</span>
+        <span>
+          Verified {finding.verifiedAt} ({ageDays}d ago) · {finding.verifiedEvidence}
+        </span>
       </div>
+
+      {finding.guard && (
+        <div className="ug-status-line">
+          <Ico name="check" />
+          <span>Guarded by {finding.guard}</span>
+        </div>
+      )}
 
       <div className="ug-card-body">
         <p className="ug-fbody">{finding.oneliner}</p>
@@ -1069,8 +1164,16 @@ function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () =
           ))}
         </div>
         <div className="ug-sect">
-          <span className={`ug-fix-chip ${finding.fix === 'queued' ? 'queued' : 'needsowner'}`}>
-            <Ico name={finding.fix === 'queued' ? 'check' : 'alert'} />
+          <span
+            className={`ug-fix-chip ${
+              finding.fix === 'done'
+                ? 'done'
+                : finding.fix === 'queued'
+                  ? 'queued'
+                  : 'needsowner'
+            }`}
+          >
+            <Ico name={finding.fix === 'needsowner' ? 'alert' : 'check'} />
             {finding.fixLabel}
           </span>
         </div>

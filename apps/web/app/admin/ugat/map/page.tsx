@@ -48,5 +48,10 @@ export default async function AdminUgatMapPage() {
     Promise.all(UGAT_SAVED_SEARCHES.map((s) => runSavedSearch(s.key))),
   ]);
 
-  return <UgatConsole counts={counts} savedSearches={savedSearches} />;
+  // Finding staleness is computed against a SERVER clock passed into the client
+  // console. Reading Date.now() inside the client component would render one
+  // age on the server and another in the browser — a hydration mismatch.
+  return (
+    <UgatConsole counts={counts} savedSearches={savedSearches} nowMs={Date.now()} />
+  );
 }

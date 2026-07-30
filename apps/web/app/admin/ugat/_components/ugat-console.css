@@ -1373,6 +1373,36 @@
   background: var(--ug-report-bg);
   color: var(--ug-report);
 }
+.ug-fix-chip.done {
+  background: var(--ug-ok-bg);
+  color: var(--ug-ok);
+}
+
+/* A CLOSED finding is kept in the registry as history — it must read as
+   resolved, never as an alarm. Before 2026-07-30 six fixed findings still
+   wore "Confirmed broken". */
+.ug-badge.fixed {
+  background: var(--ug-ok-bg);
+  color: var(--ug-ok);
+}
+
+/* Staleness chip: an unresolved finding nobody has re-checked inside the
+   window. It is deliberately loud — an un-reviewed finding still looks
+   authoritative, and that is exactly how this registry rotted. */
+.ug-stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: var(--m-r-full);
+  padding: 2px 8px;
+  margin-left: 6px;
+  background: var(--ug-wait-bg);
+  color: var(--ug-wait);
+  border: 1px dashed currentColor;
+}
 
 /* ── responsive ── */
 @media (max-width: 900px) {

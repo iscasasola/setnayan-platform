@@ -174,6 +174,7 @@ export async function EventDashboard({
   inspectId,
   slotAfterBento,
   dayOfActive = false,
+  isCoupleMember = false,
 }: {
   eventId: string;
   suriPreviewParam?: string;
@@ -188,6 +189,17 @@ export async function EventDashboard({
    * — the one-obsidian-per-view rule (rollout plan § 1.3) stays satisfied.
    */
   dayOfActive?: boolean;
+  /**
+   * Is the viewer a COUPLE member of this event? Resolved once by the Home page.
+   *
+   * Gates the Papic mini-tile, and it is a correctness gate rather than a
+   * permission nicety: the three Papic capture tables are couple-only in RLS while
+   * this surface also renders for coordinators / multi-host moderators, and an RLS
+   * denial returns `count: 0` with no error — so without this a coordinator is
+   * shown "0 cameras out" on an event mid-shoot. Defaults FALSE: a caller that
+   * forgets it gets no tile, never a wrong one.
+   */
+  isCoupleMember?: boolean;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -514,7 +526,7 @@ export async function EventDashboard({
     // nudge the Home mounts in slotAfterBento, so the two can never disagree —
     // and it rides this existing batch rather than adding a round-trip. Returns
     // null (⇒ neither surface renders) when the event has no Papic signal at all.
-    resolvePapicHomeTile(adminClient, supabase, eventId),
+    resolvePapicHomeTile(adminClient, eventId, isCoupleMember),
   ]);
 
   const event = eventRes.data;

@@ -326,13 +326,32 @@ export default async function EventHomePage({
   // details forward into a fresh instance.
   const canRecur = canPlanNextYear((event.event_type as string | null) ?? null);
 
-  // Papic nudge gate (PR-G option B). Two indexed head-counts, and ONLY asked
-  // when the nudge could actually render — a date-less event is showing the
-  // set-date nudge instead, so it pays nothing. `papicNudgeShouldShow` fails to
-  // false, so an unreadable count never conjures a band onto the page.
-  const papicNudgeVisible = event.event_date
-    ? await papicNudgeShouldShow(supabase, eventId)
-    : false;
+  // ── Is this viewer a COUPLE member? ────────────────────────────────────────
+  // Papic's two home surfaces both need this, and it is a correctness gate, not a
+  // nicety: all three capture tables are couple-only in RLS
+  // (`papic_photos_couple_full` etc.), while event-home also renders for
+  // coordinators and multi-host moderators — and an RLS denial returns `count: 0`
+  // with NO error. Without this flag a coordinator would be told "0 cameras out"
+  // and shown the free-camera nudge on a wedding already mid-shoot.
+  //
+  // Resolved ONCE here and threaded into <EventDashboard> for the tile, so the
+  // whole feature costs one indexed query rather than two.
+  const { data: coupleMembership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  const isCoupleMember = Boolean(coupleMembership);
+
+  // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
+  // render — a date-less event is showing the set-date nudge instead, and a
+  // non-couple viewer never sees it — so neither pays a query.
+  const papicNudgeVisible =
+    event.event_date && isCoupleMember
+      ? await papicNudgeShouldShow(adminClient, eventId, isCoupleMember)
+      : false;
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
@@ -489,6 +508,7 @@ export default async function EventHomePage({
         inspectId={search.inspect}
         slotAfterBento={hasOverlays ? overlays : undefined}
         dayOfActive={dayOfActive}
+        isCoupleMember={isCoupleMember}
       />
     </>
   );

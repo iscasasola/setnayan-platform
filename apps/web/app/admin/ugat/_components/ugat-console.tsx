@@ -67,6 +67,7 @@ const TABLE_META: Array<{ key: UgatTableKey; label: string; type: UgatEntityType
   { key: 'orders', label: 'Orders', type: 'order' },
   { key: 'threads', label: 'Threads', type: 'thread' },
   { key: 'billing', label: 'Billing', type: 'billing' },
+  { key: 'communities', label: 'Samahan', type: 'community' },
 ];
 
 const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
@@ -78,6 +79,7 @@ const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
   order: 'orders',
   thread: 'threads',
   billing: 'billing',
+  community: 'communities',
 };
 
 function fmtCount(n: number): string {
@@ -1374,6 +1376,7 @@ function TablesView({
   }, [active, page]);
 
   const TYPE_NODE: Record<UgatEntityType, string> = {
+    community: 'TYPE-SAMAHAN',
     user: 'TYPE-USERS',
     event: 'TYPE-EVENTS',
     guest: 'TYPE-GUESTS',

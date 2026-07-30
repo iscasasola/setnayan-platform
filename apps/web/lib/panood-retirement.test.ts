@@ -117,13 +117,24 @@ test('⚠ it hides the BUY, never the LAUNCH — an existing Cast buyer keeps th
   );
 });
 
-test('the home pricing table DROPS the Live Studio row instead of falling back to ₱2,500', () => {
+test('the home pricing payload quotes NO per-day rate — the table is gone entirely', () => {
+  // Was: "the home pricing table DROPS the Live Studio row instead of falling back
+  // to ₱2,500". That table (PricingData.groups) was deleted 2026-07-30 — nothing
+  // had rendered it since the 2026-07-04 overlay redesign, and the Papic rows in
+  // it had drifted into three false claims while unwatched. The Live Studio
+  // protection this test exists for is now structural rather than conditional:
+  // there is no row to quote a retired ₱/day rate on. Both halves still assert,
+  // because a resurrected table is exactly where the fake door would come back.
   const src = read('../app/_components/home/pricing-data.ts');
   assert.ok(
-    !/priceOf\(catalog, 'PANOOD_SYSTEM'/.test(src),
+    !/PANOOD_SYSTEM/.test(src),
     'a hardcoded fallback would keep advertising a price checkout now refuses',
   );
-  assert.match(src, /liveStudioRate != null && Number\.isFinite\(liveStudioRate\)/);
+  assert.ok(
+    !/\/day/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')),
+    'this payload feeds the Setnayan AI price + vendor tiers only; a per-day rate '
+      + 'here renders nowhere, so nothing catches it when the SKU behind it retires',
+  );
 });
 
 /* ── 3 · THE ALIAS SURVIVES THE RETIREMENT ──────────────────────────────────── */

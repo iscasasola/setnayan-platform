@@ -191,19 +191,21 @@ export async function fetchPapicTierConfig(
 }
 
 // ── pure copy helpers (the ONLY sanctioned way to render a Papic claim) ──────
-
-/**
- * The PUBLIC ladder — the rungs a couple can actually pick, in sort order.
- * Excludes `free` (not a purchasable rung) and `roll` (the legacy alias of
- * Mini: same ₱30, same 20 points — showing both would read as two products).
- * Inactive rows drop out, so an admin deactivating a tier removes it from every
- * surface at once.
- */
-export function publicPapicLadder(config: PapicTierConfig): PapicTierConfigRow[] {
-  return TIER_CODES.map((c) => config[c])
-    .filter((r) => r.isActive && r.tierCode !== 'free' && r.tierCode !== 'roll')
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-}
+//
+// ⚠ THE PER-DAY LADDER HELPERS ARE GONE (deleted 2026-07-30). `publicPapicLadder`,
+// `papicCapacityShort`, `papicCapLadderPhrase` and `papicTierSummary` all rendered
+// `papic_tier_config` as a ladder of per-camera-per-DAY rungs with wedding caps —
+// the model the two-type lock retired (owner 2026-07-29). Their last consumer was
+// the dead homepage pricing payload, which is exactly where they were still
+// printing "unlimited shots per day" and "₱50/guest·day" for products that are now
+// a shared pool and a flat per-camera bucket. A ladder is derived from the RUNG
+// tables now — `papic_pass_tiers` (Pool) and `papic_one_tiers` (One), priced from
+// the live catalog, phrased through `papicPoolRungPhrase` / `papicOneRungPhrase` at
+// the bottom of this file. `app/pricing/page.tsx` is the reference implementation.
+//
+// What survives here is what a per-CAMERA surface still legitimately needs:
+// `papicCapacityPhrase` (the studio's guest-camera picker), the free-seat count,
+// and the cap sentence.
 
 /** How many free cameras every event gets — from config, never a literal. */
 export function papicFreeCameraCount(config: PapicTierConfig): number {
@@ -283,14 +285,6 @@ export function papicCapacityPhrase(pointsPerDay: number | null): string {
   );
 }
 
-/** Terse variant for tight UI (chips, list rows). Same derivation. */
-export function papicCapacityShort(pointsPerDay: number | null): string {
-  if (pointsPerDay == null) return 'unlimited shots per day';
-  const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
-  const clips = Math.floor(pointsPerDay / PAPIC_POINTS_PER_CLIP);
-  return `~${photos} photos/day, or ~${clips} ten-second clips`;
-}
-
 /** Peso formatter local to this module (avoids importing the catalog reader). */
 function peso(n: number): string {
   return `₱${Math.round(n).toLocaleString('en-PH')}`;
@@ -304,27 +298,6 @@ function peso(n: number): string {
 export function papicCapPhrase(weddingCapPhp: number | null): string {
   if (weddingCapPhp == null || !(weddingCapPhp > 0)) return 'no cap';
   return `${peso(weddingCapPhp)} max for a wedding`;
-}
-
-/** "Mini ₱6,000 · Ltd ₱10,000 · Unli ₱15,000" — derived, in ladder order. */
-export function papicCapLadderPhrase(config: PapicTierConfig): string {
-  return publicPapicLadder(config)
-    .filter((r) => r.weddingCapPhp != null && r.weddingCapPhp > 0)
-    .map((r) => `${r.displayTitle} ${peso(r.weddingCapPhp as number)}`)
-    .join(' · ');
-}
-
-/**
- * One rung, fully derived: title, rate, capacity, cap.
- * `ratePhp` comes from the live catalog (the caller resolves the tier's
- * `rateServiceCode`) so the price and the capacity can never disagree.
- */
-export function papicTierSummary(
-  row: PapicTierConfigRow,
-  ratePhp: number | null,
-): string {
-  const price = ratePhp != null && ratePhp > 0 ? `${peso(ratePhp)} per camera, per day` : 'free';
-  return `${row.displayTitle} — ${price} · ${papicCapacityPhrase(row.pointsPerDay)}`;
 }
 
 // ── the TWO-TYPE model (owner-locked 2026-07-29) ────────────────────────────

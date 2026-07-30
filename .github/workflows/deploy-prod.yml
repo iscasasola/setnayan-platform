@@ -16,44 +16,50 @@ name: deploy-prod
 # Vercel deploy (via a Deploy Hook). Vercel still builds; it's just triggered by
 # this Action AFTER db push succeeds, so the schema is always ahead of the code.
 #
-# ─── ⚠ CUTOVER ROLLED BACK 2026-07-30 — THE PREREQUISITE IS MISSING ──
+# ─── ✅ CUTOVER COMPLETE 2026-07-30 — verified end-to-end on #3936 ────
 #
-# The hook works (verified: gate ✅, db push ran, HTTP 201, and Vercel showed a
-# deployment carrying deployHookName=migrate-then-deploy). What does NOT work is
-# the trigger this workflow depends on:
+# This workflow is now the ONLY thing that deploys `main`, and it deploys only
+# after `db push` succeeds. Vercel's native git auto-deploy for main is OFF
+# (apps/web/vercel.json → "git.deploymentEnabled.main": false — JSON takes no
+# comments, so this is its note). Schema is therefore always ahead of code.
+#
+# ── The prerequisite, and why it took two tries ──
+# The first attempt (#3916) turned Vercel's auto-deploy off while push-triggered
+# workflows were SILENTLY SUPPRESSED, so nothing deployed at all for three
+# merges. The cause:
 #
 #   **GitHub does not run `push`-triggered workflows for a push made with
-#   GITHUB_TOKEN.** `auto-enable-automerge.yml` arms auto-merge with that token,
-#   so GitHub completes the merge as `github-actions[bot]` and the resulting push
-#   to main fires NOTHING — not deploy-prod, not ci, not e2e.
+#   GITHUB_TOKEN.** `auto-enable-automerge.yml` armed auto-merge with that token,
+#   GitHub completed the merge as `github-actions[bot]`, and the resulting push
+#   fired NOTHING — not deploy-prod, not ci, not e2e.
 #
-# Measured 2026-07-30: of the last five merges to main, the one authored by a
-# human (8760e19e6) produced push runs; the four authored by github-actions[bot]
-# (#3916 4ba1703d0, #3919 d8216cb13, #3918 25bec371d, #3920 052ff19c4) produced
-# NONE. Since auto-merge is this repo's standing default, that is most merges.
+# Measured that day: of five merges to main, the one human-authored (8760e19e6)
+# produced push runs; the four bot-authored (#3916 4ba1703d0, #3919 d8216cb13,
+# #3918 25bec371d, #3920 052ff19c4) produced none. That — not concurrency
+# supersession — is why five migrations needed a manual `gh workflow run`.
 #
-# ⇒ This is also the true cause of the five "skipped" migrations on 2026-07-30
-# that each needed `gh workflow run supabase-migrations.yml --ref main`. It was
-# never concurrency supersession — that diagnosis was wrong.
+# FIXED by adding repo secret **AUTOMERGE_PAT** (fine-grained: Contents RW +
+# Pull requests RW + Metadata R). `auto-enable-automerge.yml` already read it
+# with a `|| github.token` fallback, so no code change was needed.
 #
-# ⇒ And it is why apps/web/vercel.json's `git.deploymentEnabled.main: false` was
-# REVERTED: Vercel's git integration is its own webhook, independent of GitHub
-# Actions, so it fires on bot-authored merges too. With it off AND push runs not
-# firing, production silently stopped updating. Vercel's native auto-deploy is
-# the only reliable deployer here until the trigger is fixed.
+# Verified on #3936 (merge 9752224e4): auto-merge enabledBy=iscasasola, merge
+# commit authored by iscasasola, and push runs [deploy-prod, e2e, ci] all fired —
+# db push applied, hook returned success, Vercel deployed.
 #
-# ── TO FINISH THE CUTOVER, one of these must land FIRST ────────────────────
-#   A. (preferred) Give `auto-enable-automerge.yml` a PAT / GitHub App token
-#      instead of GITHUB_TOKEN, so merge pushes are attributed to a real identity
-#      and DO trigger workflows. Owner action — a new repo secret.
-#   B. Or trigger this workflow off something a bot merge still emits. ⚠ VERIFY
-#      FIRST: `pull_request: [closed]` may be suppressed by the same
-#      GITHUB_TOKEN rule; do not assume it fires.
-# Until then this workflow still runs on human-authored pushes and on
-# workflow_dispatch, and Vercel deploys everything else. Double builds only occur
-# on human-authored merges.
+# ── 🚨 THE TELL IF THIS EVER BREAKS AGAIN ──
+# If merge commits start showing **`github-actions[bot]`** as author, the PAT has
+# expired or been revoked. Symptom: `main` silently stops deploying and
+# migrations silently stop applying — CI stays green because it never runs.
+#   Check:    gh run list --workflow deploy-prod.yml --json event,headSha
+#             git log -1 --format='%an' origin/main
+#   Recover:  gh workflow run deploy-prod.yml --ref main   (always available)
+#   Fix:      re-issue AUTOMERGE_PAT, or revert vercel.json's
+#             git.deploymentEnabled.main to true so Vercel deploys again.
+# ⚠ The tempting alternative — triggering off `pull_request: [closed]` — may be
+# suppressed by the same GITHUB_TOKEN rule. Verify before depending on it;
+# assuming a trigger fires is exactly what caused the outage.
 #
-# ─── ✅ CUTOVER STEPS COMPLETED 2026-07-30 (hook + secret, kept for lineage) ──
+# ─── Hook + secret setup, kept for lineage ───────────────────────────
 # Hook `migrate-then-deploy` (branch main) created in Vercel; secret
 # VERCEL_DEPLOY_HOOK_URL added; verified by a manual dispatch — gate printed
 # "✅ Configured", `db push` ran, hook returned HTTP 201, and Vercel showed a

@@ -330,10 +330,23 @@ export async function saveAllStdContent(
   // Save-the-Date appear (it'd sit in the RSVP phase). Guarded to event_date IS
   // NULL so an existing wedding date is never clobbered; std_film_date stays the
   // display-only override on top.
+  //
+  // ⚠ IT MUST ADVANCE THE PRECISION TOO (fixed 2026-07-30). Until this line
+  // existed, the backfill wrote a real calendar day while leaving
+  // `event_date_precision` at its creation default of 'year'
+  // (create-event/actions.ts) — and countdown maths only runs at 'day'
+  // (`lib/progress-stages.ts`), so the event a couple had just dated was
+  // skipped by everything that counts down. BOTH prod events carried the
+  // signature (`event_date = std_film_date`, precision 'year'); this was the
+  // only `events.event_date` writer that didn't set precision alongside it.
+  // `std_film_date` is a specific day, so 'day' is the honest precision — and
+  // year → day is a NARROWING, which the refine-only ratchet in
+  // `[eventId]/actions.ts` allows. `date_status` is deliberately untouched:
+  // committing to a date is `date-selection/actions.ts`'s job, not a film's.
   if (filmDate) {
     await supabase
       .from('events')
-      .update({ event_date: filmDate })
+      .update({ event_date: filmDate, event_date_precision: 'day' })
       .eq('event_id', eventId)
       .is('event_date', null);
   }

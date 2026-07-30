@@ -90,13 +90,34 @@ export type PlaylistPickRow = {
 const SELECT =
   'pick_id,public_id,event_id,slot_type,song_label,artist,notes,sort_order,created_by_user_id,created_at,updated_at';
 
+/**
+ * The result of a playlist read, with "denied" distinguishable from "empty".
+ *
+ * ⚠ THIS SHAPE EXISTS BECAUSE THE OLD ONE CAUSED A BUG. `fetchPlaylistPicks`
+ * used to swallow every error into `[]`, which reads fine on the couple's own
+ * editor — nothing to show is nothing to show — but the vendor song desk turned
+ * that same empty array into a SENTENCE: *"they haven't set out the night moment
+ * by moment yet."* Two RLS gaps (crew and day-of grantees, both fixed in
+ * migration 20271020710612) meant the desk stated that confidently to the people
+ * who most needed the list, and a swallowed error is why it read as a fact about
+ * the couple instead of a failure on our side.
+ *
+ * So callers now get told which happened. `failed` is not "show an error page" —
+ * it is "do not assert anything about what the couple did".
+ */
+export type PlaylistPicksResult = {
+  rows: PlaylistPickRow[];
+  /** The read errored or was denied. `rows` is empty but means nothing. */
+  failed: boolean;
+};
+
 /** Fetch all playlist picks for an event · ordered by slot then sort_order.
- *  Returns an empty array on RLS denial or query error · the editor
- *  surface renders cleanly with empty per-slot sections. */
+ *  Never throws: a failed read comes back as `{ rows: [], failed: true }` so a
+ *  day-of surface can degrade without claiming the couple did nothing. */
 export async function fetchPlaylistPicks(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<PlaylistPickRow[]> {
+): Promise<PlaylistPicksResult> {
   const { data, error } = await supabase
     .from('event_playlist_picks')
     .select(SELECT)
@@ -104,12 +125,11 @@ export async function fetchPlaylistPicks(
     .order('slot_type', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) {
-    // Couple side and music-vendor side both hit RLS · log only · don't
-    // throw. Empty array degrades cleanly.
+    // Couple side and music-vendor side both hit RLS · log only · don't throw.
     console.error('fetchPlaylistPicks failed:', error.message);
-    return [];
+    return { rows: [], failed: true };
   }
-  return (data ?? []) as PlaylistPickRow[];
+  return { rows: (data ?? []) as PlaylistPickRow[], failed: false };
 }
 
 /** Group picks by slot for render. Picks within a slot stay sort_order-

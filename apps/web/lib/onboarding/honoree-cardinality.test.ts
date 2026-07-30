@@ -16,7 +16,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildGenericEventInsert } from './event-insert';
+import { buildGenericEventInsert, type GenericInsertOpts } from './event-insert';
 import type { GenericOnboardingPayload } from './types';
 import {
   blocksLifeEventCreation,
@@ -56,6 +56,15 @@ function payload(over: Partial<GenericOnboardingPayload> = {}): GenericOnboardin
   } as GenericOnboardingPayload;
 }
 
+const OPTS: GenericInsertOpts = {
+  slug: 's',
+  now: `${TODAY}T00:00:00.000Z`,
+  userId: 'u1',
+  isAnonymous: false,
+  experienceEnabled: false,
+  homeSignalsEnabled: true,
+};
+
 const row = (honoree: string | null) => ({
   event_id: 'e1',
   event_type: 'birthday',
@@ -68,10 +77,7 @@ const row = (honoree: string | null) => ({
 });
 
 test('the insert now carries the honoree — this is what was missing', () => {
-  const insert = buildGenericEventInsert(payload({ honoreeLabel: 'Bea' }), {
-    slug: 's',
-    isAnonymous: false,
-  });
+  const insert = buildGenericEventInsert(payload({ honoreeLabel: 'Bea' }), OPTS);
   assert.equal(insert.honoree_label, 'Bea');
 });
 
@@ -79,7 +85,7 @@ test('whitespace-only and absent honoree both store NULL, never an empty string'
   for (const v of ['   ', undefined, null]) {
     const insert = buildGenericEventInsert(
       payload({ honoreeLabel: v as string | null }),
-      { slug: 's', isAnonymous: false },
+      OPTS,
     );
     assert.equal(insert.honoree_label, null, `for ${JSON.stringify(v)}`);
   }

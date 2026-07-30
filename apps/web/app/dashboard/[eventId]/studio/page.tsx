@@ -159,12 +159,26 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // Until now the predicate had ZERO production callers — it shipped in PR #3423
   // and nothing consulted it. This is that wiring.
   //
-  // ⚠ This does NOT make anything purchasable. `papic-guest` is still
-  //   `status: 'coming_soon'`, and all four PAPIC_GUEST* catalog rows are
-  //   `is_active = false`, blocked on DPO gates 0d/0e (the guest-media ROPA row +
-  //   confirmation that the RSVP consent text names guest-phone capture and
-  //   face-sorted delivery). This only narrows WHO would ever see the card.
-  //   Flipping it live stays a separate, DPO-gated change.
+  // ⚠ THIS IS AN ELIGIBILITY GATE, NOT A DARKNESS SWITCH — and as of 2026-07-30
+  //   the card behind it IS purchasable. The previous note here said "this does
+  //   NOT make anything purchasable… all four PAPIC_GUEST* catalog rows are
+  //   is_active = false"; both halves are now false. `papic-guest` is
+  //   `status: 'web_v1'`, and prod carries `PAPIC_GUEST` ₱1,000 / `_6K` ₱2,000 /
+  //   `_10K` ₱3,000 all active (only the superseded pax-priced `_TOPUP` row is
+  //   off) under the owner's 2026-07-29 two-type lock.
+  //
+  //   The predicate still runs, and still matters, for the reason above it: it
+  //   decides WHICH EVENT TYPES may be offered the pool at all (permanent travel
+  //   deny · anniversary controller split · phase ladder), and it fails closed for
+  //   a new type. Widening it is an owner/DPO decision — `papic-event-access.ts`
+  //   says so at PAPIC_ACCESS_CURRENT_PHASE — never a drive-by edit here.
+  //
+  //   ⚠ Verdict gates 0d/0e (guest-media ROPA row + DPO sign-off that the RSVP
+  //   consent text names guest-phone capture and face-sorted delivery) are STILL
+  //   OPEN and are tracked as a live compliance item, NOT as a blocker on this
+  //   card: the sale they were written to gate went live on 2026-07-29 through the
+  //   studio and the guest buy sheet, so darkening one doorway would hide the
+  //   inconsistency without closing the gap.
   const papicPassAllowed = papicGuestPassAccess({
     profile,
     communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,

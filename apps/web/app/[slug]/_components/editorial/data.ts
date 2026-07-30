@@ -113,7 +113,13 @@ const SERVICE_LABELS: Record<string, string> = {
   PANOOD_SYSTEM: 'Live Studio',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
-  PAPIC_GUEST: 'Papic Guest',
+  // ⚠ OWNER NAMING LOCK 2026-07-30: "we do not have papic guests — we only have
+  // Papic Pool and Papic One." `PAPIC_GUEST` / `PAPIC_SEATS` are frozen technical
+  // ids predating the two-type lock; this map is the DISPLAY name, so it says the
+  // product. PAPIC_SEATS (₱2,999 five-seat pass, is_active=false, zero orders
+  // ever) is retired — its label is kept only so a legacy row still renders a
+  // clean "Powered by", and it must not read as a live product name.
+  PAPIC_GUEST: 'Papic Pool',
   PAPIC_SEATS: 'Papic',
   PATIKTOK_COMPILER: 'Patiktok',
   PRO_RSVP: 'Pro RSVP',

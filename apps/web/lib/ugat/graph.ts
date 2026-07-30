@@ -1033,6 +1033,16 @@ export const UGAT_JOINTS: UgatJoint[] = [
     claims: [
       { kind: 'fk', table: 'events', column: 'community_id', references: 'communities' },
       { kind: 'table', table: 'communities' },
+      // The rule that keeps a wedding owned by its couple. `mentions` pins the
+      // column the constraint actually tests — the prose here said "event
+      // class" for a column that has never existed, and nothing caught it
+      // because no claim kind covered CHECKs until this one.
+      {
+        kind: 'check',
+        table: 'events',
+        name: 'events_community_class_consistency',
+        mentions: 'event_type',
+      },
     ],
     chain: 13,
     pair: ['TYPE-SAMAHAN', 'TYPE-EVENTS'],
@@ -1040,10 +1050,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table — events.community_id',
     implementedBy:
-      'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = a personal event, which is the default and the overwhelming majority.',
+      'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = an event owned by its people rather than by a group — the default and the overwhelming majority. A WEDDING is owned by the couple, never by a samahan, and the CHECK below enforces that rather than leaving it to convention.',
     writtenBy: 'Event creation when the host picks a community-class event',
     guardedBy:
-      'CHECK events_community_class_consistency — a DB-level backstop pairing community_id with the event class, so the app gate cannot be bypassed',
+      'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary. A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
     traps:
       'ON DELETE SET NULL means deleting a samahan SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
   },

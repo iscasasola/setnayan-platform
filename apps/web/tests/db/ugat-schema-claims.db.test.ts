@@ -45,6 +45,7 @@ import {
   columnKey,
   fkKey,
   uniqueKey,
+  checkKey,
   type UgatIntrospection,
   type UgatSchemaClaim,
 } from '../../lib/ugat/schema-claims';
@@ -103,10 +104,23 @@ async function introspect(db: Awaited<ReturnType<typeof createReplayedDb>>['db']
      GROUP BY c.relname, con.conname
   `);
 
+  // CHECK constraints, with their definitions — a joint may assert not just
+  // that a named rule exists but which column it actually tests.
+  const checks = await db.query<{ tbl: string; name: string; def: string }>(`
+    SELECT c.relname AS tbl, con.conname AS name,
+           pg_get_constraintdef(con.oid) AS def
+      FROM pg_constraint con
+      JOIN pg_class c     ON c.oid = con.conrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE con.contype = 'c'
+       AND n.nspname = 'public'
+  `);
+
   const intro: UgatIntrospection = {
     columns: new Set(cols.rows.map((r) => columnKey(r.tbl, r.col))),
     fks: new Set(fks.rows.map((r) => fkKey(r.tbl, r.col, r.ref))),
     uniques: new Set(uniques.rows.map((r) => uniqueKey(r.tbl, r.cols))),
+    checks: new Map(checks.rows.map((r) => [checkKey(r.tbl, r.name), r.def])),
   };
   return intro;
 }

@@ -52,7 +52,23 @@ export type UgatSchemaClaim =
   | { kind: 'no_column'; table: string; column: string }
   | { kind: 'fk'; table: string; column: string; references: string }
   | { kind: 'no_fk'; table: string; column: string }
-  | { kind: 'unique'; table: string; columns: string[] };
+  | { kind: 'unique'; table: string; columns: string[] }
+  /**
+   * A named CHECK constraint, optionally asserting a column its definition must
+   * mention.
+   *
+   * ADDED 2026-07-30, after this very system let one through. J15's `guardedBy`
+   * prose said the constraint pairs community_id with "the event class" — there
+   * is no `event_class` column anywhere; the real rule tests `event_type`
+   * against an allowlist. A joint authored the same day the claims layer landed
+   * still carried a phantom identifier, because the claim kinds covered
+   * columns, FKs and uniques but NOT the CHECK the prose was describing.
+   *
+   * `mentions` is what makes this more than an existence test: a constraint can
+   * be renamed-in-place or rewritten to test a different column entirely, and
+   * the name alone would still match.
+   */
+  | { kind: 'check'; table: string; name: string; mentions?: string };
 
 /**
  * A schema, reduced to the three shapes claims care about.
@@ -67,6 +83,8 @@ export interface UgatIntrospection {
   fks: ReadonlySet<string>;
   /** `table(col1,col2)` with columns SORTED — see uniqueKey(). */
   uniques: ReadonlySet<string>;
+  /** `table.constraint_name` → the constraint's normalised definition text. */
+  checks: ReadonlyMap<string, string>;
 }
 
 export interface UgatClaimFailure {
@@ -88,6 +106,10 @@ export function columnKey(table: string, column: string): string {
 
 export function fkKey(table: string, column: string, references: string): string {
   return `${table}.${column}->${references}`;
+}
+
+export function checkKey(table: string, name: string): string {
+  return `${table}.${name}`;
 }
 
 /** Every table a claim touches — used by the db test's anti-vacuity floor. */
@@ -202,6 +224,28 @@ export function verifyUgatClaims(
             );
           }
           break;
+
+        case 'check': {
+          const def = intro.checks.get(checkKey(claim.table, claim.name));
+          if (def === undefined) {
+            fail(
+              ownerId,
+              claim,
+              `no CHECK constraint named "${claim.name}" on "${claim.table}"`,
+            );
+            break;
+          }
+          // Existence alone is weak: a constraint can be rewritten in place to
+          // test a completely different column while keeping its name.
+          if (claim.mentions && !def.includes(claim.mentions)) {
+            fail(
+              ownerId,
+              claim,
+              `CHECK "${claim.name}" exists but does NOT mention "${claim.mentions}" — its definition changed under the name: ${def}`,
+            );
+          }
+          break;
+        }
       }
     }
   }

@@ -20,6 +20,9 @@
  * rather than a source scan.
  */
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
 
 import {
@@ -118,5 +121,110 @@ test('budget proof: a PRIVATE bucket is unreachable from the public-media policy
   assert.equal(
     parseClientRef(`r2://${CONTRACTS}/budget/${EVENT}/receipt.jpg`, budgetPaymentProofPolicy(EVENT)),
     null,
+  );
+});
+
+/* ── SEC-1 lane #1 · private-bucket root binding ────────────────────────────── */
+
+import { privateBucketRootIsAllowed } from './r2-client-ref';
+
+/**
+ * EVERY REAL PRIVATE-BUCKET CALL SITE MUST STILL WORK. This half of the test is
+ * the more important one: a fail-closed allowlist that refuses a legitimate
+ * upload is a worse outcome than the pollution it prevents. Each pair below was
+ * read off an actual call site (grepped exhaustively for `bucket="…"` /
+ * `bucket: '…'`), so this fails loudly if a prefix ever moves.
+ */
+const REAL_PRIVATE_CALL_SITES: ReadonlyArray<[string, string, string]> = [
+  ['setnayan-thread-files', 'events/EVT/disputes/incoming', 'disputes/page.tsx'],
+  ['setnayan-thread-files', 'payments/ORDER', 'orders/[orderId]/page.tsx'],
+  ['setnayan-thread-files', 'payments/ORDER', 'vendor booking-fees/[orderId]'],
+  ['setnayan-thread-files', 'payment-screenshots/inline-checkout/EVT', 'inline-checkout-drawer'],
+  ['setnayan-vendor-contracts', 'paperwork/EVT/psa_birth', 'paperwork/page.tsx'],
+  ['setnayan-vendor-verification', 'vendors/VP/verification/dti', 'verify + docs-body'],
+  ['setnayan-samples', 'refinements/LEAF', 'taxonomy-studio'],
+  ['setnayan-samples', 'taxonomy/TILE', 'taxonomy-studio'],
+];
+
+for (const [bucket, prefix, where] of REAL_PRIVATE_CALL_SITES) {
+  test(`lane #1: the real call site still works — ${where} (${bucket})`, () => {
+    assert.equal(
+      privateBucketRootIsAllowed(bucket as never, prefix),
+      true,
+      `${where} would break: "${prefix}" is a LEGITIMATE upload location for ${bucket}`,
+    );
+  });
+}
+
+test('lane #1: the cross-bucket jump is refused', () => {
+  // The actual exposure: arbitrary bytes into a private bucket under a prefix
+  // belonging to a different flow. `vendors/…/verification/` is read by an admin
+  // to approve a business; `thread-files` holds dispute evidence.
+  const refused: ReadonlyArray<[string, string]> = [
+    ['setnayan-vendor-verification', 'events/EVT/hero'],
+    ['setnayan-vendor-verification', 'paperwork/EVT/psa_birth'],
+    ['setnayan-vendor-contracts', 'vendors/VP/verification/dti'],
+    ['setnayan-vendor-contracts', 'events/EVT/our-photos'],
+    ['setnayan-thread-files', 'vendors/VP/portfolio'],
+    ['setnayan-thread-files', 'paperwork/EVT/psa_birth'],
+    ['setnayan-samples', 'events/EVT/hero'],
+    ['setnayan-samples', 'paperwork/EVT/psa_birth'],
+  ];
+  for (const [bucket, prefix] of refused) {
+    assert.equal(
+      privateBucketRootIsAllowed(bucket as never, prefix),
+      false,
+      `${prefix} must not be writable into ${bucket}`,
+    );
+  }
+});
+
+test('lane #1: public media stays permissive — deliberately', () => {
+  // Media is public by design and carries a long tail of prefixes; a fail-closed
+  // allowlist there would risk breaking a real upload for no confidentiality
+  // gain. Pollution there is a cost/abuse concern, tracked separately.
+  for (const prefix of [
+    'events/EVT/hero',
+    'hero-frames/SESSION',
+    'living-heroes',
+    'editorial-vendor',
+    'locked-qr-proof',
+    'papic/seat-3',
+    'anything-new-we-add-tomorrow',
+  ]) {
+    assert.equal(privateBucketRootIsAllowed('setnayan-media' as never, prefix), true);
+  }
+});
+
+test('lane #1: it is CONTAINMENT, not tenancy — and says so', () => {
+  // Documented limitation, asserted so nobody mistakes this for an ownership
+  // check: another event's paperwork prefix still satisfies the bucket binding.
+  // Per-flow tenancy binding is the remaining half of lane #1.
+  assert.equal(
+    privateBucketRootIsAllowed('setnayan-vendor-contracts' as never, 'paperwork/SOMEONE-ELSE/psa'),
+    true,
+  );
+});
+
+test('lane #1: the ROUTE actually calls the binding — the wiring, not just the rule', () => {
+  // Everything above tests the pure predicate. Without this, deleting the call in
+  // /api/upload would leave all of it green while the hole reopened — the gap my
+  // own mutation probe exposed. Guard the consumer, not just the rule.
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'api', 'upload', 'route.ts'),
+    'utf8',
+  );
+  assert.match(
+    src,
+    /if \(!privateBucketRootIsAllowed\(bucketName, pathPrefix\)\) \{/,
+    'the generic branch must refuse a private bucket whose root segment does not '
+      + 'belong to it — and it must be the LIVE guard, not a disabled one',
+  );
+  // …and it must run on the RESOLVED bucket name, after the shared refusals, so a
+  // reordering that checked the raw alias instead cannot slip through.
+  assert.ok(
+    src.indexOf('const bucketName = R2_BUCKETS[bucketKey];') <
+      src.indexOf('privateBucketRootIsAllowed(bucketName, pathPrefix)'),
+    'the check must run on the resolved bucketName',
   );
 });

@@ -9,11 +9,11 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6229
+# facts: 6223
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     715
+#   tpriv     709
 #   col       4454
 #   policy    829
 #   view      10
@@ -81,12 +81,9 @@ tpriv	public.chat_thread_reads|anon	SIUD
 tpriv	public.chat_thread_reads|authenticated	SIUD
 tpriv	public.chat_threads|anon	SIUD
 tpriv	public.chat_threads|authenticated	SIUD
-tpriv	public.communities|anon	SIUD
-tpriv	public.communities|authenticated	SIUD
-tpriv	public.community_invite_tokens|anon	SIUD
-tpriv	public.community_invite_tokens|authenticated	SIUD
-tpriv	public.community_members|anon	SIUD
-tpriv	public.community_members|authenticated	SIUD
+tpriv	public.communities|authenticated	SIU
+tpriv	public.community_invite_tokens|authenticated	SIU
+tpriv	public.community_members|authenticated	SIU
 tpriv	public.comp_grants|anon	SIUD
 tpriv	public.comp_grants|authenticated	SIUD
 tpriv	public.concierge_abuse_flags|anon	SIUD
@@ -411,12 +408,9 @@ tpriv	public.pax_change_audit|anon	SIUD
 tpriv	public.pax_change_audit|authenticated	SIUD
 tpriv	public.payments|anon	SUD
 tpriv	public.payments|authenticated	SUD
-tpriv	public.people|anon	SIUD
-tpriv	public.people|authenticated	SIUD
-tpriv	public.person_connections|anon	SIUD
-tpriv	public.person_connections|authenticated	SIUD
-tpriv	public.person_stewardships|anon	SIUD
-tpriv	public.person_stewardships|authenticated	SIUD
+tpriv	public.people|authenticated	SIU
+tpriv	public.person_connections|authenticated	SIU
+tpriv	public.person_stewardships|authenticated	SIU
 tpriv	public.person_story_items|anon	SIUD
 tpriv	public.person_story_items|authenticated	SIUD
 tpriv	public.photo_messages|anon	SIUD
@@ -1032,27 +1026,27 @@ col	public.chat_threads.thread_id	anon=SIU authenticated=SIU
 col	public.chat_threads.updated_at	anon=SIU authenticated=SIU
 col	public.chat_threads.vendor_first_reply_at	anon=SIU authenticated=SIU
 col	public.chat_threads.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.communities.archived	anon=SIU authenticated=SIU
-col	public.communities.community_id	anon=SIU authenticated=SIU
-col	public.communities.created_at	anon=SIU authenticated=SIU
-col	public.communities.created_by	anon=SIU authenticated=SIU
-col	public.communities.description	anon=SIU authenticated=SIU
-col	public.communities.id	anon=SIU authenticated=SIU
-col	public.communities.name	anon=SIU authenticated=SIU
-col	public.communities.public_id	anon=SIU authenticated=SIU
-col	public.communities.updated_at	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.community_id	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.created_at	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.created_by	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.expires_at	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.id	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.revoked_at	anon=SIU authenticated=SIU
-col	public.community_invite_tokens.token	anon=SIU authenticated=SIU
-col	public.community_members.community_id	anon=SIU authenticated=SIU
-col	public.community_members.id	anon=SIU authenticated=SIU
-col	public.community_members.joined_at	anon=SIU authenticated=SIU
-col	public.community_members.role	anon=SIU authenticated=SIU
-col	public.community_members.user_id	anon=SIU authenticated=SIU
+col	public.communities.archived	anon=- authenticated=SIU
+col	public.communities.community_id	anon=- authenticated=SIU
+col	public.communities.created_at	anon=- authenticated=SIU
+col	public.communities.created_by	anon=- authenticated=SIU
+col	public.communities.description	anon=- authenticated=SIU
+col	public.communities.id	anon=- authenticated=SIU
+col	public.communities.name	anon=- authenticated=SIU
+col	public.communities.public_id	anon=- authenticated=SIU
+col	public.communities.updated_at	anon=- authenticated=SIU
+col	public.community_invite_tokens.community_id	anon=- authenticated=SIU
+col	public.community_invite_tokens.created_at	anon=- authenticated=SIU
+col	public.community_invite_tokens.created_by	anon=- authenticated=SIU
+col	public.community_invite_tokens.expires_at	anon=- authenticated=SIU
+col	public.community_invite_tokens.id	anon=- authenticated=SIU
+col	public.community_invite_tokens.revoked_at	anon=- authenticated=SIU
+col	public.community_invite_tokens.token	anon=- authenticated=SIU
+col	public.community_members.community_id	anon=- authenticated=SIU
+col	public.community_members.id	anon=- authenticated=SIU
+col	public.community_members.joined_at	anon=- authenticated=SIU
+col	public.community_members.role	anon=- authenticated=SIU
+col	public.community_members.user_id	anon=- authenticated=SIU
 col	public.comp_grants.approved_by	anon=SIU authenticated=SIU
 col	public.comp_grants.created_at	anon=SIU authenticated=SIU
 col	public.comp_grants.created_by_user_id	anon=SIU authenticated=SIU
@@ -3163,52 +3157,52 @@ col	public.payments.screenshot_url	anon=SU authenticated=SU
 col	public.payments.status	anon=SU authenticated=SU
 col	public.payments.updated_at	anon=SU authenticated=SU
 col	public.payments.user_id	anon=SU authenticated=SU
-col	public.people.birth_date	anon=SIU authenticated=SIU
-col	public.people.claimed_by_user_id	anon=SIU authenticated=SIU
-col	public.people.created_at	anon=SIU authenticated=SIU
-col	public.people.created_by_user_id	anon=SIU authenticated=SIU
-col	public.people.deleted_at	anon=SIU authenticated=SIU
-col	public.people.display_name	anon=SIU authenticated=SIU
-col	public.people.email	anon=SIU authenticated=SIU
-col	public.people.first_name	anon=SIU authenticated=SIU
-col	public.people.id	anon=SIU authenticated=SIU
-col	public.people.in_memoriam	anon=SIU authenticated=SIU
-col	public.people.last_name	anon=SIU authenticated=SIU
-col	public.people.person_id	anon=SIU authenticated=SIU
-col	public.people.phone	anon=SIU authenticated=SIU
-col	public.people.profile_photo_url	anon=SIU authenticated=SIU
-col	public.people.public_id	anon=SIU authenticated=SIU
-col	public.people.updated_at	anon=SIU authenticated=SIU
-col	public.person_connections.confirmed_at	anon=SIU authenticated=SIU
-col	public.person_connections.connection_id	anon=SIU authenticated=SIU
-col	public.person_connections.created_at	anon=SIU authenticated=SIU
-col	public.person_connections.created_by_event_id	anon=SIU authenticated=SIU
-col	public.person_connections.created_by_user_id	anon=SIU authenticated=SIU
-col	public.person_connections.declined_at	anon=SIU authenticated=SIU
-col	public.person_connections.deleted_at	anon=SIU authenticated=SIU
-col	public.person_connections.from_person_id	anon=SIU authenticated=SIU
-col	public.person_connections.id	anon=SIU authenticated=SIU
-col	public.person_connections.layer	anon=SIU authenticated=SIU
-col	public.person_connections.relation	anon=SIU authenticated=SIU
-col	public.person_connections.status	anon=SIU authenticated=SIU
-col	public.person_connections.to_person_id	anon=SIU authenticated=SIU
-col	public.person_connections.updated_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.basis	anon=SIU authenticated=SIU
-col	public.person_stewardships.branch_person_id	anon=SIU authenticated=SIU
-col	public.person_stewardships.created_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.created_by_user_id	anon=SIU authenticated=SIU
-col	public.person_stewardships.deleted_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.ends_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.granted_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.id	anon=SIU authenticated=SIU
-col	public.person_stewardships.is_minor	anon=SIU authenticated=SIU
-col	public.person_stewardships.kind	anon=SIU authenticated=SIU
-col	public.person_stewardships.relinquished_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.revoked_at	anon=SIU authenticated=SIU
-col	public.person_stewardships.status	anon=SIU authenticated=SIU
-col	public.person_stewardships.steward_user_id	anon=SIU authenticated=SIU
-col	public.person_stewardships.stewardship_id	anon=SIU authenticated=SIU
-col	public.person_stewardships.updated_at	anon=SIU authenticated=SIU
+col	public.people.birth_date	anon=- authenticated=SIU
+col	public.people.claimed_by_user_id	anon=- authenticated=SIU
+col	public.people.created_at	anon=- authenticated=SIU
+col	public.people.created_by_user_id	anon=- authenticated=SIU
+col	public.people.deleted_at	anon=- authenticated=SIU
+col	public.people.display_name	anon=- authenticated=SIU
+col	public.people.email	anon=- authenticated=SIU
+col	public.people.first_name	anon=- authenticated=SIU
+col	public.people.id	anon=- authenticated=SIU
+col	public.people.in_memoriam	anon=- authenticated=SIU
+col	public.people.last_name	anon=- authenticated=SIU
+col	public.people.person_id	anon=- authenticated=SIU
+col	public.people.phone	anon=- authenticated=SIU
+col	public.people.profile_photo_url	anon=- authenticated=SIU
+col	public.people.public_id	anon=- authenticated=SIU
+col	public.people.updated_at	anon=- authenticated=SIU
+col	public.person_connections.confirmed_at	anon=- authenticated=SIU
+col	public.person_connections.connection_id	anon=- authenticated=SIU
+col	public.person_connections.created_at	anon=- authenticated=SIU
+col	public.person_connections.created_by_event_id	anon=- authenticated=SIU
+col	public.person_connections.created_by_user_id	anon=- authenticated=SIU
+col	public.person_connections.declined_at	anon=- authenticated=SIU
+col	public.person_connections.deleted_at	anon=- authenticated=SIU
+col	public.person_connections.from_person_id	anon=- authenticated=SIU
+col	public.person_connections.id	anon=- authenticated=SIU
+col	public.person_connections.layer	anon=- authenticated=SIU
+col	public.person_connections.relation	anon=- authenticated=SIU
+col	public.person_connections.status	anon=- authenticated=SIU
+col	public.person_connections.to_person_id	anon=- authenticated=SIU
+col	public.person_connections.updated_at	anon=- authenticated=SIU
+col	public.person_stewardships.basis	anon=- authenticated=SIU
+col	public.person_stewardships.branch_person_id	anon=- authenticated=SIU
+col	public.person_stewardships.created_at	anon=- authenticated=SIU
+col	public.person_stewardships.created_by_user_id	anon=- authenticated=SIU
+col	public.person_stewardships.deleted_at	anon=- authenticated=SIU
+col	public.person_stewardships.ends_at	anon=- authenticated=SIU
+col	public.person_stewardships.granted_at	anon=- authenticated=SIU
+col	public.person_stewardships.id	anon=- authenticated=SIU
+col	public.person_stewardships.is_minor	anon=- authenticated=SIU
+col	public.person_stewardships.kind	anon=- authenticated=SIU
+col	public.person_stewardships.relinquished_at	anon=- authenticated=SIU
+col	public.person_stewardships.revoked_at	anon=- authenticated=SIU
+col	public.person_stewardships.status	anon=- authenticated=SIU
+col	public.person_stewardships.steward_user_id	anon=- authenticated=SIU
+col	public.person_stewardships.stewardship_id	anon=- authenticated=SIU
+col	public.person_stewardships.updated_at	anon=- authenticated=SIU
 col	public.person_story_items.consented_at	anon=SIU authenticated=SIU
 col	public.person_story_items.created_at	anon=SIU authenticated=SIU
 col	public.person_story_items.event_id	anon=SIU authenticated=SIU

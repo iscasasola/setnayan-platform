@@ -229,7 +229,15 @@ export async function runVendorAutoReply(
       .select('*')
       .eq('event_id', eventId)
       .maybeSingle();
-    const event = eventRow ? toEventBriefLite(buildEventBrief(eventRow as EventBriefSource)) : null;
+    //    The budget opt-in is read off the SAME row and passed explicitly —
+    //    `events.share_budget_band` is `NOT NULL DEFAULT FALSE`, and the `?? false`
+    //    keeps a pre-migration row (or a `select('*')` that predates the column)
+    //    on the closed side rather than inheriting a truthy undefined.
+    const shareBudgetBand =
+      (eventRow as { share_budget_band?: boolean | null } | null)?.share_budget_band === true;
+    const event = eventRow
+      ? toEventBriefLite(buildEventBrief(eventRow as EventBriefSource), { shareBudgetBand })
+      : null;
 
     // 8. Availability signal — NOT computed in this phase. Per the adapter
     //    contract (types.ts), dateAvailable must be keyed to event.primaryDate;

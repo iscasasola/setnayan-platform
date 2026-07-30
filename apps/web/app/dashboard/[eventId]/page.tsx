@@ -37,10 +37,12 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import type { PabatiClipThumb } from './_components/day-of-mode/video-guestbook-card';
 import { SetDateNudge } from './_components/set-date-nudge';
+import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { EventDashboard } from './_components/event-dashboard';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
+import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 
 export const dynamic = 'force-dynamic';
@@ -58,6 +60,7 @@ export const dynamic = 'force-dynamic';
  *   • SetDateNudge          — when no firm date is set
  *   • NikahEssentialsCard   — Muslim wedding track
  *   • Tea-ceremony tile     — Chinese (Tsinoy) wedding track
+ *   • PapicReadyNudge       — once, until the first photo is shot (PR-G option B)
  *
  * `<EventDashboard>` owns the AI gate (real entitlement OR `?suri=preview` for
  * internal accounts) + all its own data loading; this shell forwards the Home
@@ -323,6 +326,14 @@ export default async function EventHomePage({
   // details forward into a fresh instance.
   const canRecur = canPlanNextYear((event.event_type as string | null) ?? null);
 
+  // Papic nudge gate (PR-G option B). Two indexed head-counts, and ONLY asked
+  // when the nudge could actually render — a date-less event is showing the
+  // set-date nudge instead, so it pays nothing. `papicNudgeShouldShow` fails to
+  // false, so an unreadable count never conjures a band onto the page.
+  const papicNudgeVisible = event.event_date
+    ? await papicNudgeShouldShow(supabase, eventId)
+    : false;
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -355,6 +366,22 @@ export default async function EventHomePage({
        *  / Editorial) can launch. Renders ONLY when no date is set; dismissible
        *  per-event; links to the existing /date-selection governed surface. */}
       {!event.event_date ? <SetDateNudge eventId={eventId} /> : null}
+
+      {/* "Your free camera is ready" — Papic promotion PR-G option B (owner picked
+       *  A + B on 2026-07-30). Every event is armed at creation with a free shared
+       *  pool of shots AND one free dedicated camera, and until now the couple was
+       *  never told so anywhere on their home. Renders ONLY while nothing has been
+       *  shot yet; dismissible per-event; the mini-tile in the bento is the
+       *  permanent "where it stands" readout once shooting starts.
+       *
+       *  ⚠ IT WAITS ITS TURN BEHIND THE SET-DATE NUDGE (owner default, PR-G
+       *  question 3). Two stacked bands in one slot read as clutter, and set-date
+       *  goes first because the whole date-gated public-site lifecycle waits on
+       *  it — so a date-less event is asked for the date, and meets Papic once
+       *  that is settled. */}
+      {event.event_date && papicNudgeVisible ? (
+        <PapicReadyNudge eventId={eventId} />
+      ) : null}
 
       {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
        *  Renders only for Chinese weddings (primary OR secondary 'chinese' rite,

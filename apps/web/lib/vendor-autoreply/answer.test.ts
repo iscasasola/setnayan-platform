@@ -110,7 +110,7 @@ test('discount with no promos is still a truthful answer', () => {
 
 test('availability depends on the date + signal', () => {
   const withDate: Partial<EngineInput> = {
-    event: { primaryDate: '2027-06-14', candidateDates: ['2027-06-14'], pax: 150, budgetPerHeadPhp: null, region: 'NCR' },
+    event: { primaryDate: '2027-06-14', candidateDates: ['2027-06-14'], pax: 150, budgetBand: null, region: 'NCR' },
   };
   assert.ok(
     buildAnswer('availability', input(store(), { ...withDate, signals: { dateAvailable: true } }))?.includes('looks open'),

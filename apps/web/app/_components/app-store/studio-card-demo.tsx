@@ -74,8 +74,12 @@ const PAPIC_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex flex-col bg-ink text-cream">
         <div className="flex items-center justify-between px-3 py-2.5 text-[10px] text-cream/70">
-          <span className="font-mono tracking-[0.12em]">PAPIC · SEAT 2</span>
-          <span className="rounded-full bg-cream/10 px-2 py-0.5">3 / 8</span>
+          {/* Was "PAPIC · SEAT 2" with a "3 / 8" cap — both retired: there are no
+              seats (Papic Pool + Papic One, owner naming lock 2026-07-30) and no
+              per-camera cap of 8 anything. A demo tile must not invent a limit the
+              product does not have, so it shows the label and the live-feel verb only. */}
+          <span className="font-mono tracking-[0.12em]">PAPIC</span>
+          <span className="rounded-full bg-cream/10 px-2 py-0.5">shooting</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center text-cream/40">

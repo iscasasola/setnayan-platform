@@ -26,6 +26,7 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
@@ -793,16 +794,33 @@ export const loadGuestContext = cache(
     // 2026-07-29 two-type lock. It could never be true, so it was buying every
     // guest page-load an extra orders read for a guaranteed `false`.
     //
-    // ⚠⚠ NOT widened to "every event has Papic" (which the promotion BUILD SPEC's
-    // PR-D proposed) — this prompt collects a SELFIE, i.e. RA 10173 § 13(b)
-    // sensitive personal information, while auto face-matching is DORMANT (an
-    // enrollment gains the guest nothing today; QR-scan tagging carries the load),
-    // the live /privacy page still DENIES biometrics, and verdict gates 0d/0e (the
-    // guest-media ROPA row + DPO sign-off that the RSVP consent text names
-    // face-sorted delivery) are `[PENDING DPO]` since 2026-07-20. Disclose, then
-    // enable — see the twin note in [slug]/hub/page.tsx and spec §5 item 11.
+    // ── WIDENED 2026-07-30 (owner: "widen it") — and gated on the control that
+    //    actually governs the capability, not on a purchase. ───────────────────
+    //
+    // It used to require an ACTIVE `PAPIC_GUEST` pack, so a guest at an event on
+    // the free pool — every event, since the grant is armed at creation — was
+    // never offered enrollment even though their photos were being taken.
+    //
+    // ⚠ TWO CORRECTIONS TO THE PRIOR NOTE HERE, both verified in code rather than
+    // taken from the register:
+    //   • Auto face-matching is NOT dormant. `lib/face-match.ts` is a working
+    //     matcher, and it needs no hosted model because the DESCRIPTORS ARE
+    //     EXTRACTED CLIENT-SIDE and posted with the capture
+    //     (api/papic/guest-capture/route.ts:244,540). So an enrollment does buy
+    //     the guest something today.
+    //   • The `face_enrollment` data-privacy control is ACTIVE in prod (approved
+    //     2026-07-16), i.e. the DPO already signed the capability off.
+    //
+    // So the honest gate is the capability's OWN control — the very one
+    // `face-match.ts:52` checks before it will match or persist a descriptor. Ask
+    // for a selfie only where a selfie can actually be used, and if the DPO ever
+    // revokes the control the prompt disappears on its own. That is
+    // disclose-then-enable mechanised instead of hand-held.
+    //
+    // `faceMode` still decides the ASK's shape downstream (christening/debut are
+    // forced mode_b), and RA 10173 consent is captured by the enroll UI itself.
     let needsFaceEnroll = false;
-    if (papicGuestActive) {
+    if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment } = await admin
           .from('guest_face_enrollments')

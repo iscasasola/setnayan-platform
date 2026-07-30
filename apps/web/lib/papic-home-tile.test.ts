@@ -273,13 +273,35 @@ test('the nudge NEVER shows to a non-couple viewer, even pre-capture', async () 
   assert.equal(await papicNudgeShouldShow(makeAdmin(null, {}), 'evt-1', false), false);
 });
 
-test('isCoupleMember is not defaulted anywhere — a forgetful caller gets NO tile', () => {
+test('canViewPapicCounts is not defaulted anywhere — a forgetful caller gets NO tile', () => {
   // The component prop defaults to FALSE on purpose: a caller that forgets to
   // thread it renders no tile, never a wrong one.
-  assert.match(DASHBOARD_SRC, /isCoupleMember = false,/, 'the prop must default false');
+  assert.match(DASHBOARD_SRC, /canViewPapicCounts = false,/, 'the prop must default false');
   assert.match(
     DASHBOARD_SRC,
-    /resolvePapicHomeTile\(adminClient, eventId, isCoupleMember\)/,
+    /resolvePapicHomeTile\(adminClient, eventId, canViewPapicCounts\)/,
     'the tile read must be gated on the flag, and must not take a session client',
   );
+});
+
+test('coordinators may see Papic counts — the owner ruling, pinned', () => {
+  // Owner 2026-07-30, answering "should coordinators see Papic counts on home?"
+  // with "yes". It shipped couple-only for a day (the conservative default, since
+  // widening couple-only capture data was a privacy call to make deliberately).
+  //
+  // ⚠ What widened is the NUMBERS on home. The RLS on the three capture tables is
+  // untouched, so no coordinator gained access to a photo — and because the counts
+  // come from the service-role client, this membership test IS the authorisation.
+  const HOME_SRC = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashboard', '[eventId]', 'page.tsx'),
+    'utf8',
+  );
+  assert.match(
+    HOME_SRC,
+    /\.in\('member_type', \['couple', 'coordinator'\]\)/,
+    "the Papic viewer test must admit couple AND coordinator (mirrors the day-of "
+      + 'launcher / galleries hub membership test)',
+  );
+  // …and it must still be a real membership test, not a bare truthy.
+  assert.match(HOME_SRC, /const canViewPapicCounts = Boolean\(papicViewerMembership\);/);
 });

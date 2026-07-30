@@ -326,31 +326,40 @@ export default async function EventHomePage({
   // details forward into a fresh instance.
   const canRecur = canPlanNextYear((event.event_type as string | null) ?? null);
 
-  // ── Is this viewer a COUPLE member? ────────────────────────────────────────
-  // Papic's two home surfaces both need this, and it is a correctness gate, not a
-  // nicety: all three capture tables are couple-only in RLS
-  // (`papic_photos_couple_full` etc.), while event-home also renders for
-  // coordinators and multi-host moderators — and an RLS denial returns `count: 0`
-  // with NO error. Without this flag a coordinator would be told "0 cameras out"
-  // and shown the free-camera nudge on a wedding already mid-shoot.
+  // ── May this viewer see Papic's numbers? ───────────────────────────────────
+  // Still a CORRECTNESS gate, not a nicety: all three capture tables are
+  // couple-only in RLS (`papic_photos_couple_full` etc.) and an RLS denial returns
+  // `count: 0` with NO error — so the resolver reads via service-role and takes
+  // this flag explicitly. Without it a viewer the policy excludes is told
+  // "0 cameras out" on a wedding already mid-shoot.
+  //
+  // 🔓 WIDENED TO COORDINATORS 2026-07-30 (owner: "yes" — should coordinators see
+  // Papic counts on home). It was couple-only, which was the conservative default
+  // I shipped rather than make a privacy call unilaterally. The owner has now made
+  // it: a delegated coordinator runs the event and sees the guest list, schedule
+  // and vendors, so an aggregate photo/shot COUNT is squarely inside that remit.
+  // Note what is and is not widened — they see the NUMBERS on home; the RLS on the
+  // capture tables is deliberately UNTOUCHED, so no coordinator gains access to a
+  // photo. `['couple','coordinator']` mirrors the membership test the day-of
+  // launcher and galleries hub already use.
   //
   // Resolved ONCE here and threaded into <EventDashboard> for the tile, so the
   // whole feature costs one indexed query rather than two.
-  const { data: coupleMembership } = await supabase
+  const { data: papicViewerMembership } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .eq('member_type', 'couple')
+    .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
-  const isCoupleMember = Boolean(coupleMembership);
+  const canViewPapicCounts = Boolean(papicViewerMembership);
 
   // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
   // render — a date-less event is showing the set-date nudge instead, and a
   // non-couple viewer never sees it — so neither pays a query.
   const papicNudgeVisible =
-    event.event_date && isCoupleMember
-      ? await papicNudgeShouldShow(adminClient, eventId, isCoupleMember)
+    event.event_date && canViewPapicCounts
+      ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
       : false;
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard
@@ -508,7 +517,7 @@ export default async function EventHomePage({
         inspectId={search.inspect}
         slotAfterBento={hasOverlays ? overlays : undefined}
         dayOfActive={dayOfActive}
-        isCoupleMember={isCoupleMember}
+        canViewPapicCounts={canViewPapicCounts}
       />
     </>
   );

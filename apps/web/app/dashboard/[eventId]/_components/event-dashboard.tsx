@@ -174,7 +174,7 @@ export async function EventDashboard({
   inspectId,
   slotAfterBento,
   dayOfActive = false,
-  isCoupleMember = false,
+  canViewPapicCounts = false,
 }: {
   eventId: string;
   suriPreviewParam?: string;
@@ -199,7 +199,7 @@ export async function EventDashboard({
    * shown "0 cameras out" on an event mid-shoot. Defaults FALSE: a caller that
    * forgets it gets no tile, never a wrong one.
    */
-  isCoupleMember?: boolean;
+  canViewPapicCounts?: boolean;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -526,7 +526,7 @@ export async function EventDashboard({
     // nudge the Home mounts in slotAfterBento, so the two can never disagree —
     // and it rides this existing batch rather than adding a round-trip. Returns
     // null (⇒ neither surface renders) when the event has no Papic signal at all.
-    resolvePapicHomeTile(adminClient, eventId, isCoupleMember),
+    resolvePapicHomeTile(adminClient, eventId, canViewPapicCounts),
   ]);
 
   const event = eventRes.data;

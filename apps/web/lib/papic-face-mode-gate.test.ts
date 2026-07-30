@@ -204,3 +204,32 @@ test('CAPTURE_FILES + EMBED_EXEMPT_FILES entries exist and still embed', () => {
     );
   }
 });
+
+// ── The ENROLLMENT ASK is gated on the same control as the MATCH ─────────────
+//
+// Widened 2026-07-30 (owner: "widen it"). The prompt used to require an active
+// `PAPIC_GUEST` pack, so a guest at an event running on the free pool — i.e. every
+// event, since the grant is armed at creation — was never offered enrollment while
+// their photos were being taken.
+//
+// The replacement gate is deliberately the capability's OWN control, the very one
+// `face-match.ts` checks before it will match or persist a descriptor. That keeps
+// the ask and the use in lockstep: a selfie is solicited only where a selfie can
+// actually be used, and a DPO revocation retires the prompt on its own instead of
+// leaving a surface collecting RA 10173 § 13(b) data for a switched-off feature.
+//
+// If someone re-gates these on ownership (or drops the gate entirely), that is the
+// regression this catches.
+for (const rel of [
+  'app/[slug]/_lib/loaders.ts',
+  'app/[slug]/hub/page.tsx',
+]) {
+  test(`the face-enroll PROMPT is gated on the face_enrollment control in ${rel}`, () => {
+    const src = fs.readFileSync(path.join(WEB, rel), 'utf8');
+    assert.ok(
+      src.includes("isDataPrivacyControlActive('face_enrollment')"),
+      `${rel}: the enrollment prompt must be gated on the SAME data-privacy control `
+        + `the matcher enforces — never on a SKU purchase, and never ungated.`,
+    );
+  });
+}

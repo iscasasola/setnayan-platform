@@ -14,7 +14,9 @@
 -- 03_Strategy/Stewarded_Branch_Accounts_Phase3_Design_2026-07-05.md §6. It
 -- creates NO behavior, NO triggers, NO functions, and processes NO data. A
 -- guardian branch cannot be created and no transfer can occur from this schema
--- alone — that flow is BUILD-GATED behind PH counsel + DPO (Claire E. Buanhog)
+-- alone — that flow is BUILD-GATED behind PH counsel + DPO (Indalecio Sacdalan
+-- Casasola II, the proprietor — corrected 2026-07-31; this comment originally
+-- named the VP, per the pre-2026-07-07 mis-designation)
 -- sign-off and its own DPIA (minors + post-mortem each warrant one). An empty
 -- inert table carries no minor data and no legal exposure — same posture as the
 -- Phase-2 person_connections / person_story_items schema that shipped ahead of

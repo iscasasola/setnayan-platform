@@ -940,6 +940,48 @@ export const UGAT_JOINTS: UgatJoint[] = [
     healthId: 'F5',
   },
   {
+    /**
+     * RESTORED 2026-07-30. This joint was in the corpus prototype and absent
+     * from the slice-1 port; nothing in the code or git history explained why.
+     * Three independent design reviews flagged the gap.
+     *
+     * ⚠ The brief that asked for its restoration described it as the
+     * "VENDORS↔THREADS money side". That is WRONG — verified against live prod,
+     * the foreign keys go to `events` and `vendor_profiles`. It is a
+     * vendor↔EVENT bond. Restored against the schema, not against the request.
+     */
+    id: 'J6',
+    claims: [
+      { kind: 'table', table: 'vendor_event_unlocks' },
+      { kind: 'fk', table: 'vendor_event_unlocks', column: 'event_id', references: 'events' },
+      {
+        kind: 'fk',
+        table: 'vendor_event_unlocks',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      {
+        kind: 'unique',
+        table: 'vendor_event_unlocks',
+        columns: ['vendor_profile_id', 'event_id'],
+      },
+      { kind: 'column', table: 'vendor_event_unlocks', column: 'tokens_burned' },
+      { kind: 'column', table: 'vendor_event_unlocks', column: 'comp_reason' },
+    ],
+    chain: 6,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Vendor → Event (paid unlock)',
+    joint: 'vendor_event_unlocks',
+    cardinality:
+      'One unlock per pair · UNIQUE(vendor_profile_id, event_id) — a vendor unlocks a given event once, ever',
+    implementedBy:
+      'vendor_event_unlocks — the money side of vendor↔event access, distinct from J5 (the conversation) and J7 (the booking). Carries tokens_burned, a full refund path (refunded_at · refunded_tokens · refund_reason) and a separate comp_reason for admin-granted access. region_slug + band record the pricing tier at unlock time rather than re-deriving it later.',
+    writtenBy: 'Vendor lead-unlock flow (dormant) · admin comp grants',
+    guardedBy: 'current_vendor_ids() — the vendor-scoped RLS spine',
+    traps:
+      '🚫 DORMANT, and the prose that described this joint predated its retirement. Vendor token PURCHASE was retired 2026-07-21 and the wallet has always had zero real purchases, so tokens_burned is a currency nobody holds: prod carries 0 unlock rows, 0 burns, 0 comps. The table is live plumbing for a mechanism that is switched off — do NOT read a token cost here as a current price, and do not treat an empty unlock table as "no vendor has access". Access today comes from elsewhere; this path simply is not the one being used.',
+  },
+  {
     id: 'J7',
     claims: [
       { kind: 'table', table: 'event_vendors' },

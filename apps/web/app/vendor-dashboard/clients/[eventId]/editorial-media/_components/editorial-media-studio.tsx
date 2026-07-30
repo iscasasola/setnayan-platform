@@ -41,13 +41,22 @@ type Staged = {
 };
 
 // POST to /api/upload → presigned PUT → returns the r2://bucket/key ref.
-async function presignAndPut(body: Blob, filename: string): Promise<string> {
+// SEC-1 lane #3: the upload prefix carries the TENANT. It was a flat
+// `editorial-vendor`, which meant the server-side policy could only contain the
+// ref to the right bucket, never prove it was this vendor's media for this
+// event. The pathPrefix is the only place that can fix it — a guard cannot
+// invent tenancy the key layout does not carry.
+async function presignAndPut(
+  body: Blob,
+  filename: string,
+  pathPrefix: string,
+): Promise<string> {
   const res = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       bucket: 'media',
-      pathPrefix: 'editorial-vendor',
+      pathPrefix,
       filename,
       contentType: body.type,
       sizeBytes: body.size,
@@ -93,11 +102,18 @@ function StatusBadge({ m }: { m: ExistingMedia }) {
 
 export function EditorialMediaStudio({
   eventId,
+  vendorProfileId,
   existing,
 }: {
   eventId: string;
+  /** SEC-1 lane #3 — the tenant segment of the upload prefix. */
+  vendorProfileId: string;
   existing: ExistingMedia[];
 }) {
+  // Must match `editorialVendorMediaPolicy(vendorProfileId, eventId)` exactly —
+  // the server refuses anything outside it, so a drift here is a broken upload,
+  // not a silent one.
+  const uploadPrefix = `editorial-vendor/${vendorProfileId}/${eventId}`;
   const router = useRouter();
   const [staged, setStaged] = useState<Staged[]>([]);
   const [busy, setBusy] = useState<null | string>(null);
@@ -123,7 +139,7 @@ export function EditorialMediaStudio({
     for (const f of files) {
       setBusy(`Uploading ${f.name}…`);
       try {
-        const stillRef = await presignAndPut(f, 'photo.jpg');
+        const stillRef = await presignAndPut(f, 'photo.jpg', uploadPrefix);
         setStaged((s) => [
           ...s,
           { key: `${Date.now()}-${Math.random()}`, type: 'photo', stillRef, boomerangRef: null, previewUrl: URL.createObjectURL(f), caption: '' },
@@ -155,8 +171,8 @@ export function EditorialMediaStudio({
         freezeSec: windowLen / 2,
         onProgress: () => {},
       });
-      const boomerangRef = await presignAndPut(baked.boomerang, 'clip.mp4');
-      const stillRef = await presignAndPut(baked.still, 'clip.jpg');
+      const boomerangRef = await presignAndPut(baked.boomerang, 'clip.mp4', uploadPrefix);
+      const stillRef = await presignAndPut(baked.still, 'clip.jpg', uploadPrefix);
       setStaged((s) => [
         ...s,
         { key: `${Date.now()}-${Math.random()}`, type: 'clip', stillRef, boomerangRef, previewUrl: URL.createObjectURL(baked.boomerang), caption: '' },

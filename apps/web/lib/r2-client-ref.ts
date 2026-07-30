@@ -473,13 +473,26 @@ export function lockedQrProofPolicy(): ClientRefPolicy {
 /**
  * Vendor-submitted editorial media for a couple's site.
  *
- * ⚠ The uploader writes to a FLAT, untenanted `editorial-vendor/` prefix
- * (`editorial-media-studio.tsx`), so this policy can only contain the ref to
- * the public media bucket under that prefix — it cannot prove the object
- * belongs to this vendor. Containment, not ownership. Tightening it needs the
- * uploader to move to `editorial-vendor/{vendorProfileId}/{eventId}/`; tracked
- * in the SEC-1 follow-up list.
+ * ✅ NOW TENANTED (SEC-1 lane #3, 2026-07-30). This used to read: *"the uploader
+ * writes to a FLAT, untenanted `editorial-vendor/` prefix, so this policy can only
+ * CONTAIN the ref — it cannot prove the object belongs to this vendor. Containment,
+ * not ownership."* That was the last SEC-1 item a guard alone could not fix, because
+ * the weakness was in the KEY LAYOUT rather than in the check.
+ *
+ * `editorial-media-studio.tsx` now uploads to
+ * `editorial-vendor/{vendorProfileId}/{eventId}/`, so this proves **ownership**: a
+ * vendor cannot name another vendor's editorial media — nor their own media from a
+ * DIFFERENT couple's event — and have it accepted onto this event's editorial page.
+ * That second half matters as much as the first: these refs are presigned onto the
+ * couple's PUBLIC editorial site.
+ *
+ * Migration-free by luck of timing: `editorial_vendor_media` had **0 rows** in prod
+ * when this landed, so there were no flat-prefix objects to move. Had there been,
+ * this needed a backfill first — a reader of an old flat key would now be refused.
  */
-export function editorialVendorMediaPolicy(): ClientRefPolicy {
-  return { prefixes: ['editorial-vendor/'] };
+export function editorialVendorMediaPolicy(
+  vendorProfileId: string,
+  eventId: string,
+): ClientRefPolicy {
+  return { prefixes: [`editorial-vendor/${vendorProfileId}/${eventId}/`] };
 }

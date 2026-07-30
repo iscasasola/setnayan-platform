@@ -73,6 +73,37 @@ UPDATE public.platform_compliance_facts
  WHERE id = 1
    AND automated_decisions = 'None — AI features assist/navigate; no binding automated decision-making with legal or significant effect.';
 
+-- 4. DPO employment basis — the seeded text records the team size but omits the
+--    single fact the NPC actually scrutinises: that the PIC and the DPO are the
+--    SAME PERSON. NPC Advisory 2017-01 prefers a DPO with autonomy from the
+--    controller, so a self-designation has to be stated and reasoned, not left
+--    implicit. Wording follows 07_Compliance_Facts_Register.md § 2 and the
+--    independence note in 03_DPO_Designation_and_NPCRS_ADOPTED § A.3.
+UPDATE public.platform_compliance_facts
+   SET dpo_employment_basis = 'Internal — the proprietor/PIC also acts as DPO (2-person founding team; no formal contract yet). ⚠ PIC = DPO self-designation: NPC Advisory 2017-01 prefers a DPO with autonomy from the controller. For a 2-person sole proprietorship this is commonly accepted; counsel to confirm, an interim independence rationale is recorded in the designation sheet (doc 03 § A.3), and a Compliance Officer for Privacy (COP) is to be re-evaluated as headcount grows.'
+ WHERE id = 1
+   AND dpo_employment_basis = 'Internal (2-person founding team; no formal contract yet)';
+
 -- No DDL, no new object, no grant — this migration only corrects DATA in an
 -- existing admin-only table (RLS `is_admin` FOR ALL, set at CREATE TABLE time in
 -- 20270519648420). Nothing to REVOKE.
+--
+-- ----------------------------------------------------------------------------
+-- WHAT THIS MIGRATION DELIBERATELY DOES NOT TOUCH (swept 2026-07-31, all 24
+-- columns compared against the ADOPTED corpus — see the changelog fragment):
+--
+--   • bir_tin · registered_address · dpo_phone — EMPTY in prod. SENSITIVE by
+--     design: they live only in the admin form, never in a repo. OWNER ACTION.
+--   • breach_contacts · staff_controls · dpia_adoption_dates ·
+--     dpo_designation_date — NULL in prod, "(to set)" in the corpus. A
+--     designation DATE is a legal act, not a derivable fact. OWNER ACTION.
+--   • npc_registration_no — correctly NULL until the filing is made.
+--   • sub_processors — the 9 entries match the corpus register § 5 exactly, and
+--     every dpa_on_file=false is HONEST (none confirmed). Adding or removing a
+--     sub-processor is a compliance assertion, not a data fix. NOT touched.
+--   • legal_name · proprietor · dti_bn · headcount · staff_with_data_access ·
+--     sensitive_rsvp_fields · maya_status — verified correct, left alone.
+--
+-- Scale counts are NOT stored here — data-sheet/page.tsx computes them live, so
+-- they cannot drift. (The stale 19/50/332/61 figures live in the corpus prose.)
+-- ----------------------------------------------------------------------------

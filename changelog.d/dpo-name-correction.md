@@ -46,7 +46,43 @@ Why it matters: the DPO is a **named, accountable role** under RA 10173, the
 proprietor has already registered himself on the NPC DPO system (2026-07-07), and
 this row feeds a regulator-facing export.
 
-SPEC IMPACT: None — the corpus has carried the correct DPO since 2026-07-07
-(`DECISION_LOG.md` row 2026-07-07 ·
-`NPC_Compliance/03_DPO_Designation_and_NPCRS_ADOPTED_2026-07-24.md`). This PR makes
-the repo and the database match the corpus, not the other way round.
+## Full-row sweep (all 24 columns, 2026-07-31)
+
+Having found one wrong fact, every other column was compared against the ADOPTED
+corpus rather than assuming the rest were fine. **One more was fixable and is
+included here:**
+
+- `dpo_employment_basis` — recorded the team size but omitted the one fact the NPC
+  actually scrutinises: **that the PIC and the DPO are the same person.** NPC
+  Advisory 2017-01 prefers a DPO autonomous from the controller, so a
+  self-designation must be stated and reasoned. Now carries the independence
+  rationale from `07_Compliance_Facts_Register` § 2 / doc 03 § A.3.
+
+**Verified correct, left alone:** `legal_name`, `proprietor`, `dti_bn`,
+`headcount`, `staff_with_data_access`, `sensitive_rsvp_fields`, `maya_status`, and
+all 9 `sub_processors` (names match the register § 5 exactly; every
+`dpa_on_file:false` is honest — none is confirmed). `npc_registration_no` is
+correctly NULL until filed.
+
+**Cannot be fixed from a migration — OWNER ACTION, all empty in prod:** `bir_tin`,
+`registered_address`, `dpo_phone` (sensitive by design — they live only in the
+admin form, never in a repo), plus `breach_contacts`, `staff_controls`,
+`dpia_adoption_dates`, and `dpo_designation_date` (a designation date is a legal
+act, not a derivable fact).
+
+**Scale counts do not drift** — `data-sheet/page.tsx` computes them live via
+`countOf()`, so the export always reports the truth on the day it is generated.
+
+SPEC IMPACT: **Yes — corpus corrected in the same session** (direct-edit
+authorization). The sweep found the *corpus* wrong where the DB row was right:
+three documents placed the biometric **face-vector index on Cloudflare R2**.
+Verified against shipped code, the vectors are `JSONB` in **Supabase Postgres
+(Singapore)** — `guest_face_enrollments.face_vector` (`20260901000000`) and
+`user_face_profiles` (`20270306508746`); R2 holds only the source selfie image
+(`asset_url`). No R2 vector index was ever built. Corrected in
+`01_Privacy_Manual_ADOPTED_2026-07-24.md` §§ 5.2/5.3/10,
+`03_DPO_Designation_and_NPCRS_ADOPTED_2026-07-24.md` § sub-processors, and
+`02_Records_of_Processing_Activities_DRAFT_2026-07-05.md` DPS-04 — the last of
+which also let a standing `[TO CONFIRM]` be closed: embedding is **on-device
+(face-api.js / MediaPipe)**, so **no face data reaches any AI sub-processor**.
+Stale scale figures flagged in `07_Compliance_Facts_Register.md` § 3.

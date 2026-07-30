@@ -17,9 +17,15 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { PLAYLIST_SLOT_TYPES, type PlaylistSlotType } from '@/lib/playlist';
+import {
+  PLAYLIST_SLOT_TYPES,
+  PLAYLIST_VIBES,
+  type PlaylistSlotType,
+  type PlaylistVibe,
+} from '@/lib/playlist';
 
 const VALID_SLOTS = new Set<PlaylistSlotType>(PLAYLIST_SLOT_TYPES);
+const VALID_VIBES = new Set<PlaylistVibe>(PLAYLIST_VIBES);
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -200,6 +206,70 @@ export async function reorderPlaylistPicks(formData: FormData) {
       .eq('pick_id', orderedIds[i]!)
       .eq('event_id', eventId);
     if (error) throw new Error(`Reorder failed at row ${i}: ${error.message}`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/playlist`);
+  revalidatePath(`/dashboard/${eventId}`);
+}
+
+/**
+ * Set — or clear — the FEEL the couple wants for one moment. (Song Desk PR 4,
+ * owner-locked 2026-07-30: six frozen names, `acoustic`…`showband`.)
+ *
+ * A vibe sits ALONGSIDE the picks, never instead of them: the owner's own
+ * example is a slot carrying both — "jazz for dinner, but you must play Through
+ * the Years" — so this touches `event_playlist_slot_vibes` and never
+ * `event_playlist_picks`.
+ *
+ * CLEARING IS A DELETE, not a sentinel value. The absence of a row is what "let
+ * the band decide" means, which is exactly why the owner declined a seventh
+ * "Band's call" option — storing one would give us two ways to say one thing.
+ *
+ * UPSERT on the (event, slot) unique index rather than insert-or-update by hand:
+ * a second "dinner" row would leave the surface picking one arbitrarily.
+ */
+export async function setPlaylistSlotVibe(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const slotType = formData.get('slot_type');
+  // '' (or absent) means clear. Anything else must be one of the six.
+  const rawVibe = formData.get('vibe');
+
+  if (typeof eventId !== 'string' || typeof slotType !== 'string') {
+    throw new Error('Invalid input');
+  }
+  if (!VALID_SLOTS.has(slotType as PlaylistSlotType)) {
+    throw new Error('Unknown moment');
+  }
+  const vibe = typeof rawVibe === 'string' && rawVibe.length > 0 ? rawVibe : null;
+  if (vibe !== null && !VALID_VIBES.has(vibe as PlaylistVibe)) {
+    throw new Error('Unknown vibe');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  if (vibe === null) {
+    const { error } = await supabase
+      .from('event_playlist_slot_vibes')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('slot_type', slotType);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from('event_playlist_slot_vibes').upsert(
+      {
+        event_id: eventId,
+        slot_type: slotType,
+        vibe,
+        set_by_user_id: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,slot_type' },
+    );
+    if (error) throw new Error(error.message);
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/playlist`);

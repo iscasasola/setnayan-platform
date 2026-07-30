@@ -33,6 +33,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   fetchPlaylistPicks,
   groupPicksBySlot,
+  fetchSlotVibes,
   countPositivePicks,
   PLAYLIST_SLOT_TYPES,
   PLAYLIST_SLOT_LABELS,
@@ -57,8 +58,10 @@ export default async function PlaylistPage({ params }: Props) {
   // Fetch event + booked Music vendor (if any) in parallel with picks.
   // Music vendor detection: scan event_vendors for confirmed bookings
   // matching the four Music canonical categories.
-  const [picksRaw, eventRow, musicVendorRow] = await Promise.all([
+  const [picksRaw, vibes, eventRow, musicVendorRow] = await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
+    // The feel per moment (PR 4) — same event scope, so it joins the batch.
+    fetchSlotVibes(supabase, eventId),
     // ⚠ `display_name`, NOT `event_name` — public.events has no `event_name`
     // column and never has. PostgREST 42703'd the WHOLE query, so
     // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
@@ -174,6 +177,7 @@ export default async function PlaylistPage({ params }: Props) {
             label={PLAYLIST_SLOT_LABELS[slot]}
             hint={PLAYLIST_SLOT_HINTS[slot]}
             picks={grouped[slot]}
+            vibe={vibes[slot] ?? null}
             isBannedSlot={slot === 'banned_songs'}
           />
         ))}

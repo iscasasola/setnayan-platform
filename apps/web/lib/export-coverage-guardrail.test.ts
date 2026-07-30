@@ -302,6 +302,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_moderators: 'TODO(RA10173-backlog): coordinator/moderator grants naming the subject.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
+  event_playlist_slot_vibes:
+    'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
   event_sponsors: 'TODO(RA10173-backlog): sponsor rows naming the subject.',
   event_walkthrough_zones: 'TODO(RA10173-backlog): walkthrough notes the subject authored.',
@@ -425,7 +427,11 @@ const KNOWN_GAPS: Record<string, string> = {
  *            stop over-deleting, and it dragged a silent export gap into the
  *            count. Tables with no user column are not clean; they are unread.
  */
-const KNOWN_GAP_CEILING = 89;
+// Raised 89 → 90 on 2026-07-30 for `event_playlist_slot_vibes` (Song Desk PR 4).
+// Deliberate, not a rubber stamp: the vibe is taste data the subject chose, in the
+// same class as `event_playlist_picks` directly above it in KNOWN_GAPS, so it gets
+// the same honest "not yet decided" rather than an invented exclusion reason.
+const KNOWN_GAP_CEILING = 90;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

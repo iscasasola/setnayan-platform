@@ -153,6 +153,21 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── de-identifies itself on account deletion ──
+  // The ONLY subject-identifying column is `set_by_user_id`, declared
+  // `ON DELETE SET NULL` (migration 20271022150821). Erasing the account
+  // therefore strips the attribution automatically and what survives is
+  // "dinner → jazz" — the EVENT's planning data, jointly authored by a couple,
+  // on an event that outlives one partner's account. Nothing subject-bearing is
+  // left to purge, so a purge rule here would delete the other partner's choice.
+  //
+  // ⚠ Deliberately NOT the same answer the export guardrail gives this table
+  // (there it is a KNOWN_GAP). The two questions differ: erasure asks "must this
+  // be destroyed" — no, it self-clears — while export asks "must we hand the
+  // subject a copy", and a genre they personally chose is arguably theirs to
+  // receive. Same row, two honest answers.
+  event_playlist_slot_vibes:
+    'Only subject column is set_by_user_id, ON DELETE SET NULL — account deletion de-identifies the row; the remainder is the couple\'s shared event planning data.',
   // ── lawful retention: financial + BIR records ──
   orders: 'Financial record retained under the BIR/bookkeeping basis (0026). The personal data on it is the transaction, not the profile.',
   payments: 'Financial record — retained with the order it settles.',

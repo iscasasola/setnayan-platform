@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
+import { isExploreReplanEnabled } from './explore-replan-flag';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -220,24 +221,46 @@ export function buildCustomerMenuTree(
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,
+      // THE MOBILE DOCK IS GONE under the Explore replan
+      // (Explore_Integration_BUILD_SPEC_2026-07-29 §5; owner complaint #1 —
+      // *"why is the subnav still present?"*). The Coverage Strip is the
+      // navigator now, and the four chips each had a replacement: Shortlist was
+      // a no-op (the page opens there), Build is the mobile team summary chip,
+      // Budget lives in the sidebar's "Also in this event" + the Overview
+      // checklist, Plans is reachable by scroll + its own disclosure.
+      //
+      // Emitting `children`/`sectionMatch` ONLY while the flag is OFF is what
+      // keeps the flag an honest kill-switch: with no children,
+      // `customer-section-subnav.tsx` returns null on /vendors (`inSection`
+      // is `children.length > 0`), while Studio's anchor dock and the Guests
+      // journey dock are untouched. Side benefit: the global bottom nav
+      // un-collapses back to icons+labels here, because it shrinks only while
+      // `html.subnav-docked` is set. The `?tab=` deep link and the
+      // `BB_TAB_EVENT` bus are NOT part of this — `ServicesTakeover` owns both
+      // and still honours them.
+      //
       // The takeover sub-nav shows on the ROOT only (matches the old isTakeoverRoot
       // exact check) — /vendors/categories, /packages, vendor detail are their own
       // pages and must NOT dock the takeover tabs.
-      sectionMatch: `${base}/vendors`,
-      sectionMatchExact: true,
-      subnavLabel: 'Services sections',
-      children: BUDGET_BUILD_TABS.map((t) => ({
-        key: t,
-        // Label via tabLabel() so the Explore-Replan "Plans" rename (PR-F)
-        // reaches the docked sub-nav; the KEY/tab/slotKey below stay 'compare'.
-        label: tabLabel(t),
-        icon: TAB_META[t].icon,
-        kind: 'tab' as const,
-        tab: t,
-        // Legacy area name `budget-subnav` = the Explore takeover tabs (the
-        // feature shipped as "Budget Build"); the slots already exist.
-        slotKey: `customer.budget-subnav.${t}`,
-      })),
+      ...(isExploreReplanEnabled()
+        ? {}
+        : {
+            sectionMatch: `${base}/vendors`,
+            sectionMatchExact: true,
+            subnavLabel: 'Services sections',
+            children: BUDGET_BUILD_TABS.map((t) => ({
+              key: t,
+              // Label via tabLabel() so the Explore-Replan "Plans" rename (PR-F)
+              // reaches the docked sub-nav; the KEY/tab/slotKey below stay 'compare'.
+              label: tabLabel(t),
+              icon: TAB_META[t].icon,
+              kind: 'tab' as const,
+              tab: t,
+              // Legacy area name `budget-subnav` = the Explore takeover tabs (the
+              // feature shipped as "Budget Build"); the slots already exist.
+              slotKey: `customer.budget-subnav.${t}`,
+            })),
+          }),
     },
     {
       // SUITE SWAP (owner 2026-07-19: name locked = "Suite"; nav doorway

@@ -21,9 +21,15 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Plus, X } from 'lucide-react';
-import { addPlaylistPick } from '../actions';
+import { addPlaylistPick, setPlaylistSlotVibe } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
-import type { PlaylistSlotType, PlaylistPickRow } from '@/lib/playlist';
+import {
+  PLAYLIST_VIBES,
+  PLAYLIST_VIBE_LABELS,
+  type PlaylistSlotType,
+  type PlaylistPickRow,
+  type PlaylistVibe,
+} from '@/lib/playlist';
 import { PlaylistPickRow as PlaylistPickRowComponent } from './playlist-pick-row';
 
 type Props = {
@@ -33,6 +39,8 @@ type Props = {
   hint: string;
   picks: PlaylistPickRow[];
   isBannedSlot: boolean;
+  /** The feel the couple already chose for this moment, if any. */
+  vibe: PlaylistVibe | null;
 };
 
 export function PlaylistSlotSection({
@@ -42,6 +50,7 @@ export function PlaylistSlotSection({
   hint,
   picks,
   isBannedSlot,
+  vibe,
 }: Props) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
@@ -111,6 +120,11 @@ export function PlaylistSlotSection({
           {label}
         </h2>
         <p className={`text-xs leading-relaxed ${hintTint} sm:text-sm`}>{hint}</p>
+        {/* The FEEL for this moment — offered on every real moment but not on
+            "Don't play these", where a vibe would be meaningless (you cannot ask
+            for jazz you don't want). Owner-locked PR 4: a moment may carry a vibe
+            AND songs, so this sits beside the list rather than replacing it. */}
+        {!isBannedSlot ? <VibePicker eventId={eventId} slotType={slotType} vibe={vibe} /> : null}
       </header>
 
       {picks.length > 0 ? (
@@ -255,5 +269,86 @@ export function PlaylistSlotSection({
         </form>
       )}
     </section>
+  );
+}
+
+/**
+ * Six chips and a clear. Tapping the chosen one again clears it, because the
+ * absence of a vibe IS "let the band decide" — the owner declined a seventh
+ * option for exactly that reason, so the affordance has to be reachable.
+ *
+ * No confirm step and no save button: this is one small value, and a couple
+ * fiddling with the feel of dinner should not have to commit a form.
+ */
+function VibePicker({
+  eventId,
+  slotType,
+  vibe,
+}: {
+  eventId: string;
+  slotType: PlaylistSlotType;
+  vibe: PlaylistVibe | null;
+}) {
+  const [current, setCurrent] = useState<PlaylistVibe | null>(vibe);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function choose(next: PlaylistVibe) {
+    // Tapping the active chip clears it.
+    const target = current === next ? null : next;
+    const previous = current;
+    setError(null);
+    startTransition(async () => {
+      setCurrent(target);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('slot_type', slotType);
+      if (target) fd.set('vibe', target);
+      try {
+        await setPlaylistSlotVibe(fd);
+      } catch {
+        setCurrent(previous);
+        setError('That didn’t save. Try again.');
+      }
+    });
+  }
+
+  return (
+    <div className="pt-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[0.6875rem] uppercase tracking-[0.08em] text-ink/45">
+          Feel
+        </span>
+        {PLAYLIST_VIBES.map((v) => {
+          const active = current === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => choose(v)}
+              disabled={pending}
+              aria-pressed={active}
+              className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-60 ${
+                active
+                  ? 'border-gild bg-gild/15 font-medium text-ink'
+                  : 'border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink/85'
+              }`}
+            >
+              {PLAYLIST_VIBE_LABELS[v]}
+            </button>
+          );
+        })}
+      </div>
+      <p className="pt-1 text-[0.6875rem] leading-relaxed text-ink/45">
+        {current
+          ? 'Tap it again to leave this one to your band.'
+          : 'Optional — name a feel and your band fills the gaps you don’t.'}
+      </p>
+      {error ? (
+        <p role="alert" className="text-[0.6875rem] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

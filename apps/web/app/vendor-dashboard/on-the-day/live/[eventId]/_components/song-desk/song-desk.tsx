@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Ban, CircleAlert, Music, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventSongRequests, fetchVendorSongs } from '@/lib/songs';
-import { fetchPlaylistPicks } from '@/lib/playlist';
+import { fetchPlaylistPicks, fetchSlotVibes, PLAYLIST_VIBE_LABELS } from '@/lib/playlist';
 import { fetchSongRequestsPaused } from '@/lib/vendor-dayof-config';
 import { fetchActSongRequests } from '../../../../actions';
 import { RequestsInbox } from './requests-inbox';
@@ -77,16 +77,17 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
   // booking + entitlement internally and reads as service_role, because the guest
   // request inbox is the paid part (owner 2026-07-30) and RLS cannot ask "did you
   // pay". Its own gate is the boundary; this component just renders the result.
-  const [requests, repertoire, picks, guestRequests, paused] = await Promise.all([
+  const [requests, repertoire, picks, guestRequests, paused, vibes] = await Promise.all([
     fetchEventSongRequests(supabase, eventId),
     fetchVendorSongs(supabase, vendorProfileId),
     fetchPlaylistPicks(supabase, eventId),
     fetchActSongRequests(eventId),
     fetchSongRequestsPaused(supabase, vendorProfileId, eventId),
+    fetchSlotVibes(supabase, eventId),
   ]);
 
   const desk = buildSongDesk({ requests, repertoire });
-  const playlist = buildHostPlaylist({ picks: picks.rows, repertoire });
+  const playlist = buildHostPlaylist({ picks: picks.rows, repertoire, vibes });
 
   return (
     <div className="space-y-4">
@@ -219,9 +220,22 @@ function HostPlaylist({
 
         {playlist.moments.map((moment) => (
           <div key={moment.slot} className="space-y-0.5">
-            <h5 className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-ink/50">
+            <h5 className="flex flex-wrap items-baseline gap-x-2 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-ink/50">
               {moment.label}
+              {/* The feel they asked for, when they named one. Sits ON the moment
+                  heading rather than in the song list, because it applies to the
+                  whole moment — including the parts they left to you. */}
+              {moment.vibe ? (
+                <span className="rounded-full bg-gild/15 px-1.5 py-0.5 text-[0.625rem] tracking-normal text-ink/70">
+                  {PLAYLIST_VIBE_LABELS[moment.vibe]}
+                </span>
+              ) : null}
             </h5>
+            {moment.vibe && moment.entries.length === 0 ? (
+              <p className="text-xs leading-relaxed text-ink/60">
+                No songs named — they asked for the feel and left the choices to you.
+              </p>
+            ) : null}
             <ul>
               {moment.entries.map((entry) => (
                 <PickRow key={entry.pickId} entry={entry} tone="moment" />

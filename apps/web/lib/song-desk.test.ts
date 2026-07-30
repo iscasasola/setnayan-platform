@@ -398,3 +398,147 @@ test('isEmpty is false when only banned songs exist', () => {
   const m = buildHostPlaylist({ picks: [pick('banned_songs', 'Wonderwall')], repertoire: [] });
   assert.equal(m.isEmpty, false);
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * 6 · ELEVEN MOMENTS AND A VIBE PER MOMENT  (Song Desk PRs 6 + 4)
+ *
+ * Owner-answered 2026-07-30. Two claims worth pinning, and one that changed:
+ *
+ *   1. THE NIGHT GAINED THREE MOMENTS and must still read chronologically —
+ *      prelude before the processional, the walk out after the ceremony, the
+ *      grand entrance after that, `banned_songs` still last.
+ *   2. A VIBE ALONE IS A COMPLETE INSTRUCTION. "Jazz for dinner" with no songs
+ *      named is the owner's own example, so a moment carrying a vibe and zero
+ *      picks MUST render — which reverses §5.3's "empty moments are dropped" for
+ *      exactly that case and no other.
+ *   3. `isEmpty` had to follow: a vibe-only night is not an empty playlist.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+import {
+  PLAYLIST_SLOT_TYPES,
+  PLAYLIST_SLOT_LABELS,
+  PLAYLIST_VIBES,
+  groupPicksBySlot,
+} from './playlist';
+
+// ── 6.1 · the slot list ────────────────────────────────────────────────────
+
+test('the night reads chronologically, eleven moments, anti-picks last', () => {
+  assert.deepEqual(
+    [...PLAYLIST_SLOT_TYPES],
+    [
+      'prelude',
+      'processional',
+      'ceremony',
+      'recessional',
+      'grand_entrance',
+      'cocktail_hour',
+      'first_dance',
+      'parents_dance',
+      'dinner',
+      'open_floor',
+      'banned_songs',
+    ],
+    'order IS the contract — the studio and the desk both render in array order',
+  );
+});
+
+test('every slot has a label and a hint — the Records cannot be half-filled', () => {
+  // `tsc` enforces this for a literal, but these are the maps a new slot is most
+  // likely to be missing from at runtime after a bad merge.
+  for (const slot of PLAYLIST_SLOT_TYPES) {
+    const label = PLAYLIST_SLOT_LABELS[slot];
+    assert.ok(label && label.length > 0, `${slot} has no label`);
+  }
+});
+
+test('grouping is derived from the slot list, so a new slot can never throw', () => {
+  // The PR 6 trap: `groupPicksBySlot` used a hand-written Record and did
+  // `out[slot].push(row)`, so a slot missing from it was a TypeError at render.
+  const grouped = groupPicksBySlot([]);
+  for (const slot of PLAYLIST_SLOT_TYPES) {
+    assert.ok(Array.isArray(grouped[slot]), `${slot} missing from the grouped Record`);
+  }
+});
+
+test('a pick in one of the NEW moments lands in that moment', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('grand_entrance', 'Uptown Funk', 'Bruno Mars')],
+    repertoire: [],
+  });
+  assert.deepEqual(m.moments.map((x) => x.slot), ['grand_entrance']);
+  assert.equal(m.moments[0]?.label, 'Grand entrance');
+});
+
+test('the three new moments sort into the night, not onto the end', () => {
+  const m = buildHostPlaylist({
+    picks: [
+      pick('open_floor', 'Jopay'),
+      pick('prelude', 'Canon in D'),
+      pick('grand_entrance', 'Sway'),
+      pick('recessional', 'Signed Sealed Delivered'),
+    ],
+    repertoire: [],
+  });
+  assert.deepEqual(m.moments.map((x) => x.slot), [
+    'prelude',
+    'recessional',
+    'grand_entrance',
+    'open_floor',
+  ]);
+});
+
+// ── 6.2 · the vibe ─────────────────────────────────────────────────────────
+
+test('six vibes, frozen, in scan order', () => {
+  assert.deepEqual(
+    [...PLAYLIST_VIBES],
+    ['acoustic', 'classical', 'jazz', 'opm', 'pop', 'showband'],
+    'owner froze exactly these six — a seventh is a question, not a commit',
+  );
+});
+
+test('A VIBE WITH NO SONGS STILL RENDERS — the owner’s own example', () => {
+  // "Jazz for dinner" is a complete instruction to a band. §5.3 drops empty
+  // moments; this is the one exception, and it is the entire point of PR 4.
+  const m = buildHostPlaylist({ picks: [], repertoire: [], vibes: { dinner: 'jazz' } });
+  assert.deepEqual(m.moments.map((x) => x.slot), ['dinner']);
+  assert.equal(m.moments[0]?.vibe, 'jazz');
+  assert.equal(m.moments[0]?.entries.length, 0);
+});
+
+test('a moment carries a vibe AND its songs — never one instead of the other', () => {
+  const m = buildHostPlaylist({
+    picks: [pick('dinner', 'Through the Years', 'Kenny Rogers')],
+    repertoire: [],
+    vibes: { dinner: 'jazz' },
+  });
+  assert.equal(m.moments.length, 1);
+  assert.equal(m.moments[0]?.vibe, 'jazz');
+  assert.deepEqual(m.moments[0]?.entries.map((e) => e.title), ['Through the Years']);
+});
+
+test('a vibe-only night is NOT empty', () => {
+  const m = buildHostPlaylist({ picks: [], repertoire: [], vibes: { cocktail_hour: 'acoustic' } });
+  assert.equal(m.isEmpty, false, 'the desk must not say "they haven’t set out the night"');
+});
+
+test('a moment with neither songs nor a vibe is still dropped', () => {
+  const m = buildHostPlaylist({ picks: [pick('dinner', 'Ikaw')], repertoire: [], vibes: {} });
+  assert.equal(m.moments.length, 1, 'ten silent moments must not become ten headings');
+});
+
+test('vibes are absent by default — no vibe map means no vibes', () => {
+  const m = buildHostPlaylist({ picks: [pick('dinner', 'Ikaw')], repertoire: [] });
+  assert.equal(m.moments[0]?.vibe, null);
+});
+
+test('a vibe on banned_songs is ignored — you cannot ask for a feel you don’t want', () => {
+  const m = buildHostPlaylist({
+    picks: [],
+    repertoire: [],
+    vibes: { banned_songs: 'pop' },
+  });
+  assert.equal(m.moments.length, 0, 'banned_songs is never a moment');
+  assert.equal(m.isEmpty, true);
+});

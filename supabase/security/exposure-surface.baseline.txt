@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6215
+# facts: 6211
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     714
-#   col       4445
-#   policy    825
+#   tpriv     713
+#   col       4440
+#   policy    827
 #   view      10
 #   func      217
 #
@@ -119,8 +119,6 @@ tpriv	public.cron_job_runs|anon	SIUD
 tpriv	public.cron_job_runs|authenticated	SIUD
 tpriv	public.custom_domains|anon	SIUD
 tpriv	public.custom_domains|authenticated	SIUD
-tpriv	public.data_privacy_controls|anon	SIUD
-tpriv	public.data_privacy_controls|authenticated	SIUD
 tpriv	public.demand_radar_rollups|anon	SIUD
 tpriv	public.demand_radar_rollups|authenticated	SIUD
 tpriv	public.demo_sessions|anon	SIUD
@@ -194,6 +192,7 @@ tpriv	public.event_moodboard_saves|authenticated	SIUD
 tpriv	public.event_paperwork|anon	D
 tpriv	public.event_paperwork|authenticated	D
 tpriv	public.event_playlist_picks|authenticated	SIUD
+tpriv	public.event_playlist_slot_vibes|authenticated	SIUD
 tpriv	public.event_preparation_items|anon	SIUD
 tpriv	public.event_preparation_items|authenticated	SIUD
 tpriv	public.event_recaps|anon	SIUD
@@ -1243,18 +1242,6 @@ col	public.custom_domains.updated_at	anon=SIU authenticated=SIU
 col	public.custom_domains.vercel_domain_id	anon=SIU authenticated=SIU
 col	public.custom_domains.verification_token	anon=SIU authenticated=SIU
 col	public.custom_domains.verified_at	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.approved_at	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.approved_by	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.category	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.control_key	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.created_at	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.description	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.note	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.risk_note	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.sort_order	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.status	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.title	anon=SIU authenticated=SIU
-col	public.data_privacy_controls.updated_at	anon=SIU authenticated=SIU
 col	public.demand_radar_rollups.booking_count	anon=SIU authenticated=SIU
 col	public.demand_radar_rollups.event_type	anon=SIU authenticated=SIU
 col	public.demand_radar_rollups.inquiry_count	anon=SIU authenticated=SIU
@@ -1687,6 +1674,13 @@ col	public.event_playlist_picks.slot_type	anon=- authenticated=SIU
 col	public.event_playlist_picks.song_label	anon=- authenticated=SIU
 col	public.event_playlist_picks.sort_order	anon=- authenticated=SIU
 col	public.event_playlist_picks.updated_at	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.created_at	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.event_id	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.set_by_user_id	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.slot_type	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.updated_at	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.vibe	anon=- authenticated=SIU
+col	public.event_playlist_slot_vibes.vibe_id	anon=- authenticated=SIU
 col	public.event_preparation_items.amount_php	anon=SIU authenticated=SIU
 col	public.event_preparation_items.created_at	anon=SIU authenticated=SIU
 col	public.event_preparation_items.created_by	anon=SIU authenticated=SIU
@@ -5400,6 +5394,8 @@ policy	public.event_paperwork|event_paperwork_host_update	mode=PERMISSIVE cmd=UP
 policy	public.event_playlist_picks|event_playlist_picks_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_playlist_picks|event_playlist_picks_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_playlist_picks|event_playlist_picks_music_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids))) check=NULL
+policy	public.event_playlist_slot_vibes|event_playlist_slot_vibes_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
+policy	public.event_playlist_slot_vibes|event_playlist_slot_vibes_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids))) check=NULL
 policy	public.event_preparation_items|event_prep_items_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_preparation_items|event_prep_items_vendor_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=NULL
 policy	public.event_preparation_items|event_prep_items_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (event_id IN ( SELECT chat_threads.event_id FROM chat_threads WHERE ((chat_threads.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (chat_threads.inquiry_status = 'accepted'::chat_inquiry_status)))))

@@ -57,6 +57,8 @@ import {
   groupPicksBySlot,
   type PlaylistPickRow,
   type PlaylistSlotType,
+  type PlaylistVibe,
+  type SlotVibeMap,
 } from '@/lib/playlist';
 
 /** One song on the desk, with both sides of the crossing resolved. */
@@ -252,12 +254,21 @@ export type HostPlaylistEntry = {
   matchedArtist: string;
 };
 
-/** One moment of the night that actually has picks in it. */
+/** One moment of the night the couple has said something about. */
 export type HostPlaylistMoment = {
   slot: PlaylistSlotType;
   /** From `PLAYLIST_SLOT_LABELS` — the couple's own wording, not a re-spelling. */
   label: string;
   entries: HostPlaylistEntry[];
+  /**
+   * The feel the couple asked for here, or null.
+   *
+   * ⚠ A MOMENT CAN CARRY A VIBE AND NO SONGS, and it must still render. That is
+   * the owner's whole model for PR 4 — "jazz for dinner" is a complete
+   * instruction to a band even with an empty song list, and dropping it as an
+   * "empty moment" would throw away the only thing the couple said about dinner.
+   */
+  vibe: PlaylistVibe | null;
 };
 
 export type HostPlaylistModel = {
@@ -292,6 +303,9 @@ export function buildHostPlaylist(input: {
   picks: readonly PlaylistPickRow[] | null | undefined;
   /** This act's repertoire — `fetchVendorSongs`. */
   repertoire: readonly Song[] | null | undefined;
+  /** The feel the couple asked for per moment — `fetchSlotVibes`. Optional so
+   *  every existing caller keeps working; absent means none were set. */
+  vibes?: SlotVibeMap | null;
 }): HostPlaylistModel {
   const byTitle = indexRepertoireByTitle(input.repertoire);
 
@@ -307,14 +321,20 @@ export function buildHostPlaylist(input: {
   let positiveCount = 0;
   let gapCount = 0;
 
+  const vibes = input.vibes ?? {};
+
   for (const slot of PLAYLIST_SLOT_TYPES) {
     if (slot === 'banned_songs') continue; // its own field — see below
     const rows = grouped[slot];
-    if (rows.length === 0) continue; // empty moments are dropped, not rendered
+    const vibe = vibes[slot] ?? null;
+    // A moment earns a row if the couple said ANYTHING about it — songs OR a
+    // vibe. "Jazz for dinner" with no picks is a complete instruction to a band,
+    // so treating it as an empty moment would discard the only thing they said.
+    if (rows.length === 0 && !vibe) continue;
     const entries = rows.map((row) => toEntry(row, byTitle));
     positiveCount += entries.length;
     gapCount += entries.filter((e) => !e.inRepertoire).length;
-    moments.push({ slot, label: PLAYLIST_SLOT_LABELS[slot], entries });
+    moments.push({ slot, label: PLAYLIST_SLOT_LABELS[slot], entries, vibe });
   }
 
   const banned = grouped.banned_songs.map((row) => toEntry(row, byTitle));
@@ -325,7 +345,10 @@ export function buildHostPlaylist(input: {
     positiveCount,
     gapCount,
     hazardCount: banned.filter((e) => e.inRepertoire).length,
-    isEmpty: positiveCount === 0 && banned.length === 0,
+    // A vibe-only night is NOT empty. `moments` already accounts for that (a
+    // vibe alone pushes a moment), so deriving from it keeps this in step with
+    // the render rule above instead of restating it.
+    isEmpty: moments.length === 0 && banned.length === 0,
   };
 }
 

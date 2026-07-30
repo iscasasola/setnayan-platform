@@ -308,6 +308,12 @@ export function buildHostPlaylist(input: {
   vibes?: SlotVibeMap | null;
 }): HostPlaylistModel {
   const byTitle = indexRepertoireByTitle(input.repertoire);
+  // The exact pass's index. Built alongside the title index so both passes see
+  // the same repertoire.
+  const repertoireIds = new Set<number>();
+  for (const s of input.repertoire ?? []) {
+    if (isSong(s)) repertoireIds.add(s.song_id);
+  }
 
   // Ragged rows out before grouping — see `isPick` for why it matters here.
   const usable: PlaylistPickRow[] = [];
@@ -331,13 +337,13 @@ export function buildHostPlaylist(input: {
     // vibe. "Jazz for dinner" with no picks is a complete instruction to a band,
     // so treating it as an empty moment would discard the only thing they said.
     if (rows.length === 0 && !vibe) continue;
-    const entries = rows.map((row) => toEntry(row, byTitle));
+    const entries = rows.map((row) => toEntry(row, byTitle, repertoireIds));
     positiveCount += entries.length;
     gapCount += entries.filter((e) => !e.inRepertoire).length;
     moments.push({ slot, label: PLAYLIST_SLOT_LABELS[slot], entries, vibe });
   }
 
-  const banned = grouped.banned_songs.map((row) => toEntry(row, byTitle));
+  const banned = grouped.banned_songs.map((row) => toEntry(row, byTitle, repertoireIds));
 
   return {
     moments,
@@ -398,10 +404,36 @@ function indexRepertoireByTitle(
   return out;
 }
 
-/** Resolve one pick against the repertoire index. See the artist rules above. */
-function toEntry(row: PlaylistPickRow, byTitle: Map<string, Song[]>): HostPlaylistEntry {
+/**
+ * Resolve one pick against the repertoire. See the artist rules above.
+ *
+ * TWO PASSES SINCE PR 3, and the order matters: if the pick carries a resolved
+ * `song_id` (migration 20271022319040) and the repertoire holds that id, the
+ * answer is EXACT and no text rule runs. The fuzzy pass below is now the fallback
+ * for uncatalogued or pre-migration rows rather than the only mechanism — which
+ * is the point of resolving at write time.
+ */
+function toEntry(
+  row: PlaylistPickRow,
+  byTitle: Map<string, Song[]>,
+  repertoireIds: ReadonlySet<number>,
+): HostPlaylistEntry {
   const title = row.song_label.trim();
   const artist = (row.artist ?? '').trim();
+
+  if (typeof row.song_id === 'number' && repertoireIds.has(row.song_id)) {
+    return {
+      pickId: row.pick_id,
+      title,
+      artist,
+      notes: (row.notes ?? '').trim(),
+      inRepertoire: true,
+      // Nothing to disambiguate: the id IS the identity, so echoing an artist
+      // back at the couple would add noise, not confidence.
+      matchedArtist: '',
+    };
+  }
+
   const candidates = byTitle.get(norm(title)) ?? [];
 
   // ONE predicate, not a preference ladder. An earlier draft tried exact matches
@@ -422,4 +454,103 @@ function toEntry(row: PlaylistPickRow, byTitle: Map<string, Song[]>): HostPlayli
     // Only worth showing when the pick itself named nobody.
     matchedArtist: !artist && match?.artist ? match.artist.trim() : '',
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE UNSORTED TRAY — onboarding feeds the studio  (Song Desk PR 3)
+ *
+ * Owner-answered 2026-07-30, choosing "onboarding feeds the studio" over the two
+ * alternatives (studio-only, or leave both and just fix the match score).
+ *
+ * THE DEFECT IT CLOSES. A couple picks songs during onboarding
+ * (`event_song_picks`, flat, resolved `song_id`s), later opens the playlist
+ * studio (`event_playlist_picks`, per-moment, free text) — and finds it EMPTY, so
+ * they type the same songs again. Two lists, no conversation. The band's desk
+ * then shows both, which is why PR 2 had to document a known duplication.
+ *
+ * ── IT IS A VIEW, NOT A SLOT ───────────────────────────────────────────────
+ *
+ * ⚠ The tray is DERIVED — the onboarding picks that are not yet placed in a
+ * moment. It is deliberately NOT a 12th `PlaylistSlotType`: a pseudo-moment
+ * would propagate into `PLAYLIST_SLOT_TYPES`, the studio's section list, the DB
+ * enum, `groupPicksBySlot`, the band's render order and the vibes table, and
+ * every one of those would then have to special-case a thing that is not part of
+ * the night. Nothing is written when a pick sits in the tray; placing one WRITES
+ * a normal playlist pick, and the tray shrinks because the derivation changed.
+ *
+ * ── ONE-WAY, ON PURPOSE ────────────────────────────────────────────────────
+ *
+ * Onboarding → studio only. Nothing here writes back to `event_song_picks`: that
+ * table is the matcher's original source and a first-class record of what the
+ * couple said at onboarding. Placing a song into a moment does not un-say it.
+ * So a placed pick stays in `event_song_picks` and simply stops appearing in the
+ * tray — which also means clearing a moment brings it back, correctly.
+ *
+ * ── HOW "ALREADY PLACED" IS DECIDED ────────────────────────────────────────
+ *
+ * By resolved `song_id` first (migration 20271022319040 gave playlist picks one),
+ * then by normalised text for rows that predate it or could not be resolved. Both
+ * passes, because a tray that is wrong in either direction is worse than no tray:
+ * a false "already placed" silently HIDES a song the couple chose, and a false
+ * "not placed" invites them to add a duplicate.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/** One onboarding pick the couple has not yet placed into a moment. */
+export type UnsortedTrayEntry = {
+  songId: number;
+  title: string;
+  /** May be '' — onboarding stores whatever the catalogue row carries. */
+  artist: string;
+};
+
+/**
+ * The couple's onboarding picks that are not yet in any moment.
+ *
+ * Tolerant like the rest of this module: either list may be null, ragged rows are
+ * dropped, and a song picked twice at onboarding appears once.
+ */
+export function buildUnsortedTray(input: {
+  /** The couple's flat onboarding picks — `fetchEventSongRequests`. */
+  flatPicks: readonly Song[] | null | undefined;
+  /** Everything already placed in a moment — `fetchPlaylistPicks().rows`. */
+  placed: readonly PlaylistPickRow[] | null | undefined;
+}): UnsortedTrayEntry[] {
+  const placedIds = new Set<number>();
+  const placedKeys = new Set<string>();
+
+  for (const row of input.placed ?? []) {
+    if (!row || typeof row.song_label !== 'string') continue;
+    if (typeof row.song_id === 'number' && Number.isFinite(row.song_id)) {
+      placedIds.add(row.song_id);
+    }
+    // The text pass covers rows the resolver could not name — including the
+    // banned list, deliberately: a song the couple has forbidden must NOT be
+    // offered back to them from the tray as if it were unplaced.
+    placedKeys.add(`${norm(row.song_label)}|${norm(row.artist)}`);
+  }
+
+  const seen = new Set<number>();
+  const out: UnsortedTrayEntry[] = [];
+
+  for (const s of input.flatPicks ?? []) {
+    if (!isSong(s)) continue;
+    if (seen.has(s.song_id)) continue; // one row per song, even if picked twice
+    seen.add(s.song_id);
+
+    if (placedIds.has(s.song_id)) continue;
+    const artist = s.artist ?? '';
+    // Exact normalised key first…
+    if (placedKeys.has(`${norm(s.title)}|${norm(artist)}`)) continue;
+    // …then the blank-artist case: onboarding rows carry a catalogue artist while
+    // a couple typing in the studio often leaves it empty, so "Perfect|" in the
+    // studio has to count as placing "Perfect|Ed Sheeran".
+    if (placedKeys.has(`${norm(s.title)}|`)) continue;
+
+    out.push({ songId: s.song_id, title: s.title, artist });
+  }
+
+  // Alphabetical, for the same reason the desk's groups are: the source rows
+  // carry no order the couple chose, so anything else is arbitrary AND unstable
+  // between renders.
+  return out.sort((a, b) => a.title.localeCompare(b.title));
 }

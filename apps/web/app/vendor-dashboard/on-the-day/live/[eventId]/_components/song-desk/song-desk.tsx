@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchEventSongRequests, fetchVendorSongs } from '@/lib/songs';
 import { fetchPlaylistPicks, fetchSlotVibes, PLAYLIST_VIBE_LABELS } from '@/lib/playlist';
 import { fetchSongRequestsPaused } from '@/lib/vendor-dayof-config';
+import { buildVendorSets, fetchVendorEventSets } from '@/lib/vendor-sets';
+import { groupPicksBySlot } from '@/lib/playlist';
+import { SetsPanel } from './sets-panel';
 import { fetchActSongRequests } from '../../../../actions';
 import { RequestsInbox } from './requests-inbox';
 import {
@@ -77,17 +80,28 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
   // booking + entitlement internally and reads as service_role, because the guest
   // request inbox is the paid part (owner 2026-07-30) and RLS cannot ask "did you
   // pay". Its own gate is the boundary; this component just renders the result.
-  const [requests, repertoire, picks, guestRequests, paused, vibes] = await Promise.all([
+  const [requests, repertoire, picks, guestRequests, paused, vibes, setData] = await Promise.all([
     fetchEventSongRequests(supabase, eventId),
     fetchVendorSongs(supabase, vendorProfileId),
     fetchPlaylistPicks(supabase, eventId),
     fetchActSongRequests(eventId),
     fetchSongRequestsPaused(supabase, vendorProfileId, eventId),
     fetchSlotVibes(supabase, eventId),
+    // The band's own sets (PR 5). Their own client — RLS admits the org + day-of
+    // grantees, and a set is not the paid part, so there is no entitlement
+    // question RLS cannot answer.
+    fetchVendorEventSets(supabase, eventId, vendorProfileId),
   ]);
 
   const desk = buildSongDesk({ requests, repertoire });
   const playlist = buildHostPlaylist({ picks: picks.rows, repertoire, vibes });
+  // Each set crossed against the couple's picks FOR ITS OWN MOMENT — the payoff
+  // for anchoring sets to the host's vocabulary instead of inventing a second one.
+  const sets = buildVendorSets({
+    sets: setData.sets,
+    setSongs: setData.songs,
+    hostPicksBySlot: groupPicksBySlot(picks.rows),
+  });
 
   return (
     <div className="space-y-4">
@@ -126,6 +140,13 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
       />
 
       {desk.spare.length > 0 ? <Spare entries={desk.spare} /> : null}
+
+      <ConsoleRule />
+      {/* LAST, and collapsed. On the night the actionable things are the inbox and
+          the gaps; a setlist is what you built beforehand and open when you want
+          it. A band mid-set should not scroll past six expanded sets to reach a
+          pending request. */}
+      <SetsPanel eventId={eventId} sets={sets} repertoire={repertoire} />
 
       <ConsoleRule />
       <Link

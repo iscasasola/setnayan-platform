@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { resolveLivePax } from '@/lib/pax';
@@ -548,7 +548,7 @@ export async function lockPackage(
       // the next lock re-attempts it.
       if (isBookingFeeEnabled()) {
         try {
-          await collectBookingFeeAtLock(createAdminClient(), {
+          await collectBookingFeeAtLock(createMoneyWriterClient(), {
             eventVendorId: anchorRow.vendor_id,
           });
         } catch (e) {

@@ -64,3 +64,26 @@ identifier in an assertion makes a legitimate refactor look like a break; noted 
 
 SPEC IMPACT: None — no behaviour change in any deployed environment (see the risk note above).
 `DECISION_LOG.md` row added 2026-07-30 closing the #3738 recovery.
+
+### 🔴 CI caught a real design error — the injected-client trap
+
+The first push went red on the booking-fee DB-replay tests, and it was my mistake, not an env
+quirk. `lib/booking-fee-lock.server.ts` takes `admin: SupabaseClient` as a **parameter** — the
+`tests/db` harness injects a PGlite-backed client. Replacing that with an internal
+`createMoneyWriterClient()` call **broke dependency injection**: the module started constructing a
+real client and threw in CI, which has no service-role key.
+
+This also corrects the risk note above: I reasoned about `next dev` and production and missed that
+**CI is a third environment** which relied on the dev fallback. Deployed environments still do not
+change — but "only `next dev` is affected" was too narrow.
+
+Fixed by restoring the parameter and moving the money writer to the module's two production
+callers (`vendors/actions.ts`, `vendors/packages/actions.ts`), with `booking-fee-lock.server.ts`
+added to an `INJECTED_CLIENT_REVIEWED` exemption in the guard — mirroring the file's existing
+`MINT_CLIENT_REVIEWED` pattern, which exists for exactly this reason. The exemption is **not** a
+blank cheque: the guard separately asserts both callers pass `createMoneyWriterClient()`, and
+mutation-proved that reverting either one fails.
+
+Verified after the fix: `booking-fee-lock.db.test.ts` 9/9, plus
+`booking-fee-order-postconditions` / `booking-fee-rederive` / `orders-payments-insert-revoke`
+52/52.

@@ -810,18 +810,42 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // service-role in production, where the fallback is not reachable at all. It
   // is enforced here so a future money write cannot quietly pick the degrading
   // client and reintroduce the baffling-afternoon failure mode.
+  // Modules whose client is an INJECTED PARAMETER, not a local binding. They
+  // cannot construct their own — the DB-replay tests pass a PGlite-backed client
+  // in, and constructing internally would break that injection (it did: CI's
+  // booking-fee-lock DB tests went red on exactly this). Their CALLERS are what
+  // must pass the money writer, and those callers are scanned normally.
+  const INJECTED_CLIENT_REVIEWED: Record<string, string> = {
+    'lib/booking-fee-lock.server.ts':
+      '`admin: SupabaseClient` is a parameter. Both production callers ' +
+      '(app/dashboard/[eventId]/vendors/actions.ts and …/vendors/packages/actions.ts) pass ' +
+      'createMoneyWriterClient(); tests/db passes its replay client.',
+  };
+
   const offenders: string[] = [];
   const roots = ['app', 'lib'].map((d) => join(WEB, d)).filter((d) => existsSync(d));
   for (const root of roots) {
     for (const file of collectTs(root)) {
       const rel = relative(WEB, file);
       if (rel.endsWith('.test.ts')) continue;
+      if (rel in INJECTED_CLIENT_REVIEWED) continue;
       const src = readFileSync(file, 'utf8');
       for (const { client, what } of moneyWriteClients(src)) {
         if (!isMoneyWriterClient(src, client)) {
           offenders.push(`${rel} → ${client}.${what}(…)`);
         }
       }
+    }
+  }
+
+  // …and the exemption is not a blank cheque: the callers must actually pass it.
+  for (const caller of [
+    'app/dashboard/[eventId]/vendors/actions.ts',
+    'app/dashboard/[eventId]/vendors/packages/actions.ts',
+  ]) {
+    const src = readFileSync(join(WEB, caller), 'utf8');
+    if (!/collectBookingFeeAtLock\(\s*createMoneyWriterClient\(\)/.test(src)) {
+      offenders.push(`${caller} → passes a non-money client into collectBookingFeeAtLock`);
     }
   }
   assert.deepEqual(

@@ -15,14 +15,19 @@ import { LayoutGrid, Plus, Sparkles, Store, Users } from 'lucide-react';
  * ── EVERY TARGET IS AN EXISTING, RENDERED DOOR ──────────────────────────────
  * Home `/dashboard` · Alaala `/dashboard/library` · Create
  * `/dashboard/create-event` · People `/dashboard/people` · Spaces
- * `/dashboard/samahan` — all five already render as links on this same page.
- * Nothing here invents a route (`Route_Wayfinding_Audit_2026-07-15`: a nav row
- * is not a doorway; a rendered link is).
+ * (`/vendor-dashboard` or `/admin`, whichever this account holds) — all five
+ * already render as links on this same page. Nothing here invents a route
+ * (`Route_Wayfinding_Audit_2026-07-15`: a nav row is not a doorway; a rendered
+ * link is).
  *
  * ── THE FIFTH SLOT IS CAPABILITY-GATED ──────────────────────────────────────
  * Spaces appears only for a user who actually has a shop or console, mirroring
- * the Spaces section and the board. A plain couple gets FOUR targets, and four
- * honest targets beat five with a dead one.
+ * the "Yours to run" tile and the board. A plain couple gets FOUR targets, and
+ * four honest targets beat five with a dead one. Its href follows the tile it
+ * mirrors: Samahan moved under PEOPLE in the 2026-07-30 split, so the Spaces
+ * pill must land on the console the user actually runs — not on
+ * `/dashboard/samahan`, which is now a People destination and was reachable
+ * only by console users anyway.
  *
  * ── CENTRE ACTION ───────────────────────────────────────────────────────────
  * Create is the raised knob: it is the one thing this page exists to start, and
@@ -31,7 +36,15 @@ import { LayoutGrid, Plus, Sparkles, Store, Users } from 'lucide-react';
  * The launcher adds bottom padding for this element's height so the pill never
  * covers the last card — see `page.tsx`'s `pb-28 sm:pb-10`.
  */
-export function HomePillNav({ hasSpaces }: { hasSpaces: boolean }) {
+export function HomePillNav({
+  hasSpaces,
+  spacesHref,
+}: {
+  hasSpaces: boolean;
+  /** Where the capability-gated Spaces slot lands — the same console the
+   *  "Yours to run" tile links to for this account. Ignored when !hasSpaces. */
+  spacesHref: string;
+}) {
   const item =
     'flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[10px] font-semibold text-[color:var(--sn-ink-500)] transition-colors hover:text-ink';
   return (
@@ -60,7 +73,7 @@ export function HomePillNav({ hasSpaces }: { hasSpaces: boolean }) {
           People
         </Link>
         {hasSpaces ? (
-          <Link href="/dashboard/samahan" className={item}>
+          <Link href={spacesHref} className={item}>
             <Store aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
             Spaces
           </Link>

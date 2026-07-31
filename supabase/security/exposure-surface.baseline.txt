@@ -6092,7 +6092,7 @@ func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=anon,authent
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.generate_event_connections(p_event_id uuid, p_creator uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
+func	public.generate_event_connections(p_event_id uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.generate_event_join_token()	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.generate_public_id(type_letter character)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.generate_screen_name_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6176,7 +6176,7 @@ func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_vendor_for_contract(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public

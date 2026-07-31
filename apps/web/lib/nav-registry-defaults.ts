@@ -296,10 +296,16 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-account",
     route: "/dashboard/library",
-    label: "Memories Hub",
+    // Alaala is the single MEMORY dimension; "Memories Hub" was its old name
+    // (owner 2026-07-31). The slot KEY stays `customer.account.library` and the
+    // ROUTE stays /dashboard/library — admin overrides key off the slot and
+    // every shipped link points at that URL. Only the default LABEL changes,
+    // matching home-pill-nav.tsx and home-board.tsx, which already say "Alaala".
+    // ⚠ An explicit admin rename in `nav_slot_overrides` still wins over this.
+    label: "Alaala",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "LayoutGrid",
+    lucideName: "Sparkles",
     customRef: null,
     sortOrder: 5,
   },

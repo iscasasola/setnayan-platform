@@ -647,12 +647,16 @@ export default async function LauncherPage({
       icon: 'users',
     },
     {
+      // The ⌘K entry for /dashboard/library. It said "Memories Hub · Photos ·
+      // videos · saved vendors" — the old name, plus a promise ("saved
+      // vendors") the surface no longer leads with. The destination page is
+      // titled Alaala (owner 2026-07-31), so the palette says Alaala.
       id: 'action-library',
-      label: 'Memories Hub',
-      sublabel: 'Photos · videos · saved vendors',
+      label: 'Alaala',
+      sublabel: 'Photos · videos · editorials',
       href: '/dashboard/library',
       kind: 'action',
-      icon: 'grid',
+      icon: 'sparkles',
     },
     {
       id: 'action-people',

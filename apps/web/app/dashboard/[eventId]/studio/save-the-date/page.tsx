@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
@@ -71,6 +72,13 @@ export default async function SaveTheDatePage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Event-type backstop (0053): Save-the-Date is a WEDDING surface — 15 of the
+  // 16 live event types do not enable it. The Studio/Suite grid already filters
+  // the card (AddOnEntry.surface), but the route itself was open to anyone with
+  // the URL. Mirrors the monogram guard.
+  const profile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(profile, 'save_the_date')) redirect(`/dashboard/${eventId}`);
 
   const { data: event } = await supabase
     .from('events')

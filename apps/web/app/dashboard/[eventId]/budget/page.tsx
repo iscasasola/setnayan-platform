@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
 import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -34,6 +35,16 @@ export default async function BudgetPage({ params }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Event-type backstop (0053): Budget is a SURFACE, and `simple_event` — the
+  // vendor-free type — does not enable it. The nav has hidden Budget there
+  // since 2026-06-27 and the Suite strip since 2026-07-31, but a hidden link is
+  // not a closed URL: this page opened in full from a bookmark or a typed
+  // address, offering to track vendor payments on an event that can have no
+  // vendors. Mirrors the monogram guard exactly. Every type that enables
+  // `budget` is byte-identical.
+  const profile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
 
   // Pull the budget target + paid-orders aggregate in parallel with

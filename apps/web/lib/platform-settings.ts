@@ -61,7 +61,7 @@ export type PlatformSettingsRow = {
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,bdo_qr_payload,gcash_qr_payload,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -94,6 +94,25 @@ const FALLBACK: PlatformSettingsRow = {
   updated_at: new Date(0).toISOString(),
 };
 
+/**
+ * Columns fetched as a SEPARATE, tolerant probe rather than inside SELECT.
+ *
+ * The QR payload columns (migration 20271027100000) arrived after the code
+ * that reads them, and PR #3964 put them straight into SELECT — which is the
+ * trap this file already documents for fetchVendorValidateContacts: on a
+ * pre-migration database the whole fetch fails 42703, `error` is truthy, and
+ * fetchPlatformSettings returns FALLBACK. That would blank the BUSINESS NAME,
+ * VAT rate, brand icons AND the BDO/GCash account details across receipts and
+ * checkout — a total payment-details outage caused by an optional nicety.
+ *
+ * Prod happened to migrate before anyone hit it, but the ordering is not
+ * guaranteed: a rollback, a preview environment pointed at an older database,
+ * or a cancelled migration job (which is exactly what happened on the #3964
+ * deploy) reproduces it. So these live in their own probe that degrades to
+ * nulls, and null already means "serve the static QR" everywhere downstream.
+ */
+const QR_PAYLOAD_SELECT = 'bdo_qr_payload,gcash_qr_payload';
+
 export async function fetchPlatformSettings(
   supabase: SupabaseClient,
 ): Promise<PlatformSettingsRow> {
@@ -103,7 +122,31 @@ export async function fetchPlatformSettings(
     .eq('id', 1)
     .maybeSingle();
   if (error || !data) return FALLBACK;
-  return data as PlatformSettingsRow;
+
+  // Soft probe — a failure here costs the amount-in-QR nicety and nothing
+  // else. Never let it take the core payment details down with it.
+  let qr: { bdo_qr_payload: string | null; gcash_qr_payload: string | null } = {
+    bdo_qr_payload: null,
+    gcash_qr_payload: null,
+  };
+  try {
+    const { data: qrRow, error: qrError } = await supabase
+      .from('platform_settings')
+      .select(QR_PAYLOAD_SELECT)
+      .eq('id', 1)
+      .maybeSingle();
+    if (!qrError && qrRow) {
+      const row = qrRow as Partial<typeof qr>;
+      qr = {
+        bdo_qr_payload: row.bdo_qr_payload ?? null,
+        gcash_qr_payload: row.gcash_qr_payload ?? null,
+      };
+    }
+  } catch {
+    /* keep the nulls — downstream falls back to the static QR image */
+  }
+
+  return { ...(data as object), ...qr } as PlatformSettingsRow;
 }
 
 // ---------------------------------------------------------------------------

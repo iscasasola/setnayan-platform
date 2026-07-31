@@ -18,6 +18,7 @@ import {
   papicSeatJoinUrl,
   PAPIC_SEAT_COUNT,
 } from '@/lib/papic-seats';
+import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
@@ -216,11 +217,22 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
               <div key={s.seat_id} className="rounded-xl border border-ink/10 bg-surface p-4">
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-ink">
+                    {/* The free Papic ONE camera sits at a FIXED index (110),
+                     *  deliberately clear of the free SHARED range (100..102).
+                     *  The `>= 100` branch swallowed it and rendered
+                     *  "Free camera 11" (110 − 99), while papic-one-card.tsx
+                     *  calls the same seat "Camera #110" — one camera with two
+                     *  names, neither of which says what it is. It is the one
+                     *  camera here whose shots are its OWN, so it is named for
+                     *  that, and the check must come FIRST or the range test
+                     *  wins again. */}
                     {s.seat_index >= 200
                       ? `Camera ${s.seat_index - 199}` /* paid per-camera (index base 200) */
-                      : s.seat_index >= 100
-                        ? `Free camera ${s.seat_index - 99}` /* free tier (100..102 · brief PR-3) */
-                        : `Seat ${s.seat_index}`}
+                      : s.seat_index === PAPIC_FREE_ONE_CAMERA_INDEX
+                        ? 'Papic One — free camera'
+                        : s.seat_index >= 100
+                          ? `Free camera ${s.seat_index - 99}` /* free shared pool (100..102) */
+                          : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">

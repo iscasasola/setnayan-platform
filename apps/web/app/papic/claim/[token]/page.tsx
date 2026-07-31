@@ -100,8 +100,8 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         Claim your photo-crew seat
       </h1>
       <p className="mt-3 text-sm text-ink/65">
-        Tap once and your phone turns into a candid camera for the wedding. Every
-        photo you shoot lands straight in the couple&rsquo;s gallery — no app to
+        Tap once and your phone turns into a candid camera for the day. Every
+        photo you shoot lands straight in the host&rsquo;s gallery — no app to
         install{user ? '' : ', no sign-up'}.
       </p>
       <form action={claimPapicSeat} className="mt-5">

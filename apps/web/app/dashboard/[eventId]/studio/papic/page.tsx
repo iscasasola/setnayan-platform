@@ -245,6 +245,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const uncappedEvent = isPapicUncapped(
     (event as Record<string, unknown>).event_type as string | null,
   );
+
+  // The couple's word for their own event. Papic ships on all 16 event types
+  // (owner-locked 2026-07-27), but this page still greeted every one of them
+  // with "Wedding photo capture" and offered "unlimited cameras for the whole
+  // wedding" — read by a birthday host, a reunion organiser, or the host of a
+  // Simple Event, whose type exists precisely BECAUSE it is not a wedding.
+  // `terminology.event_word` is the shipped per-type noun; nothing new.
+  const papicEventWord =
+    ((event as Record<string, unknown>).event_type as string | null) === 'wedding'
+      ? 'wedding'
+      : 'event';
   const papicMiniCapPhp = uncappedEvent
     ? Number.MAX_SAFE_INTEGER
     : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
@@ -419,7 +430,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <p className="sn-eye">Capture</p>
         <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Wedding photo capture
+          {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Your guests become the camera crew — every photo and 10-second clip lands
@@ -453,7 +464,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               Everything Papic, one price
             </h2>
             <p className="max-w-prose text-sm text-ink/70">
-              Unlimited cameras for the whole wedding + every add-on (Kwento,
+              Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
               Photo Wall, Thank You, Stories, Pabati, Camera Bridge).
             </p>
           </div>
@@ -1204,7 +1215,13 @@ function StorageOptionDrive({
               ) : null}
             </div>
             <p className="text-xs text-ink/65">
-              Weddings can run 30–60 GB — make sure your Drive has space. If it
+              {/* Type-neutral on purpose: this is a STORAGE sizing note, and
+                  30–60 GB is a function of how many cameras shoot for how long,
+                  not of what the day is called. Naming the event type here
+                  would mean threading a prop into a component that has no other
+                  reason to know it. */}
+              A full day of shooting can run 30–60 GB — make sure your Drive has
+              space. If it
               runs out or disconnects, Setnayan won&rsquo;t have a backup copy.
             </p>
           </div>

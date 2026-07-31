@@ -94,9 +94,10 @@ const REQUIRED_RETAIL = [
   'KWENTO',
   'PAPIC_ONE_100',
   'PAPIC_CAMERA_MINI_DAY',
-  'PAPIC_GUEST',
-  'PAPIC_GUEST_6K',
-  'PAPIC_GUEST_10K',
+  // Same gitleaks `generic-api-key` false positive as app/pricing/page.tsx:317 —
+  // the adjacent PAPIC_GUEST* codes read as a keyword + high-entropy pair. Kept
+  // on one line so the inline allow covers the whole match, per that precedent.
+  'PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K', // gitleaks:allow — Papic Pool SKU service_codes, not secrets
   'CUSTOM_QR_GUEST',
 ] as const;
 

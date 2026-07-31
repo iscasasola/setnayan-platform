@@ -18,7 +18,9 @@ Validated in a rolled-back prod transaction: both tables created, RLS enabled on
 both, 2 policies, 0 rows. Nothing persisted.
 
 ⚠ COUNSEL-FIRST: Phase 3 touches MINORS + POST-MORTEM/SUCCESSION law. The actual
-guardian/transfer flow stays UNBUILT until PH counsel + DPO (Claire E. Buanhog)
+guardian/transfer flow stays UNBUILT until PH counsel + DPO (Indalecio Sacdalan
+Casasola II, the proprietor — corrected 2026-07-31; this fragment originally
+named the VP, per the pre-2026-07-07 mis-designation)
 sign off and the minors + post-mortem DPIAs are done. Ownership itself lives on
 `people.claimed_by_user_id`; these are records + audit. Same inert posture as the
 Phase-2 schema that shipped ahead of its flow.

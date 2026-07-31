@@ -240,6 +240,63 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Your connection tree (limited pilot)">
+          <p>
+            Setnayan is piloting a <strong>connection tree</strong> — a record of
+            how the people around an event are related. It has three layers:{' '}
+            <strong>family</strong>, <strong>ritual</strong> (ninong and ninang),
+            and <strong>friends</strong>. It is entirely optional, and you never
+            have to add anyone to use Setnayan.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              <strong>Nothing is recorded about someone without an account.</strong>{' '}
+              During the pilot a connection can only be stored when{' '}
+              <em>both</em> people have a Setnayan account. That way both of you
+              can see it, answer it, and delete it. You cannot add someone who
+              has not signed up.
+            </li>
+            <li>
+              <strong>The other person has to agree.</strong> When you say how
+              you are related to someone, that stays a request until they
+              confirm it. Until then it counts as nothing, and it is not shown
+              as a relationship anywhere.
+            </li>
+            <li>
+              <strong>Only the person a claim is about can answer it.</strong>{' '}
+              You cannot confirm a connection you proposed yourself — that is
+              enforced by the database, not just by the interface.
+            </li>
+            <li>
+              <strong>Drafts are private to you.</strong> If you are still
+              working out your tree, a draft is visible only to you. The other
+              person is never shown a claim you have not sent.
+            </li>
+            <li>
+              <strong>Requests do not linger.</strong> A request nobody answers,
+              and a connection that is declined, are both deleted after{' '}
+              <strong>30 days</strong>.
+            </li>
+            <li>
+              <strong>Wider family words are worked out, not stored.</strong>{' '}
+              Terms like lolo, lola, tito, tita, pinsan and pamangkin are
+              calculated from the connections you and others have confirmed. We
+              do not keep a separate record of them.
+            </li>
+          </ul>
+          <p className="pt-2">
+            You can remove any connection you created at any time, and either
+            person can decline one. Deleting your account removes your side of
+            every connection.
+          </p>
+          <p className="pt-2">
+            This feature is a <strong>limited pilot</strong> while our filing
+            with the National Privacy Commission is being completed. We have kept
+            it deliberately narrow for that reason — both-parties-only, consent
+            before anything counts, and short retention.
+          </p>
+        </Section>
+
         <Section title="Gift-receiving details (Pabuya)">
           <p>
             If you set up Pabuya (digital gift-giving), you can display your own

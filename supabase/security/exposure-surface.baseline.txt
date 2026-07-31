@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6223
+# facts: 6226
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     709
 #   col       4454
-#   policy    829
+#   policy    832
 #   view      10
 #   func      217
 #
@@ -5660,7 +5660,10 @@ policy	public.payments|payments_owner_insert	mode=PERMISSIVE cmd=INSERT roles=au
 policy	public.payments|payments_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.people|people_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.people|people_owner_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((claimed_by_user_id = auth.uid()) OR (created_by_user_id = auth.uid())) check=((claimed_by_user_id = auth.uid()) OR (created_by_user_id = auth.uid()))
-policy	public.person_connections|person_connections_participant	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))
+policy	public.person_connections|person_connections_delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=NULL
+policy	public.person_connections|person_connections_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(is_admin() OR ((status = ANY (ARRAY['draft'::text, 'pending'::text])) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid()))))))
+policy	public.person_connections|person_connections_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR ((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))) check=NULL
+policy	public.person_connections|person_connections_update	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR ((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))
 policy	public.person_stewardships|person_stewardships_steward_or_admin	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (steward_user_id = auth.uid())) check=(is_admin() OR (steward_user_id = auth.uid()))
 policy	public.person_story_items|person_story_items_owner	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_story_items.person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_story_items.person_id) AND (p.claimed_by_user_id = auth.uid())))))
 policy	public.photo_messages|photo_messages_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = photo_messages.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR ((status = 'approved'::text) AND (event_id IN ( SELECT current_event_ids() AS current_event_ids)))) check=NULL

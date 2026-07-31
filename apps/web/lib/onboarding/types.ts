@@ -12,6 +12,20 @@ export type GenericOnboardingPayload = {
   eventType: string;
   /** The event name the organizer typed (→ `events.display_name`). */
   displayName: string;
+  /**
+   * The celebrant's first name (→ `events.honoree_label`) — asked ONLY for the
+   * five gated life types (debut · christening · birthday · graduation · gender
+   * reveal). It is the cardinality key: the cap is one in-planning event per
+   * (account × type × HONOREE), so without it every birthday an account creates
+   * collides with every other and the second one is refused forever.
+   * NULL for lifestyle types, and for a user who skips the question.
+   * Ordinary PI (a first name) — never a birthdate, never a dependent link.
+   *
+   * OPTIONAL so every existing payload constructor (and every fixture) stays
+   * valid without a churn edit; absent and null mean the same thing — unlabeled,
+   * which contends for the per-type singleton slot.
+   */
+  honoreeLabel?: string | null;
   region: string | null;
   /** Reception/venue anchor coords from the primary area pick (→ events.venue_latitude/longitude). */
   venueLatitude: number | null;
@@ -66,4 +80,15 @@ export type GenericOnboardingPayload = {
 
 export type GenericCommitResult =
   | { ok: true; eventId: string }
-  | { ok: false; error: string };
+  /**
+   * `blocking` rides ONLY with error 'life_event_exists'. Without it the client
+   * could say no more than "something went wrong", which is what made the
+   * duplicate-life-event refusal a silent dead end: the user was never told
+   * WHICH event conflicted, and the one act that resolves it — naming a
+   * different celebrant — was never suggested.
+   */
+  | {
+      ok: false;
+      error: string;
+      blocking?: { eventId: string; displayName: string };
+    };

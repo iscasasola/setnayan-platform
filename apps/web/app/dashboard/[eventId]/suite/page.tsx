@@ -5,6 +5,7 @@ import {
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { formatPhp } from '@/lib/orders';
@@ -266,6 +267,33 @@ export default async function SuitePage({ params }: Props) {
     }
   }
 
+  // ── Setnayan AI is priced PER EVENT TYPE — this hub was the last surface
+  //    still quoting the flat rate (2026-07-31). ─────────────────────────────
+  // The bulk read above asks for `SETNAYAN_AI` (Tier A, ₱1,499) and filters
+  // `is_active = true`. Both are right for an ordinary SKU and wrong for this
+  // one: the tier rows SETNAYAN_AI_B/C/D are price-source-only and deliberately
+  // is_active = FALSE, so they could never come back from that query even if it
+  // asked for them. Result: every event type saw ₱1,499 while checkout charged
+  // ₱899 / ₱499 / ₱99 — the hub is the FIRST price a host sees, and it was the
+  // only one that lied.
+  //
+  // Resolved through `resolveSetnayanAiDisplayPricePhp`, the shared switch the
+  // detail page and `order-charge-authority` already use, so shown and charged
+  // cannot disagree in EITHER state of `setnayan_ai_per_event_pricing_enabled`
+  // (see lib/setnayan-ai-server.ts for why that switch exists at all).
+  const aiDisplayPhp = await resolveSetnayanAiDisplayPricePhp(
+    supabase,
+    profile.eventType,
+  ).catch(() => 0);
+  if (aiDisplayPhp > 0) {
+    priceMap.set('SETNAYAN_AI', formatPhp(aiDisplayPhp));
+  } else {
+    // 0 = Tier E (no vendors ⇒ Setnayan AI is not present) or an unreadable
+    // read. Drop the stale flat price rather than print a number this event can
+    // neither be shown nor charged.
+    priceMap.delete('SETNAYAN_AI');
+  }
+
   function isOwned(entry: AddOnEntry): boolean {
     return entry.serviceKey ? ownedActive.has(entry.serviceKey) : false;
   }
@@ -319,7 +347,17 @@ export default async function SuitePage({ params }: Props) {
           : 'Your last stretch — capture, and the event itself.';
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
-  const eligible = ADD_ONS.filter((a) => surfaceOk(a) && a.studioGroup !== 'utility');
+  // Tier E (simple_event: marketplace off ⇒ no vendors ⇒ nothing for the
+  // planner to plan) has no AI SKU at all, so the card was a fake door: it
+  // rendered, took the tap, and could never complete a purchase. Gate it on the
+  // SAME resolved price, so the hub can never offer what checkout cannot sell.
+  const aiSellable = aiDisplayPhp > 0;
+  const eligible = ADD_ONS.filter(
+    (a) =>
+      surfaceOk(a) &&
+      a.studioGroup !== 'utility' &&
+      (a.serviceKey !== 'SETNAYAN_AI' || aiSellable || ownedActive.has('SETNAYAN_AI')),
+  );
   const active = eligible.filter((a) => isOwned(a));
   const freeSkus = eligible
     .filter((a) => !isOwned(a) && a.tier === 'free' && a.status !== 'coming_soon')

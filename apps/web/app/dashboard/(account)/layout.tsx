@@ -12,7 +12,8 @@ import { Wordmark } from '@/app/_components/brand-marks';
 
 /**
  * Account-scoped chrome — route group `(account)` (URL-transparent), covering
- * the non-event account SPOKES: profile · people · library (Memories Hub) ·
+ * the non-event account SPOKES: profile · people · library (Alaala — the route
+ * keeps its /dashboard/library URL; the surface was renamed 2026-07-31) ·
  * setnayan-ai · notifications · year · create-event · api-keys · life-flash ·
  * creator (Storyteller chapters — doorway'd from the launcher Spaces tile +
  * the account menu per the 2026-07-16 creator readiness verdict B4).

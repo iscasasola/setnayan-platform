@@ -37,6 +37,15 @@
       "allow_paths": [
         "apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx"
       ]
+    },
+    {
+      "pattern": "Memories Hub",
+      "retired_at": "2026-07-31",
+      "reason": "Old name for Alaala, the product's single MEMORY dimension. Owner 2026-07-31: 'the memories hub is still not integrated' / 'ala ala is not fixed'. Two shipped nav surfaces already called the destination Alaala (home-pill-nav.tsx, home-board.tsx) while the page itself, the nav-registry default and the Cmd-K entry still said Memories Hub — the same idea wearing two names. The route /dashboard/library is UNCHANGED; only the surface name is. allow_paths keeps the launcher's historical rename commentary readable (comments are scanned too — this guard matches raw text, not rendered copy).",
+      "allow_paths": [
+        "apps/web/app/dashboard/(launcher)/page.tsx",
+        "apps/web/app/dashboard/(launcher)/_components/account-inline.tsx"
+      ]
     }
   ]
 }

@@ -38,4 +38,23 @@ Both now read `events_host`. The edit is one token — `.from('events')` → `.f
 
 **The test found the epoch rule, not a bug.** The first "still blocks" fixture used `created_at: 2026-01-01` and correctly did **not** block — unlabeled rows only contend for the singleton slot post-epoch. The fixture was wrong; the code was right. Both cases are now covered.
 
+### A third near-miss, caught by CI rather than by me
+
+`tests/db/std-media-nsfw-verdict.db.test.ts` went red — 16 tests, one `before` hook, `2BP01: cannot drop column std_media_nsfw of table events because other objects depend on it`.
+
+The dependency is **new, and mine**. `public.events_host` projects EVERY column of `public.events`, computed at build time. Until this PR the view was last built by `20271008731642` — *before* `std_media_nsfw` existed — so it never referenced that column and the test's rewind fixture could drop it freely. This migration rebuilds the view from the columns present now, which include it, and the dependency appears.
+
+The repo had already solved this. `tests/db/facebook-watch-url-grant.db.test.ts:132` carries the same two lines and the reasoning for them, so this is that pattern applied, not a new workaround:
+
+```ts
+await db.exec(`DROP VIEW IF EXISTS public.events_host;`);
+await db.exec(`ALTER TABLE public.events DROP COLUMN IF EXISTS std_media_nsfw;`);
+```
+
+Dropping the view is faithful to what the fixture simulates rather than a way around the error — the whole point is to rewind to the day the privilege migrations ran, and `events_host` did not exist then either.
+
+**Worth carrying forward:** any future migration that rebuilds `events_host` widens its column set to whatever exists at that moment, and can therefore break a `DROP COLUMN` fixture written earlier. The failure is loud (2BP01, in `before`), so it cannot ship silently — but it will surface in a file unrelated to the change.
+
+**Full suites after the fix: 659 DB tests and 5,688 unit tests, 0 failures.**
+
 SPEC IMPACT: None. No product behaviour changes — the cap, its honoree key and its epoch exemption all behave exactly as before. Security posture and failure mode only.

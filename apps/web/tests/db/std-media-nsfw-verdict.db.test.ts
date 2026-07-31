@@ -223,6 +223,22 @@ before(async () => {
 
   // Reproduce the prod ordering (see the header): the column must not exist when
   // the two privilege snapshots are taken.
+  //
+  // The view must go first. public.events_host projects EVERY column of
+  // public.events, so from the migration that (re)builds it onward, any
+  // `ALTER TABLE public.events DROP COLUMN` fails 2BP01. Until 20271025120000
+  // this file was unaffected — events_host was last built by 20271008731642,
+  // BEFORE std_media_nsfw existed, so the view never referenced this column.
+  // 20271025120000 rebuilds the view from the columns present at ITS time, which
+  // now include std_media_nsfw, and the dependency appears.
+  //
+  // Dropping it here is faithful to what this test simulates rather than a
+  // workaround — the point is to rewind to the day the privilege migrations ran,
+  // and events_host did not exist then either. Same reasoning, same two lines as
+  // tests/db/facebook-watch-url-grant.db.test.ts. Nothing below reads
+  // events_host, and this suite's final grant state is set by the migrations it
+  // re-executes, not by the view.
+  await db.exec(`DROP VIEW IF EXISTS public.events_host;`);
   await db.exec(`ALTER TABLE public.events DROP COLUMN IF EXISTS std_media_nsfw;`);
   await db.exec(readFileSync(join(MIGRATIONS_DIR, UPDATE_PRIVILEGE_MIGRATION), 'utf8'));
   await db.exec(readFileSync(join(MIGRATIONS_DIR, SELECT_PRIVILEGE_MIGRATION), 'utf8'));

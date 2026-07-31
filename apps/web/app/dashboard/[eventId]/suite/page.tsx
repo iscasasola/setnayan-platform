@@ -17,8 +17,8 @@ import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vig
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { papicGuestPassAccess } from '@/lib/papic-event-access';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { routes } from '@/lib/routes';
 import { RevealList } from '@/app/_components/reveal-list';
 import { notFound } from 'next/navigation';
@@ -260,16 +260,13 @@ export default async function SuitePage({ params }: Props) {
   // whole time: they exercise the predicate, and the predicate was never wrong
   // — the surface that had to call it simply stopped being the surface. Verify
   // the CONSUMER, not the helper.
-  const papicPassAllowed = papicGuestPassAccess({
-    profile,
-    communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,
-  }).allowed;
-
-  const surfaceOk = (a: AddOnEntry) => {
-    if (a.surface && !surfaceEnabled(profile, a.surface)) return false;
-    if (a.key === 'papic-guest') return papicPassAllowed;
-    return true;
-  };
+  // Both layers now live in ONE place — `addOnOfferedForEvent` — so this grid
+  // and the /studio/about/<key> deep-link cannot drift. They already had: this
+  // page ran the gate, that route ran nothing, and a URL is not hidden by a
+  // card that isn't rendered.
+  const communityId =
+    (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
+  const surfaceOk = (a: AddOnEntry) => addOnOfferedForEvent(a, profile, communityId);
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back

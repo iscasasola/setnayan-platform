@@ -12,6 +12,14 @@ export type PlatformSettingsRow = {
   gcash_account_name: string | null;
   gcash_number: string | null;
   gcash_qr_url: string | null;
+  /**
+   * Decoded QR Ph payloads of the two uploaded merchant QRs (migration
+   * 20271027100000). Checkout re-mints these per order so the code carries the
+   * exact amount — see lib/emv-qr.ts. NULL means "not decodable"; every reader
+   * falls back to the static *_qr_url image, which is what shipped before.
+   */
+  bdo_qr_payload: string | null;
+  gcash_qr_payload: string | null;
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
@@ -53,7 +61,7 @@ export type PlatformSettingsRow = {
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,bdo_qr_payload,gcash_qr_payload,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -67,6 +75,8 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_account_name: null,
   gcash_number: null,
   gcash_qr_url: null,
+  bdo_qr_payload: null,
+  gcash_qr_payload: null,
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,

@@ -100,6 +100,9 @@ function deskIsReachable(pair: BookedPair): boolean {
  */
 const bookedVendorDeskReach: Probe = {
   key: 'vendor-desk-reach',
+  // J7 · Event ↔ Vendor (booking), joint `event_vendors` — this probe watches
+  // exactly that joint's two vocabularies, so the map can colour it live.
+  jointId: 'J7',
   title: 'Booked vendors can reach their day-of desks',
   run: async (): Promise<ProbeResult> => {
     const pairs = await fetchBookedPairs();

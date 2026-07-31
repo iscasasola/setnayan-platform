@@ -1447,3 +1447,22 @@
     transform: none;
   }
 }
+
+/* ── Live interconnection telemetry (2026-07-31) ─────────────────────────────
+   Colour that comes from the probe ledger rather than the frozen 2026-07-05
+   findings registry.
+
+   `lit` is the only class here that means GOOD, and it exists so the map can
+   stay honest about the other 81 joints: two probes cover two joints, so if a
+   healthy joint looked like every other edge there would be no way to tell
+   "verified working" from "never checked". Green is EARNED on this canvas —
+   an unprobed edge keeps its ordinary unlit stroke and claims nothing.
+   red / amber reuse the existing finding tokens deliberately: a broken joint
+   should read the same whether an auditor found it or a probe did. */
+.ug-edge.ug-h-lit {
+  stroke: var(--ug-ok);
+  stroke-width: 2.2;
+}
+.ug-jointmark.ug-h-lit rect {
+  stroke: var(--ug-ok);
+}

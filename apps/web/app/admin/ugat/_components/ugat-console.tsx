@@ -44,6 +44,7 @@ import {
   fetchUgatCounts,
 } from '../actions';
 import './ugat-console.css';
+import type { JointVerdict } from '@/lib/interconnect/verdicts';
 
 /* ── inline icon helper (SVG innerHTML, no network — same set as the map) ── */
 function Ico({ name, cls }: { name: string; cls?: string }) {
@@ -126,10 +127,20 @@ const COUNT_POLL_MS = 75_000;
 export function UgatConsole({
   counts: initialCounts,
   savedSearches,
+  probeVerdicts,
   nowMs,
 }: {
   counts: UgatCounts;
   savedSearches: UgatSavedSearch[];
+  /**
+   * Live verdict per MAPPED joint, keyed by joint id (`J7`).
+   *
+   * A joint that is ABSENT from this map has never been probed, and must render
+   * unlit — not green. Two probes exist against 83 joints, so absence is the
+   * overwhelmingly common case and painting it as health would turn silence
+   * into a claim. Only a joint whose verdict SAYS `ok` gets lit.
+   */
+  probeVerdicts: Record<string, JointVerdict>;
   /**
    * Server-computed clock for finding staleness. Injected rather than read from
    * Date.now() in here: this is a client component, and a locally-read clock
@@ -339,22 +350,32 @@ export function UgatConsole({
         </span>
         <span className="ug-scope-note">
           <Ico name="info" />
-          Slice 1 — platform type-level only. Per-event &amp; per-vendor row scopes are slice 2.
-          Counts are live (updated {relTime(counts.computedAt)}); joint cards are static schema
-          documentation.
+          Platform type-level only; per-event &amp; per-vendor row scopes are still to come. Counts
+          are live (updated {relTime(counts.computedAt)}); joint cards are static schema
+          documentation.{' '}
+          <strong>
+            {Object.keys(probeVerdicts).length} of {UGAT_JOINTS.length} joints are watched by a live
+            probe
+          </strong>{' '}
+          — every other edge is <em>not checked</em>, not healthy. Green here is earned.
         </span>
       </div>
 
       {/* ── legend ── */}
       <div className="ug-legend">
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-edge-core)' }} /> connection
+          <span className="ug-sw" style={{ background: 'var(--ug-edge-core)' }} /> connection —{' '}
+          <strong>not checked</strong>
         </span>
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-report)' }} /> broken (audit)
+          <span className="ug-sw" style={{ background: 'var(--ug-ok)' }} /> checked, carrying
+          traffic
         </span>
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-wait)' }} /> drift risk (audit)
+          <span className="ug-sw" style={{ background: 'var(--ug-report)' }} /> broken
+        </span>
+        <span className="ug-li">
+          <span className="ug-sw" style={{ background: 'var(--ug-wait)' }} /> drift risk
         </span>
         <span className="ug-li">
           <span className="ug-sw" style={{ background: 'var(--ug-gold)' }} /> a joint (the edge is a
@@ -368,6 +389,7 @@ export function UgatConsole({
           nodes={nodes}
           nodeById={nodeById}
           edges={edges}
+          probeVerdicts={probeVerdicts}
           resolution={resolution}
           health={health}
           highlight={highlight}
@@ -452,10 +474,42 @@ export function UgatConsole({
 /* ═════════════════════════════════════════════════════════════════════════
    MAP CANVAS — inline SVG, pan/zoom, node + edge rendering. Vanilla math port.
    ═════════════════════════════════════════════════════════════════════════ */
+/**
+ * A joint's live verdict as a CSS severity class, or null when the joint has
+ * never been probed.
+ *
+ * `lying` is red and outranks everything: it means service_role can see rows
+ * this surface's own reader cannot — data withheld from someone entitled to it,
+ * which renders in the product as a calm empty state. `denied` and `error` are
+ * amber (a reader who should be in was refused / the probe itself broke). `ok`
+ * returns 'lit' — the only case that adds colour for GOOD news, and the reason
+ * an unprobed edge can stay plain without lying: on this map green is EARNED,
+ * never assumed.
+ *
+ * `empty` deliberately returns null. "Permitted, and there is genuinely nothing
+ * to show" is the normal state of a pre-launch database and says nothing about
+ * whether the joint works.
+ */
+function verdictClass(v: JointVerdict | undefined): string | null {
+  if (!v) return null;
+  switch (v.verdict) {
+    case 'lying':
+      return 'red';
+    case 'denied':
+    case 'error':
+      return 'amber';
+    case 'ok':
+      return 'lit';
+    default:
+      return null;
+  }
+}
+
 function MapCanvas({
   nodes,
   nodeById,
   edges,
+  probeVerdicts,
   resolution,
   health,
   highlight,
@@ -467,6 +521,8 @@ function MapCanvas({
   nodes: LiveNode[];
   nodeById: Record<string, LiveNode>;
   edges: ReturnType<typeof platformEdges>;
+  /** Live verdict per mapped joint id; absent = never probed (renders unlit). */
+  probeVerdicts: Record<string, JointVerdict>;
   resolution: Resolution;
   health: boolean;
   highlight: string | null;
@@ -621,6 +677,19 @@ function MapCanvas({
               const finding =
                 health && (findingForEdge(e.from, e.to) ??
                   (primary?.healthId ? UGAT_FINDINGS_BY_ID[primary.healthId] : undefined));
+              // LIVE telemetry, distinct from the frozen 2026-07-05 registry
+              // above. Any joint on this edge that a probe watches contributes
+              // its current verdict; the WORST wins, because an edge carrying
+              // one broken joint is not healthy on the strength of its others.
+              const liveClass = joints.reduce<string | null>((worst, j) => {
+                const c = verdictClass(probeVerdicts[j.id]);
+                if (c === 'red' || worst === 'red') return 'red';
+                if (c === 'amber' || worst === 'amber') return 'amber';
+                return c ?? worst;
+              }, null);
+              // A frozen RED finding still outranks a live green — the audit
+              // found something the probes do not yet look for.
+              const edgeState = finding ? finding.sev : liveClass;
               const jointName = primary?.joint ?? (primary ? '(direct FK)' : null);
               const short =
                 jointName && jointName.length > 18
@@ -631,7 +700,7 @@ function MapCanvas({
                 <g className="ug-edge-group" key={i}>
                   <path className="ug-edge-glow" d={d} />
                   <path
-                    className={`ug-edge ug-clickable${finding ? ' ug-h-' + finding.sev : ''}`}
+                    className={`ug-edge ug-clickable${edgeState ? ' ug-h-' + edgeState : ''}`}
                     d={d}
                     onClick={(ev) => {
                       ev.stopPropagation();
@@ -642,7 +711,11 @@ function MapCanvas({
                   {showJoints && primary && short && (
                     <g
                       className={`ug-jointmark${joints.length > 1 ? ' multi' : ''}${
-                        primary.healthId ? ' ug-h-' + (UGAT_FINDINGS_BY_ID[primary.healthId]?.sev ?? '') : ''
+                        primary.healthId
+                          ? ' ug-h-' + (UGAT_FINDINGS_BY_ID[primary.healthId]?.sev ?? '')
+                          : verdictClass(probeVerdicts[primary.id])
+                            ? ' ug-h-' + verdictClass(probeVerdicts[primary.id])
+                            : ''
                       }`}
                       transform={`translate(${cx - chW / 2},${cy - 9})`}
                       onClick={(ev) => {

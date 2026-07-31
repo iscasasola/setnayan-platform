@@ -546,18 +546,36 @@ export function InlineCheckoutDrawer({
                       htmlFor={referenceFieldId}
                       className="mb-1 block text-xs font-medium text-ink/70"
                     >
-                      Reference number from your transfer
+                      {channel === 'gcash'
+                        ? 'Reference number from GCash'
+                        : 'InstaPay Invoice No. from your transfer'}
                     </label>
+                    {/* Name the EXACT field, per rail. Verified on live
+                        transfers 2026-07-31: on GCash→GCash the reference is
+                        identical for payer and recipient, but on a transfer to
+                        BDO the prominent "Ref No." is GCash's own and appears
+                        NOWHERE on our side — the InstaPay Invoice No. is what
+                        our BDO record ends with. Asking for "a reference
+                        number" gets us the decoy on half the payments.
+                        Both apps put a copy button beside it, so this is one
+                        tap for them and the strongest matching signal we have
+                        without a bank feed. */}
                     <input
                       id={referenceFieldId}
                       type="text"
                       name="reference_number"
                       autoComplete="off"
-                      placeholder="e.g. BD123456789"
+                      inputMode="numeric"
+                      placeholder={
+                        channel === 'gcash' ? 'e.g. 0043457367694' : 'e.g. 6991560'
+                      }
                       className="input-field"
                     />
                     <p className="mt-1 text-[11px] text-ink/50">
-                      Optional · but recommended so our team can match faster.
+                      {channel === 'gcash'
+                        ? 'Open the transaction in GCash and tap the copy icon beside Reference Number.'
+                        : 'On your GCash transfer receipt, copy the InstaPay Invoice No. (not the Ref No. below it).'}{' '}
+                      Optional · but it lets us confirm your payment much faster.
                     </p>
                   </div>
 

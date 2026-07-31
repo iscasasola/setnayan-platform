@@ -276,8 +276,8 @@ export default async function PapicMyCameraPage({ params }: Props) {
         {greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
       </h1>
       <p className="mt-3 text-sm text-ink/65">
-        Tap below and your phone turns into a candid camera for the wedding. Every
-        photo you shoot lands straight in the couple&rsquo;s gallery — no app to
+        Tap below and your phone turns into a candid camera for the day. Every
+        photo you shoot lands straight in the host&rsquo;s gallery — no app to
         install.
       </p>
       <Link

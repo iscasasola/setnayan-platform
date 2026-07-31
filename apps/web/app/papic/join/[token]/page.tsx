@@ -158,8 +158,8 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
         Opening your camera&hellip;
       </h1>
       <p className="mt-2 text-sm text-ink/65">
-        One tap turns your phone into a candid camera for the wedding. Every shot
-        lands straight in the couple&rsquo;s gallery — no app to install.
+        One tap turns your phone into a candid camera for the day. Every shot
+        lands straight in the host&rsquo;s gallery — no app to install.
       </p>
 
       <Link

@@ -246,7 +246,11 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱2,499</p>
+          {/* ₱1,000 = ANIMATED_MONOGRAM. Was ₱2,499 — the retired pre-2026-07-10
+              monogram price, 2.5× the live one, found stale 2026-07-31. Declared
+              in lib/public-price-literals.ts; the daily SEO audit re-checks it
+              against the catalog so it cannot silently drift again. */}
+          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱1,000</p>
           <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
         </div>
       </div>
@@ -1066,7 +1070,8 @@ const PAKANTA_SCENES: RichFrame[] = [
             <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
           </div>
           <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
-            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱3,499
+            {/* ₱2,500 = PAKANTA. Was ₱3,499, which matches no active SKU at all. */}
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱2,500
           </button>
         </div>
       </div>

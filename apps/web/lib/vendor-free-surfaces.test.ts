@@ -139,3 +139,51 @@ test('the day-of stage is not called "Wedding day" on a non-wedding', () => {
     'weddings must be unchanged',
   );
 });
+
+const SUITE = 'app/dashboard/[eventId]/suite/page.tsx';
+
+test('the Suite free-tools strip is gated, at BOTH render sites', () => {
+  // 🪤 THE THIRD LIST. `FREE_TOOLS` is hardcoded in the same file as the two
+  // gates that DO work, and was rendered raw — so a vendor-free Simple Event's
+  // Suite offered "Budget Planner" (its `budget` surface is disabled AND the
+  // nav already hid it) and "Compare vendors" (a marketplace doorway on
+  // marketplace_enabled=false). Two correct gates and one unguarded list beside
+  // them is the shape of every defect found in this sweep.
+  const src = read(SUITE);
+
+  assert.match(
+    src,
+    /const freeToolOk = \(t: FreeTool\)/,
+    `${SUITE} must gate FREE_TOOLS on the event-type profile`,
+  );
+  assert.match(src, /surface: 'budget'/, 'Budget Planner must declare its surface');
+  assert.match(
+    src,
+    /requiresMarketplace: true/,
+    'Compare vendors must declare that it needs the marketplace',
+  );
+
+  // BOTH consumers must read the filtered list. Filtering only one leaves the
+  // tool findable by search but absent from the page, or the reverse.
+  const rawRenders = src.match(/FREE_TOOLS\.(map|filter)\(/g) ?? [];
+  assert.equal(
+    rawRenders.length,
+    1,
+    `FREE_TOOLS may be consumed exactly once — by the filter. Found ` +
+      `${rawRenders.length} (${rawRenders.join(', ')}). Every render site must ` +
+      `read the filtered \`freeTools\`.`,
+  );
+  assert.match(src, /\.\.\.freeTools\.map\(/, 'the search index must use freeTools');
+  assert.match(src, /\{freeTools\.map\(freeToolCard\)\}/, 'the card strip must use freeTools');
+});
+
+test('the add-on catalog carries no hardcoded wedding blurb', () => {
+  // The Suite renders these verbatim for all 16 event types.
+  const m = read('lib/add-ons-catalog.ts').match(/blurb: '[^']*wedding[^']*'/i);
+  assert.equal(
+    m,
+    null,
+    `lib/add-ons-catalog.ts carries ${m?.[0]}. Blurbs render on every event ` +
+      `type — say "your day"/"your event", or derive the noun.`,
+  );
+});

@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Bug,
   WifiOff,
+  Waypoints,
 } from 'lucide-react';
 import {
   GridPageSkeleton,
@@ -24,15 +25,18 @@ import { FunnelsSurface } from './_surfaces/funnels-surface';
 import { OperationsHiringSurface } from './_surfaces/operations-surface';
 import { ConnectionLogsSurface } from './_surfaces/connection-logs-surface';
 import { OfflineSurface } from './_surfaces/offline-surface';
+import { InterconnectionsSurface } from './_surfaces/interconnections-surface';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
  * the App Performance menu (the `funnels` group in ADMIN_NAV_GROUPS) into ONE
- * surface (owner: "what else can we integrate" · 2026-07-10). EIGHT tabs:
+ * surface (owner: "what else can we integrate" · 2026-07-10). NINE tabs:
  * Overview (the cockpit) · Growth · Intelligence · SEO & GEO · Funnels ·
- * Operations & Hiring · Connection logs · Offline daemon — every one a
- * read-only analytics readout, so there's no mutation risk in tabbing them
- * together. Each tab's body was re-homed byte-identical into ./_surfaces/*;
+ * Operations & Hiring · Connection logs · Offline daemon · Interconnections —
+ * every one a read-only analytics readout, so there's no mutation risk in
+ * tabbing them together. (Interconnections joined 2026-07-31: same read-only
+ * shape, reporting on the joints BETWEEN subsystems rather than on any one of
+ * them.) Each tab's body was re-homed byte-identical into ./_surfaces/*;
  * the seven non-cockpit legacy routes now redirect in, forwarding their query
  * params. The App Performance menu parent already lands here, so the parent =
  * the Overview tab.
@@ -59,6 +63,7 @@ const TABS = [
   'operations',
   'connection-logs',
   'offline',
+  'interconnections',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -81,6 +86,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
   { key: 'operations', label: 'Operations & Hiring', icon: TrendingUp },
   { key: 'connection-logs', label: 'Connection logs', icon: Bug },
   { key: 'offline', label: 'Offline daemon', icon: WifiOff },
+  { key: 'interconnections', label: 'Interconnections', icon: Waypoints },
 ];
 
 // Per-tab <title> — restores what each standalone route used to set.
@@ -93,6 +99,7 @@ const TAB_TITLE: Record<Tab, string> = {
   operations: 'Operations & Hiring',
   'connection-logs': 'Connection Logs',
   offline: 'Offline daemon',
+  interconnections: 'Interconnections',
 };
 
 // Per-tab loading skeleton — the same shape each tab shipped as its own
@@ -103,6 +110,7 @@ function tabSkeleton(tab: Tab): ReactNode {
     case 'funnels':
     case 'operations':
     case 'connection-logs':
+    case 'interconnections':
       return <TablePageSkeleton />;
     case 'offline':
       return <ListPageSkeleton />;
@@ -163,6 +171,8 @@ function activeSurface(
       return <ConnectionLogsSurface />;
     case 'offline':
       return <OfflineSurface />;
+    case 'interconnections':
+      return <InterconnectionsSurface />;
     default:
       return (
         <CockpitSurface

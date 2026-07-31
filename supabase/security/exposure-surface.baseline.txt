@@ -2063,8 +2063,8 @@ col	public.events.groom_name	anon=SIU authenticated=SIU
 col	public.events.guest_count_locked_at	anon=S authenticated=S
 col	public.events.guest_list_edit_deadline	anon=SIU authenticated=SIU
 col	public.events.headcount_basis	anon=SIU authenticated=SIU
-col	public.events.honoree_dependent_id	anon=IU authenticated=IU
-col	public.events.honoree_label	anon=IU authenticated=IU
+col	public.events.honoree_dependent_id	anon=SIU authenticated=SIU
+col	public.events.honoree_label	anon=SIU authenticated=SIU
 col	public.events.id	anon=S authenticated=S
 col	public.events.is_mixed_ceremony	anon=SIU authenticated=SIU
 col	public.events.is_primary	anon=SIU authenticated=SIU
@@ -2156,7 +2156,7 @@ col	public.events.setnayan_ai_intro_used	anon=S authenticated=S
 col	public.events.share_budget_band	anon=SIU authenticated=SIU
 col	public.events.showcase_feature_rank	anon=S authenticated=S
 col	public.events.showcase_featured_at	anon=S authenticated=S
-col	public.events.signature_details	anon=IU authenticated=IU
+col	public.events.signature_details	anon=SIU authenticated=SIU
 col	public.events.site_art_direction	anon=SIU authenticated=SIU
 col	public.events.site_bg_color	anon=SIU authenticated=SIU
 col	public.events.site_bg_music_enabled	anon=SIU authenticated=SIU
@@ -5660,10 +5660,10 @@ policy	public.payments|payments_owner_insert	mode=PERMISSIVE cmd=INSERT roles=au
 policy	public.payments|payments_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.people|people_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
 policy	public.people|people_owner_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((claimed_by_user_id = auth.uid()) OR (created_by_user_id = auth.uid())) check=((claimed_by_user_id = auth.uid()) OR (created_by_user_id = auth.uid()))
-policy	public.person_connections|person_connections_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.person_connections|person_connections_answer	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((status = 'pending'::text) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=((status = ANY (ARRAY['confirmed'::text, 'declined'::text])) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))
-policy	public.person_connections|person_connections_propose	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((status = 'pending'::text) AND (confirmed_at IS NULL) AND (declined_at IS NULL) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) AND (from_person_id <> to_person_id))
-policy	public.person_connections|person_connections_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=NULL
+policy	public.person_connections|person_connections_delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=NULL
+policy	public.person_connections|person_connections_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(is_admin() OR ((status = ANY (ARRAY['draft'::text, 'pending'::text])) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid()))))))
+policy	public.person_connections|person_connections_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR ((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))) check=NULL
+policy	public.person_connections|person_connections_update	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR ((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.from_person_id) AND (p.claimed_by_user_id = auth.uid())))) OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_connections.to_person_id) AND (p.claimed_by_user_id = auth.uid())))))
 policy	public.person_stewardships|person_stewardships_steward_or_admin	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (steward_user_id = auth.uid())) check=(is_admin() OR (steward_user_id = auth.uid()))
 policy	public.person_story_items|person_story_items_owner	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_story_items.person_id) AND (p.claimed_by_user_id = auth.uid()))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM people p WHERE ((p.person_id = person_story_items.person_id) AND (p.claimed_by_user_id = auth.uid())))))
 policy	public.photo_messages|photo_messages_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = photo_messages.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR ((status = 'approved'::text) AND (event_id IN ( SELECT current_event_ids() AS current_event_ids)))) check=NULL
@@ -6092,7 +6092,7 @@ func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=anon,authent
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.generate_event_connections(p_event_id uuid, p_creator uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
+func	public.generate_event_connections(p_event_id uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.generate_event_join_token()	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.generate_public_id(type_letter character)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.generate_screen_name_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6176,7 +6176,7 @@ func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_vendor_for_contract(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public

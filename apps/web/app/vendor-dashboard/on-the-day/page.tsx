@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import {
@@ -318,7 +319,7 @@ export default async function VendorOnTheDayPage({
   // (`booked_categories`); otherwise we consider all of the vendor's services.
   // `override` is null until the per-booking configurator (a later PR) persists
   // a `vendor_dayof_configs` row — so today every vendor sees code defaults.
-  const eventTiles = brief?.booked_categories ?? null;
+  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
   const family = resolveDayOfFamily(profile.services, eventTiles);
   const modules = resolveModules(profile.services, eventTiles, null);
   const enabledModules = modules.filter((m) => m.enabled);
@@ -708,10 +709,11 @@ async function ConfigureEventView({
   const { data: briefData } = await supabase.rpc('get_vendor_event_brief', {
     p_event_id: booking.eventId,
   });
-  const eventTiles =
+  const eventTiles = tilesForVendorCategories(
     briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
       ? (briefData as { booked_categories: string[] }).booked_categories
-      : null;
+      : null,
+  );
   const coupleName =
     (briefData as { event?: { display_name?: string | null } } | null)?.event?.display_name ??
     booking.eventName;

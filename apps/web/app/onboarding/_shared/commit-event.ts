@@ -68,11 +68,29 @@ export async function commitOnboardingEvent(
   // so a life-type commit contends for the per-type singleton slot; lifestyle
   // types return null immediately. Anonymous drafts have no prior events by
   // construction but run the guard anyway (it's one indexed read).
+  // The honoree is now COLLECTED by the generic onboarding (2026-07-31), so a
+  // second birthday for a different child no longer collides with the first.
+  // Passing it here is the whole fix: `blocksLifeEventCreation` compares
+  // normalized honoree keys and only treats two UNLABELED events as the same
+  // singleton slot.
   const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
     eventType: payload.eventType,
+    honoreeLabel: payload.honoreeLabel?.trim() || null,
   });
   if (blockingLifeEvent) {
-    return { ok: false, error: 'life_event_exists' };
+    // Hand back WHICH event conflicts. The client walks the user to the
+    // honoree question with this name in the copy — previously this returned a
+    // bare error string that surfaced as "Something went wrong saving your
+    // plan. Please try again.", which was untrue (nothing went wrong) and
+    // unactionable (retrying fails identically, forever).
+    return {
+      ok: false,
+      error: 'life_event_exists',
+      blocking: {
+        eventId: blockingLifeEvent.eventId,
+        displayName: blockingLifeEvent.displayName,
+      },
+    };
   }
 
   // Resolve the profile for a sensible display-name fallback + to confirm the type

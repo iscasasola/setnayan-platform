@@ -174,7 +174,10 @@ export function specializationSetForServices(
   services: readonly string[] | null | undefined,
   eventTiles?: readonly string[] | null,
 ): VendorSpecializationSet | null {
-  const eventSet = eventTiles ? new Set(eventTiles) : null;
+  // An EMPTY array is truthy — treating it as a narrowing set excludes every
+  // tile and silently returns "no specialization". Absent and empty both mean
+  // "the event can't say", so neither may narrow.
+  const eventSet = eventTiles && eventTiles.length > 0 ? new Set(eventTiles) : null;
   const owned = new Set<string>();
   for (const s of services ?? []) {
     if (typeof s !== 'string') continue;

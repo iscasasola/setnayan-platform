@@ -176,6 +176,30 @@ const CELEBRATION_TEMPLATE: ChecklistTemplateItem[] = [
  * The per-type registry. Keyed by `events.event_type`. Wedding is absent by
  * design (it uses the canonical `CHECKLIST_TEMPLATE`).
  */
+
+/**
+ * Short-runway types. A dinner date or a barkada hangout is planned in DAYS,
+ * not the ~90 the celebration template assumes — inheriting that put every row
+ * in the past on day one, so a hangout next Friday opened with nine overdue
+ * tasks under the heading "4–2 months before".
+ *
+ * Four items, largest offset one week. `tier2Core` stays short for the same
+ * reason: nobody books a lights-and-sounds crew for coffee.
+ */
+const DATE_TEMPLATE: ChecklistTemplateItem[] = [
+  { key: 'date_where', title: 'Pick the place', category: 'logistics', dueOffsetDays: 7 },
+  { key: 'date_book', title: 'Reserve it (or check if you need to)', category: 'vendors', dueOffsetDays: 5 },
+  { key: 'date_when', title: 'Confirm the time', category: 'logistics', dueOffsetDays: 3 },
+  { key: 'date_extras', title: 'Anything to bring or order ahead?', category: 'logistics', dueOffsetDays: 1 },
+];
+
+const HANGOUT_TEMPLATE: ChecklistTemplateItem[] = [
+  { key: 'hang_where', title: 'Pick the place', category: 'logistics', dueOffsetDays: 7 },
+  { key: 'hang_who', title: 'Confirm who’s coming', category: 'guests', dueOffsetDays: 5 },
+  { key: 'hang_when', title: 'Lock the time', category: 'logistics', dueOffsetDays: 3 },
+  { key: 'hang_split', title: 'Sort the bill split, if there is one', category: 'foundations', dueOffsetDays: 1 },
+];
+
 const CELEBRATION_DEF: EventTypeChecklistDef = { eventType: 'celebration', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'host'], template: CELEBRATION_TEMPLATE };
 
 export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeChecklistDef>> = {
@@ -187,6 +211,8 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
   gender_reveal: { eventType: 'gender_reveal', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['reveal_element', 'catering', 'photo_video'], template: GENDER_REVEAL_TEMPLATE },
   travel: { eventType: 'travel', dateModel: 'input', anchorCategory: 'accommodation', tier2Core: ['transport', 'accommodation', 'activities'], template: TRAVEL_TEMPLATE },
   celebration: CELEBRATION_DEF,
+  date: { eventType: 'date', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['restaurant'], template: DATE_TEMPLATE },
+  hangout: { eventType: 'hangout', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['restaurant'], template: HANGOUT_TEMPLATE },
 };
 
 /**

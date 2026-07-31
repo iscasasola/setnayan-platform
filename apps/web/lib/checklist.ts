@@ -280,10 +280,58 @@ export const CHECKLIST_PHASES: ReadonlyArray<ChecklistPhase> = [
 ];
 
 /** The phase a days-before-event offset belongs to, or null for undated items. */
-export function phaseForOffset(dueOffsetDays: number | null): ChecklistPhase | null {
+/**
+ * The SHORT-RUNWAY ladder — for types planned in days, not months (date ·
+ * hangout). The wedding ladder above tops out at "18–12 months before" and ends
+ * at "Wedding day & after"; captioning a coffee catch-up that way is not just
+ * odd, it buries a 3-day task under a heading about next year.
+ */
+export const CHECKLIST_PHASES_SHORT: ReadonlyArray<ChecklistPhase> = [
+  { id: 's1', label: 'This week', blurb: 'Pick the place and the time', maxDays: 100000, minDays: 4 },
+  { id: 's2', label: 'A few days before', blurb: 'Confirm the details', maxDays: 3, minDays: 1 },
+  { id: 's3', label: 'The day itself', blurb: 'Just show up', maxDays: 0, minDays: -100000 },
+];
+
+/** Types whose planning horizon is DAYS. */
+const SHORT_RUNWAY_TYPES = new Set(['date', 'hangout']);
+
+/**
+ * The phase ladder for an event type. Non-wedding types keep the long ladder's
+ * shape (their templates use month-scale offsets) but must not be captioned
+ * "Wedding day & after" — see `checklistPhaseLabel`.
+ */
+export function checklistPhasesFor(
+  eventType: string | null | undefined,
+): ReadonlyArray<ChecklistPhase> {
+  return eventType && SHORT_RUNWAY_TYPES.has(eventType)
+    ? CHECKLIST_PHASES_SHORT
+    : CHECKLIST_PHASES;
+}
+
+/**
+ * The last phase is the only wedding-WORDED one ("Wedding day & after" /
+ * "Be present — then wrap up"). Every other label is a neutral time window, so
+ * one substitution de-weds the whole ladder rather than forking it.
+ */
+export function checklistPhaseLabel(
+  phase: ChecklistPhase,
+  eventType: string | null | undefined,
+): { label: string; blurb: string } {
+  if (phase.id === 'p9' && eventType && eventType !== 'wedding') {
+    return { label: 'The day & after', blurb: 'Be present — then wrap up' };
+  }
+  return { label: phase.label, blurb: phase.blurb };
+}
+
+export function phaseForOffset(
+  dueOffsetDays: number | null,
+  eventType?: string | null,
+): ChecklistPhase | null {
   if (dueOffsetDays == null) return null;
   return (
-    CHECKLIST_PHASES.find((p) => dueOffsetDays <= p.maxDays && dueOffsetDays >= p.minDays) ?? null
+    checklistPhasesFor(eventType).find(
+      (p) => dueOffsetDays <= p.maxDays && dueOffsetDays >= p.minDays,
+    ) ?? null
   );
 }
 
@@ -519,14 +567,16 @@ export function groupChecklistByPhase(
   rows: ReadonlyArray<ChecklistItemRow>,
   eventDate: string | null,
   now: Date = new Date(),
+  eventType?: string | null,
 ): ChecklistPhaseGroup[] {
   const views = rows.map((r) => toChecklistView(r, eventDate, now));
-  const order = new Map(CHECKLIST_PHASES.map((p, i) => [p.id, i]));
+  const phases = checklistPhasesFor(eventType);
+  const order = new Map(phases.map((p, i) => [p.id, i]));
 
   const buckets = new Map<string, ChecklistItemView[]>();
   const undated: ChecklistItemView[] = [];
   for (const v of views) {
-    const phase = phaseForOffset(v.due_offset_days);
+    const phase = phaseForOffset(v.due_offset_days, eventType);
     if (!phase) {
       undated.push(v);
       continue;
@@ -546,9 +596,19 @@ export function groupChecklistByPhase(
     return a.sort_order - b.sort_order;
   };
 
-  const groups: ChecklistPhaseGroup[] = CHECKLIST_PHASES.filter((p) => buckets.has(p.id))
+  // MUST iterate the SAME ladder the buckets were keyed with. Filtering the
+  // long ladder while a short-runway type bucketed into s1/s2/s3 matches
+  // nothing, and every item disappears from the page without an error.
+  const groups: ChecklistPhaseGroup[] = phases
+    .filter((p) => buckets.has(p.id))
     .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
-    .map((phase) => ({ phase, items: buckets.get(phase.id)!.sort(sortWithin) }));
+    .map((phase) => {
+      const { label, blurb } = checklistPhaseLabel(phase, eventType);
+      return {
+        phase: { ...phase, label, blurb },
+        items: buckets.get(phase.id)!.sort(sortWithin),
+      };
+    });
 
   if (undated.length > 0) {
     groups.push({ phase: null, items: undated.sort(sortWithin) });

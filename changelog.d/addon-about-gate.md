@@ -29,6 +29,16 @@ It carries both layers, and the second is not derivable from the first:
 type does not offer, and there is no honest "instead, try…" — bouncing them into
 the Suite grid would imply the thing exists somewhere in it.
 
+**⚠ The first attempt broke the production build**, and the failure is recorded
+in `lib/add-on-event-scope.ts`'s header because the class is easy to repeat.
+Putting the predicate in `add-ons-catalog.ts` turned that module's TYPE-only
+import of `event-type-profile` into a VALUE import, which dragged the Supabase
+server client — and therefore `next/headers` — into every CLIENT bundle touching
+the catalog. `tsc --noEmit` was clean and all unit tests passed; only the
+production build catches it, and `npm run build` OOMs locally, so CI was the sole
+detector. The predicate now lives in its own server-side module, and a new
+assertion pins `add-ons-catalog.ts` to type-only imports (mutation-checked).
+
 **Added** `lib/add-on-offered.test.ts` — pins the predicate (travel denied,
 unscoped types fail closed, the anniversary split, the surface gate for
 non-Papic add-ons) **and** asserts source-level that both surfaces call it. The

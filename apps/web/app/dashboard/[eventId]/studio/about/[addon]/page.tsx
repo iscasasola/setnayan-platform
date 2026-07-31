@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
-import { ADD_ONS, addOnHref, addOnOfferedForEvent } from '@/lib/add-ons-catalog';
+import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
   AddOnDetailView,

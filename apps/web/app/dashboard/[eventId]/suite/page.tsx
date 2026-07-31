@@ -2,7 +2,6 @@ import {
   ADD_ONS,
   appStoreDetailHref,
   addOnHref,
-  addOnOfferedForEvent,
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
@@ -18,7 +17,8 @@ import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vig
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { routes } from '@/lib/routes';
 import { RevealList } from '@/app/_components/reveal-list';
 import { notFound } from 'next/navigation';

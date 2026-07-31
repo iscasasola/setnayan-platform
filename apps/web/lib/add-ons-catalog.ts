@@ -37,12 +37,7 @@ import {
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
-import {
-  surfaceEnabled,
-  type EventTypeProfile,
-  type ProfileSurface,
-} from '@/lib/event-type-profile';
-import { papicGuestPassAccess } from '@/lib/papic-event-access';
+import type { ProfileSurface } from '@/lib/event-type-profile';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
@@ -168,41 +163,6 @@ export type AddOnEntry = {
  *     reachable as the upsell. (Fix 2026-06-18 — the maker was unreachable
  *     from Studio; only the buy wall showed.)
  */
-/**
- * IS THIS ADD-ON OFFERED FOR THIS EVENT? — the ONE event-type gate.
- *
- * Extracted 2026-07-31 so the Suite grid and the About deep-link cannot drift.
- * They already had: Suite ran the two-layer gate (#3953), `studio/about/[addon]`
- * ran NOTHING — so `/dashboard/<id>/studio/about/papic-guest` rendered the Papic
- * Pool pitch on a `travel` event, the one type on the permanent V1 deny list,
- * and on every type whose profile disables the add-on's surface. A grid that
- * hides a card does not close the URL behind it.
- *
- * TWO layers, and the second is not derivable from the first:
- *   1. The generic SURFACE gate (0053) — an add-on tagged with a `surface`
- *      shows only where the profile enables it.
- *   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`, but
- *      migration 20270804110223 put `rsvp` on EVERY non-wedding profile row —
- *      all 16 types carry it in prod — so the surface check alone admits the
- *      pool everywhere. `papicGuestPassAccess()` carries the permanent travel
- *      deny, the anniversary controller split and the phase ladder, and it
- *      FAILS CLOSED for a type nobody has scoped.
- *
- * PURE + synchronous: callers pass the already-resolved profile and
- * `events.community_id`, so this adds no I/O to either surface.
- */
-export function addOnOfferedForEvent(
-  entry: Pick<AddOnEntry, 'key' | 'surface'>,
-  profile: EventTypeProfile,
-  communityId: string | null = null,
-): boolean {
-  if (entry.surface && !surfaceEnabled(profile, entry.surface)) return false;
-  if (entry.key === 'papic-guest') {
-    return papicGuestPassAccess({ profile, communityId }).allowed;
-  }
-  return true;
-}
-
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
   // Papic Pool (the flat event-level shared guest-camera pass, SKU PAPIC_GUEST)

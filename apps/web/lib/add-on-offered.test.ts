@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { addOnOfferedForEvent } from './add-ons-catalog';
+import { addOnOfferedForEvent } from './add-on-event-scope';
 import {
   GENERIC_PROFILE,
   WEDDING_PROFILE,
@@ -84,6 +84,35 @@ test('an add-on with no surface is universal', () => {
   const universal = { key: 'orders', surface: undefined } as const;
   for (const t of ['wedding', 'travel', 'simple_event', 'brand_new_type']) {
     assert.equal(addOnOfferedForEvent(universal, profileFor(t)), true, t);
+  }
+});
+
+test('add-ons-catalog imports event-type-profile TYPE-ONLY', () => {
+  // 🪤 This predicate lived in `add-ons-catalog.ts` for one CI run and broke the
+  // production build. That module is imported by CLIENT components and had only
+  // ever imported `type ProfileSurface` — erased at compile. Adding
+  // `surfaceEnabled` (a VALUE) made it a runtime import, dragging
+  // event-type-profile's Supabase server client, and therefore `next/headers`,
+  // into every client bundle touching the catalog.
+  //
+  // `tsc --noEmit` was clean and 5752 unit tests passed. ONLY the production
+  // build catches this class — and `npm run build` OOMs on the owner's machine,
+  // so CI is the sole detector. This assertion moves the catch to a test that
+  // runs anywhere.
+  const src = read('lib/add-ons-catalog.ts');
+  const serverModules = ['event-type-profile', 'papic-event-access', 'supabase/'];
+  for (const mod of serverModules) {
+    const valueImport = new RegExp(
+      `import\\s+(?!type\\s)\\{[^}]*\\}\\s+from\\s+'@/lib/${mod.replace('/', '\\/')}`,
+    );
+    assert.doesNotMatch(
+      src,
+      valueImport,
+      `lib/add-ons-catalog.ts must not VALUE-import @/lib/${mod} — it is bundled ` +
+        `into client components, and that pulls next/headers into the browser ` +
+        `bundle. Type-only imports are fine; put runtime logic in ` +
+        `lib/add-on-event-scope.ts (server-side) instead.`,
+    );
   }
 });
 

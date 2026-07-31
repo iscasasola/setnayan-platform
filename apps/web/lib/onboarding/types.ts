@@ -26,6 +26,27 @@ export type GenericOnboardingPayload = {
    * which contends for the per-type singleton slot.
    */
   honoreeLabel?: string | null;
+  /**
+   * The date this event COMMEMORATES (→ `events.anchor_date`) — NOT the day it
+   * is held. Two columns on purpose: an anniversary marks a wedding date but is
+   * celebrated whenever the couple holds it, and in PH a Tuesday milestone is
+   * very often a Saturday party.
+   *
+   * ⚠ COUNSEL GATE — only ever written for anchor kinds that are NOT
+   * `person_birthdate`. A person's birthdate is never stored on an event, so
+   * birthday / debut / christening pass NULL here even though their anchor kind
+   * names a birthdate. `buildGenericEventInsert` enforces this; the wizard also
+   * never asks.
+   */
+  anchorDate?: string | null;
+  /**
+   * Why that date matters (→ `events.anchor_origin`). CHECK-constrained in the
+   * DB to POSITIVE origins only — there is deliberately no memorial option
+   * (babang-luksa stays out of this product).
+   */
+  anchorOrigin?: string | null;
+  /** Does it come back every year? (→ `events.recurs`) */
+  recurs?: boolean;
   region: string | null;
   /** Reception/venue anchor coords from the primary area pick (→ events.venue_latitude/longitude). */
   venueLatitude: number | null;

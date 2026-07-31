@@ -8,7 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
-import { anchorForType } from '../event-anchor';
+import { anchorForType, isAnchorOrigin } from '../event-anchor';
 
 export type GenericInsertOpts = {
   slug: string;
@@ -53,6 +53,23 @@ export function buildGenericEventInsert(
     // Date-anchor model (2026-07-12): per-type default anchor_kind from the
     // authored map. Keeps the generic path consistent with createWeddingEvent.
     anchor_kind: anchorForType(payload.eventType).kind,
+    // Date-anchor model — the generic flow did not write these until
+    // 2026-07-31, so an anniversary created here landed with no commemorated
+    // date and no yearly flag and NEVER appeared on the Year view, with no
+    // screen anywhere to fix it afterwards.
+    //
+    // ⚠ COUNSEL GATE, enforced HERE and not only in the UI: an anchor kind of
+    // `person_birthdate` (birthday · debut · christening) must never carry a
+    // date, because that date IS a person's birthdate and events do not store
+    // those. A future screen that starts asking cannot leak through this path.
+    anchor_date:
+      anchorForType(payload.eventType).kind === 'person_birthdate'
+        ? null
+        : (payload.anchorDate || null),
+    // Positive origins only — mirrors the DB CHECK. An unrecognized value is
+    // dropped rather than passed through to fail the insert.
+    anchor_origin: isAnchorOrigin(payload.anchorOrigin) ? payload.anchorOrigin : null,
+    recurs: payload.recurs === true,
     event_date: null,
     venue_name: null,
     venue_address: null,

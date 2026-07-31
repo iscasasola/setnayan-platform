@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6228
+# facts: 6237
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     709
-#   col       4456
-#   policy    832
+#   tpriv     710
+#   col       4463
+#   policy    833
 #   view      10
 #   func      217
 #
@@ -549,6 +549,7 @@ tpriv	public.vendor_bid_submissions|anon	SIUD
 tpriv	public.vendor_bid_submissions|authenticated	SIUD
 tpriv	public.vendor_billing_catalog|anon	SIUD
 tpriv	public.vendor_billing_catalog|authenticated	SIUD
+tpriv	public.vendor_block_scripts|authenticated	SIUD
 tpriv	public.vendor_bot_config|anon	SIUD
 tpriv	public.vendor_bot_config|authenticated	SIUD
 tpriv	public.vendor_bot_replies|anon	SIUD
@@ -4035,6 +4036,13 @@ col	public.vendor_billing_catalog.sku_code	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.title	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.token_grant_count	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.updated_at	anon=SIU authenticated=SIU
+col	public.vendor_block_scripts.block_id	anon=- authenticated=SIU
+col	public.vendor_block_scripts.body	anon=- authenticated=SIU
+col	public.vendor_block_scripts.created_at	anon=- authenticated=SIU
+col	public.vendor_block_scripts.event_id	anon=- authenticated=SIU
+col	public.vendor_block_scripts.script_id	anon=- authenticated=SIU
+col	public.vendor_block_scripts.updated_at	anon=- authenticated=SIU
+col	public.vendor_block_scripts.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_bot_config.auto_accept_enabled	anon=SIU authenticated=SIU
 col	public.vendor_bot_config.auto_accept_threshold	anon=SIU authenticated=SIU
 col	public.vendor_bot_config.created_at	anon=SIU authenticated=SIU
@@ -5790,6 +5798,7 @@ policy	public.vendor_admin_motion_votes|vendor_admin_motion_votes_admin_read	mod
 policy	public.vendor_admin_motions|vendor_admin_motions_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_availability_freed|vaf_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin()) check=NULL
 policy	public.vendor_billing_catalog|vendor_billing_catalog_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
+policy	public.vendor_block_scripts|vendor_block_scripts_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin()) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin())
 policy	public.vendor_bot_config|vendor_bot_config_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR is_admin()) check=NULL
 policy	public.vendor_bot_config|vendor_bot_config_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) OR is_admin()) check=((vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) OR is_admin())
 policy	public.vendor_bot_replies|vendor_bot_replies_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()

@@ -20,6 +20,21 @@ import {
 } from '@/lib/create-subjects';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
 
+/**
+ * The avatar glyph per subject kind. Only a PERSON (and "You") falls through to
+ * a monogram — an initial is a human convention, and printing "A" for "Aling
+ * Nena's Store" would quietly file a business under people. Keyed by kind so a
+ * widened vocabulary lands here as a missing key, not as a wrong glyph.
+ */
+const SUBJECT_GLYPH: Partial<Record<CreateSubject['kind'], string>> = {
+  pet: '🐾',
+  business: '🏪',
+  item: '🔑',
+  other: '✦',
+  // `self`, `person` and `unspecified` are deliberately ABSENT: they keep the
+  // monogram they ship with today ("Someone else" has always shown an S).
+};
+
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
    `concierge_choice` field is always 'diy' here for continuity with the
@@ -271,7 +286,7 @@ export function EventTypePicker({
                   aria-hidden
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 font-sans text-sm text-ink/70"
                 >
-                  {s.kind === 'pet' ? '🐾' : s.kind === 'other' ? '✦' : s.name.slice(0, 1).toUpperCase()}
+                  {SUBJECT_GLYPH[s.kind] ?? s.name.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink">{s.name}</span>

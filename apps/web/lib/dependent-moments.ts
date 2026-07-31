@@ -12,7 +12,7 @@
  * flag is on + counsel-cleared). This module holds no data; it derives.
  */
 import { parseISO } from './event-anchor';
-import { dependentNextMilestone, type DependentSex } from './dependent-people';
+import { dependentNextMilestone, isPersonDependent, type DependentSex } from './dependent-people';
 import type { YearMoment } from './year-moments';
 
 export type DependentForMoments = {
@@ -20,6 +20,13 @@ export type DependentForMoments = {
   name: string;
   birth_date: string | null;
   sex: DependentSex | null;
+  /**
+   * `dependents.dependent_kind`. The ladder below is the HUMAN one (lucky 7th,
+   * debut, 60th), so anything that is not a person is skipped. Optional +
+   * null-tolerant: a missing kind reads as 'person', matching the column default
+   * and the legacy rows from before the discriminator existed.
+   */
+  dependent_kind?: string | null;
 };
 
 const DAY_MS = 86400000;
@@ -39,9 +46,10 @@ function milestoneLabel(name: string, age: number): string {
 }
 
 /**
- * The upcoming milestone moment for each dependent (their NEXT ladder milestone
- * within `withinDays`). Sorted soonest-first. `eventId` is null — a milestone is
- * a suggestion until the guardian taps to plan it.
+ * The upcoming milestone moment for each PERSON dependent (their NEXT ladder
+ * milestone within `withinDays`). Non-person kinds are skipped — see the loop.
+ * Sorted soonest-first. `eventId` is null — a milestone is a suggestion until
+ * the guardian taps to plan it.
  */
 export function buildDependentMoments(
   dependents: DependentForMoments[],
@@ -52,6 +60,10 @@ export function buildDependentMoments(
   const out: YearMoment[] = [];
 
   for (const d of dependents) {
+    // The ladder is human: a lucky 7th, a debut, a 60th. A pet, a business or a
+    // car has an anniversary, never a debut — running their date through this
+    // would print "Aling Nena's Store's debut" the year the shop turned 18.
+    if (!isPersonDependent(d.dependent_kind)) continue;
     if (!d.birth_date) continue;
     const m = dependentNextMilestone(d.birth_date, d.sex, todayISO);
     if (!m) continue;

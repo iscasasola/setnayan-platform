@@ -7,11 +7,13 @@ import {
   DEPENDENT_RELATIONSHIP_LABELS,
   DEPENDENT_KINDS,
   DEPENDENT_KIND_LABELS,
+  DEPENDENT_DATE_LABELS,
   DEPENDENT_SEXES,
   RELIGIONS,
   fenceBand,
   dependentNextMilestone,
   isClaimEligible,
+  isPersonDependent,
   type DependentSex,
   type DependentKind,
 } from '@/lib/dependent-people';
@@ -122,7 +124,8 @@ export async function DependentsSection() {
           Alaga
         </h2>
         <p className="mt-1 text-sm text-ink/55">
-          The ones you care for — a person, a pet, or anything else. Their profile lives inside
+          The ones you care for — a person, a pet, a business, something you own, or anything
+          else. Their profile lives inside
           your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
           names, dates, and events that matter — not documents. Milestones and rites apply to a
           person you plan for (a child or an elder).
@@ -134,7 +137,7 @@ export async function DependentsSection() {
           {dependents.map((d) => {
             // Fence band, milestones + godparents are the PERSON case only — a
             // pet's birthday is never a "debut". Legacy rows (null kind) = person.
-            const isPersonRow = (d.dependent_kind ?? 'person') === 'person';
+            const isPersonRow = isPersonDependent(d.dependent_kind);
             const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
             const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
             const mine = d.owner_user_id === myUserId;
@@ -405,7 +408,8 @@ export async function DependentsSection() {
             ))}
           </select>
           <p className="text-xs text-ink/50">
-            A pet or “something else” is just a name and, if you like, a birthday — no other details.
+            A pet, a business, something you own or “something else” is just a name and, if you
+            like, one date — no other details.
           </p>
         </div>
         <div className="space-y-1.5">
@@ -416,12 +420,19 @@ export async function DependentsSection() {
         </div>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
-            Birthday <span className="text-ink/40">(optional)</span>
+            Birthday, or the date that matters <span className="text-ink/40">(optional)</span>
           </label>
           <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" />
           <p className="text-xs text-ink/50">
             For a person, a stored birthday is only for a child (under 18) or an elder (over 50) —
-            adults keep their own, so invite them instead. A pet can have any birthday, or none.
+            adults keep their own, so invite them instead. Anything else can have any date, or
+            none:{' '}
+            {DEPENDENT_KINDS.filter((k) => k !== 'person').map((k, i, all) => (
+              <span key={k}>
+                {DEPENDENT_KIND_LABELS[k].toLowerCase()} → {DEPENDENT_DATE_LABELS[k].toLowerCase()}
+                {i < all.length - 1 ? ' · ' : '.'}
+              </span>
+            ))}
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

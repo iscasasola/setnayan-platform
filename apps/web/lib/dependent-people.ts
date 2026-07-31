@@ -2,14 +2,25 @@
  * dependent-people.ts — the pure logic of the dependent layer (date-anchor
  * model · Phase 3 · Family graph · flag-off).
  *
- * A dependent is "someone (or something) you care for" — a person, a pet, or
- * anything else (owner 2026-07-13: it is NOT defined as a child). The kind
- * discriminator (`dependent_kind`) decides which rules apply:
+ * A dependent is "someone (or something) you care for" — a person, a pet, a
+ * business, a thing you own, or anything else (owner 2026-07-13: it is NOT
+ * defined as a child; owner 2026-07-30 named the four: "children, business,
+ * items, pets"). The kind discriminator (`dependent_kind`) decides which rules
+ * apply:
  *  - kind = 'person' → the human case, and the ONLY case that can carry
  *    sensitive PI (birthdate + religion + sex, guardian-consented). The age
  *    fence + milestones below apply here.
- *  - kind = 'pet' | 'other' → no fence, no milestones, no religion — just a name
- *    and (optionally) a birthday. No sensitive personal data.
+ *  - kind = 'pet' | 'business' | 'item' | 'other' → no fence, no milestones, no
+ *    religion — just a name and (optionally) one anchor date. No sensitive
+ *    personal data, and NO consent stamp: a company's founding date and a car's
+ *    purchase date are not sensitive PI under RA 10173, and pretending they are
+ *    would cheapen the stamp that protects a child's birthday.
+ *
+ * ⚠ The kind vocabulary is WIDENED, never replaced — 'other' remains the honest
+ * catch-all. Branch on `isPersonDependent()` / `NON_PERSON_DEPENDENT_KINDS`
+ * rather than spelling out kinds inline, so the next widening cannot silently
+ * strand a surface (it already did once: the rehome claim path enumerated
+ * ['pet','other'] and would have refused every business and item).
  *
  * ⚠ This module holds NO data and does NO I/O — pure age-fence + milestone +
  * validation logic. The person-case records (a child's birthdate/religion/sex)
@@ -31,18 +42,62 @@ import { RELIGIONS, isReligion, type Religion } from './profile-personalization'
 
 export { RELIGIONS, isReligion, type Religion };
 
-/** What a dependent record is — a person, a pet, or anything else you care for. */
-export const DEPENDENT_KINDS = ['person', 'pet', 'other'] as const;
+/**
+ * What a dependent record is (owner 2026-07-30 — "children, business, items,
+ * pets"). A CHILD is `person` + relationship 'child'; the other three get their
+ * own kind so the product can stop calling a sari-sari store "something else".
+ * 'other' is kept, not replaced — it is the honest answer for anything the four
+ * do not cover, and existing rows may hold it.
+ */
+export const DEPENDENT_KINDS = ['person', 'pet', 'business', 'item', 'other'] as const;
 export type DependentKind = (typeof DEPENDENT_KINDS)[number];
 
 export const DEPENDENT_KIND_LABELS: Record<DependentKind, string> = {
   person: 'A person',
   pet: 'A pet',
+  business: 'A business',
+  item: 'Something I own',
   other: 'Something else',
+};
+
+/**
+ * What the one stored date MEANS for each kind. The column is `birth_date` for
+ * every kind, but a business is not born and a car has no birthday — asking for
+ * the right date is the whole point of splitting the vocabulary.
+ */
+export const DEPENDENT_DATE_LABELS: Record<DependentKind, string> = {
+  person: 'Birthday',
+  pet: 'Birthday',
+  business: 'Founding date',
+  item: 'The day it became yours',
+  other: 'The date that matters',
 };
 
 export function isDependentKind(v: unknown): v is DependentKind {
   return typeof v === 'string' && (DEPENDENT_KINDS as readonly string[]).includes(v);
+}
+
+/**
+ * Every kind that is NOT a person. Derived from the vocabulary on purpose: a
+ * caller that needs "the non-human ones" must never re-type the list, or the
+ * next widening strands it. This is the list the rehome/transfer-of-care path
+ * matches on.
+ */
+export const NON_PERSON_DEPENDENT_KINDS = DEPENDENT_KINDS.filter(
+  (k): k is Exclude<DependentKind, 'person'> => k !== 'person',
+);
+
+/**
+ * Is this row the HUMAN case — the only one carrying sensitive PI, the age
+ * fence, milestones, godparents and the hand-over-at-18 rule?
+ *
+ * NULL / missing reads as `person`: that is the column default and the legacy
+ * value from before `dependent_kind` existed, and treating an unknown row as a
+ * person is the SAFE direction — it applies the strictest rules (fence + consent
+ * + majority lock) rather than waiving them.
+ */
+export function isPersonDependent(kind: string | null | undefined): boolean {
+  return (kind ?? 'person') === 'person';
 }
 
 /** Optional sex — only for the 18F/21M debut derivation. */

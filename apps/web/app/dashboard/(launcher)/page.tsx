@@ -6,11 +6,12 @@ import {
   ShieldCheck,
   Plus,
   ArrowUpRight,
-  LayoutGrid,
   Wand2,
   AlertCircle,
   Users,
   Clapperboard,
+  Images,
+  Heart,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -1049,6 +1050,27 @@ export default async function LauncherPage({
                   ))}
                 </div>
               ) : null}
+              {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
+                  the group of your shop, hq, and creators lab, and favorite
+                  vendors." They were previously only advertised (never shown)
+                  under Memories Hub, whose panel has no vendor code at all.
+                  Here they sit with the other business doorways, and the link
+                  goes to the tab that actually renders them. */}
+              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
+                Vendors you saved
+              </p>
+              <Link
+                href="/dashboard/library?tab=vendors"
+                className="group -mx-1 flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-ink/70 hover:text-ink"
+              >
+                <Heart aria-hidden className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-gold-700)]" strokeWidth={1.75} />
+                <span className="flex-1 truncate">Your shortlist</span>
+                <ArrowUpRight
+                  aria-hidden
+                  className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
+                />
+              </Link>
+
               {/* Samahan — communities are LIVE (owner 2026-07-15 composable-
                   event model): real rows + a create door for everyone. */}
               <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
@@ -1103,10 +1125,24 @@ export default async function LauncherPage({
             <YearMomentsStrip userId={user.id} />
           </Suspense>
 
+          {/* ── ALAALA ABSORBS THE HUB (owner 2026-07-31: "the memories hub is
+              still not integrated" · "ala ala is not fixed") ─────────────────
+              This row used to be titled "Memories Hub" and sat as a PEER of the
+              Alaala tile — two names for one idea, which is exactly the overlap
+              the four-surface model exists to remove (Alaala is the single
+              memory dimension; Memories Hub was its old name).
+
+              It is now Alaala's own content: same photos, no second brand.
+
+              ⚠ The subtitle also promised "saved vendors", and this panel
+              renders PhotosTab, which contains ZERO vendor code. The page
+              advertised a third thing it did not show. Saved vendors now live
+              where the owner put them — with the shops and consoles, in
+              Spaces — and this row says only what it actually contains. */}
           <Expandable
-            icon={<LayoutGrid className="h-[18px] w-[18px]" />}
-            title="Memories Hub"
-            subtitle="Photos · videos · saved vendors"
+            icon={<Images className="h-[18px] w-[18px]" />}
+            title="Photos & videos"
+            subtitle="Every album, across every event"
           >
             <Suspense fallback={<InlinePanelSkeleton />}>
               <PhotosTab userId={user.id} />

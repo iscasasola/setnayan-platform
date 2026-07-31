@@ -48,18 +48,44 @@ export async function getBlockingLifeEvent(
 ): Promise<BlockingLifeEvent | null> {
   if (!isGatedLifeType(candidate.eventType)) return null;
 
-  const { data } = await supabase
+  // ⚠ THIS READ IS THE GATE. It must FAIL CLOSED.
+  //
+  // It used to be one embedded select on `events` with `const { data } = …` —
+  // the error destructured away. When 20271025120000 denied honoree_label /
+  // honoree_dependent_id to `authenticated`, that shape would have made
+  // PostgREST error, left `data` undefined, produced zero rows, and returned
+  // "not blocked" — silently turning the one-in-planning cap into unlimited,
+  // with green CI. So: two steps, `events_host` (the couple/moderator-scoped
+  // view that still projects the honoree columns), and every error THROWN.
+  //
+  // Throwing is correct here even though it surfaces as a 500: a cardinality
+  // gate that cannot read its own inputs must refuse, never wave the write
+  // through. Same posture as create-event/actions.ts's events_host read.
+  const { data: memberships, error: memberErr } = await supabase
     .from('event_members')
-    .select(
-      'events:event_id(event_id, event_type, display_name, event_date, archived, honoree_label, honoree_dependent_id, created_at)',
-    )
+    .select('event_id')
     .eq('user_id', userId)
     .eq('member_type', 'couple');
+  if (memberErr) {
+    throw new Error(`life-event guard: membership read failed — ${memberErr.message}`);
+  }
+
+  const eventIds = (memberships ?? []).map((m) => (m as { event_id: string }).event_id);
+  if (eventIds.length === 0) return null;
+
+  const { data, error: eventsErr } = await supabase
+    .from('events_host')
+    .select(
+      'event_id, event_type, display_name, event_date, archived, honoree_label, honoree_dependent_id, created_at',
+    )
+    .in('event_id', eventIds)
+    .eq('event_type', candidate.eventType);
+  if (eventsErr) {
+    throw new Error(`life-event guard: events_host read failed — ${eventsErr.message}`);
+  }
 
   const rows: LifeEventRow[] = [];
-  for (const row of (data ?? []) as MemberEventsRow[]) {
-    const e = row.events;
-    const ev = Array.isArray(e) ? e[0] : e;
+  for (const ev of (data ?? []) as LifeEventRow[]) {
     if (ev != null && ev.event_type === candidate.eventType) rows.push(ev);
   }
 

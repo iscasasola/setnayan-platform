@@ -568,21 +568,35 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <div className="max-w-sm">
             <ExtraCamerasPicker
               eventId={eventId}
-              rungs={PAPIC_RUNGS.map((rung) => ({
-                rung,
-                title: papicTierConfig[rung].displayTitle,
-                ratePhp: papicRungRate(cameraRates, rung),
-                pointsPerDay: papicTierConfig[rung].pointsPerDay,
-                capPhp: papicRungCapPhp[rung],
-                // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
-                // rung. Nothing frees the ₱50 Ltd rung today.
-                free:
-                  rung === 'unlimited'
-                    ? ownsPapicUnlock
-                    : rung === 'mini'
-                      ? ownsPapicUnlockLtd
-                      : false,
-              }))}
+              // ⚠ FILTER BEFORE MAP. PAPIC_RUNGS is a static vocabulary of every
+              // rung the code can SPEAK, not a list of what is on SALE — the
+              // sale list is `papic_tier_config.is_active`, which an admin
+              // edits without a deploy. Mapping the constant straight to the
+              // picker put both RETIRED rungs on a live buy button: 'ltd'
+              // (migration 20270828150000) and 'unlimited' (20270830568357) are
+              // both is_active=false, as are their catalog price rows — so they
+              // quoted ₱50 / ₱200 off the fail-closed FALLBACK constants in
+              // lib/papic-cameras.ts, which exist so a retired rung cannot
+              // quote ₱0, not so it can keep selling. It also broke the
+              // 2026-07-30 naming lock: "Papic Ltd" and "Papic Max" are not
+              // products, and only Pool and One may appear on a display surface.
+              rungs={PAPIC_RUNGS.filter((rung) => papicTierConfig[rung].isActive).map(
+                (rung) => ({
+                  rung,
+                  title: papicTierConfig[rung].displayTitle,
+                  ratePhp: papicRungRate(cameraRates, rung),
+                  pointsPerDay: papicTierConfig[rung].pointsPerDay,
+                  capPhp: papicRungCapPhp[rung],
+                  // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
+                  // rung. Nothing frees the ₱50 Ltd rung today.
+                  free:
+                    rung === 'unlimited'
+                      ? ownsPapicUnlock
+                      : rung === 'mini'
+                        ? ownsPapicUnlockLtd
+                        : false,
+                }),
+              )}
               days={papicDays}
               windowSummary={papicWindowSummary}
             />

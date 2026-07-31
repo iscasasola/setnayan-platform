@@ -44,8 +44,10 @@ test('every Phase-1 closed-roster type is allowed today', () => {
     assert.equal(decision.allowed, true, `${eventType} must be allowed at Phase 1`);
     assert.equal(decision.phase, 1, `${eventType} phase`);
   }
-  // The set itself is the verdict's § 2 rows 1-6 — anniversary is handled by
-  // the controller split, not by membership here.
+  // The set itself is the verdict's § 2 rows 1-6, plus simple_event
+  // (2026-07-31) — anniversary is handled by the controller split, not by
+  // membership here. Pinned as a literal so WIDENING the pass stays a
+  // deliberate edit with a test diff attached, never a drive-by.
   assert.deepEqual([...PAPIC_ACCESS_PHASE_1_TYPES], [
     'wedding',
     'debut',
@@ -53,6 +55,7 @@ test('every Phase-1 closed-roster type is allowed today', () => {
     'christening',
     'gender_reveal',
     'graduation',
+    'simple_event',
   ]);
 });
 
@@ -102,27 +105,28 @@ test('travel is an EXPLICIT deny — even though its profile enables rsvp', () =
   assert.equal(sets.includes('travel'), false);
 });
 
-test('simple_event is denied by the RSVP surface check, not by name', () => {
-  const decision = papicGuestPassAccess({ profile: SIMPLE_PROFILE });
-  assert.equal(decision.allowed, false);
-  assert.equal(
-    decision.allowed === false ? decision.reason : null,
-    'no_rsvp_surface',
-    'simple_event has no rsvp surface ⇒ no guest identity ⇒ auto-excluded',
-  );
-  // Belt + braces: it is also in no phase set, so a prod row that DID carry
-  // `rsvp` (the 20270804110223 unlock ran on every non-wedding row, and
-  // simple_event's profile predates it) is still denied — for scope, not
-  // for surface.
+test('simple_event is in scope, but still needs the RSVP surface', () => {
+  // PROD shape: the profile ROW carries `rsvp` (migration 20270804110223 added
+  // it to every non-wedding row), and simple_event joined PHASE_1 on
+  // 2026-07-31 — the free 50-pt pool arms at create and onboarding sells all
+  // three paid Pool rungs on this type, so the gate must not retract it.
   const withRsvp: EventTypeProfile = {
     ...SIMPLE_PROFILE,
     enabledSurfaces: [...SIMPLE_PROFILE.enabledSurfaces, 'rsvp'],
   };
-  const fallback = papicGuestPassAccess({ profile: withRsvp });
-  assert.equal(fallback.allowed, false);
+  const live = papicGuestPassAccess({ profile: withRsvp });
+  assert.equal(live.allowed, true, 'prod simple_event carries rsvp ⇒ allowed');
+  assert.equal(live.allowed === true ? live.phase : null, 1);
+
+  // FALLBACK shape: the hardcoded SIMPLE_PROFILE (used only when the DB read
+  // fails) has no `rsvp`, and the surface check still governs — being in a
+  // phase set is necessary, never sufficient. A degraded read closes the door
+  // rather than guessing it open.
+  const degraded = papicGuestPassAccess({ profile: SIMPLE_PROFILE });
+  assert.equal(degraded.allowed, false);
   assert.equal(
-    fallback.allowed === false ? fallback.reason : null,
-    'type_out_of_scope',
+    degraded.allowed === false ? degraded.reason : null,
+    'no_rsvp_surface',
   );
 });
 

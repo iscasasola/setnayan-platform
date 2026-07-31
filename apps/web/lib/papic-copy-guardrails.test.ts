@@ -53,6 +53,12 @@ const PAPIC_COPY_FILES = [
   // The onboarding services step (2026-07-29) — the FIRST place most couples
   // ever read a Papic number, and the one with the least room to be wrong.
   'app/onboarding/_shared/services-step.tsx',
+  // The extra-cameras picker (added 2026-07-31). It has rendered a capacity
+  // claim since it shipped and was never listed — so nothing here was watching
+  // when it printed "70 points a day — 70 photos, or 23 clips" off a hardcoded
+  // `/ 3` while enforcement metered a clip at 8. Listing it is half the fix;
+  // COMPUTED_POINTS_DIVISOR below is the other half.
+  'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx',
 ];
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -71,6 +77,22 @@ const SPELLED_CAP = /(?:₱\s*(?:6,000|9,000|10,000|15,000)\b|(?<![\d.])(?:6000|
 // A spelled points budget ("20 points a day", "70 points").
 const SPELLED_POINTS = /\b\d+\s*(?:capture\s*)?points?\b(?!\s*=)/i;
 
+// A points value divided by a LITERAL — `pointsPerDay / 3`, `points / 8`.
+//
+// ⚠ THIS IS THE ONE THE OTHER FOUR STRUCTURALLY CANNOT CATCH, and it is why
+// the extra-cameras picker shipped a ~2.9× overstatement past a green suite for
+// months. Every regex above scans for literal DIGITS IN THE COPY. But the copy
+// was a template literal — `${pointsPerDay} photos, or ${clips} clips` — so the
+// source carried no digits at all, and the wrong number was manufactured one
+// line earlier by `Math.floor(rung.pointsPerDay / 3)`.
+//
+// A guardrail that only reads the sentence cannot see a lie that is computed.
+// The clip weight has ALREADY moved once (7 → 8, owner-locked 2026-07-29), so a
+// hand-written divisor is not merely wrong today, it is guaranteed to rot.
+// Divide by PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or better, render
+// papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic at all.
+const COMPUTED_POINTS_DIVISOR = /\bpoints?[A-Za-z]*\s*\/\s*\d/i;
+
 for (const rel of PAPIC_COPY_FILES) {
   test(`${rel} never spells a photo/clip split promise`, () => {
     const m = read(rel).match(SPLIT_PROMISE);
@@ -81,6 +103,20 @@ for (const rel of PAPIC_COPY_FILES) {
         `purse (1 photo = 1 pt · 1 clip = ${PAPIC_POINTS_PER_CLIP} pts), so an exact ` +
         `"N photos + M clips" promise is false by construction. Render ` +
         `papicCapacityPhrase() / papicBucketPhrase() from lib/papic-tier-copy.ts.`,
+    );
+  });
+
+  test(`${rel} never divides a points value by a literal`, () => {
+    const m = read(rel).match(COMPUTED_POINTS_DIVISOR);
+    assert.equal(
+      m,
+      null,
+      `${rel} carries "${m?.[0]}". A hand-written divisor on a points value ` +
+        `manufactures a capacity claim the copy regexes cannot see, and it rots ` +
+        `the next time the currency moves (the clip weight is already on its ` +
+        `second value — now ${PAPIC_POINTS_PER_CLIP}). Divide by ` +
+        `PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or render ` +
+        `papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic.`,
     );
   });
 

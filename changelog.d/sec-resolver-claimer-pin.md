@@ -84,3 +84,19 @@ Regenerated baseline, narrowings only:
 It closes *"nominating a **third party** as claimer."* It does **not** stop an authenticated attacker calling with a victim's email and `p_claimer = their own uid` — that passes the guard and is blocked only incidentally by `people.claimed_by_user_id UUID UNIQUE`, since an attacker already owns a node minted at signup. A UNIQUE constraint doing authz work is worth knowing about; it is not this PR's job to fix, and this PR should not be described as closing it.
 
 **Verified:** 659 DB tests · 5,681 unit tests · 0 failures. `tsc` clean. Exposure freeze, baseline lint, dup-rule, migration-doctor and timestamp guards all exit 0.
+
+### 3 · The prefix collided with a migration that landed while this PR sat open
+
+The pre-push hook refused the push:
+
+```
+✗ Push blocked — RULE 1: duplicate Supabase migration timestamp prefix(es): 20271025100000
+    - supabase/migrations/20271025100000_person_connections_per_command_policies.sql
+    - supabase/migrations/20271025100000_sec_resolve_or_claim_person_lockdown.sql
+```
+
+Another session shipped `20271025100000_person_connections_per_command_policies.sql` to `main` while this branch waited. Two files under one prefix half-apply prod on `db push` and then crash on the duplicate — the hook is the only thing between that and production, and it earned its keep here. Re-allocated to `20271026206007` via `pnpm migration:new`; the SQL is byte-identical apart from the filename in its own header.
+
+⚠ **Worth the owner's attention:** that new migration on `main` closes the *same* `person_connections` forgery/self-confirm hole as the stacked PR #3941 on `claude/sec-honoree-deny-and-guard`. Two migrations now do one job. #3941 is idempotent (`DROP POLICY IF EXISTS` + `CREATE POLICY`) so applying both is not destructive, but the second one to run silently wins and the DECISION_LOG will show two authors for one fix. Reconcile before merging that branch.
+
+Re-verified on the merged tree: **677 DB tests, 0 failures**; regenerated baseline came back **unchanged** (6,226 facts), so main's new migrations did not move the surface.

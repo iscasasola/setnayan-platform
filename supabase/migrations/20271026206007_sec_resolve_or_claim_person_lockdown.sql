@@ -1,4 +1,4 @@
--- 20271025100000_sec_resolve_or_claim_person_lockdown.sql
+-- 20271026206007_sec_resolve_or_claim_person_lockdown.sql
 --
 -- SEC · public.resolve_or_claim_person — close the anon lane and pin the claimer.
 --

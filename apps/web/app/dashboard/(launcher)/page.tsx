@@ -1123,11 +1123,14 @@ export default async function LauncherPage({
               )}
             </div>
 
-            {/* SPACES · 1 of 2 — "YOURS TO RUN". The stances this account
-                OPERATES: their vendor shop(s), Admin HQ, and the Creator's Lab.
-                Shop + HQ rows are capability-gated (absent for a plain couple);
-                the Creator row always renders, so the heading is never empty.
-                These still NAVIGATE — their own dashboards are allowed jumps. */}
+            {/* SPACES → "YOURS TO RUN" (owner 2026-07-30 "split it in two").
+                The stances this account OPERATES, as labelled groups: the
+                vendor shop(s) + Admin HQ rows, "Vendors you saved", and the
+                Creator's Lab. Shop + HQ rows are capability-gated (absent for a
+                plain couple); the Creator row always renders, so the heading is
+                never empty. The other half of the split is the PEOPLE tile
+                below — Samahan moved out of here entirely. These still NAVIGATE
+                — their own dashboards are allowed jumps. */}
             <div
               className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
               style={{ animationDelay: '0.9s' }}

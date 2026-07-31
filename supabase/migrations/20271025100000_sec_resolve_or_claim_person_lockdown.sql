@@ -16,17 +16,31 @@
 -- keeps `authenticated`, and the body enforces that a claimer may only ever be
 -- the caller themselves.
 --
--- BLAST RADIUS — every call site was checked at origin/main c273ae015:
+-- BLAST RADIUS — CORRECTED 2026-07-31. The first version of this header said
+-- "NOTHING in the codebase passes p_claimer" and "trigger paths are unaffected".
+-- BOTH WERE WRONG, and CI proved it: four creator-loop DB tests started failing
+-- with this migration's own exception.
+--
 --   · people/actions.ts:62   → p_email + p_creator only
 --   · people/actions.ts:236  → p_email + p_creator only
---   · generate_event_connections (20270515967165:118) → p_email + p_creator only
--- NOTHING in the codebase passes p_claimer. The guard is therefore a no-op for
--- every current caller and cannot regress a live path. The SQL caller is itself
--- SECURITY DEFINER and already REVOKEd from PUBLIC, so its nested call runs with
--- the definer's rights and is unaffected by the REVOKE below.
+--   · generate_event_connections (20270515967165:118) → p_creator only
+--   · ⚠ ensure_person_for_user (20270514555975:126-134) → PASSES p_claimer.
+--     It is the signup trigger — AFTER INSERT ON public.users — and it sits
+--     FOURTEEN LINES BELOW the resolver this file audits, in the same migration.
+--     The audit read the function and stopped before the trigger under it.
 --
--- Trigger paths are unaffected for the same reason: a trigger executes with the
--- privileges of its own definer, not the session role.
+-- The "trigger paths are unaffected" claim conflated PRIVILEGE with IDENTITY.
+-- SECURITY DEFINER changes the privileges a body runs with; it does NOT change
+-- `auth.uid()`, which is a session GUC (`request.jwt.claim.sub`). So inside that
+-- trigger auth.uid() is still whoever holds the connection, while p_claimer is
+-- the NEW row's user_id. On any connection that carries a user JWT those differ,
+-- and an unguarded version of this check would make SIGNUP ITSELF throw 42501.
+--
+-- Hence `pg_trigger_depth() = 0` below: the guard exists for the DIRECT
+-- PostgREST surface, which is always depth 0. It weakens nothing — the one
+-- trigger that reaches here hardcodes p_claimer := NEW.user_id on a row whose
+-- user_id is already pinned by public.users' RLS WITH CHECK (user_id =
+-- auth.uid()), so that path cannot nominate a third party even in principle.
 --
 -- Mirrors the sibling lockdown at 20270515967165:147-148.
 --
@@ -46,9 +60,38 @@ REVOKE ALL ON FUNCTION public.resolve_or_claim_person(
   TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, DATE, UUID, UUID
 ) FROM PUBLIC;
 
+-- ⚠ REVOKE FROM PUBLIC IS NOT ENOUGH — verified in prod 2026-07-31.
+-- Supabase's default privileges GRANT EXECUTE to anon and authenticated
+-- EXPLICITLY on every new function in `public`, and revoking from the PUBLIC
+-- pseudo-role does not remove an explicit role grant. §2 below has explained
+-- this since the first draft; §1 then relied on the PUBLIC revoke anyway.
+--
+-- Proof, from prod, on the very sibling this migration says it "mirrors" —
+-- 20270515967165:147-148 shipped exactly REVOKE-FROM-PUBLIC + GRANT-TO-authed:
+--
+--     proname                     public_exec   anon_exec   authed_exec
+--     generate_event_connections  false         TRUE        true
+--
+-- The PUBLIC revoke worked and anon kept executing. Without the line below this
+-- migration would have shipped the identical hole, under a §3 post-condition
+-- that only inspected PUBLIC — green migration, lane open.
+REVOKE ALL ON FUNCTION public.resolve_or_claim_person(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, DATE, UUID, UUID
+) FROM anon;
+
 GRANT EXECUTE ON FUNCTION public.resolve_or_claim_person(
   TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, DATE, UUID, UUID
 ) TO authenticated, service_role;
+
+-- ── 1b · The sibling, proven open by the same query ─────────────────────────
+-- generate_event_connections is anon-EXECUTE-able in prod today for exactly the
+-- reason above. Its sole caller is a flag-guarded server action running as the
+-- user, so authenticated-only is its intended reach. Closed here rather than
+-- filed, because a hole you have measured and left open is a decision, not a
+-- backlog item.
+REVOKE ALL ON FUNCTION public.generate_event_connections(UUID, UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION public.generate_event_connections(UUID, UUID)
+  TO authenticated, service_role;
 
 -- ── 2 · Identity: a claimer may only be the caller ──────────────────────────
 -- INLINE, deliberately. The first draft extracted this into a small
@@ -102,7 +145,8 @@ BEGIN
   -- itself widen the exposure surface. NULL claimer ("leave unclaimed") is the
   -- only shape any current caller uses; a JWT-less context is service_role or a
   -- trigger, both trusted server paths; admins are exempt.
-  IF p_claimer IS NOT NULL
+  IF pg_trigger_depth() = 0
+     AND p_claimer IS NOT NULL
      AND auth.uid() IS NOT NULL
      AND p_claimer <> auth.uid()
      AND NOT public.is_admin() THEN
@@ -165,18 +209,34 @@ $$;
 
 
 -- ── 3 · Post-condition: fail the migration if the lane is still open ────────
+-- Checking only 'public' is what let the hole hide: PUBLIC is a pseudo-role and
+-- anon holds its own explicit grant, so the original assertion passed while the
+-- lane it claimed to close stayed open. Assert the ROLES.
 DO $$
 DECLARE
-  v_public_exec BOOLEAN;
+  r RECORD;
+  leaked TEXT;
 BEGIN
-  SELECT has_function_privilege('public', p.oid, 'EXECUTE')
-    INTO v_public_exec
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-   WHERE n.nspname = 'public' AND p.proname = 'resolve_or_claim_person'
-   LIMIT 1;
+  FOR r IN
+    SELECT p.oid, p.proname
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('resolve_or_claim_person', 'generate_event_connections')
+  LOOP
+    IF has_function_privilege('public', r.oid, 'EXECUTE') THEN
+      leaked := coalesce(leaked || ', ', '') || r.proname || ' (PUBLIC)';
+    END IF;
+    IF has_function_privilege('anon', r.oid, 'EXECUTE') THEN
+      leaked := coalesce(leaked || ', ', '') || r.proname || ' (anon)';
+    END IF;
+    -- positive control: the narrowing must not have taken the live caller with it
+    IF NOT has_function_privilege('authenticated', r.oid, 'EXECUTE') THEN
+      RAISE EXCEPTION '% lost EXECUTE for authenticated — the live caller is broken', r.proname;
+    END IF;
+  END LOOP;
 
-  IF v_public_exec THEN
-    RAISE EXCEPTION 'resolve_or_claim_person is still EXECUTE-able by PUBLIC after revoke';
+  IF leaked IS NOT NULL THEN
+    RAISE EXCEPTION 'still EXECUTE-able after revoke: %', leaked;
   END IF;
 END $$;

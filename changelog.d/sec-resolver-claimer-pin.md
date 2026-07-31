@@ -40,3 +40,47 @@ Adding `REVOKE … FROM anon` would have worked. Inlining is better: **a securit
 **Not closed here, deliberately.** `anon`/`authenticated` still hold direct `UPDATE` on `public.people`, and `people_owner_all`'s `WITH CHECK` admits a `created_by_user_id = auth.uid()` leg. That is a separate lane with its own blast radius and gets its own PR — bundling it would make this one unreviewable.
 
 SPEC IMPACT: None. No product behaviour changes; no surface, copy, price or flag moves. Security posture only.
+
+
+## 2026-07-31 · the review that found two defects in this PR
+
+CI turned this from a clean lockdown into a corrected one. Four `creator-loop.db.test.ts` tests failed with **this migration's own exception**, and chasing that surfaced a second, worse problem.
+
+### 1 · The header's central claim was false
+
+It said *"NOTHING in the codebase passes p_claimer"* and *"trigger paths are unaffected."* Both wrong.
+
+`ensure_person_for_user` — the **signup trigger**, `AFTER INSERT ON public.users` — passes `p_claimer => NEW.user_id`. It sits **fourteen lines below** the resolver this file audits, **in the same migration**. The audit read the function and stopped before the trigger under it.
+
+The "triggers are unaffected" reasoning conflated **privilege** with **identity**. `SECURITY DEFINER` changes the privileges a body runs with; it does not change `auth.uid()`, which is a session GUC. Inside that trigger `auth.uid()` is whoever holds the connection while `p_claimer` is the new row's id — on any connection carrying a user JWT those differ, and the guard fires. In the tests that meant four red suites. In a production shape where a user session inserts a `public.users` row, it would mean **signup itself throwing 42501**.
+
+Fixed with one conjunct: `pg_trigger_depth() = 0`. The guard exists for the **direct PostgREST surface**, which is always depth 0. It weakens nothing — the one trigger that reaches here hardcodes `p_claimer := NEW.user_id` on a row whose `user_id` is already pinned by `public.users`' RLS `WITH CHECK (user_id = auth.uid())`, so that path cannot nominate a third party even in principle.
+
+### 2 · §1 did not close the lane §1 claimed to close
+
+`REVOKE ALL … FROM PUBLIC` does **not** remove `anon`'s explicit grant. §2 of this very file has explained that since the first draft — and §1 relied on the PUBLIC revoke anyway.
+
+Measured in prod, on the exact sibling this migration says it *"mirrors"* (`20270515967165:147-148`, the same two lines):
+
+| function | `public` | **`anon`** | `authenticated` |
+|---|---|---|---|
+| `generate_event_connections` | false | **TRUE** | true |
+
+The PUBLIC revoke worked and **anon kept executing.** Without a fix this PR ships the identical hole — under a §3 post-condition that only inspected `has_function_privilege('public', …)`. **Green migration, lane open.** The exposure freeze would not have caught it either: nothing widened.
+
+Three changes: `REVOKE … FROM anon` on the resolver; the same on `generate_event_connections`, which is anon-executable in prod **today** for the identical reason (a hole you have measured and left open is a decision, not a backlog item); and a post-condition that asserts the **roles** — PUBLIC *and* anon — plus a positive control that `authenticated` did **not** lose EXECUTE, so a narrowing can never silently break the live caller.
+
+Regenerated baseline, narrowings only:
+
+```
+-func public.generate_event_connections(…)  exec=anon,authenticated
++func public.generate_event_connections(…)  exec=authenticated
+-func public.resolve_or_claim_person(…)     exec=anon,authenticated
++func public.resolve_or_claim_person(…)     exec=authenticated
+```
+
+### Honest scope of the body guard
+
+It closes *"nominating a **third party** as claimer."* It does **not** stop an authenticated attacker calling with a victim's email and `p_claimer = their own uid` — that passes the guard and is blocked only incidentally by `people.claimed_by_user_id UUID UNIQUE`, since an attacker already owns a node minted at signup. A UNIQUE constraint doing authz work is worth knowing about; it is not this PR's job to fix, and this PR should not be described as closing it.
+
+**Verified:** 659 DB tests · 5,681 unit tests · 0 failures. `tsc` clean. Exposure freeze, baseline lint, dup-rule, migration-doctor and timestamp guards all exit 0.

@@ -33,7 +33,7 @@
     "exposure:baseline": "tsx scripts/gen-exposure-baseline.ts",
     "ugat:code-map": "tsx scripts/gen-ugat-code-map.ts",
     "schema:snapshot": "tsx scripts/gen-schema-snapshot.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=7168 tsc --noEmit",
     "test:e2e": "playwright test"
   },
   "dependencies": {

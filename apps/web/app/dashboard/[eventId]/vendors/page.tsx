@@ -15,6 +15,7 @@
  */
 
 import { redirect } from 'next/navigation';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
@@ -175,6 +176,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Event-type backstop (0053): the vendor bench is the MARKETPLACE, and
+  // `marketplace_enabled = false` is the column that encodes a vendor-free type.
+  // The nav has hidden this since 2026-06-27, yet the page still rendered the
+  // full bench from a direct URL — including a Setnayan AI upsell, on the one
+  // type where the assistant is not offered at all (owner lock 2026-07-27).
+  // Gated on the COLUMN, never the type name, so a future vendor-free type is
+  // covered without editing this file.
+  const profile = await resolveProfileByEvent(eventId);
+  if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
 
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still

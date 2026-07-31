@@ -1,7 +1,8 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
-import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { ADD_ONS, addOnHref, addOnOfferedForEvent } from '@/lib/add-ons-catalog';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
   AddOnDetailView,
   addOnAboutTitle,
@@ -38,6 +39,37 @@ export default async function AddOnDetailPage({ params }: Props) {
   // order is still an owner. Graceful-degrade on a missing/legacy orders table
   // (eventSkuActive → not active) falls through to the About page, never crashes.
   const entry = ADD_ONS.find((a) => a.key === addon);
+
+  // ── EVENT-TYPE GATE (added 2026-07-31) ────────────────────────────────────
+  //
+  // This route had NONE. The Suite grid filters its cards by event type, but a
+  // grid that hides a card does not close the URL behind it — and this page is
+  // the URL. `/dashboard/<id>/studio/about/papic-guest` rendered the Papic Pool
+  // pitch on a `travel` event, the one type on the permanent V1 deny list, and
+  // `/about/save-the-date` rendered on types whose profile disables that
+  // surface. Every "learn more" link in the product points here, so the deep
+  // link is not exotic — it is the ordinary path with the grid skipped.
+  //
+  // Shares `addOnOfferedForEvent` with Suite precisely so the two cannot drift
+  // again; the split between them is what let this survive.
+  //
+  // notFound() rather than a redirect: the couple asked for a service their
+  // event type does not offer, and there is no honest "instead, try…" — bouncing
+  // them to the Suite grid would imply the thing exists somewhere in it.
+  if (entry) {
+    const [profile, { data: eventRow }] = await Promise.all([
+      resolveProfileByEvent(eventId),
+      createAdminClient()
+        .from('events')
+        .select('community_id')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    const communityId =
+      (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
+    if (!addOnOfferedForEvent(entry, profile, communityId)) notFound();
+  }
+
   if (
     entry?.serviceKey &&
     (await eventSkuActive(createAdminClient(), eventId, entry.serviceKey))

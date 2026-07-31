@@ -5,6 +5,8 @@ import { resolveSongDeskAccess } from '@/lib/song-desk-gate';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { eventSkuActive } from '@/lib/entitlements';
+import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchGuestsByEvent } from '@/lib/guests';
 import { classifyPopulation, type ProbeResult } from './verdict';
 
 /**
@@ -364,9 +366,138 @@ const paidOrderActivation: Probe = {
 };
 
 /**
+ * PROBE 5 · a vendor's own bookings reach their own calendar.
+ *
+ * Pair: **a live pool booking should appear in that vendor's calendar read.**
+ *
+ * ── WHY THIS IS NOT TAUTOLOGICAL ───────────────────────────────────────────
+ * It looks like it must always pass — same database, same filter, both under
+ * service_role. It does not, and the reason is in the reader:
+ *
+ *     const { data: rows } = await supabase.from(...)...   // ← no error check
+ *     const bookings = (rows ?? []) as ...
+ *
+ * `fetchVendorPoolBookings` DISCARDS the error object. Any failure — a renamed
+ * column, a dropped column, a view/table divergence, an RLS change — comes back
+ * as `data: null` and becomes an empty calendar with no exception and no log.
+ * The vendor opens their day and sees nothing; the page renders perfectly. That
+ * is the phantom-column class this codebase has already shipped once, and the
+ * `?? []` is what hid it.
+ *
+ * So the probe compares the READER against a direct count of the same filtered
+ * rows. Agreement proves the select still resolves; disagreement is the reader
+ * silently degrading. Nothing else in CI can see that, because a `?? []`
+ * fallback typechecks and tests green.
+ */
+const vendorCalendarReach: Probe = {
+  key: 'vendor-calendar-reach',
+  title: "Vendors' bookings reach their own calendar",
+  run: async (): Promise<ProbeResult> => {
+    const admin = createAdminClient();
+
+    // `released_at is null` mirrors the reader's own filter exactly — a truth
+    // count that counted released bookings too would fault on healthy data.
+    const { data, error } = await admin
+      .from('vendor_schedule_pool_bookings')
+      .select('vendor_profile_id')
+      .is('released_at', null);
+    if (error) throw new Error(`pool bookings unreadable: ${error.message}`);
+
+    const truthByVendor = new Map<string, number>();
+    for (const r of (data ?? []) as { vendor_profile_id: string }[]) {
+      truthByVendor.set(r.vendor_profile_id, (truthByVendor.get(r.vendor_profile_id) ?? 0) + 1);
+    }
+
+    let truth = 0;
+    let seen = 0;
+    let blind = 0;
+    for (const [vendorProfileId, expected] of truthByVendor) {
+      truth += expected;
+      const got = (await fetchVendorPoolBookings(admin, vendorProfileId)).length;
+      seen += Math.min(got, expected);
+      if (got < expected) blind += 1;
+    }
+
+    return {
+      probeKey: vendorCalendarReach.key,
+      permitted: true,
+      subjectCount: seen,
+      truthCount: truth,
+      verdict: classifyPopulation(seen, truth),
+      detail:
+        truth === 0
+          ? 'No live bookings to check.'
+          : blind === 0
+            ? `All ${truth} live booking(s) reach their vendor's calendar.`
+            : `${blind} vendor(s) have bookings their own calendar read does not return — the reader is degrading silently.`,
+    };
+  },
+};
+
+/**
+ * PROBE 6 · a couple's guests reach the couple's own list.
+ *
+ * Pair: **a non-deleted guest row should appear in that event's guest list.**
+ *
+ * Same shape as probe 5 and the same justification, except here the reader says
+ * it out loud. `fetchGuestsByEvent` carries a five-pass hotfix header ending in
+ * a deliberate decision to "always graceful-degrade, never crash the page" — on
+ * RLS denial, auth failure, network error or schema drift it returns an EMPTY
+ * GUEST LIST rather than throwing. That is the right call for a page a host is
+ * standing in front of, and it means the failure is invisible from inside the
+ * product: a host with 39 guests sees a clean empty state and assumes they
+ * imported nothing.
+ *
+ * A reader that cannot fail loudly needs something outside it that can.
+ */
+const guestListReach: Probe = {
+  key: 'guest-list-reach',
+  title: "Couples' guests reach their own guest list",
+  run: async (): Promise<ProbeResult> => {
+    const admin = createAdminClient();
+
+    // `deleted_at is null` mirrors the reader's filter — see probe 5.
+    const { data, error } = await admin
+      .from('guests')
+      .select('event_id')
+      .is('deleted_at', null);
+    if (error) throw new Error(`guests unreadable: ${error.message}`);
+
+    const truthByEvent = new Map<string, number>();
+    for (const r of (data ?? []) as { event_id: string }[]) {
+      truthByEvent.set(r.event_id, (truthByEvent.get(r.event_id) ?? 0) + 1);
+    }
+
+    let truth = 0;
+    let seen = 0;
+    let blind = 0;
+    for (const [eventId, expected] of truthByEvent) {
+      truth += expected;
+      const got = (await fetchGuestsByEvent(admin, eventId)).length;
+      seen += Math.min(got, expected);
+      if (got < expected) blind += 1;
+    }
+
+    return {
+      probeKey: guestListReach.key,
+      permitted: true,
+      subjectCount: seen,
+      truthCount: truth,
+      verdict: classifyPopulation(seen, truth),
+      detail:
+        truth === 0
+          ? 'No guests to check.'
+          : blind === 0
+            ? `All ${truth} guest(s) reach their event's list.`
+            : `${blind} event(s) have guests the host's own list does not return — the reader is degrading silently.`,
+    };
+  },
+};
+
+/**
  * The registry.
  *
- * FOUR probes over 83 mapped joints, and the map itself covers roughly a third
+ * SIX probes over 83 mapped joints, and the map itself covers roughly a third
  * of the app — `ugat-concept.baseline.txt` still lists 47 subsystems it has
  * never reached. That ratio is the honest state of this system on day one and
  * it is written down here rather than implied, because a coverage number nobody
@@ -377,4 +508,6 @@ export const PROBES: readonly Probe[] = [
   songRequestsHaveAnAudience,
   songDeskNarrowingLockout,
   paidOrderActivation,
+  vendorCalendarReach,
+  guestListReach,
 ];

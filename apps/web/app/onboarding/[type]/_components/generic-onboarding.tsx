@@ -12,6 +12,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import {
+  ANCHOR_ORIGIN_LABELS,
+  ANCHOR_ORIGINS,
+  canToggleRecur,
+} from '@/lib/event-anchor';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -87,6 +92,9 @@ type Draft = {
   startedAt: number;
   displayName: string;
   honoree: string;
+  anchorDate: string;
+  anchorOrigin: string;
+  recurs: boolean;
   dateValue: string;
   pax: string;
   region: string;
@@ -132,6 +140,17 @@ export function GenericOnboarding(props: Props) {
   // forever with a generic error (fixed 2026-07-31).
   const [honoree, setHonoree] = useState('');
   const gatedLifeType = isGatedLifeType(eventType);
+  // The date this event COMMEMORATES, and why — asked only for anniversary,
+  // whose whole nature is "the day we're marking". Never asked for
+  // birthday/debut/christening: their anchor IS a person's birthdate, which
+  // events do not store (counsel gate, also enforced in event-insert.ts).
+  const [anchorDate, setAnchorDate] = useState('');
+  const [anchorOrigin, setAnchorOrigin] = useState<string>('wedding');
+  const isAnniversary = eventType === 'anniversary';
+  // "Make it a yearly thing?" — the owner-locked toggle types. Anniversary and
+  // birthday recur by nature and get no toggle.
+  const showRecurToggle = canToggleRecur(eventType);
+  const [recurs, setRecurs] = useState(false);
   const [dateValue, setDateValue] = useState('');
   const [pax, setPax] = useState('');
   const [region, setRegion] = useState('');
@@ -170,7 +189,9 @@ export function GenericOnboarding(props: Props) {
       'welcome',
       'name',
       ...(gatedLifeType ? ['honoree'] : []),
+      ...(isAnniversary ? ['anchor'] : []),
       'date',
+      ...(showRecurToggle ? ['recurs'] : []),
       'pax',
       'region',
       ...questions.filter((q) => !(q.id in prefillDetails)).map((q) => `tq_${q.id}`),
@@ -185,7 +206,10 @@ export function GenericOnboarding(props: Props) {
       ...(servicesStepView ? ['services'] : []),
       'congrats',
     ],
-    [questions, axisIds, specialtyFields, prefillDetails, servicesStepView, gatedLifeType],
+    [
+      questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
+      gatedLifeType, isAnniversary, showRecurToggle,
+    ],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -202,6 +226,9 @@ export function GenericOnboarding(props: Props) {
         if (d && d.v === 1 && Date.now() - d.startedAt < DRAFT_TTL_MS) {
           setDisplayName(d.displayName ?? '');
           setHonoree(d.honoree ?? '');
+          setAnchorDate(d.anchorDate ?? '');
+          setAnchorOrigin(d.anchorOrigin ?? 'wedding');
+          setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
           setPax(d.pax ?? '');
           setRegion(d.region ?? '');
@@ -225,12 +252,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, dateValue, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, dateValue, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues]);
 
   const screen = screens[step]!;
   const axisIndex = axisIds.indexOf(screen);
@@ -310,6 +337,11 @@ export function GenericOnboarding(props: Props) {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
       honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
+      anchorDate: isAnniversary ? anchorDate || null : null,
+      anchorOrigin: isAnniversary ? anchorOrigin : null,
+      // Anniversary and birthday return every year by nature; the toggle types
+      // are the user's choice; everything else is one-time.
+      recurs: isAnniversary || eventType === 'birthday' || (showRecurToggle && recurs),
       region: region || null,
       venueLatitude: null,
       venueLongitude: null,
@@ -456,6 +488,79 @@ export function GenericOnboarding(props: Props) {
               the two apart.
             </p>
           ) : null}
+        </div>
+      );
+    }
+    if (screen === 'anchor') {
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          <Title>What date are you marking?</Title>
+          <p className="mt-2 text-ink/55">
+            The day it commemorates — not the day you’ll celebrate. We ask that
+            next, because you can hold it whenever suits everyone.
+          </p>
+          <input
+            autoFocus
+            type="date"
+            value={anchorDate}
+            onChange={(e) => setAnchorDate(e.target.value)}
+            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
+          />
+          <p className="mt-6 text-sm font-medium text-ink/70">What is it?</p>
+          {/* Positive origins only — the DB CHECK admits no memorial option, so
+              the picker cannot offer one either. */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ANCHOR_ORIGINS.map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setAnchorOrigin(o)}
+                className={`min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold ${
+                  anchorOrigin === o
+                    ? 'border-mulberry bg-mulberry/10 text-ink'
+                    : 'border-ink/15 bg-paper text-ink/60'
+                }`}
+              >
+                {ANCHOR_ORIGIN_LABELS[o]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-ink/45">
+            This is what makes it come back every year, and what your reminder
+            counts from.
+          </p>
+        </div>
+      );
+    }
+    if (screen === 'recurs') {
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          <Title>Is this a yearly thing?</Title>
+          <p className="mt-2 text-ink/55">
+            If it comes back, we’ll line up next year’s when this one wraps.
+            You can change this later.
+          </p>
+          <div className="mt-6 flex gap-2">
+            {[
+              { v: true, label: 'Yes — every year' },
+              { v: false, label: 'Just this once' },
+            ].map((o) => (
+              <button
+                key={String(o.v)}
+                type="button"
+                onClick={() => setRecurs(o.v)}
+                className={`min-h-[48px] flex-1 rounded-[var(--m-r-md)] border px-4 text-sm font-semibold ${
+                  recurs === o.v
+                    ? 'border-mulberry bg-mulberry/10 text-ink'
+                    : 'border-ink/15 bg-paper text-ink/60'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
       );
     }

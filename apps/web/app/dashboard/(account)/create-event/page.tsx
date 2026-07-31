@@ -31,8 +31,13 @@ const ERROR_COPY: Record<string, string> = {
     'That event type belongs to a person, not a samahan — pick a community event type.',
   samahan_not_organizer:
     'Only an organizer of that samahan can plan its events.',
+  // Copy corrected 2026-07-31: this told the user to type into “Para kanino?”,
+  // a field the live create path no longer renders — the generic onboarding
+  // wizard asks “Who are we celebrating?” instead, and it now surfaces this
+  // same block ON that screen. Naming a field by its old label sent people
+  // looking for something that is not there.
   life_event_exists:
-    'That celebration is already in planning. Open the existing event — or, if this one is for a different celebrant, type their name in “Para kanino?” when creating.',
+    'That celebration is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
 };
 
 type SearchParams = Promise<{

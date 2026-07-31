@@ -46,6 +46,7 @@ import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
   papicRungRate,
+  papicRungSku,
   isPapicUncapped,
   provisionFreeCamerasAdmin,
   PAPIC_MIN_PAID_CAMERAS,
@@ -56,7 +57,7 @@ import {
   PAPIC_RUNGS,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
+import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
 // papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
@@ -240,6 +241,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
   const papicTierConfig = await fetchPapicTierConfig(supabase);
+  // The LIFETIME bucket each per-camera rung actually grants. Read from
+  // papic_one_tiers because that is the table papic_grant_camera_points()
+  // reads on approval — see the comment on `rungPoints` below.
+  const papicOneTiers = await fetchPapicOneTiers(supabase);
   // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
   // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
   // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
@@ -599,7 +604,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                   rung,
                   title: papicTierConfig[rung].displayTitle,
                   ratePhp: papicRungRate(cameraRates, rung),
-                  pointsPerDay: papicTierConfig[rung].pointsPerDay,
+                  // ⚠ THE BUCKET, FROM THE TABLE THE GRANT READS.
+                  //
+                  // This used to pass `papic_tier_config.points_per_day` — the
+                  // OLD per-camera-per-DAY meter, whose 'mini' row is NULL on
+                  // prod. NULL reads as "unlimited" to every copy helper, so the
+                  // picker advertised "No limit · archived to your Drive" on a
+                  // ₱50 camera. It is not unlimited: the approval path
+                  // `papic_grant_camera_points()` grants
+                  // `papic_one_tiers[PAPIC_CAMERA_MINI_DAY].points` per seat —
+                  // 50 on prod — and the fail-closed reserve stops the shutter
+                  // there. So the picker sold unlimited and delivered 50, on the
+                  // SAME screen as the Papic One card correctly saying "50
+                  // shots". Reading the rung table is what makes the claim true
+                  // (lib/papic-tier-config-read.ts says so in its own header).
+                  points:
+                    papicOneTiers.find((t) => t.serviceCode === papicRungSku(rung))
+                      ?.points ?? null,
                   capPhp: papicRungCapPhp[rung],
                   // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
                   // rung. Nothing frees the ₱50 Ltd rung today.

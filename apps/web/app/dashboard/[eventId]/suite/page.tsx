@@ -17,7 +17,11 @@ import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vig
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import {
+  resolveProfileByEvent,
+  surfaceEnabled,
+  type ProfileSurface,
+} from '@/lib/event-type-profile';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { routes } from '@/lib/routes';
 import { RevealList } from '@/app/_components/reveal-list';
@@ -87,6 +91,25 @@ type FreeTool = {
   tags: readonly string[];
   /** The one hero free helper, given a featured card instead of a strip row. */
   featured?: boolean;
+  /**
+   * Event-type SURFACE this tool belongs to, same contract as
+   * `AddOnEntry.surface` (0053). Unset ⇒ universal.
+   *
+   * ⚠ THIS LIST WAS THE THIRD ONE. The dashboard body and the add-on grid were
+   * both gated on the event-type profile, and this array — hardcoded in the
+   * same file, rendered raw — was gated by nothing. So a vendor-free Simple
+   * Event's Suite offered "Budget Planner" while `budget` is absent from its
+   * `enabled_surfaces` AND the nav already hid it. Two correct gates and one
+   * unguarded list beside them is the shape of every defect found today.
+   */
+  surface?: ProfileSurface;
+  /**
+   * True ⇒ this tool is a doorway into the vendor marketplace, so it must not
+   * render where `marketplace_enabled = false`. Separate from `surface`
+   * because the marketplace is not a surface — it is the profile column that
+   * encodes vendor-free, and no `enabled_surfaces` entry stands for it.
+   */
+  requiresMarketplace?: boolean;
 };
 
 const FREE_TOOLS: readonly FreeTool[] = [
@@ -111,6 +134,9 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'budget',
+    // `budget` is absent from simple_event's enabled_surfaces, and the nav has
+    // hidden Budget there since 2026-06-27 — this card contradicted its own nav.
+    surface: 'budget',
     tags: ['Budget', 'Planning', 'Free'],
     label: 'Budget Planner',
     blurb: 'Track every payment — vendor packages, crew meals, and proof.',
@@ -138,6 +164,9 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'compare',
+    // A marketplace doorway: its href is routes.explore.*, and Explore is
+    // exactly what marketplace_enabled=false turns off.
+    requiresMarketplace: true,
     tags: ['Vendors', 'Planning', 'Free'],
     label: 'Compare vendors',
     blurb: 'Save vendors as you browse, then see two side by side — price, inclusions, reviews.',
@@ -267,6 +296,22 @@ export default async function SuitePage({ params }: Props) {
   const communityId =
     (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
   const surfaceOk = (a: AddOnEntry) => addOnOfferedForEvent(a, profile, communityId);
+
+  // …and the SAME gate for the free-tools strip. It is a separate array, so it
+  // needs a separate call — which is exactly why it was missed: two correct
+  // gates sat in this file while this third list rendered raw. Derived from the
+  // profile (a `surface` entry + the `marketplace_enabled` column), never from
+  // the event type's name, so a future vendor-free type is covered for free.
+  //
+  // ONE resolver, used by BOTH render sites below (the search index at
+  // `SuiteSearchItem[]` and the card strip). Filtering only one of them would
+  // leave the tool findable by search but absent from the page, or vice versa.
+  const freeToolOk = (t: FreeTool) => {
+    if (t.surface && !surfaceEnabled(profile, t.surface)) return false;
+    if (t.requiresMarketplace && profile.marketplaceEnabled !== true) return false;
+    return true;
+  };
+  const freeTools = FREE_TOOLS.filter(freeToolOk);
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back
@@ -452,7 +497,7 @@ export default async function SuitePage({ params }: Props) {
       tags: a.tags ?? [],
       node: cardFor(a),
     })),
-    ...FREE_TOOLS.map((t) => ({
+    ...freeTools.map((t) => ({
       key: t.key,
       text: hay(t.label, t.blurb, t.tags),
       tags: t.tags,
@@ -557,7 +602,7 @@ export default async function SuitePage({ params }: Props) {
           as="ul"
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
-          {FREE_TOOLS.map(freeToolCard)}
+          {freeTools.map(freeToolCard)}
           {freeSkus.map(cardFor)}
         </RevealList>
         </section>

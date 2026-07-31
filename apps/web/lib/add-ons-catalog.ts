@@ -372,7 +372,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb: 'After the day — your wedding told as a story, with the gallery and a thank-you note.',
+    blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
     cta: 'Edit your editorial',
     studioGroup: 'website',
     tier: 'free',
@@ -668,7 +668,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your wedding streamed live so everyone who can’t be there is — free with a single camera.',
+    blurb: 'Your day streamed live so everyone who can’t be there is — free with a single camera.',
     cta: 'Set up',
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
@@ -752,7 +752,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // present as live. Flip to 'web_v1'/'live' when real checkout ships.
     status: 'coming_soon',
     category: 'tool',
-    blurb: 'Wedding-day print pack and favors from vetted PH suppliers, shipped to your venue.',
+    blurb: 'Day-of print pack and favors from vetted PH suppliers, shipped to your venue.',
     cta: 'Browse Paprint',
     studioGroup: 'utility',
     poster: {
@@ -832,7 +832,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0010',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Pick your wedding palette — and it flows into every Setnayan piece you make.',
+    blurb: 'Pick your palette — and it flows into every Setnayan piece you make.',
     cta: 'Open board',
     studioGroup: 'branding',
     tier: 'free',

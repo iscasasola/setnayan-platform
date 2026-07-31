@@ -4,6 +4,9 @@ import { runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
 import { gscConfigured, pullSearchConsole } from '@/lib/seo/search-console';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
+// Single source of truth for both — see lib/seo/org-same-as.ts for why the
+// audit used to read sources nothing else consumed.
+import { orgSameAs, siteVerification } from '@/lib/seo/org-same-as';
 
 /**
  * CRON-FREE SEO jobs — the daily SEO health audit + Google Search Console pull,
@@ -14,12 +17,7 @@ import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
  */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
 
-function orgSameAs(): string[] {
-  return (process.env.SETNAYAN_ORG_SAMEAS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+
 
 /** Daily SEO/GEO health audit → one seo_health_snapshots row. */
 export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number }> {
@@ -74,8 +72,8 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
     llmsText,
     catalog,
     env: {
-      googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION,
-      bingSiteVerification: process.env.BING_SITE_VERIFICATION,
+      googleSiteVerification: siteVerification().google,
+      bingSiteVerification: siteVerification().bing,
       orgSameAs: orgSameAs(),
     },
   });

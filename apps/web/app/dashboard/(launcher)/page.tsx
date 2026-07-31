@@ -11,6 +11,10 @@ import {
   AlertCircle,
   Users,
   Clapperboard,
+  Heart,
+  HeartHandshake,
+  MapPin,
+  Baby,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -64,6 +68,12 @@ import {
   type HomeCommandItem,
 } from './_components/home-command-bar';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { EventScene } from './_components/event-scene';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { eventTypePhotoSrc } from '../(account)/create-event/_components/event-types';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
 
 export const metadata = {
   title: 'Your events',
@@ -88,15 +98,33 @@ export const metadata = {
  *     Memories Hub Expandable continue beneath — inline per the owner
  *     2026-07-13 rule. The flag-gated person-spine "Your story" renders in the
  *     tile's column when its flag turns on.
- *   • SPACES — the vendor shop(s) + admin HQ doorways as compact rows in the
- *     bento's right column (still the only allowed jumps besides events),
- *     PLUS the Samahan · Communities section. The shop/HQ rows stay
- *     capability-gated (absent for a plain couple), but the tile now renders
- *     for EVERYONE because Samahan does: the user's samahans as rows (icon
- *     Users · role + member count · href /dashboard/samahan/<id>) capped at 3
- *     with a "N more samahans" overflow row, then a "+ Create a Samahan" door.
- *     A plain couple with zero shops + zero samahans still sees the section
- *     label, the "shared space for your barkada…" line, and the create door.
+ *   • SPACES — SPLIT IN TWO (owner decision 2026-07-30, "split it in two"),
+ *     because "a shop you run" and "a vendor you saved" are opposite stances
+ *     and were sharing one box:
+ *       – "Yours to run" — the vendor shop(s), Admin HQ, and the Creator's Lab
+ *         (Your Story / Become a Storyteller). Shop + HQ rows stay
+ *         capability-gated; the Creator row renders for everyone, so the tile
+ *         is never an empty heading.
+ *       – "Vendors you saved" — the shortlist doorway into
+ *         /dashboard/library?tab=vendors.
+ *   • PEOPLE — a real block on the home for the first time (it existed only as
+ *     a ⌘K entry + a phone pill target; a palette entry is not a doorway).
+ *     Built ONLY from sources that are real for this account:
+ *       – Samahan · Communities — LIVE for everyone, moved here from Spaces
+ *         because a samahan is a first-degree PEOPLE relation, not a stance
+ *         you run (the same model /dashboard/people itself states: "your
+ *         connections, your alaga, and your samahan groups"). Rows capped at 3
+ *         with an overflow row, then the "+ Create a Samahan" door.
+ *       – Alaga — rendered ONLY when NEXT_PUBLIC_DEPENDENT_PEOPLE is on AND
+ *         the `dependent_minor_profiles` privacy control is Active AND the
+ *         account actually has rows. Flag-off = zero queries, zero row.
+ *       – Connections — rendered ONLY when NEXT_PUBLIC_PEOPLE_CONNECTIONS is
+ *         on AND there is ≥1 confirmed edge. Both are OFF in production today,
+ *         so in prod the People tile is exactly its Samahan group — the small
+ *         honest version, not three empty facets.
+ *     The "Everyone you gather" footer link to /dashboard/people appears only
+ *     when one of those flags is on, because with both OFF that page renders a
+ *     non-interactive "coming soon" preview (its `PeoplePreview` early return).
  *   • YOU — behind the top-bar avatar only (AccountSwitcher: Profile & settings ·
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
@@ -476,6 +504,65 @@ export default async function LauncherPage({
     chapterCount = 0;
   }
 
+  // PEOPLE · Alaga — the dependants this account holds. Both gates are checked
+  // BEFORE the query, so while NEXT_PUBLIC_DEPENDENT_PEOPLE is off (production
+  // today) this costs nothing: no privacy-control read, no `dependents` read.
+  // A denied/failed read leaves the count null, and a null count renders NO row
+  // — an RLS denial and an empty table are the same value, so "0" is never
+  // asserted from a read we could not prove was permitted.
+  let alagaCount: number | null = null;
+  if (
+    dependentPeopleEnabled() &&
+    (await isDataPrivacyControlActive('dependent_minor_profiles'))
+  ) {
+    try {
+      const { count, error } = await supabase
+        .from('dependents')
+        .select('dependent_id', { count: 'exact', head: true });
+      if (!error) alagaCount = count ?? 0;
+    } catch {
+      alagaCount = null;
+    }
+  }
+
+  // PEOPLE · Connections — confirmed first-degree edges. Counsel-gated flag, so
+  // again: flag off (production today) = no query at all. RLS on
+  // `person_connections` already scopes the read to edges this user is in.
+  let connectionCount: number | null = null;
+  if (peopleConnectionsEnabled()) {
+    try {
+      const { count, error } = await supabase
+        .from('person_connections')
+        .select('connection_id', { count: 'exact', head: true })
+        .eq('status', 'confirmed')
+        .is('deleted_at', null);
+      if (!error) connectionCount = count ?? 0;
+    } catch {
+      connectionCount = null;
+    }
+  }
+  // TRUE when /dashboard/people renders something interactive. With both flags
+  // off that route short-circuits to its "coming soon" PeoplePreview, so the
+  // home must not advertise it as a destination.
+  const peoplePageIsLive = alagaCount != null || connectionCount != null;
+
+  // EVENT CARD SCENES — the per-type hero the create-event picker already uses,
+  // same precedence (admin `hero_photo_url` → repo `/event-types/<key>.webp`).
+  // ONE cached vocab read for the whole render tree; falls back to the constant
+  // roster on error, and a type with no asset at all lands on the deterministic
+  // branded gradient inside <EventScene> rather than a wrong stand-in photo.
+  const eventTypeHero = new Map<string, string>();
+  try {
+    for (const t of await getEventTypeVocab()) {
+      eventTypeHero.set(t.key, eventTypePhotoSrc(t));
+    }
+  } catch {
+    // Graceful-degrade: EventScene falls back to `/event-types/<key>.webp` and
+    // then to the gradient, so the band always renders.
+  }
+  const heroFor = (type: string) =>
+    eventTypeHero.get(type) ?? `/event-types/${type}.webp`;
+
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
@@ -652,6 +739,14 @@ export default async function LauncherPage({
       href: '/dashboard/library',
       kind: 'action',
       icon: 'grid',
+    },
+    {
+      id: 'action-saved-vendors',
+      label: 'Saved vendors',
+      sublabel: 'Your shortlist',
+      href: '/dashboard/library?tab=vendors',
+      kind: 'action',
+      icon: 'heart',
     },
     {
       id: 'action-people',
@@ -884,6 +979,7 @@ export default async function LauncherPage({
               key={event.event_id}
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
+              heroSrc={heroFor(event.event_type)}
               index={i}
             />
           ))}
@@ -893,6 +989,7 @@ export default async function LauncherPage({
                   key={event.event_id}
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
+                  heroSrc={heroFor(event.event_type)}
                   finished
                   index={upcoming.length + i}
                 />
@@ -1024,21 +1121,19 @@ export default async function LauncherPage({
               )}
             </div>
 
-            {/* SPACES — the vendor shop(s) + admin HQ doorways (capability-gated
-                INSIDE the tile) PLUS Samahan · Communities, which renders for
-                EVERYONE. The whole tile now always renders: a plain couple must
-                still get the "+ Create a Samahan" door. These still NAVIGATE
-                (their own dashboards / space pages are allowed jumps). */}
+            {/* SPACES · 1 of 2 — "YOURS TO RUN". The stances this account
+                OPERATES: their vendor shop(s), Admin HQ, and the Creator's Lab.
+                Shop + HQ rows are capability-gated (absent for a plain couple);
+                the Creator row always renders, so the heading is never empty.
+                These still NAVIGATE — their own dashboards are allowed jumps. */}
             <div
               className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
               style={{ animationDelay: '0.9s' }}
             >
               <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
                 <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Spaces
+                Yours to run
               </p>
-              {/* Vendor shop / admin HQ rows — capability-gated: empty for a
-                  plain couple, so the block collapses and Samahan leads. */}
               {spaces.length > 0 ? (
                 <div className="mt-2 divide-y divide-ink/[0.07]">
                   {spaces.map((space) => (
@@ -1049,8 +1144,99 @@ export default async function LauncherPage({
                   ))}
                 </div>
               ) : null}
+              {/* CREATOR'S LAB — the ONE doorway to /dashboard/creator
+                  (readiness verdict 2026-07-16 B4: the funnel had no entry
+                  anywhere; the wayfinding rule — a page ships with its
+                  doorway). Zero chapters → the "Become a Storyteller" promo row
+                  (owner requirement) sells it in a line and IS the doorway; ≥1
+                  chapter → it collapses to a plain "Your Story" row. Honest
+                  copy only — nothing unbuilt, no earnings, no tiers. */}
+              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
+                Creator&rsquo;s Lab
+              </p>
+              <div className="mt-1">
+                {chapterCount > 0 ? (
+                  <SpaceRow
+                    href="/dashboard/creator"
+                    icon={Clapperboard}
+                    title="Your Story"
+                    subtitle={`${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · your public page`}
+                    tone="default"
+                  />
+                ) : (
+                  <BecomeStorytellerRow />
+                )}
+              </div>
+            </div>
+
+            {/* SPACES · 2 of 2 — "VENDORS YOU SAVED". The opposite stance: not
+                a business you run, a shortlist you keep. One real doorway into
+                the Memories Hub's Saved Vendors tab, which owns the list, its
+                empty state and its "Explore the marketplace" nudge. No count is
+                printed here on purpose — the tab filters saved vendors through
+                the subscription gate (lib/vendor-favorite-gate), so a raw count
+                read on this page could disagree with the list it opens. */}
+            <div
+              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
+              style={{ animationDelay: '0.98s' }}
+            >
+              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+                <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Vendors you saved
+              </p>
+              <div className="mt-2">
+                <SpaceRow
+                  href="/dashboard/library?tab=vendors"
+                  icon={Heart}
+                  title="Your shortlist"
+                  subtitle="Vendors you kept from your plans and the events you attended"
+                  tone="default"
+                />
+              </div>
+            </div>
+
+            {/* PEOPLE — the first rendered People doorway on the home. Only
+                sources that are REAL for this account appear (see the file
+                header): Samahan always, Alaga and Connections only behind their
+                flags AND with real rows. */}
+            <div
+              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
+              style={{ animationDelay: '1.06s' }}
+            >
+              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
+                <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                People
+              </p>
+              {/* Alaga + Connections — flag-gated AND row-gated, so neither can
+                  render an empty facet. Both are OFF in production today. */}
+              {alagaCount != null && alagaCount > 0 ? (
+                <div className="mt-2">
+                  <SpaceRow
+                    id="people-alaga"
+                    href="/dashboard/people"
+                    icon={Baby}
+                    title="Alaga"
+                    subtitle={`${alagaCount} ${alagaCount === 1 ? 'person' : 'people'} you care for`}
+                    tone="default"
+                  />
+                </div>
+              ) : null}
+              {connectionCount != null && connectionCount > 0 ? (
+                <div className="mt-1">
+                  <SpaceRow
+                    id="people-connections"
+                    href="/dashboard/people"
+                    icon={HeartHandshake}
+                    title="Connections"
+                    subtitle={`${connectionCount} confirmed ${connectionCount === 1 ? 'connection' : 'connections'}`}
+                    tone="default"
+                  />
+                </div>
+              ) : null}
               {/* Samahan — communities are LIVE (owner 2026-07-15 composable-
-                  event model): real rows + a create door for everyone. */}
+                  event model): real rows + a create door for everyone. Moved
+                  here from Spaces: a samahan is who you gather with, not a
+                  console you operate. */}
               <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
                 Samahan · Communities
               </p>
@@ -1068,29 +1254,19 @@ export default async function LauncherPage({
                 ))}
                 <CreateSamahanRow />
               </div>
-              {/* STORYTELLER — the ONE doorway to /dashboard/creator (readiness
-                  verdict 2026-07-16 B4: the funnel had no entry anywhere; the
-                  wayfinding rule — a page ships with its doorway). Zero
-                  chapters → the "Become a Storyteller" promo row (owner
-                  requirement) sells it in a line and IS the doorway; ≥1
-                  chapter → it collapses to a plain "Your Story" row. Honest
-                  copy only — nothing unbuilt, no earnings, no tiers. */}
-              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
-                Storyteller
-              </p>
-              <div className="mt-1">
-                {chapterCount > 0 ? (
-                  <SpaceRow
-                    href="/dashboard/creator"
-                    icon={Clapperboard}
-                    title="Your Story"
-                    subtitle={`${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · your public page`}
-                    tone="default"
-                  />
-                ) : (
-                  <BecomeStorytellerRow />
-                )}
-              </div>
+              {/* The /dashboard/people door opens ONLY when that page has
+                  something to render. With both person flags off it
+                  short-circuits to a non-interactive "coming soon" preview, and
+                  a link to a preview is a door to nothing. */}
+              {peoplePageIsLive ? (
+                <Link
+                  href="/dashboard/people"
+                  className="mt-[13px] inline-flex items-center gap-1 text-xs font-bold text-[color:var(--sn-gold-700)] transition-colors hover:text-[color:var(--sn-gold-600)]"
+                >
+                  Everyone you gather
+                  <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1116,7 +1292,10 @@ export default async function LauncherPage({
       </section>
 
       {/* Phone-only thumb nav. Every target is a link this page already renders. */}
-      <HomePillNav hasSpaces={hasConsole} />
+      <HomePillNav
+        hasSpaces={hasConsole}
+        spacesHref={roles.hasVendorAccess ? '/vendor-dashboard' : '/admin'}
+      />
     </div>
   );
 }
@@ -1234,17 +1413,21 @@ function ShowAllToggle({ showAll }: { showAll: boolean }) {
 function GlassEventCard({
   event,
   pct,
+  heroSrc,
   finished,
   index = 0,
 }: {
   event: EventWithRole;
   pct: number | null;
+  /** Resolved event-type hero (admin upload → repo asset) for the scene band.
+   *  <EventScene> falls back to the branded gradient if it 404s. */
+  heroSrc: string;
   finished?: boolean;
   /** Position in the grid — drives the entrance-cascade + ring/count-up
    *  stagger delays (computed, never hardcoded per card). */
   index?: number;
 }) {
-  const { badge, dateMeta, status, plannedLabel } = deriveEventView(
+  const { badge, dateLabel, place, status, plannedLabel } = deriveEventView(
     event,
     pct,
     finished,
@@ -1258,10 +1441,19 @@ function GlassEventCard({
       }`}
       style={{ animationDelay: `${0.5 + index * 0.08}s` }}
     >
-      {/* Editorial texture band (the prototype's card top) — warm paper stripes
-          with the type badge overlaid and the event's monogram floating over
-          the band's edge. */}
-      <div className="sn-texture-band relative h-16 shrink-0">
+      {/* THE SCENE (prototype `events()` → `.top`): the event's own type hero,
+          scrimmed, with the type badge, the monogram floating over the band's
+          edge, and the event's NAME + PLACE set on it — the thing that makes an
+          event imaginable instead of a stripe (owner 2026-07-30). The hero and
+          its gradient fallback are the ones the create-event picker already
+          uses; nothing new is invented, and a type with no asset gets its
+          deterministic branded gradient, never another type's photo. */}
+      <div className="relative h-32 shrink-0 sm:h-36">
+        <EventScene
+          eventType={event.event_type}
+          photoSrc={heroSrc}
+          muted={finished}
+        />
         <span className="absolute left-3 top-3 inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
           {badge}
         </span>
@@ -1278,10 +1470,12 @@ function GlassEventCard({
           shape="square"
           className="absolute -bottom-4 right-3 border-2 border-white/80 shadow-[var(--sn-sh-tile)]"
         />
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[15px] font-extrabold text-ink">
+        {/* Name + place ON the scene. `right-[4.75rem]` keeps them clear of the
+            monogram that overhangs the band's bottom-right corner. Place is
+            omitted (never guessed) when the event has neither a venue name nor
+            an address. */}
+        <div className="absolute inset-x-3 bottom-2.5 right-[4.75rem] min-w-0">
+          <p className="flex items-center gap-1.5 text-[15px] font-extrabold text-white drop-shadow-[0_1px_6px_rgba(23,22,15,0.6)]">
             {event.is_primary ? (
               <span
                 aria-hidden
@@ -1292,10 +1486,18 @@ function GlassEventCard({
             ) : null}
             <span className="truncate">{event.display_name}</span>
           </p>
-          <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
-            {dateMeta}
-          </p>
+          {place ? (
+            <p className="flex items-center gap-1 text-[11.5px] text-white/75">
+              <MapPin aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">{place}</span>
+            </p>
+          ) : null}
         </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
+        <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
+          {dateLabel ?? 'Date to be set'}
+        </p>
         <div className="mt-auto flex items-center gap-2.5 pt-1">
           {pct != null ? (
             <ProgressRing

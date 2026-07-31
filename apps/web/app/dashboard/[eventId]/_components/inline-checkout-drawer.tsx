@@ -91,6 +91,7 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
+import { mintOrderQr } from '@/lib/emv-qr';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -124,6 +125,13 @@ export type InlineCheckoutDrawerProps = {
     gcash_account_name: string | null;
     gcash_number: string | null;
     gcash_qr_url: string | null;
+    /**
+     * Decoded QR Ph payloads (migration 20271027100000). Optional so callers
+     * that have not been updated still typecheck and simply keep serving the
+     * static QR image.
+     */
+    bdo_qr_payload?: string | null;
+    gcash_qr_payload?: string | null;
   };
   /** Optional custom collapsed CTA label · defaults to "Add this service". */
   triggerLabel?: string;
@@ -268,6 +276,13 @@ export function InlineCheckoutDrawer({
   // VAT-inclusive gross = what the couple actually pays (the server charges this).
   const finalGrossDisplay = formatGrossCentavos(finalPriceStr, vatRatePct);
   const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos, vatRatePct);
+  // The same gross as a NUMBER — this is what gets minted into the payment QR,
+  // so it must come from the identical computation the display uses. If these
+  // two ever diverge the couple scans one figure and reads another.
+  const finalGrossPhp = computeVatFromBase(
+    Number(finalPriceStr) / 100,
+    vatRatePct,
+  ).gross;
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
@@ -463,6 +478,7 @@ export function InlineCheckoutDrawer({
                   channel={channel}
                   settings={settings}
                   referenceCode={referenceCode}
+                  amountPhp={finalGrossPhp}
                 />
 
                 {/* (4) Submit form. */}
@@ -835,16 +851,70 @@ function PaymentDetailsBlock({
   channel,
   settings,
   referenceCode,
+  amountPhp,
 }: {
   channel: 'gcash' | 'bdo';
   settings: InlineCheckoutDrawerProps['settings'];
   referenceCode: string;
+  /** VAT-inclusive gross the couple pays — minted into the QR as tag 54. */
+  amountPhp: number;
 }) {
   // Pre-resolve the matching name + number + qr per channel.
   const name = channel === 'gcash' ? settings.gcash_account_name : settings.bdo_account_name;
   const number = channel === 'gcash' ? settings.gcash_number : settings.bdo_account_number;
   const qrUrl = channel === 'gcash' ? settings.gcash_qr_url : settings.bdo_qr_url;
+  const qrPayload =
+    channel === 'gcash' ? settings.gcash_qr_payload : settings.bdo_qr_payload;
   const hasInfo = Boolean(number?.trim());
+
+  /**
+   * Mint a per-order QR carrying this exact amount, replacing the static
+   * uploaded image. Wallet-verified on real money 2026-07-31: GCash and BDO
+   * both pre-fill the figure, centavos included, so the couple never types it.
+   *
+   * Two deliberate choices:
+   *  • `mintOrderQr` returns null for anything it does not fully understand,
+   *    and we then fall through to the static image — the exact behaviour that
+   *    shipped before. A checkout must never show a broken code.
+   *  • `qrcode` is imported dynamically so its renderer stays out of the
+   *    initial bundle; this drawer opens long after first paint.
+   */
+  const mintedPayload = useMemo(
+    () => mintOrderQr(qrPayload, amountPhp),
+    [qrPayload, amountPhp],
+  );
+  const [mintedQr, setMintedQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mintedPayload) {
+      setMintedQr(null);
+      return;
+    }
+    let cancelled = false;
+    import('qrcode')
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(mintedPayload, {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 512,
+        }),
+      )
+      .then((url) => {
+        if (!cancelled) setMintedQr(url);
+      })
+      .catch(() => {
+        // Render nothing minted → the static QR below still works.
+        if (!cancelled) setMintedQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mintedPayload]);
+
+  const amountDisplay = `₱${amountPhp.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
   if (!hasInfo) {
     return (
@@ -877,29 +947,61 @@ function PaymentDetailsBlock({
             </div>
             <CopyButton value={referenceCode} />
           </div>
+          {/* Wallet-tested 2026-07-31: a scanned QR payment goes out through
+              GCash's Express Send, which does not reliably carry a note the
+              recipient sees — and the reference cannot ride inside the QR
+              either (GCash rejects the EMVCo tag 62 template outright). The
+              note still works when someone transfers manually, so we keep the
+              guidance but stop promising it matches "instantly". */}
           <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
-            Put this in your {label} transfer note so we can match your payment
-            instantly.
+            Add this to your {label} transfer note if your app offers one — it
+            helps us match your payment faster.
           </p>
         </div>
       ) : null}
 
-      {qrUrl ? (
+      {qrUrl || mintedQr ? (
         <div className="flex flex-col items-center gap-2">
           <div className="rounded-2xl border border-ink/10 bg-white p-3 shadow-sm">
-            {/* Native <img> instead of next/image so we don't have to wrestle
-                with remotePatterns for the platform_settings R2 host · the
-                QR is admin-uploaded as a public asset. */}
+            {/* Native <img> instead of next/image: the fallback is an
+                admin-uploaded public asset on the platform_settings R2 host
+                (no remotePatterns entry), and the minted code is a data URL
+                next/image cannot optimise anyway. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={qrUrl}
-              alt={`${label} QR code`}
+              src={mintedQr ?? qrUrl ?? ''}
+              alt={
+                mintedQr
+                  ? `${label} QR code for ${amountDisplay}`
+                  : `${label} QR code`
+              }
               className="h-40 w-40 rounded-lg object-contain"
             />
           </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-            {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
-          </p>
+
+          {mintedQr ? (
+            <>
+              <p className="text-center text-[11px] leading-relaxed text-ink/60">
+                <span className="font-semibold text-ink">{amountDisplay}</span>{' '}
+                is already filled in — you won&apos;t need to type it.
+              </p>
+              {/* Same-device path: a couple browsing on their phone cannot
+                  point that phone's camera at its own screen. Both GCash and
+                  the BDO app can scan an image from the gallery, so saving is
+                  the only route that works without a second device. */}
+              <a
+                href={mintedQr}
+                download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
+                className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
+              >
+                Save image · scan from gallery
+              </a>
+            </>
+          ) : (
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+              {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -935,6 +1037,18 @@ function PaymentDetailsBlock({
             </span>
           </span>
           <CopyButton value={number ?? ''} />
+        </div>
+        {/* The exact figure, copyable. Load-bearing on the manual path — where
+            nothing pre-fills — and the fallback whenever the minted QR is
+            unavailable. */}
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <span className="min-w-0">
+            <span className="block text-[11px] text-ink/50">Exact amount</span>
+            <span className="block truncate font-mono text-[13px] font-semibold text-ink">
+              {amountDisplay}
+            </span>
+          </span>
+          <CopyButton value={amountPhp.toFixed(2)} />
         </div>
       </div>
     </div>

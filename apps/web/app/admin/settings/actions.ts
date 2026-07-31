@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import jsQR from 'jsqr';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ import { packIco } from '@/lib/ico';
 import { BRAND_SETTINGS_TAG } from '@/lib/brand-settings';
 import { LOADER_SETTINGS_TAG } from '@/lib/loader-settings';
 import { clampInt, coerceVariant } from '@/lib/loader-config';
+import { isQrPhPayload } from '@/lib/emv-qr';
 
 /**
  * Admin settings server actions — V2 publisher posture, split flows.
@@ -239,6 +241,37 @@ function qrColumn(kind: QrKind): 'bdo_qr_url' | 'gcash_qr_url' {
   return kind === 'bdo' ? 'bdo_qr_url' : 'gcash_qr_url';
 }
 
+function qrPayloadColumn(kind: QrKind): 'bdo_qr_payload' | 'gcash_qr_payload' {
+  return kind === 'bdo' ? 'bdo_qr_payload' : 'gcash_qr_payload';
+}
+
+/**
+ * Decode an uploaded merchant-QR image to its QR Ph payload string.
+ *
+ * Runs ONCE per upload (never per checkout paint) so the stored string can be
+ * re-minted with each order's amount — see lib/emv-qr.ts and migration
+ * 20271027100000.
+ *
+ * Returns null on ANY failure, and every caller treats null as "keep serving
+ * the static image". That is the pre-existing behaviour, so a QR we cannot
+ * read degrades to exactly what shipped before rather than breaking checkout.
+ * We deliberately reject anything that is not a valid PHP QR Ph payload —
+ * isQrPhPayload checks the CRC, the TLV structure and currency 608 — because
+ * the alternative is minting an amount onto a code we do not understand.
+ */
+async function decodeMerchantQrPayload(file: File): Promise<string | null> {
+  try {
+    const { data, info } = await sharp(Buffer.from(await file.arrayBuffer()))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const decoded = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+    return isQrPhPayload(decoded?.data) ? decoded!.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadMerchantQr(formData: FormData) {
   await requireAdmin();
   const kindRaw = formData.get('kind');
@@ -278,10 +311,17 @@ export async function uploadMerchantQr(formData: FormData) {
       | null
       | undefined ?? null;
 
+  // Decode alongside the URL so the two never disagree: whatever image we
+  // just stored is exactly the payload checkout will re-mint. Writing both in
+  // one UPDATE means there is no window where the URL points at a new QR while
+  // the payload still describes the old account.
+  const payload = await decodeMerchantQrPayload(file);
+
   const { error } = await admin
     .from('platform_settings')
     .update({
       [qrColumn(kind)]: upload.publicUrl,
+      [qrPayloadColumn(kind)]: payload,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
@@ -319,10 +359,13 @@ export async function removeMerchantQr(formData: FormData) {
       | null
       | undefined ?? null;
 
+  // Clear the payload with the URL. Leaving a stale payload behind would let
+  // checkout keep minting codes for an account the admin just removed.
   const { error } = await admin
     .from('platform_settings')
     .update({
       [qrColumn(kind)]: null,
+      [qrPayloadColumn(kind)]: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);

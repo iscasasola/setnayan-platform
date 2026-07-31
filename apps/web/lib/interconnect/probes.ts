@@ -1,6 +1,9 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { resolveSongDeskAccess } from '@/lib/song-desk-gate';
+import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
+import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { classifyPopulation, type ProbeResult } from './verdict';
 
 /**
@@ -184,6 +187,98 @@ const songRequestsHaveAnAudience: Probe = {
 };
 
 /**
+ * PROBE 3 · the narrowing, isolated.
+ *
+ * Probes 1 and 2 compare the two vocabularies beside the gate. This one calls
+ * the REAL gate — {@link resolveSongDeskAccess}, the same function the vendor's
+ * page calls — twice for each booked vendor, and the difference between the two
+ * answers is the finding:
+ *
+ *   with the event-tile narrowing    → what the vendor actually gets
+ *   with the narrowing suppressed    → what their entitlement alone would give
+ *
+ * A vendor who passes WITHOUT narrowing and fails WITH it is not being
+ * paywalled — they hold the specialization, and the event-tile intersection
+ * took it away. That is precisely and only the defect that made every
+ * specialization desk unreachable for the whole song-desk build, and it is
+ * invisible to any check that just asks "did the gate say yes".
+ *
+ * ── WHY IT ASKS TWICE INSTEAD OF READING ROWS ──────────────────────────────
+ * The obvious probe — "gate passed, so can they see the rows?" — cannot fail.
+ * The inbox reads as service_role once the gate passes, so agreement is
+ * guaranteed by construction and the probe would report health forever. A check
+ * that is structurally incapable of failing is worse than no check: it occupies
+ * the slot where a real one would go.
+ *
+ * A refusal on BOTH calls is skipped, not flagged. "You have not paid for the
+ * song desk" is a paywall telling the truth, and a health check that screams
+ * about honest paywalls gets muted within a week.
+ *
+ * ⚠ WHAT THIS DOES NOT PROVE. It runs the gate's LOGIC under service_role, not
+ * the vendor's own database session, so a row-level-security mistake could deny
+ * the real vendor while this reads clean. The 64 DB tests cover that layer;
+ * what broke the song desk lived here, in the TypeScript decision above RLS.
+ * Minting a real login session for a real vendor on a schedule would close the
+ * gap and is deliberately not done — standing credentials for real accounts are
+ * a worse risk than the one they would retire.
+ */
+const songDeskNarrowingLockout: Probe = {
+  key: 'song-desk-narrowing',
+  jointId: 'J7',
+  title: 'The event-tile narrowing does not lock out entitled acts',
+  run: async (): Promise<ProbeResult> => {
+    const admin = createAdminClient();
+    const pairs = await fetchBookedPairs();
+
+    let entitled = 0; // holds song_desk on entitlement alone
+    let reaching = 0; // ...and still gets in once the event narrows
+
+    for (const pair of pairs) {
+      const booked = [pair.eventId]; // this row IS the booking
+
+      // Entitlement alone — narrowing suppressed by asking about an event the
+      // brief cannot classify is not reliable, so ask the specialization
+      // resolver directly with eventTiles = null (its documented "do not
+      // narrow" input).
+      const bare = await resolveVendorSpecializationAccessForVendor(admin, pair.vendorProfileId, {
+        services: pair.services,
+        eventTiles: null,
+      });
+      if (!holdsSpecialization(bare, 'song_desk')) continue; // honest paywall
+      entitled += 1;
+
+      const real = await resolveSongDeskAccess(
+        admin,
+        pair.vendorProfileId,
+        pair.services,
+        pair.eventId,
+        booked,
+      );
+      if (real.ok) reaching += 1;
+    }
+
+    const lockedOut = entitled - reaching;
+    return {
+      probeKey: songDeskNarrowingLockout.key,
+      jointId: 'J7',
+      permitted: entitled > 0,
+      subjectCount: reaching,
+      truthCount: entitled,
+      // Population rule: entitled-but-locked-out is `lying` even if only one of
+      // several is affected. classifyPopulation returns `empty` at 0/0, which is
+      // the correct reading of "no entitled act exists yet".
+      verdict: classifyPopulation(reaching, entitled),
+      detail:
+        entitled === 0
+          ? `No act holds song_desk across ${pairs.length} booking(s) — nothing to narrow.`
+          : lockedOut === 0
+            ? `All ${entitled} entitled act(s) still reach the desk after event narrowing.`
+            : `${lockedOut} of ${entitled} entitled act(s) are locked out BY THE NARROWING, not by the paywall.`,
+    };
+  },
+};
+
+/**
  * The registry.
  *
  * TWO probes over 83 mapped joints, and the map itself covers roughly a third
@@ -192,4 +287,8 @@ const songRequestsHaveAnAudience: Probe = {
  * it is written down here rather than implied, because a coverage number nobody
  * states drifts upward in everyone's memory.
  */
-export const PROBES: readonly Probe[] = [bookedVendorDeskReach, songRequestsHaveAnAudience];
+export const PROBES: readonly Probe[] = [
+  bookedVendorDeskReach,
+  songRequestsHaveAnAudience,
+  songDeskNarrowingLockout,
+];

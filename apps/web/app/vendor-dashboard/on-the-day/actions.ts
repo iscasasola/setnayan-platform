@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { resolveSongDeskAccess, fetchBookedTiles } from '@/lib/song-desk-gate';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -9,8 +9,6 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { saveDayOfOverride } from '@/lib/vendor-dayof-config';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
-import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { PLAYLIST_SLOT_TYPES } from '@/lib/playlist';
 import { nextSetPosition } from '@/lib/vendor-sets';
 import {
@@ -29,20 +27,6 @@ const VALID_PLAYLIST_SLOTS = new Set<string>(PLAYLIST_SLOT_TYPES);
  * null when the brief can't say — in which case callers fall back to the
  * vendor's full `services[]`, the same best-effort the live console uses.
  */
-async function fetchBookedTiles(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  eventId: string,
-): Promise<string[] | null> {
-  const { data: brief } = await supabase.rpc('get_vendor_event_brief', {
-    p_event_id: eventId,
-  });
-  const raw = (brief as { booked_categories?: unknown } | null)?.booked_categories;
-  // `booked_categories` speaks the COUPLE-SIDE category vocabulary (`band_dj`),
-  // `services` speaks the TILE vocabulary (`live_band`). Translate before any
-  // caller intersects them — see tilesForVendorCategories().
-  return tilesForVendorCategories(Array.isArray(raw) ? (raw as string[]) : null);
-}
-
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
  * ║  THE SONG DESK GATE — one definition, because it is now the paywall.      ║
@@ -98,21 +82,23 @@ async function requireSongDeskAct(eventId: string): Promise<SongDeskGate> {
   if (!profile) return { ok: false, error: 'No vendor profile.' };
 
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
-  if (!bookings.some((b) => b.eventId === eventId)) {
-    return { ok: false, error: 'You are not booked on this event.' };
-  }
 
-  const eventTiles = await fetchBookedTiles(supabase, eventId);
-  const access = await resolveVendorSpecializationAccessForVendor(
+  // The DECISION lives in lib/song-desk-gate.ts with the identity as an
+  // argument. Everything above this line is the part that can only happen in a
+  // request — resolving WHO is asking. Everything below it is a rule, and a
+  // rule that only a logged-in browser can evaluate is a rule nothing can
+  // check: that is why the song desk was unreachable through 8 PRs of green
+  // part-level tests. The interconnection probe now calls the same function.
+  const access = await resolveSongDeskAccess(
     supabase,
     profile.vendor_profile_id,
-    { services: profile.services, eventTiles },
+    profile.services,
+    eventId,
+    bookings.map((b) => b.eventId),
   );
-  if (!holdsSpecialization(access, 'song_desk')) {
-    return { ok: false, error: 'The song desk is part of a paid plan.' };
-  }
+  if (!access.ok) return { ok: false, error: access.error };
 
-  return { ok: true, supabase, profile, eventTiles };
+  return { ok: true, supabase, profile, eventTiles: access.eventTiles };
 }
 
 /** One guest request, as the act's inbox reads it. */

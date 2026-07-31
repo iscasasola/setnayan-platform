@@ -18,6 +18,7 @@ import { resolveOnboardingFlow } from '@/lib/onboarding/flow-config';
 import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { manilaToday } from '@/lib/std-views';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
 import { getSelfPersonalization } from '@/lib/self-personalization';
@@ -132,6 +133,9 @@ export default async function GenericOnboardingPage({
       resume={sp.resume === '1'}
       nextPath={nextPath !== '/' ? nextPath : null}
       prefill={prefill}
+      // Manila today, so the anchor's next return is computed off the server's
+      // clock rather than the visitor's device timezone.
+      todayISO={manilaToday()}
     />
   );
 }

@@ -13,6 +13,12 @@ import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
 import { beyondHorizon, horizonDaysFor, isGatedLifeType } from '@/lib/life-event-gate';
+import {
+  gridHiddenTypes,
+  subjectHonoreeLabel,
+  type CreateSubject,
+} from '@/lib/create-subjects';
+import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
@@ -46,6 +52,9 @@ export function EventTypePicker({
   inPlanningWedding = null,
   samahanCommunityId,
   hiddenTypeKeys,
+  subjects,
+  todayISO,
+  notice,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -74,10 +83,24 @@ export function EventTypePicker({
    *  "show all" expander below the grid always reveals them (wayfinding lock —
    *  a self-planning debutante or a niece's aunt has no dependent record). */
   hiddenTypeKeys?: string[];
+  /** Who this account could be celebrating — "You", each alaga, "Someone else".
+   *  Server-built from real records (lib/create-subjects). Empty / absent = the
+   *  who step is skipped and this component behaves exactly as it did before. */
+  subjects?: CreateSubject[];
+  /** Manila today, so the per-subject measurement matches the server's clock. */
+  todayISO?: string;
+  /** The page's samahan banner / error alert. Rendered by this component (not
+   *  the page) purely so it keeps sitting UNDER the heading now that the
+   *  heading is step-dependent — the question changes between "who" and "what". */
+  notice?: React.ReactNode;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const [showAllTypes, setShowAllTypes] = useState(false);
+  // WHO comes before WHAT (prototype User_Home_REDESIGN_2026-07-30 · createSheet).
+  // Null = the question is still open; a chosen subject sorts the grid and
+  // pre-answers "who are we celebrating?" downstream.
+  const [subject, setSubject] = useState<CreateSubject | null>(null);
   // Soft planning-horizon advisory (council § 5 card 2 — never a block): set
   // when the typed party date sits beyond the selected life type's horizon.
   const [farHorizon, setFarHorizon] = useState(false);
@@ -114,6 +137,11 @@ export function EventTypePicker({
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
+    // Carry the already-answered celebrant across the route hop into
+    // /onboarding/[type], which asks the same question one screen later. It
+    // rides in sessionStorage, NOT the URL: it is a person's first name, and a
+    // query param would put it in history, the Referer header and access logs.
+    stashHonoree(subjectHonoreeLabel(subject));
     // Samahan context: community events ALWAYS use the inline form below —
     // it carries the hidden community_id; the tailored onboarding routes
     // don't know about communities (plan §7).
@@ -156,12 +184,23 @@ export function EventTypePicker({
   // account; the expander is the always-present doorway to everything else. A
   // QR-preselected hidden type still auto-advances (handleSelect works off the
   // full roster), so fast-lanes never dead-end.
-  const hidden = hiddenTypeKeys ?? [];
+  //
+  // With the who step answered, the chosen subject's OWN measurement replaces
+  // the household one (a named alaga is strictly more precise); "You" and
+  // "Someone else" carry no data, so they keep today's household set and the
+  // grid stays byte-identical to before this change.
+  const hidden = gridHiddenTypes(subject, hiddenTypeKeys ?? [], todayISO ?? '');
   const gridTypes =
     showAllTypes || hidden.length === 0
       ? types
       : types.filter((t) => !hidden.includes(t.key));
   const hiddenCount = types.length - gridTypes.length;
+
+  // The who step runs only when there is a real roster to choose from and no
+  // other context has already settled the celebrant: a samahan event belongs to
+  // a community, not a person, and a QR fast-lane already knows the type.
+  const whoStep = (subjects ?? []).length > 0 && !samahanCommunityId && !preselect;
+  const askWho = whoStep && !subject;
 
   // Soft horizon advisory — recompute from the form's date inputs on any form
   // change. Reads the CreateDatePicker's own field names (date_candidate /
@@ -194,9 +233,84 @@ export function EventTypePicker({
     ? Math.round((horizonDaysFor(selectedKey) ?? 0) / 30.44)
     : 0;
 
+  // The heading is the STEP's own question — "who" first, "what" second — so a
+  // sorted grid never arrives under a title that asks something else.
+  const heading = (
+    <header className="mb-8 space-y-2">
+      <h1 className="sn-h1">
+        {askWho ? 'Para kanino ito?' : 'What kind of event are you planning?'}
+      </h1>
+      <p className="text-base text-ink/65">
+        {askWho
+          ? 'Sabihin mo lang kung kanino — we’ll put what fits them first.'
+          : 'Tap a type to begin.'}
+      </p>
+    </header>
+  );
+
+  if (askWho) {
+    // STEP 1 — "Para kanino ito?" A grid of sixteen type tiles is a wall; the
+    // same sixteen sorted around one named person is a short, obvious list.
+    return (
+      <section aria-label="Who this event is for">
+        {heading}
+        {notice}
+        <p className="mb-4 max-w-lg text-sm leading-relaxed text-ink/65">
+          Nothing is locked in — “someone else” shows every type, and you can change
+          this on the next screen.
+        </p>
+        <ul className="grid max-w-lg gap-2">
+          {(subjects ?? []).map((s) => (
+            <li key={s.id}>
+              <button
+                className="flex w-full items-center gap-3 rounded-xl border border-ink/12 bg-cream/40 px-4 py-3 text-left transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
+                onClick={() => setSubject(s)}
+                type="button"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 font-sans text-sm text-ink/70"
+                >
+                  {s.kind === 'pet' ? '🐾' : s.kind === 'other' ? '✦' : s.name.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-ink">{s.name}</span>
+                  <span className="block truncate text-xs text-ink/55">{s.subtitle}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
   return (
     <>
       <section aria-label="Event type">
+        {heading}
+        {notice}
+        {whoStep && subject ? (
+          /* The answer, kept visible and reversible — the type grid below is
+             sorted by it, so it must never be a decision the user can't see. */
+          <div className="mb-5 flex max-w-lg items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
+            <span className="min-w-0 text-sm text-ink/70">
+              For <span className="font-medium text-ink">{subject.name}</span>
+              <span className="block truncate text-xs text-ink/50">{subject.subtitle}</span>
+            </span>
+            <button
+              className="ml-auto shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
+              onClick={() => {
+                setSubject(null);
+                setSelectedKey(null);
+                setShowAllTypes(false);
+              }}
+              type="button"
+            >
+              Change
+            </button>
+          </div>
+        ) : null}
         <EventTypePhotoPicker types={gridTypes} onSelect={handleSelect} />
         {hiddenCount > 0 && !showAllTypes ? (
           <button
@@ -310,10 +424,17 @@ export function EventTypePicker({
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
                 Para kanino? <span className="font-normal text-ink/45">— optional</span>
               </label>
+              {/* Pre-answered by the who step when a NAMED alaga was picked.
+                  "You" deliberately leaves this blank: the unlabeled slot has
+                  always meant the account holder, and stamping your own name
+                  here would open a second slot beside every unlabeled event you
+                  already have. `key` remounts it when the subject changes. */}
               <input
                 autoComplete="off"
                 className="input-field"
+                defaultValue={subjectHonoreeLabel(subject)}
                 id="honoree_label"
+                key={subject?.id ?? 'no-subject'}
                 name="honoree_label"
                 maxLength={80}
                 placeholder="First name — e.g. Maria"

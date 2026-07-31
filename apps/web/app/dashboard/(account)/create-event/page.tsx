@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isPersonDependent } from '@/lib/dependent-people';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
@@ -148,7 +149,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       .is('handed_over_at', null);
     const rows = (deps ?? []) as DependentSubjectRow[];
     hiddenTypeKeys = hiddenMeasuredTypes(
-      rows.filter((r) => (r.dependent_kind ?? 'person') === 'person') as ConcernPerson[],
+      rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
       today,
     );
     alagaSubjects = dependentSubjects(rows, user.id);
@@ -157,15 +158,30 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // "You" + every alaga + the always-present escape hatch. Never shown for a
   // samahan (a community event has no personal celebrant) and never for the QR
   // fast-lane (the type — and with it the flow — is already settled).
+  //
+  // "You" is measured from the account holder's OWN saved birthday
+  // (owner-directed 2026-07-30: "their birthdays shows based from their account…
+  // only for their own account and their dependents"). This is a READ of the
+  // viewer's own row, under their own session, to sort their own picker — it is
+  // disclosed to nobody and no date is ever written onto the event (that stays
+  // barred by lib/onboarding/event-insert.ts). An account with no saved birthday
+  // measures nothing and keeps the whole grid, exactly as it shipped.
+  //
+  // `sex` is deliberately NOT read. It would only sharpen 18F/21M on the debut
+  // ladder, it carries its own RA 10173 consent stamp, and the owner directed
+  // birthdays — not a second sensitive field. Omitting it checks BOTH debut ages,
+  // which folds LESS, the documented fail-open direction.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
     const { data: profile } = await supabase
       .from('users')
-      .select('display_name')
+      .select('display_name, birth_date')
       .eq('user_id', user.id)
       .maybeSingle();
     subjects = [
-      buildSelfSubject((profile?.display_name as string | null) ?? null),
+      buildSelfSubject((profile?.display_name as string | null) ?? null, {
+        birth_date: (profile?.birth_date as string | null) ?? null,
+      }),
       ...alagaSubjects,
       buildUnspecifiedSubject(),
     ];

@@ -12,29 +12,48 @@
  * self-planning debutante or a niece's aunt has no dependent record). Nothing
  * here can dead-end anyone.
  *
- * ⚠ NO BIRTHDATE IS EVER ASKED OR STORED HERE. The only birthdates in play are
- * ones a guardian already recorded on an alaga (`dependents.birth_date`,
- * counsel-gated behind NEXT_PUBLIC_DEPENDENT_PEOPLE + the
- * `dependent_minor_profiles` data-privacy control). A subject with no birthdate
- * on file narrows nothing — fail OPEN, per person, exactly like
- * hiddenMeasuredTypes.
+ * ⚠ NO BIRTHDATE IS EVER ASKED OR STORED HERE — this module only READS dates
+ * that already exist, to sort a picker. Two sources, both already on file:
+ *  - an alaga's (`dependents.birth_date`, counsel-gated behind
+ *    NEXT_PUBLIC_DEPENDENT_PEOPLE + the `dependent_minor_profiles` control), and
+ *  - the account holder's own (`users.birth_date`, which they set themselves on
+ *    /dashboard/profile). Owner-directed 2026-07-30: "their birthdays shows
+ *    based from their account… only for their own account and their dependents".
+ *    Reading your OWN date, for your OWN picker, disclosed to nobody, is the
+ *    narrowest possible use of it.
+ * A subject with no birthdate on file narrows nothing — fail OPEN, per subject,
+ * exactly like hiddenMeasuredTypes.
+ *
+ * ⚠ AND IT MUST STAY A READ. Nothing here may put a birthdate ON an event —
+ * that is the counsel gate enforced in lib/onboarding/event-insert.ts. This
+ * module returns event-type KEYS and an honoree label, never a date.
  *
  * Pure + I/O-free so both the server page and the client picker can import it.
  */
 import { hiddenMeasuredTypes, type ConcernPerson } from './life-event-gate';
 import { parseISO, yearsBetween } from './event-anchor';
+import { DEPENDENT_KINDS, type DependentKind } from './dependent-people';
 
 /**
  * What kind of thing the celebration is for.
- *  - `self`        — the account holder. Adults by construction (RA 6809 hand-over
- *                    at 18), so nothing is sorted away: your own grid is your own.
+ *  - `self`        — the account holder, measured from `users.birth_date` when
+ *                    they have set one (owner 2026-07-30). No date on file → the
+ *                    grid stays exactly as whole as it shipped.
  *  - `person`      — an alaga who is a person (may carry a stored birthdate).
- *  - `pet` / `other` — an alaga with no milestone ladder (a dog, a sari-sari
- *                    store, a car). `dependents.dependent_kind` verbatim.
+ *  - `pet` / `business` / `item` / `other` — an alaga with no milestone ladder
+ *                    (a dog, a sari-sari store, a car).
+ *                    `dependents.dependent_kind` verbatim.
  *  - `unspecified` — "someone else" / "just an event": we deliberately know
  *                    nothing, so we sort nothing.
  */
-export type CreateSubjectKind = 'self' | 'person' | 'pet' | 'other' | 'unspecified';
+export type CreateSubjectKind =
+  | 'self'
+  | 'person'
+  | 'pet'
+  | 'business'
+  | 'item'
+  | 'other'
+  | 'unspecified';
 
 export type CreateSubject = {
   /** 'self' · 'unspecified' · else the alaga's `dependent_id`. */
@@ -44,7 +63,11 @@ export type CreateSubject = {
   name: string;
   /** One line under the name (e.g. "Alaga · person"). */
   subtitle: string;
-  /** ISO birthdate — person alaga only, and ONLY when already on file. */
+  /**
+   * ISO birthdate. Only ever a date ALREADY on file: a person alaga's
+   * (`dependents.birth_date`) or the account holder's own (`users.birth_date`).
+   * A pet/business/item never carries one here — its date narrows nothing.
+   */
   birthDate: string | null;
   sex: 'female' | 'male' | null;
 };
@@ -82,18 +105,21 @@ export function hiddenTypesForSubject(
 ): string[] {
   if (!subject) return [];
 
-  // "You" and "someone else" tell us nothing measurable. Your own grid stays
-  // whole (an 18-year-old CAN plan her own debut; adults DO get baptised), and
-  // an unnamed someone-else is by definition unmeasured.
-  if (subject.kind === 'self' || subject.kind === 'unspecified') return [];
+  // "Someone else" is by definition unmeasured — an unnamed person tells us
+  // nothing, so we sort nothing.
+  if (subject.kind === 'unspecified') return [];
 
   // A pet / a business / a car has no milestone ladder — only the generic
-  // celebrations apply.
-  if (subject.kind === 'pet' || subject.kind === 'other') {
+  // celebrations apply. Derived from "not a person" rather than a list of kinds:
+  // spelling them out is what stranded the rehome path when the vocabulary grew.
+  // (`self` is excluded here — the account holder is a person.)
+  if (subject.kind !== 'self' && subject.kind !== 'person') {
     return [...PERSON_ONLY_TYPES];
   }
 
-  // A person alaga with nothing on file: unmeasurable → fail open.
+  // Nothing on file — for an alaga OR for you — is unmeasurable → fail open.
+  // This is the branch every account without a saved birthday takes, so "You"
+  // keeps the byte-identical whole grid it has always had.
   if (!subject.birthDate) return [];
 
   const hidden = new Set(
@@ -120,9 +146,11 @@ export function hiddenTypesForSubject(
  *
  * `accountHidden` is the page's existing HOUSEHOLD measurement (owner
  * 2026-07-17 — computed from every person alaga on the account). It stays
- * authoritative for the two answers that carry no data of their own, so the
- * grid a user sees for "You" / "Someone else" is byte-identical to today's.
- * A named alaga is strictly more precise than the household, so it replaces it.
+ * authoritative for the answers that carry no data of their own, so the grid a
+ * user sees is byte-identical to today's whenever we know nothing new. Any
+ * subject with a date ON FILE is strictly more precise than the household, so it
+ * replaces it — and that now includes "You" (owner 2026-07-30), whose date is
+ * `users.birth_date`.
  */
 export function gridHiddenTypes(
   subject: CreateSubject | null,
@@ -132,7 +160,13 @@ export function gridHiddenTypes(
   // No usable clock ⇒ no per-subject measurement. Falling through would make
   // every date comparison fail and read as "nothing concerns them", i.e. it
   // would fold away MORE, not less — the wrong direction to fail in.
-  if (!subject || !todayISO || subject.kind === 'self' || subject.kind === 'unspecified') {
+  if (!subject || !todayISO || subject.kind === 'unspecified') {
+    return [...accountHidden];
+  }
+  // "You" with no saved birthday measures nothing of its own, so the household
+  // reading stays authoritative — exactly the shipped behaviour, and the path
+  // every account with a blank profile birthday still takes.
+  if (subject.kind === 'self' && !subject.birthDate) {
     return [...accountHidden];
   }
   return hiddenTypesForSubject(subject, todayISO);
@@ -167,8 +201,21 @@ export type DependentSubjectRow = {
 const KIND_SUBTITLE: Record<string, string> = {
   person: 'Alaga · person',
   pet: 'Alaga · pet',
+  business: 'Alaga · business',
+  item: 'Alaga · something you own',
   other: 'Alaga · something you care for',
 };
+
+/**
+ * The alaga kinds a subject may take — `DEPENDENT_KINDS` minus nothing, plus the
+ * guarantee that they are all valid `CreateSubjectKind`s. Kept as one derived
+ * check so a widened DB vocabulary reaches the picker without another edit here.
+ */
+const SUBJECT_ALAGA_KINDS = new Set<string>(DEPENDENT_KINDS);
+
+function isSubjectAlagaKind(v: string): v is Extract<CreateSubjectKind, DependentKind> {
+  return SUBJECT_ALAGA_KINDS.has(v);
+}
 
 /**
  * Turn the alaga rows into subjects. Rows with no name are DROPPED rather than
@@ -187,9 +234,12 @@ export function dependentSubjects(
     if (!name) continue;
     if (row.handed_over_at) continue;
     if (viewerUserId && row.claimed_user_id === viewerUserId) continue;
+    // An UNKNOWN kind falls back to 'person' on purpose: person is the column
+    // default and the legacy pre-`dependent_kind` value, and it is the stricter
+    // reading (it keeps the human-only types on offer rather than folding them
+    // away for a row we simply failed to recognise).
     const rawKind = row.dependent_kind ?? 'person';
-    const kind: CreateSubjectKind =
-      rawKind === 'pet' ? 'pet' : rawKind === 'other' ? 'other' : 'person';
+    const kind: CreateSubjectKind = isSubjectAlagaKind(rawKind) ? rawKind : 'person';
     out.push({
       id: row.dependent_id,
       kind,
@@ -205,18 +255,44 @@ export function dependentSubjects(
 }
 
 /**
+ * The account holder's own profile row, as this module needs it. `display_name`
+ * is deliberately NOT here — it stays the first argument, so a caller cannot
+ * pass a name in this object and quietly have it ignored.
+ */
+export type SelfProfile = {
+  /** `users.birth_date` — set by the account holder on /dashboard/profile. */
+  birth_date?: string | null;
+  /** `users.sex` — only ever used to pick 18F/21M on the debut ladder. */
+  sex?: string | null;
+};
+
+/**
  * The "You" row. `displayName` is `users.display_name` — when it is blank we say
  * "You" rather than inventing a name from an email local-part.
+ *
+ * `profile` carries the account holder's OWN saved birthday (owner-directed
+ * 2026-07-30: "their birthdays shows based from their account"). It is optional
+ * and NULL-tolerant on purpose — an account that never filled in a birthday is
+ * unmeasurable and gets exactly the whole grid it gets today. Passing it is a
+ * READ, used only to sort this picker; no date leaves this module.
  */
-export function buildSelfSubject(displayName: string | null | undefined): CreateSubject {
+export function buildSelfSubject(
+  displayName: string | null | undefined,
+  profile?: SelfProfile | null,
+): CreateSubject {
   const name = (displayName ?? '').trim();
+  const rawBirth = (profile?.birth_date ?? '').trim();
+  // Only an ISO yyyy-mm-dd is measurable; anything else narrows nothing rather
+  // than being coerced into a date we would then sort by.
+  const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(rawBirth) ? rawBirth : null;
+  const sex = profile?.sex === 'female' || profile?.sex === 'male' ? profile.sex : null;
   return {
     id: SELF_SUBJECT_ID,
     kind: 'self',
     name: name || 'You',
     subtitle: 'Your own celebration',
-    birthDate: null,
-    sex: null,
+    birthDate,
+    sex,
   };
 }
 

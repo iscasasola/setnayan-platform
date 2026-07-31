@@ -35,3 +35,10 @@ b616f6804a6ebd405717ff676c0434a85223aa3d:apps/web/lib/papic-pool-gallery.ts:gene
 # introducing commit because gitleaks-action scans every commit in the PR range.
 f03e1fcdcfb264660d5c5c5626def658615191fb:supabase/migrations/20271019231590_papic_two_type_model_pool_topups_and_dedicated_one_cameras.sql:generic-api-key:127
 f03e1fcdcfb264660d5c5c5626def658615191fb:supabase/migrations/20271019231590_papic_two_type_model_pool_topups_and_dedicated_one_cameras.sql:generic-api-key:842
+#
+# Same 'PAPIC_GUEST_6K' generic-api-key false positive (entropy 3.52) as the two
+# entries above, this time in the generated-llms.txt renderer's REQUIRED_RETAIL
+# list — catalog service_codes, not credentials. The inline `gitleaks:allow` was
+# added at 4d5f7d890, but gitleaks-action scans every commit in the PR range, so
+# the introducing commit's fingerprint must be pinned here too.
+dd2a89c2b3f7d57407bb18cb570cc4faa49b63f2:apps/web/lib/llms-txt.ts:generic-api-key:97

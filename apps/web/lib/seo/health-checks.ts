@@ -140,9 +140,15 @@ function normalizeRoutePath(path: string): string {
   if (path === '' || path === '/') return '/';
   // Collapse a concrete slug under a directory route to its directory anchor so
   // /v/some-vendor matches the '/v/' allowlist entry.
-  const stripped = path.replace(/\/+$/, '');
-  if (stripped.startsWith('/v/')) return '/v/';
-  return stripped;
+  //
+  // ⚠ Test the prefix on the ORIGINAL path, before the trailing slash is
+  // stripped. Doing it after (the behaviour until 2026-07-31) meant the bare
+  // directory link '/v/' became '/v', which does not start with '/v/' and so
+  // failed the allow-list — the one form the '/v/' entry was written for was the
+  // only form that could never match. That produced a standing daily FAIL
+  // ("routes not in the known-public set: /v") against perfectly valid content.
+  if (path.startsWith('/v/')) return '/v/';
+  return path.replace(/\/+$/, '');
 }
 
 /**

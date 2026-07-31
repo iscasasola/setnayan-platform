@@ -58,3 +58,38 @@ Dropping the view is faithful to what the fixture simulates rather than a way ar
 **Full suites after the fix: 659 DB tests and 5,688 unit tests, 0 failures.**
 
 SPEC IMPACT: None. No product behaviour changes — the cap, its honoree key and its epoch exemption all behave exactly as before. Security posture and failure mode only.
+
+
+## 2026-07-31 · the stacked person_connections migration was REMOVED — another session shipped it first, better
+
+PR #3941 stacked a `person_connections` policy split on this branch. While it waited, another session merged **`20271025100000_person_connections_per_command_policies.sql`** to `main`, closing the same forgery/self-confirm hole.
+
+Keeping both would have been worse than duplicate authorship. **Postgres RLS policies are PERMISSIVE — they OR together.** Mine dropped only `person_connections_participant`, not main's four new policies, so after both ran the table would carry both sets, and a row passing *either* INSERT policy would be admitted. The `status = 'pending'` pin that was the entire point of my migration would have been satisfiable by going around it. (In practice the deploy would have failed first — my post-condition asserts exactly four policies, and there would have been more — so this could not have shipped silently. It still could not have shipped at all.)
+
+Main's version is **strictly stronger**, so mine is superseded rather than merely redundant:
+
+| | mine (#3941) | main's |
+|---|---|---|
+| INSERT pins status | `= 'pending'` | `IN ('draft','pending')` — adds drafts |
+| Only the recipient may answer | policy `USING`/`WITH CHECK` | `person_connections_transition_guard` trigger |
+| Only a *pending* row may be answered | ✅ | ✅ |
+| draft → pending only by the declarer | — | ✅ |
+| Nothing returns to draft | — | ✅ |
+| confirmed/declined is **final** | — | ✅ |
+
+Their split is also the better shape: RLS decides *reachability*, a trigger enforces the *state machine*. A policy pair cannot express "answered is final" without reading the pre-image on every command.
+
+Removed from this branch: the migration and its changelog fragment. Nothing is lost — the rule it protected is enforced on `main` today, and more completely.
+
+**The lesson worth keeping:** a stacked PR is a bet that nobody else touches the same table. When it loses, the failure mode is not a merge conflict — git merged this cleanly. It is two migrations that both "work" and silently OR into a weaker policy set. **Before merging any long-lived branch carrying an RLS migration, re-check whether `main` grew a policy on that table.**
+
+Re-verified on the merged tree: **677 DB tests · 5,727 unit tests · 0 failures**; `tsc` clean; migration-doctor, timestamp, exposure-baseline and dup-rule guards all exit 0. Regenerated baseline shows exactly this PR's intended narrowing and nothing else:
+
+```
+-col public.events.honoree_label          anon=SIU authenticated=SIU
++col public.events.honoree_label          anon=IU  authenticated=IU
+-col public.events.honoree_dependent_id   anon=SIU authenticated=SIU
++col public.events.honoree_dependent_id   anon=IU  authenticated=IU
+-col public.events.signature_details      anon=SIU authenticated=SIU
++col public.events.signature_details      anon=IU  authenticated=IU
+```

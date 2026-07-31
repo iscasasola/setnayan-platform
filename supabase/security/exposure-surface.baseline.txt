@@ -2063,8 +2063,8 @@ col	public.events.groom_name	anon=SIU authenticated=SIU
 col	public.events.guest_count_locked_at	anon=S authenticated=S
 col	public.events.guest_list_edit_deadline	anon=SIU authenticated=SIU
 col	public.events.headcount_basis	anon=SIU authenticated=SIU
-col	public.events.honoree_dependent_id	anon=SIU authenticated=SIU
-col	public.events.honoree_label	anon=SIU authenticated=SIU
+col	public.events.honoree_dependent_id	anon=IU authenticated=IU
+col	public.events.honoree_label	anon=IU authenticated=IU
 col	public.events.id	anon=S authenticated=S
 col	public.events.is_mixed_ceremony	anon=SIU authenticated=SIU
 col	public.events.is_primary	anon=SIU authenticated=SIU
@@ -2156,7 +2156,7 @@ col	public.events.setnayan_ai_intro_used	anon=S authenticated=S
 col	public.events.share_budget_band	anon=SIU authenticated=SIU
 col	public.events.showcase_feature_rank	anon=S authenticated=S
 col	public.events.showcase_featured_at	anon=S authenticated=S
-col	public.events.signature_details	anon=SIU authenticated=SIU
+col	public.events.signature_details	anon=IU authenticated=IU
 col	public.events.site_art_direction	anon=SIU authenticated=SIU
 col	public.events.site_bg_color	anon=SIU authenticated=SIU
 col	public.events.site_bg_music_enabled	anon=SIU authenticated=SIU

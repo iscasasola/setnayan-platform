@@ -84,6 +84,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicOneCard } from './_components/papic-one-card';
+import { PapicPoolCard } from './_components/papic-pool-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -121,6 +122,7 @@ type Props = {
     papic_amount?: string;
     papic_error?: string;
     papic_one_error?: string;
+    papic_pool_error?: string;
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -166,6 +168,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_amount: papicAmount,
     papic_error: papicError,
     papic_one_error: papicOneError,
+    papic_pool_error: papicPoolError,
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
@@ -619,6 +622,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           polished card ships with the onboarding cards; what could not wait is
           the doorway, because the free One camera is armed for every event from
           this PR onward and a camera nobody can reload is a dead end. */}
+      {/* Papic POOL — the buy path for the SHARED pool (2026-07-31). Mounted
+          ABOVE the One card because Pool is the product a couple meets first:
+          the free 50-pt grant is a pool grant, the onboarding services card
+          leads with the Pool ladder, and the Suite CTA that lands here reads
+          "Open the pool". Until now this page answered that CTA with a One
+          camera and nothing else — the Pool ladder was advertised in two live
+          places and buyable in none, while all three PAPIC_GUEST* rows sat
+          is_active=true and `grantPapicPassPoints` sat wired and unreachable.
+          Self-gating to null when no rung has a live catalog price. */}
+      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+
       <PapicOneCard eventId={eventId} error={papicOneError ?? null} />
 
       {/* Guests chipped in (owner-locked 2026-07-29) — flag-dark behind

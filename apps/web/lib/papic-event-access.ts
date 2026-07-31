@@ -61,6 +61,19 @@ export const PAPIC_ACCESS_PHASE_1_TYPES = [
   'christening',
   'gender_reveal',
   'graduation',
+  // `simple_event` — added 2026-07-31. It satisfies the axis this predicate is
+  // built on: the HOST writes the roster (role set 'simple', a single flat
+  // 'guest'), its profile enables `rsvp` in prod, and it is single-day and
+  // anchored, so a pass metered per event-day is the right unit.
+  //
+  // It is here because the product already sells the pool there and has since
+  // 2026-07-27: `commitSimpleEvent` arms the free 50-pt pool grant at create,
+  // and the onboarding services card prints all three paid Pool rungs on this
+  // exact type. Leaving it out of the phase set while wiring the gate into
+  // Suite would not have been "failing closed" — it would have retracted a
+  // live, owner-locked offer ("Papic on ALL 16 event types", 2026-07-27) from
+  // the one type whose entire purpose is to exercise the in-app services.
+  'simple_event',
 ] as const;
 
 /** Roster-backed group types — poster-QR self-join is the primary entry path. */

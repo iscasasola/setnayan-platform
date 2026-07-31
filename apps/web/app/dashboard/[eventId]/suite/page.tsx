@@ -18,6 +18,7 @@ import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { papicGuestPassAccess } from '@/lib/papic-event-access';
 import { routes } from '@/lib/routes';
 import { RevealList } from '@/app/_components/reveal-list';
 import { notFound } from 'next/navigation';
@@ -189,7 +190,6 @@ export default async function SuitePage({ params }: Props) {
 
   // ── Event-type surface gating (0053) — same contract as the Studio hub. ────
   const profile = await resolveProfileByEvent(eventId);
-  const surfaceOk = (a: AddOnEntry) => !a.surface || surfaceEnabled(profile, a.surface);
 
   // ── Bundle-aware ownership + live admin-catalog prices, one round-trip each
   // (mirrors the Studio hub exactly: ownership on the admin client so a co-host
@@ -220,7 +220,10 @@ export default async function SuitePage({ params }: Props) {
     // date under the names). One extra select in the same round-trip batch.
     supabase
       .from('events')
-      .select('display_name, event_date, monogram_text')
+      // community_id rides along for papicGuestPassAccess() below — anniversary
+      // is the one type whose Papic eligibility splits on the CONTROLLER
+      // (personally-owned vs Samahan-owned), not on the type.
+      .select('display_name, event_date, monogram_text, community_id')
       .eq('event_id', eventId)
       .maybeSingle(),
     // Compare-vendors doorway — resolve the couple's saved shortlist in the same
@@ -235,6 +238,38 @@ export default async function SuitePage({ params }: Props) {
       .neq('status', 'declined')
       .order('vendor_id', { ascending: true }),
   ]);
+
+  // ── The add-on gate. TWO layers, and the second is NOT derivable from the
+  // first (this is the Studio hub's contract, restored here).
+  //
+  //   1. The generic SURFACE gate (0053) — an add-on tagged with a `surface`
+  //      shows only when this event type's profile enables it.
+  //   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`,
+  //      but migration 20270804110223 added `rsvp` to EVERY non-wedding profile
+  //      row — all 16 types carry it in prod today. So the surface check alone
+  //      admits the pool on a roaming multi-day `travel` trip, where a pass
+  //      metered per event-day is structurally the wrong unit and the bystander
+  //      density is the highest of any type. papicGuestPassAccess() carries the
+  //      permanent travel deny, the anniversary controller split and the phase
+  //      ladder, and it FAILS CLOSED for a type nobody has scoped yet.
+  //
+  // ⚠ WHY THIS IS BEING RE-ADDED, not added: the predicate WAS wired — into
+  // `studio/page.tsx`. That page now `redirect()`s here on its first statement
+  // whenever NEXT_PUBLIC_SUITE is on, which it is in prod, so the gate has had
+  // ZERO effective callers since Suite shipped. The unit tests kept passing the
+  // whole time: they exercise the predicate, and the predicate was never wrong
+  // — the surface that had to call it simply stopped being the surface. Verify
+  // the CONSUMER, not the helper.
+  const papicPassAllowed = papicGuestPassAccess({
+    profile,
+    communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,
+  }).allowed;
+
+  const surfaceOk = (a: AddOnEntry) => {
+    if (a.surface && !surfaceEnabled(profile, a.surface)) return false;
+    if (a.key === 'papic-guest') return papicPassAllowed;
+    return true;
+  };
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back

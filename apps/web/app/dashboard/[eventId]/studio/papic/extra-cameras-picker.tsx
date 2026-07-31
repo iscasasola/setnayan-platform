@@ -1,19 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import { papicCapacityPhrase } from '@/lib/papic-tier-copy';
 import { purchasePapicExtras } from './actions';
 
 /**
- * Papic extra-cameras picker — the THREE-rung ladder (owner 2026-07-20).
+ * Papic extra-cameras picker — the LIVE rungs of the ladder (owner 2026-07-20).
  *
  * The only way to add a camera for a shooter who is NOT on the guest list (a
  * videographer friend, a hired second shooter). Off the list there's no guest
- * record, so these are anonymous claim-link seats — but they now span the full
- * ladder rather than Unlimited-only:
+ * record, so these are anonymous claim-link seats.
  *
- *     Papic Mini  · ₱30/camera/day · 20 capture points a day
- *     Papic Ltd   · ₱50/camera/day · 70 capture points a day
- *     Papic Unli · ₱100/camera/day · no limit, archived to Drive
+ * ⚠ The rung ladder this file used to document by name and price is RETIRED,
+ * and the header is deliberately not replaced with a new one. Under the
+ * two-type lock (owner 2026-07-29) the only Papic product NAMES are Pool and
+ * One; `papic_tier_config` rows 'ltd' and 'unlimited' are is_active=false, and
+ * the server now filters on that column before this component ever sees a rung.
+ * A ladder spelled in a comment is a ladder that goes stale the next time an
+ * admin edits a row — which is exactly what happened: the old header described
+ * a ₱30 Mini and a ₱100 Unli that have not been purchasable for weeks.
  *
  * ⚠ Every label, per-day budget, rate and cap arrives as a PROP resolved
  * server-side from papic_tier_config + platform_retail_catalog_v2 — nothing
@@ -48,13 +53,26 @@ export type ExtraCameraRung = {
   free: boolean;
 };
 
-/** "20 points a day — 20 photos, or 6 clips" / "No limit". */
+/** The rung's per-day budget line, or the unlimited note. */
 function budgetLine(rung: ExtraCameraRung): string {
   if (rung.pointsPerDay == null) {
     return 'No limit · archived to your Drive';
   }
-  const clips = Math.floor(rung.pointsPerDay / 3);
-  return `${rung.pointsPerDay} points a day — ${rung.pointsPerDay} photos, or ${clips} clips`;
+  // ⚠ DERIVE the weights — never spell them, and never invent the sentence.
+  //
+  // This line used to floor-divide the per-day budget by a hardcoded literal to
+  // get a clip count. Two things were wrong. The DIVISOR: the fail-closed
+  // capture path meters a 10-second clip at PAPIC_POINTS_PER_CLIP, which the
+  // 2026-07-29 currency lock moved again — so the rung advertised roughly three
+  // times the clips it would actually deliver, on a paid camera, while the
+  // enforcement layer was right the whole time. And the SHAPE: "N photos, or M
+  // clips" reads as two independent allowances when it is one purse — spending
+  // points on clips takes them from photos.
+  //
+  // papicCapacityPhrase() is the sanctioned helper for both (lib/papic-tier-copy
+  // is the ONLY place allowed to phrase a Papic claim); it interpolates the
+  // constants, so the next reprice moves this line with no edit here.
+  return `${rung.pointsPerDay} points a day — ${papicCapacityPhrase(rung.pointsPerDay)}`;
 }
 
 function Stepper({
@@ -114,6 +132,12 @@ export default function ExtraCamerasPicker({
   const [counts, setCounts] = useState<Record<string, number>>(() =>
     rungs.length > 0 ? { [rungs[0]!.rung]: 1 } : {},
   );
+
+  // An EMPTY ladder is now reachable: the server filters retired rungs out of
+  // `papic_tier_config`, so an admin who deactivates the last one leaves nothing
+  // to sell. Render nothing rather than a heading over an empty form with a
+  // "₱0" button — the hooks above run first, so this early return is safe.
+  if (rungs.length === 0) return null;
 
   const d = Math.max(1, Math.floor(days) || 1);
   const lines = rungs.map((r) => {

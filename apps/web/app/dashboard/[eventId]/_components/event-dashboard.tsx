@@ -18,6 +18,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import {
+  fetchPlanGroupScope,
+  planGroupsForEventType,
+} from '@/lib/plan-groups-by-event-type';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import {
@@ -558,7 +562,12 @@ export async function EventDashboard({
   // that encodes vendor-free (SIMPLE_PROFILE sets it false), so a FUTURE
   // vendor-free type is covered without touching this file. Same house rule as
   // lib/papic-event-access.ts and the onboarding services step's AI gate.
-  const profile = await resolveProfileByEvent(eventId);
+  const [profile, planGroupScope] = await Promise.all([
+    resolveProfileByEvent(eventId),
+    // One extra read, in the same await — the tier-2 allow-lists that say which
+    // bookable categories this event type actually has.
+    fetchPlanGroupScope(supabase),
+  ]);
   const marketplaceEnabled = profile.marketplaceEnabled === true;
   const displayName =
     (event as { display_name?: string | null }).display_name ??
@@ -643,16 +652,33 @@ export async function EventDashboard({
   const vendorRowInputs = marketplaceEnabled
     ? (eventVendors as ReadonlyArray<EventVendorRowInput>)
     : ([] as ReadonlyArray<EventVendorRowInput>);
+  // THIS EVENT TYPE'S ladder, not the wedding one. `PLAN_GROUPS` is a hardcoded
+  // wedding list (ceremony_venue · bridal_car · rings · officiant), and every
+  // counter here iterated it for all 16 types — so a BIRTHDAY was told "21
+  // categories still open" with "Lock your reception venue" on top.
+  //
+  // The per-type map already exists, is fully populated and is owner-editable:
+  // `service_categories.applicable_event_types`, maintained from
+  // /admin/event-types/<type>/categories. 72 of 73 tier-2 rows are scoped
+  // (`bridal_car → [wedding]`, `ceremony_venue → [wedding, christening]`).
+  // The marketplace and Shortlist have read it for a while; this surface never
+  // did. So this is WIRING, not new taxonomy — joined on the key the two
+  // already share (`PlanGroup.catalogTile` is a `service_categories.id`).
+  //
+  // Fail-OPEN throughout (see the module header): unknown ⇒ applies. Wrongly
+  // including a category costs a slightly long checklist; wrongly excluding one
+  // means a couple is never reminded to book their venue.
+  const eventPlanGroups = planGroupsForEventType(eventType, planGroupScope);
   const remainingTaskCount = marketplaceEnabled
-    ? countUnlockedCategories(vendorRowInputs)
+    ? countUnlockedCategories(vendorRowInputs, eventPlanGroups)
     : 0;
   const totalLockableCategories = marketplaceEnabled
-    ? PLAN_GROUPS.filter((g) => g.countsTowardLockable !== false).length
+    ? eventPlanGroups.filter((g) => g.countsTowardLockable !== false).length
     : 0;
   const lockedVendorCount = Math.max(0, totalLockableCategories - remainingTaskCount);
   const topPriorityTask =
     marketplaceEnabled && event.event_date && eventDatePrecision === 'day'
-      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now)
+      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
       : null;
 
   const paperworkRows = (paperworkRes.data ?? []) as PaperworkRow[];

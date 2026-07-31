@@ -6,6 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { skuBackedLiterals } from '@/lib/public-price-literals';
+
 import {
   runSeoHealthChecks,
   pesoFigure,
@@ -111,4 +113,51 @@ test('missing verification tokens and empty sameAs are owner-action warns', () =
   });
   assert.ok(configured.findings.some((f) => f.check === 'verification tokens' && f.status === 'ok'));
   assert.ok(configured.findings.some((f) => f.check === 'Organization.sameAs' && f.status === 'ok'));
+});
+
+// ── Check 5 · hardcoded public price literals ──────────────────────────────
+// This is the runtime half of the two-part guard around peso figures typed into
+// marketing source. CI (lib/public-price-literals.test.ts) can only prove a
+// literal is DECLARED; only this check, which sees the live catalog, can prove
+// it is still TRUE. The negative case matters most — a check nobody has watched
+// fail is decorative, which is precisely how llms.txt drifted for three weeks.
+
+test('a declared literal that no longer matches its SKU FAILS, naming file + SKU', () => {
+  const catalog: CatalogRow[] = skuBackedLiterals().map((l) => ({
+    sku_code: l.sku,
+    price_php:
+      l.sku === 'ANIMATED_MONOGRAM' ? 1750 : Number(l.literal.replace(/[₱,]/g, '')),
+    source: 'retail',
+  }));
+
+  const res = runSeoHealthChecks({ llmsText: '', catalog, env: {} });
+  const check = res.findings.find((f) => f.check === 'hardcoded public price literals');
+
+  assert.equal(check?.status, 'fail');
+  assert.ok(check?.detail.includes('ANIMATED_MONOGRAM'), 'must name the drifted SKU');
+  assert.ok(check?.detail.includes('studio-card-demo'), 'must name the file to edit');
+  assert.ok(check?.detail.includes('₱1,750'), 'must state the real catalog price');
+});
+
+test('literals that match the catalog pass', () => {
+  const catalog: CatalogRow[] = skuBackedLiterals().map((l) => ({
+    sku_code: l.sku,
+    price_php: Number(l.literal.replace(/[₱,]/g, '')),
+    source: 'retail',
+  }));
+  const res = runSeoHealthChecks({ llmsText: '', catalog, env: {} });
+  assert.equal(
+    res.findings.find((f) => f.check === 'hardcoded public price literals')?.status,
+    'ok',
+  );
+});
+
+test('a SKU absent from the catalog is Check-1 territory, not a literal failure', () => {
+  // Empty catalog ⇒ nothing to compare against. The literal check must stay
+  // quiet rather than report every declared figure as drifted.
+  const res = runSeoHealthChecks({ llmsText: '', catalog: [], env: {} });
+  assert.equal(
+    res.findings.find((f) => f.check === 'hardcoded public price literals')?.status,
+    'ok',
+  );
 });

@@ -1,3 +1,5 @@
+import { skuBackedLiterals, parsePesoLiteral } from '@/lib/public-price-literals';
+
 /**
  * SEO / GEO health checks — the daily drift + coverage audit that backs
  * /api/cron/seo-health and the /admin/seo surface.
@@ -273,6 +275,35 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
           detail: 'empty — create FB Page + LinkedIn, then populate sameAs[] (cheapest entity-grounding win)',
         }
       : { check: 'Organization.sameAs', status: 'ok', detail: `${sameAs.length} profile(s) wired` },
+  );
+
+  // --- Check 5: hardcoded price literals on public surfaces ------------------
+  // The CI scanner (lib/public-price-literals.test.ts) can only prove a literal
+  // is DECLARED — it has no prod credentials. This is the half that proves a
+  // declared literal is still TRUE. Splitting it this way is the lesson from the
+  // llms.txt drift: never let both sides of a check be hand-maintained.
+  const priceBySku = new Map(input.catalog.map((r) => [r.sku_code, r.price_php]));
+  const literalDrift: string[] = [];
+  for (const lit of skuBackedLiterals()) {
+    const want = priceBySku.get(lit.sku);
+    if (want === undefined) continue; // SKU absent from the active set — Check 1's job.
+    const have = parsePesoLiteral(lit.literal);
+    if (have !== null && Math.round(want) !== have) {
+      literalDrift.push(`${lit.file} says ${lit.literal} but ${lit.sku} is ${pesoFigure(want)}`);
+    }
+  }
+  findings.push(
+    literalDrift.length > 0
+      ? {
+          check: 'hardcoded public price literals',
+          status: 'fail',
+          detail: `${literalDrift.length} hardcoded figure(s) no longer match the catalog: ${literalDrift.join('; ')}`,
+        }
+      : {
+          check: 'hardcoded public price literals',
+          status: 'ok',
+          detail: `all ${skuBackedLiterals().length} declared SKU-backed literal(s) match the catalog`,
+        },
   );
 
   const counts = {

@@ -4,18 +4,20 @@ Three prototype features from `06_Prototypes/User_Home_REDESIGN_2026-07-30.html`
 never shipped. All three live in `apps/web/app/dashboard/(launcher)/page.tsx`, which is
 why they are one change.
 
-**1 · Spaces split in two (owner decision: "split it in two").** One tile was carrying two
-opposite stances — a shop you *operate* and a vendor you *saved* — plus Samahan, which is
-neither. It is now:
+**1 · Spaces split (owner decision: "split it in two").** One tile was carrying three unlike
+things. It is now **"Yours to run"** — only the stances this account OPERATES, as labelled
+groups: the vendor shop(s) + Admin HQ rows (capability-gated, absent for a plain couple),
+**Creator's Lab** (Your Story / Become a Storyteller — renders for everyone, so a plain
+couple never gets an empty heading), and **Vendors you saved** (the `?tab=vendors` link
+PR #3963 added the same day).
 
-- **"Yours to run"** — the vendor shop(s), Admin HQ, and the Creator's Lab (Your Story /
-  Become a Storyteller). Shop + HQ rows stay capability-gated; the Creator row renders for
-  everyone, so a plain couple never gets an empty heading.
-- **"Vendors you saved"** — the shortlist doorway into `/dashboard/library?tab=vendors`,
-  which until now had **no link anywhere on the home** (it existed only inside the Memories
-  Hub's own tab strip). Deliberately prints **no count**: the tab filters saved vendors
-  through `lib/vendor-favorite-gate`, so a raw count read here could disagree with the list
-  it opens — a number that can lie is worse than no number.
+Saved vendors deliberately stayed *inside* this tile instead of becoming the second tile:
+the owner's later line, quoted in #3963's own comment — *"saved vendors can be with the
+group of your shop, hq, and creators lab"* — is the newer word, and a handoff does not
+outrank it. The other half of the split is the People tile: **Samahan left this tile
+entirely.** No count is printed beside the shortlist, because the tab filters saved vendors
+through `lib/vendor-favorite-gate` and a raw count read on the home could disagree with the
+list it opens.
 
 **2 · A real People block.** People had a ⌘K entry and a phone pill target and nothing
 rendered — a palette entry is not a doorway. The new tile is built ONLY from sources that

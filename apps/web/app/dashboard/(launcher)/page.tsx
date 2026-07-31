@@ -6,11 +6,11 @@ import {
   ShieldCheck,
   Plus,
   ArrowUpRight,
-  LayoutGrid,
   Wand2,
   AlertCircle,
   Users,
   Clapperboard,
+  Images,
   Heart,
   HeartHandshake,
   MapPin,
@@ -98,15 +98,17 @@ export const metadata = {
  *     Memories Hub Expandable continue beneath — inline per the owner
  *     2026-07-13 rule. The flag-gated person-spine "Your story" renders in the
  *     tile's column when its flag turns on.
- *   • SPACES — SPLIT IN TWO (owner decision 2026-07-30, "split it in two"),
- *     because "a shop you run" and "a vendor you saved" are opposite stances
- *     and were sharing one box:
- *       – "Yours to run" — the vendor shop(s), Admin HQ, and the Creator's Lab
- *         (Your Story / Become a Storyteller). Shop + HQ rows stay
- *         capability-gated; the Creator row renders for everyone, so the tile
- *         is never an empty heading.
- *       – "Vendors you saved" — the shortlist doorway into
- *         /dashboard/library?tab=vendors.
+ *   • SPACES → "YOURS TO RUN" (owner 2026-07-30 "split it in two"). The tile
+ *     was mixing three unlike things; it now holds only the stances this
+ *     account OPERATES, as labelled groups: the vendor shop(s) + Admin HQ
+ *     rows (capability-gated — absent for a plain couple), the Creator's Lab
+ *     (Your Story / Become a Storyteller — renders for everyone, so the tile is
+ *     never an empty heading), and "Vendors you saved" (the shortlist link into
+ *     /dashboard/library?tab=vendors). Saved vendors stays INSIDE this tile
+ *     rather than becoming the second tile because the owner's later line
+ *     (2026-07-31) puts it "with the group of your shop, hq, and creators lab".
+ *     The other half of the split is the PEOPLE tile below: Samahan left this
+ *     tile entirely, because a samahan is not something you run.
  *   • PEOPLE — a real block on the home for the first time (it existed only as
  *     a ⌘K entry + a phone pill target; a palette entry is not a doorway).
  *     Built ONLY from sources that are real for this account:
@@ -1144,6 +1146,34 @@ export default async function LauncherPage({
                   ))}
                 </div>
               ) : null}
+              {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
+                  the group of your shop, hq, and creators lab, and favorite
+                  vendors." They were previously only advertised (never shown)
+                  under Memories Hub, whose panel has no vendor code at all.
+                  Here they sit with the other business doorways, and the link
+                  goes to the tab that actually renders them.
+
+                  NOTE for the 2026-07-30 "split it in two" decision: this stays
+                  a LABELLED GROUP inside "Yours to run" rather than a second
+                  tile, because the owner's 2026-07-31 line above is the later
+                  word and puts saved vendors *with* shop/HQ/Creator's Lab. The
+                  split the owner asked for is still visible — it is the group
+                  headings, and Samahan left this tile entirely for PEOPLE. */}
+              <p className="mb-0.5 mt-[13px] font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--sn-ink-400)]">
+                Vendors you saved
+              </p>
+              <Link
+                href="/dashboard/library?tab=vendors"
+                className="group -mx-1 flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-ink/70 hover:text-ink"
+              >
+                <Heart aria-hidden className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-gold-700)]" strokeWidth={1.75} />
+                <span className="flex-1 truncate">Your shortlist</span>
+                <ArrowUpRight
+                  aria-hidden
+                  className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
+                />
+              </Link>
+
               {/* CREATOR'S LAB — the ONE doorway to /dashboard/creator
                   (readiness verdict 2026-07-16 B4: the funnel had no entry
                   anywhere; the wayfinding rule — a page ships with its
@@ -1166,32 +1196,6 @@ export default async function LauncherPage({
                 ) : (
                   <BecomeStorytellerRow />
                 )}
-              </div>
-            </div>
-
-            {/* SPACES · 2 of 2 — "VENDORS YOU SAVED". The opposite stance: not
-                a business you run, a shortlist you keep. One real doorway into
-                the Memories Hub's Saved Vendors tab, which owns the list, its
-                empty state and its "Explore the marketplace" nudge. No count is
-                printed here on purpose — the tab filters saved vendors through
-                the subscription gate (lib/vendor-favorite-gate), so a raw count
-                read on this page could disagree with the list it opens. */}
-            <div
-              className="sn-tile-glass sn-lift-3 sn-reveal rounded-2xl p-4 sm:p-[18px]"
-              style={{ animationDelay: '0.98s' }}
-            >
-              <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[color:var(--sn-gold-700)]">
-                <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Vendors you saved
-              </p>
-              <div className="mt-2">
-                <SpaceRow
-                  href="/dashboard/library?tab=vendors"
-                  icon={Heart}
-                  title="Your shortlist"
-                  subtitle="Vendors you kept from your plans and the events you attended"
-                  tone="default"
-                />
               </div>
             </div>
 
@@ -1279,10 +1283,24 @@ export default async function LauncherPage({
             <YearMomentsStrip userId={user.id} />
           </Suspense>
 
+          {/* ── ALAALA ABSORBS THE HUB (owner 2026-07-31: "the memories hub is
+              still not integrated" · "ala ala is not fixed") ─────────────────
+              This row used to be titled "Memories Hub" and sat as a PEER of the
+              Alaala tile — two names for one idea, which is exactly the overlap
+              the four-surface model exists to remove (Alaala is the single
+              memory dimension; Memories Hub was its old name).
+
+              It is now Alaala's own content: same photos, no second brand.
+
+              ⚠ The subtitle also promised "saved vendors", and this panel
+              renders PhotosTab, which contains ZERO vendor code. The page
+              advertised a third thing it did not show. Saved vendors now live
+              where the owner put them — with the shops and consoles, in
+              Spaces — and this row says only what it actually contains. */}
           <Expandable
-            icon={<LayoutGrid className="h-[18px] w-[18px]" />}
-            title="Memories Hub"
-            subtitle="Photos · videos · saved vendors"
+            icon={<Images className="h-[18px] w-[18px]" />}
+            title="Photos & videos"
+            subtitle="Every album, across every event"
           >
             <Suspense fallback={<InlinePanelSkeleton />}>
               <PhotosTab userId={user.id} />

@@ -4,6 +4,7 @@ import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { resolveSongDeskAccess } from '@/lib/song-desk-gate';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
+import { eventSkuActive } from '@/lib/entitlements';
 import { classifyPopulation, type ProbeResult } from './verdict';
 
 /**
@@ -23,7 +24,7 @@ import { classifyPopulation, type ProbeResult } from './verdict';
  * mapping, this probe changes with it. If someone deletes it, this probe stops
  * compiling. Neither is true of a SQL copy.
  *
- * ── WHAT THESE TWO PROBES ARE ──────────────────────────────────────────────
+ * ── WHAT THESE PROBES ARE ─────────────────────────────────────────────────
  * Both halves of one real incident, watched from opposite ends:
  *   · the CAUSE   — a vendor whose booked categories no longer reach the tiles
  *                   their desks are keyed on (the vocabulary mismatch itself)
@@ -279,9 +280,93 @@ const songDeskNarrowingLockout: Probe = {
 };
 
 /**
+ * PROBE 4 · the arrival check — money landed, did the feature switch on?
+ *
+ * This is the owner's original idea, built the DERIVED way rather than the
+ * declared way, and the distinction is the whole design:
+ *
+ *   declared — every write site records "this is supposed to land over there".
+ *              Precise, and it fails the moment somebody forgets one, because a
+ *              missing declaration is indistinguishable from a healthy joint.
+ *              It also only ever covers writes made after it ships.
+ *   derived  — state the pair of facts ONCE and let a query find the gap. No
+ *              instrumentation to forget, and it works retroactively on every
+ *              row already in the database.
+ *
+ * The pair here: **an order that has been paid should have its SKU active on
+ * its event.** Money is the right first one — a silent gap costs a real
+ * customer something they paid for, and they find out before we do.
+ *
+ * ── IT CALLS THE PRODUCT'S OWN READER ──────────────────────────────────────
+ * `eventSkuActive` is the function the product itself uses to decide whether a
+ * feature is unlocked, so this cannot drift from what the couple experiences.
+ * A SQL re-implementation would be a second copy of a rule that already folds
+ * in bundle composition, promo free-windows and admin comp grants — and two
+ * copies of one rule drift together while the check stays green.
+ *
+ * ── THE GRACE WINDOW IS LOAD-BEARING ───────────────────────────────────────
+ * Activation runs after payment, not inside it, so a just-paid order is
+ * legitimately not-yet-active. Orders younger than ACTIVATION_GRACE_MS are
+ * excluded — without that, this probe would report a fault on every healthy
+ * checkout and be muted within a day.
+ */
+const ACTIVATION_GRACE_MS = 15 * 60 * 1000;
+
+const paidOrderActivation: Probe = {
+  key: 'paid-order-activation',
+  title: 'Paid orders actually switched their feature on',
+  run: async (): Promise<ProbeResult> => {
+    const admin = createAdminClient();
+
+    // `fulfilled` is included on purpose: it claims MORE than `paid` does, so a
+    // fulfilled order whose SKU is not active is a louder contradiction, not a
+    // quieter one.
+    const { data, error } = await admin
+      .from('orders')
+      .select('order_id, event_id, service_key, status, created_at')
+      .in('status', ['paid', 'fulfilled']);
+    if (error) throw new Error(`orders unreadable: ${error.message}`);
+
+    const cutoff = Date.now() - ACTIVATION_GRACE_MS;
+    const due = (
+      (data ?? []) as {
+        order_id: string;
+        event_id: string | null;
+        service_key: string | null;
+        created_at: string;
+      }[]
+    ).filter((o) => o.event_id && o.service_key && new Date(o.created_at).getTime() < cutoff);
+
+    let live = 0;
+    const dead: string[] = [];
+    for (const o of due) {
+      const active = await eventSkuActive(admin, o.event_id as string, o.service_key as string);
+      if (active) live += 1;
+      else dead.push(o.service_key as string);
+    }
+
+    // No PII: SKU keys only, never order ids or customer identifiers.
+    const worst = [...new Set(dead)].slice(0, 5).join(', ');
+    return {
+      probeKey: paidOrderActivation.key,
+      permitted: true,
+      subjectCount: live,
+      truthCount: due.length,
+      verdict: classifyPopulation(live, due.length),
+      detail:
+        due.length === 0
+          ? 'No settled orders past the activation grace window.'
+          : dead.length === 0
+            ? `All ${due.length} settled order(s) have their SKU active.`
+            : `${dead.length} of ${due.length} settled order(s) are PAID but their feature is not active (${worst}).`,
+    };
+  },
+};
+
+/**
  * The registry.
  *
- * TWO probes over 83 mapped joints, and the map itself covers roughly a third
+ * FOUR probes over 83 mapped joints, and the map itself covers roughly a third
  * of the app — `ugat-concept.baseline.txt` still lists 47 subsystems it has
  * never reached. That ratio is the honest state of this system on day one and
  * it is written down here rather than implied, because a coverage number nobody
@@ -291,4 +376,5 @@ export const PROBES: readonly Probe[] = [
   bookedVendorDeskReach,
   songRequestsHaveAnAudience,
   songDeskNarrowingLockout,
+  paidOrderActivation,
 ];

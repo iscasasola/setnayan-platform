@@ -111,47 +111,20 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
   return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
 }
 
-// ── Setnayan-AI per-USER subscription flag ──────────────────────────────────
+// ── 🔒 REMOVED 2026-08-01 · the Setnayan-AI per-USER subscription flag ───────
 //
-// DB-first resolver for the per-USER Setnayan-AI subscription gate, so the owner
-// can flip the per-user fan-out ON/OFF from /admin/integrations WITHOUT a Vercel
-// redeploy. Mirrors resolveSetnayanAiPaywallEnabled.
-//
-// platform_settings.setnayan_ai_per_user_enabled is TRI-STATE:
-//   • NULL  → OFF (today's behaviour — the per-event gate is byte-identical).
-//   • TRUE  → per-user gate on (a host's active subscription fans AI out to all
-//             their events).
-//   • FALSE → off.
-//
-// Unlike the paywall flag, there is NO env fallback: this is a pure DB feature
-// flag (no SETNAYAN_AI_PER_USER_ENABLED env var exists), so the default when the
-// column is NULL / unreadable / pre-migration is FALSE. Keeping the gate OFF on
-// any read error is the conservative, byte-identical-to-today choice.
-//
-// UNCACHED on purpose (same reasoning as resolveSetnayanAiPaywallEnabled): a flip
-// the owner just made must take effect on the next request. The leaf predicate in
-// lib/setnayan-ai.ts stays SYNCHRONOUS — callers await this once and thread the
-// resolved boolean in.
-export async function resolveSetnayanAiPerUserEnabled(): Promise<boolean> {
-  try {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from('platform_settings')
-      .select('setnayan_ai_per_user_enabled')
-      .eq('id', 1)
-      .maybeSingle();
-    const dbVal = data?.setnayan_ai_per_user_enabled as boolean | null | undefined;
-    if (typeof dbVal === 'boolean') return dbVal;
-  } catch {
-    // DB unreachable / column absent (pre-migration) → default OFF below.
-  }
-  return false;
-}
+// `resolveSetnayanAiPerUserEnabled()` read the tri-state
+// `platform_settings.setnayan_ai_per_user_enabled` so the owner could flip a
+// per-USER fan-out on from /admin/integrations. Owner decision 2026-08-01: "it
+// is per event." The flag never went TRUE, the backing table never held a row,
+// and both have been dropped — so there is no switch here to find, and per-event
+// is not a configuration any more. Do not re-add one.
 
 // ── Per-EVENT ₱499-intro / ₱799-renewal pricing flag (owner 2026-07-02) ──────
 //
-// DB-first, no env fallback, uncached — same shape as resolveSetnayanAiPerUser
-// Enabled. platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
+// DB-first, no env fallback, uncached — same shape as
+// resolveSetnayanAiPaywallEnabled.
+// platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
 //   • NULL  → OFF (today's behaviour — the ₱499 flat per-event unlock).
 //   • TRUE  → the ₱499-first-28-days then ₱799-per-28-day-cycle model is live
 //             (the intro/renewal charge + the per-event window are honored).

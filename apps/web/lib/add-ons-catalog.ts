@@ -586,12 +586,12 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // was what kept it unsold.
     //
     // `surface: 'rsvp'` is HALF the gate — it hides the card wherever the event
-    // type has no RSVP surface (simple_event). It does NOT hide travel, whose
-    // profile row DOES enable rsvp (migration 20270804110223 added it to every
-    // non-wedding row). The authoritative predicate is
+    // type has no RSVP surface. It does NOT scope by type on its own — every
+    // non-wedding profile row enables rsvp (migration 20270804110223 added it).
+    // The authoritative predicate is
     // lib/papic-event-access.ts · papicGuestPassAccess(); a surface that
-    // renders this row as buyable MUST call it (it carries the permanent
-    // travel deny + the anniversary controller split + the phase ladder).
+    // renders this row as buyable MUST call it (it carries the anniversary
+    // controller split + the phase ladder + the fail-closed default).
     //
     // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
     // and the flip is the owner's 2026-07-29 two-type lock catching up with the
@@ -613,8 +613,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // (spec §5) rather than being silently absorbed by a card flip. A doorway to
     // an already-open door is not the thing to hold hostage.
     //
-    // Still gated by `papicGuestPassAccess()` (travel deny + anniversary
-    // controller split + phase ladder) — that predicate is event-type ELIGIBILITY,
+    // Still gated by `papicGuestPassAccess()` (anniversary controller split +
+    // phase ladder) — that predicate is event-type ELIGIBILITY,
     // not a darkness switch, and widening it stays an owner/DPO call.
     key: 'papic-guest',
     // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen

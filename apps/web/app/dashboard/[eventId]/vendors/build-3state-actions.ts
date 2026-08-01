@@ -39,11 +39,9 @@ import {
   type PriorNudge,
 } from '@/lib/build-requote-nudge';
 import { computeCompatScore } from '@/lib/compat-score';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -195,17 +193,9 @@ export async function proposeBuildFromQuotes(input: {
   // boost); AI OFF keeps the shipped cheapest-fit. The governing gate is the
   // app-wide lib/setnayan-ai.ts so this surface agrees with every other one.
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(createAdminClient(), input.eventId)
-    : null;
-  const aiActive = isSetnayanAiActiveForUser(
+  const aiActive = isSetnayanAiActiveForEvent(
     evRes.data as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   const rankMode: BuildRankMode = aiActive ? 'compat' : 'cheapest';
   const evLat = (evRes.data.venue_latitude as number | null) ?? null;

@@ -418,6 +418,22 @@ test('meta: the differ catches injected divergences and stays quiet on agreement
     [],
     'a pending migration that BACK-FILLS an out-of-band column must clear the finding',
   );
+  assert.deepEqual(
+    // ledger HAS it (an applied migration created it) · prod HAS it (not applied
+    // yet) · declaredAll LACKS it (the pending migration drops it).
+    diffSchema(s('legacy_table.doomed_col'), base, s('legacy_table.doomed_col')),
+    [],
+    'a pending migration that DROPS a REAL column must stay quiet — prod still has it because ' +
+      'the migration is not applied yet, and the ledger declares it, so "nothing in the repo ' +
+      'creates it" is false. Without this, every PR that retires a table goes red (2026-08-01).',
+  );
+
+  // …but the out-of-band case this guard exists for must STILL fire: a column in
+  // NEITHER the ledger nor declaredAll is genuinely undeclared.
+  const stillFires = diffSchema(base, base, s('users.applied_by_hand'));
+  assert.equal(stillFires.length, 1, 'the pending-drop exemption must not swallow real drift');
+  assert.equal(stillFires[0]!.kind, 'PROD_NOT_DECLARED');
+  assert.equal(stillFires[0]!.key, 'users.applied_by_hand');
 
   // A rename surfaces as BOTH directions at once — the shape a real
   // RENAME COLUMN takes when only one side has been updated.

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6241
+# facts: 6228
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     710
-#   col       4467
-#   policy    833
+#   tpriv     708
+#   col       4458
+#   policy    831
 #   view      10
 #   func      217
 #
@@ -520,8 +520,6 @@ tpriv	public.token_redemptions_log|anon	SIUD
 tpriv	public.token_redemptions_log|authenticated	SIUD
 tpriv	public.token_rewards_log|anon	SIUD
 tpriv	public.token_rewards_log|authenticated	SIUD
-tpriv	public.user_ai_subscription|anon	SIUD
-tpriv	public.user_ai_subscription|authenticated	SIUD
 tpriv	public.user_devices|anon	SIUD
 tpriv	public.user_devices|authenticated	SIUD
 tpriv	public.user_face_profiles|anon	SIUD
@@ -3411,7 +3409,6 @@ col	public.platform_settings.repost_watch_hamming_threshold	anon=- authenticated
 col	public.platform_settings.resend_from_address	anon=- authenticated=S
 col	public.platform_settings.setnayan_ai_paywall_enabled	anon=- authenticated=S
 col	public.platform_settings.setnayan_ai_per_event_pricing_enabled	anon=- authenticated=S
-col	public.platform_settings.setnayan_ai_per_user_enabled	anon=- authenticated=S
 col	public.platform_settings.setnayan_pay_fee_pct	anon=- authenticated=S
 col	public.platform_settings.spotlight_homepage_enabled	anon=- authenticated=S
 col	public.platform_settings.tiktok_client_key	anon=- authenticated=S
@@ -3844,14 +3841,6 @@ col	public.token_rewards_log.processed_at	anon=SIU authenticated=SIU
 col	public.token_rewards_log.service_code	anon=SIU authenticated=SIU
 col	public.token_rewards_log.tokens_awarded	anon=SIU authenticated=SIU
 col	public.token_rewards_log.vendor_id	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.active_until	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.created_at	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.id	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.last_order_id	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.public_id	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.source	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.updated_at	anon=SIU authenticated=SIU
-col	public.user_ai_subscription.user_id	anon=SIU authenticated=SIU
 col	public.user_devices.device_hash	anon=SIU authenticated=SIU
 col	public.user_devices.last_seen_at	anon=SIU authenticated=SIU
 col	public.user_devices.user_id	anon=SIU authenticated=SIU
@@ -5773,8 +5762,6 @@ policy	public.token_grants_log|token_grants_log_admin_all	mode=PERMISSIVE cmd=AL
 policy	public.token_grants_log|token_grants_log_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
 policy	public.token_redemptions_log|token_redemptions_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.token_redemptions_log|token_redemptions_log_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
-policy	public.user_ai_subscription|user_ai_subscription_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_admin() check=is_admin()
-policy	public.user_ai_subscription|user_ai_subscription_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((user_id = auth.uid()) OR is_admin()) check=NULL
 policy	public.user_devices|user_devices_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.user_devices|user_devices_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = auth.uid()) check=(user_id = auth.uid())
 policy	public.user_face_profiles|user_owns_face_profile_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((auth.uid() = user_id) OR is_admin()) check=NULL

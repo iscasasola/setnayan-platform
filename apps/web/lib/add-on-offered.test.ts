@@ -42,17 +42,18 @@ test('Papic Pool is offered on an in-scope type', () => {
   assert.equal(addOnOfferedForEvent(POOL, profileFor('simple_event')), true);
 });
 
-test('Papic Pool is DENIED on travel — the bug this gate exists to stop', () => {
+test('Papic Pool is OFFERED on travel — owner decision 2026-08-01', () => {
+  // Was 'DENIED on travel — the bug this gate exists to stop'. The owner
+  // reversed it on 2026-08-01: "Drop the travel exclusion — offer Papic
+  // everywhere." Asserted end-to-end through `addOnOfferedForEvent`, the wrapper
+  // Suite and the /studio/about deep link both call, so this covers the real
+  // surfaces rather than just the predicate.
   const travel = profileFor('travel');
-  // Precondition: the surface check alone would let travel through. If this
-  // ever stops holding, the deny is still correct — travel is roaming and
-  // multi-day, so a pass metered per event-day is the wrong unit at any
-  // surface configuration.
   assert.ok(
     travel.enabledSurfaces.includes('rsvp'),
     'fixture must mirror prod (20270804110223 added rsvp to every non-wedding row)',
   );
-  assert.equal(addOnOfferedForEvent(POOL, travel), false);
+  assert.equal(addOnOfferedForEvent(POOL, travel), true);
 });
 
 test('Papic Pool fails CLOSED for an unscoped type', () => {

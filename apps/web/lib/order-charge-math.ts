@@ -78,8 +78,7 @@ export type BundleChargeResolution =
 export type ChargeSource =
   | 'retail_catalog'
   | 'package_catalog'
-  | 'setnayan_ai_event_type'
-  | 'setnayan_ai_subscription_unit';
+  | 'setnayan_ai_event_type';
 
 export type ChargeRefusal =
   /** No resolver owns this service_key. A NEW key must fail the sale, never fall
@@ -87,14 +86,14 @@ export type ChargeRefusal =
   | 'no_price_source'
   /** A resolver's read errored. Fail CLOSED: a checkout blocked for thirty
    *  seconds beats an order created at a client-supplied price. */
-  | 'read_error'
-  /** The per-user subscription needs a validated cycle count and did not get one. */
-  | 'cycles_required';
+  | 'read_error';
+// (`cycles_required` was removed 2026-08-01 with the per-USER subscription — the
+//  only SKU that took a cycle count. Nothing can emit it any more.)
 
 export type OrderChargeAuthority =
   | {
       ok: true;
-      /** The full amount to bill. Already includes any cycle multiplier. */
+      /** The full amount to bill — a catalog figure, sealed as-is. */
       total: OrderTotalCentavos;
       /** SEC-3 pax snapshot to freeze on the order row. Null for non-pax SKUs. */
       paxSnapshot: number | null;
@@ -136,8 +135,6 @@ export function sealServerResolvedTotal(
 /** Human copy for a refusal. Brand voice; never leaks internals to the buyer. */
 export function refusalMessage(refusal: ChargeRefusal): string {
   switch (refusal) {
-    case 'cycles_required':
-      return 'Pick how many cycles to subscribe for.';
     case 'read_error':
       return 'We could not confirm the price for this right now. Please try again in a moment.';
     case 'no_price_source':
@@ -169,62 +166,22 @@ export function refusalMessage(refusal: ChargeRefusal): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The SEC-7 key itself
+// 🔒 resolveAiSubTotal() — REMOVED 2026-08-01
+//
+// It computed `SETNAYAN_AI_SUB` = admin-managed UNIT × validated cycle count,
+// and was THE ONLY PLACE `unit × cycles` happened anywhere in the codebase. With
+// Setnayan AI settled as PER EVENT (owner 2026-08-01: "it is per event") the
+// term-pass product is gone, and with it the last multiplication in the charge
+// path. There is now NO arithmetic between a catalog price and an order total —
+// every total is a catalog figure sealed as-is by `sealServerResolvedTotal`.
+//
+// That retires the whole 36×-overcharge class SEC-7 was written against, rather
+// than merely guarding it: `SETNAYAN_AI_SUB` now falls through
+// `resolveOrderChargeCentavos` to the `no_price_source` refusal like any other
+// unowned key. The guard test in lib/order-price-authority.test.ts was updated
+// in the same change to assert ZERO multiply sites — if a future feature needs a
+// multiplier, that test is the conversation it has to have first.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * `SETNAYAN_AI_SUB` — total = admin-managed UNIT × validated cycle count.
- *
- * PURE (the catalog read is the caller's) precisely so the exploit chain can be
- * asserted without a database:
- *
- *     resolveAiSubTotal({ status: 'not_in_catalog' }, 6)   →   REFUSE
- *
- * That line is SEC-7. `SETNAYAN_AI_SUB` has no row in
- * `platform_retail_catalog_v2` in production; the old code responded by keeping
- * `formData.get('original_centavos')`, so `original_centavos=1` minted a ₱0.01
- * order that `cyclesFromAmount(0.01, null)` then turned into a full 28-day cycle.
- *
- * ⚠ NO HARDCODED ₱499 FALLBACK, deliberately. Owner rule 2026-06-14 — "every
- * price is admin-managed · never hardcoded in code" — and a fallback here would
- * simply be a second way for an unpriced SKU to become sellable. Until the
- * catalog row is seeded, this SKU cannot be bought. The surface is flag-gated and
- * has never sold an order, so that is the right default: pricing it is a product
- * decision for the owner, not something a security patch should decide.
- *
- * ⚠ THE ONLY PLACE `unit × cycles` HAPPENS anywhere in the codebase.
- *
- * @param unit    the catalog read for AI_SUB_SKU (miss and error are different)
- * @param cycles  the ALREADY-PARSED, already-clamped cycle count, or null if the
- *                caller could not parse one. Passing the raw form value is not
- *                possible — parsing lives with the caller that owns `parseCycles`,
- *                and this function never sees an unvalidated number.
- */
-export function resolveAiSubTotal(
-  unit: CatalogChargeResolution,
-  cycles: number | null,
-): OrderChargeAuthority {
-  if (cycles === null || !Number.isInteger(cycles) || cycles < 1) {
-    return { ok: false, refusal: 'cycles_required' };
-  }
-  if (unit.status === 'error') {
-    return { ok: false, refusal: 'read_error', detail: unit.message };
-  }
-  if (unit.status === 'not_in_catalog' || unit.centavos <= 0) {
-    return {
-      ok: false,
-      refusal: 'no_price_source',
-      detail: 'SETNAYAN_AI_SUB has no admin-managed unit price',
-    };
-  }
-  return {
-    ok: true,
-    total: (BigInt(Math.round(unit.centavos)) * BigInt(cycles)) as OrderTotalCentavos,
-    paxSnapshot: null,
-    source: 'setnayan_ai_subscription_unit',
-    volatile: false,
-  };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The display cross-check (tripwire, never the price)

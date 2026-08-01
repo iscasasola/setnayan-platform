@@ -570,6 +570,27 @@ export default function PrivacyPage() {
             to you</strong> when ready; drafts stay hidden from you, your guests, and your
             vendors until the coordinator releases them.
           </p>
+          {/* Added 2026-08-02 by the per-clause audit follow-up. The section
+              described a coordinator's READ access thoroughly but not the two
+              day-of surfaces where they ACT outward — and one of them reaches
+              the couple's guests directly. RoPA DPS-19 declares both. */}
+          <p className="pt-2">
+            <strong>On the day, a coordinator can post announcements your guests
+            see.</strong>{' '}
+            A day-of announcement (&ldquo;dinner is moving up fifteen minutes&rdquo;)
+            is a short message, capped at 500 characters, that goes to{' '}
+            <em>everyone on that event</em> — you, your guests, and your vendors —
+            and it cannot be edited or unsent once posted. Only you and a
+            coordinator you invited can write one, and every message records who
+            sent it. Announcements never leave the event they belong to.
+          </p>
+          <p className="pt-2">
+            <strong>They also run a day-of requests desk.</strong> Requests raised
+            during the event — a vendor asking for something, a change of plan on
+            the floor — collect in one list the coordinator works through. It holds
+            what a person wrote into the request and who raised it, stays scoped to
+            that one event, and is deleted with it.
+          </p>
           <p className="pt-2">
             <strong>Lawful basis &amp; your control.</strong> We process this on your consent
             (captured on that invite screen) and the planning contract (RA 10173 &sect;&nbsp;12(a)

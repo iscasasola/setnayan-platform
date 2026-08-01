@@ -78,17 +78,17 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   coordinator_run_of_show: {
     privacySensitive: false,
     declaredIn: [],
-    note: 'Activation switch, not privacy-sensitive — no filing declaration needed.',
+    note: 'Activation switch, not privacy-sensitive — no filing declaration needed. ⏳ ROPA: now DRAFTED as DPS-19 (2026-08-02) — DPS-14 declares the coordinator\'s consent SCOPES and prep-then-release, i.e. what they may SEE, and never named this surface; all three day-of controls are active in prod. `declaredIn` stays EMPTY until the bundled ROPA PDF is regenerated (JANUARY 2027).',
   },
   coordinator_day_of_broadcast: {
     privacySensitive: false,
     declaredIn: [],
-    note: 'Activation switch, not privacy-sensitive — no filing declaration needed.',
+    note: 'Activation switch, not privacy-sensitive — no filing declaration needed. ⏳ ROPA: now DRAFTED as DPS-19 (2026-08-02) — DPS-14 declares the coordinator\'s consent SCOPES and prep-then-release, i.e. what they may SEE, and never named this surface; all three day-of controls are active in prod. `declaredIn` stays EMPTY until the bundled ROPA PDF is regenerated (JANUARY 2027).',
   },
   coordinator_requests_inbox: {
     privacySensitive: false,
     declaredIn: [],
-    note: 'Activation switch, not privacy-sensitive — no filing declaration needed. The day-of requests stream carries operational text between people already on the event (couple, hosts, booked suppliers, coordinator); it collects no new category of personal data, and a supplier reads only their own reports. Author-entered free text inherits the same do-not-paste-PII guidance as chat, and rows the author wrote are purged on erasure (lib/erasure/coverage.ts).',
+    note: 'Activation switch, not privacy-sensitive — no filing declaration needed. The day-of requests stream carries operational text between people already on the event (couple, hosts, booked suppliers, coordinator); it collects no new category of personal data, and a supplier reads only their own reports. Author-entered free text inherits the same do-not-paste-PII guidance as chat, and rows the author wrote are purged on erasure (lib/erasure/coverage.ts). ⏳ ROPA: now DRAFTED as DPS-19 (2026-08-02) — DPS-14 declares the coordinator\'s consent SCOPES and prep-then-release, i.e. what they may SEE, and never named this surface; all three day-of controls are active in prod. `declaredIn` stays EMPTY until the bundled ROPA PDF is regenerated (JANUARY 2027).',
   },
   vendor_ai_autoreply: {
     privacySensitive: true,

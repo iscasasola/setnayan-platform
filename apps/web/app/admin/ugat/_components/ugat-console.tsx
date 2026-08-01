@@ -136,7 +136,7 @@ export function UgatConsole({
    * Live verdict per MAPPED joint, keyed by joint id (`J7`).
    *
    * A joint that is ABSENT from this map has never been probed, and must render
-   * unlit — not green. Two probes exist against 83 joints, so absence is the
+   * unlit — not green. Far fewer probes exist than joints, so absence is the
    * overwhelmingly common case and painting it as health would turn silence
    * into a claim. Only a joint whose verdict SAYS `ok` gets lit.
    */
@@ -1541,6 +1541,8 @@ function TablesView({
     package: 'TYPE-PACKAGE',
     proposal: 'TYPE-PROPOSAL',
     contract: 'TYPE-CONTRACT',
+    availability: 'TYPE-AVAILABILITY',
+    geography: 'TYPE-GEOGRAPHY',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

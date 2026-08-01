@@ -219,6 +219,86 @@ export function fillSlots(body: string, values: SlotValues): FilledLine {
   return { text, unfilled };
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// TRIAGE — what must not be got wrong, replacing a completion counter.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Why a moment needs his attention. The UI groups by this. */
+export type AttentionReason =
+  /** They asked for something and nothing answers it yet. */
+  | 'unanswered_ask'
+  /** They asked, and a library line answered — but that line was written for a
+   *  different wedding and cannot know about this ask. */
+  | 'ask_on_reused_line'
+  /** A line is in place but still carries an unfilled ⟨slot⟩. */
+  | 'unfilled_slot';
+
+export type AttentionItem = {
+  blockId: string;
+  reason: AttentionReason;
+  /** Slot names still outstanding — only for `unfilled_slot`. */
+  slots?: string[];
+};
+
+/**
+ * WHAT MUST NOT BE GOT WRONG.
+ *
+ * Owner-locked 2026-08-01 (spec 3.3): a completion counter ("6 to go") is the
+ * wrong instrument. A host ad-libs most of the night, so counting blanks
+ * manufactures guilt about moments that were never going to be scripted. What
+ * actually matters is the handful he must not get wrong.
+ *
+ * Pure, so the rule is testable — including the case a written/blank binary
+ * misses entirely: **an ask sitting on top of a reused line.** The stock
+ * send-off is "written", so a binary counter falls silent; but it was written
+ * for another couple and cannot know this one wants a circle of phone lights.
+ *
+ * A PRIVATE moment never appears here: it is not something he says, so it
+ * cannot be something he says wrong.
+ */
+export function needsAttention(input: {
+  entries: readonly {
+    blockId: string;
+    note: string | null;
+    script: string | null;
+    publicFacing: boolean;
+  }[];
+  /** Blocks carrying a line reused from his library (not written for this
+   *  wedding) — typically `matchLines(...)` keyed by blockId. */
+  reusedBlockIds?: ReadonlySet<string>;
+  /** Slots still unfilled per block, from {@link fillSlots}. */
+  unfilledByBlock?: ReadonlyMap<string, readonly string[]>;
+}): AttentionItem[] {
+  const reused = input.reusedBlockIds ?? new Set<string>();
+  const unfilled = input.unfilledByBlock ?? new Map<string, readonly string[]>();
+  const out: AttentionItem[] = [];
+
+  for (const e of input.entries) {
+    // Private moments are context, never copy — nothing to get wrong aloud.
+    if (e.publicFacing !== true) continue;
+
+    const hasOwnLine = typeof e.script === 'string' && e.script.trim().length > 0;
+    const hasReused = reused.has(e.blockId);
+    const ask = typeof e.note === 'string' && e.note.trim().length > 0;
+
+    if (ask && !hasOwnLine && !hasReused) {
+      out.push({ blockId: e.blockId, reason: 'unanswered_ask' });
+      continue;
+    }
+    // The subtle one. He has words, but they predate the ask.
+    if (ask && !hasOwnLine && hasReused) {
+      out.push({ blockId: e.blockId, reason: 'ask_on_reused_line' });
+      continue;
+    }
+    const slots = unfilled.get(e.blockId);
+    if (slots && slots.length > 0) {
+      out.push({ blockId: e.blockId, reason: 'unfilled_slot', slots: [...slots] });
+    }
+  }
+
+  return out;
+}
+
 /** Every slot a template references, in first-appearance order. */
 export function slotsIn(body: string): string[] {
   const out: string[] = [];

@@ -25,6 +25,7 @@ import {
   fillSlots,
   slotsIn,
   toTemplate,
+  needsAttention,
   type SavedLine,
 } from './emcee-lines';
 import type { ScriptBlock } from './emcee-script-layer';
@@ -236,4 +237,81 @@ test('round trip: type → store → refill for a NEW couple', () => {
   const refilled = fillSlots(tpl, { 'the couple': 'Carla & Miggo' });
   assert.equal(refilled.text, 'Ladies and gentlemen, please welcome Carla & Miggo!');
   assert.deepEqual(refilled.unfilled, []);
+});
+
+// ── TRIAGE — what must not be got wrong (spec 3.3) ─────────────────────────
+
+const entry = (over: Partial<Parameters<typeof needsAttention>[0]['entries'][number]> & { blockId: string }) => ({
+  note: null,
+  script: null,
+  publicFacing: true,
+  ...over,
+});
+
+test('an ask with nothing answering it is surfaced', () => {
+  const got = needsAttention({ entries: [entry({ blockId: 'a', note: 'introduce us as MR & MRS' })] });
+  assert.deepEqual(got, [{ blockId: 'a', reason: 'unanswered_ask' }]);
+});
+
+test('🔴 an ask sitting ON TOP of a reused line is surfaced — the case a binary counter misses', () => {
+  // He has words for the send-off, but they were written for another couple and
+  // cannot know this one wants a circle of phone lights. "Written" would be a
+  // lie here; silence would be worse.
+  const got = needsAttention({
+    entries: [entry({ blockId: 'send', note: 'ask everyone to form a circle, flashlights up' })],
+    reusedBlockIds: new Set(['send']),
+  });
+  assert.deepEqual(got, [{ blockId: 'send', reason: 'ask_on_reused_line' }]);
+});
+
+test('an ask he answered HIMSELF is not surfaced', () => {
+  const got = needsAttention({
+    entries: [entry({ blockId: 'a', note: 'introduce us big', script: 'For the FIRST time ever…' })],
+  });
+  assert.deepEqual(got, []);
+});
+
+test('a blank moment with no ask stays SILENT — he ad-libs it', () => {
+  assert.deepEqual(needsAttention({ entries: [entry({ blockId: 'quiet' })] }), []);
+});
+
+test('a whitespace-only ask or line is not real', () => {
+  assert.deepEqual(needsAttention({ entries: [entry({ blockId: 'a', note: '   ' })] }), []);
+  const got = needsAttention({ entries: [entry({ blockId: 'b', note: 'say it', script: '  ' })] });
+  assert.deepEqual(got, [{ blockId: 'b', reason: 'unanswered_ask' }]);
+});
+
+test('an unfilled slot is surfaced with its slot names', () => {
+  const got = needsAttention({
+    entries: [entry({ blockId: 'g', script: 'Welcome ⟨how they’re announced⟩' })],
+    unfilledByBlock: new Map([['g', ['how they’re announced']]]),
+  });
+  assert.deepEqual(got, [{ blockId: 'g', reason: 'unfilled_slot', slots: ['how they’re announced'] }]);
+});
+
+test('🔴 a PRIVATE moment never appears in triage — it is not something he says', () => {
+  const got = needsAttention({
+    entries: [entry({ blockId: 'p', note: 'watch for Grace', publicFacing: false })],
+    reusedBlockIds: new Set(['p']),
+    unfilledByBlock: new Map([['p', ['the couple']]]),
+  });
+  assert.deepEqual(got, [], 'no reason may surface a private moment');
+});
+
+test('publicFacing fails toward silence in triage too', () => {
+  for (const loose of [undefined, null, 0, 1, 'true', {}]) {
+    const got = needsAttention({
+      entries: [entry({ blockId: 'x', note: 'say this', publicFacing: loose as unknown as boolean })],
+    });
+    assert.deepEqual(got, [], `is_public=${JSON.stringify(loose)} must not surface`);
+  }
+});
+
+test('one reason per moment — the ask outranks the slot', () => {
+  const got = needsAttention({
+    entries: [entry({ blockId: 'a', note: 'introduce us' })],
+    unfilledByBlock: new Map([['a', ['the couple']]]),
+  });
+  assert.equal(got.length, 1);
+  assert.equal(got[0]?.reason, 'unanswered_ask');
 });

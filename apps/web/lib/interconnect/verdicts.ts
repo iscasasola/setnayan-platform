@@ -11,11 +11,17 @@ import type { ProbeVerdict } from './verdict';
  * slice 2, scoped to what the probe ledger actually knows.
  *
  * ── THE HONESTY CONSTRAINT ─────────────────────────────────────────────────
- * Two probes exist. There are 83 joints. So **81 joints have no verdict**, and
- * the single most important property of this read is that an unprobed joint
- * must come back ABSENT — never `ok`, never a default, never a cheerful
- * fallback. A map that paints unchecked edges as healthy is worse than a map
- * with no telemetry at all, because it converts silence into a claim.
+ * Far fewer probes exist than joints, so MOST joints have no verdict, and the
+ * single most important property of this read is that an unprobed joint must
+ * come back ABSENT — never `ok`, never a default, never a cheerful fallback. A
+ * map that paints unchecked edges as healthy is worse than a map with no
+ * telemetry at all, because it converts silence into a claim.
+ *
+ * ⚠ No figures in this comment: the joint count is NOT hardcoded here on purpose. It was written as
+ * "83" three times in this codebase and the real figure was 26 — a `grep -c` that
+ * counted every `{` in the array, including the nested claim objects. That is the
+ * THIRD hand-derived number this subsystem got wrong (also "TWO probes" for an
+ * array of four, and "47 subsystems" for a file of 44). Read `UGAT_JOINTS.length`.
  *
  * The console therefore only lights an edge green when a verdict SAYS so, and
  * leaves every unprobed edge in its ordinary unlit state.

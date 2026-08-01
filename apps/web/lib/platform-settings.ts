@@ -31,6 +31,16 @@ export type PlatformSettingsRow = {
   bdo_enabled: boolean;
   gcash_monthly_cap_php: number | null;
   bdo_monthly_cap_php: number | null;
+  /**
+   * Owner-entered REMAINING headroom + when it was read (migration
+   * 20271028200000). Lets the meter account for personal transfers we cannot
+   * see. The timestamp also drives the monthly reset — an override from a
+   * previous calendar month is ignored. See channelHeadroom().
+   */
+  gcash_available_php: number | null;
+  gcash_available_as_of: string | null;
+  bdo_available_php: number | null;
+  bdo_available_as_of: string | null;
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
@@ -94,6 +104,10 @@ const FALLBACK: PlatformSettingsRow = {
   bdo_enabled: true,
   gcash_monthly_cap_php: null,
   bdo_monthly_cap_php: null,
+  gcash_available_php: null,
+  gcash_available_as_of: null,
+  bdo_available_php: null,
+  bdo_available_as_of: null,
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
@@ -133,7 +147,7 @@ const FALLBACK: PlatformSettingsRow = {
  * a transient read error must never silently close checkout.
  */
 const SOFT_SELECT =
-  'bdo_qr_payload,gcash_qr_payload,gcash_enabled,bdo_enabled,gcash_monthly_cap_php,bdo_monthly_cap_php';
+  'bdo_qr_payload,gcash_qr_payload,gcash_enabled,bdo_enabled,gcash_monthly_cap_php,bdo_monthly_cap_php,gcash_available_php,gcash_available_as_of,bdo_available_php,bdo_available_as_of';
 
 type SoftColumns = Pick<
   PlatformSettingsRow,
@@ -143,6 +157,10 @@ type SoftColumns = Pick<
   | 'bdo_enabled'
   | 'gcash_monthly_cap_php'
   | 'bdo_monthly_cap_php'
+  | 'gcash_available_php'
+  | 'gcash_available_as_of'
+  | 'bdo_available_php'
+  | 'bdo_available_as_of'
 >;
 
 const SOFT_DEFAULTS: SoftColumns = {
@@ -152,6 +170,10 @@ const SOFT_DEFAULTS: SoftColumns = {
   bdo_enabled: true,
   gcash_monthly_cap_php: null,
   bdo_monthly_cap_php: null,
+  gcash_available_php: null,
+  gcash_available_as_of: null,
+  bdo_available_php: null,
+  bdo_available_as_of: null,
 };
 
 export async function fetchPlatformSettings(
@@ -185,6 +207,10 @@ export async function fetchPlatformSettings(
         bdo_enabled: row.bdo_enabled ?? true,
         gcash_monthly_cap_php: row.gcash_monthly_cap_php ?? null,
         bdo_monthly_cap_php: row.bdo_monthly_cap_php ?? null,
+        gcash_available_php: row.gcash_available_php ?? null,
+        gcash_available_as_of: row.gcash_available_as_of ?? null,
+        bdo_available_php: row.bdo_available_php ?? null,
+        bdo_available_as_of: row.bdo_available_as_of ?? null,
       };
     }
   } catch {

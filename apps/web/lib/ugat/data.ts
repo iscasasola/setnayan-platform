@@ -59,6 +59,10 @@ export interface UgatCounts {
   proposal: number;
   /** Contract: signed artefacts. */
   contract: number;
+  /** Availability: bookable pools. */
+  availability: number;
+  /** Geography: the shared region vocabulary. */
+  geography: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -156,6 +160,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     packageRows,
     proposalRows,
     contractRows,
+    poolRows,
+    regionRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -212,6 +218,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'vendor_packages'),
     headCount(admin, 'vendor_proposals'),
     headCount(admin, 'vendor_contracts'),
+    headCount(admin, 'vendor_schedule_pools'),
+    headCount(admin, 'regions'),
   ]);
 
   return {
@@ -231,6 +239,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     package: packageRows,
     proposal: proposalRows,
     contract: contractRows,
+    availability: poolRows,
+    geography: regionRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -755,6 +765,8 @@ const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
   package: 'TYPE-PACKAGE',
   proposal: 'TYPE-PROPOSAL',
   contract: 'TYPE-CONTRACT',
+  availability: 'TYPE-AVAILABILITY',
+  geography: 'TYPE-GEOGRAPHY',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

@@ -53,13 +53,8 @@ panood_* | map-backlog — Panood / Live Studio broadcast subsystem
 live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
 patiktok_* | map-backlog — Patiktok recording subsystem
 households | map-backlog — event-scoped guest grouping (its only FK is event_id → events). Assumed to be part of the person spine on 2026-08-01 and it is NOT; belongs under GUESTS.
-vendor_schedule_* | map-backlog — vendor schedule pools and calendar services
-vendor_branches | map-backlog — multi-branch vendor locations
-vendor_coverages | map-backlog — vendor service coverage areas
-vendor_verification_* | map-backlog — vendor verification application flow
 vendor_event_* | map-backlog — per-event vendor access grants
 event_vendor_* | map-backlog — the event↔vendor booking cluster (9 tables): unlocks incl. 3D Plan, line items, working notes, policy acknowledgements. Joint J7 documents the booking bond itself but no node owns this cluster.
-vendor_ig_* | map-backlog — vendor Instagram connections
 event_tables | map-backlog — seating chart tables (iteration 0008)
 event_floor_* | map-backlog — floor plan and venue geometry
 event_schedule_* | map-backlog — day-of schedule blocks

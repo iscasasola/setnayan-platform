@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EyeOff, Megaphone, Radio, ScrollText } from 'lucide-react';
+import { EyeOff, Megaphone, Mic, Radio, ScrollText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   buildStageScript,
@@ -54,14 +54,41 @@ import type { SpecializationSurfaceProps } from '../specialization-registry';
 const BLOCK_COLUMNS =
   'block_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,run_state,actual_start_at';
 
-export async function StageScript({ eventId, coupleName }: SpecializationSurfaceProps) {
+export async function StageScript({
+  eventId,
+  vendorProfileId,
+  coupleName,
+}: SpecializationSurfaceProps) {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('event_schedule_blocks')
-    .select(BLOCK_COLUMNS)
-    .eq('event_id', eventId)
-    .order('start_at', { ascending: true })
-    .order('sort_order', { ascending: true });
+  const [blocksRes, scriptsRes] = await Promise.all([
+    supabase
+      .from('event_schedule_blocks')
+      .select(BLOCK_COLUMNS)
+      .eq('event_id', eventId)
+      .order('start_at', { ascending: true })
+      .order('sort_order', { ascending: true }),
+    // HIS OWN LINES for this wedding (owner-locked 2026-08-01). Scoped to his
+    // profile, under the caller's client — `vendor_block_scripts` is
+    // vendor-private and its RLS is the only thing deciding this read.
+    //
+    // Best-effort: a failure here must NEVER cost him the desk. The couple's
+    // program is the load-bearing half; his own lines are an addition to it, so
+    // the desk degrades to exactly what it rendered before this feature existed.
+    supabase
+      .from('vendor_block_scripts')
+      .select('block_id, body')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', vendorProfileId),
+  ]);
+  const { data, error } = blocksRes;
+
+  // A read failure and an empty library are the same value here, deliberately:
+  // both mean "no lines to show", and neither is a reason to withhold the
+  // program he is standing on stage to run.
+  const myLines = new Map<string, string>();
+  for (const r of (scriptsRes.data ?? []) as Array<{ block_id: string; body: string }>) {
+    if (r.body?.trim()) myLines.set(r.block_id, r.body.trim());
+  }
 
   if (error) {
     return (
@@ -102,11 +129,11 @@ export async function StageScript({ eventId, coupleName }: SpecializationSurface
     <div className="space-y-4">
       {model.order.map((card) =>
         card === 'cue' ? (
-          <CueCard key={card} model={model} />
+          <CueCard key={card} model={model} myLines={myLines} />
         ) : card === 'announcements' ? (
           <AnnouncementsCard key={card} items={model.announcements} />
         ) : (
-          <ScriptCard key={card} entries={model.script} />
+          <ScriptCard key={card} entries={model.script} myLines={myLines} />
         ),
       )}
     </div>
@@ -149,9 +176,57 @@ function PrivateBadge() {
   );
 }
 
+/**
+ * HIS LINE — the words he wrote for this moment (owner-locked 2026-08-01).
+ *
+ * ── TYPOGRAPHY IS THE SAFETY CONTROL ───────────────────────────────────────
+ *
+ * On a PUBLIC moment the line is set in the reading serif at the largest size
+ * on the card: it is the one thing read at arm's length under stage lighting,
+ * and the eye learns that serif means SAY THIS.
+ *
+ * On a PRIVATE moment the read-aloud typography is deliberately WITHHELD — ink
+ * plate, UI face, a "not for the mic" chip — so a half-second glance in a dark
+ * hall can never mistake staging notes for copy. This works WITH the shipped
+ * `PrivateBadge` above it, not instead of it.
+ *
+ * The colour carries none of that meaning: strip every hue and the say /
+ * don't-say boundary is still legible from the words and the shapes alone.
+ */
+function MyLine({ body, publicFacing }: { body: string; publicFacing: boolean }) {
+  if (!publicFacing) {
+    return (
+      <div className="mt-2 border-l-2 border-ink bg-ink/[0.05] px-3 py-2">
+        <p className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/70">
+          <span className="bg-ink px-1.5 py-0.5 font-bold text-paper">Not for the mic</span>
+          Your note
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-ink/80">{body}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 border-l-2 border-gild bg-gild/10 px-3 py-2">
+      <p className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-gild">
+        <Mic aria-hidden className="h-3 w-3" strokeWidth={2} />
+        Your line
+      </p>
+      <p className="mt-1 font-pahina text-[1.05rem] leading-relaxed text-ink">{body}</p>
+    </div>
+  );
+}
+
 /** The glance card: what you say now, what is next, how far off the plan you are. */
-function CueCard({ model }: { model: StageScriptModel }) {
+function CueCard({
+  model,
+  myLines,
+}: {
+  model: StageScriptModel;
+  myLines: ReadonlyMap<string, string>;
+}) {
   const { cue } = model;
+  const nowLine = cue.now ? myLines.get(cue.now.blockId) : undefined;
+  const nextLine = cue.next ? myLines.get(cue.next.blockId) : undefined;
   const timing = cue.next ? nextTimingLabel(cue.next.minutesAway) : null;
   return (
     <Card icon={Radio} title="On now">
@@ -175,6 +250,8 @@ function CueCard({ model }: { model: StageScriptModel }) {
               <p className="text-sm leading-relaxed text-ink/80">{cue.now.note}</p>
             </div>
           ) : null}
+          {/* His words sit closest to the moment — it is what he needs fastest. */}
+          {nowLine ? <MyLine body={nowLine} publicFacing={cue.now.publicFacing} /> : null}
         </div>
       ) : null}
 
@@ -194,6 +271,8 @@ function CueCard({ model }: { model: StageScriptModel }) {
               <p className="text-sm leading-relaxed text-ink/80">{cue.next.note}</p>
             </div>
           ) : null}
+          {/* Shown under NEXT too, so he can pre-read while the current moment runs. */}
+          {nextLine ? <MyLine body={nextLine} publicFacing={cue.next.publicFacing} /> : null}
         </div>
       ) : null}
     </Card>
@@ -201,7 +280,13 @@ function CueCard({ model }: { model: StageScriptModel }) {
 }
 
 /** The full running script, top to bottom, with each block's state. */
-function ScriptCard({ entries }: { entries: StageScriptEntry[] }) {
+function ScriptCard({
+  entries,
+  myLines,
+}: {
+  entries: StageScriptEntry[];
+  myLines: ReadonlyMap<string, string>;
+}) {
   return (
     <Card icon={ScrollText} title="Running script">
       <ol className="space-y-3">
@@ -234,6 +319,11 @@ function ScriptCard({ entries }: { entries: StageScriptEntry[] }) {
               <p className="mt-0.5 font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/50">
                 {e.location}
               </p>
+            ) : null}
+            {/* A block with no line of his shows nothing extra — the desk never
+                nags mid-show. Counting what is unwritten belongs to prep. */}
+            {myLines.has(e.blockId) ? (
+              <MyLine body={myLines.get(e.blockId)!} publicFacing={e.publicFacing} />
             ) : null}
           </li>
         ))}

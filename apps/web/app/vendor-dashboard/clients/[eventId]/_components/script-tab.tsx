@@ -1,7 +1,7 @@
 import { Lock, Mic, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { buildScriptWorkbook, type ScriptBlock } from '@/lib/emcee-script-layer';
-import { matchLines, fillSlots, type SavedLine } from '@/lib/emcee-lines';
+import { matchLines, fillSlots, needsAttention, type SavedLine } from '@/lib/emcee-lines';
 import { ScriptComposer } from './script-composer';
 
 /**
@@ -126,18 +126,24 @@ export async function ScriptTab({
     );
   }
 
-  // TRIAGE, not a completion counter (spec 3.3). Blanks he would ad-lib stay
-  // silent; what surfaces is only what must not be got wrong.
-  const attention = workbook.entries.filter((e) => {
-    if (!e.publicFacing) return false;
-    const filled = written.has(e.blockId) || matches.has(e.blockId);
-    // They asked for something and nothing answers it yet.
-    if (e.note && !filled) return true;
-    // They asked, and a library line answered — but the line predates the ask,
-    // so it cannot know about it. The subtle case a written/blank binary misses.
-    if (e.note && !written.has(e.blockId) && matches.has(e.blockId)) return true;
-    return false;
+  // TRIAGE, not a completion counter (spec 3.3) — decided by the tested pure
+  // module, drawn here. Blanks he would ad-lib stay silent; what surfaces is
+  // only what must not be got wrong, including an ask sitting on top of a
+  // reused line, which a written/blank binary misses entirely.
+  const unfilledByBlock = new Map<string, readonly string[]>();
+  for (const [blockId, m] of matches) {
+    const { unfilled } = fillSlots(m.line.body, { 'the couple': coupleName });
+    if (unfilled.length > 0) unfilledByBlock.set(blockId, unfilled);
+  }
+  const attentionItems = needsAttention({
+    entries: workbook.entries,
+    reusedBlockIds: new Set(matches.keys()),
+    unfilledByBlock,
   });
+  const byBlock = new Map(workbook.entries.map((e) => [e.blockId, e]));
+  const attention = attentionItems
+    .map((a) => ({ item: a, entry: byBlock.get(a.blockId) }))
+    .filter((x): x is { item: typeof x.item; entry: NonNullable<typeof x.entry> } => !!x.entry);
 
   const prefilled = workbook.entries.filter(
     (e) => !written.has(e.blockId) && matches.has(e.blockId),
@@ -176,14 +182,21 @@ export async function ScriptTab({
             ad-lib.
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
-            {attention.map((e) => (
-              <li key={e.blockId}>
+            {attention.map(({ item, entry }) => (
+              <li key={entry.blockId}>
                 <a
-                  href={`#script-${e.blockId}`}
+                  href={`#script-${entry.blockId}`}
                   className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-semibold text-ink"
+                  title={
+                    item.reason === 'ask_on_reused_line'
+                      ? 'They asked for something your saved line cannot know about'
+                      : item.reason === 'unfilled_slot'
+                        ? `Still to fill: ${(item.slots ?? []).join(', ')}`
+                        : 'They asked and nothing answers it yet'
+                  }
                 >
-                  <span className="font-mono text-[10px] text-gold-dark">{e.time}</span>
-                  {e.label}
+                  <span className="font-mono text-[10px] text-gold-dark">{entry.time}</span>
+                  {entry.label}
                 </a>
               </li>
             ))}

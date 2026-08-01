@@ -545,6 +545,21 @@ export default function PrivacyPage() {
             is &ldquo;almost gone&rdquo; or that there are &ldquo;only N slots left&rdquo;
             — we do not hold a live capacity count, so any such claim would be invented.
           </p>
+          {/* Added 2026-08-02 by the per-clause honesty audit. Every other
+              disclosure on this page states whether you can switch the thing
+              off; this one could not, because the answer is no — and a notice
+              that is silent exactly where the answer is unflattering is not an
+              honest notice. RoPA DPS-17 records the same point as the open
+              question for the DPO. */}
+          <p className="pt-2">
+            <strong>You cannot switch this one off.</strong> There is no setting
+            that removes your own inquiry from the counts other couples see. We
+            are telling you plainly rather than leaving it unsaid: what leaves our
+            servers is a number, at three or above, with nothing attached to it
+            that points back to you — that is the protection, and it is the
+            reason we consider the trade a fair one. If you would rather not be
+            counted at all, not sending the inquiry is the only way.
+          </p>
         </Section>
 
         <Section title="Coordinators you invite (delegated access)">
@@ -793,6 +808,76 @@ export default function PrivacyPage() {
             time and it comes off the page. If your guest record is deleted, or the
             event is, your column goes with it. We record the moment you agreed to
             publication when you submit, so consent is never assumed.
+          </p>
+        </Section>
+
+        {/* ── HOW LONG WE KEEP THINGS ────────────────────────────────────────
+            Added 2026-08-02 by the per-clause honesty audit (Interim Payments &
+            Privacy Deferral Policy §5). The notice stated retention for three
+            narrow things — a TikTok grant, a Drive connection, BIR records —
+            and NOWHERE for the largest and most sensitive category we hold:
+            guests' photos and video. RA 10173 requires the retention period to
+            be disclosed, and we had already DECIDED every number below in
+            `Data_Retention_Schedule_2026-07-11.md`; the notice simply never
+            carried them. Every figure here is that schedule, verbatim — do not
+            edit one without editing the other. */}
+        <Section title="How long we keep things">
+          <p>
+            Different kinds of data have different lifespans, and two of them are
+            set by law rather than by us. This is the whole schedule.
+          </p>
+          <ul className="list-disc space-y-1.5 pt-2 pl-5">
+            <li>
+              <strong>Photos and video</strong> — kept for{' '}
+              <strong>5 years</strong> after the event date, then purged. (They
+              stay instantly available for the first 90 days and move to cheaper
+              cold storage after that; the 5-year total is the same either way.)
+              Philippine wedding photographers keep originals for about that
+              long, and couples come back for them.
+            </li>
+            <li>
+              <strong>Face-recognition data</strong> — for the one event only.
+              Deleted the moment you withdraw, and in any case purged together
+              with that event&rsquo;s photos.
+            </li>
+            <li>
+              <strong>Messages between a couple and a vendor</strong> —{' '}
+              <strong>5 years</strong> after the event date.
+            </li>
+            <li>
+              <strong>Payments, receipts and official receipts</strong> —{' '}
+              <strong>10 years</strong>. This one is a legal floor under BIR
+              rules: we <em>cannot</em> delete these earlier, even if you ask.
+            </li>
+            <li>
+              <strong>Contracts and e-signatures</strong> —{' '}
+              <strong>10 years</strong>, the prescription period under the Civil
+              Code.
+            </li>
+            <li>
+              <strong>Your account and profile</strong> — for as long as the
+              account is open. When you close it, a short 30–90 day tail, then
+              permanent deletion.
+            </li>
+            <li>
+              <strong>Support tickets</strong> — <strong>2 years</strong> after
+              the ticket closes.
+            </li>
+            <li>
+              <strong>Error and usage logs</strong> — <strong>90 days</strong> or
+              less, and they carry no personal data by design.
+            </li>
+            <li>
+              <strong>The fraud-prevention device identifier</strong> — for the
+              life of the account, and device records unused for more than 24
+              months are pruned.
+            </li>
+          </ul>
+          <p className="pt-2">
+            Where you can end something sooner, you can: withdrawing face
+            recognition deletes that data immediately, withdrawing a column takes
+            it off the page, and closing your account starts the tail above. The
+            two 10-year items are the exception — those we are required to keep.
           </p>
         </Section>
 

@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   buildEventBrief,
   briefPrimaryDate,
@@ -132,6 +135,97 @@ test('window-mode dates anchor on the window start', () => {
   });
   assert.equal(b.constraints.date.mode, 'window');
   assert.equal(briefPrimaryDate(b), '2027-06-01');
+});
+
+// ── date.primary — the committed-date ladder ─────────────────────────────────
+//
+// `date.primary` is VENDOR-FACING: `toEventBriefLite` hands it to the auto-reply
+// engine, whose contract keys the availability answer to exactly this date. It
+// used to be `candidates[0] ?? windowStart ?? eventDate` — the committed date
+// ranked LAST, and candidates taken in STORED order.
+//
+// The case that mattered was never covered: the two fixtures above set
+// candidates-only and event_date-only respectively, so no test ever exercised a
+// row where BOTH are set — which is exactly the row a lock produces, because
+// locking a date does not clear `date_candidates`.
+
+test('locked event_date beats stale candidates that no longer contain it', () => {
+  // THE regression case. The host shortlisted Aug/Sep, then locked Valentine's.
+  // The lock writes event_date but leaves date_candidates behind, so the old
+  // ladder answered '2026-08-01' — a day the host had already moved off.
+  const b = buildEventBrief({
+    event_type: 'wedding',
+    event_date: '2027-02-14',
+    date_candidates: ['2026-08-01', '2026-09-01'],
+  });
+  assert.equal(b.constraints.date.primary, '2027-02-14');
+  assert.equal(briefPrimaryDate(b), '2027-02-14');
+  // The shortlist itself is still reported verbatim — only the ANCHOR moved.
+  assert.deepEqual(b.constraints.date.candidates, ['2026-08-01', '2026-09-01']);
+  // `mode` is separate logic and must be untouched by this fix.
+  assert.equal(b.constraints.date.mode, 'specific');
+});
+
+test('committed event_date outranks a window start too', () => {
+  const b = buildEventBrief({
+    event_type: 'wedding',
+    event_date: '2027-02-14',
+    date_window_start: '2026-06-01',
+    date_window_end: '2026-08-31',
+  });
+  assert.equal(briefPrimaryDate(b), '2027-02-14');
+});
+
+test('candidates resolve to the EARLIEST, not the stored first', () => {
+  // Stored order is not chronological order — the picker appends as the host
+  // taps. ISO yyyy-mm-dd sorts chronologically, so a plain sort is correct.
+  const b = buildEventBrief({
+    event_type: 'wedding',
+    date_candidates: ['2027-11-20', '2027-03-05', '2027-07-14'],
+  });
+  assert.equal(briefPrimaryDate(b), '2027-03-05');
+  // Order is preserved in the reported list; only the anchor is sorted.
+  assert.deepEqual(b.constraints.date.candidates, ['2027-11-20', '2027-03-05', '2027-07-14']);
+});
+
+test('empty candidates array falls through to the window start', () => {
+  const b = buildEventBrief({
+    event_type: 'wedding',
+    date_candidates: [],
+    date_window_start: '2027-06-01',
+  });
+  assert.equal(briefPrimaryDate(b), '2027-06-01');
+});
+
+test('all-falsy candidates cannot shadow the window start', () => {
+  // Blank/whitespace strings are dropped by strArr before the ladder sees them,
+  // so an array of empties behaves as no candidates at all rather than
+  // anchoring the Brief on ''.
+  const b = buildEventBrief({
+    event_type: 'wedding',
+    date_candidates: ['', '   ', null as unknown as string],
+    date_window_start: '2027-06-01',
+  });
+  assert.deepEqual(b.constraints.date.candidates, []);
+  assert.equal(briefPrimaryDate(b), '2027-06-01');
+});
+
+test('no date signal anywhere stays null and unset', () => {
+  const b = buildEventBrief({ event_type: 'wedding' });
+  assert.equal(b.constraints.date.mode, 'unset');
+  assert.equal(briefPrimaryDate(b), null);
+});
+
+test('date.primary resolves through the shared lib/event-dates ladder', () => {
+  // A behaviour test cannot see a surface that stops calling the shared helper —
+  // which is how the two pre-#4021 copies came to exist. Pin the call site.
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), './event-brief.ts'), 'utf8');
+  assert.match(
+    src,
+    /import \{ earliestKnownEventDate.*\} from '@\/lib\/event-dates'/,
+    'lib/event-brief.ts must import the shared ladder',
+  );
+  assert.match(src, /earliestKnownEventDate\(/, 'lib/event-brief.ts must call the shared ladder');
 });
 
 test('numeric coercion tolerates string columns from the driver', () => {

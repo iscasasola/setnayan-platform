@@ -204,6 +204,70 @@ test('KNOWN_UNFILLABLE is self-cleaning — a fixed pair must be removed from it
   );
 });
 
+test('travel reaches accommodation + transfers, and wedding keeps accommodation', async () => {
+  // Regression pin for the travel vertical (2026-08-01). Two halves, and the
+  // generic test above would catch NEITHER on its own:
+  //
+  //  (a) `accommodation` is the MIRROR of the date/hangout dead end. The leaf
+  //      was already tagged ['travel','wedding'], so a hotel could tick Travel
+  //      on its coverage — but the leaf sat on the `reception` tile (the
+  //      wedding reception-VENUE shelf), which travel never reaches, so no
+  //      travel host was ever shown a shelf it sits on. A leaf reachable by the
+  //      vendor and invisible to the host is not an unfillable pair, so the
+  //      generic query above is blind to it by construction.
+  //
+  //  (b) the fix must not become a wedding REGRESSION. Scoping the new tile to
+  //      travel alone would silently strip wedding's access to a leaf it has
+  //      today — and with prod pre-launch nobody would see it.
+  const tiles = await replay.db.query<{ id: string; types: string[] | null }>(
+    `SELECT id, applicable_event_types AS types
+       FROM public.service_categories
+      WHERE id IN ('accommodation','transfers_rentals')`,
+  );
+  const byId = new Map(tiles.rows.map((r) => [r.id, r.types ?? []]));
+  assert.equal(byId.size, 2, 'both travel tiles must exist');
+  assert.ok(byId.get('accommodation')?.includes('travel'), 'accommodation must reach travel');
+  assert.ok(
+    byId.get('accommodation')?.includes('wedding'),
+    'accommodation must KEEP wedding — the leaf was wedding-tagged before this tile existed',
+  );
+  assert.ok(
+    byId.get('transfers_rentals')?.includes('travel'),
+    'transfers_rentals must reach travel',
+  );
+  assert.ok(
+    !byId.get('transfers_rentals')?.includes('wedding'),
+    'transfers_rentals is travel-only — an airport transfer is not a wedding service',
+  );
+
+  // The re-shelved leaf must resolve for BOTH types (getCoverageTaxonomy rules).
+  const leaf = await replay.db.query<{ tile_id: string; resolved: string[] | null }>(
+    `SELECT c.tile_id,
+            COALESCE(NULLIF(c.applicable_event_types,'{}'), t.applicable_event_types) AS resolved
+       FROM public.canonical_service_taxonomy c
+       JOIN public.service_categories t ON t.id = c.tile_id
+      WHERE c.canonical_service = 'accommodation'`,
+  );
+  assert.equal(leaf.rows[0]?.tile_id, 'accommodation', 'accommodation leaf must sit on its own tile');
+  for (const t of ['travel', 'wedding']) {
+    assert.ok(
+      leaf.rows[0]?.resolved?.includes(t),
+      `accommodation must stay declarable for ${t}; resolved = ${JSON.stringify(leaf.rows[0]?.resolved)}`,
+    );
+  }
+
+  // And the shelf it left must still be stocked — an emptied tile is pruned
+  // entirely, which would delete the wedding reception shelf as a side effect.
+  const reception = await replay.db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.canonical_service_taxonomy
+      WHERE tile_id = 'reception' AND COALESCE(marketplace_hidden,false) = false`,
+  );
+  assert.ok(
+    (reception.rows[0]?.n ?? 0) >= 6,
+    `reception must keep its own venues, has ${reception.rows[0]?.n}`,
+  );
+});
+
 test('the date + hangout dining tile is fillable (the defect that prompted this guard)', async () => {
   // Narrow, explicit regression pin. `restaurant_reservation` is the ONLY
   // dining tile either type has: if it silently reverts to a ['travel'] leaf

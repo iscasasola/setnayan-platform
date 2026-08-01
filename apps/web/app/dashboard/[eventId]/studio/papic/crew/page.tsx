@@ -18,6 +18,8 @@ import {
   papicSeatJoinUrl,
 } from '@/lib/papic-seats';
 import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
+import { ensurePapicPoolToken } from '@/lib/papic-pool-join';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
@@ -122,6 +124,18 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const claimedCount = seats.filter((s) => s.claimer_user_id).length;
 
+  // ── THE POSTER QR (owner-locked 2026-08-01) ────────────────────────────────
+  // One code for the whole event: print it, put it on a table, anyone who scans
+  // gets their own camera on the shared pool. No limit, first come first served.
+  //
+  // This is the QR the product had been PROMISING and never had — until now the
+  // only codes here were per-seat claim links, single use, first scanner takes
+  // it. Minted lazily: the token exists from the moment a host opens this page,
+  // never for an event that has no use for a poster.
+  const poolToken = await ensurePapicPoolToken(createAdminClient(), eventId);
+  const poolJoinUrl = poolToken ? `${appUrl}/papic/pool/${poolToken}` : null;
+  const poolQrSvg = poolJoinUrl ? await renderUrlQrSvg(poolJoinUrl, 200) : null;
+
   return (
     <section className="space-y-8 pb-12">
       <Link
@@ -221,6 +235,46 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           </form>
         </div>
       ) : (
+        <>
+        {poolJoinUrl && poolQrSvg ? (
+          <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/[0.04] p-5 sm:p-6">
+            <div className="flex flex-wrap items-start gap-5">
+              <div
+                aria-hidden
+                className="shrink-0 rounded-xl bg-white p-2 [&>svg]:h-32 [&>svg]:w-32"
+                dangerouslySetInnerHTML={{ __html: poolQrSvg }}
+              />
+              <div className="min-w-0 flex-1 space-y-2">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  One code for everyone
+                </h2>
+                <p className="max-w-prose text-sm text-ink/70">
+                  Print this, put it on a table. Anyone who scans it gets their
+                  own camera and shoots into your shared pool — no app, no
+                  sign-up, and it never runs out of cameras. It stops when your
+                  shots do.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <CopyButton value={poolJoinUrl} />
+                  <Link
+                    href={`${backLink}/crew/poster`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
+                  >
+                    <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Print the poster
+                  </Link>
+                </div>
+                <p className="pt-1 text-xs text-ink/50">
+                  Anyone holding this code can shoot. Reprint from a fresh code
+                  if it ends up somewhere you didn&rsquo;t intend.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           {seatViews.map((s) => {
             const claimed = Boolean(s.claimer_user_id);
@@ -295,6 +349,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
             );
           })}
         </div>
+        </>
       )}
     </section>
   );

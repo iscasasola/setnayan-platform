@@ -938,13 +938,24 @@ export type EraseResult = {
  * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
  *
  * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
- * activity: ~46 foreign keys to auth.users / public.users are ON DELETE
+ * activity: ~46 foreign keys to auth.users / public.users were ON DELETE
  * NO ACTION / RESTRICT, and `vendor_team_guard_trg` aborts the delete of a
  * vendor's sole admin. So the admin Delete button — and the RA 10173 self-serve
  * erasure queue that funnels through here — 500'd on real accounts, leaving
  * erasure unfulfillable. Worse, the two PII purges used to run and COMMIT
  * *before* the throwing hard-delete, so a failed delete left the account LIVE
  * with its birth data + chat already erased (an inconsistent, unrecoverable state).
+ *
+ * ⚠ PAST TENSE ON PURPOSE (2026-08-02). Those foreign keys have since been swept
+ * — 48 of them decided across two migrations, and exactly THREE still refuse, all
+ * deliberately (order_refunds · supplies_orders · vendor_contract_signatures; see
+ * tests/db/user-delete-refusing-fks.baseline.txt). A hard delete would therefore
+ * succeed today for most accounts, and that does NOT make it the right call. The
+ * FK situation was only ever the reason the old code CRASHED; the reason this
+ * function anonymizes instead is the one in "Legal posture" below — erase the
+ * personal data, keep the business record. Reintroducing a DELETE on the strength
+ * of the FKs now being clear would destroy transactional history that the very
+ * same sweep concluded must survive its author.
  *
  * Fix: we never DELETE auth.users. Instead we
  *   0. capture what the anonymize is about to destroy but the purges still need

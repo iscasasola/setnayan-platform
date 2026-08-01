@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { ANON_EMAIL_DOMAIN } from '@/lib/anon-onboarding';
+import { describeUserDeleteBlocker } from '@/lib/user-delete-blockers';
 
 /**
  * Abandoned anonymous-draft cleanup (RA 10173 data-minimization).
@@ -131,9 +132,22 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
 
       // Hard-delete the auth user → cascades public.users. Skip-on-throw so one
       // stubborn row never aborts the batch.
+      //
+      // This is the ONLY place in the app that issues a real user DELETE — the
+      // admin path erases (anonymize + tombstone) instead — so it is also the
+      // only place a foreign-key refusal can surface. Since the 2026-08-02 sweep
+      // exactly THREE foreign keys still refuse, all deliberately; anything else
+      // refusing is a regression, and the two cases must not read the same in the
+      // log. A recognised refusal gets its reason; an unrecognised one keeps the
+      // raw Postgres text, constraint name and all, because that is the thing
+      // somebody needs to go and decide.
       const { error: delUserErr } = await admin.auth.admin.deleteUser(uid);
       if (delUserErr) {
-        console.error(`[anon-draft-sweep] auth delete failed (${uid}):`, delUserErr.message);
+        const deliberate = describeUserDeleteBlocker(delUserErr.message);
+        console.error(
+          `[anon-draft-sweep] auth delete failed (${uid}):`,
+          deliberate ?? delUserErr.message,
+        );
         await markSkipped(uid);
         continue;
       }

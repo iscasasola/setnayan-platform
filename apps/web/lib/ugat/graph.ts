@@ -366,10 +366,11 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * key was `event_id → events` — an event-scoped guest grouping, not a
      * person-spine concept. Caught only by reading the live FKs, which is the
      * whole argument for claim-checking a map instead of describing one. It
-     * then turned out to hold no rows, no product reader and no writer — yet it
-     * is NOT droppable: it is a canary in `event-member-self-join.db.test.ts`,
-     * and removing it broke ten security assertions. Product-dead and
-     * load-bearing at once.
+     * then turned out to hold no rows, no product reader and no writer in the
+     * eleven weeks since it shipped. DROPPED 2026-08-01 (owner: "just remove
+     * it") once its one real dependency — a canary in
+     * `event-member-self-join.db.test.ts` — was moved onto `guests`, which
+     * carries actual names and so asserts more than the empty table did.
      *
      * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
      * zero rows today and the family-tree work is waiting on legal review. It

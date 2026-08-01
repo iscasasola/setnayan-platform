@@ -52,7 +52,6 @@ supplier_vendor_skus | declined — same deferred supplies vertical as supplies_
 panood_* | map-backlog — Panood / Live Studio broadcast subsystem
 live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
 patiktok_* | map-backlog — Patiktok recording subsystem
-households | map-backlog — event-scoped guest grouping (only FK: event_id -> events). NOT person-spine (assumed so 2026-08-01, disproved by reading the FKs). Product-dead — 0 rows, no reader, no writer — but NOT droppable: it is a canary in event-member-self-join.db.test.ts, where dropping it broke 10 security assertions.
 vendor_event_* | map-backlog — per-event vendor access grants
 event_vendor_* | map-backlog — the event↔vendor booking cluster (9 tables): unlocks incl. 3D Plan, line items, working notes, policy acknowledgements. Joint J7 documents the booking bond itself but no node owns this cluster.
 event_tables | map-backlog — seating chart tables (iteration 0008)

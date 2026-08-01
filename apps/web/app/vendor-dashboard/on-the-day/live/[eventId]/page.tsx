@@ -362,6 +362,10 @@ export default async function VendorOnTheDayLivePage({
         eventId={eventId}
         vendorProfileId={profile.vendor_profile_id}
         coupleName={coupleName}
+        // Already read above for the floor clock + run-of-show header — passed
+        // down rather than re-queried.
+        blocks={blocks}
+        bookedCategories={brief?.booked_categories ?? null}
       />
     </section>
   );

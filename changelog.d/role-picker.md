@@ -53,3 +53,50 @@ where the *focus* the owner asked for actually happens, and what makes a role wi
 worth switching into at all.
 
 SPEC IMPACT: None — implements Phase 1 without touching the design's open questions (§ 7).
+
+---
+
+## 2026-08-01 (same PR) · Phase 2 — your run of day, seen through ONE trade
+
+The picker above says *which* desk. This says what that role's **night** looks like — the focus the
+owner actually asked for.
+
+**The whole trick is a narrower input.** `blockRelevance` already ranks the shared timeline per
+trade, and `deriveCallTime` already works out when that trade must be on site. Both take the
+vendor's booked categories — **all** of them, which for a two-trade supplier answers "what matters
+to this company", a blur. Pass only the categories belonging to the role they are **running** and
+the same two shipped functions answer the sharper question. **No new ranking rules, no second source
+of truth.**
+
+`categoriesForSpecializationSet()` bridges the two vocabularies — the couple's side speaks
+`host_emcee` / `band_dj`, a specialization speaks tiles (`host_mc` / `live_band`) — by mapping each
+booked category through the **shipped** `VENDOR_CATEGORY_CANONICAL` table. Derived, never
+hand-listed: this project has already paid once for a taxonomy kept in two places (the 2026-07-30
+bug where `live_band ∉ {band_dj}` made every specialization desk dark).
+
+### 🔴 A lens, never a gate
+
+`vendor-timeline.ts` locks it (D2): a booked vendor keeps **full-timeline visibility**. Honoured
+exactly — **every block is returned and marked; nothing is removed.** The moments this role does not
+work are dimmed, not dropped. A host told nothing about a moment is worse off than one told it is
+not his.
+
+And a role with **no claim** on the night says so plainly rather than falling back to "everything is
+primary" — pretending a role owns moments it does not is how a focused view becomes noise again.
+
+### One shared read, one more column
+
+`fetchRunOfShowBlocks` now also selects `block_type` (the lens needs it) rather than the slot making
+a second query on a live day-of screen. `RunOfShowBlock.block_type` is **optional**, because a legacy
+row can lack one — and an absent type matches no rule and lands as `context`, never a throw.
+
+### Verification
+
+**11 new tests** (and the 27 picker/frame tests still pass). The ones that matter: **every block is
+returned for every role** (the lens rule) · a role with no claim marks everything `context`, reports
+`empty`, and **claims no call time it cannot justify** · two roles genuinely see the same night
+differently · clock order with untimed blocks last and stable · unknown/exempt/malformed categories
+skipped rather than thrown on · the call time is **before** the moment it is derived from.
+
+- `tsc --noEmit` **exit 0, 0 errors** · `next lint` clean · **`test:unit` 5,969 / 5,969**
+- No migration, no policy, no schema.

@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  tenancyForPathPrefix,
+  UPLOAD_TENANCY_REFUSAL,
+} from '@/lib/upload-prefix-tenancy';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
@@ -528,6 +532,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { error: 'That upload location isn’t allowed.' },
       { status: 400 },
     );
+  }
+
+  // SEC-1 lane #1 — YOU MAY NOT NAME AN ID YOU DO NOT HOLD.
+  //
+  // The generic branch above lets the client choose the prefix. The bucket is
+  // whitelisted, the prefix sanitised, and the final key carries a server-side
+  // randomUUID() — so this was never disclosure and never overwrite. It WAS
+  // cross-tenant write pollution: any signed-in user could presign a PUT under
+  // `deposit-proof/<another-couple's-event>` or `chat/<someone-else's-thread>`,
+  // landing bytes in a space the victim's own surfaces read from.
+  //
+  // The check is shape-based (a UUID segment), not a prefix allowlist, because
+  // `<FileUpload>` takes pathPrefix as a PROP — the caller set is open-ended, and
+  // an allowlist built by grep would be a guess whose failure mode is a broken
+  // upload on a surface nobody tested. A new `receipts/<eventId>` surface is
+  // covered the day it ships, with no registry to update.
+  //
+  // RLS IS THE TENANCY CHECK, not a second bespoke rule: the read below runs on
+  // the CALLER's client, so it returns a row only if they may already read that
+  // event / thread. Same pattern lib/r2-client-ref.ts documents. Seat mode is
+  // exempt — its prefix is derived server-side from the seat, so there is no
+  // client-named id to verify.
+  if (!seatMode) {
+    const tenancy = tenancyForPathPrefix(pathPrefix);
+    if (tenancy) {
+      const { data: owned } =
+        tenancy.kind === 'event'
+          ? await supabase
+              .from('events')
+              .select('event_id')
+              .eq('event_id', tenancy.id)
+              .maybeSingle()
+          : await supabase
+              .from('chat_threads')
+              .select('thread_id')
+              .eq('thread_id', tenancy.id)
+              .maybeSingle();
+      if (!owned) {
+        // Non-specific on purpose (r2-client-ref house style): a caller must not
+        // be able to use this endpoint to learn whether an id exists.
+        return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+      }
+    }
   }
   const bucketName = R2_BUCKETS[bucketKey];
 

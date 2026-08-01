@@ -45,7 +45,9 @@ export type UgatEntityType =
   | 'proposal'
   | 'contract'
   | 'availability'
-  | 'geography';
+  | 'geography'
+  | 'seatplan'
+  | 'runofshow';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -584,6 +586,97 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     ],
     edges: [{ verb: 'locates', to: 'TYPE-EVENTS' }],
   },
+  {
+    /**
+     * SEAT PLAN — the WHERE. Tables, chairs, who sits in them, and the room
+     * they sit in.
+     *
+     * Geometry is NOT split from placement, and both investigations reached
+     * that independently: one file writes both, one RPC reads both, and
+     * auto-seat consumes the floor plan's priority order alongside the table
+     * and assignment rows. `event_floor_*` alone is not a concept anyone names.
+     *
+     * 🚨 GUEST READS DO NOT GO THROUGH RLS — the single most important thing on
+     * this node. `event_tables` and `event_seat_assignments` grant anon nothing
+     * (five policies each, all `authenticated`), yet /find-my-table, /seat and
+     * /hub correctly show a guest their table. They read through anon-executable
+     * SECURITY DEFINER RPCs (`public_seat_lookup`, `public_venue_scene`). An
+     * RLS-only audit concludes "guests cannot see their seat" — FALSE — and
+     * misses that the real exposure surface is the function body, not the policy.
+     * That discovery is what triggered the 2026-08-01 anon-RPC audit.
+     *
+     * ⚠ THE PUBLISH GATE LIVES ONLY IN FUNCTION BODIES. `event_floor_plan
+     * .published_at` and `event_walkthrough_zones.published_at` are enforced
+     * inside the RPCs; no policy references either. A new reader that forgets
+     * the check fails OPEN and serves an unpublished seat plan.
+     *
+     * ⚠ `seating_editor_locks` LOOKS DEAD AND IS FULLY LIVE. A grep for the
+     * table name finds only tests — all access runs through four SECURITY
+     * DEFINER RPCs (acquire / refresh / release / assert), driven by a 30-second
+     * heartbeat and asserted before every write. It was nearly deleted on the
+     * strength of that grep.
+     */
+    id: 'TYPE-SEATPLAN',
+    type: 'seatplan',
+    name: 'Seat Plan',
+    blurb: 'the WHERE — tables, chairs, assignments, the room',
+    countKey: 'seatplan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_tables',
+    x: 60,
+    y: 520,
+    fields: [
+      { key: 'pk', name: 'table_id', note: 'one table in the room' },
+      { key: '', name: 'link_group_id', note: 'FK-SHAPED BUT NOT AN FK (verified, any schema) — groups tables into one serpentine run' },
+      { key: 'fk', name: 'walkthrough_zone_id', note: 'nullable, SET NULL — the one non-destructive outbound link' },
+    ],
+    edges: [
+      { verb: 'seats', to: 'TYPE-GUESTS' },
+      { verb: 'lays out', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * RUN OF SHOW — the WHEN. A machine, not a field on EVENT: two enums, a
+     * SECURITY DEFINER state machine (`advance_schedule_block`), a DB-enforced
+     * single-live-block invariant, its own realtime channel, ~25 importing
+     * modules.
+     *
+     * It is the four-way intersection where COUPLE, VENDORS, coordinator and
+     * GUESTS meet on one row — six RLS policies, roughly one per role. That is
+     * precisely the cross-role JOIN surface that already caused a live prod
+     * outage in this same day-of area (the tiles-vs-categories desk lockout).
+     *
+     * ⚠ THE PREFIX UNDER-CAPTURES THE CONCEPT. `vendor_block_scripts.block_id`
+     * CASCADEs from a block, so deleting a block DESTROYS THE EMCEE SCRIPT
+     * written for it — and blocks have no soft-delete. Meanwhile
+     * `event_floor_plan.cocktail_schedule_block_id` merely SET NULLs. Any audit
+     * scoped to `event_schedule_%` misses both the destructive cascade and the
+     * SECURITY DEFINER writer.
+     */
+    id: 'TYPE-RUNOFSHOW',
+    type: 'runofshow',
+    name: 'Run of Show',
+    blurb: 'the WHEN — nested blocks, one live at a time',
+    countKey: 'runofshow',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_schedule_blocks',
+    x: 300,
+    y: 560,
+    fields: [
+      { key: 'pk', name: 'block_id', note: 'one moment in the day' },
+      { key: 'fk', name: 'parent_block_id', note: 'self-referencing, CASCADE — blocks NEST' },
+      { key: '', name: 'event_id', note: 'the day it belongs to' },
+    ],
+    edges: [
+      { verb: 'paces', to: 'TYPE-EVENTS' },
+      { verb: 'cues', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -651,6 +744,18 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'globe',
     color: 'var(--ug-e-geo)',
     colorBg: 'var(--ug-e-geo-bg)',
+  },
+  seatplan: {
+    label: 'Seat Plan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+  },
+  runofshow: {
+    label: 'Run of Show',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
   },
 };
 
@@ -1885,6 +1990,89 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'the vendor profile + branches surfaces',
     guardedBy: 'RLS — there is no public read policy on either, so neither is visible to discovery',
     traps: 'vendor_coverages is WHAT a vendor serves, not WHERE. Geography lives on vendor_profiles (hq_region, radii) and vendor_branches (city, lat/lon, radius) \u2014 two parallel copies nothing reconciles. Also: branch_subscription_active defaults to TRUE, so any direct INSERT creates a fully active PAID branch for free.',
+  },
+  {
+    /**
+     * The seam between the roster and the room — and where the soft-delete
+     * asymmetry lives.
+     *
+     * 🚨 `guests` is SOFT-deleted (`deleted_at`); `event_seat_assignments` has
+     * NO such column (both verified). The FK is ON DELETE CASCADE, so it never
+     * fires on a soft delete, and the only automatic seat-release trigger fires
+     * on `rsvp_status = 'declined'` — not on removal. A removed guest therefore
+     * leaves an assignment the editor's guest list cannot account for, while the
+     * chair-uniqueness index keeps that chair permanently occupied.
+     *
+     * LATENT, NOT LIVE: 4 soft-deleted guests exist and none holds a seat.
+     */
+    id: 'J35',
+    claims: [
+      { kind: 'table', table: 'event_seat_assignments' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'table_id', references: 'event_tables' },
+      { kind: 'no_column', table: 'event_seat_assignments', column: 'deleted_at' },
+      { kind: 'column', table: 'guests', column: 'deleted_at' },
+    ],
+    chain: 2,
+    pair: ['TYPE-SEATPLAN', 'TYPE-GUESTS'],
+    title: 'Seat ↔ Guest (the soft-delete seam)',
+    joint: 'event_seat_assignments',
+    cardinality: 'One guest per chair — UNIQUE (event_id, table_id, seat_number)',
+    implementedBy: 'event_seat_assignments — the row that puts a person in a chair',
+    writtenBy: 'the seating editor · auto-arrange',
+    guardedBy: 'the chair-uniqueness index; NOT by anything that reacts to a soft delete',
+    traps: 'Removing a guest is a SOFT delete, so the CASCADE never fires and the chair stays occupied by someone the guest list no longer shows. Also: nothing requires the assignment\u2019s event_id to match its table\u2019s event_id — no composite FK, no CHECK — and the chair-uniqueness index is keyed on event_id, so a divergent one would defeat it.',
+  },
+  {
+    /**
+     * The room itself, and the publish gate that decides whether a guest sees
+     * any of it. Enforcement lives in RPC bodies, never in a policy.
+     */
+    id: 'J36',
+    claims: [
+      { kind: 'table', table: 'event_floor_plan' },
+      { kind: 'column', table: 'event_floor_plan', column: 'published_at' },
+      { kind: 'table', table: 'event_walkthrough_zones' },
+      { kind: 'column', table: 'event_walkthrough_zones', column: 'published_at' },
+      { kind: 'fk', table: 'event_tables', column: 'walkthrough_zone_id', references: 'event_walkthrough_zones' },
+      { kind: 'table', table: 'event_floor_booths' },
+      { kind: 'table', table: 'event_floor_signs' },
+      { kind: 'table', table: 'event_seating_constraints' },
+      { kind: 'table', table: 'seating_editor_locks' },
+      { kind: 'fk', table: 'seating_editor_locks', column: 'holder_user_id', references: 'users' },
+    ],
+    chain: 1,
+    pair: ['TYPE-SEATPLAN', 'TYPE-EVENTS'],
+    title: 'Seat Plan → the room (geometry · zones · locks)',
+    joint: 'event_floor_plan',
+    cardinality: 'One floor plan per event; many zones, booths, signs and tables within it',
+    implementedBy: 'event_floor_plan + event_walkthrough_zones + event_floor_booths/signs',
+    writtenBy: 'the seating editor (one file writes geometry AND placement)',
+    guardedBy: 'published_at, checked ONLY inside public_seat_lookup / public_venue_scene',
+    traps: 'TWO publish gates, not one, and neither is enforced by any RLS policy \u2014 a new reader that forgets the check fails OPEN. seating_editor_locks.holder_user_id references auth.users (CROSS-SCHEMA): a constraint scan filtered to schema public reports this table as having one FK and misses a CASCADE onto a user.',
+  },
+  {
+    /**
+     * Blocks nest, and one deletion reaches further than the prefix suggests.
+     */
+    id: 'J37',
+    claims: [
+      { kind: 'table', table: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_blocks', column: 'parent_block_id', references: 'event_schedule_blocks' },
+      { kind: 'table', table: 'event_schedule_suggestions' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_block_scripts', column: 'block_id', references: 'event_schedule_blocks' },
+    ],
+    chain: 2,
+    pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
+    title: 'Block → suggestions · scripts',
+    joint: 'event_schedule_blocks',
+    cardinality: 'A tree of blocks; vendors attach suggestions and scripts to a block',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts hang off a block',
+    writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
+    guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
 ];
 

@@ -54,6 +54,7 @@
   --ug-e-geo: #6b8f4a; --ug-e-geo-bg: #ecf3e4;
   /* Day-of: the WHERE and the WHEN share a hue — one day, two axes. */
   --ug-e-dayof: #8a4f6d; --ug-e-dayof-bg: #f4e6ee;
+  --ug-e-studio: #4a6fa5; --ug-e-studio-bg: #e6edf6;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

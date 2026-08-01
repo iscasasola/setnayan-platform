@@ -67,6 +67,8 @@ export interface UgatCounts {
   seatplan: number;
   /** Run of Show: schedule blocks in the day. */
   runofshow: number;
+  /** Live Studio: claimed camera operators. */
+  livestudio: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -168,6 +170,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     regionRows,
     tableRows,
     blockRows,
+    cameraRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -228,6 +231,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'regions'),
     headCount(admin, 'event_tables'),
     headCount(admin, 'event_schedule_blocks'),
+    headCount(admin, 'panood_camera_operators'),
   ]);
 
   return {
@@ -251,6 +255,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     geography: regionRows,
     seatplan: tableRows,
     runofshow: blockRows,
+    livestudio: cameraRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -779,6 +784,7 @@ const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
   geography: 'TYPE-GEOGRAPHY',
   seatplan: 'TYPE-SEATPLAN',
   runofshow: 'TYPE-RUNOFSHOW',
+  livestudio: 'TYPE-LIVESTUDIO',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

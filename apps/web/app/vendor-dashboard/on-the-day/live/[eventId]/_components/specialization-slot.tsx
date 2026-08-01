@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight, Lock, Sparkles } from 'lucide-react';
 import type { DayOfFrameModel } from '@/lib/vendor-dayof-frame';
+import { roleRunOfDay, type RunBlock } from '@/lib/role-run-of-day';
+import type { VendorSpecializationSet } from '@/lib/vendor-specialization-gate';
 import {
   ConsoleEyebrow,
   ConsoleHeading,
@@ -34,16 +36,106 @@ import { SPECIALIZATION_SURFACES } from './specialization-registry';
  * `page.tsx` from `model.genericModuleIds`, which the frame passes through
  * untouched on every access path.
  */
+/**
+ * YOUR RUN OF DAY — the couple's night seen through the ONE role now mounted.
+ *
+ * Phase 2 of the role-scoped design. Every decision is made by the pure
+ * `roleRunOfDay` and only drawn here.
+ *
+ * 🔴 A LENS, NEVER A GATE (locked D2). Every block is listed. The moments this
+ * role does not work are dimmed, never removed — a host told nothing about a
+ * moment is worse off than one told it is not his.
+ */
+function RunOfDay({
+  blocks,
+  set,
+  bookedCategories,
+}: {
+  blocks: readonly RunBlock[];
+  set: VendorSpecializationSet;
+  bookedCategories: readonly string[] | null | undefined;
+}) {
+  const run = roleRunOfDay({ blocks, set, bookedCategories });
+  if (run.entries.length === 0) return null;
+
+  return (
+    <div className="border border-ink/10 bg-paper p-4">
+      <h4 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+        Your run of day
+      </h4>
+
+      {run.empty ? (
+        <p className="mt-2 text-sm leading-relaxed text-ink/70">
+          Nothing on this programme is booked to this trade — you are seeing the couple&rsquo;s full
+          night for context.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm leading-relaxed text-ink/70">
+          <strong className="text-ink">{run.yoursCount}</strong> of {run.entries.length} moments are
+          yours in this role. The rest are here so nothing surprises you.
+          {run.callTime ? (
+            <>
+              {' '}
+              Be on site by{' '}
+              <strong className="text-ink">
+                {new Date(run.callTime.call_time).toLocaleTimeString('en-PH', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZone: 'Asia/Manila',
+                })}
+              </strong>{' '}
+              — {run.callTime.lead_minutes} min before {run.callTime.anchor_label}.
+            </>
+          ) : null}
+        </p>
+      )}
+
+      <ol className="mt-3 space-y-1.5">
+        {run.entries.map((e) => (
+          <li
+            key={e.blockId}
+            className={`flex items-baseline gap-2 ${e.yours ? '' : 'opacity-45'}`}
+          >
+            <span className="font-mono text-xs text-ink/60">
+              {e.startAt
+                ? new Date(e.startAt).toLocaleTimeString('en-PH', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Manila',
+                  })
+                : '—'}
+            </span>
+            <span className={`text-sm ${e.relevance === 'primary' ? 'font-semibold text-ink' : 'text-ink/80'}`}>
+              {e.label}
+            </span>
+            {e.relevance === 'primary' ? (
+              <span className="ml-auto font-mono text-[0.6rem] uppercase tracking-[0.16em] text-gild">
+                Yours
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function SpecializationSlot({
   model,
   eventId,
   vendorProfileId,
   coupleName,
+  blocks,
+  bookedCategories,
 }: {
   model: DayOfFrameModel;
   eventId: string;
   vendorProfileId: string;
   coupleName: string;
+  /** The couple's timeline, already read by the page. */
+  blocks?: readonly RunBlock[];
+  /** `get_vendor_event_brief().booked_categories` — couple-side vocabulary. */
+  bookedCategories?: readonly string[] | null;
 }) {
   const spec = model.specialization;
   if (!spec) return null; // category has no specialization — generic is the whole kit
@@ -56,6 +148,46 @@ export function SpecializationSlot({
       <ConsoleEyebrow>
         {spec.state === 'locked' ? 'Available on your trade' : 'Your specialization'}
       </ConsoleEyebrow>
+
+      {/*
+        THE ROLE SWITCHER — only when there is genuinely a choice.
+
+        A supplier can be two trades at one wedding: the band that also emcees.
+        Which one they are RUNNING is a fact about the person on the floor
+        tonight, not about the company, so they say — and the frame validates
+        what they say against the entitlement before anything mounts.
+
+        A plain `?role=` Link, so the console stays a server component with no
+        client state, exactly like the Customer Card's tab rail. `scroll` is
+        left on so the choice lands on the desk they just picked.
+      */}
+      {model.roleChoices.length > 1 ? (
+        <nav aria-label="Which desk you are running" className="flex flex-wrap gap-2">
+          {model.roleChoices.map((choice) => (
+            <Link
+              key={choice.set}
+              href={`?role=${choice.set}#${spec.domId}`}
+              aria-current={choice.active ? 'true' : undefined}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                choice.active
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-ink/15 bg-paper text-ink/60 hover:text-ink'
+              }`}
+            >
+              {choice.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+
+      {/*
+        YOUR RUN OF DAY — only for a desk that is actually mounted. A locked or
+        coming-soon section gets the upsell/placeholder it already had; adding a
+        timeline there would bury the one sentence those states exist to say.
+      */}
+      {spec.state === 'ready' && blocks && blocks.length > 0 ? (
+        <RunOfDay blocks={blocks} set={spec.set} bookedCategories={bookedCategories} />
+      ) : null}
 
       {Surface ? (
         // The built desk. It gets the plate for material consistency; whatever

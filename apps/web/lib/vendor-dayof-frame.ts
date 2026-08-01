@@ -133,6 +133,18 @@ export type DayOfFrameUpsell = {
   href: string;
 };
 
+/**
+ * One desk this person could be running right now. Present only when they hold
+ * MORE THAN ONE — a one-item picker is chrome with no job, exactly the reasoning
+ * that already keeps `nav` empty for a single-section frame.
+ */
+export type DayOfFrameRoleChoice = {
+  set: VendorSpecializationSet;
+  label: string;
+  /** TRUE for the desk currently mounted. */
+  active: boolean;
+};
+
 export type DayOfFrameModel = {
   /**
    * The generic kit, VERBATIM. Same ids, same order, on every path. This is the
@@ -149,6 +161,13 @@ export type DayOfFrameModel = {
    * same model renders, so the nav can never produce a dead link.
    */
   nav: DayOfFrameNavItem[];
+  /**
+   * The desks this person can switch between, or EMPTY when there is nothing to
+   * choose. A supplier can be two trades at one wedding — a band that also
+   * emcees — and which one they are running is a fact about the PERSON on the
+   * floor tonight, not about the company.
+   */
+  roleChoices: DayOfFrameRoleChoice[];
 };
 
 const GENERIC_DOM_ID = 'day-of-generic';
@@ -170,8 +189,16 @@ export function buildDayOfFrame(input: {
   genericModuleIds: readonly DayOfModuleId[];
   /** Sets the registry has a component for. Defaults to none. */
   registeredSets?: ReadonlySet<VendorSpecializationSet> | null;
+  /**
+   * Which desk the person says they are running — typically a `?role=` param.
+   *
+   * 🔴 UNTRUSTED INPUT. It is validated against the ENTITLEMENT below and
+   * ignored unless they actually hold it, so a hand-typed URL can never mount a
+   * desk this vendor has not paid for. It selects; it never grants.
+   */
+  activeSet?: string | null;
 }): DayOfFrameModel {
-  const { access, genericModuleIds, registeredSets } = input;
+  const { access, genericModuleIds, registeredSets, activeSet } = input;
 
   const base = {
     // Pass-through, not a copy of a filtered list: the gate governs the
@@ -183,34 +210,55 @@ export function buildDayOfFrame(input: {
   // No set for this category → generic kit is the whole kit, and there is
   // nothing to upsell. One section, so no nav.
   if (!access.eligibleSet) {
-    return { ...base, specialization: null, upsell: null, nav: [] };
+    return { ...base, specialization: null, upsell: null, nav: [], roleChoices: [] };
   }
 
-  const def = specializationDef(access.eligibleSet);
-  const held = access.unlockedSet === access.eligibleSet;
+  // ── Which desk is mounted ────────────────────────────────────────────────
+  // Held sets only. `unlockedSets` is the entitlement; `eligibleSets` is the
+  // upsell and must never reach this decision. A requested set that is not held
+  // falls back to the priority default rather than erroring — a stale bookmark
+  // from a lapsed subscription should show the default desk, not a dead page.
+  const held = access.unlockedSets;
+  const requested =
+    typeof activeSet === 'string' && held.includes(activeSet as VendorSpecializationSet)
+      ? (activeSet as VendorSpecializationSet)
+      : null;
+
+  // The SECTION still describes their primary trade when nothing is held (that
+  // is what the upsell pitches); when something IS held, it describes whichever
+  // desk is actually mounted.
+  const shownSet = requested ?? access.unlockedSet ?? access.eligibleSet;
+  const def = specializationDef(shownSet);
+  const isHeld = held.includes(shownSet);
 
   const specialization: DayOfFrameSpecialization = {
-    set: access.eligibleSet,
+    set: shownSet,
     label: def.label,
     blurb: def.blurb,
-    state: held
-      ? registeredSets?.has(access.eligibleSet)
-        ? 'ready'
-        : 'coming_soon'
-      : 'locked',
+    state: isHeld ? (registeredSets?.has(shownSet) ? 'ready' : 'coming_soon') : 'locked',
     domId: SPECIALIZATION_DOM_ID,
   };
 
-  const upsell: DayOfFrameUpsell | null = held
+  const upsell: DayOfFrameUpsell | null = isHeld
     ? null
     : {
-        set: access.eligibleSet,
+        set: shownSet,
         label: def.label,
         blurb: def.blurb,
         lapsed: access.reason === 'subscription_lapsed',
         minTierLabel: TIER_LABEL[SPECIALIZATION_MIN_TIER],
         href: SPECIALIZATION_UPGRADE_HREF,
       };
+
+  // Only offer a choice when there IS one. One held set is not a picker.
+  const roleChoices: DayOfFrameRoleChoice[] =
+    held.length > 1
+      ? held.map((s) => ({
+          set: s,
+          label: specializationDef(s).label,
+          active: s === shownSet,
+        }))
+      : [];
 
   return {
     ...base,
@@ -220,5 +268,6 @@ export function buildDayOfFrame(input: {
       { id: GENERIC_DOM_ID, label: 'Your tools', href: `#${GENERIC_DOM_ID}` },
       { id: SPECIALIZATION_DOM_ID, label: def.label, href: `#${SPECIALIZATION_DOM_ID}` },
     ],
+    roleChoices,
   };
 }

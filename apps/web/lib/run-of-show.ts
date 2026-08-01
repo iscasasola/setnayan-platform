@@ -21,6 +21,9 @@ export type RunOfShowBlock = {
   location: string | null;
   run_state: RunState;
   actual_start_at: string | null;
+  /** Schedule block type — feeds the per-trade relevance lens. Empty string when
+   *  a legacy row has none, which the lens treats as "no rule", never a throw. */
+  block_type?: string;
 };
 
 export type RunOfShowState = {

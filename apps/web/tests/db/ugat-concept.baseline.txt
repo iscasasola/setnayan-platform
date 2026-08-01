@@ -49,8 +49,6 @@ supplier_vendor_skus | declined — same deferred supplies vertical as supplies_
 # deleted rather than kept, which is the whole shape of this file working: the
 # stale-line check would have failed if they had been left behind.
 # First entry off the map-backlog. 42 to go.
-panood_* | map-backlog — Panood / Live Studio broadcast subsystem
-live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
 patiktok_* | map-backlog — Patiktok recording subsystem
 vendor_event_* | map-backlog — per-event vendor access grants
 vendor_service_time_slots | map-backlog — vendor time-slot supply, plus the table-reservation ledger now built on it (service_slot_day_state, service_slot_reservations). It only became hub-shaped on 2026-08-01, when "Setnayan holds the reservation" gave it two more dependants; it has been real product since 2026-09-28 and the map has never covered vendor AVAILABILITY at all. An admission, not a decision — availability is a strong node candidate, since orders, bookings and the day-of surfaces all ultimately ask "is this vendor free?".

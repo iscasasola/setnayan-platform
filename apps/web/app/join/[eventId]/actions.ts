@@ -4,7 +4,12 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/guest-claim';
+import {
+  classifyClaimMatch,
+  seedBindAllowed,
+  MAX_NAME_LENGTH,
+  type SeedCandidate,
+} from '@/lib/guest-claim';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
@@ -76,6 +81,36 @@ async function seedClaimedByOther(
     .eq('guest_id', guestId)
     .maybeSingle();
   return !!linked && linked.user_id !== userId;
+}
+
+/**
+ * Best-effort `scan_events` row for a self-join (mirrors `/[slug]/redeem`).
+ * Extracted so BOTH accountless outcomes record one — the seed-bind branch used
+ * to return without any trail at all. Never throws into the caller: a triage
+ * record must not be able to block a guest from getting in.
+ */
+async function recordJoinScan(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+  entry: 'self_join' | 'self_join_bound_seed',
+) {
+  try {
+    const h = await headers();
+    const xff = h.get('x-forwarded-for') ?? '';
+    const ipFull = xff.split(',')[0]?.trim() ?? '';
+    const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
+    await admin.from('scan_events').insert({
+      event_id: eventId,
+      guest_id: guestId,
+      source: 'browser',
+      user_agent: h.get('user-agent') ?? null,
+      ip_anon: ipAnon,
+      context: { entry },
+    });
+  } catch {
+    // swallow — triage only
+  }
 }
 
 /** Tell the couple an unlisted guest joined so they can reconcile. */
@@ -287,7 +322,13 @@ export async function joinEventAction(eventId: string, token: string, formData: 
 
   const match = classifyClaimMatch(presentedName, candidates);
 
-  if (match.kind === 'confident') {
+  // SELF-JOIN HARDENING (2026-08-01) — a `confident` fuzzy match may say "same
+  // person, don't mint a duplicate", but only an EXACT normalized name may
+  // transfer an existing seed row's identity + host-assigned role to this
+  // account. `seedBindAllowed` documents why. A near-miss is NOT rejected: it
+  // falls through to the optimistic admit below, which admits the joiner and
+  // notifies the couple to reconcile.
+  if (match.kind === 'confident' && seedBindAllowed(presentedName, match.candidate.name)) {
     if (avatarUrl) await applyAvatar(admin, match.candidate.guestId, avatarUrl, user.id);
     const err = await bindMemberToSeed(admin, {
       eventId,
@@ -422,10 +463,28 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       return { guestId: s.guest_id as string, name, email: s.email as string | null };
     });
   const match = classifyClaimMatch(presentedName, candidates);
-  if (match.kind === 'confident') {
+  // SELF-JOIN HARDENING (2026-08-01) — this is the sharpest of the two bind
+  // sites: it hands the caller the matched guest's OWN `qr_token` guest session,
+  // which is the same credential their private personal invitation link mints
+  // (`/[slug]/redeem`). That session opens the personal page of a `private`
+  // event (`lib/slug-access.ts` canViewSlugEvent), their Seat Pass, their Papic
+  // pool and "photos of you", and it uploads into the shared gallery AS THEM.
+  // The only thing gating it was a 0.86 Levenshtein ratio against a roster the
+  // caller never sees but can guess, from a token printed on a poster.
+  //
+  // Require exact normalized equality (see `seedBindAllowed`). A near-miss is
+  // NOT rejected — it falls through to step 5, which admits the joiner under
+  // their OWN new row and notifies the couple.
+  if (match.kind === 'confident' && seedBindAllowed(presentedName, match.candidate.name)) {
     const qr = qrByGuestId.get(match.candidate.guestId);
     if (qr) {
       await setGuestSession({ guest_id: match.candidate.guestId, event_id: eventId, qr_token: qr });
+      // Leave a trail. Until now this branch returned WITHOUT recording anything
+      // — no scan_events row, no couple notification — so an accountless
+      // takeover of a seeded guest was completely invisible after the fact,
+      // while the no-match branch below records one (step 8). Best-effort;
+      // a failure here must never block a legitimate guest.
+      await recordJoinScan(admin, eventId, match.candidate.guestId, 'self_join_bound_seed');
       if (email) {
         await sendEventAccountMagicLink({ eventId, guestId: match.candidate.guestId, email });
         return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
@@ -474,18 +533,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   await notifyCoupleUnlisted(admin, eventId, presentedName);
 
   // 8. Best-effort scan record for triage (mirrors redeem; failures don't block).
-  const h = await headers();
-  const xff = h.get('x-forwarded-for') ?? '';
-  const ipFull = xff.split(',')[0]?.trim() ?? '';
-  const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
-  await admin.from('scan_events').insert({
-    event_id: eventId,
-    guest_id: inserted.guest_id as string,
-    source: 'browser',
-    user_agent: h.get('user-agent') ?? null,
-    ip_anon: ipAnon,
-    context: { entry: 'self_join' },
-  });
+  await recordJoinScan(admin, eventId, inserted.guest_id as string, 'self_join');
 
   // 9. Opted into an account → email a passwordless sign-in link that connects
   //    this event to their Setnayan account, then tell them to check their inbox.

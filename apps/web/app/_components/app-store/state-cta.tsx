@@ -15,7 +15,9 @@ import {
 // Renders the App Store-style hero CTA according to the resolved
 // AddOnStateContext. One of:
 //   add           → <ChoosePlanSheet>  (terracotta filled button → bottom sheet)
-//   request_sent  → disabled chip linking to the order detail (reference code)
+//   request_sent  → "Verifying" chip LINKING to the order detail (reference
+//                   code + payment status). Clickable on purpose; the service
+//                   itself is locked server-side, not by this chip.
 //   launch        → <Link href={setupHref}>  (terracotta filled button)
 //   blocked       → disabled chip with the admin block-reason tooltip
 //   expired       → disabled chip explaining the event ended
@@ -51,13 +53,24 @@ export function AddOnStateCta({
         </Link>
       );
     case 'request_sent':
+      // "Verifying", not "Request sent" (owner 2026-08-01). The couple has
+      // paid and told us so; what they need to know is that WE are checking,
+      // and that the service opens the moment it clears. "Request sent"
+      // described their action, not our state, and left them guessing.
+      //
+      // Deliberately still a LINK, not a disabled button: it goes to the order
+      // page, where the reference and payment status live. A dead chip answers
+      // "what's happening with my money?" with silence and earns a support
+      // message. The SERVICE itself is locked either way — server-side, by
+      // eventSkuActive → checkOrderActive, which only counts paid/fulfilled.
       return (
         <Link
           href={context.href ?? '#'}
           className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
+          title="We're checking your payment — this opens as soon as it's confirmed."
         >
           <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Request sent
+          Verifying
           {context.pendingOrderPublicId ? (
             <span className="font-mono text-xs font-normal opacity-80">
               · {context.pendingOrderPublicId}
@@ -123,8 +136,11 @@ export function statusPillForState(
   switch (state) {
     case 'launch':
       return { label: 'Active on this event', tone: 'success' };
+    // Matches the CTA below it. "Pending review" read as though a human were
+    // judging the request; what is actually happening is that we are checking
+    // the money arrived.
     case 'request_sent':
-      return { label: 'Pending review', tone: 'accent' };
+      return { label: 'Verifying payment', tone: 'accent' };
     case 'blocked':
       return { label: 'Unavailable', tone: 'muted' };
     case 'expired':

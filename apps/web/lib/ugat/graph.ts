@@ -362,11 +362,14 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * them would put three nodes on the map for one concept and start the slide
      * from a concept map toward an ERD.
      *
-     * ⚠ `households` was assumed to belong here and DOES NOT. Its only foreign
-     * key is `event_id → events`: it is an event-scoped guest grouping, not a
-     * person-spine concept. It stays on the map-backlog re-filed against
-     * GUESTS. The assumption was caught only by reading the live FKs, which is
-     * the whole argument for claim-checking a map instead of describing one.
+     * ⚠ `households` was assumed to belong here and DID NOT. Its only foreign
+     * key was `event_id → events` — an event-scoped guest grouping, not a
+     * person-spine concept. Caught only by reading the live FKs, which is the
+     * whole argument for claim-checking a map instead of describing one. It
+     * then turned out to hold no rows, no product reader and no writer — yet it
+     * is NOT droppable: it is a canary in `event-member-self-join.db.test.ts`,
+     * and removing it broke ten security assertions. Product-dead and
+     * load-bearing at once.
      *
      * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
      * zero rows today and the family-tree work is waiting on legal review. It

@@ -1,0 +1,61 @@
+-- 20271028732650_drop_dead_floor_areas_objects_and_households.sql
+--
+-- Drop three tables that are dead by every measure available, under the owner's
+-- standing rule that retired means DELETED — no tombstones, no "kept for
+-- lineage" (owner, 2026-07-31: "retired is retired… i want retired gone and
+-- deleted so no unwanted memory saved").
+--
+-- ── WHAT "DEAD" WAS MEASURED AS, PER TABLE ─────────────────────────────────
+-- Not inferred from a name grep. The same sweep that found these nearly deleted
+-- a LIVE table on the strength of one — `seating_editor_locks` has zero product
+-- references by name and is fully live through four SECURITY DEFINER RPCs — so
+-- each of these was checked four ways: row count, inbound FKs, product code
+-- references, and whether any function or view names it.
+--
+--   event_floor_objects   0 rows · 0 inbound FKs · 0 code refs · 0 function refs
+--   event_floor_areas     0 rows · 1 inbound FK (from event_floor_objects,
+--                         dropped first) · 0 code refs · 0 function refs
+--   households            NOT DROPPED — see below.
+--
+-- The two floor tables were RETIRED BY THEIR OWN MIGRATION THE SAME DAY THEY
+-- SHIPPED — they never carried a row. Keeping them implies a multi-area venue
+-- blueprint the product does not have, and the next person to read the schema
+-- would reasonably assume otherwise.
+--
+-- ── WHY `households` IS *NOT* DROPPED HERE, THOUGH IT WAS APPROVED ─────────
+-- It was reported as dead on all four measures and the owner approved dropping
+-- it. That report was WRONG, and the error was in the search: the reference
+-- scan excluded `*.test.*` files. `households` is a canary in
+-- `tests/db/event-member-self-join.db.test.ts` — the suite proving a stranger
+-- who self-joins an event cannot read that event's data. It seeds a household
+-- row and asserts the attacker cannot read it back.
+--
+-- Dropping the table therefore broke TEN security assertions. Verified both
+-- ways: the file is 10/10 green without this migration and 0/10 with the
+-- households drop included.
+--
+-- The table is still product-dead (0 rows, no product reader, no writer). But
+-- the fix is NOT to rewrite a security test so that a deletion can proceed —
+-- that is weakening a guard to go green, and this codebase has a standing rule
+-- against exactly that. The decision goes back to the owner with the corrected
+-- facts: keep the canary, or move the test onto a different event-scoped table
+-- as a deliberate change of its own.
+--
+-- `guests.household_id` therefore also stays. (It is populated on 0 of 39 rows,
+-- so the drop remains trivially safe whenever it is taken.)
+--
+-- ── RECOVERY ───────────────────────────────────────────────────────────────
+-- The defining DDL for both dropped tables lives in migration history and can
+-- be replayed. There is no data to recover — both were empty.
+--
+-- IDEMPOTENT — every statement is IF EXISTS. Order matters: children first.
+
+-- ── 1 · event_floor_objects (no inbound references) ────────────────────────
+DROP TABLE IF EXISTS public.event_floor_objects;
+
+-- ── 2 · event_floor_areas (its only referrer went above) ───────────────────
+DROP TABLE IF EXISTS public.event_floor_areas;
+
+-- ── 3 · households — DELIBERATELY NOT DROPPED ──────────────────────────────
+-- See the header. It is product-dead but load-bearing for a security test, and
+-- rewriting that test to permit this deletion would be weakening a guard.

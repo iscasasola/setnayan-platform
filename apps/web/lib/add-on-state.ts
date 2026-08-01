@@ -18,9 +18,14 @@ const FEATURE_BUNDLE_SKU: Readonly<Record<string, string>> = {
 //   • 'add'           — no active order for this event+feature.
 //                       Hero shows the "Choose plan" sheet.
 //   • 'request_sent'  — order submitted but admin hasn't confirmed payment.
-//                       Hero shows a disabled "Request sent" chip pointing
-//                       at the order detail page so the couple can check
-//                       the reference code / payment status.
+//                       Hero shows a "Verifying" chip LINKING to the order
+//                       detail page, so the couple can check the reference
+//                       code / payment status while they wait. The chip is
+//                       clickable by design; what keeps the FEATURE locked is
+//                       eventSkuActive → checkOrderActive, which counts only
+//                       'paid'/'fulfilled' orders. Renamed from "Request
+//                       sent" (owner 2026-08-01): that described the couple's
+//                       action, not ours.
 //   • 'launch'        — order paid/fulfilled. Hero shows "Launch" linking
 //                       to the per-feature setup surface (e.g. /setup for
 //                       Panood, or the feature itself for Mood Board).

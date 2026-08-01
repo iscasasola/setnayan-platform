@@ -113,13 +113,21 @@ export async function AddOnDetailView({
 
   // App Store "GET / OPEN" CTA — hands off to the feature's own surface, which
   // owns the buy/launch flow. Label + tone reflect the resolved state.
+  // "Verifying", matching app-store/state-cta.tsx (owner 2026-08-01). This
+  // surface resolves its own state rather than sharing that component, so the
+  // wording has to be changed in BOTH places or the same order reads
+  // "Verifying" on one screen and "Pending review" on the next.
+  // Clickable on purpose — it opens the order so the couple can see the
+  // reference and payment status. The feature stays locked server-side via
+  // eventSkuActive → checkOrderActive ('paid'/'fulfilled' only).
   const cta = isPending ? (
     <Link
       href={`/dashboard/${eventId}/orders`}
       className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
+      title="We're checking your payment — this opens as soon as it's confirmed."
     >
       <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      Pending review
+      Verifying
     </Link>
   ) : isActive || isFree ? (
     <Link
@@ -142,7 +150,7 @@ export async function AddOnDetailView({
   const statusPill = isActive
     ? { label: 'Active on this event', tone: 'success' as const }
     : isPending
-      ? { label: 'Pending review', tone: 'accent' as const }
+      ? { label: 'Verifying payment', tone: 'accent' as const }
       : isFree
         ? { label: 'Free', tone: 'muted' as const }
         : entry.freeTrial

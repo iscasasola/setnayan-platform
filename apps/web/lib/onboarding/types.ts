@@ -27,6 +27,24 @@ export type GenericOnboardingPayload = {
    */
   honoreeLabel?: string | null;
   /**
+   * WHICH alaga that name is (→ `events.honoree_dependent_id`) — the STRONGER
+   * half of the same cardinality key, carried from the create step's who
+   * question. A link to a RECORD, so renaming the alaga no longer moves the
+   * event to a different slot and two alaga who share a first name stop sharing
+   * one. NULL for "You", for "Someone else", and for every account with no
+   * People roster — i.e. for everything that behaved as it does today.
+   *
+   * ⚠ NEVER trust this from the wire. The client can forge it, and writing an
+   * unowned id would leak a relationship AND corrupt another account's cap.
+   * `commitOnboardingEvent` replaces whatever arrives here with the result of
+   * `resolveHonoreeDependentId` (ownership + label re-checked server-side)
+   * before it reaches `buildGenericEventInsert`.
+   *
+   * Still not a birthdate, and still not a link to one — the counsel gate in
+   * event-insert.ts is untouched.
+   */
+  honoreeDependentId?: string | null;
+  /**
    * The date this event COMMEMORATES (→ `events.anchor_date`) — NOT the day it
    * is held. Two columns on purpose: an anniversary marks a wedding date but is
    * celebrated whenever the couple holds it, and in PH a Tuesday milestone is

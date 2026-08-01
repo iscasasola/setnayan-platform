@@ -50,6 +50,18 @@ export function buildGenericEventInsert(
     // did not collect this until 2026-07-31, so every gated life event it
     // created was UNLABELED and contended for the same per-type singleton slot.
     honoree_label: payload.honoreeLabel?.trim() || null,
+    // …and WHICH alaga that is, when the create step's who question named one
+    // (2026-08-01). Until then this column was written by NOTHING — only
+    // event-recurrence copied it forward — so the gate's strongest branch could
+    // never fire and the cap always keyed on the label STRING, which meant
+    // renaming an alaga silently changed which events it capped against.
+    //
+    // ⚠ This builder is PURE: it writes what it is handed. The ownership check
+    // lives in the caller (commitOnboardingEvent → resolveHonoreeDependentId),
+    // because verifying it needs a DB read. A new caller of this function MUST
+    // resolve the id the same way — passing a raw client value here would write
+    // an unowned dependent_id.
+    honoree_dependent_id: payload.honoreeDependentId?.trim() || null,
     // Date-anchor model (2026-07-12): per-type default anchor_kind from the
     // authored map. Keeps the generic path consistent with createWeddingEvent.
     anchor_kind: anchorForType(payload.eventType).kind,

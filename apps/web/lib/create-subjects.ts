@@ -187,6 +187,27 @@ export function subjectHonoreeLabel(subject: CreateSubject | null): string {
   return subject.name.trim().slice(0, 80);
 }
 
+/**
+ * The `dependents` row this subject IS, for `events.honoree_dependent_id` — the
+ * cardinality key that beats the label (lib/life-event-gate.ts).
+ *
+ * NULL for BOTH `self` and `unspecified`, mirroring subjectHonoreeLabel: "You"
+ * is not a dependent row (the account holder is a `users` row), and "someone
+ * else" is by definition nobody on file. A named alaga's `id` IS its
+ * `dependent_id` (see dependentSubjects) — that is the whole point of carrying
+ * it: a link to a RECORD survives renaming the alaga, and two alaga who happen
+ * to share a first name stop sharing one in-planning slot.
+ *
+ * ⚠ This is a CLIENT-side value and is therefore a CLAIM, not a fact — the
+ * server re-verifies ownership before writing it
+ * (lib/honoree-dependent-link.ts). Never write what this returns directly.
+ */
+export function subjectHonoreeDependentId(subject: CreateSubject | null): string | null {
+  if (!subject) return null;
+  if (subject.kind === 'self' || subject.kind === 'unspecified') return null;
+  return subject.id || null;
+}
+
 /** Row shape of the counsel-gated `dependents` read this module consumes. */
 export type DependentSubjectRow = {
   dependent_id: string;

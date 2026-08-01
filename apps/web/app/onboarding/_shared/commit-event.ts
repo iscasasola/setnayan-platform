@@ -22,6 +22,7 @@ import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
+import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 
 export async function commitOnboardingEvent(
@@ -73,9 +74,32 @@ export async function commitOnboardingEvent(
   // Passing it here is the whole fix: `blocksLifeEventCreation` compares
   // normalized honoree keys and only treats two UNLABELED events as the same
   // singleton slot.
+  //
+  // The STRONGER half of that key — WHICH alaga — rides along from the create
+  // step's who question. It arrives from the client, so it is re-read here under
+  // `owner_user_id = you` and dropped unless the caller owns it AND the typed
+  // label still matches its name; anything else resolves to NULL and the label
+  // keys the cap exactly as it does today. This is a refinement of the cap, so
+  // it must never become a new way to fail: a missing service key is already
+  // fatal further down (server_config_error) and is swallowed here rather than
+  // moved earlier.
+  let honoreeDependentId: string | null = null;
+  if (isDependentId(payload.honoreeDependentId)) {
+    try {
+      honoreeDependentId = await resolveHonoreeDependentId(createAdminClient(), {
+        userId: user.id,
+        dependentId: payload.honoreeDependentId,
+        honoreeLabel: payload.honoreeLabel,
+      });
+    } catch {
+      honoreeDependentId = null;
+    }
+  }
+
   const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
     eventType: payload.eventType,
     honoreeLabel: payload.honoreeLabel?.trim() || null,
+    honoreeDependentId,
   });
   if (blockingLifeEvent) {
     // Hand back WHICH event conflicts. The client walks the user to the
@@ -111,7 +135,9 @@ export async function commitOnboardingEvent(
   const now = new Date().toISOString();
 
   const row = buildGenericEventInsert(
-    { ...payload, displayName },
+    // `honoreeDependentId` is OVERWRITTEN with the server-verified value, never
+    // merged with the client's — a forged id must not survive the spread.
+    { ...payload, displayName, honoreeDependentId },
     {
       slug,
       now,

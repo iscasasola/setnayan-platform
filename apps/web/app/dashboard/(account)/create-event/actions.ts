@@ -20,6 +20,7 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -235,10 +236,31 @@ export async function createWeddingEvent(formData: FormData) {
     .slice(0, 80);
   const honoree_label =
     isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+  // …and WHICH alaga that name belongs to, when the who step named one. This is
+  // the STRONGER half of the cardinality key (lib/life-event-gate.ts): a link to
+  // a record survives renaming the alaga, and two alaga with the same first name
+  // stop sharing one in-planning slot. Client-supplied ⇒ re-verified against
+  // `dependents` under `owner_user_id = you`; anything unowned, handed over, or
+  // no longer matching the typed label resolves to NULL and the label keys the
+  // cap exactly as it did before. Never a new way to fail at creating an event.
+  //
+  // The `isDependentId` pre-check keeps this a strict no-op for every account
+  // without a People roster: no field, no admin client constructed, not one
+  // extra round-trip, and no new place for this action to throw.
+  const honoree_dependent_id_raw = formData.get('honoree_dependent_id');
+  const honoree_dependent_id =
+    isGatedLifeType(event_type) && isDependentId(honoree_dependent_id_raw)
+      ? await resolveHonoreeDependentId(createAdminClient(), {
+          userId: user.id,
+          dependentId: honoree_dependent_id_raw,
+          honoreeLabel: honoree_label,
+        })
+      : null;
   if (!isWedding && isGatedLifeType(event_type)) {
     const blocking = await getBlockingLifeEvent(supabase, user.id, {
       eventType: event_type,
       honoreeLabel: honoree_label,
+      honoreeDependentId: honoree_dependent_id,
     });
     if (blocking) {
       return redirect(
@@ -334,6 +356,11 @@ export async function createWeddingEvent(formData: FormData) {
       // cardinality key for life types (NULL for lifestyle types and unlabeled
       // creations). Ordinary PI; never rendered on public/vendor/guest surfaces.
       honoree_label,
+      // …and the record that name points at, when it is one of the account's own
+      // alaga (2026-08-01). Server-verified above; NULL is the norm (no People
+      // roster, "You", "Someone else", or an edited label) and behaves exactly
+      // as every row does today.
+      honoree_dependent_id,
       // Anniversary capture (PR-A): the commemorated date + typed origin, and
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,

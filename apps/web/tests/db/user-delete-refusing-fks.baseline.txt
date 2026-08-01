@@ -1,0 +1,21 @@
+# Foreign keys onto auth.users that REFUSE a user delete, and why.
+#
+# FORMAT   <table>.<column> | <what must survive the user, and why>
+# READ BY  tests/db/user-delete-fk-surface.db.test.ts (inside a REQUIRED check)
+#
+# Refusing is a legitimate choice. Refusing BY DEFAULT — because nobody wrote an
+# ON DELETE clause and Postgres fell back to NO ACTION — is not. That default is
+# what made admin "Delete user" fail, in 21 places, one of which blocked the
+# owner's own account behind three abandoned Instagram handshakes.
+#
+# Before adding a line, pick the behaviour first:
+#   SET NULL — an AUTHORSHIP STAMP. The row records something that happened and
+#              survives its author without them. Most cases.
+#   CASCADE  — state MEANINGLESS without the user (an OAuth handshake).
+#   refuse   — the row must not exist without a live author. Rare, and it needs
+#              the reason written here.
+
+kwento_assignments.assigned_by_user_id | NOT NULL, so SET NULL is impossible. Deciding between making it nullable (retires the assertion "an assignment always has an assigner") and CASCADE (deletes the assignment when the assigner leaves) is a product call, not a schema tidy-up. Refuses until decided.
+patiktok_oauth_grants.granted_by | NOT NULL. CASCADE would delete an event's TikTok grant because the person who authorised it left the platform — the grant belongs to the event. Needs a decision.
+patiktok_render_jobs.requested_by | NOT NULL. CASCADE would delete render-job history on user departure. Job records are arguably operational history that should outlive the requester; needs a decision.
+render_jobs.requested_by | NOT NULL. Same shape as patiktok_render_jobs.requested_by — decide both together.

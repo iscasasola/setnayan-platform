@@ -15,6 +15,7 @@ import {
   Bell,
   Wand2,
   Clapperboard,
+  Heart,
 } from 'lucide-react';
 import { useModalA11y, anyModalOpen } from '@/lib/use-modal-a11y';
 
@@ -61,7 +62,8 @@ export type HomeCommandItem = {
     | 'user'
     | 'bell'
     | 'wand'
-    | 'clapperboard';
+    | 'clapperboard'
+    | 'heart';
 };
 
 const ICONS = {
@@ -76,6 +78,7 @@ const ICONS = {
   bell: Bell,
   wand: Wand2,
   clapperboard: Clapperboard,
+  heart: Heart,
 } as const;
 
 const KIND_LABEL: Record<HomeCommandItem['kind'], string> = {
@@ -84,7 +87,21 @@ const KIND_LABEL: Record<HomeCommandItem['kind'], string> = {
   action: 'Go to',
 };
 
-export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
+/**
+ * `variant` — 'bar' is the original full-width block (unchanged default, so any
+ * other consumer keeps today's rendering byte-for-byte). 'rail' is the compact
+ * trigger that rides inside HomeRail: no max-width (it takes the rail's slack),
+ * a tighter height so identity/bell/avatar stay vertically centred with it, and
+ * a shorter placeholder because it no longer owns a full row.
+ */
+export function HomeCommandBar({
+  items,
+  variant = 'bar',
+}: {
+  items: HomeCommandItem[];
+  variant?: 'bar' | 'rail';
+}) {
+  const rail = variant === 'rail';
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -172,7 +189,11 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="sn-tile-glass sn-lift-2 flex w-full max-w-[760px] items-center gap-3 rounded-xl px-[15px] py-2.5 text-left hover:border-mulberry/30 sm:py-3"
+        className={`sn-tile-glass sn-lift-2 flex w-full items-center gap-3 rounded-xl text-left hover:border-mulberry/30 ${
+          rail
+            ? 'px-3 py-2 sm:px-[15px] sm:py-2.5'
+            : 'max-w-[760px] px-[15px] py-2.5 sm:py-3'
+        }`}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -182,9 +203,11 @@ export function HomeCommandBar({ items }: { items: HomeCommandItem[] }) {
           strokeWidth={1.75}
         />
         <span className="flex-1 truncate text-sm text-[color:var(--sn-ink-500)]">
-          <span className="sm:hidden">Search events, people, vendors</span>
+          <span className="sm:hidden">Search</span>
           <span className="hidden sm:inline">
-            Search events, people, vendors — or jump to a task
+            {rail
+              ? 'Search events, people, vendors'
+              : 'Search events, people, vendors — or jump to a task'}
           </span>
         </span>
         <kbd

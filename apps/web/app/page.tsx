@@ -33,6 +33,7 @@ import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -186,6 +187,12 @@ export default async function HomePage() {
   // warning) — CRON-FREE: public traffic + a per-job daily DB claim, so they
   // run even when no admin/vendor is online (replaces the retired crons).
   after(() => runDailyEmailJobs().catch(() => {}));
+  // Interconnection probes — same cron-free shape, ~4×/day. Reports on the
+  // JOINTS between subsystems (does each booked vendor still reach their desk;
+  // can anyone see the pending song requests) rather than on any one part, which
+  // is where the song desk broke while 8 PRs of part-level checks stayed green.
+  // Verdicts land on /admin/app-performance?tab=interconnections.
+  after(() => maybeRunInterconnectionProbes());
 
   return (
     <>

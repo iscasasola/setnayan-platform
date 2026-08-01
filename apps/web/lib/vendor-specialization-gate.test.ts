@@ -15,9 +15,11 @@ import {
   VENDOR_SPECIALIZATIONS,
   resolveVendorSpecializationAccess,
   specializationSetForServices,
+  specializationSetsForServices,
   subscriptionClearsSpecializationFloor,
   specializationDef,
   holdsSpecialization,
+  holdsAnySpecialization,
   type VendorSpecializationSet,
   type VendorSubscriptionState,
 } from './vendor-specialization-gate';
@@ -339,4 +341,115 @@ test('holdsSpecialization reads the entitlement, never the upsell field', () => 
   });
   assert.equal(locked.eligibleSet, 'song_desk'); // eligible…
   assert.equal(holdsSpecialization(locked, 'song_desk'), false); // …but not held
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE PLURAL — a supplier can be two trades at one wedding (owner, 2026-08-01)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `unlockedSet` answers "what is this vendor?", which has one answer. The true
+// question on the day is "what is this person doing right now?" — a company
+// sends two people, or one changes hats at 6pm. Collapsing to one made the
+// second trade's desk permanently unreachable.
+//
+// These pin BOTH halves: the plural is right, AND the singular did not move.
+
+const PAID = { tier_state: 'solo', tier_expires_at: null };
+
+test('a band that also emcees holds BOTH sets — the case that was unreachable', () => {
+  const sets = specializationSetsForServices(['live_band', 'host_mc']);
+  assert.deepEqual(sets, ['song_desk', 'stage_script']);
+});
+
+test('the singular is exactly the first of the plural — they cannot disagree', () => {
+  for (const services of [
+    ['live_band', 'host_mc'],
+    ['host_mc', 'live_band'],
+    ['coordinator', 'live_band', 'host_mc'],
+    ['host_mc'],
+    ['stylist_decorator'],
+    [],
+  ]) {
+    assert.equal(
+      specializationSetForServices(services),
+      specializationSetsForServices(services)[0] ?? null,
+      `disagreement on ${JSON.stringify(services)}`,
+    );
+  }
+});
+
+test('registry order wins regardless of how services happen to be ordered', () => {
+  const a = specializationSetsForServices(['host_mc', 'live_band', 'coordinator']);
+  const b = specializationSetsForServices(['coordinator', 'host_mc', 'live_band']);
+  assert.deepEqual(a, ['floor_command', 'song_desk', 'stage_script']);
+  assert.deepEqual(a, b, 'row order must not change the answer');
+});
+
+test('a set is never listed twice, however many of its tiles the vendor holds', () => {
+  assert.deepEqual(specializationSetsForServices(['live_band', 'choir', 'dj']), ['song_desk']);
+});
+
+test('the event narrows the plural — booked purely as coordinator holds ONE', () => {
+  const services = ['coordinator', 'live_band', 'host_mc'];
+  assert.deepEqual(specializationSetsForServices(services, ['coordinator']), ['floor_command']);
+  assert.deepEqual(specializationSetsForServices(services, ['host_mc']), ['stage_script']);
+  // Booked as both on this wedding → holds both on this wedding.
+  assert.deepEqual(specializationSetsForServices(services, ['live_band', 'host_mc']), [
+    'song_desk',
+    'stage_script',
+  ]);
+});
+
+test('an EMPTY eventTiles array does not narrow to nothing', () => {
+  // An empty array is truthy; treating it as a narrowing set would hide every
+  // desk. Absent and empty both mean "the event cannot say".
+  assert.deepEqual(specializationSetsForServices(['host_mc'], []), ['stage_script']);
+});
+
+test('unknown / malformed tiles fall through rather than throwing', () => {
+  assert.doesNotThrow(() => specializationSetsForServices(['not_a_tile', '', 'host_mc']));
+  assert.deepEqual(specializationSetsForServices(['not_a_tile', 'host_mc']), ['stage_script']);
+  assert.deepEqual(
+    specializationSetsForServices([42 as unknown as string, 'host_mc']),
+    ['stage_script'],
+  );
+});
+
+test('a paid vendor UNLOCKS every set their tiles map to', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: PAID,
+    services: ['live_band', 'host_mc'],
+  });
+  assert.deepEqual(access.unlockedSets, ['song_desk', 'stage_script']);
+  assert.equal(access.unlockedSet, 'song_desk', 'the singular still returns the priority winner');
+  assert.equal(holdsSpecialization(access, 'stage_script'), false, 'strict predicate unchanged');
+  assert.equal(holdsAnySpecialization(access, 'stage_script'), true, 'the wide one sees it');
+});
+
+test('🔴 LOCKED holds NOTHING — the plural is not a back door around the tier floor', () => {
+  for (const subscription of [
+    null,
+    { tier_state: 'free', tier_expires_at: null },
+    { tier_state: 'solo', tier_expires_at: '2020-01-01T00:00:00Z' }, // lapsed
+  ]) {
+    const access = resolveVendorSpecializationAccess({
+      subscription,
+      services: ['live_band', 'host_mc'],
+    });
+    assert.deepEqual(access.unlockedSets, [], `${JSON.stringify(subscription)} must unlock nothing`);
+    assert.equal(holdsAnySpecialization(access, 'stage_script'), false);
+    assert.equal(holdsAnySpecialization(access, 'song_desk'), false);
+    // …but eligibility still drives the upsell.
+    assert.deepEqual(access.eligibleSets, ['song_desk', 'stage_script']);
+  }
+});
+
+test('a category with no set unlocks nothing and offers nothing', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: PAID,
+    services: ['stylist_decorator'],
+  });
+  assert.deepEqual(access.unlockedSets, []);
+  assert.deepEqual(access.eligibleSets, []);
+  assert.equal(access.reason, 'no_specialization_for_category');
 });

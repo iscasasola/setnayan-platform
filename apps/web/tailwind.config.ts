@@ -126,19 +126,38 @@ const config: Config = {
         },
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
-          // Rich Mulberry WINE tint ladder ("Energy, not skin" reskin 2026-07-09;
-          // was the obsidian ladder under the 2026-05-29 lock). Raw hex for the
-          // non-themed shades; 500/600/700 track the --color-mulberry vars.
-          50: '#f9f5ec',
-          100: '#f3ecdf',
-          200: '#e4d4b4',
-          300: '#cba766',
-          400: '#b99456',
+          // TERRACOTTA tint ladder (Warm Editorial Archive, owner 2026-08-01).
+          // 500/600/700 track the --color-mulberry vars; the rest are raw hex
+          // GENERATED from #C24E25 toward the cream page / a warm black —
+          // not hand-picked, so they cannot drift out of the hue.
+          //
+          // ⚠ These static shades were GOLD (#f3ecdf … #3f3019) until now — a
+          // leftover from when `mulberry` held the gold CTA (2026-07-12). With
+          // the slot holding terracotta, a `bg-mulberry-100` would have painted
+          // a gold wash under an orange button.
+          50: '#f9f1ea',
+          100: '#f5e5dc',
+          200: '#ebc7b8',
+          300: '#dea18a',
+          400: '#d07857',
           500: 'rgb(var(--color-mulberry) / <alpha-value>)',
           600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
           700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
-          800: '#5c4726',
-          900: '#3f3019',
+          800: '#8c391b',
+          900: '#612813',
+        },
+        // `link` — NEW SLOT 2026-08-01 (Warm Editorial Archive). The app had no
+        // link token; anchors inherited `ink`. Slate indigo, scoped by owner
+        // decision to inline links + secondary/ghost buttons ONLY. It is
+        // deliberately NOT a decorative colour — gold (`terracotta`) keeps
+        // active tabs, rules, pills, eyebrows and selected states, so the
+        // "one decorative family" kit rule still holds.
+        //   light #3B4E67 → 8.22:1 on the cream page (AAA)
+        //   dark  #9DB2CE → 8.37:1 on the obsidian page (AAA · inert today)
+        link: {
+          DEFAULT: 'rgb(var(--color-link) / <alpha-value>)',
+          500: 'rgb(var(--color-link) / <alpha-value>)',
+          600: 'rgb(var(--color-link-600) / <alpha-value>)',
         },
         // `burgundy` — DEPRECATED pre-rebrand CTA name. It was never redefined
         // after the Clean Editorial rebrand, so `bg-burgundy` / `text-burgundy`

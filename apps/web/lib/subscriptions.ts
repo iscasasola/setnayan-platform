@@ -41,9 +41,11 @@ export type SubscriptionStatus = 'paid' | 'lapsed' | 'cancelled' | 'refunded';
  * EXCEPT `concierge_complete` (Concierge has its own sweep — see
  * lib/concierge.ts:sweepExpiredConcierge).
  *
- * Keep in sync whenever a new subscription SKU lands. The lint-retired-strings
- * check would surface drift if a retired SKU appears here; the typecheck would
- * surface drift if a string disappears from sku-catalog.
+ * Keep in sync whenever a new subscription SKU lands. The typecheck surfaces
+ * drift if a string disappears from sku-catalog. ⚠ Nothing surfaces the other
+ * direction any more — a RETIRED sku_code left in this list is now silently
+ * accepted (the lint-retired-strings guard that used to catch it was removed
+ * 2026-07-31 by owner decision). Check this list by hand when retiring a SKU.
  */
 export const LAPSED_SUBSCRIPTION_SKUS: readonly string[] = [
   // Vendor subscriptions

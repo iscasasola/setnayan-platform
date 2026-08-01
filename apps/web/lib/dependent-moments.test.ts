@@ -34,6 +34,36 @@ test('an elder surfaces the 60th', () => {
   assert.equal(m.label, 'Lolo’s 60th');
 });
 
+test('the milestone ladder is HUMAN — a business never gets a debut', () => {
+  // A 12-year-old sari-sari store would otherwise reach 18 and print
+  // "Aling Nena's Store's debut". The ladder is skipped for every non-person
+  // kind; a missing kind still reads as person (the column default + legacy rows).
+  const shop: DependentForMoments = {
+    dependent_id: 'b1',
+    name: 'Aling Nena’s Store',
+    birth_date: '2009-03-04', // turns 18 on 2027-03-04
+    sex: null,
+    dependent_kind: 'business',
+  };
+  assert.equal(buildDependentMoments([shop], '2026-07-12', { withinDays: 400 }).length, 0);
+  for (const kind of ['pet', 'item', 'other']) {
+    assert.equal(
+      buildDependentMoments([{ ...shop, dependent_kind: kind }], '2026-07-12', { withinDays: 400 }).length,
+      0,
+      kind,
+    );
+  }
+  // Same row as a person — or with no kind at all — still surfaces the debut.
+  assert.equal(
+    buildDependentMoments([{ ...shop, dependent_kind: 'person' }], '2026-07-12', { withinDays: 400 }).length,
+    1,
+  );
+  assert.equal(
+    buildDependentMoments([{ ...shop, dependent_kind: null }], '2026-07-12', { withinDays: 400 }).length,
+    1,
+  );
+});
+
 test('no birthdate → no moment; sorted soonest-first', () => {
   const nobirth: DependentForMoments = { dependent_id: 'd4', name: 'No Date', birth_date: null, sex: null };
   assert.equal(buildDependentMoments([nobirth], '2026-07-12').length, 0);

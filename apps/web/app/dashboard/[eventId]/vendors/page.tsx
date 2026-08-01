@@ -15,6 +15,7 @@
  */
 
 import { redirect } from 'next/navigation';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
@@ -44,13 +45,11 @@ import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
-  isSetnayanAiActiveForUser,
-  shouldOfferSetnayanAiPurchaseForUser,
+  isSetnayanAiActiveForEvent,
+  shouldOfferSetnayanAiPurchaseForEvent,
 } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   BUDGET_BUILD_TABS,
@@ -175,6 +174,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Event-type backstop (0053): the vendor bench is the MARKETPLACE, and
+  // `marketplace_enabled = false` is the column that encodes a vendor-free type.
+  // The nav has hidden this since 2026-06-27, yet the page still rendered the
+  // full bench from a direct URL — including a Setnayan AI upsell, on the one
+  // type where the assistant is not offered at all (owner lock 2026-07-27).
+  // Gated on the COLUMN, never the type name, so a future vendor-free type is
+  // covered without editing this file.
+  const profile = await resolveProfileByEvent(eventId);
+  if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
 
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still
@@ -870,16 +879,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const perUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = perUserEnabled
-    ? await getEventHostAiSubscription(createAdminClient(), eventId)
-    : null;
-  const aiGateOpts = {
-    paywallEnabled,
-    perUserEnabled,
-    subscription: aiSubscription,
-  };
-  const aiActive = isSetnayanAiActiveForUser(
+  const aiGateOpts = { paywallEnabled };
+  const aiActive = isSetnayanAiActiveForEvent(
     ev ? { ...ev, planning_mode: null } : ev,
     aiGateOpts,
   );
@@ -944,7 +945,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
   // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
-  const aiOffer = shouldOfferSetnayanAiPurchaseForUser(ev, aiGateOpts);
+  const aiOffer = shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

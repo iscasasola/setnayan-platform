@@ -1,22 +1,29 @@
 'use client';
 
 import { useState } from 'react';
+import { papicBucketPhrase } from '@/lib/papic-tier-copy';
 import { purchasePapicExtras } from './actions';
 
 /**
- * Papic extra-cameras picker — the THREE-rung ladder (owner 2026-07-20).
+ * Papic extra-cameras picker — the LIVE rungs of the ladder (owner 2026-07-20).
  *
  * The only way to add a camera for a shooter who is NOT on the guest list (a
  * videographer friend, a hired second shooter). Off the list there's no guest
- * record, so these are anonymous claim-link seats — but they now span the full
- * ladder rather than Unlimited-only:
+ * record, so these are anonymous claim-link seats.
  *
- *     Papic Mini  · ₱30/camera/day · 20 capture points a day
- *     Papic Ltd   · ₱50/camera/day · 70 capture points a day
- *     Papic Unli · ₱100/camera/day · no limit, archived to Drive
+ * ⚠ The rung ladder this file used to document by name and price is RETIRED,
+ * and the header is deliberately not replaced with a new one. Under the
+ * two-type lock (owner 2026-07-29) the only Papic product NAMES are Pool and
+ * One; `papic_tier_config` rows 'ltd' and 'unlimited' are is_active=false, and
+ * the server now filters on that column before this component ever sees a rung.
+ * A ladder spelled in a comment is a ladder that goes stale the next time an
+ * admin edits a row — which is exactly what happened: the old header described
+ * a ₱30 Mini and a ₱100 Unli that have not been purchasable for weeks.
  *
- * ⚠ Every label, per-day budget, rate and cap arrives as a PROP resolved
- * server-side from papic_tier_config + platform_retail_catalog_v2 — nothing
+ * ⚠ Every label, bucket, rate and cap arrives as a PROP resolved server-side —
+ * titles + caps from papic_tier_config, prices from platform_retail_catalog_v2,
+ * and the point BUCKET from papic_one_tiers (the table the approval-side grant
+ * reads, so the picker cannot promise what the grant will not give). Nothing
  * about the ladder is hardcoded here, so the owner can settle prices/titles in
  * the DB without touching this file. The quote math mirrors computeCameraQuote
  * (lib/papic-cameras.ts) exactly: per-rung min(count × rate, rung cap), summed.
@@ -38,23 +45,49 @@ export type ExtraCameraRung = {
   rung: 'mini' | 'ltd' | 'unlimited';
   /** papic_tier_config.display_title — e.g. "Papic Mini". */
   title: string;
-  /** Live per-camera-per-day rate from the catalog. */
+  /** Live per-camera rate from the catalog. */
   ratePhp: number;
-  /** papic_tier_config.points_per_day · null = unlimited. */
-  pointsPerDay: number | null;
+  /**
+   * The LIFETIME point bucket one camera on this rung receives, from
+   * `papic_one_tiers` — the same table `papic_grant_camera_points()` reads when
+   * the order is approved. `null` only when the rung has no tier row at all, in
+   * which case the card says nothing about capacity rather than guessing.
+   *
+   * ⚠ NOT `papic_tier_config.points_per_day`. That is the retired per-camera-
+   * per-DAY meter, and its entry row is NULL on prod — which every copy helper
+   * reads as unbounded. Under the two-type model a Papic One camera holds a
+   * fixed bucket, so the old field made this picker advertise an unbounded
+   * camera while the grant function handed it a finite one.
+   */
+  points: number | null;
   /** Wedding-only order cap for this rung (Number.MAX_SAFE_INTEGER = uncapped). */
   capPhp: number;
   /** An unlock pass covers this rung → ₱0 and never capped. */
   free: boolean;
 };
 
-/** "20 points a day — 20 photos, or 6 clips" / "No limit". */
-function budgetLine(rung: ExtraCameraRung): string {
-  if (rung.pointsPerDay == null) {
-    return 'No limit · archived to your Drive';
-  }
-  const clips = Math.floor(rung.pointsPerDay / 3);
-  return `${rung.pointsPerDay} points a day — ${rung.pointsPerDay} photos, or ${clips} clips`;
+/** What one camera on this rung actually holds. Silent when unknown. */
+function budgetLine(rung: ExtraCameraRung): string | null {
+  if (rung.points == null || rung.points <= 0) return null;
+
+  // ⚠ DERIVE everything — the weights AND the sentence. Two lies have already
+  // lived on this line:
+  //
+  //   1. A hardcoded divisor turned the budget into a clip count while the
+  //      fail-closed capture path metered a clip at PAPIC_POINTS_PER_CLIP,
+  //      overstating clips ~3× on a paid camera.
+  //   2. The field itself was the retired per-DAY meter, whose entry row is
+  //      NULL on prod and therefore read as unbounded — so a camera the grant
+  //      function gives a finite bucket was advertised as having none.
+  //
+  // Both were the same mistake: a display surface deciding capacity for itself
+  // instead of reading what the enforcement path reads. papicBucketPhrase() is
+  // the sanctioned helper for a LIFETIME bucket (lib/papic-tier-copy is the
+  // ONLY place allowed to phrase a Papic claim) and it is honest about the one
+  // purse — spending points on clips takes them from photos.
+  return `${rung.points.toLocaleString('en-PH')} shots, that camera's own — ${papicBucketPhrase(
+    rung.points,
+  )}`;
 }
 
 function Stepper({
@@ -115,6 +148,12 @@ export default function ExtraCamerasPicker({
     rungs.length > 0 ? { [rungs[0]!.rung]: 1 } : {},
   );
 
+  // An EMPTY ladder is now reachable: the server filters retired rungs out of
+  // `papic_tier_config`, so an admin who deactivates the last one leaves nothing
+  // to sell. Render nothing rather than a heading over an empty form with a
+  // "₱0" button — the hooks above run first, so this early return is safe.
+  if (rungs.length === 0) return null;
+
   const d = Math.max(1, Math.floor(days) || 1);
   const lines = rungs.map((r) => {
     const count = counts[r.rung] ?? 0;
@@ -159,7 +198,9 @@ export default function ExtraCamerasPicker({
           >
             <div className="min-w-0">
               <div className="text-sm font-medium text-ink">{rung.title}</div>
-              <div className="text-xs text-ink/55">{budgetLine(rung)}</div>
+              {budgetLine(rung) ? (
+                <div className="text-xs text-ink/55">{budgetLine(rung)}</div>
+              ) : null}
               <div className="mt-0.5 text-xs text-ink/55">
                 {rung.free
                   ? 'Free with your unlock pass'

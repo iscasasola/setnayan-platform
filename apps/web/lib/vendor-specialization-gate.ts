@@ -156,6 +156,28 @@ export type VendorSpecializationAccess = {
    * `null` means their category has no specializations to sell them.
    */
   eligibleSet: VendorSpecializationSet | null;
+  /**
+   * EVERY set this vendor holds, in registry order — `unlockedSet` is simply
+   * its first element (or `null` when empty).
+   *
+   * ── WHY THIS EXISTS (owner concept, 2026-08-01) ──────────────────────────
+   *
+   * A supplier can genuinely be two trades at one wedding — a band that also
+   * emcees, a stylist who also hosts. `unlockedSet` answers *"what is this
+   * vendor?"*, which has one answer; the true question on the day is *"what is
+   * this person doing right now?"*, because the company sends two people or one
+   * person changes hats at 6pm. Collapsing to one made the second trade's desk
+   * permanently unreachable — a band that emcees could never open the script.
+   *
+   * ⚠ ADDITIVE ONLY. Nothing reads this yet, and `unlockedSet` keeps its exact
+   * meaning, so no surface widens by accident. **Widening who can reach a paid
+   * desk must be one visible, reviewed flip per call site — never a side effect
+   * of a refactor.** Use {@link holdsAnySpecialization} at a call site you have
+   * deliberately decided to open up.
+   */
+  unlockedSets: readonly VendorSpecializationSet[];
+  /** Every set their category WOULD give them. Upsell copy only, no entitlement. */
+  eligibleSets: readonly VendorSpecializationSet[];
   reason: VendorSpecializationReason;
 };
 
@@ -174,9 +196,31 @@ export function specializationSetForServices(
   services: readonly string[] | null | undefined,
   eventTiles?: readonly string[] | null,
 ): VendorSpecializationSet | null {
-  // An EMPTY array is truthy — treating it as a narrowing set excludes every
-  // tile and silently returns "no specialization". Absent and empty both mean
-  // "the event can't say", so neither may narrow.
+  return specializationSetsForServices(services, eventTiles)[0] ?? null;
+}
+
+/**
+ * EVERY set this vendor's tiles map to, in registry order — the plural of
+ * {@link specializationSetForServices}, which is now simply its first element.
+ *
+ * A supplier who is both a band and an emcee genuinely holds two; the singular
+ * form answers "which one wins" and was the only thing on offer, which made the
+ * second trade's desk unreachable. This returns both and lets the CALLER decide
+ * — a picker on the day, a priority default everywhere else.
+ *
+ * `eventTiles` narrows to what they were actually booked for on THIS event, so a
+ * multi-trade supplier booked purely as coordinator still holds exactly one.
+ * Absent and empty both mean "the event can't say" and neither may narrow — an
+ * empty array is truthy, and treating it as a narrowing set would exclude every
+ * tile and silently return nothing.
+ *
+ * Never throws: an unknown, misspelled, retired or empty tile simply matches no
+ * set.
+ */
+export function specializationSetsForServices(
+  services: readonly string[] | null | undefined,
+  eventTiles?: readonly string[] | null,
+): VendorSpecializationSet[] {
   const eventSet = eventTiles && eventTiles.length > 0 ? new Set(eventTiles) : null;
   const owned = new Set<string>();
   for (const s of services ?? []) {
@@ -184,13 +228,21 @@ export function specializationSetForServices(
     if (eventSet && !eventSet.has(s)) continue;
     owned.add(s);
   }
-  if (owned.size === 0) return null;
+  if (owned.size === 0) return [];
+
+  // Registry order is the priority order, so iterating the registry (rather
+  // than the vendor's tiles) makes the result deterministic regardless of how
+  // `services` happens to be ordered in the row.
+  const out: VendorSpecializationSet[] = [];
   for (const def of VENDOR_SPECIALIZATIONS) {
     for (const tile of owned) {
-      if (def.tiles.has(tile)) return def.id;
+      if (def.tiles.has(tile)) {
+        out.push(def.id);
+        break;
+      }
     }
   }
-  return null;
+  return out;
 }
 
 /**
@@ -268,7 +320,10 @@ export function resolveVendorSpecializationAccess(input: {
   minTier?: VendorTier;
 }): VendorSpecializationAccess {
   const { subscription, services, eventTiles, now, minTier } = input;
-  const eligibleSet = specializationSetForServices(services, eventTiles ?? null);
+  // Resolve the PLURAL once; the singular is its priority winner. Computing it
+  // this way means the two can never disagree about who is eligible.
+  const eligibleSets = specializationSetsForServices(services, eventTiles ?? null);
+  const eligibleSet = eligibleSets[0] ?? null;
 
   // Category first: with no set to unlock, subscription state is irrelevant and
   // there is nothing to upsell. Generic kit is the whole kit.
@@ -277,6 +332,8 @@ export function resolveVendorSpecializationAccess(input: {
       genericKit: true,
       unlockedSet: null,
       eligibleSet: null,
+      unlockedSets: [],
+      eligibleSets: [],
       reason: 'no_specialization_for_category',
     };
   }
@@ -286,6 +343,10 @@ export function resolveVendorSpecializationAccess(input: {
       genericKit: true,
       unlockedSet: eligibleSet,
       eligibleSet,
+      // Subscription is a per-VENDOR floor, not per-set: clearing it unlocks
+      // every set their tiles map to, not just the priority winner.
+      unlockedSets: eligibleSets,
+      eligibleSets,
       reason: 'unlocked',
     };
   }
@@ -302,6 +363,10 @@ export function resolveVendorSpecializationAccess(input: {
     genericKit: true,
     unlockedSet: null,
     eligibleSet,
+    // Locked holds NOTHING — the plural must not become a back door around the
+    // tier floor. Eligibility is the upsell, entitlement is empty.
+    unlockedSets: [],
+    eligibleSets,
     reason: lapsed ? 'subscription_lapsed' : 'below_tier_floor',
   };
 }
@@ -325,4 +390,28 @@ export function holdsSpecialization(
   set: VendorSpecializationSet,
 ): boolean {
   return access.unlockedSet === set;
+}
+
+/**
+ * Does this vendor hold `set` AT ALL — even when it is not their priority
+ * winner? The plural sibling of {@link holdsSpecialization}.
+ *
+ * ── WHEN TO USE WHICH, AND WHY IT MATTERS ──────────────────────────────────
+ *
+ * `holdsSpecialization` asks *"is this THE set"* — one answer per vendor, and a
+ * band that also emcees can never reach the script desk with it. This asks
+ * *"is this AMONG their sets"*, which is the honest question for a supplier who
+ * is two trades at one wedding.
+ *
+ * ⚠ **This is a WIDER gate. Swapping a call site to it lets more people reach a
+ * paid desk, so it is a product decision, not a refactor** — flip one call site
+ * at a time, deliberately, and say so in the PR. Both predicates still read the
+ * ENTITLEMENT (`unlockedSets`), never `eligibleSets`, so neither can be talked
+ * past the tier floor.
+ */
+export function holdsAnySpecialization(
+  access: VendorSpecializationAccess,
+  set: VendorSpecializationSet,
+): boolean {
+  return access.unlockedSets.includes(set);
 }

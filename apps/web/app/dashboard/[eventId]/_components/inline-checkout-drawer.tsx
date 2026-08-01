@@ -91,6 +91,8 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
+import { mintOrderQr } from '@/lib/emv-qr';
+import { openChannels } from '@/lib/payment-channels';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -124,6 +126,20 @@ export type InlineCheckoutDrawerProps = {
     gcash_account_name: string | null;
     gcash_number: string | null;
     gcash_qr_url: string | null;
+    /**
+     * Decoded QR Ph payloads (migration 20271027100000). Optional so callers
+     * that have not been updated still typecheck and simply keep serving the
+     * static QR image.
+     */
+    bdo_qr_payload?: string | null;
+    gcash_qr_payload?: string | null;
+    /**
+     * Manual-rail kill switches (migration 20271028100000). Optional so
+     * callers that have not been updated still typecheck; undefined reads as
+     * OPEN, matching the server's `?? true`.
+     */
+    gcash_enabled?: boolean | null;
+    bdo_enabled?: boolean | null;
   };
   /** Optional custom collapsed CTA label · defaults to "Add this service". */
   triggerLabel?: string;
@@ -228,7 +244,25 @@ export function InlineCheckoutDrawer({
   const [showVoucherField, setShowVoucherField] = useState(false);
 
   // Channel toggle · default GCash because it's the dominant pilot rail.
-  const [channel, setChannel] = useState<'gcash' | 'bdo'>('gcash');
+  // Rails the owner has left open. A rail is closed when its receiving
+  // account is at its monthly cap — GCash FAILS transfers past the limit
+  // rather than queuing them — so offering it would send the couple to pay
+  // into an account that cannot receive. Recomputed from settings, never
+  // hardcoded to 'gcash'.
+  const openRails = useMemo(() => openChannels(settings), [settings]);
+  const [channel, setChannel] = useState<'gcash' | 'bdo'>(
+    () => openRails[0] ?? 'gcash',
+  );
+
+  // If the owner closes the rail this drawer is sitting on (or settings load
+  // late), move to one that is open. Without this the couple keeps looking at
+  // a QR for an account that will bounce their transfer, and the server
+  // refuses at submit — after they have already paid.
+  useEffect(() => {
+    if (openRails.length > 0 && !openRails.includes(channel)) {
+      setChannel(openRails[0]!);
+    }
+  }, [openRails, channel]);
 
   // Submit state.
   const [submitResult, setSubmitResult] = useState<SubmitOrderResult | null>(null);
@@ -268,6 +302,13 @@ export function InlineCheckoutDrawer({
   // VAT-inclusive gross = what the couple actually pays (the server charges this).
   const finalGrossDisplay = formatGrossCentavos(finalPriceStr, vatRatePct);
   const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos, vatRatePct);
+  // The same gross as a NUMBER — this is what gets minted into the payment QR,
+  // so it must come from the identical computation the display uses. If these
+  // two ever diverge the couple scans one figure and reads another.
+  const finalGrossPhp = computeVatFromBase(
+    Number(finalPriceStr) / 100,
+    vatRatePct,
+  ).gross;
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
@@ -402,7 +443,7 @@ export function InlineCheckoutDrawer({
                   setVoucherInput('');
                   setVoucherResult(null);
                   setShowVoucherField(false);
-                  setChannel('gcash');
+                  setChannel(openRails[0] ?? 'gcash');
                   setScreenshotRef(null);
                   setRevealSuccess(false);
                 }}
@@ -456,14 +497,34 @@ export function InlineCheckoutDrawer({
                 />
 
                 {/* (2) Channel toggle. */}
-                <ChannelToggle channel={channel} onChange={setChannel} />
+                <ChannelToggle channel={channel} onChange={setChannel} open={openRails} />
 
-                {/* (3) QR + account block based on channel. */}
-                <PaymentDetailsBlock
-                  channel={channel}
-                  settings={settings}
-                  referenceCode={referenceCode}
-                />
+                {/* (3) QR + account block based on channel.
+                    Suppressed entirely when every rail is closed — otherwise
+                    this renders the QR and account number of an account that
+                    is at its cap and will bounce the transfer. The server
+                    refuses such an order anyway; showing the details would
+                    just get someone to pay first. */}
+                {openRails.length > 0 ? (
+                  <PaymentDetailsBlock
+                    channel={channel}
+                    settings={settings}
+                    referenceCode={referenceCode}
+                    amountPhp={finalGrossPhp}
+                  />
+                ) : (
+                  <div
+                    role="status"
+                    className="rounded-2xl border border-warn-300/60 bg-warn-50 p-4 text-sm text-warn-900"
+                  >
+                    <p className="font-semibold">Payments are paused right now</p>
+                    <p className="mt-1 text-[13px] leading-relaxed">
+                      We&rsquo;re switching receiving accounts, so we can&rsquo;t take
+                      this payment at the moment. Nothing has been charged — please
+                      try again shortly.
+                    </p>
+                  </div>
+                )}
 
                 {/* (4) Submit form. */}
                 <form
@@ -530,18 +591,36 @@ export function InlineCheckoutDrawer({
                       htmlFor={referenceFieldId}
                       className="mb-1 block text-xs font-medium text-ink/70"
                     >
-                      Reference number from your transfer
+                      {channel === 'gcash'
+                        ? 'Reference number from GCash'
+                        : 'InstaPay Invoice No. from your transfer'}
                     </label>
+                    {/* Name the EXACT field, per rail. Verified on live
+                        transfers 2026-07-31: on GCash→GCash the reference is
+                        identical for payer and recipient, but on a transfer to
+                        BDO the prominent "Ref No." is GCash's own and appears
+                        NOWHERE on our side — the InstaPay Invoice No. is what
+                        our BDO record ends with. Asking for "a reference
+                        number" gets us the decoy on half the payments.
+                        Both apps put a copy button beside it, so this is one
+                        tap for them and the strongest matching signal we have
+                        without a bank feed. */}
                     <input
                       id={referenceFieldId}
                       type="text"
                       name="reference_number"
                       autoComplete="off"
-                      placeholder="e.g. BD123456789"
+                      inputMode="numeric"
+                      placeholder={
+                        channel === 'gcash' ? 'e.g. 0043457367694' : 'e.g. 6991560'
+                      }
                       className="input-field"
                     />
                     <p className="mt-1 text-[11px] text-ink/50">
-                      Optional · but recommended so our team can match faster.
+                      {channel === 'gcash'
+                        ? 'Open the transaction in GCash and tap the copy icon beside Reference Number.'
+                        : 'On your GCash transfer receipt, copy the InstaPay Invoice No. (not the Ref No. below it).'}{' '}
+                      Optional · but it lets us confirm your payment much faster.
                     </p>
                   </div>
 
@@ -580,7 +659,11 @@ export function InlineCheckoutDrawer({
 
                   <button
                     type="submit"
-                    disabled={submitPending || !screenshotRef}
+                    // `openRails.length === 0` blocks submit too: with every
+                    // rail closed there is no account to have paid into, so
+                    // the server would refuse this anyway. Better to stop it
+                    // here than to take a screenshot and then reject it.
+                    disabled={submitPending || !screenshotRef || openRails.length === 0}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
                   >
                     {submitPending ? (
@@ -746,16 +829,24 @@ function VoucherBlock({
 function ChannelToggle({
   channel,
   onChange,
+  open,
 }: {
   channel: 'gcash' | 'bdo';
   onChange: (c: 'gcash' | 'bdo') => void;
+  /** Rails the owner has left open — a closed one is not rendered at all. */
+  open: readonly ('gcash' | 'bdo')[];
 }) {
+  // A rail is closed when its receiving account is at its monthly cap, where
+  // transfers FAIL rather than queue. Showing it greyed-out would invite
+  // "why can't I use GCash?"; omitting it just presents what works. The
+  // server re-checks on submit either way.
   return (
     <div className="space-y-2.5">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
         Pay manually · available now
       </p>
       <div role="radiogroup" aria-label="Payment method" className="space-y-2.5">
+        {open.includes('gcash') ? (
         <MethodCard
           selected={channel === 'gcash'}
           onSelect={() => onChange('gcash')}
@@ -764,6 +855,8 @@ function ChannelToggle({
           title="GCash"
           desc="Scan our GCash QR, or send to our number"
         />
+        ) : null}
+        {open.includes('bdo') ? (
         <MethodCard
           selected={channel === 'bdo'}
           onSelect={() => onChange('bdo')}
@@ -772,6 +865,7 @@ function ChannelToggle({
           title="Bank Transfer — BDO"
           desc="Scan our BDO QR, or transfer to the account"
         />
+        ) : null}
       </div>
     </div>
   );
@@ -835,16 +929,70 @@ function PaymentDetailsBlock({
   channel,
   settings,
   referenceCode,
+  amountPhp,
 }: {
   channel: 'gcash' | 'bdo';
   settings: InlineCheckoutDrawerProps['settings'];
   referenceCode: string;
+  /** VAT-inclusive gross the couple pays — minted into the QR as tag 54. */
+  amountPhp: number;
 }) {
   // Pre-resolve the matching name + number + qr per channel.
   const name = channel === 'gcash' ? settings.gcash_account_name : settings.bdo_account_name;
   const number = channel === 'gcash' ? settings.gcash_number : settings.bdo_account_number;
   const qrUrl = channel === 'gcash' ? settings.gcash_qr_url : settings.bdo_qr_url;
+  const qrPayload =
+    channel === 'gcash' ? settings.gcash_qr_payload : settings.bdo_qr_payload;
   const hasInfo = Boolean(number?.trim());
+
+  /**
+   * Mint a per-order QR carrying this exact amount, replacing the static
+   * uploaded image. Wallet-verified on real money 2026-07-31: GCash and BDO
+   * both pre-fill the figure, centavos included, so the couple never types it.
+   *
+   * Two deliberate choices:
+   *  • `mintOrderQr` returns null for anything it does not fully understand,
+   *    and we then fall through to the static image — the exact behaviour that
+   *    shipped before. A checkout must never show a broken code.
+   *  • `qrcode` is imported dynamically so its renderer stays out of the
+   *    initial bundle; this drawer opens long after first paint.
+   */
+  const mintedPayload = useMemo(
+    () => mintOrderQr(qrPayload, amountPhp),
+    [qrPayload, amountPhp],
+  );
+  const [mintedQr, setMintedQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mintedPayload) {
+      setMintedQr(null);
+      return;
+    }
+    let cancelled = false;
+    import('qrcode')
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(mintedPayload, {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 512,
+        }),
+      )
+      .then((url) => {
+        if (!cancelled) setMintedQr(url);
+      })
+      .catch(() => {
+        // Render nothing minted → the static QR below still works.
+        if (!cancelled) setMintedQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mintedPayload]);
+
+  const amountDisplay = `₱${amountPhp.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
   if (!hasInfo) {
     return (
@@ -877,29 +1025,61 @@ function PaymentDetailsBlock({
             </div>
             <CopyButton value={referenceCode} />
           </div>
+          {/* Wallet-tested 2026-07-31: a scanned QR payment goes out through
+              GCash's Express Send, which does not reliably carry a note the
+              recipient sees — and the reference cannot ride inside the QR
+              either (GCash rejects the EMVCo tag 62 template outright). The
+              note still works when someone transfers manually, so we keep the
+              guidance but stop promising it matches "instantly". */}
           <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
-            Put this in your {label} transfer note so we can match your payment
-            instantly.
+            Add this to your {label} transfer note if your app offers one — it
+            helps us match your payment faster.
           </p>
         </div>
       ) : null}
 
-      {qrUrl ? (
+      {qrUrl || mintedQr ? (
         <div className="flex flex-col items-center gap-2">
           <div className="rounded-2xl border border-ink/10 bg-white p-3 shadow-sm">
-            {/* Native <img> instead of next/image so we don't have to wrestle
-                with remotePatterns for the platform_settings R2 host · the
-                QR is admin-uploaded as a public asset. */}
+            {/* Native <img> instead of next/image: the fallback is an
+                admin-uploaded public asset on the platform_settings R2 host
+                (no remotePatterns entry), and the minted code is a data URL
+                next/image cannot optimise anyway. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={qrUrl}
-              alt={`${label} QR code`}
+              src={mintedQr ?? qrUrl ?? ''}
+              alt={
+                mintedQr
+                  ? `${label} QR code for ${amountDisplay}`
+                  : `${label} QR code`
+              }
               className="h-40 w-40 rounded-lg object-contain"
             />
           </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-            {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
-          </p>
+
+          {mintedQr ? (
+            <>
+              <p className="text-center text-[11px] leading-relaxed text-ink/60">
+                <span className="font-semibold text-ink">{amountDisplay}</span>{' '}
+                is already filled in — you won&apos;t need to type it.
+              </p>
+              {/* Same-device path: a couple browsing on their phone cannot
+                  point that phone's camera at its own screen. Both GCash and
+                  the BDO app can scan an image from the gallery, so saving is
+                  the only route that works without a second device. */}
+              <a
+                href={mintedQr}
+                download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
+                className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
+              >
+                Save image · scan from gallery
+              </a>
+            </>
+          ) : (
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+              {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -935,6 +1115,18 @@ function PaymentDetailsBlock({
             </span>
           </span>
           <CopyButton value={number ?? ''} />
+        </div>
+        {/* The exact figure, copyable. Load-bearing on the manual path — where
+            nothing pre-fills — and the fallback whenever the minted QR is
+            unavailable. */}
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <span className="min-w-0">
+            <span className="block text-[11px] text-ink/50">Exact amount</span>
+            <span className="block truncate font-mono text-[13px] font-semibold text-ink">
+              {amountDisplay}
+            </span>
+          </span>
+          <CopyButton value={amountPhp.toFixed(2)} />
         </div>
       </div>
     </div>

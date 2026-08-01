@@ -12,6 +12,35 @@ export type PlatformSettingsRow = {
   gcash_account_name: string | null;
   gcash_number: string | null;
   gcash_qr_url: string | null;
+  /**
+   * Decoded QR Ph payloads of the two uploaded merchant QRs (migration
+   * 20271027100000). Checkout re-mints these per order so the code carries the
+   * exact amount — see lib/emv-qr.ts. NULL means "not decodable"; every reader
+   * falls back to the static *_qr_url image, which is what shipped before.
+   */
+  bdo_qr_payload: string | null;
+  gcash_qr_payload: string | null;
+  /**
+   * Manual-rail kill switches + monthly receiving caps (migration
+   * 20271028100000). Setnayan receives on PERSONAL accounts, and a personal
+   * GCash wallet FAILS incoming transfers past its monthly limit rather than
+   * queuing them — so the owner must be able to close a rail the moment its
+   * account is at cap. Read through lib/payment-channels.ts, never directly.
+   */
+  gcash_enabled: boolean;
+  bdo_enabled: boolean;
+  gcash_monthly_cap_php: number | null;
+  bdo_monthly_cap_php: number | null;
+  /**
+   * Owner-entered REMAINING headroom + when it was read (migration
+   * 20271028200000). Lets the meter account for personal transfers we cannot
+   * see. The timestamp also drives the monthly reset — an override from a
+   * previous calendar month is ignored. See channelHeadroom().
+   */
+  gcash_available_php: number | null;
+  gcash_available_as_of: string | null;
+  bdo_available_php: number | null;
+  bdo_available_as_of: string | null;
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
@@ -67,6 +96,18 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_account_name: null,
   gcash_number: null,
   gcash_qr_url: null,
+  bdo_qr_payload: null,
+  gcash_qr_payload: null,
+  // FALLBACK means "we could not read settings" — default both rails OPEN so a
+  // transient read failure never silently closes checkout.
+  gcash_enabled: true,
+  bdo_enabled: true,
+  gcash_monthly_cap_php: null,
+  bdo_monthly_cap_php: null,
+  gcash_available_php: null,
+  gcash_available_as_of: null,
+  bdo_available_php: null,
+  bdo_available_as_of: null,
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
@@ -84,6 +125,57 @@ const FALLBACK: PlatformSettingsRow = {
   updated_at: new Date(0).toISOString(),
 };
 
+/**
+ * Columns fetched as a SEPARATE, tolerant probe rather than inside SELECT.
+ *
+ * The QR payload columns (migration 20271027100000) arrived after the code
+ * that reads them, and PR #3964 put them straight into SELECT — which is the
+ * trap this file already documents for fetchVendorValidateContacts: on a
+ * pre-migration database the whole fetch fails 42703, `error` is truthy, and
+ * fetchPlatformSettings returns FALLBACK. That would blank the BUSINESS NAME,
+ * VAT rate, brand icons AND the BDO/GCash account details across receipts and
+ * checkout — a total payment-details outage caused by an optional nicety.
+ *
+ * Prod happened to migrate before anyone hit it, but the ordering is not
+ * guaranteed: a rollback, a preview environment pointed at an older database,
+ * or a cancelled migration job (which is exactly what happened on the #3964
+ * deploy) reproduces it. So these live in their own probe that degrades to
+ * nulls, and null already means "serve the static QR" everywhere downstream.
+ *
+ * The channel kill switches + caps (migration 20271028100000) ride the SAME
+ * probe for the same reason. Their failure default is deliberately ENABLED:
+ * a transient read error must never silently close checkout.
+ */
+const SOFT_SELECT =
+  'bdo_qr_payload,gcash_qr_payload,gcash_enabled,bdo_enabled,gcash_monthly_cap_php,bdo_monthly_cap_php,gcash_available_php,gcash_available_as_of,bdo_available_php,bdo_available_as_of';
+
+type SoftColumns = Pick<
+  PlatformSettingsRow,
+  | 'bdo_qr_payload'
+  | 'gcash_qr_payload'
+  | 'gcash_enabled'
+  | 'bdo_enabled'
+  | 'gcash_monthly_cap_php'
+  | 'bdo_monthly_cap_php'
+  | 'gcash_available_php'
+  | 'gcash_available_as_of'
+  | 'bdo_available_php'
+  | 'bdo_available_as_of'
+>;
+
+const SOFT_DEFAULTS: SoftColumns = {
+  bdo_qr_payload: null,
+  gcash_qr_payload: null,
+  gcash_enabled: true,
+  bdo_enabled: true,
+  gcash_monthly_cap_php: null,
+  bdo_monthly_cap_php: null,
+  gcash_available_php: null,
+  gcash_available_as_of: null,
+  bdo_available_php: null,
+  bdo_available_as_of: null,
+};
+
 export async function fetchPlatformSettings(
   supabase: SupabaseClient,
 ): Promise<PlatformSettingsRow> {
@@ -93,7 +185,39 @@ export async function fetchPlatformSettings(
     .eq('id', 1)
     .maybeSingle();
   if (error || !data) return FALLBACK;
-  return data as PlatformSettingsRow;
+
+  // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
+  // rails OPEN. Never let it take the core payment details down with it, and
+  // never let it close checkout.
+  let soft: SoftColumns = { ...SOFT_DEFAULTS };
+  try {
+    const { data: softRow, error: softError } = await supabase
+      .from('platform_settings')
+      .select(SOFT_SELECT)
+      .eq('id', 1)
+      .maybeSingle();
+    if (!softError && softRow) {
+      const row = softRow as Partial<SoftColumns>;
+      soft = {
+        bdo_qr_payload: row.bdo_qr_payload ?? null,
+        gcash_qr_payload: row.gcash_qr_payload ?? null,
+        // `?? true` not `!== false`: a NULL/absent column means the migration
+        // has not landed, which must read as OPEN.
+        gcash_enabled: row.gcash_enabled ?? true,
+        bdo_enabled: row.bdo_enabled ?? true,
+        gcash_monthly_cap_php: row.gcash_monthly_cap_php ?? null,
+        bdo_monthly_cap_php: row.bdo_monthly_cap_php ?? null,
+        gcash_available_php: row.gcash_available_php ?? null,
+        gcash_available_as_of: row.gcash_available_as_of ?? null,
+        bdo_available_php: row.bdo_available_php ?? null,
+        bdo_available_as_of: row.bdo_available_as_of ?? null,
+      };
+    }
+  } catch {
+    /* keep the defaults — static QR, both rails open */
+  }
+
+  return { ...(data as object), ...soft } as PlatformSettingsRow;
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { manilaToday } from '@/lib/std-views';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
-import { claimBirthdateCutoff } from '@/lib/dependent-people';
+import { claimBirthdateCutoff, NON_PERSON_DEPENDENT_KINDS } from '@/lib/dependent-people';
 
 /**
  * Redeem an alaga hand-over link (owner-locked 2026-07-16 ownership rule).
@@ -17,7 +17,7 @@ import { claimBirthdateCutoff } from '@/lib/dependent-people';
  *    handed_over_by_user_id (read-only history — keeps the memories, loses the
  *    pen). The age proof is re-checked IN the UPDATE's WHERE (birth_date ≤
  *    today − 18y, Manila) — the link being minted is not trusted.
- *  - 'rehome' (pet/other): owner_user_id moves to the redeemer with no
+ *  - 'rehome' (every non-person kind — pet/business/item/other): owner_user_id moves to the redeemer with no
  *    former-guardian stamp (care transfers whole). Spouse-sharing resets in
  *    both paths (the old household's consent doesn't travel).
  */
@@ -82,7 +82,12 @@ export async function claimAlaga(formData: FormData): Promise<void> {
       })
       .eq('claim_token', token)
       .is('handed_over_at', null)
-      .in('dependent_kind', ['pet', 'other'])
+      // DERIVED from the vocabulary, never re-typed. This predicate used to spell
+      // out ['pet','other']; when the vocabulary grew to include business + item
+      // the mint side (createHandoverLink: "not a person ⇒ rehome") kept issuing
+      // links that this side would have matched ZERO rows for — a live transfer
+      // link that fails as `error=invalid` with nothing in any log.
+      .in('dependent_kind', NON_PERSON_DEPENDENT_KINDS)
       .gt('claim_token_expires_at', nowISO)
       .select('dependent_id');
     if (!updated?.length) redirect(`/claim/${token}?error=invalid`);

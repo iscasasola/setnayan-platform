@@ -385,6 +385,9 @@ function PaymentsList({
   const matcherRows: MatcherPayment[] = payments.map((p) => ({
     payment_id: p.payment_id,
     reference_code: p.order?.reference_code ?? null,
+    // The WALLET reference the couple submitted — the matcher's strongest tier
+    // compares it against whatever the admin pastes from their own bank app.
+    reference_number: p.reference_number,
     amount_php: p.amount_php,
     label: p.user?.email ?? p.order?.public_id ?? '—',
     orderPublicId: p.order?.public_id ?? null,
@@ -423,7 +426,19 @@ function PaymentsList({
       <div className="sn-tile">
       <ul className="space-y-3">
       {ordered.map(({ p, decisive }) => {
-        const matchesRef =
+        // Did the couple put OUR order code in their transfer note?
+        //
+        // ⚠ Since the per-order payment QR shipped (2026-07-31) this is rarely
+        // true and its absence is NOT a red flag. A scanned-QR payment goes out
+        // through GCash Express Send with no note we can see, and the code
+        // cannot ride inside the QR either — GCash rejects the EMVCo tag 62
+        // template outright. So a QR payer has no way to carry it.
+        //
+        // It still fires for MANUAL transfers, where the payer types a note.
+        // The label below therefore reports what this actually is — a bonus
+        // signal when present — instead of implying something is wrong when
+        // it is absent, which would train the admin to ignore the badge.
+        const noteCarriesOrderCode =
           !!p.reference_number &&
           !!p.order?.reference_code &&
           p.reference_number.toUpperCase().includes(p.order.reference_code.toUpperCase());
@@ -498,13 +513,17 @@ function PaymentsList({
                 </span>
                 {' · status '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
-                {matchesRef ? (
+                {noteCarriesOrderCode ? (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-success)]">
-                    Reference matches
+                    Order code in note
+                  </span>
+                ) : p.reference_number ? (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-neutral-soft,var(--sn-warning-soft))] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink/60">
+                    Check their ref in your app
                   </span>
                 ) : (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-warning)]">
-                    Verify reference manually
+                    No reference given
                   </span>
                 )}
               </p>

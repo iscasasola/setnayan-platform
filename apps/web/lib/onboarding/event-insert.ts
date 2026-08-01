@@ -8,7 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
-import { anchorForType } from '../event-anchor';
+import { anchorForType, isAnchorOrigin } from '../event-anchor';
 
 export type GenericInsertOpts = {
   slug: string;
@@ -46,9 +46,42 @@ export function buildGenericEventInsert(
   return {
     event_type: payload.eventType,
     display_name: payload.displayName,
+    // Life-event gate (2026-07-17): the cardinality key. The generic onboarding
+    // did not collect this until 2026-07-31, so every gated life event it
+    // created was UNLABELED and contended for the same per-type singleton slot.
+    honoree_label: payload.honoreeLabel?.trim() || null,
+    // …and WHICH alaga that is, when the create step's who question named one
+    // (2026-08-01). Until then this column was written by NOTHING — only
+    // event-recurrence copied it forward — so the gate's strongest branch could
+    // never fire and the cap always keyed on the label STRING, which meant
+    // renaming an alaga silently changed which events it capped against.
+    //
+    // ⚠ This builder is PURE: it writes what it is handed. The ownership check
+    // lives in the caller (commitOnboardingEvent → resolveHonoreeDependentId),
+    // because verifying it needs a DB read. A new caller of this function MUST
+    // resolve the id the same way — passing a raw client value here would write
+    // an unowned dependent_id.
+    honoree_dependent_id: payload.honoreeDependentId?.trim() || null,
     // Date-anchor model (2026-07-12): per-type default anchor_kind from the
     // authored map. Keeps the generic path consistent with createWeddingEvent.
     anchor_kind: anchorForType(payload.eventType).kind,
+    // Date-anchor model — the generic flow did not write these until
+    // 2026-07-31, so an anniversary created here landed with no commemorated
+    // date and no yearly flag and NEVER appeared on the Year view, with no
+    // screen anywhere to fix it afterwards.
+    //
+    // ⚠ COUNSEL GATE, enforced HERE and not only in the UI: an anchor kind of
+    // `person_birthdate` (birthday · debut · christening) must never carry a
+    // date, because that date IS a person's birthdate and events do not store
+    // those. A future screen that starts asking cannot leak through this path.
+    anchor_date:
+      anchorForType(payload.eventType).kind === 'person_birthdate'
+        ? null
+        : (payload.anchorDate || null),
+    // Positive origins only — mirrors the DB CHECK. An unrecognized value is
+    // dropped rather than passed through to fail the insert.
+    anchor_origin: isAnchorOrigin(payload.anchorOrigin) ? payload.anchorOrigin : null,
+    recurs: payload.recurs === true,
     event_date: null,
     venue_name: null,
     venue_address: null,

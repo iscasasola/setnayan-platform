@@ -6,12 +6,10 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { loadAiActivity } from '@/lib/setnayan-ai-activity';
@@ -34,10 +32,13 @@ export const metadata = { title: 'Setnayan AI · Setnayan' };
  *
  * One-time model: a single up-front charge (manual apply-then-pay) unlocks
  * Setnayan AI for the WHOLE wedding — activation stamps events.setnayan_ai_active
- * permanently, with no renewal, no 28-day cycle and no lapsing window. The
- * dormant SETNAYAN_AI_SUB (a ₱499/mo per-user recurring door) stays is_active=
- * false; recurring auto-renew is deferred until a provider-run subscription
- * (PayMongo / GCash) lands.
+ * permanently, with no renewal, no 28-day cycle and no lapsing window.
+ *
+ * 🔒 PER EVENT, FULL STOP (owner 2026-08-01: "it is per event"). The dormant
+ * SETNAYAN_AI_SUB — a ₱499/28d per-USER recurring door that would have unlocked
+ * every event its buyer hosted — was DELETED, along with its table, flag and
+ * activation writer. Buying here unlocks THIS event and no other. Recurring
+ * auto-renew, if it ever returns, is a per-event renewal.
  *
  * Three states, all driven by lib/setnayan-ai.ts (the single governing gate) so
  * this stays in lockstep with every match/ranking surface:
@@ -96,15 +97,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const perUserOn = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = perUserOn
-    ? await getEventHostAiSubscription(createAdminClient(), eventId)
-    : null;
-  const active = isSetnayanAiActiveForUser(event, {
-    paywallEnabled: paywallOn,
-    perUserEnabled: perUserOn,
-    subscription: aiSubscription,
-  });
+  const active = isSetnayanAiActiveForEvent(event, { paywallEnabled: paywallOn });
 
   // ACTIVE-only: the live per-event activity snapshot the "keeping for you"
   // surface renders (cockpit briefing + tracked-deadline + payment-due figures).

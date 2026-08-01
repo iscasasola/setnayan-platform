@@ -65,7 +65,7 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
           This seat&rsquo;s already taken
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          Someone else in the crew already claimed this one. Ask the couple to
+          Someone else in the crew already claimed this one. Ask the host to
           send you a fresh seat link and you&rsquo;ll be good to go.
         </p>
       </Shell>
@@ -81,7 +81,7 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
           This link isn&rsquo;t active
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          The couple may have reissued this seat. Ask them for your latest
+          The host may have reissued this seat. Ask them for your latest
           claim link and try again.
         </p>
       </Shell>
@@ -100,8 +100,8 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         Claim your photo-crew seat
       </h1>
       <p className="mt-3 text-sm text-ink/65">
-        Tap once and your phone turns into a candid camera for the wedding. Every
-        photo you shoot lands straight in the couple&rsquo;s gallery — no app to
+        Tap once and your phone turns into a candid camera for the day. Every
+        photo you shoot lands straight in the host&rsquo;s gallery — no app to
         install{user ? '' : ', no sign-up'}.
       </p>
       <form action={claimPapicSeat} className="mt-5">
@@ -133,10 +133,19 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         <Camera aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
         You&rsquo;re invited to shoot
       </h1>
+      {/* Type-neutral, like the signed-in branch above. Papic ships on all 16
+          event types, and this seat may belong to a birthday, a reunion or a
+          Simple Event — "one of the couple … their wedding photo crew" is wrong
+          for 15 of them, and this page has no event loaded to derive a noun
+          from (it resolves a SEAT TOKEN, not an event).
+          🪤 This branch survived the 2026-07-31 copy sweep because it is the
+          SIGNED-OUT one: every pass through this page was made while signed in,
+          so the reviewed render was the other branch. A conditional's other
+          arm is a surface you have not looked at. */}
       <p className="mt-3 text-sm text-ink/65">
-        One of the couple asked you to be part of their wedding photo crew.
-        Sign in to claim your seat — then your phone becomes a candid camera
-        and every shot lands in their gallery.
+        Someone asked you to be part of their photo crew. Sign in to claim your
+        seat — then your phone becomes a candid camera and every shot lands in
+        their gallery.
       </p>
       <Link
         href={`/login?next=${encodeURIComponent(`/papic/claim/${token}`)}`}

@@ -17,6 +17,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import {
+  fetchPlanGroupScope,
+  planGroupsForEventType,
+} from '@/lib/plan-groups-by-event-type';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import {
@@ -36,12 +41,10 @@ import {
   SCHEDULE_BLOCK_LABEL,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   runTriggers,
@@ -535,6 +538,35 @@ export async function EventDashboard({
   const base = `/dashboard/${eventId}`;
   const eventType = (event.event_type as string | null) ?? 'wedding';
   const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
+
+  // ── VENDOR-FREE EVENT TYPES (0053 · `marketplace_enabled`) ─────────────────
+  //
+  // The 2026-06-27 Simple Event build gated the NAV — `hideKeys` on
+  // buildCustomerMenuTree + buildCustomerNavGroups drop Explore / Vendors /
+  // Budget — but nothing gated THIS surface's body. So a vendor-free event's
+  // Overview opened on: "Lock your reception venue → Browse reception venues"
+  // as its ONE open decision, "Book a vendor · 21 categories still open", a
+  // Setnayan AI card offering to build a venue shortlist, and "start with the
+  // ones that book out first: your venue and catering" — every one of them a
+  // door to a marketplace this event type does not have.
+  //
+  // It also produced the tell that something was wrong: "overdue by 315 days"
+  // on an event created minutes earlier. That is not a date bug — the wizard's
+  // lead-time model says book a venue ~a year out, so a 50-day-out event is
+  // "overdue" by the difference. The arithmetic was right; asking the question
+  // at all was the error.
+  //
+  // DERIVED, never named by type: `marketplaceEnabled` is the existing column
+  // that encodes vendor-free (SIMPLE_PROFILE sets it false), so a FUTURE
+  // vendor-free type is covered without touching this file. Same house rule as
+  // lib/papic-event-access.ts and the onboarding services step's AI gate.
+  const [profile, planGroupScope] = await Promise.all([
+    resolveProfileByEvent(eventId),
+    // One extra read, in the same await — the tier-2 allow-lists that say which
+    // bookable categories this event type actually has.
+    fetchPlanGroupScope(supabase),
+  ]);
+  const marketplaceEnabled = profile.marketplaceEnabled === true;
   const displayName =
     (event as { display_name?: string | null }).display_name ??
     (eventType === 'wedding' ? 'Your wedding' : 'Your event');
@@ -606,15 +638,45 @@ export async function EventDashboard({
       : null;
 
   // ---- Lock counts + the resolver's #1 task (same libs as the Overview). ---
-  const vendorRowInputs = eventVendors as ReadonlyArray<EventVendorRowInput>;
-  const remainingTaskCount = countUnlockedCategories(vendorRowInputs);
-  const totalLockableCategories = PLAN_GROUPS.filter(
-    (g) => g.countsTowardLockable !== false,
-  ).length;
+  //
+  // Gated at the SOURCE rather than at each render site. The vendor booking
+  // model is a lead-time ladder over PLAN_GROUPS — "book the venue ~a year
+  // out", "caterer by N days" — and on a vendor-free type every one of those
+  // categories is permanently unbookable. Feeding zeros in here means the
+  // cockpit derives no vendor decisions, the board grows no vendor groups, the
+  // digest counts none, and "overdue by N days" cannot be computed for a
+  // category that will never be booked. One gate, instead of one per surface
+  // and a new one every time a surface is added.
+  const vendorRowInputs = marketplaceEnabled
+    ? (eventVendors as ReadonlyArray<EventVendorRowInput>)
+    : ([] as ReadonlyArray<EventVendorRowInput>);
+  // THIS EVENT TYPE'S ladder, not the wedding one. `PLAN_GROUPS` is a hardcoded
+  // wedding list (ceremony_venue · bridal_car · rings · officiant), and every
+  // counter here iterated it for all 16 types — so a BIRTHDAY was told "21
+  // categories still open" with "Lock your reception venue" on top.
+  //
+  // The per-type map already exists, is fully populated and is owner-editable:
+  // `service_categories.applicable_event_types`, maintained from
+  // /admin/event-types/<type>/categories. 72 of 73 tier-2 rows are scoped
+  // (`bridal_car → [wedding]`, `ceremony_venue → [wedding, christening]`).
+  // The marketplace and Shortlist have read it for a while; this surface never
+  // did. So this is WIRING, not new taxonomy — joined on the key the two
+  // already share (`PlanGroup.catalogTile` is a `service_categories.id`).
+  //
+  // Fail-OPEN throughout (see the module header): unknown ⇒ applies. Wrongly
+  // including a category costs a slightly long checklist; wrongly excluding one
+  // means a couple is never reminded to book their venue.
+  const eventPlanGroups = planGroupsForEventType(eventType, planGroupScope);
+  const remainingTaskCount = marketplaceEnabled
+    ? countUnlockedCategories(vendorRowInputs, eventPlanGroups)
+    : 0;
+  const totalLockableCategories = marketplaceEnabled
+    ? eventPlanGroups.filter((g) => g.countsTowardLockable !== false).length
+    : 0;
   const lockedVendorCount = Math.max(0, totalLockableCategories - remainingTaskCount);
   const topPriorityTask =
-    event.event_date && eventDatePrecision === 'day'
-      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now)
+    marketplaceEnabled && event.event_date && eventDatePrecision === 'day'
+      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
       : null;
 
   const paperworkRows = (paperworkRes.data ?? []) as PaperworkRow[];
@@ -638,17 +700,9 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?suri=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(adminClient, eventId)
-    : null;
-  const aiEntitled = isSetnayanAiActiveForUser(
+  const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   const viewerIsInternal =
     (viewerRes.data as { is_internal?: boolean | null } | null)?.is_internal === true;
@@ -801,8 +855,18 @@ export async function EventDashboard({
   // it; the shortlist state itself records consumption. When the venue
   // decision item renders (the resolver's 'start'/'pick' on reception_venue),
   // the offer embeds under it; otherwise it stands alone atop the board. ----
+  //
+  // ⚠ `marketplaceEnabled` FIRST. This offer is Setnayan AI's free introduction
+  // ("let Suri build your first venue shortlist"), and the owner's 2026-07-27
+  // lock is explicit that Setnayan AI is *not offered at all* on a vendor-free
+  // type — not free, not paid — because all nine of its capabilities are
+  // vendor-centric, which makes the card a fake door. The onboarding services
+  // step already derives this correctly (`readServicesStepView` returns
+  // `ai: null` on marketplaceEnabled=false); this surface did not, so a Simple
+  // Event was quoted a venue shortlist AND a subscription price the type can
+  // never buy.
   const venueOfferAvailable =
-    !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSuriAssistFreeDecisionId(i.id)));
@@ -1861,7 +1925,12 @@ export async function EventDashboard({
                 : null}
             </ExpandCard>
 
-            {/* Your team */}
+            {/* Your team — vendor-bearing types only. On a vendor-free type the
+             *  whole card is a doorway to a marketplace that does not exist:
+             *  its empty state read "start with the ones that book out first:
+             *  your venue and catering" and its CTA linked to /vendors, which
+             *  the nav already hides for exactly this reason. */}
+            {marketplaceEnabled ? (
             <ExpandCard
               cardClassName="sn-tile"
               title="Your team"
@@ -1915,6 +1984,7 @@ export async function EventDashboard({
                   ))
                 : null}
             </ExpandCard>
+            ) : null}
 
             {/* Conversations — unread count is THIS event's vendor threads
              *  (see fetchEventUnreadCounts above), so the copy never claims

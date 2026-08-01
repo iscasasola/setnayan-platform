@@ -47,14 +47,12 @@ import {
   resolveRetailChargeCentavos,
   resolveBundleChargeResolution,
 } from '@/lib/v2-catalog';
-import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypeChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
 import {
-  resolveAiSubTotal,
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
@@ -63,7 +61,6 @@ export {
   chargeOverchargesDisplayedPrice,
   orderTotalToPhp,
   refusalMessage,
-  resolveAiSubTotal,
 } from '@/lib/order-charge-math';
 export type {
   ChargeRefusal,
@@ -78,10 +75,12 @@ export type {
 
 export type ChargeAuthorityInput = {
   serviceKey: string;
-  /** Null for the eventless per-user subscription. */
+  /**
+   * The event this line is billed against. Since the per-USER subscription was
+   * retired (2026-08-01) there is no eventless SKU left, but the type stays
+   * nullable: a null simply fails to resolve a price and is refused.
+   */
   eventId: string | null;
-  /** RAW form value. Parsed + clamped HERE so no caller ever holds a cycle count. */
-  cyclesRaw: unknown;
 };
 
 /**
@@ -108,7 +107,7 @@ export type ChargeAuthorityInput = {
 export async function resolveOrderChargeCentavos(
   input: ChargeAuthorityInput,
 ): Promise<OrderChargeAuthority> {
-  const { serviceKey, eventId, cyclesRaw } = input;
+  const { serviceKey, eventId } = input;
 
   let admin: SupabaseClient;
   try {
@@ -119,13 +118,15 @@ export async function resolveOrderChargeCentavos(
     return { ok: false, refusal: 'read_error', detail: 'no service-role client' };
   }
 
-  // ── (1) The per-USER subscription — the SEC-7 key itself ──────────────────
-  // Handled FIRST: it is the only eventless SKU and the only one with a cycle
-  // multiplier. `resolveAiSubTotal` is pure and owns the ONE `unit × cycles`.
-  if (serviceKey === AI_SUB_SKU) {
-    const unit = await resolveRetailChargeCentavos(eventId ?? '', AI_SUB_SKU);
-    return resolveAiSubTotal(unit, parseCycles(cyclesRaw));
-  }
+  // ── 🔒 The per-USER subscription branch was REMOVED 2026-08-01 ────────────
+  // `SETNAYAN_AI_SUB` was the only eventless SKU and the only one with a cycle
+  // multiplier (`resolveAiSubTotal(unit, parseCycles(cyclesRaw))`). Setnayan AI
+  // is PER EVENT (owner: "it is per event"), so that product no longer exists.
+  //
+  // Removing the branch makes the key STRICTLY harder to charge, never easier:
+  // it now falls through to (5) and is refused with `no_price_source`. The old
+  // branch only refused when the catalog lookup missed — had anyone ever seeded
+  // a `SETNAYAN_AI_SUB` retail row it would have started selling again.
 
   // ── (2) The retail catalog ────────────────────────────────────────────────
   const retail = await resolveRetailChargeCentavos(eventId ?? '', serviceKey);

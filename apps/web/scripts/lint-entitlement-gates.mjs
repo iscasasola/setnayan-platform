@@ -40,7 +40,7 @@
  *   GUIDED_PACK, complete↔MEDIA_PACK. (PAPIC_UNLOCK is validated by the
  *   entitlements unit test, not here — it has no onboarding buy surface.)
  *
- * Pure node, no deps — matches lint-retired-strings / lint-bottom-nav /
+ * Pure node, no deps — matches lint-bottom-nav /
  * lint-email-links. Run: `node apps/web/scripts/lint-entitlement-gates.mjs`.
  */
 

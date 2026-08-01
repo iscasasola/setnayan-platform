@@ -37,6 +37,7 @@ import {
   papicOneOrderRow,
   resolvePapicOneTarget,
 } from '@/lib/papic-one';
+import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
 import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
 
@@ -1336,6 +1337,102 @@ export async function purchasePapicOneCamera(formData: FormData) {
       .eq('order_id', orderId);
     fail('order_failed');
   }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(
+    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
+      String(order!.public_id),
+    )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
+  );
+}
+
+/**
+ * Buy a Papic POOL top-up — add shots to the event's SHARED pool.
+ *
+ * The sibling of purchasePapicOneCamera, and deliberately simpler: a pool
+ * top-up lands on the EVENT, not on a camera, so there is no seat to provision,
+ * nothing to reload, and no mapping row to write. `grantPapicPassPoints`
+ * (lib/sku-activation.ts) already resolves the points from `papic_pass_tiers`
+ * by service_key on approval and writes ONE `papic_event_point_grants` row with
+ * source 'topup_order'. The pool sums grants into its total, so "uncapped and
+ * repeatable" needs no new machinery — it is just another row.
+ *
+ * ⚠ THIS CLOSES A LIVE FAKE DOOR, it does not open a new product. The three
+ * PAPIC_GUEST* rows have been is_active=true at owner-set prices since the
+ * 2026-07-29 two-type lock, the onboarding services card has been printing the
+ * whole ladder, and the Suite card's CTA has read "Open the pool ›" — all
+ * pointing at a studio page with no pool ladder on it. The order shape below is
+ * the one the approval hook has been waiting for.
+ *
+ * SEC-4 invariant: the browser posts a service_code — a CHOICE — and the server
+ * resolves both the points and the peso figure. Nothing about the amount is
+ * client-supplied.
+ */
+export async function purchasePapicPoolTopUp(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const fail = (code: string): never =>
+    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=${code}`);
+
+  const admin = createAdminClient();
+
+  // The rung must be a LIVE, NON-TOPUP Pool rung. Read from the table, never an
+  // allow-list here: a rung an admin deactivates stops being sellable the moment
+  // they deactivate it (fetchPapicPassTiers filters is_active), not the next
+  // time someone edits this file. `is_topup` is excluded to match the card's
+  // ladder exactly — PAPIC_GUEST_TOPUP is retired (superseded by
+  // PAPIC_GUEST_10K once every rung became repeatable, 20271019231590) and its
+  // activation hook stays wired only so pre-retirement orders still convert.
+  // Accepting one here would sell a duplicate of a rung already on the ladder.
+  const rawSku = String(formData.get('service_code') ?? '').trim();
+  const tiers = await fetchPapicPassTiers(admin);
+  const tier = tiers.find((t) => t.serviceCode === rawSku && !t.isTopup);
+  const points = tier?.points ?? null;
+  if (points === null || points <= 0) fail('unknown_rung');
+
+  // PRICE COMES FROM THE CATALOG, never from the rung table and never from a
+  // literal here — the catalog is the single billing source for every SKU.
+  // is_active is checked HERE because resolveRetailChargeCentavos() does not: it
+  // prices by service_code alone, so a retired rung would still quote. The
+  // reject has to happen before an order exists, not after.
+  const { data: catalogRow } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('retail_price_php, is_active')
+    .eq('service_code', rawSku)
+    .maybeSingle();
+  const pricePhp = Number(catalogRow?.retail_price_php ?? 0);
+  if (!Number.isFinite(pricePhp) || pricePhp <= 0 || catalogRow?.is_active !== true) {
+    fail('unavailable');
+  }
+
+  const referenceCode = mintPapicReferenceCode();
+  const { data: order, error: orderErr } = await createMoneyWriterClient()
+    .from('orders')
+    .insert({
+      event_id: eventId,
+      user_id: user.id,
+      service_key: rawSku,
+      description: `Papic Pool — adds ${points} shots to the shared pool`,
+      requested_total_php: pricePhp,
+      reference_code: referenceCode,
+      status: 'submitted',
+      platform: 'web',
+    })
+    .select('order_id, public_id')
+    .maybeSingle();
+  if (orderErr || !order) fail('order_failed');
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   redirect(

@@ -236,7 +236,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           Your Papic camera isn&rsquo;t ready yet
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          The couple hasn&rsquo;t turned on Papic for the guest list yet — or your
+          The host hasn&rsquo;t turned on Papic for the guest list yet — or your
           spot is still being set up. Check back closer to the day.
         </p>
         <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
@@ -255,7 +255,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           Payment under review
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          Your camera is reserved! The Setnayan team is confirming the couple&rsquo;s
+          Your camera is reserved! The Setnayan team is confirming the host&rsquo;s
           payment — this usually clears within a day. Come back and your camera
           will be ready to shoot.
         </p>
@@ -276,8 +276,8 @@ export default async function PapicMyCameraPage({ params }: Props) {
         {greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
       </h1>
       <p className="mt-3 text-sm text-ink/65">
-        Tap below and your phone turns into a candid camera for the wedding. Every
-        photo you shoot lands straight in the couple&rsquo;s gallery — no app to
+        Tap below and your phone turns into a candid camera for the day. Every
+        photo you shoot lands straight in the host&rsquo;s gallery — no app to
         install.
       </p>
       <Link

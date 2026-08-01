@@ -119,9 +119,9 @@ function tagErrorMessage(error: string): string {
     case 'unrecognized':
       return 'That’s not a guest or table QR — point at a place card or table sign.';
     case 'guest_not_found':
-      return 'That guest QR isn’t on this wedding’s list.';
+      return 'That guest QR isn’t on this event’s guest list.';
     case 'table_not_found':
-      return 'That table QR isn’t on this wedding’s seating plan.';
+      return 'That table QR isn’t on this event’s seating plan.';
     case 'cap_reached':
       return `This photo already has all ${TAG_CAP} tags.`;
     case 'unavailable':
@@ -1150,7 +1150,7 @@ export function PapicSeatCapture({
           {styleMeta && styleMeta.id !== 'ORIG' ? (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/90"
-              title={`Event look: ${styleMeta.blurb} — set by the couple`}
+              title={`Event look: ${styleMeta.blurb} — set by the host`}
             >
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               {styleMeta.label}
@@ -1396,7 +1396,7 @@ export function PapicSeatCapture({
                 <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
                 <p className="mt-2 text-sm font-medium text-cream">
                   That&rsquo;s everything you can shoot — every photo and clip is in
-                  the couple&rsquo;s gallery.
+                  the host&rsquo;s gallery.
                 </p>
               </div>
             ) : (
@@ -1483,8 +1483,14 @@ export function PapicSeatCapture({
                   {recording
                     ? 'Recording… release to stop.'
                     : clipsAllowed
-                      ? 'Tap for a photo · press and hold to record (up to 5s).'
-                      : 'Tap to take a photo. Every shot lands in the couple’s gallery.'}
+                      ? // ⚠ DERIVED. This read "(up to 5s)" while CLIP_MAX_MS —
+                        // 800 lines above, in this same file — has been 10s since
+                        // the owner raised the cap on 2026-07-22. The button label
+                        // and the over-length error both said 10; only this hint
+                        // still said 5, on the same screen. Interpolate so the
+                        // next re-price cannot leave one of the three behind.
+                        `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
+                      : 'Tap to take a photo. Every shot lands in the host’s gallery.'}
                 </p>
               </>
             )}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -104,10 +104,15 @@ function moduleHref(id: DayOfModuleId, eventId: string): string | null {
 
 export default async function VendorOnTheDayLivePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  /** `?role=` — which desk this person is running tonight. UNTRUSTED: validated
+   *  against the entitlement inside `buildDayOfFrame`, never here. */
+  searchParams: Promise<{ role?: string }>;
 }) {
   const { eventId } = await params;
+  const { role: requestedRole } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -194,7 +199,31 @@ export default async function VendorOnTheDayLivePage({
   ]);
   const blocks = blocksRaw ?? [];
 
-  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
+  // WHICH ROLES THEY WERE BOOKED FOR — read from what they were booked to DO,
+  // not only the booking row's single summary category (owner, 2026-08-01).
+  //
+  // ⚠ VIA A SECURITY DEFINER RPC, NOT A DIRECT READ. A marketplace vendor
+  // CANNOT read their own `event_vendors` row under RLS — verified in prod as
+  // the vendor's own identity — so `requested_service_ids` is invisible to
+  // them and a direct read returns an empty list with NO ERROR. That is the
+  // same reason `booked_categories` comes from `get_vendor_event_brief`, which
+  // is SECURITY DEFINER for exactly this.
+  //
+  // Best-effort and UNION-only: if this returns nothing (no booking, no
+  // services authored, a failure), the answer is exactly the summary category —
+  // the behaviour that shipped before any of this.
+  const { data: bookedSvcCats } = await supabase.rpc(
+    'get_vendor_booked_service_categories',
+    { p_event_id: eventId },
+  );
+  const bookedServiceCategories = Array.isArray(bookedSvcCats)
+    ? (bookedSvcCats as unknown[]).filter((c): c is string => typeof c === 'string')
+    : [];
+
+  const eventTiles = eventTilesForBooking({
+    bookedCategories: brief?.booked_categories ?? null,
+    bookedServiceCategories,
+  });
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 
@@ -209,6 +238,10 @@ export default async function VendorOnTheDayLivePage({
     access,
     genericModuleIds: modules.map((m) => m.id),
     registeredSets: registeredSpecializationSets(),
+    // A supplier can be two trades at one wedding; which one they are RUNNING
+    // is a fact about the person on the floor tonight. The builder validates
+    // this against `unlockedSets` and ignores anything they do not hold.
+    activeSet: requestedRole ?? null,
   });
 
   const coupleName = brief?.event.display_name ?? booking.eventName ?? 'Your event';
@@ -353,6 +386,10 @@ export default async function VendorOnTheDayLivePage({
         eventId={eventId}
         vendorProfileId={profile.vendor_profile_id}
         coupleName={coupleName}
+        // Already read above for the floor clock + run-of-show header — passed
+        // down rather than re-queried.
+        blocks={blocks}
+        bookedCategories={brief?.booked_categories ?? null}
       />
     </section>
   );

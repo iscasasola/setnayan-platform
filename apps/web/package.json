@@ -7,7 +7,6 @@
     "build": "node scripts/stamp-sw.mjs && NODE_OPTIONS=--max-old-space-size=7168 next build",
     "start": "next start --port 3000",
     "lint": "next lint",
-    "lint:retired": "node scripts/lint-retired-strings.mjs",
     "lint:botnav": "node scripts/lint-bottom-nav.mjs",
     "lint:navicon": "node scripts/lint-nav-icon-source.mjs",
     "lint:email-links": "node scripts/lint-email-links.mjs",
@@ -34,7 +33,7 @@
     "exposure:baseline": "tsx scripts/gen-exposure-baseline.ts",
     "ugat:code-map": "tsx scripts/gen-ugat-code-map.ts",
     "schema:snapshot": "tsx scripts/gen-schema-snapshot.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=7168 tsc --noEmit",
     "test:e2e": "playwright test"
   },
   "dependencies": {

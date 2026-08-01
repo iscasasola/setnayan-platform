@@ -7,8 +7,17 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isPersonDependent } from '@/lib/dependent-people';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
+import {
+  buildSelfSubject,
+  buildUnspecifiedSubject,
+  dependentSubjects,
+  type CreateSubject,
+  type DependentSubjectRow,
+} from '@/lib/create-subjects';
 import { getInPlanningWedding } from './wedding-guard';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
@@ -31,8 +40,13 @@ const ERROR_COPY: Record<string, string> = {
     'That event type belongs to a person, not a samahan — pick a community event type.',
   samahan_not_organizer:
     'Only an organizer of that samahan can plan its events.',
+  // Copy corrected 2026-07-31: this told the user to type into “Para kanino?”,
+  // a field the live create path no longer renders — the generic onboarding
+  // wizard asks “Who are we celebrating?” instead, and it now surfaces this
+  // same block ON that screen. Naming a field by its old label sent people
+  // looking for something that is not there.
   life_event_exists:
-    'That celebration is already in planning. Open the existing event — or, if this one is for a different celebrant, type their name in “Para kanino?” when creating.',
+    'That celebration is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
 };
 
 type SearchParams = Promise<{
@@ -110,19 +124,67 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // the account's people actually approaches that moment. The picker keeps a
   // "show all" doorway (wayfinding lock) — hiding is a default, never a wall.
   // Flag OFF / samahan context → nothing hides (we can't measure).
+  //
+  // WHO-FIRST (prototype User_Home_REDESIGN_2026-07-30): the same read also
+  // builds the subject roster for the "para kanino ito?" step, so the alaga are
+  // fetched ONCE. The read is now ANDed with the `dependent_minor_profiles`
+  // data-privacy control on top of the env flag — the strictest shipped posture
+  // (dashboard/(account)/year/page.tsx), because it now returns NAMES. Tighter
+  // gate = the grid hides LESS when the control is off, which is the module's
+  // documented fail-open direction, never a new denial.
+  const today = manilaToday();
   let hiddenTypeKeys: string[] = [];
-  if (user && !samahan && dependentPeopleEnabled()) {
+  let alagaSubjects: CreateSubject[] = [];
+  if (
+    user &&
+    !samahan &&
+    dependentPeopleEnabled() &&
+    (await isDataPrivacyControlActive('dependent_minor_profiles'))
+  ) {
     // RLS scopes this to the viewer's own (+ married-household shared)
     // dependents; a household concern counts. Handed-over records aged out.
     const { data: deps } = await supabase
       .from('dependents')
-      .select('birth_date, sex')
-      .eq('dependent_kind', 'person')
+      .select('dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id')
       .is('handed_over_at', null);
+    const rows = (deps ?? []) as DependentSubjectRow[];
     hiddenTypeKeys = hiddenMeasuredTypes(
-      (deps ?? []) as ConcernPerson[],
-      manilaToday(),
+      rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
+      today,
     );
+    alagaSubjects = dependentSubjects(rows, user.id);
+  }
+
+  // "You" + every alaga + the always-present escape hatch. Never shown for a
+  // samahan (a community event has no personal celebrant) and never for the QR
+  // fast-lane (the type — and with it the flow — is already settled).
+  //
+  // "You" is measured from the account holder's OWN saved birthday
+  // (owner-directed 2026-07-30: "their birthdays shows based from their account…
+  // only for their own account and their dependents"). This is a READ of the
+  // viewer's own row, under their own session, to sort their own picker — it is
+  // disclosed to nobody and no date is ever written onto the event (that stays
+  // barred by lib/onboarding/event-insert.ts). An account with no saved birthday
+  // measures nothing and keeps the whole grid, exactly as it shipped.
+  //
+  // `sex` is deliberately NOT read. It would only sharpen 18F/21M on the debut
+  // ladder, it carries its own RA 10173 consent stamp, and the owner directed
+  // birthdays — not a second sensitive field. Omitting it checks BOTH debut ages,
+  // which folds LESS, the documented fail-open direction.
+  let subjects: CreateSubject[] = [];
+  if (user && !samahan) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('display_name, birth_date')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    subjects = [
+      buildSelfSubject((profile?.display_name as string | null) ?? null, {
+        birth_date: (profile?.birth_date as string | null) ?? null,
+      }),
+      ...alagaSubjects,
+      buildUnspecifiedSubject(),
+    ];
   }
 
   // Life-event cardinality blocked state (council § 5 card 1): the server
@@ -139,28 +201,12 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     if (ev) blockedLifeEvent = { eventId: ev.event_id, displayName: ev.display_name };
   }
 
-  return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
-        <Link
-          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
-          className="sn-chip sn-press w-fit"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
-        </Link>
-        <p className="sn-eye">
-          <Sparkles aria-hidden strokeWidth={1.75} />
-          New event
-        </p>
-        <h1 className="sn-h1">
-          What kind of event are you planning?
-        </h1>
-        <p className="text-base text-ink/65">
-          Tap a type to begin.
-        </p>
-      </header>
-
+  // The heading + these notices moved INTO the picker (as `notice`) so the
+  // question on screen is the question the step is actually asking — "para
+  // kanino ito?" first, "what kind of event?" second — while the notices keep
+  // their shipped position directly beneath it.
+  const notice = (
+    <>
       {samahan ? (
         <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75">
           <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
@@ -193,8 +239,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
               Buksan ang {blockedLifeEvent.displayName}
             </Link>
             <span className="text-xs leading-relaxed text-ink/60">
-              Iba ang celebrant? Type their name in “Para kanino?” below. Tapos na ang lumang event?
-              Archive it from its dashboard to free the slot.
+              Iba ang celebrant? Start again and name a different person when we ask who it’s
+              for. Tapos na ang lumang event? Archive it from its dashboard to free the slot.
             </span>
           </div>
         </div>
@@ -206,15 +252,36 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           {errorMessage}
         </p>
       ) : null}
+    </>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-2 space-y-2">
+        <Link
+          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard'}
+          className="sn-chip sn-press w-fit"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
+        </Link>
+        <p className="sn-eye">
+          <Sparkles aria-hidden strokeWidth={1.75} />
+          New event
+        </p>
+      </div>
 
       <EventTypePicker
         types={typesForContext}
         budgetBands={budgetBands}
         next={next !== '/' ? next : undefined}
+        notice={notice}
         preselect={preselect}
         inPlanningWedding={inPlanningWedding}
         samahanCommunityId={samahan?.communityId}
         hiddenTypeKeys={hiddenTypeKeys}
+        subjects={subjects}
+        todayISO={today}
       />
     </div>
   );

@@ -27,7 +27,10 @@ export async function fetchRunOfShowBlocks(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
+    // `block_type` drives the per-trade relevance lens (lib/role-run-of-day.ts).
+    // One extra column on a read this console already makes, rather than a second
+    // query on a live day-of screen.
+    .select('block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type')
     .eq('event_id', eventId)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
@@ -40,6 +43,7 @@ export async function fetchRunOfShowBlocks(
     location: (b.location as string | null) ?? null,
     run_state: (b.run_state as RunState) ?? 'upcoming',
     actual_start_at: (b.actual_start_at as string | null) ?? null,
+    block_type: (b.block_type as string | null) ?? '',
   }));
 }
 

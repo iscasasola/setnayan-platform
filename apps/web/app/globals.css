@@ -114,33 +114,92 @@
    * retired (light/dark/auto trio survives).
    */
   :root {
-    /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 255 255 255;        /* page bg → white (owner 2026-07-13; was Atelier paper #FBFAF7) */
-    --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
-    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
+    /*
+     * Light mode — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
+     *
+     * Supersedes BOTH the 2026-07-13 pure-white page AND the 2026-07-31
+     * "Facebook grey #F0F2F5 page + white cards" direction. Owner chose warm
+     * over cool the same week; page and card are deliberately the SAME cream,
+     * so the `paper`→`cream` alias in tailwind.config.ts stays intact and the
+     * 337 hardcoded `bg-white` files need no audit. Card separation is carried
+     * by border + shadow, not by a second surface value.
+     *
+     * Gold is UNCHANGED and keeps every decorative role (active tabs, rules,
+     * pills, eyebrows, selected states) — the accent budget stays at two.
+     *
+     * Contrast, measured (not estimated), all against #FDFBF7:
+     *   ink   #2C2A29  13.82:1  AAA
+     *   link  #3B4E67   8.22:1  AAA   · white on it 8.50:1 AAA
+     *   CTA   #C24E25            · CREAM label on it 4.61:1 AA ✓
+     *   gold  #A9834B   3.37:1  UI + large text ONLY — never body copy
+     *                           (escalate to --color-terracotta-700 #8A6B39,
+     *                            4.79:1 AA, when gold must carry real text)
+     */
+    --color-cream: 253 251 247;        /* page + card → soft cream #FDFBF7 (was pure white 2026-07-13; ≈ the Atelier paper #FBFAF7 that preceded it) */
+    --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
+    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 169 131 75;        /* CTA → Atelier gold #A9834B (design finalization 2026-07-12: gold supersedes the 2026-07-09 wine; token NAME kept to avoid component churn) */
-    --color-mulberry-600: 149 113 61;   /* CTA hover → gold-600 #95713D */
-    --color-mulberry-700: 138 107 57;    /* CTA deepest → gold-700 #8A6B39 */
+    /* CTA → terracotta #C24E25 (86% of the owner's #E05A2B, along its own hue).
+     *
+     * WHY DARKENED: #E05A2B fails AA with EVERY possible label — white 3.71:1,
+     * ink 3.85:1 — both under the 4.5:1 floor for normal-size button text.
+     *
+     * WHY 86% AND NOT 89%: the target is not white. `.button-primary` labels
+     * with `text-cream`, and cream is #FDFBF7, not #FFFFFF. Against cream the
+     * ratio is ~0.15 lower than against white, so the first value that clears
+     * AA on white (#C75026, 4.56:1 white / 4.41:1 cream) still FAILS the label
+     * this app actually renders. #C24E25 gives 4.61:1 with cream, 4.76:1 with
+     * white — passing either way, with headroom.
+     *
+     * ⚠ Do not lighten toward #E05A2B "to match the brand": it re-breaks AA.
+     * Token NAME `mulberry` kept to avoid churning 239 CTA call sites — the
+     * same reason gold kept it in 2026-07-12 and obsidian before that. */
+    --color-mulberry: 194 78 37;         /* CTA → #C24E25 · cream label 4.61:1 AA ✓ */
+    --color-mulberry-600: 176 71 34;    /* CTA hover → #B04722 (5.39:1) */
+    --color-mulberry-700: 157 63 30;     /* CTA deepest → #9D3F1E (6.42:1) */
+    /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
+     * token; anchors inherited ink. Scope is deliberately NARROW (owner):
+     * inline links and secondary/ghost buttons only. It is NOT a decorative
+     * colour — gold keeps that role, so the "one decorative family" rule holds. */
+    --color-link: 59 78 103;           /* slate indigo #3B4E67 · 8.22:1 AAA */
+    --color-link-600: 48 64 85;        /* link hover → #304055 */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: #ffffff;
+    --surface: #fdfbf7;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
   }
 
   html.dark {
-    /* Dark mode — Clean Editorial coherent variant */
+    /*
+     * Dark mode — INERT. Kept coherent, not live.
+     *
+     * ⚠ The app is LIGHT-LOCKED (owner 2026-06-04, "just always keep it light
+     * theme"). ThemeProvider forces `resolvedTheme: 'light'`, `setMode` is a
+     * no-op, and the bootstrap in layout.tsx strips `.dark` before first paint.
+     * With `darkMode: 'class'` and no `prefers-color-scheme` rule in this file,
+     * NOTHING here is reachable today.
+     *
+     * It is updated anyway so a future re-enable is a one-file revert rather
+     * than a re-derivation — the same reason `users.theme_preference` is left
+     * dormant. Values below are measured against the dark page #17160F:
+     *   CTA  #E5794E  6.20:1 AA   · ink label on it 4.88:1 AA
+     *   link #9DB2CE  8.37:1 AAA
+     * (The light values #C75026 / #3B4E67 score 3.98:1 / 2.13:1 here — the
+     * link one FAILS outright — which is why both are lightened, not reused.)
+     */
     --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
     --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
     --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 203 167 102;       /* CTA → gold-300 #CBA766 (reads on the dark bg) */
-    --color-mulberry-600: 216 185 121;  /* CTA hover lighter → #D8B979 */
-    --color-mulberry-700: 169 131 75;    /* CTA deepest → gold-500 #A9834B */
+    --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
+    --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
+    --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
+    --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -561,20 +620,38 @@ html.subnav-docked [data-shell-main] {
 
 @layer components {
   /*
-   * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.
+   * .button-primary — TERRACOTTA CTA (Warm Editorial Archive, owner 2026-08-01;
+   * was the gold CTA of 2026-07-12, and the Rich Mulberry of 2026-05-29).
    *
-   * WHY: Owner directive 2026-05-30 verbatim — visible inconsistency between
-   * Today page (mulberry CTAs) and rest of app (Facebook-blue CTAs via
-   * bg-terracotta). Token swap above remaps terracotta → champagne gold for
-   * accents/active states/eyebrows; this class swaps to bg-mulberry so
-   * primary actions visually distinct from active-pill highlights.
+   * The label stays `text-cream`, and that is now load-bearing rather than
+   * incidental: cream #FDFBF7 on terracotta #C24E25 measures 4.61:1, which is
+   * the ONLY reason this CTA clears WCAG AA at normal text size. The owner's
+   * originally-specified #E05A2B failed with every possible label (white
+   * 3.71:1, ink 3.85:1), so the fill was darkened along its own hue instead of
+   * the label being changed.
+   *
+   * ⚠ The fill is sized against CREAM, not white. #C75026 would pass on white
+   * (4.56:1) and FAIL on the cream this class actually renders (4.41:1) — a
+   * near-miss that a white-background contrast check would have waved through.
+   *
+   * ⚠ Do not switch this label to `text-ink`. Ink on terracotta is 3.85:1 —
+   * it FAILS AA for button text. The inverse is true of the 2026-07-31
+   * mandarin #F37A1F direction (ink passed, white failed); that palette is
+   * superseded, so do not carry its label rule over.
    */
   .button-primary {
     @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
+  /*
+   * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
+   * One of the two sanctioned homes for the new `link` token (the other being
+   * inline anchors). Border and label carry the indigo; the fill stays cream so
+   * it reads as clearly subordinate to the terracotta primary.
+   * Label #3B4E67 on cream = 8.22:1 (AAA).
+   */
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition hover:border-ink/40 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex h-11 items-center justify-center rounded-md border border-link/30 bg-cream px-6 text-sm font-medium text-link transition hover:border-link/60 hover:text-link-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .input-field {
@@ -779,43 +856,55 @@ html.subnav-docked [data-shell-main] {
 }
 
 /*
- * Clean Editorial palette — Setnayan brand 2026-05-29 lock.
+ * Marketing palette — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
  *
- * WHY: CLAUDE.md 2026-05-29 row "🎨 CLEAN EDITORIAL PALETTE LOCK" — owner-
- * directed pivot from v2.1 burnt sienna register (Filipino-warm artisan) to
- * Premium Event SaaS editorial register. The 4 canonical colors:
- *   #FBFBFA Warm Alabaster      → --m-paper (60% background)
- *   #1E2229 Deep Obsidian       → --m-ink (30% text/structure)
- *   #C5A059 Royal Champagne Gold → --m-orange (10% accent · token name kept)
- *   #1E2229 Deep Obsidian       → --m-mulberry (CTA buttons · token name kept; = ink)
+ * Supersedes the Clean Editorial lock of 2026-05-29 (alabaster · obsidian ·
+ * champagne · obsidian CTA), which itself superseded the v2.1 burnt-sienna
+ * register. The register moves back toward warm — an editorial, magazine
+ * canvas for a Filipino-first event platform — while keeping gold.
+ * The 4 canonical colours:
+ *   #FDFBF7 Soft Cream        → --m-paper     (60% background)
+ *   #2C2A29 Espresso          → --m-ink       (30% text/structure)
+ *   #A9834B Champagne Gold    → --m-orange    (10% accent · token name kept)
+ *   #C24E25 Terracotta        → --m-mulberry  (CTA buttons · token name kept)
  *
- * SUPERSEDES v2.1 § 8 palette (burnt sienna #C96B3A · cream paper #FBF8F2 ·
- * ink #2D3038) per project_setnayan_palette memory rule. Token names retained
- * (esp. --m-orange) to avoid 200+ file churn — value-only swap auto-propagates
- * through every component that consumes `var(--m-*)`. The 2026-05-22 Facebook
- * pivot above stays in force for app chrome (dashboard / admin / vendor
- * dashboard / marketplace internal) via the separate --color-* tokens.
+ * Token names retained (esp. --m-orange, --m-mulberry) to avoid 200+ file
+ * churn — a value-only swap auto-propagates through every component that
+ * consumes `var(--m-*)`. The app-chrome family (--color-*) is kept in step
+ * at the top of this file; the two must not drift.
  *
  * USAGE: in a marketing component, reference these via
  *   style={{ background: 'var(--m-mulberry)' }}
  * or via Tailwind arbitrary syntax
  *   className="bg-[var(--m-mulberry)]"
  *
- * WCAG verified: obsidian on alabaster 16.42:1 AAA · white on obsidian CTA
- * 16.42:1 AAA (the CTA is now the ink colour, so it's the strongest possible
- * button contrast) · champagne on alabaster 2.71:1 (use for non-text UI per
- * WCAG 1.4.11 · escalate --m-orange-2 for text).
+ * WCAG measured against #FDFBF7 (not estimated — recomputed 2026-08-01):
+ *   espresso on cream        13.82:1  AAA
+ *   white on terracotta CTA   4.76:1  AA   ← .m-btn-primary labels with #fff
+ *   slate indigo on cream     8.22:1  AAA  ← links + secondary buttons
+ *   champagne on cream        3.37:1  NON-TEXT UI + LARGE TEXT ONLY
+ *                                     (WCAG 1.4.11; escalate --m-orange-2
+ *                                      #8A6B39 → 4.79:1 AA when gold must
+ *                                      carry real text)
+ *
+ * ⚠ The obsidian CTA this replaces measured 16.42:1. The drop to 4.76:1 is a
+ * deliberate exchange — the CTA now reads as a brand accent rather than as
+ * text. It is still AA. Do not lighten it toward the originally-requested
+ * #E05A2B (3.71:1); that fails with every possible label.
  */
 :root {
-  /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
-  --m-paper:      #FBFAF7;
+  /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
+   * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
+   * --color-cream above; the two families must not drift. */
+  --m-paper:      #FDFBF7;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
   --m-line:       #E1DCD1;
   --m-line-soft:  #EDE8DE;
 
-  /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
-  --m-ink:        #1B1A17;
+  /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
+   * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
+  --m-ink:        #2C2A29;
   --m-slate:      #3A382F;
   --m-slate-2:    #6E6A62;
   --m-slate-3:    #8A857B;
@@ -846,11 +935,29 @@ html.subnav-docked [data-shell-main] {
    * The vendor identity is carried by the ShieldCheck + shop label, not a colour
    * fork (kit rule: gold is the only decorative colour). */
 
-  /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
-  --m-mulberry:    #1E2229;
-  --m-mulberry-2:  #343A44;
-  --m-mulberry-3:  #C9CBCE;
-  --m-mulberry-4:  #ECEDEE;
+  /* CTA — TERRACOTTA (Warm Editorial Archive 2026-08-01; token name `mulberry`
+   * kept, as it has been through obsidian and gold, to avoid call-site churn).
+   * This is the family behind the marketing "Start planning · free" button via
+   * .m-btn-primary below, which labels with literal `#fff` → 4.76:1, AA.
+   * (Kept in step with --color-mulberry above; the two families must not drift.)
+   *
+   * ⚠ TRADE-OFF, stated so nobody "fixes" it later: the obsidian CTA this
+   * replaces measured 16.42:1 — the strongest a button could be, because the
+   * CTA WAS the ink colour. Terracotta is a deliberate drop to 4.76:1 in
+   * exchange for the CTA reading as a brand accent rather than as text.
+   * Still AA; do not lighten it further (the owner's original #E05A2B was
+   * 3.71:1 and failed).
+   *
+   * ⚠ -3 and -4 are NOT terracotta and must NOT be "corrected" to match.
+   * They stopped being CTA tints long ago: --m-mulberry-3 is consumed as
+   * MUTED LIGHT TEXT ON DARK (vendor-grow-sections.tsx sets it as `color`
+   * over `background: var(--m-ink)`; vendor-tier-matrix.tsx does the same),
+   * plus the disabled-button fill. Making them orange would put terracotta
+   * body copy on the vendor pages. Left neutral on purpose. */
+  --m-mulberry:    #C24E25;
+  --m-mulberry-2:  #B04722;
+  --m-mulberry-3:  #C9CBCE;  /* neutral — light text on dark + disabled fill (see above) */
+  --m-mulberry-4:  #ECEDEE;  /* neutral — pairs with -3 */
 
   /* Supporting (retained from v2.1 pending owner future call) */
   --m-blush:      #F4D7C9;

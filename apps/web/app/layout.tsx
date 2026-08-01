@@ -39,6 +39,7 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { orgSameAs } from '@/lib/seo/org-same-as';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -405,9 +406,11 @@ const organizationJsonLd = {
   ],
   // sameAs[] — verified brand profiles that ground the Setnayan entity in the
   // knowledge graph (Google/Bing + AI answer engines cross-reference these).
-  // Facebook Page live + owner-confirmed 2026-07-10. No LinkedIn Company Page
-  // yet — append its URL here when it exists.
-  sameAs: ['https://www.facebook.com/setnayan'],
+  // The list moved to lib/seo/org-same-as.ts so the SEO audit reads THE SAME
+  // source it ships from: it used to check an env var nothing consumed, and so
+  // reported "empty — create FB Page" every day while the Page was already live
+  // and already emitted right here. Append new profiles in that module.
+  sameAs: orgSameAs(),
 };
 
 // Light-locked 2026-06-04 (owner: "just always keep it light theme"). One

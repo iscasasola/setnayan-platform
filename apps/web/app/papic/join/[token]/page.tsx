@@ -36,7 +36,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Join the photo crew · Papic',
-  description: 'Open your Papic camera and start shooting for the couple.',
+  description: 'Open your Papic camera and start shooting.',
   robots: { index: false, follow: false },
 };
 
@@ -119,9 +119,14 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
       <Shell>
         <CircleAlert aria-hidden className="mx-auto mt-3 h-7 w-7 text-terracotta" strokeWidth={1.75} />
         <h1 className="mt-3 text-xl font-semibold tracking-tight">This link isn&rsquo;t active</h1>
+        {/* "the couple" is wrong on 15 of the 16 event types, and this branch
+            has LESS event context than any other — it fires precisely when the
+            token resolved to nothing, so there is no event to derive a noun
+            from. "whoever sent it" is both type-neutral and the only thing we
+            actually know here. */}
         <p className="mt-2 text-sm text-ink/65">
-          This Papic link doesn&rsquo;t open a camera right now. Ask the couple to
-          re-share your link and try again.
+          This Papic link doesn&rsquo;t open a camera right now. Ask whoever sent
+          it to re-share your link and try again.
         </p>
         <Link
           href="/"
@@ -158,8 +163,8 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
         Opening your camera&hellip;
       </h1>
       <p className="mt-2 text-sm text-ink/65">
-        One tap turns your phone into a candid camera for the wedding. Every shot
-        lands straight in the couple&rsquo;s gallery — no app to install.
+        One tap turns your phone into a candid camera for the day. Every shot
+        lands straight in the host&rsquo;s gallery — no app to install.
       </p>
 
       <Link

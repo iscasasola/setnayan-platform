@@ -39,7 +39,15 @@ export type UgatEntityType =
   | 'billing'
   | 'taxonomy'
   | 'community'
-  | 'papic';
+  | 'papic'
+  | 'person'
+  | 'package'
+  | 'proposal'
+  | 'contract'
+  | 'availability'
+  | 'geography'
+  | 'seatplan'
+  | 'runofshow';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -347,6 +355,328 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'missions for', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * PERSON — the person spine: who someone IS, independent of any one event.
+     *
+     * THREE backlog rows collapse here: `people` (the node), `person_*`
+     * (connections + stewardships + story items) and `dependents`. Splitting
+     * them would put three nodes on the map for one concept and start the slide
+     * from a concept map toward an ERD.
+     *
+     * ⚠ `households` was assumed to belong here and DID NOT. Its only foreign
+     * key was `event_id → events` — an event-scoped guest grouping, not a
+     * person-spine concept. Caught only by reading the live FKs, which is the
+     * whole argument for claim-checking a map instead of describing one. It
+     * then turned out to hold no rows, no product reader and no writer in the
+     * eleven weeks since it shipped. DROPPED 2026-08-01 (owner: "just remove
+     * it") once its one real dependency — a canary in
+     * `event-member-self-join.db.test.ts` — was moved onto `guests`, which
+     * carries actual names and so asserts more than the empty table did.
+     *
+     * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
+     * zero rows today and the family-tree work is waiting on legal review. It
+     * is on the map because the map documents CONCEPTS, and a concept that
+     * exists in the schema and in the build plan is real whether or not a row
+     * has landed. The count will read 0 until it doesn't — which is the honest
+     * rendering, and the same reason an unprobed edge stays unlit rather than
+     * green.
+     *
+     * ⚠ NOT THE SAME AS A GUEST. A guest is event-scoped and may never have an
+     * account; a person is the durable identity a guest can be resolved TO. The
+     * bond between them is a claim (joint J2), and a claim is `pending_review`
+     * until a host confirms it — the guest is provisional until then. Reading
+     * `people` as "guests with accounts" inverts that.
+     */
+    id: 'TYPE-PERSON',
+    type: 'person',
+    name: 'Person',
+    blurb: 'the durable identity — connections · households · dependents',
+    countKey: 'person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
+    table: 'people',
+    x: 60,
+    y: 260,
+    fields: [
+      { key: 'pk', name: 'person_id', note: 'the durable identity, not event-scoped' },
+      { key: '', name: 'claimed_by_user_id', note: 'null until an account claims this person' },
+      { key: '', name: 'in_memoriam', note: 'memorial flag — a person outlives their account' },
+    ],
+    edges: [
+      { verb: 'is', to: 'TYPE-USERS' },
+      { verb: 'resolves', to: 'TYPE-GUESTS' },
+    ],
+  },
+  {
+    /**
+     * PACKAGE — what a vendor SELLS, authored once and offered many times.
+     * Owned by the vendor, not by any event.
+     *
+     * The cluster branches: `vendor_package_items` hang off a package, and
+     * `vendor_package_item_options` hang off an item — and an item can itself
+     * hang off an OPTION (`parent_option_id`). So the shape is a tree, not a
+     * flat list, which is how "pick a lunch, then pick its drink" is modelled.
+     */
+    id: 'TYPE-PACKAGE',
+    type: 'package',
+    name: 'Package',
+    blurb: 'what a vendor sells — items branching into options',
+    countKey: 'package',
+    icon: 'layers',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_packages',
+    x: 1040,
+    y: 620,
+    fields: [
+      { key: 'pk', name: 'package_id', note: 'authored by the vendor, reused across events' },
+      { key: 'fk', name: 'vendor_profile_id', note: 'the only owner — a package is never event-scoped' },
+    ],
+    edges: [{ verb: 'sold by', to: 'TYPE-VENDORS' }],
+  },
+  {
+    /**
+     * PROPOSAL — what a vendor offers ONE couple for ONE event.
+     *
+     * ⚠ A PROPOSAL NEED NOT COME FROM A PACKAGE. It reaches one only through
+     * `template_id → vendor_proposal_templates → default_package_id`, and
+     * `template_id` is NULLABLE. A freehand proposal is a first-class case, so
+     * any code that assumes "every proposal has a package behind it" is wrong.
+     */
+    id: 'TYPE-PROPOSAL',
+    type: 'proposal',
+    name: 'Proposal',
+    blurb: 'what a vendor offers one couple — amendable after sending',
+    countKey: 'proposal',
+    icon: 'tag',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_proposals',
+    x: 860,
+    y: 700,
+    fields: [
+      { key: 'pk', name: 'proposal_id', note: 'one vendor offering one event' },
+      { key: 'fk', name: 'template_id', note: 'NULLABLE — the only path to a package, and it is optional' },
+      { key: '', name: 'status', note: 'the offer lifecycle' },
+    ],
+    edges: [
+      { verb: 'offers', to: 'TYPE-EVENTS' },
+      { verb: 'drawn from', to: 'TYPE-PACKAGE' },
+    ],
+  },
+  {
+    /**
+     * CONTRACT — what both sides sign.
+     *
+     * 🚨 THE DEAL CHAIN BREAKS HERE, and the owner has called it a defect to fix
+     * (2026-08-01) rather than a quirk to live with. A contract carries
+     * `event_vendor_id` (the booking) and `order_id` (the money) and has NO
+     * COLUMN referencing the proposal it came from — see J27's `no_column`
+     * claim, which is asserted so this annotation FAILS the day the link lands.
+     *
+     * The consequence is not academic: proposals are amendable after sending
+     * (`proposal_amendments`, with its own line items), so "what did they
+     * actually agree to?" cannot be answered from a signed contract row. The
+     * order amount is the only surviving trace, and it cannot distinguish a
+     * package from an amended one that happens to total the same.
+     */
+    id: 'TYPE-CONTRACT',
+    type: 'contract',
+    name: 'Contract',
+    blurb: 'what both sides sign — bound to the booking, not to the offer',
+    countKey: 'contract',
+    icon: 'receipt',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_contracts',
+    x: 660,
+    y: 760,
+    fields: [
+      { key: 'pk', name: 'contract_id', note: 'the signed artefact' },
+      { key: 'fk', name: 'event_vendor_id', note: 'the booking it binds' },
+      { key: 'fk', name: 'order_id', note: 'the money — nullable' },
+    ],
+    edges: [
+      { verb: 'binds', to: 'TYPE-VENDORS' },
+      { verb: 'settles', to: 'TYPE-ORDERS' },
+    ],
+  },
+  {
+    /**
+     * VENDOR AVAILABILITY — who gets a finite day.
+     *
+     * The only place in the schema deciding a RIVALROUS resource. Everything
+     * else under VENDOR describes what a vendor IS or SELLS and reads
+     * concurrently without conflict; this decides who gets the date, and it
+     * owns concurrency machinery that exists nowhere else — deterministic
+     * `FOR UPDATE` ordering against deadlock, a partial unique index for
+     * idempotent re-acquire, and a capacity number.
+     *
+     * ⚠ SCOPED BY CONCEPT, NOT BY PREFIX. `vendor_calendar_blocks` and
+     * `vendor_calendar_day_states` do NOT match `vendor_schedule_%` and are the
+     * gates deciding whether a date is bookable at all. A prefix-scoped node
+     * would ship with its two most decision-bearing tables missing — which is
+     * why this node had to be drawn deliberately rather than derived.
+     *
+     * ⚠ UNPROVEN, NOT BUILT. 1 booking row against 45 `event_vendors`, and four
+     * of the six tables at zero. The mechanism is effectively unexercised in
+     * production, so its behaviour under contention has never actually happened.
+     */
+    id: 'TYPE-AVAILABILITY',
+    type: 'availability',
+    name: 'Availability',
+    blurb: 'who gets a finite day — pools, blocks, day states',
+    countKey: 'availability',
+    icon: 'link',
+    color: 'var(--ug-e-avail)',
+    colorBg: 'var(--ug-e-avail-bg)',
+    table: 'vendor_schedule_pools',
+    x: 1040,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'pool_id', note: 'the bookable unit — a vendor may run several' },
+      { key: '', name: 'daily_booking_capacity', note: 'checked inside acquire_schedule_pools(), not by a constraint' },
+      { key: '', name: 'is_active', note: 'the closed switch — see J29 for what it did NOT do until 2026-08-01' },
+    ],
+    edges: [
+      { verb: 'held by', to: 'TYPE-VENDORS' },
+      { verb: 'books', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * GEOGRAPHY — the shared region vocabulary.
+     *
+     * Not a vendor concept and not an event concept: ~11 tables across four
+     * different existing nodes join to it BY TEXT, so filing it under any one
+     * of them makes a shared vocabulary that node's private property and hides
+     * the drift from everyone else.
+     *
+     * 🚨 EXACTLY ONE FOREIGN KEY IN THE ENTIRE DATABASE POINTS AT `regions`
+     * (`wedding_destinations.region_code`, asserted in J31). Every other
+     * reference — `events.region`, `vendor_profiles.hq_region`, the market and
+     * pricing bands — is unenforced text. This is the tiles-vs-categories shape
+     * again, one join further out.
+     *
+     * ⚠ AND IT HAS ALREADY BITTEN ONCE, in a way worth remembering rather than
+     * fearing: the retired `token_burn_bands` table carried long-form slugs
+     * (`central_luzon`, `davao_region`) against a `regions` table using short
+     * form (`c-luzon`, `davao`). It mis-keyed six regions and UNDERCHARGED
+     * them. It was fixed on 2026-07-01 by collapsing onto `regions.burn_band`,
+     * and the dead table still sits in prod holding 10 of 20 rows that match no
+     * real region. Nothing reads it — verified — so the drift is inert, but it
+     * is a loaded gun for anyone who greps the schema and trusts what they find.
+     */
+    id: 'TYPE-GEOGRAPHY',
+    type: 'geography',
+    name: 'Geography',
+    blurb: 'the shared region vocabulary — joined by text almost everywhere',
+    countKey: 'geography',
+    icon: 'globe',
+    color: 'var(--ug-e-geo)',
+    colorBg: 'var(--ug-e-geo-bg)',
+    table: 'regions',
+    x: 300,
+    y: 760,
+    fields: [
+      { key: 'pk', name: 'slug', note: 'SHORT form (c-luzon, davao, car) — the only correct spelling' },
+      { key: '', name: 'burn_band', note: 'the single source for region token pricing since 2026-07-01' },
+    ],
+    edges: [{ verb: 'locates', to: 'TYPE-EVENTS' }],
+  },
+  {
+    /**
+     * SEAT PLAN — the WHERE. Tables, chairs, who sits in them, and the room
+     * they sit in.
+     *
+     * Geometry is NOT split from placement, and both investigations reached
+     * that independently: one file writes both, one RPC reads both, and
+     * auto-seat consumes the floor plan's priority order alongside the table
+     * and assignment rows. `event_floor_*` alone is not a concept anyone names.
+     *
+     * 🚨 GUEST READS DO NOT GO THROUGH RLS — the single most important thing on
+     * this node. `event_tables` and `event_seat_assignments` grant anon nothing
+     * (five policies each, all `authenticated`), yet /find-my-table, /seat and
+     * /hub correctly show a guest their table. They read through anon-executable
+     * SECURITY DEFINER RPCs (`public_seat_lookup`, `public_venue_scene`). An
+     * RLS-only audit concludes "guests cannot see their seat" — FALSE — and
+     * misses that the real exposure surface is the function body, not the policy.
+     * That discovery is what triggered the 2026-08-01 anon-RPC audit.
+     *
+     * ⚠ THE PUBLISH GATE LIVES ONLY IN FUNCTION BODIES. `event_floor_plan
+     * .published_at` and `event_walkthrough_zones.published_at` are enforced
+     * inside the RPCs; no policy references either. A new reader that forgets
+     * the check fails OPEN and serves an unpublished seat plan.
+     *
+     * ⚠ `seating_editor_locks` LOOKS DEAD AND IS FULLY LIVE. A grep for the
+     * table name finds only tests — all access runs through four SECURITY
+     * DEFINER RPCs (acquire / refresh / release / assert), driven by a 30-second
+     * heartbeat and asserted before every write. It was nearly deleted on the
+     * strength of that grep.
+     */
+    id: 'TYPE-SEATPLAN',
+    type: 'seatplan',
+    name: 'Seat Plan',
+    blurb: 'the WHERE — tables, chairs, assignments, the room',
+    countKey: 'seatplan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_tables',
+    x: 60,
+    y: 520,
+    fields: [
+      { key: 'pk', name: 'table_id', note: 'one table in the room' },
+      { key: '', name: 'link_group_id', note: 'FK-SHAPED BUT NOT AN FK (verified, any schema) — groups tables into one serpentine run' },
+      { key: 'fk', name: 'walkthrough_zone_id', note: 'nullable, SET NULL — the one non-destructive outbound link' },
+    ],
+    edges: [
+      { verb: 'seats', to: 'TYPE-GUESTS' },
+      { verb: 'lays out', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * RUN OF SHOW — the WHEN. A machine, not a field on EVENT: two enums, a
+     * SECURITY DEFINER state machine (`advance_schedule_block`), a DB-enforced
+     * single-live-block invariant, its own realtime channel, ~25 importing
+     * modules.
+     *
+     * It is the four-way intersection where COUPLE, VENDORS, coordinator and
+     * GUESTS meet on one row — six RLS policies, roughly one per role. That is
+     * precisely the cross-role JOIN surface that already caused a live prod
+     * outage in this same day-of area (the tiles-vs-categories desk lockout).
+     *
+     * ⚠ THE PREFIX UNDER-CAPTURES THE CONCEPT. `vendor_block_scripts.block_id`
+     * CASCADEs from a block, so deleting a block DESTROYS THE EMCEE SCRIPT
+     * written for it — and blocks have no soft-delete. Meanwhile
+     * `event_floor_plan.cocktail_schedule_block_id` merely SET NULLs. Any audit
+     * scoped to `event_schedule_%` misses both the destructive cascade and the
+     * SECURITY DEFINER writer.
+     */
+    id: 'TYPE-RUNOFSHOW',
+    type: 'runofshow',
+    name: 'Run of Show',
+    blurb: 'the WHEN — nested blocks, one live at a time',
+    countKey: 'runofshow',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_schedule_blocks',
+    x: 300,
+    y: 560,
+    fields: [
+      { key: 'pk', name: 'block_id', note: 'one moment in the day' },
+      { key: 'fk', name: 'parent_block_id', note: 'self-referencing, CASCADE — blocks NEST' },
+      { key: '', name: 'event_id', note: 'the day it belongs to' },
+    ],
+    edges: [
+      { verb: 'paces', to: 'TYPE-EVENTS' },
+      { verb: 'cues', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -378,6 +708,54 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'camera',
     color: 'var(--ug-e-papic)',
     colorBg: 'var(--ug-e-papic-bg)',
+  },
+  person: {
+    label: 'Person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
+  },
+  package: {
+    label: 'Package',
+    icon: 'layers',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+  },
+  proposal: {
+    label: 'Proposal',
+    icon: 'tag',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+  },
+  contract: {
+    label: 'Contract',
+    icon: 'receipt',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+  },
+  availability: {
+    label: 'Availability',
+    icon: 'link',
+    color: 'var(--ug-e-avail)',
+    colorBg: 'var(--ug-e-avail-bg)',
+  },
+  geography: {
+    label: 'Geography',
+    icon: 'globe',
+    color: 'var(--ug-e-geo)',
+    colorBg: 'var(--ug-e-geo-bg)',
+  },
+  seatplan: {
+    label: 'Seat Plan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+  },
+  runofshow: {
+    label: 'Run of Show',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
   },
 };
 
@@ -1261,6 +1639,440 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'current_vendor_ids() for the vendor side; event scope for the mission side',
     traps:
       '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. The two vendor bonds are at different grains (booking vs org), so they are NOT interchangeable and a join written against the wrong one silently returns nothing.',
+  },
+  {
+    /**
+     * The person graph's own edge: a relation between two PEOPLE, not between
+     * two guests and not between two accounts. It survives the event that
+     * created it — `created_by_event_id` records provenance, it does not scope
+     * the bond. That is the difference between a family tree and a guest list.
+     */
+    id: 'J21',
+    claims: [
+      { kind: 'table', table: 'person_connections' },
+      { kind: 'fk', table: 'person_connections', column: 'from_person_id', references: 'people' },
+      { kind: 'fk', table: 'person_connections', column: 'to_person_id', references: 'people' },
+      { kind: 'column', table: 'person_connections', column: 'relation' },
+    ],
+    chain: 1,
+    pair: ['TYPE-PERSON', 'TYPE-PERSON'],
+    title: 'Person ↔ Person',
+    joint: 'person_connections',
+    cardinality: 'Many-to-many, directed — `relation` names the direction (parent-of, not sibling-of)',
+    implementedBy: 'person_connections — from_person_id → to_person_id with a named relation',
+    writtenBy: 'generate_event_connections · the people surface',
+    guardedBy: 'person-connection forgery test (tests/db/person-connections-forgery.db.test.ts)',
+    traps:
+      'created_by_event_id is PROVENANCE, not scope. Filtering the graph by it turns a durable family tree back into a per-event guest list.',
+  },
+  {
+    /**
+     * Stewardship: an ACCOUNT looks after a BRANCH of the person graph. The
+     * steward is a user; the thing stewarded is a person. Both ends differ from
+     * ownership, and neither end is a guest.
+     */
+    id: 'J22',
+    claims: [
+      { kind: 'table', table: 'person_stewardships' },
+      { kind: 'fk', table: 'person_stewardships', column: 'steward_user_id', references: 'users' },
+      { kind: 'fk', table: 'person_stewardships', column: 'branch_person_id', references: 'people' },
+      { kind: 'column', table: 'person_stewardships', column: 'kind' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User ↔ Person (stewardship)',
+    joint: 'person_stewardships',
+    cardinality: 'Many-to-many — a user may steward several branches; a branch may have several stewards',
+    implementedBy: 'person_stewardships — steward_user_id looks after branch_person_id',
+    writtenBy: 'the people surface',
+    guardedBy: 'RLS on person_stewardships',
+    traps:
+      'Stewarding a branch is NOT owning the people in it. A steward may curate; the claim bond (people.claimed_by_user_id) is what makes a person someone.',
+  },
+  {
+    /**
+     * Guardian-held dependents — an account holds a record for someone who has
+     * no account of their own (a child, an elder).
+     *
+     * ⚠ THE TRAP IS THE CASCADE, NOT A MISSING KEY.
+     * `owner_user_id` DOES have a foreign key — to `auth.users(id)`, with
+     * **ON DELETE CASCADE**. Deleting the guardian's account therefore DELETES
+     * every dependent record they hold. For a guardian-held record about a
+     * child or an elder that is a destructive default, and it is invisible from
+     * the `public` schema: a constraint scan filtered to `table_schema='public'`
+     * returns nothing for this table and reads as "no integrity at all".
+     *
+     * That is exactly the mistake this joint's first draft made — it asserted
+     * `no_fk` and the claim guard rejected it against the replayed schema. The
+     * annotation now records the real shape, and the `column` claims below fail
+     * if either column is renamed away.
+     */
+    id: 'J23',
+    claims: [
+      { kind: 'table', table: 'dependents' },
+      { kind: 'column', table: 'dependents', column: 'dependent_id' },
+      { kind: 'column', table: 'dependents', column: 'relationship' },
+      { kind: 'column', table: 'dependents', column: 'owner_user_id' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User → Dependent (guardian-held)',
+    joint: 'dependents',
+    cardinality: 'One-to-many — a guardian holds several dependents; a dependent has one owner',
+    implementedBy: 'dependents — owner_user_id holds the record, relationship names the tie',
+    writtenBy: 'the dependents surface',
+    guardedBy: 'RLS, plus an FK to auth.users — see the trap for what that FK does on delete',
+    traps:
+      'owner_user_id → auth.users ON DELETE CASCADE: deleting the guardian DELETES the dependent records. A constraint scan scoped to schema `public` shows none of this and reads as "no integrity at all".',
+  },
+  {
+    /** A package is a TREE: items hang off the package, options off an item, and
+     *  an item can hang off an option (`parent_option_id`). That recursion is
+     *  the "pick a lunch, then pick its drink" shape. */
+    id: 'J24',
+    claims: [
+      { kind: 'table', table: 'vendor_package_items' },
+      { kind: 'fk', table: 'vendor_package_items', column: 'package_id', references: 'vendor_packages' },
+      { kind: 'table', table: 'vendor_package_item_options' },
+      { kind: 'fk', table: 'vendor_package_item_options', column: 'item_id', references: 'vendor_package_items' },
+      { kind: 'fk', table: 'vendor_package_items', column: 'parent_option_id', references: 'vendor_package_item_options' },
+    ],
+    chain: 1,
+    pair: ['TYPE-PACKAGE', 'TYPE-PACKAGE'],
+    title: 'Package → items → options',
+    joint: 'vendor_package_items',
+    cardinality: 'Tree — a package has items, an item has options, an option can carry further items',
+    implementedBy: 'vendor_package_items.package_id + .parent_option_id · vendor_package_item_options.item_id',
+    writtenBy: 'the vendor package builder',
+    guardedBy: 'package-option-branching.db.test.ts',
+    traps: 'Flattening this to a list loses the branch. An item reached via parent_option_id is CONDITIONAL on that option being chosen.',
+  },
+  {
+    /** The ONLY path from a package to a proposal, and it is optional. */
+    id: 'J25',
+    claims: [
+      { kind: 'table', table: 'vendor_proposal_templates' },
+      { kind: 'fk', table: 'vendor_proposal_templates', column: 'default_package_id', references: 'vendor_packages' },
+      { kind: 'fk', table: 'vendor_proposals', column: 'template_id', references: 'vendor_proposal_templates' },
+    ],
+    chain: 2,
+    pair: ['TYPE-PACKAGE', 'TYPE-PROPOSAL'],
+    title: 'Package → Proposal (via template)',
+    joint: 'vendor_proposal_templates',
+    cardinality: 'Optional many-to-one — template_id is NULLABLE, so a proposal may have no package at all',
+    implementedBy: 'vendor_proposals.template_id → vendor_proposal_templates.default_package_id → vendor_packages',
+    writtenBy: 'the proposal maker',
+    guardedBy: 'nothing enforces that a proposal HAS a package — by design',
+    traps: 'A freehand proposal is first-class. Code that assumes every proposal has a package behind it is wrong for the nullable case.',
+  },
+  {
+    /** A proposal keeps changing after it is sent. */
+    id: 'J26',
+    claims: [
+      { kind: 'table', table: 'proposal_amendments' },
+      { kind: 'fk', table: 'proposal_amendments', column: 'base_proposal_id', references: 'vendor_proposals' },
+      { kind: 'table', table: 'proposal_amendment_items' },
+      { kind: 'fk', table: 'proposal_amendment_items', column: 'amendment_id', references: 'proposal_amendments' },
+    ],
+    chain: 2,
+    pair: ['TYPE-PROPOSAL', 'TYPE-PROPOSAL'],
+    title: 'Proposal → Amendment',
+    joint: 'proposal_amendments',
+    cardinality: 'One-to-many — a proposal accrues amendments, each with its own line items',
+    implementedBy: 'proposal_amendments.base_proposal_id + proposal_amendment_items.amendment_id',
+    writtenBy: 'the proposal maker',
+    guardedBy: 'RLS on both tables',
+    traps: 'The BASE proposal row is not the agreement — the agreement is the base plus every amendment. Reading the base alone understates it.',
+  },
+  {
+    /**
+     * 🚨 THE BREAK IN THE DEAL CHAIN.
+     *
+     * A contract binds to the BOOKING and the MONEY and carries no reference to
+     * the proposal it came from. The `no_column` claim below asserts that
+     * absence, so this annotation fails the day a link is added — which the
+     * owner has decided it should be (2026-08-01).
+     */
+    id: 'J27',
+    claims: [
+      { kind: 'table', table: 'vendor_contracts' },
+      { kind: 'fk', table: 'vendor_contracts', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'vendor_contracts', column: 'order_id', references: 'orders' },
+      { kind: 'no_column', table: 'vendor_contracts', column: 'proposal_id' },
+    ],
+    chain: 3,
+    pair: ['TYPE-PROPOSAL', 'TYPE-CONTRACT'],
+    title: 'Proposal → Contract (MISSING)',
+    joint: 'vendor_contracts',
+    cardinality: 'NOT IMPLEMENTED — there is no column joining these two',
+    implementedBy: 'nothing. The contract reaches the booking (event_vendor_id) and the order (order_id) only.',
+    writtenBy: 'the contract upload / e-sign flow',
+    guardedBy: 'nothing — the bond does not exist to guard',
+    traps: 'Proposals are AMENDABLE after sending, so "what did they agree to?" is unanswerable from a signed contract. The order amount is the only trace and cannot tell an original package from an amended one that totals the same.',
+  },
+  {
+    /** Reviews fold under Vendor rather than standing alone (owner, 2026-08-01). */
+    id: 'J28',
+    claims: [
+      { kind: 'table', table: 'vendor_reviews' },
+      { kind: 'fk', table: 'vendor_reviews', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_reviews', column: 'event_id', references: 'events' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Vendor ↔ Event (review)',
+    joint: 'vendor_reviews',
+    cardinality: 'One review per (vendor, event) — the event is what earns the right to review',
+    implementedBy: 'vendor_reviews — scoped to the event the couple actually booked',
+    writtenBy: 'the couple, post-event',
+    guardedBy: 'RLS + vendor-verified-stamp-integrity.db.test.ts',
+    traps: 'override_admin_id exists — an admin can override a review. Any rating average that ignores it reports something the vendor page does not show.',
+  },
+  {
+    /**
+     * 🚨 THE POOL SWITCH. `is_active` is what an operator flips to close a pool,
+     * and until 2026-08-01 `acquire_schedule_pools()` filtered on it in the
+     * VALIDATION loop but not in the INSERT — so a closed pool skipped every
+     * gate and still took bookings. Fixed in migration 20271028166046.
+     *
+     * ⚠ `daily_booking_capacity` is checked ONLY inside that function. No
+     * constraint and no exclusion index enforces it, so any write that does not
+     * route through the function is unbounded.
+     */
+    id: 'J29',
+    claims: [
+      { kind: 'table', table: 'vendor_schedule_pools' },
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'is_active' },
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'daily_booking_capacity' },
+      { kind: 'fk', table: 'vendor_calendar_day_states', column: 'pool_id', references: 'vendor_schedule_pools' },
+      { kind: 'fk', table: 'vendor_calendar_blocks', column: 'pool_id', references: 'vendor_schedule_pools' },
+      { kind: 'table', table: 'vendor_schedule_pool_categories' },
+      { kind: 'table', table: 'vendor_schedule_calendar_services' },
+    ],
+    chain: 1,
+    pair: ['TYPE-AVAILABILITY', 'TYPE-VENDORS'],
+    title: 'Pool → gates (blocks · day states)',
+    joint: 'vendor_schedule_pools',
+    cardinality: 'One-to-many — a pool accrues blocks and day states that close its dates',
+    implementedBy: 'vendor_calendar_blocks.pool_id + vendor_calendar_day_states.pool_id',
+    writtenBy: 'the vendor calendar surface · acquire_schedule_pools()',
+    guardedBy: 'pool-bypass-and-oauth-block.db.test.ts (the is_active half)',
+    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ.',
+  },
+  {
+    /**
+     * 🚨 THE DATE IS COPIED, NOT DERIVED. `booked_date` duplicates
+     * `events.event_date` with no FK, no trigger and no generated column keeping
+     * them in step. The project's own fixture instructions are the proof: moving
+     * the test event's date needs TWO updates, one per table.
+     */
+    id: 'J30',
+    claims: [
+      { kind: 'table', table: 'vendor_schedule_pool_bookings' },
+      { kind: 'column', table: 'vendor_schedule_pool_bookings', column: 'booked_date' },
+      { kind: 'fk', table: 'vendor_schedule_pool_bookings', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'vendor_schedule_pool_bookings', column: 'event_vendor_id', references: 'event_vendors' },
+    ],
+    chain: 2,
+    pair: ['TYPE-AVAILABILITY', 'TYPE-EVENTS'],
+    title: 'Booking ↔ Event (the held date)',
+    joint: 'vendor_schedule_pool_bookings',
+    cardinality: 'One booking per (pool, event_vendor) while released_at IS NULL',
+    implementedBy: 'vendor_schedule_pool_bookings — the row that holds the day',
+    writtenBy: 'acquire_schedule_pools() · release_schedule_pools()',
+    guardedBy: 'the partial unique index on (pool_id, event_vendor_id) WHERE released_at IS NULL',
+    traps: 'booked_date drifts from events.event_date whenever a couple reschedules by any path that does not release+acquire. ALSO: event_vendor_id references event_vendors(VENDOR_ID) \u2014 the column name and the target PK name differ, so joining on matching names is wrong.',
+  },
+  {
+    /**
+     * GEOGRAPHY's only enforced edge — the one FK in the whole database that
+     * points at `regions`. Asserted precisely because it is the exception: if a
+     * second one ever lands, that is good news worth noticing.
+     */
+    id: 'J31',
+    claims: [
+      { kind: 'table', table: 'regions' },
+      { kind: 'column', table: 'regions', column: 'burn_band' },
+      { kind: 'fk', table: 'wedding_destinations', column: 'region_code', references: 'regions' },
+    ],
+    chain: 1,
+    pair: ['TYPE-GEOGRAPHY', 'TYPE-EVENTS'],
+    title: 'Region → destinations (the only enforced region link)',
+    joint: 'wedding_destinations',
+    cardinality: 'Many-to-one — destinations sit in a region',
+    implementedBy: 'wedding_destinations.region_code → regions.slug ON UPDATE CASCADE',
+    writtenBy: 'the destinations seed',
+    guardedBy: 'the FK itself — and it is the ONLY one',
+    traps: 'Every other region reference in the schema is unenforced TEXT (events.region, vendor_profiles.hq_region, the market and pricing bands). Slugs are SHORT form (c-luzon, davao, car); long form (central_luzon, davao_region) matches nothing and is what mis-keyed the retired token_burn_bands.',
+  },
+  {
+    /**
+     * 🚨 THE BADGE IS NOT IN THE VERIFICATION TABLES. What the product reads is
+     * `vendor_profiles.verification_state`; nothing syncs it from either
+     * verification table, and the three carry three different status
+     * vocabularies. Same shape as tiles-vs-categories, on the trust surface.
+     *
+     * ⚠ Deleting an account CASCADES BOTH TABLES AWAY — auth.users → users →
+     * vendor_profiles → here, with no soft-delete column anywhere. The KYC
+     * record does not survive the account, which collides with the retention
+     * obligation.
+     */
+    id: 'J32',
+    claims: [
+      { kind: 'table', table: 'vendor_verification_applications' },
+      { kind: 'table', table: 'vendor_verifications' },
+      { kind: 'column', table: 'vendor_profiles', column: 'verification_state' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-VENDORS'],
+    title: 'Vendor → verification (badge lives elsewhere)',
+    joint: 'vendor_verification_applications',
+    cardinality: 'Unbounded — NEITHER table is unique on vendor_profile_id, so "the vendor\u2019s application" is undefined',
+    implementedBy: 'two generations of the same flow coexisting with no link between them',
+    writtenBy: 'the vendor verification surface',
+    guardedBy: 'nothing syncs verification_state — it is set by application code',
+    traps: 'A .single() on vendor_profile_id will start throwing the moment a vendor submits twice. Neither table is the badge; vendor_profiles.verification_state is.',
+  },
+  {
+    /**
+     * Instagram folds under VENDOR (no node of its own: 3 tables, zero
+     * connections, one never-completed handshake — mapping it would be mapping
+     * speculation). Recorded because two of its shapes bite.
+     */
+    id: 'J33',
+    claims: [
+      { kind: 'table', table: 'vendor_ig_connections' },
+      { kind: 'table', table: 'vendor_ig_media' },
+      { kind: 'no_column', table: 'vendor_ig_media', column: 'vendor_ig_connection_id' },
+      { kind: 'fk', table: 'vendor_ig_oauth_state', column: 'initiated_by', references: 'users' },
+    ],
+    chain: 3,
+    pair: ['TYPE-VENDORS', 'TYPE-VENDORS'],
+    title: 'Vendor → Instagram (media outlives the connection)',
+    joint: 'vendor_ig_connections',
+    cardinality: 'One connection per vendor — but NOT one vendor per Instagram account',
+    implementedBy: 'vendor_ig_connections, with media hanging off the vendor rather than the connection',
+    writtenBy: 'the Instagram connect flow',
+    guardedBy: 'a unique index on vendor_profile_id only',
+    traps: 'Revoking or deleting a connection unpublishes NOTHING \u2014 vendor_ig_media has no link to it (asserted above), so every synced post keeps rendering. And ig_user_id has no unique constraint, so two vendors can claim the same Instagram account.',
+  },
+  {
+    /**
+     * Branches, coverage and services fold under VENDOR — no node of their own.
+     * Two of the three are empty and none carries a lifecycle VENDOR lacks.
+     *
+     * 🚨 'COVERAGE' HOLDS NO GEOGRAPHY. Despite the name it is
+     * `canonical_service` + `event_types[]` + `faiths[]` — the matching
+     * vocabulary, not a service area. The `no_column` claim below pins that,
+     * because filing it next to branches under a "coverage area" heading is the
+     * obvious and wrong reading, and the name invites it.
+     *
+     * ⚠ SILENT UNTYPING. `vendor_services.coverage_id` is NULLABLE with ON
+     * DELETE SET NULL, and `vendor_services` has no canonical_service column —
+     * so the coverage row IS the service's type. Delete a coverage and every
+     * service under it survives as a TYPELESS row rather than raising.
+     */
+    id: 'J34',
+    claims: [
+      { kind: 'table', table: 'vendor_branches' },
+      { kind: 'table', table: 'vendor_coverages' },
+      { kind: 'table', table: 'vendor_services' },
+      { kind: 'no_column', table: 'vendor_coverages', column: 'region_slug' },
+      { kind: 'fk', table: 'vendor_branches', column: 'parent_vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_coverages', column: 'vendor_profile_id', references: 'vendor_profiles' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
+    title: 'Vendor → branches · coverage · services',
+    joint: 'vendor_coverages',
+    cardinality: 'One vendor, many branches and coverage rows; UNIQUE (vendor_profile_id, canonical_service) on coverage',
+    implementedBy: 'vendor_branches + vendor_coverages, both hanging off vendor_profiles',
+    writtenBy: 'the vendor profile + branches surfaces',
+    guardedBy: 'RLS — there is no public read policy on either, so neither is visible to discovery',
+    traps: 'vendor_coverages is WHAT a vendor serves, not WHERE. Geography lives on vendor_profiles (hq_region, radii) and vendor_branches (city, lat/lon, radius) \u2014 two parallel copies nothing reconciles. Also: branch_subscription_active defaults to TRUE, so any direct INSERT creates a fully active PAID branch for free.',
+  },
+  {
+    /**
+     * The seam between the roster and the room — and where the soft-delete
+     * asymmetry lives.
+     *
+     * 🚨 `guests` is SOFT-deleted (`deleted_at`); `event_seat_assignments` has
+     * NO such column (both verified). The FK is ON DELETE CASCADE, so it never
+     * fires on a soft delete, and the only automatic seat-release trigger fires
+     * on `rsvp_status = 'declined'` — not on removal. A removed guest therefore
+     * leaves an assignment the editor's guest list cannot account for, while the
+     * chair-uniqueness index keeps that chair permanently occupied.
+     *
+     * LATENT, NOT LIVE: 4 soft-deleted guests exist and none holds a seat.
+     */
+    id: 'J35',
+    claims: [
+      { kind: 'table', table: 'event_seat_assignments' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'table_id', references: 'event_tables' },
+      { kind: 'no_column', table: 'event_seat_assignments', column: 'deleted_at' },
+      { kind: 'column', table: 'guests', column: 'deleted_at' },
+    ],
+    chain: 2,
+    pair: ['TYPE-SEATPLAN', 'TYPE-GUESTS'],
+    title: 'Seat ↔ Guest (the soft-delete seam)',
+    joint: 'event_seat_assignments',
+    cardinality: 'One guest per chair — UNIQUE (event_id, table_id, seat_number)',
+    implementedBy: 'event_seat_assignments — the row that puts a person in a chair',
+    writtenBy: 'the seating editor · auto-arrange',
+    guardedBy: 'the chair-uniqueness index; NOT by anything that reacts to a soft delete',
+    traps: 'Removing a guest is a SOFT delete, so the CASCADE never fires and the chair stays occupied by someone the guest list no longer shows. Also: nothing requires the assignment\u2019s event_id to match its table\u2019s event_id — no composite FK, no CHECK — and the chair-uniqueness index is keyed on event_id, so a divergent one would defeat it.',
+  },
+  {
+    /**
+     * The room itself, and the publish gate that decides whether a guest sees
+     * any of it. Enforcement lives in RPC bodies, never in a policy.
+     */
+    id: 'J36',
+    claims: [
+      { kind: 'table', table: 'event_floor_plan' },
+      { kind: 'column', table: 'event_floor_plan', column: 'published_at' },
+      { kind: 'table', table: 'event_walkthrough_zones' },
+      { kind: 'column', table: 'event_walkthrough_zones', column: 'published_at' },
+      { kind: 'fk', table: 'event_tables', column: 'walkthrough_zone_id', references: 'event_walkthrough_zones' },
+      { kind: 'table', table: 'event_floor_booths' },
+      { kind: 'table', table: 'event_floor_signs' },
+      { kind: 'table', table: 'event_seating_constraints' },
+      { kind: 'table', table: 'seating_editor_locks' },
+      { kind: 'fk', table: 'seating_editor_locks', column: 'holder_user_id', references: 'users' },
+    ],
+    chain: 1,
+    pair: ['TYPE-SEATPLAN', 'TYPE-EVENTS'],
+    title: 'Seat Plan → the room (geometry · zones · locks)',
+    joint: 'event_floor_plan',
+    cardinality: 'One floor plan per event; many zones, booths, signs and tables within it',
+    implementedBy: 'event_floor_plan + event_walkthrough_zones + event_floor_booths/signs',
+    writtenBy: 'the seating editor (one file writes geometry AND placement)',
+    guardedBy: 'published_at, checked ONLY inside public_seat_lookup / public_venue_scene',
+    traps: 'TWO publish gates, not one, and neither is enforced by any RLS policy \u2014 a new reader that forgets the check fails OPEN. seating_editor_locks.holder_user_id references auth.users (CROSS-SCHEMA): a constraint scan filtered to schema public reports this table as having one FK and misses a CASCADE onto a user.',
+  },
+  {
+    /**
+     * Blocks nest, and one deletion reaches further than the prefix suggests.
+     */
+    id: 'J37',
+    claims: [
+      { kind: 'table', table: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_blocks', column: 'parent_block_id', references: 'event_schedule_blocks' },
+      { kind: 'table', table: 'event_schedule_suggestions' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_block_scripts', column: 'block_id', references: 'event_schedule_blocks' },
+    ],
+    chain: 2,
+    pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
+    title: 'Block → suggestions · scripts',
+    joint: 'event_schedule_blocks',
+    cardinality: 'A tree of blocks; vendors attach suggestions and scripts to a block',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts hang off a block',
+    writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
+    guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
 ];
 

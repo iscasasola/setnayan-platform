@@ -5,9 +5,10 @@
  * Ceremony · Cocktails · Reception · After Party + ceremony-type parts). Every
  * OTHER event type had nothing: the schedule opened empty and the host built the
  * whole program by hand. This authors a per-type Filipino program (the real
- * beats an emcee runs — the 18s, the reveal, the awarding, the jubilarian walk)
- * and ENRICHES it from what the host captured at onboarding (`signature_details`,
- * the specialty layer): a debut with a captured cotillion gets a Cotillion beat;
+ * beats an emcee runs — the 18s, the reveal, the jubilarian walk, the bracket
+ * day's parade and awarding) and ENRICHES it from what the host captured at
+ * onboarding (`signature_details`, the specialty layer): a debut with a
+ * captured cotillion gets a Cotillion beat;
  * a reunion with a matching shirt gets a "wear your reunion shirt" note; an
  * anniversary that opted into a renewal gets a Renewal-of-Vows beat.
  *
@@ -68,6 +69,20 @@ const nameList = (r: Array<Record<string, unknown>>): string =>
     .map((x) => (typeof x?.name === 'string' ? x.name.trim() : ''))
     .filter(Boolean)
     .join(', ');
+/** `nameList` for a roster whose item key is NOT `name` — the tournament lists
+ *  key their cells `division` / `team_name` / `team_muse` (specialty-catalog). */
+const cellList = (r: Array<Record<string, unknown>>, key: string): string[] =>
+  r
+    .map((x) => (typeof x?.[key] === 'string' ? (x[key] as string).trim() : ''))
+    .filter(Boolean);
+/** A multiselect field: the persisted shape is a dense string[] (see
+ *  normalizeSpecialtyValues), so anything else reads as "not captured". */
+const choices = (s: Sig, key: string): string[] => {
+  const v = s?.[key];
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+};
+/** Humanize a captured enum token; unknown/absent tokens read as ''. */
+const label = (map: Record<string, string>, token: string): string => map[token] ?? '';
 
 // ─────────────────────────── per-type programs ───────────────────────────
 // Each returns the ordered beats for that type. Core beats are unconditional;
@@ -278,6 +293,175 @@ const GRADUATION: Beat[] = [
   { label: 'Socials', type: 'dancing', hour: 19, min: 0, durMin: 60 },
 ];
 
+// ── tournament vocabulary (mirrors onboarding/specialty-catalog.ts "tournament"
+// signature_fields — sport_discipline · tournament_format · divisions · teams ·
+// organizer_sponsor · opening_parade · awards. Keep these token lists in step
+// with that catalog; an unrecognized token degrades to an unenriched note, never
+// to a wrong one.) ──
+const SPORT_LABEL: Record<string, string> = {
+  basketball: 'Basketball',
+  volleyball: 'Volleyball',
+  esports: 'Esports',
+  boxing: 'Boxing',
+  billiards: 'Billiards',
+  chess: 'Chess',
+  badminton: 'Badminton',
+  running_fun_run: 'Fun run',
+  pageant: 'Pageant',
+  // 'other' deliberately unmapped — we have no name for it, so we say nothing.
+};
+const FORMAT_LABEL: Record<string, string> = {
+  single_elimination: 'Single elimination',
+  double_elimination: 'Double elimination',
+  round_robin: 'Round robin',
+  liga_season: 'Liga season',
+};
+const AWARD_LABEL: Record<string, string> = {
+  mvp: 'MVP',
+  mythical_five: 'Mythical Five',
+  champion: 'Champion',
+  runner_up: 'Runner-up',
+  sportsmanship: 'Sportsmanship',
+  muse_of_the_league: 'Muse of the League',
+  best_in_uniform: 'Best in Uniform',
+};
+
+/** "Basketball · Double elimination", or whichever half was captured. */
+const disciplineLine = (s: Sig): string =>
+  [label(SPORT_LABEL, str(s, 'sport_discipline')), label(FORMAT_LABEL, str(s, 'tournament_format'))]
+    .filter(Boolean)
+    .join(' · ');
+
+/**
+ * Tournament — a competition day, NOT a dinner party. Before this, `tournament`
+ * had no authored program and fell through to GENERIC, so a liga opened its
+ * schedule to "Guest arrival · Meal · Socials" while its own checklist
+ * (checklist-event-type-defs.ts TOURNAMENT_TEMPLATE) already knew the day is
+ * brackets · officials · medic · awards. The spine is the real shape of a
+ * Filipino barangay/school meet: call time → check-in → opening → eliminations →
+ * lunch → knockouts → championship → awarding → closing.
+ *
+ * One beat is signal-gated so we never promise something the host didn't plan:
+ * the parade of teams & muses (the liga community layer — it shows only when the
+ * opening parade was captured or a team named a muse). Every other beat is core
+ * to any bracket event and always shows, so a host who skipped the specialty
+ * form still gets a usable competition day.
+ */
+const TOURNAMENT: Beat[] = [
+  {
+    label: 'Call time: venue & equipment setup',
+    type: 'pre_ceremony',
+    hour: 6,
+    min: 30,
+    durMin: 60,
+    isPublic: false, // crew beat — players don't need it on the public program
+    note: () =>
+      'Line the court/field, test the scoreboard & PA, and set up the first-aid station before anyone arrives.',
+  },
+  {
+    label: 'Team check-in & registration',
+    type: 'pre_ceremony',
+    hour: 7,
+    min: 30,
+    durMin: 60,
+    note: (s) => {
+      const teams = cellList(rows(s, 'teams'), 'team_name').length;
+      const divisions = cellList(rows(s, 'divisions'), 'division');
+      const parts: string[] = [];
+      if (teams) parts.push(`${teams} team${teams === 1 ? '' : 's'} registered`);
+      if (divisions.length) parts.push(`divisions: ${divisions.join(', ')}`);
+      parts.push('Check line-ups, IDs and waivers as each team signs in.');
+      return parts.join(' · ');
+    },
+  },
+  {
+    label: 'Opening ceremony',
+    type: 'ceremony',
+    hour: 8,
+    min: 30,
+    durMin: 20,
+    note: () => 'Invocation, national anthem, and the sportsmanship oath.',
+  },
+  {
+    label: 'Parade of teams & muses',
+    type: 'program',
+    hour: 8,
+    min: 50,
+    durMin: 25,
+    when: (s) => truthy(s, 'opening_parade') || cellList(rows(s, 'teams'), 'team_muse').length > 0,
+    note: (s) => {
+      const muses = cellList(rows(s, 'teams'), 'team_muse');
+      return muses.length
+        ? `${muses.length} team muse${muses.length === 1 ? '' : 's'} to introduce — brief them on the walk order.`
+        : 'Set the walk order and brief each team captain before the march-in.';
+    },
+  },
+  {
+    label: 'Rules briefing & bracket draw',
+    type: 'program',
+    hour: 9,
+    min: 15,
+    durMin: 20,
+    note: (s) => {
+      const d = disciplineLine(s);
+      const base = 'Run the rules with the officials and post the bracket where players can see it.';
+      return d ? `${d}. ${base}` : base;
+    },
+  },
+  {
+    label: 'Elimination round',
+    type: 'program',
+    hour: 9,
+    min: 35,
+    durMin: 175,
+    note: (s) =>
+      str(s, 'tournament_format') === 'liga_season'
+        ? 'A liga season runs across several game days — reshape this into one game-day template and repeat it per playdate.'
+        : 'Bracket rounds. Keep a scorer at the table and a runner posted at the scoreboard.',
+  },
+  { label: 'Lunch break', type: 'dinner', hour: 12, min: 30, durMin: 45 },
+  {
+    label: 'Quarterfinals & semifinals',
+    type: 'program',
+    hour: 13,
+    min: 15,
+    durMin: 135,
+    note: () => 'Re-seed from the elimination results before calling the first match.',
+  },
+  {
+    label: 'Championship match',
+    type: 'program',
+    hour: 15,
+    min: 30,
+    durMin: 90,
+    note: () => 'Confirm the officiating crew and have the trophies staged courtside before tip-off.',
+  },
+  {
+    label: 'Awarding ceremony',
+    type: 'program',
+    hour: 17,
+    min: 0,
+    durMin: 45,
+    note: (s) => {
+      const awards = choices(s, 'awards').map((a) => label(AWARD_LABEL, a)).filter(Boolean);
+      return awards.length
+        ? `Awards to call: ${awards.join(', ')}. Have the medals and trophies engraved and on-site.`
+        : 'Have the medals and trophies on-site and the awardee list finalized before the final whistle.';
+    },
+  },
+  {
+    label: 'Closing remarks & send-off',
+    type: 'send_off',
+    hour: 17,
+    min: 45,
+    durMin: 30,
+    note: (s) =>
+      str(s, 'organizer_sponsor')
+        ? `Acknowledge ${str(s, 'organizer_sponsor')}, the officials, and the medic team.`
+        : 'Acknowledge the organizer, the officials, and the medic team.',
+  },
+];
+
 /** Generic fallback for any non-wedding type without an authored program — a
  *  clean, universally-true celebration spine the host reshapes. */
 const GENERIC: Beat[] = [
@@ -297,6 +481,7 @@ const PROGRAMS: Record<string, Beat[]> = {
   corporate: CORPORATE,
   gender_reveal: GENDER_REVEAL,
   graduation: GRADUATION,
+  tournament: TOURNAMENT,
   // Travel deliberately seeds NOTHING (ai-travel-scheduling): a trip is a
   // multi-day itinerary built from hotel night-blocks + tour time-blocks
   // (lib/schedule-travel.ts), not a single-evening party spine — the GENERIC

@@ -87,7 +87,7 @@ export default async function EventChecklistPage({ params }: Props) {
 
   const rows = await fetchChecklistItems(supabase, eventId);
   const now = new Date();
-  const groups = groupChecklistByPhase(rows, eventDate, now);
+  const groups = groupChecklistByPhase(rows, eventDate, now, eventType);
   const doneCount = rows.filter((r) => r.status === 'done').length;
 
   // Live budget health-check — null when the couple hasn't set a budget yet, or

@@ -372,7 +372,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb: 'After the day — your wedding told as a story, with the gallery and a thank-you note.',
+    blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
     cta: 'Edit your editorial',
     studioGroup: 'website',
     tier: 'free',
@@ -586,12 +586,12 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // was what kept it unsold.
     //
     // `surface: 'rsvp'` is HALF the gate — it hides the card wherever the event
-    // type has no RSVP surface (simple_event). It does NOT hide travel, whose
-    // profile row DOES enable rsvp (migration 20270804110223 added it to every
-    // non-wedding row). The authoritative predicate is
+    // type has no RSVP surface. It does NOT scope by type on its own — every
+    // non-wedding profile row enables rsvp (migration 20270804110223 added it).
+    // The authoritative predicate is
     // lib/papic-event-access.ts · papicGuestPassAccess(); a surface that
-    // renders this row as buyable MUST call it (it carries the permanent
-    // travel deny + the anniversary controller split + the phase ladder).
+    // renders this row as buyable MUST call it (it carries the phase ladder +
+    // the fail-closed default for an untiered type).
     //
     // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
     // and the flip is the owner's 2026-07-29 two-type lock catching up with the
@@ -613,9 +613,11 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // (spec §5) rather than being silently absorbed by a card flip. A doorway to
     // an already-open door is not the thing to hold hostage.
     //
-    // Still gated by `papicGuestPassAccess()` (travel deny + anniversary
-    // controller split + phase ladder) — that predicate is event-type ELIGIBILITY,
-    // not a darkness switch, and widening it stays an owner/DPO call.
+    // Still gated by `papicGuestPassAccess()` — that predicate is event-type
+    // ELIGIBILITY, not a darkness switch. Owner 2026-08-01 ("offer Papic
+    // everywhere") put ALL 16 live types in Phase 1 and removed the anniversary
+    // controller split, so it denies nothing today; it still fails closed for a
+    // type created after that ruling.
     key: 'papic-guest',
     // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen
     // technical ids (never-rename-technical-ids lock) from before the products
@@ -668,7 +670,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your wedding streamed live so everyone who can’t be there is — free with a single camera.',
+    blurb: 'Your day streamed live so everyone who can’t be there is — free with a single camera.',
     cta: 'Set up',
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
@@ -752,7 +754,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // present as live. Flip to 'web_v1'/'live' when real checkout ships.
     status: 'coming_soon',
     category: 'tool',
-    blurb: 'Wedding-day print pack and favors from vetted PH suppliers, shipped to your venue.',
+    blurb: 'Day-of print pack and favors from vetted PH suppliers, shipped to your venue.',
     cta: 'Browse Paprint',
     studioGroup: 'utility',
     poster: {
@@ -832,7 +834,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0010',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Pick your wedding palette — and it flows into every Setnayan piece you make.',
+    blurb: 'Pick your palette — and it flows into every Setnayan piece you make.',
     cta: 'Open board',
     studioGroup: 'branding',
     tier: 'free',

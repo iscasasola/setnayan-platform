@@ -72,8 +72,14 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   // Ceremony type drives the deterministic tailoring. A read error just means
   // no filtering (keep every task) — never block the seed on it. `event_type`
   // gates whether the (wedding-shaped) template applies at all.
+  // events_host, not events: signature_details is SELECT-denied to
+  // `authenticated` on the base table by 20271025120000. The view is the
+  // couple/moderator-scoped read path — same columns, same shape, and this
+  // seed only ever runs for a host. Reading the base table here would return
+  // a permission error that the `const { data }` shape swallows, silently
+  // dropping the ceremony tailoring back to the untailored template.
   const { data: eventRow } = await supabase
-    .from('events')
+    .from('events_host')
     .select('ceremony_type, event_type, signature_details')
     .eq('event_id', eventId)
     .maybeSingle();

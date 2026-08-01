@@ -24,6 +24,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
@@ -533,13 +534,61 @@ export async function startServiceInquiry(input: {
     seeds,
   });
 
+  /**
+   * Report an `event_vendors` write fault WITHOUT failing the inquiry.
+   *
+   * ⚠ WHY THIS EXISTS — the write below can fail for a reason that is invisible
+   * today and will stay invisible until a real vendor service row exists.
+   *
+   * `event_vendors.category` is the strict Postgres enum `vendor_category`
+   * (`band_dj`, `host_emcee`, `planner_coordinator`, … 51 values). The value we
+   * put in it comes from `vendor_services.category`, which is plain **TEXT** and
+   * is treated as a CANONICAL TILE key elsewhere in the app (`live_band`,
+   * `host_mc`, `coordinator` — see `lib/vendor-category-taxonomy.ts`). Those two
+   * vocabularies do not overlap: `live_band` ∉ `vendor_category`. If a real row
+   * carries the tile vocabulary, this insert fails with
+   * `invalid input value for enum vendor_category` — the exact shape of the
+   * 2026-05-22 `guest_role: "bride"` incident.
+   *
+   * We deliberately do NOT translate between the vocabularies here. `vendor_services`
+   * has **0 rows in production**, so any mapping would be a guess about data that
+   * does not exist yet, and the Song Desk build order explicitly defers it
+   * ("needs one real vendor service row to settle" — never another hand-kept enum
+   * list). What we fix is that the failure was UNOBSERVABLE: the attempted
+   * `category` value is reported, so the FIRST real occurrence settles which
+   * vocabulary actually lands and the deferred decision becomes evidence-based.
+   *
+   * Non-fatal by design: the thread, the message and the service interests have
+   * already been written. Failing the couple's inquiry over a bookkeeping row
+   * would be a worse outcome than a missing row we can reconstruct from
+   * `thread_service_interests`.
+   *
+   * No PII: internal IDs and a taxonomy key only — never the vendor's name or
+   * anything the couple typed (0035 · no PII in logs).
+   */
+  const reportEventVendorFault = (
+    stage: 'insert' | 'update' | 'threw',
+    err: unknown,
+    attemptedCategory: string | null,
+  ): void => {
+    Sentry.captureException(err, {
+      tags: {
+        feature: 'inquiry-event-vendor-write',
+        stage,
+        // The signal that settles the vocabulary question when it first fires.
+        attempted_category: attemptedCategory ?? 'n/a',
+      },
+      extra: { eventId, vendorProfileId, initialServiceId },
+    });
+  };
+
   // Persist requested_service_ids onto the event_vendors row that links this
   // couple's event to this marketplace vendor. The upsert on chat_threads above
   // guarantees the thread exists; the event_vendors row may have been created
   // by a prior save-to-picks or auto-add. We use array_cat to merge (not
   // overwrite) so a resumed inquiry adds new services to the existing set.
   // Best-effort: a missing row or missing column (migration not yet applied)
-  // must never block the inquiry.
+  // must never block the inquiry — but it is now REPORTED, not discarded.
   try {
     // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
@@ -559,10 +608,11 @@ export async function startServiceInquiry(input: {
         ? ((evRow as unknown as { requested_service_ids: string[] }).requested_service_ids)
         : [];
       const merged = Array.from(new Set([...existing, ...confirmedServiceIds]));
-      await supabase
+      const { error: updateError } = await supabase
         .from('event_vendors')
         .update({ requested_service_ids: merged } as Record<string, unknown>)
         .eq('vendor_id', evRow.vendor_id as string);
+      if (updateError) reportEventVendorFault('update', updateError, null);
     } else if (confirmedServiceIds.length > 0) {
       // No event_vendors row yet — create a minimal one so the service list is
       // persisted. This mirrors the auto-add path in unlock-category.ts.
@@ -577,7 +627,7 @@ export async function startServiceInquiry(input: {
           .maybeSingle();
         const vendorNameForRow =
           (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Vendor';
-        await supabase.from('event_vendors').insert({
+        const { error: insertError } = await supabase.from('event_vendors').insert({
           event_id: eventId,
           category: categoryForRow,
           vendor_name: vendorNameForRow,
@@ -586,11 +636,14 @@ export async function startServiceInquiry(input: {
           service_id: initialServiceId,
           requested_service_ids: confirmedServiceIds,
         } as Record<string, unknown>);
+        if (insertError) reportEventVendorFault('insert', insertError, categoryForRow);
       }
     }
-  } catch {
-    /* best-effort — thread + interests already landed; service-id list can
-       be reconstructed from thread_service_interests if the column is missing */
+  } catch (caught) {
+    // Kept for genuine throws. NOTE: the supabase-js calls above do NOT throw on
+    // a database error — they RETURN `{ error }` — so this block was never the
+    // thing catching them. The `if (error)` checks above are.
+    reportEventVendorFault('threw', caught, null);
   }
 
   // Persist the couple's saved requirements template for this category so it

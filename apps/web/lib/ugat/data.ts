@@ -51,6 +51,8 @@ export interface UgatCounts {
   community: number;
   /** Papic: provisioned paparazzi seats — the unit of entitlement. */
   papic: number;
+  /** Person: durable identities. Reads 0 until the counsel-gated spine lands. */
+  person: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -144,6 +146,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     papicSeats,
     papicPhotoRows,
     papicGuestCaptureRows,
+    peopleRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -196,6 +199,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // device and EXIF metadata, none of which an admin roll-up needs.
     headCount(admin, 'papic_photos'),
     headCount(admin, 'papic_guest_captures'),
+    headCount(admin, 'people'),
   ]);
 
   return {
@@ -211,6 +215,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     taxonomy: taxLeaves,
     community: communitiesLive,
     papic: papicSeats,
+    person: peopleRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -731,6 +736,7 @@ export interface UgatSearchGroup {
 const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
   community: 'TYPE-SAMAHAN',
   papic: 'TYPE-PAPIC',
+  person: 'TYPE-PERSON',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

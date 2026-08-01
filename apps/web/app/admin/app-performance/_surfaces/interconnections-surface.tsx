@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PROBES } from '@/lib/interconnect/probes';
+import { UGAT_JOINTS } from '@/lib/ugat/graph';
 import { VERDICT_COPY, isFault, type ProbeVerdict } from '@/lib/interconnect/verdict';
 
 /**
@@ -134,11 +135,16 @@ export async function InterconnectionsSurface() {
         ))}
       </ul>
 
+      {/* Two derived numbers and no hand-typed third. The backlog figure used to
+          sit here as a literal; it was wrong from the day it shipped (47 for a
+          file holding 44) and would have gone stale again every time a concept
+          is mapped. The baseline file is the reading. */}
       <p className="mt-6 max-w-3xl text-xs text-ink/50">
-        Coverage: {PROBES.length} probe{PROBES.length === 1 ? '' : 's'} against 83 mapped Ugat
-        joints, and the map itself reaches roughly a third of the app —{' '}
-        <code className="font-mono">ugat-concept.baseline.txt</code> still lists 47 subsystems it
-        has never covered. That gap is the backlog, stated rather than implied.
+        Coverage: {PROBES.length} probe{PROBES.length === 1 ? '' : 's'} against{' '}
+        {UGAT_JOINTS.length} mapped Ugat joints, and the map itself reaches roughly a third of the
+        app. The rest is the <code className="font-mono">map-backlog</code> list in{' '}
+        <code className="font-mono">ugat-concept.baseline.txt</code> — that gap is the backlog,
+        stated rather than implied.
       </p>
     </section>
   );

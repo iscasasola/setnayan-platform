@@ -497,11 +497,19 @@ const guestListReach: Probe = {
 /**
  * The registry.
  *
- * SIX probes over 83 mapped joints, and the map itself covers roughly a third
- * of the app — `ugat-concept.baseline.txt` still lists 47 subsystems it has
- * never reached. That ratio is the honest state of this system on day one and
- * it is written down here rather than implied, because a coverage number nobody
- * states drifts upward in everyone's memory.
+ * These probes cover a fraction of the 83 mapped joints, and the map itself
+ * reaches roughly a third of the app — the remainder is the `map-backlog` list
+ * in `ugat-concept.baseline.txt`.
+ *
+ * ⚠ NO COUNTS IN THIS COMMENT, deliberately, after it got two wrong in two
+ * days. It said "TWO probes" while the array held four, and "47 subsystems"
+ * when the file held 44 — a number miscounted at birth by a `grep -c` that
+ * swallowed three comment lines, then copied to a second place before anyone
+ * checked it. That is precisely the defect this module exists to detect,
+ * committed twice in its own header.
+ *
+ * A number in prose has no way to be wrong out loud. `PROBES.length` and the
+ * baseline file are the readings; take them from there.
  */
 export const PROBES: readonly Probe[] = [
   bookedVendorDeskReach,

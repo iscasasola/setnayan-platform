@@ -22,6 +22,6 @@ Exposure baseline regenerated in the same commit. **The diff is narrowings only*
 
 `migration-doctor` healthy (1014/1014 in sync) · `check-migration-timestamps` OK (1015 unique prefixes) · `lint-exposure-baseline` OK · `next lint` clean (pre-existing warnings only) · unit tests **5990/5990** · db replay suite **698/698** including the exposure freeze · `tsc --noEmit` clean.
 
-**⚠ NOT APPLIED TO PROD** — lands on the next `supabase db push`.
+**✅ APPLIED TO PROD** on merge — the `supabase-migrations` workflow applies pending migrations automatically on push to `main`, so the "not applied, lands on the next `db push`" line this fragment originally carried was wrong. **Object-verified in prod afterwards**, not read off the ledger: across all 11 tables `anon` holds **zero** privileges of any kind (SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER), while `authenticated` keeps SELECT+INSERT+UPDATE+DELETE on all 11 and `service_role` keeps SELECT on all 11 — the positive controls confirmed against the live database, not just against the migration's own post-conditions.
 
 SPEC IMPACT: None — grant narrowing only, no product-surface change.

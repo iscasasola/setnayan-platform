@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6241
+# facts: 6245
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     710
-#   col       4467
+#   col       4471
 #   policy    833
 #   view      10
 #   func      217
@@ -3356,6 +3356,8 @@ col	public.platform_settings.admin_digest_enabled	anon=- authenticated=S
 col	public.platform_settings.admin_digest_last_sent_at	anon=- authenticated=S
 col	public.platform_settings.bdo_account_name	anon=- authenticated=S
 col	public.platform_settings.bdo_account_number	anon=- authenticated=S
+col	public.platform_settings.bdo_available_as_of	anon=- authenticated=S
+col	public.platform_settings.bdo_available_php	anon=- authenticated=S
 col	public.platform_settings.bdo_enabled	anon=- authenticated=S
 col	public.platform_settings.bdo_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.bdo_qr_payload	anon=- authenticated=S
@@ -3383,6 +3385,8 @@ col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.free_tier_booking_cap_enabled	anon=- authenticated=S
 col	public.platform_settings.gcash_account_name	anon=- authenticated=S
+col	public.platform_settings.gcash_available_as_of	anon=- authenticated=S
+col	public.platform_settings.gcash_available_php	anon=- authenticated=S
 col	public.platform_settings.gcash_enabled	anon=- authenticated=S
 col	public.platform_settings.gcash_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.gcash_number	anon=- authenticated=S

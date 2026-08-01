@@ -237,6 +237,50 @@ export async function savePaymentInstruments(formData: FormData) {
   };
 
   const admin = createAdminClient();
+
+  // Available-balance overrides carry a timestamp, and WHEN we stamp it is
+  // load-bearing (migration 20271028200000).
+  //
+  // `_as_of` marks the instant the owner read the real figure out of the bank
+  // app; only Setnayan payments recorded AFTER it are deducted, because
+  // everything earlier is already inside the number they read. So we re-stamp
+  // ONLY when the submitted value actually differs from what is stored.
+  //
+  // Re-stamping on every save would be the dangerous direction: saving this
+  // form to edit an account NAME would silently reset the clock and discard
+  // every order since, overstating the remaining headroom until a transfer
+  // bounced.
+  //
+  // The miss is benign: an owner who re-checks and lands on the same figure
+  // keeps the older timestamp, so we keep deducting orders already reflected
+  // in it. That UNDER-states remaining and closes the rail early — the safe
+  // direction to be wrong in.
+  const { data: currentRow } = await admin
+    .from('platform_settings')
+    .select('gcash_available_php,bdo_available_php')
+    .eq('id', 1)
+    .maybeSingle();
+  const current = (currentRow ?? {}) as {
+    gcash_available_php?: number | string | null;
+    bdo_available_php?: number | string | null;
+  };
+  const nowIso = new Date().toISOString();
+
+  for (const kind of ['gcash', 'bdo'] as const) {
+    const submitted = nullIfBlankNumber(formData.get(`${kind}_available_php`));
+    const stored =
+      current[`${kind}_available_php`] == null
+        ? null
+        : Number(current[`${kind}_available_php`]);
+    const changed = submitted !== stored;
+    Object.assign(payload, {
+      [`${kind}_available_php`]: submitted,
+      // Cleared → drop the timestamp too, so a NULL balance can never leave a
+      // stale `_as_of` behind for the reset check to trip over.
+      ...(changed ? { [`${kind}_available_as_of`]: submitted == null ? null : nowIso } : {}),
+    });
+  }
+
   const { error } = await admin
     .from('platform_settings')
     .update(payload)

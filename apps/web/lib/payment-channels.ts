@@ -83,56 +83,152 @@ export function resolveChannel(
 
 export type CapBand = 'ok' | 'warn' | 'critical' | 'over';
 
-export type CapUsage = {
-  receivedPhp: number;
-  capPhp: number;
-  /** 0–100+, not clamped — being 130% over is worth seeing. */
+/** Same calendar month in the same year? Used for the monthly reset. */
+export function inSameCalendarMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/** First instant of `now`'s calendar month, as an ISO date (YYYY-MM-DD). */
+export function monthStartISO(now: Date): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}-01`;
+}
+
+export type HeadroomSource = 'owner_balance' | 'cap';
+
+export type ChannelHeadroom = {
+  /** Pesos this account can still receive before the bank starts refusing. */
+  remainingPhp: number;
+  /** What the remaining figure was measured against. */
+  startingPhp: number;
+  /** Setnayan inflow deducted from `startingPhp`. */
+  deductedPhp: number;
+  /**
+   * 'owner_balance' — the owner typed a real balance THIS month, so the number
+   *                   accounts for their personal transfers up to that moment.
+   * 'cap'           — no usable override; measured against the monthly ceiling
+   *                   and therefore OPTIMISTIC, since personal transfers are
+   *                   invisible to us.
+   */
+  source: HeadroomSource;
+  /** 0–100+, share of `startingPhp` consumed. Not clamped. */
   pct: number;
   band: CapBand;
 };
 
 /**
- * Where this account sits against its monthly cap.
+ * How much room is left on this rail.
  *
- * Bands are deliberately conservative: 'critical' starts at 90%, not 99%,
- * because a single ₱27,999 order can cross the remaining 10% of a ₱500,000
- * cap in one step. A meter that only turns red once you are already over is
- * a report, not a warning.
+ * Two modes, and the difference matters:
  *
- * Returns null when no cap is configured — "unknown" must not render as
- * "fine", and a 0% meter would say fine.
+ *   • OWNER BALANCE — the owner opened GCash, read the real remaining
+ *     headroom and typed it in. Everything received before that instant is
+ *     already baked into the number, so we deduct only Setnayan payments
+ *     recorded AFTER `availableAsOf`. Deducting from the month start instead
+ *     would double-count every order the owner's own reading already included.
+ *
+ *   • CAP — no override for this month. We measure Setnayan inflow since the
+ *     month began against the ceiling. This is the optimistic mode: the bank
+ *     counts personal transfers too and we cannot see them, so the true
+ *     remaining figure is always LOWER than this says.
+ *
+ * The monthly reset is derived, never scheduled: an override from last month
+ * simply fails `inSameCalendarMonth` and the cap takes over. No cron to fail
+ * silently at midnight on the 1st.
+ *
+ * Returns null when there is nothing to measure against — "unknown" must not
+ * render as "fine", and a 0%-used meter would say exactly that.
  */
-export function capUsage(
-  receivedPhp: number,
-  capPhp: number | null | undefined,
-): CapUsage | null {
-  if (capPhp == null || !Number.isFinite(capPhp) || capPhp <= 0) return null;
-  const received = Number.isFinite(receivedPhp) && receivedPhp > 0 ? receivedPhp : 0;
-  const pct = (received / capPhp) * 100;
+export function channelHeadroom(args: {
+  capPhp: number | null | undefined;
+  availablePhp: number | null | undefined;
+  availableAsOf: string | Date | null | undefined;
+  /** Setnayan inflow since `availableAsOf`. */
+  inflowSinceAsOfPhp: number;
+  /** Setnayan inflow since the start of `now`'s calendar month. */
+  inflowThisMonthPhp: number;
+  now: Date;
+}): ChannelHeadroom | null {
+  const asOf =
+    args.availableAsOf == null
+      ? null
+      : args.availableAsOf instanceof Date
+        ? args.availableAsOf
+        : new Date(args.availableAsOf);
+  const asOfUsable =
+    asOf != null &&
+    !Number.isNaN(asOf.getTime()) &&
+    inSameCalendarMonth(asOf, args.now) &&
+    args.availablePhp != null &&
+    Number.isFinite(args.availablePhp) &&
+    args.availablePhp >= 0;
+
+  const nonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
+
+  let startingPhp: number;
+  let deductedPhp: number;
+  let source: HeadroomSource;
+
+  if (asOfUsable) {
+    startingPhp = Number(args.availablePhp);
+    deductedPhp = nonNegative(args.inflowSinceAsOfPhp);
+    source = 'owner_balance';
+  } else {
+    if (args.capPhp == null || !Number.isFinite(args.capPhp) || args.capPhp <= 0) {
+      return null;
+    }
+    startingPhp = Number(args.capPhp);
+    deductedPhp = nonNegative(args.inflowThisMonthPhp);
+    source = 'cap';
+  }
+
+  // A zero starting balance is legitimate — the owner may have typed 0 because
+  // the wallet is full. Guard the division rather than the state.
+  const pct = startingPhp > 0 ? (deductedPhp / startingPhp) * 100 : 100;
   const band: CapBand =
     pct >= 100 ? 'over' : pct >= 90 ? 'critical' : pct >= 75 ? 'warn' : 'ok';
-  return { receivedPhp: received, capPhp, pct, band };
+
+  return {
+    remainingPhp: startingPhp - deductedPhp,
+    startingPhp,
+    deductedPhp,
+    source,
+    pct,
+    band,
+  };
 }
 
 /**
  * What the admin meter says.
  *
- * ⚠ The wording is careful on purpose. We can only count money that came
- * through a Setnayan order, but the CAP applies to everything the account
- * receives — including the owner's personal transfers. So our figure is a
- * FLOOR, never the true total, and the copy must never imply otherwise or it
- * will be trusted right up until a payment bounces.
+ * ⚠ The wording turns on `source`, and that is the whole point. Measured
+ * against the CAP the figure is a FLOOR — the bank counts the owner's personal
+ * transfers and we cannot see them — so the copy must say so or the number
+ * will be trusted right up until a transfer bounces. Measured against a
+ * balance the owner typed THIS month, it is trustworthy up to that reading,
+ * and the copy says that instead.
  */
-export function capMessage(usage: CapUsage, channelLabel: string): string {
-  const pct = Math.round(usage.pct);
-  switch (usage.band) {
+export function headroomMessage(h: ChannelHeadroom, channelLabel: string): string {
+  const peso = (n: number) =>
+    `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (h.source === 'cap') {
+    const tail =
+      'Measured against the monthly cap and Setnayan orders only — your personal transfers count toward the same limit, so the real remaining figure is LOWER. Update the available balance for an accurate number.';
+    if (h.band === 'over' || h.band === 'critical') {
+      return `${channelLabel}: about ${peso(h.remainingPhp)} left. ${tail}`;
+    }
+    return `${channelLabel}: about ${peso(h.remainingPhp)} left. ${tail}`;
+  }
+
+  const asOfNote = `counting ${peso(h.deductedPhp)} of Setnayan orders since you last checked`;
+  switch (h.band) {
     case 'over':
-      return `${channelLabel} is at ${pct}% of its monthly cap from Setnayan orders alone. Incoming transfers may already be failing — switch this rail off.`;
+      return `${channelLabel} has no room left — ${asOfNote}. Transfers are likely being refused. Switch this rail off.`;
     case 'critical':
-      return `${channelLabel} is at ${pct}% of its monthly cap from Setnayan orders alone, and personal transfers count too. One more order could cross it.`;
-    case 'warn':
-      return `${channelLabel} is at ${pct}% of its monthly cap from Setnayan orders alone. Personal transfers count toward the same limit.`;
-    case 'ok':
-      return `${channelLabel} is at ${pct}% of its monthly cap from Setnayan orders. Personal transfers count toward the same limit, so the real figure is higher.`;
+      return `${channelLabel}: ${peso(h.remainingPhp)} left, ${asOfNote}. One more order could exhaust it.`;
+    default:
+      return `${channelLabel}: ${peso(h.remainingPhp)} left, ${asOfNote}. Re-check the app and update this to stay accurate.`;
   }
 }

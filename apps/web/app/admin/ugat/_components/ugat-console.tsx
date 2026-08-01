@@ -1537,6 +1537,7 @@ function TablesView({
     thread: 'TYPE-THREADS',
     billing: 'TYPE-BILLING',
     taxonomy: 'TYPE-TAXONOMY',
+    person: 'TYPE-PERSON',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

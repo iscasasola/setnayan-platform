@@ -39,7 +39,8 @@ export type UgatEntityType =
   | 'billing'
   | 'taxonomy'
   | 'community'
-  | 'papic';
+  | 'papic'
+  | 'person';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -347,6 +348,56 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'missions for', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * PERSON — the person spine: who someone IS, independent of any one event.
+     *
+     * THREE backlog rows collapse here: `people` (the node), `person_*`
+     * (connections + stewardships + story items) and `dependents`. Splitting
+     * them would put three nodes on the map for one concept and start the slide
+     * from a concept map toward an ERD.
+     *
+     * ⚠ `households` was assumed to belong here and DOES NOT. Its only foreign
+     * key is `event_id → events`: it is an event-scoped guest grouping, not a
+     * person-spine concept. It stays on the map-backlog re-filed against
+     * GUESTS. The assumption was caught only by reading the live FKs, which is
+     * the whole argument for claim-checking a map instead of describing one.
+     *
+     * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
+     * zero rows today and the family-tree work is waiting on legal review. It
+     * is on the map because the map documents CONCEPTS, and a concept that
+     * exists in the schema and in the build plan is real whether or not a row
+     * has landed. The count will read 0 until it doesn't — which is the honest
+     * rendering, and the same reason an unprobed edge stays unlit rather than
+     * green.
+     *
+     * ⚠ NOT THE SAME AS A GUEST. A guest is event-scoped and may never have an
+     * account; a person is the durable identity a guest can be resolved TO. The
+     * bond between them is a claim (joint J2), and a claim is `pending_review`
+     * until a host confirms it — the guest is provisional until then. Reading
+     * `people` as "guests with accounts" inverts that.
+     */
+    id: 'TYPE-PERSON',
+    type: 'person',
+    name: 'Person',
+    blurb: 'the durable identity — connections · households · dependents',
+    countKey: 'person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
+    table: 'people',
+    x: 60,
+    y: 260,
+    fields: [
+      { key: 'pk', name: 'person_id', note: 'the durable identity, not event-scoped' },
+      { key: '', name: 'claimed_by_user_id', note: 'null until an account claims this person' },
+      { key: '', name: 'in_memoriam', note: 'memorial flag — a person outlives their account' },
+    ],
+    edges: [
+      { verb: 'is', to: 'TYPE-USERS' },
+      { verb: 'resolves', to: 'TYPE-GUESTS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -378,6 +429,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'camera',
     color: 'var(--ug-e-papic)',
     colorBg: 'var(--ug-e-papic-bg)',
+  },
+  person: {
+    label: 'Person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
   },
 };
 
@@ -1261,6 +1318,91 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'current_vendor_ids() for the vendor side; event scope for the mission side',
     traps:
       '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. The two vendor bonds are at different grains (booking vs org), so they are NOT interchangeable and a join written against the wrong one silently returns nothing.',
+  },
+  {
+    /**
+     * The person graph's own edge: a relation between two PEOPLE, not between
+     * two guests and not between two accounts. It survives the event that
+     * created it — `created_by_event_id` records provenance, it does not scope
+     * the bond. That is the difference between a family tree and a guest list.
+     */
+    id: 'J21',
+    claims: [
+      { kind: 'table', table: 'person_connections' },
+      { kind: 'fk', table: 'person_connections', column: 'from_person_id', references: 'people' },
+      { kind: 'fk', table: 'person_connections', column: 'to_person_id', references: 'people' },
+      { kind: 'column', table: 'person_connections', column: 'relation' },
+    ],
+    chain: 1,
+    pair: ['TYPE-PERSON', 'TYPE-PERSON'],
+    title: 'Person ↔ Person',
+    joint: 'person_connections',
+    cardinality: 'Many-to-many, directed — `relation` names the direction (parent-of, not sibling-of)',
+    implementedBy: 'person_connections — from_person_id → to_person_id with a named relation',
+    writtenBy: 'generate_event_connections · the people surface',
+    guardedBy: 'person-connection forgery test (tests/db/person-connections-forgery.db.test.ts)',
+    traps:
+      'created_by_event_id is PROVENANCE, not scope. Filtering the graph by it turns a durable family tree back into a per-event guest list.',
+  },
+  {
+    /**
+     * Stewardship: an ACCOUNT looks after a BRANCH of the person graph. The
+     * steward is a user; the thing stewarded is a person. Both ends differ from
+     * ownership, and neither end is a guest.
+     */
+    id: 'J22',
+    claims: [
+      { kind: 'table', table: 'person_stewardships' },
+      { kind: 'fk', table: 'person_stewardships', column: 'steward_user_id', references: 'users' },
+      { kind: 'fk', table: 'person_stewardships', column: 'branch_person_id', references: 'people' },
+      { kind: 'column', table: 'person_stewardships', column: 'kind' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User ↔ Person (stewardship)',
+    joint: 'person_stewardships',
+    cardinality: 'Many-to-many — a user may steward several branches; a branch may have several stewards',
+    implementedBy: 'person_stewardships — steward_user_id looks after branch_person_id',
+    writtenBy: 'the people surface',
+    guardedBy: 'RLS on person_stewardships',
+    traps:
+      'Stewarding a branch is NOT owning the people in it. A steward may curate; the claim bond (people.claimed_by_user_id) is what makes a person someone.',
+  },
+  {
+    /**
+     * Guardian-held dependents — an account holds a record for someone who has
+     * no account of their own (a child, an elder).
+     *
+     * ⚠ THE TRAP IS THE CASCADE, NOT A MISSING KEY.
+     * `owner_user_id` DOES have a foreign key — to `auth.users(id)`, with
+     * **ON DELETE CASCADE**. Deleting the guardian's account therefore DELETES
+     * every dependent record they hold. For a guardian-held record about a
+     * child or an elder that is a destructive default, and it is invisible from
+     * the `public` schema: a constraint scan filtered to `table_schema='public'`
+     * returns nothing for this table and reads as "no integrity at all".
+     *
+     * That is exactly the mistake this joint's first draft made — it asserted
+     * `no_fk` and the claim guard rejected it against the replayed schema. The
+     * annotation now records the real shape, and the `column` claims below fail
+     * if either column is renamed away.
+     */
+    id: 'J23',
+    claims: [
+      { kind: 'table', table: 'dependents' },
+      { kind: 'column', table: 'dependents', column: 'dependent_id' },
+      { kind: 'column', table: 'dependents', column: 'relationship' },
+      { kind: 'column', table: 'dependents', column: 'owner_user_id' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User → Dependent (guardian-held)',
+    joint: 'dependents',
+    cardinality: 'One-to-many — a guardian holds several dependents; a dependent has one owner',
+    implementedBy: 'dependents — owner_user_id holds the record, relationship names the tie',
+    writtenBy: 'the dependents surface',
+    guardedBy: 'RLS, plus an FK to auth.users — see the trap for what that FK does on delete',
+    traps:
+      'owner_user_id → auth.users ON DELETE CASCADE: deleting the guardian DELETES the dependent records. A constraint scan scoped to schema `public` shows none of this and reads as "no integrity at all".',
   },
 ];
 

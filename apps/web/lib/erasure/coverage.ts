@@ -447,6 +447,120 @@ export function collectStoredAssetRefs(raw: unknown, maxDepth = 8): string[] {
  *
  * Everything NOT here is either in DELIBERATE_EXCLUSIONS or KNOWN_GAPS below.
  */
+/**
+ * SEATS LEFT PERMANENTLY TAKEN BY A GHOST — and why freeing them REQUIRES
+ * rotating the token in the same statement.
+ *
+ * ── THE DEFECT ─────────────────────────────────────────────────────────────
+ * Erasure names neither of these tables (verified — they had zero references
+ * in this file), so `claimer_user_id` survives as a dangling uuid pointing at
+ * a deleted account. Both claim paths refuse a row that already has a claimer:
+ *
+ *     if (seat.claimer_user_id) return 'taken';     // app/papic/actions.ts
+ *     if (cam.claimer_user_id)  return 'taken';     // app/panood/actions.ts
+ *
+ * So the couple paid for a Papic seat that NOBODY can ever claim again. It is
+ * held by someone who no longer exists, and RA 10173 obliges us to clear that
+ * reference regardless.
+ *
+ * ── ⚠ WHY THE OBVIOUS FIX IS THE ACTUAL SECURITY DEFECT ────────────────────
+ * Nulling `claimer_user_id` alone — the one-line fix, and what every other
+ * construct in this file would do — flips the row back to `claimable`. The
+ * erased person's QR is still printed and still in their hands, and it points
+ * at this exact token. Freeing the seat WITHOUT rotating hands it back to them.
+ *
+ * The rotation is therefore not the fix. It is the PRECONDITION that makes the
+ * fix safe, and the two must land in one statement or the row is briefly a live
+ * door. That is why this is neither a null-map nor a row-delete.
+ *
+ * ⚠ THE TOKEN IS REPLACED, NOT NULLED. Nulling leaves a seat that can never be
+ * re-issued, and `claim_qr_token` is NOT NULL on both tables, so it would throw.
+ * `reissuePanoodCameraToken()` (lib/panood-camera-seats.ts) already did exactly
+ * this pairing for one table; this puts it on the erasure path, where it was
+ * missing.
+ *
+ * ── WHY ONLY TWO TABLES ────────────────────────────────────────────────────
+ * `vendor_invites` and `vendor_locked_qr_tokens` carry claim tokens too and were
+ * in the first draft. They are excluded for DIFFERENT reasons, and an earlier
+ * version of this comment gave a wrong one for both — see the PR.
+ *
+ * `vendor_locked_qr_tokens` — SETTLED. Single-use is enforced by the conditional
+ * `UPDATE … WHERE token = p_token AND status = 'pending'` inside
+ * `vendor_claim_locked_qr` (20270427212060), so a claimed token cannot re-grant
+ * the entitlement to any bearer no matter who holds it. Rotation buys nothing.
+ * (`page.tsx:94`'s status check is real but is only ONE of four token-keyed
+ * readers — it was never what made the token safe.)
+ *
+ * `vendor_invites` — UNRESOLVED, deliberately out of scope here. A claimed
+ * invite token is NOT dead: `resolveClaimContextForService`
+ * (lib/vendor-invite-actions.ts) takes a claimed token as its INTENDED input and
+ * returns the couple's `coupleDisplayName` through the RLS-bypassing admin
+ * client. So a residual credential does survive erasure. It is left alone
+ * because rotating it changes the guided first-service flow, which is a product
+ * decision and not this change's to make — and because clearing
+ * `claimed_by_user_id`, which the first draft did, would not have closed it
+ * anyway while breaking the vendor's "Already locked in" branch and orphaning
+ * `claimed_event_id`.
+ *
+ * ⚠ THE DATABASE CAN PERFORM THE UNCLAIM WITHOUT US. `paparazzi_seats
+ * .claimer_user_id` is `REFERENCES auth.users(id) ON DELETE SET NULL` and
+ * `claim_qr_token` is not in that clause, so ANY hard-delete of the auth row
+ * unclaims the seat and leaves the printed QR live. `runAnonDraftSweep()`
+ * (lib/anon-draft-sweep.ts) does exactly that to login-free claimers after 30
+ * days; it now rotates through this same constant BEFORE deleting. Any future
+ * caller of `auth.admin.deleteUser` must do the same.
+ *
+ * Found 2026-08-01.
+ */
+export const CLAIM_TOKEN_ROTATIONS: ReadonlyArray<{
+  table: string;
+  /** The column holding the printed credential. Replaced, never nulled. */
+  tokenColumn: string;
+  /** How the erased subject is linked to the row. */
+  subjectColumn: string;
+  /**
+   * Primary key, used to rotate ONE ROW AT A TIME. Both token columns are
+   * UNIQUE, so a single table-wide update would write one value to every row
+   * the person claimed and trip the index the moment they held two seats.
+   */
+  idColumn: string;
+  /** Columns returning the row to an unclaimed state alongside the rotation. */
+  clear: Readonly<Record<string, null>>;
+  reason: string;
+}> = [
+  {
+    table: 'paparazzi_seats',
+    tokenColumn: 'claim_qr_token',
+    idColumn: 'id',
+    subjectColumn: 'claimer_user_id',
+    clear: { claimer_user_id: null, claimed_at: null },
+    reason:
+      'A Papic crew seat \u2014 the couple\u2019s paid entitlement, so the row must survive. seatClaimability() returns \u201ctaken\u201d while claimer_user_id is set, so erasure left the seat unclaimable forever; freeing it without rotating would hand it back to the erased person\u2019s printed QR.',
+  },
+  {
+    table: 'panood_camera_operators',
+    tokenColumn: 'claim_qr_token',
+    idColumn: 'id',
+    subjectColumn: 'claimer_user_id',
+    clear: { claimer_user_id: null, claimed_at: null },
+    reason:
+      'A Live Studio camera slot. Identical shape and identical cameraClaimability() gate, and reissuePanoodCameraToken() already paired the unclaim with a rotation \u2014 erasure simply never called it.',
+  },
+] as const;
+
+/**
+ * A fresh URL-safe claim token — 24 random bytes, base64url, unpadded. Matches
+ * the format `generateCameraClaimToken()` produces, so a rotated value is
+ * indistinguishable from a freshly issued one to every reader.
+ */
+export function freshClaimToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 export const OWN_ROW_DELETES: ReadonlyArray<{
   table: string;
   column: string;
@@ -561,6 +675,17 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
   guest_claims: ['claimer_name', 'claimer_email', 'otp_sent_to'],
   help_messages: ['sender_email', 'sender_name', 'subject', 'body'],
   guests: ['photo_url', 'photo_source', 'photo_updated_at'],
+  // DERIVED from CLAIM_TOKEN_ROTATIONS, never re-typed. Hand-copying the column
+  // names here would make the guardrail compare two hand-typed lists, which
+  // drift together and stay green — the exact failure G1 exists to catch. This
+  // way a typo in the rotation is a phantom-column failure, not a silent
+  // PGRST204 that the best-effort purge logs and walks past.
+  ...Object.fromEntries(
+    CLAIM_TOKEN_ROTATIONS.map((r) => [
+      r.table,
+      [r.tokenColumn, ...Object.keys(r.clear)],
+    ]),
+  ),
 };
 
 /** Tables erasure deletes rows from, with the column it filters on. */
@@ -595,6 +720,12 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
  * already covered by the row-delete map.
  */
 export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  // DERIVED — the rotation filters on the subject to FIND rows and on the
+  // primary key to rotate each one. Both must be real columns or the select
+  // returns nothing and the whole step silently no-ops.
+  ...Object.fromEntries(
+    CLAIM_TOKEN_ROTATIONS.map((r) => [r.table, [r.subjectColumn, r.idColumn]]),
+  ),
   // Per-partner paperwork scoping (owner ruling 2026-07-26) — fail closed.
   event_paperwork: ['event_id', 'subject_user_id'],
   // The fail-closed residue probe reads oauth_grants by event + attribution.

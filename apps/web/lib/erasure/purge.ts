@@ -47,8 +47,10 @@ import {
   EVENTS_OWNER_PII_NULLS,
   EVENT_PAPERWORK_PII_NULLS,
   EVENT_MODERATOR_SELF_NULLS,
+  CLAIM_TOKEN_ROTATIONS,
   OWN_ROW_DELETES,
   OWN_ROW_DELETES_BY_EMAIL,
+  freshClaimToken,
   PEOPLE_ANONYMIZE_NULLS,
   SCAN_EVENT_SCANNER_NULLS,
   USERS_ANONYMIZE_NULLS,
@@ -593,6 +595,48 @@ export async function purgeUserOwnedRecords(
   await step('godparents-delete', () =>
     admin.from('godparents').delete().eq('owner_user_id', targetUserId),
   );
+
+  // Seats the erased person claimed. THE ROW SURVIVES AND RETURNS TO UNCLAIMED —
+  // a seat belongs to the event that paid for it, not to whoever claimed it.
+  //
+  // Until 2026-08-01 erasure did not name these tables, so claimer_user_id kept
+  // pointing at a deleted account and both claimability gates read "taken": the
+  // couple's paid seat was held forever by a ghost.
+  //
+  // ⚠ THE UNCLAIM AND THE ROTATION MUST STAY IN ONE STATEMENT. Clearing the
+  // claimer alone flips the row back to `claimable`, and the erased person's QR
+  // is still printed and still points at that token — freeing the seat without
+  // rotating hands it straight back to them. The token is REPLACED rather than
+  // nulled so the seat stays re-issuable (and because claim_qr_token is NOT
+  // NULL). See CLAIM_TOKEN_ROTATIONS for why only two tables qualify.
+  //
+  // ⚠ ONE STATEMENT PER ROW, NOT ONE PER TABLE. Both token columns are UNIQUE
+  // (`claim_qr_token TEXT NOT NULL UNIQUE`, and
+  // panood_camera_operators_claim_qr_token_key). A single
+  // `.update({ token: freshClaimToken() }).eq(subject, id)` would write the SAME
+  // value to every row the person claimed, so anyone holding two seats — two
+  // events, or two seats at one event — trips the unique index, the whole
+  // statement fails, and the best-effort step() logs it and moves on leaving
+  // NOTHING freed. That is the same swallow-the-failure shape as the
+  // events.owner_email PGRST204 bug. Each row therefore gets its own token.
+  for (const rot of CLAIM_TOKEN_ROTATIONS) {
+    await step(`claim-token-rotate:${rot.table}`, async () => {
+      const { data, error } = await admin
+        .from(rot.table)
+        .select(rot.idColumn)
+        .eq(rot.subjectColumn, targetUserId);
+      if (error) return { error };
+      const rows = (data ?? []) as unknown as Array<Record<string, string | number>>;
+      for (const row of rows) {
+        const { error: upErr } = await admin
+          .from(rot.table)
+          .update({ [rot.tokenColumn]: freshClaimToken(), ...rot.clear })
+          .eq(rot.idColumn, row[rot.idColumn]);
+        if (upErr) return { error: upErr };
+      }
+      return { error: null };
+    });
+  }
 
   // guest_claims — the user's own name/email presented when claiming a guest
   // seat. claimer_name is NOT NULL → tombstone; the rest → null.

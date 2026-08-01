@@ -315,13 +315,13 @@ const UNDECIDED_BACKLOG: readonly string[] = [
   'event_preparation_items', 'event_schedule_suggestions', 'event_vendor_working_notes',
   'event_walkthrough_zones', 'feature_policy', 'feature_reviews', 'force_majeure_flags',
   'founder_seats', 'founder_time_log', 'guest_checkins', 'guest_souvenir_claims',
-  'homepage_background_videos', 'homepage_hero_config', 'kwento_assignments', 'lead_token_holds',
-  'manpower_gigs', 'moodboard_library_assets', 'owner_alerts', 'panood_camera_operators',
-  'paparazzi_seats', 'person_connections', 'person_stewardships', 'photo_delivery_jobs',
+  'homepage_background_videos', 'homepage_hero_config', 'kwento_assignments',
+  'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets', 'owner_alerts',
+  'person_connections', 'person_stewardships', 'photo_delivery_jobs',
   'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
   'proposal_amendments', 'referral_codes', 'referral_redemptions', 'reveal_studio_config',
-  'setnayan_pay_methods', 'site_widgets', 'social_posts', 'stewardship_transfers', 'thread_calls',
-  'vendor_admin_motion_votes', 'vendor_admin_motions', 'vendor_change_orders',
+  'setnayan_pay_methods', 'site_widgets', 'social_posts', 'stewardship_transfers',
+  'thread_calls', 'vendor_admin_motion_votes', 'vendor_admin_motions', 'vendor_change_orders',
   'vendor_client_notes', 'vendor_correction_requests', 'vendor_creator_offers',
   'vendor_date_waitlist', 'vendor_disputes', 'vendor_event_access_grants',
   'vendor_feature_recommendations', 'vendor_ig_connections', 'vendor_invites',
@@ -332,7 +332,7 @@ const UNDECIDED_BACKLOG: readonly string[] = [
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 82;
+const BACKLOG_HIGH_WATER = 80;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

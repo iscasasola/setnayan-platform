@@ -41,7 +41,6 @@ _resolve_vendor_admin_motion | unreviewed — filtered out as lower-risk by the 
 acquire_schedule_pools | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 acquire_seating_editor_lock | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 acquire_service_time_slot | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-admin_override_publish_review | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 agent_assigned_service_ids | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 agent_customer_event_ids | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 approve_vendor_subscription | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -56,7 +55,6 @@ check_crew_device_seat_allocation | unreviewed — filtered out as lower-risk by
 claim_anon_mint_slot | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 count_saves_for_vendor | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 count_unread_message_threads | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-count_vendor_disputes_30d | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 create_vendor_subscription | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 create_vendor_token_purchase | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 current_community_ids | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -80,7 +78,6 @@ enforce_booking_requires_verified_vendor | unreviewed — filtered out as lower-
 enforce_couple_publish | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 enforce_free_tier_booking_cap | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 enforce_photo_tag_cap | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-ensure_papic_auto_missions | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 ensure_person_for_user | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 event_comp_active_skus | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 event_has_comp_for_sku | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -114,7 +111,6 @@ link_guest_to_account_person | unreviewed — filtered out as lower-risk by the 
 live_studio_guest_rtc_can_access | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 log_delegate_write | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 moderator_area_level | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-next_screen_name_id | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 offer_creator_reach_hold | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 pabati_event_owns_pabati | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 pabati_record_clip | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -135,10 +131,8 @@ papic_missions_same_event_guard | unreviewed — filtered out as lower-risk by t
 papic_provision_seats | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_record_guest_capture | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_release_camera_points | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-papic_release_event_points | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_reserve_camera_capture | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_reserve_camera_points | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-papic_reserve_event_points | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_review_vendor_challenge | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_seed_free_grant | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 papic_set_completion_consent | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -151,7 +145,6 @@ public_seat_lookup | reviewed 2026-08-01 — the guest seat finder. Gated on the
 public_venue_scene | reviewed 2026-08-01 — the guest venue scene. Same publish gate as public_seat_lookup; renders the room, not the roster. Deliberately anon.
 recompute_market_funnel_bands | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 recompute_market_price_bands | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-record_std_view | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 referral_redemption_guard | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 refresh_demand_radar_rollups | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 refresh_identity_clusters | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -176,7 +169,6 @@ reveal_vendor_name_on_first_reply | unreviewed — filtered out as lower-risk by
 review_is_booked_through_setnayan | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 review_via_vendor_import | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 rival_signals_for_vendor | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-save_vendor_service | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 seed_event_editorial | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 set_guest_person | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 set_vendor_calendar_day_state | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
@@ -194,7 +186,6 @@ unlock_vendor_event_hold | unreviewed — filtered out as lower-risk by the 2026
 unread_message_threads_by_event | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 unread_message_threads_by_vendor | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 user_holds_founder_seat | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
-vendor_block_booked_date | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 vendor_booking_daily_series | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 vendor_booking_monthly_series | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.
 vendor_cancel_admin_motion | unreviewed — filtered out as lower-risk by the 2026-08-01 heuristic (does not obviously touch sensitive tables). Body NOT read by a human. This is a debt marker, not a clearance.

@@ -92,6 +92,7 @@ import {
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
 import { mintOrderQr } from '@/lib/emv-qr';
+import { openChannels } from '@/lib/payment-channels';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -132,6 +133,13 @@ export type InlineCheckoutDrawerProps = {
      */
     bdo_qr_payload?: string | null;
     gcash_qr_payload?: string | null;
+    /**
+     * Manual-rail kill switches (migration 20271028100000). Optional so
+     * callers that have not been updated still typecheck; undefined reads as
+     * OPEN, matching the server's `?? true`.
+     */
+    gcash_enabled?: boolean | null;
+    bdo_enabled?: boolean | null;
   };
   /** Optional custom collapsed CTA label · defaults to "Add this service". */
   triggerLabel?: string;
@@ -236,7 +244,25 @@ export function InlineCheckoutDrawer({
   const [showVoucherField, setShowVoucherField] = useState(false);
 
   // Channel toggle · default GCash because it's the dominant pilot rail.
-  const [channel, setChannel] = useState<'gcash' | 'bdo'>('gcash');
+  // Rails the owner has left open. A rail is closed when its receiving
+  // account is at its monthly cap — GCash FAILS transfers past the limit
+  // rather than queuing them — so offering it would send the couple to pay
+  // into an account that cannot receive. Recomputed from settings, never
+  // hardcoded to 'gcash'.
+  const openRails = useMemo(() => openChannels(settings), [settings]);
+  const [channel, setChannel] = useState<'gcash' | 'bdo'>(
+    () => openRails[0] ?? 'gcash',
+  );
+
+  // If the owner closes the rail this drawer is sitting on (or settings load
+  // late), move to one that is open. Without this the couple keeps looking at
+  // a QR for an account that will bounce their transfer, and the server
+  // refuses at submit — after they have already paid.
+  useEffect(() => {
+    if (openRails.length > 0 && !openRails.includes(channel)) {
+      setChannel(openRails[0]!);
+    }
+  }, [openRails, channel]);
 
   // Submit state.
   const [submitResult, setSubmitResult] = useState<SubmitOrderResult | null>(null);
@@ -417,7 +443,7 @@ export function InlineCheckoutDrawer({
                   setVoucherInput('');
                   setVoucherResult(null);
                   setShowVoucherField(false);
-                  setChannel('gcash');
+                  setChannel(openRails[0] ?? 'gcash');
                   setScreenshotRef(null);
                   setRevealSuccess(false);
                 }}
@@ -471,15 +497,34 @@ export function InlineCheckoutDrawer({
                 />
 
                 {/* (2) Channel toggle. */}
-                <ChannelToggle channel={channel} onChange={setChannel} />
+                <ChannelToggle channel={channel} onChange={setChannel} open={openRails} />
 
-                {/* (3) QR + account block based on channel. */}
-                <PaymentDetailsBlock
-                  channel={channel}
-                  settings={settings}
-                  referenceCode={referenceCode}
-                  amountPhp={finalGrossPhp}
-                />
+                {/* (3) QR + account block based on channel.
+                    Suppressed entirely when every rail is closed — otherwise
+                    this renders the QR and account number of an account that
+                    is at its cap and will bounce the transfer. The server
+                    refuses such an order anyway; showing the details would
+                    just get someone to pay first. */}
+                {openRails.length > 0 ? (
+                  <PaymentDetailsBlock
+                    channel={channel}
+                    settings={settings}
+                    referenceCode={referenceCode}
+                    amountPhp={finalGrossPhp}
+                  />
+                ) : (
+                  <div
+                    role="status"
+                    className="rounded-2xl border border-warn-300/60 bg-warn-50 p-4 text-sm text-warn-900"
+                  >
+                    <p className="font-semibold">Payments are paused right now</p>
+                    <p className="mt-1 text-[13px] leading-relaxed">
+                      We&rsquo;re switching receiving accounts, so we can&rsquo;t take
+                      this payment at the moment. Nothing has been charged — please
+                      try again shortly.
+                    </p>
+                  </div>
+                )}
 
                 {/* (4) Submit form. */}
                 <form
@@ -614,7 +659,11 @@ export function InlineCheckoutDrawer({
 
                   <button
                     type="submit"
-                    disabled={submitPending || !screenshotRef}
+                    // `openRails.length === 0` blocks submit too: with every
+                    // rail closed there is no account to have paid into, so
+                    // the server would refuse this anyway. Better to stop it
+                    // here than to take a screenshot and then reject it.
+                    disabled={submitPending || !screenshotRef || openRails.length === 0}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
                   >
                     {submitPending ? (
@@ -780,16 +829,24 @@ function VoucherBlock({
 function ChannelToggle({
   channel,
   onChange,
+  open,
 }: {
   channel: 'gcash' | 'bdo';
   onChange: (c: 'gcash' | 'bdo') => void;
+  /** Rails the owner has left open — a closed one is not rendered at all. */
+  open: readonly ('gcash' | 'bdo')[];
 }) {
+  // A rail is closed when its receiving account is at its monthly cap, where
+  // transfers FAIL rather than queue. Showing it greyed-out would invite
+  // "why can't I use GCash?"; omitting it just presents what works. The
+  // server re-checks on submit either way.
   return (
     <div className="space-y-2.5">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
         Pay manually · available now
       </p>
       <div role="radiogroup" aria-label="Payment method" className="space-y-2.5">
+        {open.includes('gcash') ? (
         <MethodCard
           selected={channel === 'gcash'}
           onSelect={() => onChange('gcash')}
@@ -798,6 +855,8 @@ function ChannelToggle({
           title="GCash"
           desc="Scan our GCash QR, or send to our number"
         />
+        ) : null}
+        {open.includes('bdo') ? (
         <MethodCard
           selected={channel === 'bdo'}
           onSelect={() => onChange('bdo')}
@@ -806,6 +865,7 @@ function ChannelToggle({
           title="Bank Transfer — BDO"
           desc="Scan our BDO QR, or transfer to the account"
         />
+        ) : null}
       </div>
     </div>
   );

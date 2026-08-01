@@ -580,7 +580,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               href={`/dashboard/${eventId}/studio/papic/crew`}
               className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:text-terracotta-700"
             >
-              Crew &amp; claim links
+              {/* ⚠ SAY "QR". This read "Crew & claim links", and the QR codes +
+                  the printable cards live behind it — so the word never appeared
+                  anywhere on the path to them, and the owner could not find the
+                  QRs at all. The page they open is titled "Your photo crew" and
+                  renders a QR per camera; the label just never said so. */}
+              Camera QR codes &amp; claim links
               <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </Link>
           </div>

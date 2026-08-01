@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6232
+# facts: 6231
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     708
-#   col       4462
+#   tpriv     706
+#   col       4465
 #   policy    831
 #   view      10
-#   func      217
+#   func      215
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -160,12 +160,8 @@ tpriv	public.event_egift_methods|anon	SIUD
 tpriv	public.event_egift_methods|authenticated	SIUD
 tpriv	public.event_feature_policy_override|anon	SIUD
 tpriv	public.event_feature_policy_override|authenticated	SIUD
-tpriv	public.event_floor_areas|anon	SIUD
-tpriv	public.event_floor_areas|authenticated	SIUD
 tpriv	public.event_floor_booths|anon	SIUD
 tpriv	public.event_floor_booths|authenticated	SIUD
-tpriv	public.event_floor_objects|anon	SIUD
-tpriv	public.event_floor_objects|authenticated	SIUD
 tpriv	public.event_floor_plan|anon	SIUD
 tpriv	public.event_floor_plan|authenticated	SIUD
 tpriv	public.event_floor_signs|anon	SIUD
@@ -476,6 +472,8 @@ tpriv	public.service_catalog|anon	SIUD
 tpriv	public.service_catalog|authenticated	SIUD
 tpriv	public.service_categories|anon	SIUD
 tpriv	public.service_categories|authenticated	SIUD
+tpriv	public.service_slot_day_state|authenticated	S
+tpriv	public.service_slot_reservations|authenticated	S
 tpriv	public.setnayan_ai_guard_log|anon	SIUD
 tpriv	public.setnayan_ai_guard_log|authenticated	SIUD
 tpriv	public.setnayan_pay_methods|anon	SIUD
@@ -1487,16 +1485,6 @@ col	public.event_feature_policy_override.feature_key	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.reason	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_at	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_by_admin_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.area_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.area_type	anon=SIU authenticated=SIU
-col	public.event_floor_areas.created_at	anon=SIU authenticated=SIU
-col	public.event_floor_areas.event_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.label	anon=SIU authenticated=SIU
-col	public.event_floor_areas.schedule_block_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.sort_order	anon=SIU authenticated=SIU
-col	public.event_floor_areas.updated_at	anon=SIU authenticated=SIU
-col	public.event_floor_areas.venue_length_m	anon=SIU authenticated=SIU
-col	public.event_floor_areas.venue_width_m	anon=SIU authenticated=SIU
 col	public.event_floor_booths.booth_id	anon=SIU authenticated=SIU
 col	public.event_floor_booths.booth_type	anon=SIU authenticated=SIU
 col	public.event_floor_booths.created_at	anon=SIU authenticated=SIU
@@ -1510,16 +1498,6 @@ col	public.event_floor_booths.updated_at	anon=SIU authenticated=SIU
 col	public.event_floor_booths.x_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.y_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.zone	anon=SIU authenticated=SIU
-col	public.event_floor_objects.area_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.created_at	anon=SIU authenticated=SIU
-col	public.event_floor_objects.event_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.event_vendor_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.label	anon=SIU authenticated=SIU
-col	public.event_floor_objects.object_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.object_type	anon=SIU authenticated=SIU
-col	public.event_floor_objects.updated_at	anon=SIU authenticated=SIU
-col	public.event_floor_objects.x_pos	anon=SIU authenticated=SIU
-col	public.event_floor_objects.y_pos	anon=SIU authenticated=SIU
 col	public.event_floor_plan.cocktail_enabled	anon=SIU authenticated=SIU
 col	public.event_floor_plan.cocktail_h	anon=SIU authenticated=SIU
 col	public.event_floor_plan.cocktail_label	anon=SIU authenticated=SIU
@@ -3639,6 +3617,28 @@ col	public.service_categories.sort_order	anon=SIU authenticated=SIU
 col	public.service_categories.status	anon=SIU authenticated=SIU
 col	public.service_categories.tier	anon=SIU authenticated=SIU
 col	public.service_categories.updated_at	anon=SIU authenticated=SIU
+col	public.service_slot_day_state.created_at	anon=- authenticated=S
+col	public.service_slot_day_state.reserved_date	anon=- authenticated=S
+col	public.service_slot_day_state.seats_capacity	anon=- authenticated=S
+col	public.service_slot_day_state.seats_taken	anon=- authenticated=S
+col	public.service_slot_day_state.slot_id	anon=- authenticated=S
+col	public.service_slot_day_state.updated_at	anon=- authenticated=S
+col	public.service_slot_reservations.cancel_reason	anon=- authenticated=S
+col	public.service_slot_reservations.cancelled_at	anon=- authenticated=S
+col	public.service_slot_reservations.cancelled_by	anon=- authenticated=S
+col	public.service_slot_reservations.confirmed_at	anon=- authenticated=S
+col	public.service_slot_reservations.created_at	anon=- authenticated=S
+col	public.service_slot_reservations.created_by	anon=- authenticated=S
+col	public.service_slot_reservations.event_id	anon=- authenticated=S
+col	public.service_slot_reservations.guest_note	anon=- authenticated=S
+col	public.service_slot_reservations.party_size	anon=- authenticated=S
+col	public.service_slot_reservations.reservation_id	anon=- authenticated=S
+col	public.service_slot_reservations.reserved_date	anon=- authenticated=S
+col	public.service_slot_reservations.slot_id	anon=- authenticated=S
+col	public.service_slot_reservations.status	anon=- authenticated=S
+col	public.service_slot_reservations.updated_at	anon=- authenticated=S
+col	public.service_slot_reservations.vendor_profile_id	anon=- authenticated=S
+col	public.service_slot_reservations.vendor_service_id	anon=- authenticated=S
 col	public.setnayan_ai_guard_log.dedupe_key	anon=SIU authenticated=SIU
 col	public.setnayan_ai_guard_log.event_id	anon=SIU authenticated=SIU
 col	public.setnayan_ai_guard_log.id	anon=SIU authenticated=SIU
@@ -4916,6 +4916,7 @@ col	public.vendor_service_time_slots.created_at	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.display_order	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.end_time	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.is_active	anon=SIU authenticated=SIU
+col	public.vendor_service_time_slots.seat_capacity	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.slot_capacity	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.slot_id	anon=SIU authenticated=SIU
 col	public.vendor_service_time_slots.slot_label	anon=SIU authenticated=SIU
@@ -5366,16 +5367,10 @@ policy	public.event_editorial|event_editorial_moderator_rw	mode=PERMISSIVE cmd=A
 policy	public.event_egift_methods|event_egift_methods_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_feature_policy_override|event_feature_policy_override_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.event_feature_policy_override|event_feature_policy_override_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (event_id IN ( SELECT current_event_ids() AS current_event_ids))) check=NULL
-policy	public.event_floor_areas|event_floor_areas_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
-policy	public.event_floor_areas|event_floor_areas_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
-policy	public.event_floor_areas|event_floor_areas_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_floor_booths|event_floor_booths_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_floor_booths|event_floor_booths_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_booths|event_floor_booths_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.event_floor_booths|event_floor_booths_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
-policy	public.event_floor_objects|event_floor_objects_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
-policy	public.event_floor_objects|event_floor_objects_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
-policy	public.event_floor_objects|event_floor_objects_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_floor_plan|event_floor_plan_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_floor_plan|event_floor_plan_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_plan|event_floor_plan_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
@@ -5726,6 +5721,12 @@ policy	public.seo_suggestions|seo_suggestions_admin_all	mode=PERMISSIVE cmd=ALL 
 policy	public.service_catalog|service_catalog_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.service_categories|service_categories_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.service_categories|service_categories_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.service_slot_day_state|sscds_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.service_slot_day_state|sscds_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_service_id IN ( SELECT ev.service_id FROM event_vendors ev WHERE ((ev.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (ev.service_id IS NOT NULL)))))) check=NULL
+policy	public.service_slot_day_state|sscds_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=NULL
+policy	public.service_slot_reservations|sssr_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.service_slot_reservations|sssr_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.service_slot_reservations|sssr_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.setnayan_ai_guard_log|admin_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
@@ -6057,10 +6058,11 @@ func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
+func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
-func	public.claim_unlock_vendor_event(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.confirm_vendor_payment(p_payment_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.consume_vendor_assets(p_vendor_id uuid, p_spend_amount integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
@@ -6088,7 +6090,7 @@ func	public.current_vendor_profile_ids()	secdef=yes exec=anon,authenticated sear
 func	public.decline_change_order(p_change_order_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.demand_radar_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
@@ -6139,9 +6141,7 @@ func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated se
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_owns_service(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_points_remaining(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_pool_status(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_grant_camera_points(p_event_id uuid, p_order_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6162,11 +6162,9 @@ func	public.papic_vendor_challenges(p_event_id uuid)	secdef=yes exec=anon,authen
 func	public.price_band_pax_bucket(p_pax integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.purge_expired_chat(p_years integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_funnel_bands()	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_price_bands()	secdef=yes exec=anon,authenticated search_path=public
 func	public.record_std_view(p_event_id uuid, p_date date)	secdef=yes exec=anon,authenticated search_path=public
-func	public.redeem_vendor_token_voucher(p_vendor_id uuid, p_vendor_user_id uuid, p_code text)	secdef=yes exec=anon search_path=UNPINNED
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6179,6 +6177,7 @@ func	public.reject_vendor_token_purchase(p_purchase_id uuid, p_reason text)	secd
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_reason text, p_details text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.reserve_service_slot_seats(p_event_id uuid, p_slot_id uuid, p_reserved_date date, p_party_size integer, p_guest_note text)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_vendor_for_contract(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6193,9 +6192,9 @@ func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=a
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.save_vendor_service(p_vendor_profile_id uuid, p_service_id uuid, p_fields jsonb, p_links jsonb, p_schedule jsonb, p_discounts jsonb, p_brackets jsonb, p_inclusions jsonb, p_publish boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=UNPINNED
-func	public.subscriptions_due_for_renewal_reminder(p_days integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public

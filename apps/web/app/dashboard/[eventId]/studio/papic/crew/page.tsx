@@ -16,7 +16,6 @@ import {
   eventPapicSeatsActive,
   fetchPapicSeats,
   papicSeatJoinUrl,
-  PAPIC_SEAT_COUNT,
 } from '@/lib/papic-seats';
 import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -189,11 +188,23 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       {seats.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
           <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Top up your {PAPIC_SEAT_COUNT} seats</h2>
+          {/* ⚠ NO SEAT COUNT HERE. This said "Top up your 5 seats" / "Your 5
+              photo-crew seats", from PAPIC_SEAT_COUNT — the count of the RETIRED
+              PAPIC_SEATS pass. What an event actually gets is
+              PAPIC_FREE_CAMERA_COUNT (3) shared-pool cameras plus the free Papic
+              One, and a paid event gets however many it bought. Five was true of
+              none of them.
+              🪤 The message 20 lines below was fixed for exactly this reason and
+              carries a comment saying so — but it is the branch that renders
+              when seats EXIST, and this is the branch that renders when they do
+              not. One arm got the fix; the other kept the stale number. So the
+              count is simply not spelled here: this is the ZERO state, and the
+              roster it would describe is the thing that does not exist yet. */}
+          <h2 className="mt-3 text-xl font-semibold tracking-tight">Set up your crew cameras</h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Your {PAPIC_SEAT_COUNT} photo-crew seats are set up automatically the moment your
+            Your photo-crew cameras are set up automatically the moment your
             order is approved. If any are missing, tap below to fill them in — each
-            gets its own claim link you can hand to a friend.
+            gets its own claim link and QR you can hand to a friend.
           </p>
           {/* Idempotent top-up: provisionPapicSeats only inserts the missing seat
               indexes (ON CONFLICT DO NOTHING), so this is now a SAFE fallback, not a
@@ -205,7 +216,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Fill in my {PAPIC_SEAT_COUNT} seats
+              Fill in my crew cameras
             </SubmitButton>
           </form>
         </div>

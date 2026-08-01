@@ -152,6 +152,9 @@ export type StageAnnouncement = {
 
 /** One side of the cue card. */
 export type StageCueBlock = {
+  /** Which block this is. Lets a renderer join anything else keyed by block —
+   *  e.g. the host's own line for this moment (`vendor_block_scripts`). */
+  blockId: string;
   label: string;
   time: string;
   cue: string | null;
@@ -235,6 +238,7 @@ function toCueBlock(
   formatTime: (s: string, e: string | null) => string,
 ): StageCueBlock {
   return {
+    blockId: block.block_id,
     label: block.label,
     time: formatTime(block.start_at, block.end_at),
     cue: BLOCK_CUE[block.block_type] ?? null,

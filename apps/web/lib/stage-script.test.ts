@@ -491,3 +491,32 @@ test('a late show reports the next block as overdue, end to end', () => {
   assert.equal(m.cue.next?.minutesAway, -15);
   assert.equal(nextTimingLabel(m.cue.next!.minutesAway), 'due 15 min ago');
 });
+
+// ── the cue card carries block identity (2026-08-01) ───────────────────────
+// Added so the day-of desk can join the host's OWN line for a moment
+// (`vendor_block_scripts`) onto the cue card. Without an id on the cue block a
+// renderer would have to match on the LABEL — and two moments in one wedding
+// can share a label ("Toasts"), which would put one host's line on the wrong
+// moment while he is holding a live microphone.
+test('cue.now and cue.next carry blockId, so a renderer joins by identity not label', () => {
+  const m = buildStageScript({
+    blocks: [
+      block({ block_id: 'now-block', label: 'Dinner', run_state: 'live' }),
+      block({ block_id: 'next-block', label: 'Toasts', start_at: '2026-07-27T11:00:00Z' }),
+    ],
+    options: opts,
+  });
+  assert.equal(m.cue.now?.blockId, 'now-block');
+  assert.equal(m.cue.next?.blockId, 'next-block');
+});
+
+test('two moments sharing a label stay distinguishable by blockId', () => {
+  const m = buildStageScript({
+    blocks: [
+      block({ block_id: 'toast-1', label: 'Toasts', run_state: 'live' }),
+      block({ block_id: 'toast-2', label: 'Toasts', start_at: '2026-07-27T11:00:00Z' }),
+    ],
+    options: opts,
+  });
+  assert.notEqual(m.cue.now?.blockId, m.cue.next?.blockId, 'identical labels must not collapse');
+});

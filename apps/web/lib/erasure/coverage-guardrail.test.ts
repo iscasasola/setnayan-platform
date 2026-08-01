@@ -304,6 +304,28 @@ const KNOWN_GAPS: Record<string, string> = {
  * exactly the rubber stamp this test exists to prevent". Eighty-two reasons
  * invented in one sitting would be that. An honest "not yet decided", counted
  * and unable to grow, is worth more than eighty-two sentences nobody trusts.
+ *
+ * ── 🧪 THAT WARNING WAS TESTED, AND IT HELD (2026-08-02) ────────────────────
+ * A systematic pass classified all 78 in one sitting, each verdict then attacked
+ * by an independent reader. 41 of 78 were overturned — 23 kept the bucket but
+ * had unusable evidence, and 17 had the DECISION wrong. ELEVEN of those 17 moved
+ * EXCLUDE → PURGE: the first pass would have left personal data alive after an
+ * erasure request, in eleven tables, with confident reasons attached.
+ *
+ * So the backlog stays a ratchet, and the bar for leaving it is unchanged: read
+ * the schema, read the readers, and be ready to defend it. Bulk classification
+ * does not clear this list.
+ *
+ * 🔑 BEFORE DECIDING ANY TABLE HERE, READ
+ * `tests/db/user-fk-behaviour.generated.txt` — NOT the migration text. Migration
+ * 20271032282809 rewrites 30 FKs from inside a `DO $$` block via
+ * `EXECUTE format(...)`, so the CREATE TABLE you grep no longer says what the
+ * schema does. That is precisely what produced the wrong half of the 41: columns
+ * read as "NOT NULL, cannot be de-identified in place, therefore exclude" that
+ * the database had already made nullable and SET NULL.
+ *
+ * ⚠ And SET NULL does NOT mean "erasure handled it" — erasure ANONYMIZES in
+ * place and issues no DELETE, so the clause never fires on that path.
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
   'blocked_users', 'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',

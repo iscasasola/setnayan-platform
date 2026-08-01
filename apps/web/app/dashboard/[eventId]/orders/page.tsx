@@ -45,7 +45,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
           : null;
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <p className="sn-eye">Purchases</p>

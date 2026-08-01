@@ -3005,6 +3005,32 @@ html.dark {
  * cascade. Blur budget (§ 1.6): .sn-tile / .sn-card / .sn-tile-dark are the
  * ONLY page-level blurred surfaces — repeated rows use the flat .sn-row. */
 @layer components {
+  /* The reading column for text-led event surfaces (2026-08-01).
+   *
+   * WHY THIS EXISTS. `SidebarShell` delegates width to its caller ("Main scroll
+   * area. Caller controls inner max-width / padding"), and the `[eventId]`
+   * layout wraps children in `mx-auto w-full …` with NO `max-w-*` — so
+   * `mx-auto` centers nothing and every page inherits the full viewport minus
+   * the 16rem sidebar. On a 1440px desktop that is a ~1120px column; the
+   * checklist intro was running ~160 characters per line against a comfortable
+   * measure of 45–75.
+   *
+   * 64rem (1024px) is a compromise, not a reading measure: these surfaces mix
+   * prose with rows that carry a right-aligned count or due date, so `prose`
+   * (65ch) is too tight for the row and too wide for nothing. Cap the column
+   * here; keep `max-w-prose` on the intro `<p>` itself.
+   *
+   * OPT-IN, deliberately. It is applied per page rather than on the layout
+   * because several of the 111 `[eventId]` routes genuinely want the width
+   * (`seating`, `studio/led`, `studio/live-studio-control`, the `/print`
+   * routes) and several already cap themselves tighter (`clearance` 2xl,
+   * `access-requests` 3xl, `manpower` 4xl). A blanket layout cap would have
+   * silently reflowed all of them. */
+  .sn-col {
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+
   /* Non-navigating glass panel — Watch/Spaces/stat panels/form sections. */
   .sn-tile {
     background: var(--sn-glass-bg);

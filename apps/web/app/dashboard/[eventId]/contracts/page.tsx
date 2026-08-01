@@ -37,7 +37,7 @@ export default async function EventContractsPage({ params }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="sn-col space-y-6">
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">Contracts</p>
         <div className="flex flex-wrap items-start justify-between gap-2">

@@ -397,8 +397,86 @@ export function daysUntilEvent(
   return Math.round((eventMs - startOfDay(now)) / DAY_MS);
 }
 
+// ── The deadline anchor ──────────────────────────────────────────────────────
+// THE RULE: both checklist surfaces must date an event the same way.
+//
+// `events.event_date` is the LOCKED day, and for a wedding it is the only
+// honest answer — weddings lock their date through the date-selection ceremony,
+// and anchoring one on a mere candidate is a separate flagship decision nobody
+// has made. But the non-wedding types (`date`, `hangout`, `birthday`, …) ship
+// date-as-OUTPUT: `event_date` stays NULL until it locks, while creation seeds
+// `date_candidates` / `date_window_start` with the best-known day. Reading only
+// `event_date` for those events yields no anchor, hence no due dates, hence
+// "nothing is overdue" — an answer that is wrong rather than merely cautious.
+//
+// The checklist PAGE already resolved the fuller ladder inline; the launcher
+// card did not, so the same event reported different overdue counts on two
+// screens a click apart. This helper is that page's shipped predicate lifted
+// verbatim — the ladder is unchanged, only its address is.
+
+/** The `events` columns the deadline anchor is resolved from. */
+export type ChecklistAnchorEvent = {
+  /** `event_type_vocab` key. NULL is treated as wedding — see `isWeddingLike`. */
+  event_type?: string | null;
+  event_date?: string | null;
+  date_candidates?: string[] | null;
+  date_window_start?: string | null;
+};
+
+/**
+ * The day this event's checklist deadlines count back from:
+ *
+ *     locked `event_date`  →  else earliest `date_candidates`  →  else `date_window_start`
+ *     BUT weddings anchor on `event_date` ONLY.
+ *
+ * A NULL `event_type` counts as wedding-like, matching every other
+ * wedding-or-unset guard in the app (the budget gate on this same page, and
+ * `isWeddingBudget` beside it) — legacy rows pre-date the column and are all
+ * weddings.
+ *
+ * SCOPE — deliberately narrower than "the event's date". This is the CHECKLIST's
+ * anchor and nothing else. Day-of/recap mode, the countdown, `isPast()` on the
+ * launcher, and SetDateNudge all keep reading `events.event_date` directly, and
+ * must: a candidate date is a guess, and letting a guess flip an event into
+ * "day-of" or file it under "completed" would be a real regression. That is why
+ * this lives in `lib/checklist.ts` and not in `lib/events.ts` — an
+ * `eventAnchorDate()` sitting next to `EventRow` advertises itself as the
+ * event's date to every surface that imports events, which is exactly the
+ * spread this rule must not have. It also sits beside its only two consumers,
+ * `checklistRunwayFor` and `dueDateForItem`, whose composition is documented
+ * below.
+ *
+ * (`resolveEarliestDate` in lib/wedding-roadmap-signals.ts computes the same
+ * three-step ladder WITHOUT the wedding gate, for Studio's recommendation
+ * heuristic. Not reused here on purpose: its own header declares it "NOT a
+ * cross-surface contract", and borrowing a helper from a module named
+ * wedding-roadmap to express "weddings do not use this ladder" would obscure
+ * the one rule this function exists to state.)
+ */
+export function checklistAnchorDateFor(event: ChecklistAnchorEvent): string | null {
+  const lockedDate = event.event_date ?? null;
+  const isWeddingLike = event.event_type == null || event.event_type === 'wedding';
+  // Earliest candidate (defensive sort — YYYY-MM-DD sorts chronologically —
+  // rather than trusting stored order), then the window start. `.filter()`
+  // already returns a fresh array, so the in-place `.sort()` cannot disturb
+  // the caller's row.
+  const earliestCandidate = (event.date_candidates ?? []).filter(Boolean).sort()[0] ?? null;
+  return (
+    lockedDate ??
+    (isWeddingLike ? null : (earliestCandidate ?? event.date_window_start ?? null))
+  );
+}
+
 // ── Runway compression ───────────────────────────────────────────────────────
 // THE RULE: a task may never be due before the plan existed.
+//
+// COMPOSES WITH THE ANCHOR ABOVE, and the order matters: the runway is measured
+// from the creation stamp to the ANCHOR, so resolving a different anchor moves
+// the runway with it. Both are therefore a single decision — feed
+// `checklistAnchorDateFor()` to `checklistRunwayFor()` and to `dueDateForItem()`
+// and the two surfaces agree on the due date AND on the compression. Feed the
+// anchor to only one of them and they disagree silently, which is the class of
+// defect this pairing exists to close.
 //
 // `dueOffsetDays` encodes INTENT — "a week ahead, if you have a week." Reading
 // it as a literal subtraction from the event date breaks the moment the event

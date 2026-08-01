@@ -26,10 +26,18 @@
  * ⚠ `app/papic/page.tsx` is deliberately EXCLUDED. That is the public marketing
  * page, and its wedding-first copy + SEO keywords are the standing "lead
  * all-events, weddings deepest" positioning — not a defect.
+ *
+ * ── 🪤 THE FIRST VERSION OF THIS FILE HAD THE BUG IT WAS WRITTEN TO PREVENT ──
+ * It listed four `page.tsx` files by hand and missed every `_components/`
+ * folder — where the strings actually live. It passed while 29 more sat one
+ * directory below, including "Every shot lands in the couple's gallery" on the
+ * capture screen itself. **A hand-typed file list is the same defect as a
+ * hand-typed string**, so this now WALKS the tree: a new Papic surface is
+ * covered the moment it exists, with nobody remembering to add it.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -37,13 +45,20 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
-/** Token-reached guest capture surfaces. NOT the marketing page. */
-const GUEST_SURFACES = [
-  'app/papic/join/[token]/page.tsx',
-  'app/papic/claim/[token]/page.tsx',
-  'app/papic/me/[token]/page.tsx',
-  'app/papic/seat/[token]/page.tsx',
-];
+/**
+ * WALK the Papic guest tree — never a hand-maintained list (see the header).
+ * Only `app/papic/page.tsx`, the public marketing page, is excluded.
+ */
+function guestSurfaces(dir = 'app/papic', acc: string[] = []): string[] {
+  for (const entry of readdirSync(join(WEB, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) guestSurfaces(rel, acc);
+    else if (entry.name.endsWith('.tsx') && rel !== 'app/papic/page.tsx') acc.push(rel);
+  }
+  return acc;
+}
+
+const GUEST_SURFACES = guestSurfaces();
 
 /** Strip JS/JSX comments so the explanatory notes above each fix don't self-trip. */
 function withoutComments(src: string): string {

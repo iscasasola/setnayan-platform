@@ -52,9 +52,9 @@ function tagErrorMessage(error: string): string {
     case 'unrecognized':
       return 'That’s not a guest or table QR — point at a place card or table sign.';
     case 'guest_not_found':
-      return 'That guest QR isn’t from this wedding.';
+      return 'That guest QR isn’t from this event.';
     case 'table_not_found':
-      return 'That table sign isn’t from this wedding.';
+      return 'That table sign isn’t from this event.';
     case 'cap_reached':
       return `This photo already has ${TAG_CAP} tags — that’s the max.`;
     case 'not_your_photo':
@@ -1107,8 +1107,8 @@ export function PapicGuestCapture({
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
           <p className="mt-2 text-sm text-ink/65">
-            The couple has turned off your guest camera for this wedding. If you
-            think this is a mistake, reach out to the couple directly.
+            The host has turned off your guest camera for this event. If you
+            think this is a mistake, reach out to the host directly.
           </p>
         </div>
       </main>
@@ -1128,7 +1128,7 @@ export function PapicGuestCapture({
           </h1>
           <p className="mt-2 text-sm text-ink/70">
             Your photos go straight into {eventName}&rsquo;s gallery and may be
-            seen by other guests and the couple. By using this camera you agree
+            seen by other guests and the host. By using this camera you agree
             to our{' '}
             <a
               href="/terms"
@@ -1146,7 +1146,7 @@ export function PapicGuestCapture({
             <li>· Only candid moments from this celebration.</li>
           </ul>
           <p className="mt-3 text-xs text-ink/55">
-            The couple can hide any photo, report it to Setnayan, and block your
+            The host can hide any photo, report it to Setnayan, and block your
             camera. Reported content is reviewed by our team.
           </p>
 
@@ -1332,7 +1332,7 @@ export function PapicGuestCapture({
             <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
             <p className="text-base font-semibold">That&rsquo;s all {total} photos, {guestName}!</p>
             <p className="text-sm text-cream/70">
-              Thank you for helping capture {eventName}. The couple will treasure these.
+              Thank you for helping capture {eventName}. They’ll treasure these.
             </p>
           </div>
         )}
@@ -1449,10 +1449,10 @@ export function PapicGuestCapture({
             <span className="inline-flex flex-col gap-0.5">
               <span className="inline-flex items-center gap-1.5 font-medium text-cream/90">
                 <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                Let the couple feature my clips on their wedding page
+                Let the host feature my clips on their event page
               </span>
               <span className="text-cream/55">
-                Optional. Your photos always reach the couple either way — this just
+                Optional. Your photos always reach the host either way — this just
                 lets them share the ones you take publicly. You can leave it off.
               </span>
             </span>
@@ -1584,8 +1584,8 @@ export function PapicGuestCapture({
                 className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-mulberry"
               />
               <span>
-                I&rsquo;m okay for the couple &amp; guests to see my name + message, and to
-                use it in their wedding video. 💛
+                I&rsquo;m okay for the host &amp; guests to see my name + message, and to
+                use it in their event video. 💛
               </span>
             </label>
             <div className="mt-2 flex gap-2">
@@ -1598,7 +1598,7 @@ export function PapicGuestCapture({
                 {isStorySending ? (
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
                 ) : null}
-                Send to the couple 💌
+                Send to the host 💌
               </button>
               {sentMessageId ? (
                 <button
@@ -1629,8 +1629,8 @@ export function PapicGuestCapture({
           <div className="space-y-1 text-center">
             <p className="text-xs text-cream/80">
               {kwentoPhase === 'sent'
-                ? 'Naipadala na! 💛 Salamat — your story is on its way to the couple.'
-                : 'Sent — held for the couple to review first. 💛'}
+                ? 'Naipadala na! 💛 Salamat — your story is on its way to the host.'
+                : 'Sent — held for the host to review first. 💛'}
             </p>
             {sentMessageId && deletePhase !== 'deleted' ? (
               <button

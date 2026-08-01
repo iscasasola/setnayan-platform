@@ -57,9 +57,9 @@ export function PoolGrid({
       } else if (data?.error === 'cap_reached') {
         setNotice('This photo already has the maximum number of people tagged.');
       } else if (data?.error === 'removed_by_host') {
-        setNotice('The couple removed this tag, so it can’t be re-added.');
+        setNotice('The host removed this tag, so it can’t be re-added.');
       } else if (data?.error === 'pool_closed') {
-        setNotice('The couple has closed the shared gallery.');
+        setNotice('The host has closed the shared gallery.');
       } else {
         setNotice('That didn’t save — try again in a moment.');
       }

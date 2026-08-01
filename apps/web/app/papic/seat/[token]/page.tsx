@@ -62,7 +62,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">This seat was reissued</h1>
           <p className="mt-2 text-sm text-ink/65">
-            The couple handed this seat to someone else. Ask them for a fresh
+            The host handed this seat to someone else. Ask them for a fresh
             claim link if you&rsquo;d still like to shoot.
           </p>
           <Link

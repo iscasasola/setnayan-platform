@@ -65,6 +65,15 @@ export type EventRow = {
    * 'diy' (the safe default).
    */
   concierge_status: 'diy' | 'trial' | 'active' | 'expired' | null;
+  /**
+   * When the event row was created (`timestamptz`, NOT NULL in the base table).
+   * Read as the checklist's RUNWAY ANCHOR: a task may never be due before the
+   * plan existed, so `lib/checklist.checklistRunwayFor` compresses the template
+   * offsets into the days between this stamp and the event date. Optional here
+   * only so a caller that doesn't select it still typechecks — a missing value
+   * degrades to "no compression", the pre-2026-08-01 behaviour.
+   */
+  created_at?: string | null;
 };
 
 export type EventWithRole = EventRow & {
@@ -119,7 +128,8 @@ export const fetchUserEvents = cache(async (
          monogram_style,
          monogram_custom_svg,
          monogram_uploaded_svg,
-         concierge_status
+         concierge_status,
+         created_at
        )`,
     )
     .eq('user_id', userId);

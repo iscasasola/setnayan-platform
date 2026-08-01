@@ -60,7 +60,7 @@ export default async function EventChecklistPage({ params }: Props) {
 
   const { data: eventRow } = await supabase
     .from('events')
-    .select('event_date, event_type, date_candidates, date_window_start')
+    .select('event_date, event_type, date_candidates, date_window_start, created_at')
     .eq('event_id', eventId)
     .maybeSingle();
   const eventType = (eventRow?.event_type as string | null) ?? null;
@@ -87,7 +87,14 @@ export default async function EventChecklistPage({ params }: Props) {
 
   const rows = await fetchChecklistItems(supabase, eventId);
   const now = new Date();
-  const groups = groupChecklistByPhase(rows, eventDate, now, eventType);
+  // Runway anchor — the day the plan came into existence. Without it a `date`
+  // or `hangout` created FOR TONIGHT rendered its whole 7/5/3/1 template into
+  // the past: 0 of 4 done and all four red twenty minutes after creation. With
+  // it, offsets compress into the days that actually exist. `created_at` is
+  // NOT NULL on `events`, but null-guard anyway — a null simply means "no
+  // compression", i.e. the exact behaviour that shipped before.
+  const eventCreatedAt = (eventRow?.created_at as string | null) ?? null;
+  const groups = groupChecklistByPhase(rows, eventDate, now, eventType, eventCreatedAt);
   const doneCount = rows.filter((r) => r.status === 'done').length;
 
   // Live budget health-check — null when the couple hasn't set a budget yet, or

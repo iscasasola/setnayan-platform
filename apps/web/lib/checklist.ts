@@ -1099,6 +1099,19 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
 };
 
 /**
+ * "your ___" — the phrase naming the event's anchor date.
+ *
+ * Normally `<noun> date` ("your debut date"). A noun that ALREADY ends in
+ * "date" doubles the word: the `date` event type shipped the literal "your
+ * date date" into the live intro and date hint. Derived from the noun rather
+ * than a hand-kept exception list, so a future date-ish noun (e.g. a
+ * "save the date" type) can't reintroduce the collision silently.
+ */
+function eventDatePhrase(noun: string): string {
+  return /(^|\s)date$/.test(noun) ? noun : `${noun} date`;
+}
+
+/**
  * Resolve the checklist chrome for an event type. Wedding (and null/unknown)
  * returns the EXACT original wedding copy — the live wedding checklist is
  * unchanged. Non-wedding types get event-aware title/heading/copy and
@@ -1119,13 +1132,14 @@ export function checklistChrome(eventType: string | null | undefined): Checklist
     };
   }
   const { noun, title } = CHECKLIST_EVENT_LABELS[eventType]!;
+  const datePhrase = eventDatePhrase(noun);
   return {
     eventNoun: noun,
     pageTitle: `${title} checklist · Setnayan`,
     heading: `${title} checklist`,
     eyebrow: `Your ${noun}`,
-    intro: `Your full plan, laid out by when things are due. Every due date is worked out from your ${noun} date — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.`,
-    dateHint: `Add your ${noun} date to see a due date on every task`,
+    intro: `Your full plan, laid out by when things are due. Every due date is worked out from your ${datePhrase} — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.`,
+    dateHint: `Add your ${datePhrase} to see a due date on every task`,
     dayOfLabel: `${title} day & after`,
     showPhaseBlurbs: false,
   };

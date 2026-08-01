@@ -211,6 +211,10 @@ export type WeddingTile =
   | 'bridal_car'
   | 'guest_shuttle'
   | 'escort'
+  // TRANSPORT (travel — getting around on a trip, not ferrying guests to a venue)
+  | 'transfers_rentals'
+  // VENUE (travel + wedding — where you SLEEP, not where the reception is held)
+  | 'accommodation'
   // EXPERIENCE (travel)
   | 'tour_activity'
   | 'tour_guide'
@@ -288,6 +292,8 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   bridal_car: 'transport',
   guest_shuttle: 'transport',
   escort: 'transport',
+  transfers_rentals: 'transport',
+  accommodation: 'venue',
   tour_activity: 'experience',
   tour_guide: 'experience',
   restaurant_reservation: 'dining',
@@ -304,6 +310,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   // VENUE
   'reception',
   'ceremony_venue',
+  'accommodation',
   // PLANNING
   'coordinator',
   'date_specialist',
@@ -371,6 +378,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'bridal_car',
   'guest_shuttle',
   'escort',
+  'transfers_rentals',
   // EXPERIENCE
   'tour_activity',
   'tour_guide',
@@ -449,6 +457,8 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   bridal_car: 'Bridal Car',
   guest_shuttle: 'Guest Shuttle',
   escort: 'Escort',
+  transfers_rentals: 'Transfers & Rentals',
+  accommodation: 'Accommodation',
   tour_activity: 'Tours & Activities',
   tour_guide: 'Tour Guide',
   restaurant_reservation: 'Restaurant (Reservation)',
@@ -522,6 +532,8 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   bridal_car: 'bridal-car',
   guest_shuttle: 'guest-shuttle',
   escort: 'escort',
+  transfers_rentals: 'transfers-rentals',
+  accommodation: 'accommodation',
   tour_activity: 'tour-activity',
   tour_guide: 'tour-guide',
   restaurant_reservation: 'restaurant-reservation',
@@ -721,9 +733,22 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   muslim_pre_wedding_counseling:     { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', ph: true, faith: 'Muslim' },
   marriage_license_expediting:       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
   apostille_dfa_authentication:      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', ph: true },
-  // Hotels = reception venues; keep the catering cross-list ("most hotels
-  // also provide catering", owner directive 2026-05-22).
-  accommodation:                     { folder: 'venue', tile: 'reception', phase: 'V1.1 base', secondary_tiles: ['catering'] },
+  // ── ACCOMMODATION (tile `accommodation`) — where you SLEEP ────────────────
+  // Re-shelved off `reception` 2026-08-01 (travel vertical). `accommodation`
+  // was already tagged ['travel','wedding'] in the DB but sat on the wedding
+  // RECEPTION-VENUE tile, which travel never reaches — so a hotel could declare
+  // it and no travel host would ever be shown a shelf it sits on (the mirror of
+  // the date/hangout dead end fixed in 20271027794853). Its own tile claims
+  // ['travel','wedding'], so wedding keeps the guest-room-block case unchanged.
+  // The catering cross-list stays ("most hotels also provide catering", owner
+  // directive 2026-05-22).
+  accommodation:                     { folder: 'venue', tile: 'accommodation', phase: 'V1.1 base', secondary_tiles: ['catering'] },
+  // Travel-only specifics beside the generic above — the same generic+specific
+  // shape `reception_venue` has beside `hotel_ballroom`.
+  hotel_stay:                        { folder: 'venue', tile: 'accommodation', phase: 'V1.2' },
+  resort_stay:                       { folder: 'venue', tile: 'accommodation', phase: 'V1.2' },
+  guesthouse_homestay:               { folder: 'venue', tile: 'accommodation', phase: 'V1.2', ph: true },
+  vacation_rental:                   { folder: 'venue', tile: 'accommodation', phase: 'V1.2', rental: true },
 
   // ── CEREMONY VENUE (tile `ceremony_venue`) — dead-tile fix, 2026-07-21 ──
   // Owner, verbatim: "ceremony venue are the religious locations for different
@@ -1052,6 +1077,16 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   bridal_boat_yacht:                 { folder: 'transport', tile: 'bridal_car', phase: 'V1.5+' },
   transportation_guest_shuttle:      { folder: 'transport', tile: 'guest_shuttle', phase: 'V1.1 base' },
   motorcycle_escort:                 { folder: 'transport', tile: 'escort', phase: 'V1.5+' },
+  // TRANSFERS & RENTALS (tile `transfers_rentals`, travel-only · 2026-08-01).
+  // The three tiles above are all HOSTED-EVENT constructs — a bridal car, a
+  // shuttle ferrying guests to a venue, a motorcade. None describes getting
+  // around on a trip, and no other tile did either, so this family is the one
+  // genuinely NEW thing the travel vertical needed.
+  airport_transfer:                  { folder: 'transport', tile: 'transfers_rentals', phase: 'V1.2' },
+  private_car_charter:               { folder: 'transport', tile: 'transfers_rentals', phase: 'V1.2' },
+  van_rental:                        { folder: 'transport', tile: 'transfers_rentals', phase: 'V1.2', ph: true, rental: true },
+  motorcycle_scooter_rental:         { folder: 'transport', tile: 'transfers_rentals', phase: 'V1.2', ph: true, rental: true },
+  boat_ferry_charter:                { folder: 'transport', tile: 'transfers_rentals', phase: 'V1.2', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
   // NON-WEDDING EVENT-TYPE GAP LEAVES (2026-07-20 · Whats_Next_Suite_AI_

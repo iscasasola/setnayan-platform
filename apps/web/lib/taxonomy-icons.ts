@@ -29,6 +29,7 @@ import {
   Aperture,
   Armchair,
   Baby,
+  Bed,
   Brush,
   Building2,
   Bus,
@@ -108,6 +109,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   // VENUE
   reception: PartyPopper,
   ceremony_venue: Church,
+  accommodation: Bed,
   // PLANNING
   coordinator: ClipboardList,
   date_specialist: CalendarDays,
@@ -175,6 +177,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   bridal_car: Car,
   guest_shuttle: Bus,
   escort: ShieldCheck,
+  transfers_rentals: Plane,
   // EXPERIENCE
   tour_activity: Map,
   tour_guide: Flag,

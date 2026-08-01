@@ -36,6 +36,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SHARED = join(HERE, './event-dates.ts');
 const CHECKLIST_LIB = join(HERE, './checklist.ts');
 const ROADMAP_LIB = join(HERE, './wedding-roadmap-signals.ts');
+const EVENT_BRIEF_LIB = join(HERE, './event-brief.ts');
 
 // ── 1 · Equivalence with both retired copies ─────────────────────────────────
 
@@ -244,12 +245,18 @@ test('the shared module imports NOTHING', () => {
   assert.doesNotMatch(code, /'server-only'/, 'lib/event-dates.ts must never be server-gated');
 });
 
-test('both surfaces resolve the ladder THROUGH the shared helper', () => {
+test('every surface resolves the ladder THROUGH the shared helper', () => {
   // A behaviour test on the helper alone cannot see a surface that stopped
   // calling it — which is exactly how the two copies came to exist.
+  //
+  // lib/event-brief.ts joined this list as the THIRD caller: it carried a
+  // fourth reading of these same three columns, and its copy was ordered
+  // `candidates[0] ?? windowStart ?? eventDate` — committed date LAST, and
+  // candidates unsorted. That fed a vendor-facing surface.
   for (const [label, path] of [
     ['lib/checklist.ts', CHECKLIST_LIB],
     ['lib/wedding-roadmap-signals.ts', ROADMAP_LIB],
+    ['lib/event-brief.ts', EVENT_BRIEF_LIB],
   ] as const) {
     const src = readFileSync(path, 'utf8');
     assert.match(
@@ -268,6 +275,13 @@ test('both surfaces resolve the ladder THROUGH the shared helper', () => {
 test('neither surface re-inlines the ladder', () => {
   // The signature of a re-inlined copy: reading `date_window_start` in code
   // (not in prose) anywhere other than a type declaration.
+  //
+  // lib/event-brief.ts is deliberately NOT in this list, and the exclusion is
+  // narrow rather than an exemption from the rule: the Brief EXPOSES
+  // `constraints.date.windowStart` / `windowEnd` as fields of its read-model, so
+  // it must read those columns for a purpose that is not the ladder. The
+  // import+call guard above is what holds it to the shared ladder; this
+  // heuristic would only produce a false positive.
   for (const [label, path] of [
     ['lib/checklist.ts', CHECKLIST_LIB],
     ['lib/wedding-roadmap-signals.ts', ROADMAP_LIB],

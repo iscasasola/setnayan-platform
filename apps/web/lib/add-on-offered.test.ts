@@ -60,14 +60,50 @@ test('Papic Pool fails CLOSED for an unscoped type', () => {
   assert.equal(addOnOfferedForEvent(POOL, profileFor('pet_adoption_party')), false);
 });
 
-test('the anniversary controller split is carried through', () => {
+test('anniversary is offered under BOTH controllers — the split is gone', () => {
+  // Was 'the anniversary controller split is carried through', which asserted
+  // that a Samahan-owned anniversary (`community_id IS NOT NULL`) was denied as
+  // Phase 2. The owner's 2026-08-01 "offer Papic everywhere" removed that
+  // carve-out from `phaseForType()`.
+  //
+  // 🪤 WORTH THE SECOND ASSERTION: the split lived in an early return that ran
+  // BEFORE the phase lists, so adding `anniversary` to PAPIC_ACCESS_PHASE_1_TYPES
+  // was a no-op that looked like a fix. Passing `communityId` here is what
+  // proves the wrapper carries the real decision and not the flattering one.
   const anniversary = profileFor('anniversary');
   assert.equal(addOnOfferedForEvent(POOL, anniversary, null), true, 'personally owned');
   assert.equal(
     addOnOfferedForEvent(POOL, anniversary, 'S89C-0000000001'),
-    false,
-    'Samahan-owned is Phase 2',
+    true,
+    'Samahan-owned is offered too since 2026-08-01',
   );
+});
+
+test('Papic Pool is offered on every previously-laddered type', () => {
+  // The eight types the 2026-08-01 widening actually freed. `travel` (above) was
+  // the only one on a deny list; these were denied by the PHASE LADDER and by
+  // the anniversary controller split — a different mechanism, which is why
+  // dropping the deny list alone did not make "everywhere" true.
+  // Asserted through `addOnOfferedForEvent` so it covers the real surfaces
+  // (Suite grid + /studio/about deep link), not just the predicate.
+  for (const eventType of [
+    'date', // untiered → was `type_out_of_scope`
+    'hangout', // untiered → was `type_out_of_scope`
+    'reunion', // Phase 2 → was `phase_not_reached`
+    'celebration', // Phase 2
+    'gala_night', // Phase 2
+    'corporate', // Phase 3
+    'tournament', // Phase 3
+    'anniversary', // Phase 1 only when personally owned
+  ]) {
+    const profile = profileFor(eventType);
+    assert.ok(profile.enabledSurfaces.includes('rsvp'), `${eventType} fixture carries rsvp`);
+    assert.equal(
+      addOnOfferedForEvent(POOL, profile, 'S89C-0000000001'),
+      true,
+      `${eventType} must be offered Papic — owner 2026-08-01, "offer Papic everywhere"`,
+    );
+  }
 });
 
 test('the generic surface gate still governs non-Papic add-ons', () => {

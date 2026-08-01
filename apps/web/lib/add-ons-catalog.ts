@@ -590,8 +590,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // non-wedding profile row enables rsvp (migration 20270804110223 added it).
     // The authoritative predicate is
     // lib/papic-event-access.ts · papicGuestPassAccess(); a surface that
-    // renders this row as buyable MUST call it (it carries the anniversary
-    // controller split + the phase ladder + the fail-closed default).
+    // renders this row as buyable MUST call it (it carries the phase ladder +
+    // the fail-closed default for an untiered type).
     //
     // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
     // and the flip is the owner's 2026-07-29 two-type lock catching up with the
@@ -613,9 +613,11 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // (spec §5) rather than being silently absorbed by a card flip. A doorway to
     // an already-open door is not the thing to hold hostage.
     //
-    // Still gated by `papicGuestPassAccess()` (anniversary controller split +
-    // phase ladder) — that predicate is event-type ELIGIBILITY,
-    // not a darkness switch, and widening it stays an owner/DPO call.
+    // Still gated by `papicGuestPassAccess()` — that predicate is event-type
+    // ELIGIBILITY, not a darkness switch. Owner 2026-08-01 ("offer Papic
+    // everywhere") put ALL 16 live types in Phase 1 and removed the anniversary
+    // controller split, so it denies nothing today; it still fails closed for a
+    // type created after that ruling.
     key: 'papic-guest',
     // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen
     // technical ids (never-rename-technical-ids lock) from before the products

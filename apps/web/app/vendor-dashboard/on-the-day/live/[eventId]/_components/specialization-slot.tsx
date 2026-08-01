@@ -57,6 +57,37 @@ export function SpecializationSlot({
         {spec.state === 'locked' ? 'Available on your trade' : 'Your specialization'}
       </ConsoleEyebrow>
 
+      {/*
+        THE ROLE SWITCHER — only when there is genuinely a choice.
+
+        A supplier can be two trades at one wedding: the band that also emcees.
+        Which one they are RUNNING is a fact about the person on the floor
+        tonight, not about the company, so they say — and the frame validates
+        what they say against the entitlement before anything mounts.
+
+        A plain `?role=` Link, so the console stays a server component with no
+        client state, exactly like the Customer Card's tab rail. `scroll` is
+        left on so the choice lands on the desk they just picked.
+      */}
+      {model.roleChoices.length > 1 ? (
+        <nav aria-label="Which desk you are running" className="flex flex-wrap gap-2">
+          {model.roleChoices.map((choice) => (
+            <Link
+              key={choice.set}
+              href={`?role=${choice.set}#${spec.domId}`}
+              aria-current={choice.active ? 'true' : undefined}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                choice.active
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-ink/15 bg-paper text-ink/60 hover:text-ink'
+              }`}
+            >
+              {choice.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+
       {Surface ? (
         // The built desk. It gets the plate for material consistency; whatever
         // it renders inside is its own PR's business.

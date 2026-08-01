@@ -241,3 +241,90 @@ test('never throws, and always yields a generic section, on any input', () => {
     assert.deepEqual(model.genericModuleIds, GENERIC);
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE ROLE PICKER — one person, one desk, chosen (owner concept 2026-08-01)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A supplier can be two trades at one wedding. Which one they are RUNNING is a
+// fact about the person on the floor tonight, not about the company — so the
+// frame lets them say, and validates what they say against the entitlement.
+
+const ALL_REGISTERED = new Set<VendorSpecializationSet>([
+  'floor_command',
+  'song_desk',
+  'stage_script',
+]);
+
+const pick = (
+  access: VendorSpecializationAccess,
+  activeSet?: string | null,
+) => buildDayOfFrame({ access, genericModuleIds: GENERIC, registeredSets: ALL_REGISTERED, activeSet });
+
+test('one held set offers NO picker — a one-item chooser is chrome with no job', () => {
+  assert.deepEqual(pick(accessFor(['host_mc'], 'solo')).roleChoices, []);
+});
+
+test('two held sets offer both, with the priority winner active by default', () => {
+  const m = pick(accessFor(['live_band', 'host_mc'], 'solo'));
+  assert.deepEqual(
+    m.roleChoices.map((c) => [c.set, c.active]),
+    [['song_desk', true], ['stage_script', false]],
+  );
+  assert.equal(m.specialization?.set, 'song_desk', 'default is unchanged');
+});
+
+test('choosing the second trade mounts it — the case that was unreachable', () => {
+  const m = pick(accessFor(['live_band', 'host_mc'], 'solo'), 'stage_script');
+  assert.equal(m.specialization?.set, 'stage_script');
+  assert.equal(m.specialization?.state, 'ready');
+  assert.deepEqual(
+    m.roleChoices.map((c) => [c.set, c.active]),
+    [['song_desk', false], ['stage_script', true]],
+  );
+});
+
+test('🔴 a set the vendor does NOT hold is IGNORED — the URL selects, it never grants', () => {
+  // A band only. Asking for the script desk by hand must not mount it.
+  const m = pick(accessFor(['live_band'], 'solo'), 'stage_script');
+  assert.equal(m.specialization?.set, 'song_desk', 'falls back to what they hold');
+  assert.deepEqual(m.roleChoices, []);
+});
+
+test('🔴 a LOCKED vendor cannot select their way in', () => {
+  for (const tier of [null, 'free']) {
+    const m = pick(accessFor(['live_band', 'host_mc'], tier), 'stage_script');
+    assert.equal(m.specialization?.state, 'locked', `${tier} must stay locked`);
+    assert.deepEqual(m.roleChoices, [], 'nothing held means nothing to choose between');
+    assert.ok(m.upsell, 'they get the upsell instead');
+  }
+});
+
+test('a lapsed subscription falls back rather than erroring — a stale bookmark still renders', () => {
+  const m = pick(accessFor(['live_band', 'host_mc'], 'pro', '2020-01-01T00:00:00Z'), 'stage_script');
+  assert.equal(m.specialization?.state, 'locked');
+  assert.ok(m.upsell?.lapsed, 'and it says renew, not subscribe');
+});
+
+test('garbage in the role param is ignored, never thrown on', () => {
+  for (const junk of ['', '   ', 'not_a_set', '../admin', null, undefined]) {
+    assert.doesNotThrow(() => pick(accessFor(['live_band', 'host_mc'], 'solo'), junk));
+    const m = pick(accessFor(['live_band', 'host_mc'], 'solo'), junk);
+    assert.equal(m.specialization?.set, 'song_desk', `${JSON.stringify(junk)} → default`);
+  }
+});
+
+test('the section heading follows the CHOSEN desk, so the label can never lie', () => {
+  const m = pick(accessFor(['live_band', 'host_mc'], 'solo'), 'stage_script');
+  assert.equal(m.specialization?.label, 'Script & cues');
+  assert.equal(m.nav.at(-1)?.label, 'Script & cues', 'the jump-nav follows too');
+});
+
+test('the generic kit is still untouched by every picker path', () => {
+  for (const active of [undefined, 'stage_script', 'not_a_set']) {
+    assert.deepEqual(
+      pick(accessFor(['live_band', 'host_mc'], 'solo'), active).genericModuleIds,
+      GENERIC,
+    );
+  }
+});

@@ -104,10 +104,15 @@ function moduleHref(id: DayOfModuleId, eventId: string): string | null {
 
 export default async function VendorOnTheDayLivePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  /** `?role=` — which desk this person is running tonight. UNTRUSTED: validated
+   *  against the entitlement inside `buildDayOfFrame`, never here. */
+  searchParams: Promise<{ role?: string }>;
 }) {
   const { eventId } = await params;
+  const { role: requestedRole } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -209,6 +214,10 @@ export default async function VendorOnTheDayLivePage({
     access,
     genericModuleIds: modules.map((m) => m.id),
     registeredSets: registeredSpecializationSets(),
+    // A supplier can be two trades at one wedding; which one they are RUNNING
+    // is a fact about the person on the floor tonight. The builder validates
+    // this against `unlockedSets` and ignores anything they do not hold.
+    activeSet: requestedRole ?? null,
   });
 
   const coupleName = brief?.event.display_name ?? booking.eventName ?? 'Your event';

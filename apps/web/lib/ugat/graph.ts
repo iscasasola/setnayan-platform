@@ -39,7 +39,11 @@ export type UgatEntityType =
   | 'billing'
   | 'taxonomy'
   | 'community'
-  | 'papic';
+  | 'papic'
+  | 'person'
+  | 'package'
+  | 'proposal'
+  | 'contract';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -347,6 +351,150 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'missions for', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * PERSON — the person spine: who someone IS, independent of any one event.
+     *
+     * THREE backlog rows collapse here: `people` (the node), `person_*`
+     * (connections + stewardships + story items) and `dependents`. Splitting
+     * them would put three nodes on the map for one concept and start the slide
+     * from a concept map toward an ERD.
+     *
+     * ⚠ `households` was assumed to belong here and DOES NOT. Its only foreign
+     * key is `event_id → events`: it is an event-scoped guest grouping, not a
+     * person-spine concept. It stays on the map-backlog re-filed against
+     * GUESTS. The assumption was caught only by reading the live FKs, which is
+     * the whole argument for claim-checking a map instead of describing one.
+     *
+     * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
+     * zero rows today and the family-tree work is waiting on legal review. It
+     * is on the map because the map documents CONCEPTS, and a concept that
+     * exists in the schema and in the build plan is real whether or not a row
+     * has landed. The count will read 0 until it doesn't — which is the honest
+     * rendering, and the same reason an unprobed edge stays unlit rather than
+     * green.
+     *
+     * ⚠ NOT THE SAME AS A GUEST. A guest is event-scoped and may never have an
+     * account; a person is the durable identity a guest can be resolved TO. The
+     * bond between them is a claim (joint J2), and a claim is `pending_review`
+     * until a host confirms it — the guest is provisional until then. Reading
+     * `people` as "guests with accounts" inverts that.
+     */
+    id: 'TYPE-PERSON',
+    type: 'person',
+    name: 'Person',
+    blurb: 'the durable identity — connections · households · dependents',
+    countKey: 'person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
+    table: 'people',
+    x: 60,
+    y: 260,
+    fields: [
+      { key: 'pk', name: 'person_id', note: 'the durable identity, not event-scoped' },
+      { key: '', name: 'claimed_by_user_id', note: 'null until an account claims this person' },
+      { key: '', name: 'in_memoriam', note: 'memorial flag — a person outlives their account' },
+    ],
+    edges: [
+      { verb: 'is', to: 'TYPE-USERS' },
+      { verb: 'resolves', to: 'TYPE-GUESTS' },
+    ],
+  },
+  {
+    /**
+     * PACKAGE — what a vendor SELLS, authored once and offered many times.
+     * Owned by the vendor, not by any event.
+     *
+     * The cluster branches: `vendor_package_items` hang off a package, and
+     * `vendor_package_item_options` hang off an item — and an item can itself
+     * hang off an OPTION (`parent_option_id`). So the shape is a tree, not a
+     * flat list, which is how "pick a lunch, then pick its drink" is modelled.
+     */
+    id: 'TYPE-PACKAGE',
+    type: 'package',
+    name: 'Package',
+    blurb: 'what a vendor sells — items branching into options',
+    countKey: 'package',
+    icon: 'layers',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_packages',
+    x: 1040,
+    y: 620,
+    fields: [
+      { key: 'pk', name: 'package_id', note: 'authored by the vendor, reused across events' },
+      { key: 'fk', name: 'vendor_profile_id', note: 'the only owner — a package is never event-scoped' },
+    ],
+    edges: [{ verb: 'sold by', to: 'TYPE-VENDORS' }],
+  },
+  {
+    /**
+     * PROPOSAL — what a vendor offers ONE couple for ONE event.
+     *
+     * ⚠ A PROPOSAL NEED NOT COME FROM A PACKAGE. It reaches one only through
+     * `template_id → vendor_proposal_templates → default_package_id`, and
+     * `template_id` is NULLABLE. A freehand proposal is a first-class case, so
+     * any code that assumes "every proposal has a package behind it" is wrong.
+     */
+    id: 'TYPE-PROPOSAL',
+    type: 'proposal',
+    name: 'Proposal',
+    blurb: 'what a vendor offers one couple — amendable after sending',
+    countKey: 'proposal',
+    icon: 'tag',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_proposals',
+    x: 860,
+    y: 700,
+    fields: [
+      { key: 'pk', name: 'proposal_id', note: 'one vendor offering one event' },
+      { key: 'fk', name: 'template_id', note: 'NULLABLE — the only path to a package, and it is optional' },
+      { key: '', name: 'status', note: 'the offer lifecycle' },
+    ],
+    edges: [
+      { verb: 'offers', to: 'TYPE-EVENTS' },
+      { verb: 'drawn from', to: 'TYPE-PACKAGE' },
+    ],
+  },
+  {
+    /**
+     * CONTRACT — what both sides sign.
+     *
+     * 🚨 THE DEAL CHAIN BREAKS HERE, and the owner has called it a defect to fix
+     * (2026-08-01) rather than a quirk to live with. A contract carries
+     * `event_vendor_id` (the booking) and `order_id` (the money) and has NO
+     * COLUMN referencing the proposal it came from — see J27's `no_column`
+     * claim, which is asserted so this annotation FAILS the day the link lands.
+     *
+     * The consequence is not academic: proposals are amendable after sending
+     * (`proposal_amendments`, with its own line items), so "what did they
+     * actually agree to?" cannot be answered from a signed contract row. The
+     * order amount is the only surviving trace, and it cannot distinguish a
+     * package from an amended one that happens to total the same.
+     */
+    id: 'TYPE-CONTRACT',
+    type: 'contract',
+    name: 'Contract',
+    blurb: 'what both sides sign — bound to the booking, not to the offer',
+    countKey: 'contract',
+    icon: 'receipt',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+    table: 'vendor_contracts',
+    x: 660,
+    y: 760,
+    fields: [
+      { key: 'pk', name: 'contract_id', note: 'the signed artefact' },
+      { key: 'fk', name: 'event_vendor_id', note: 'the booking it binds' },
+      { key: 'fk', name: 'order_id', note: 'the money — nullable' },
+    ],
+    edges: [
+      { verb: 'binds', to: 'TYPE-VENDORS' },
+      { verb: 'settles', to: 'TYPE-ORDERS' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -378,6 +526,30 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'camera',
     color: 'var(--ug-e-papic)',
     colorBg: 'var(--ug-e-papic-bg)',
+  },
+  person: {
+    label: 'Person',
+    icon: 'user',
+    color: 'var(--ug-e-person)',
+    colorBg: 'var(--ug-e-person-bg)',
+  },
+  package: {
+    label: 'Package',
+    icon: 'layers',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+  },
+  proposal: {
+    label: 'Proposal',
+    icon: 'tag',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
+  },
+  contract: {
+    label: 'Contract',
+    icon: 'receipt',
+    color: 'var(--ug-e-deal)',
+    colorBg: 'var(--ug-e-deal-bg)',
   },
 };
 
@@ -1261,6 +1433,194 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'current_vendor_ids() for the vendor side; event scope for the mission side',
     traps:
       '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. The two vendor bonds are at different grains (booking vs org), so they are NOT interchangeable and a join written against the wrong one silently returns nothing.',
+  },
+  {
+    /**
+     * The person graph's own edge: a relation between two PEOPLE, not between
+     * two guests and not between two accounts. It survives the event that
+     * created it — `created_by_event_id` records provenance, it does not scope
+     * the bond. That is the difference between a family tree and a guest list.
+     */
+    id: 'J21',
+    claims: [
+      { kind: 'table', table: 'person_connections' },
+      { kind: 'fk', table: 'person_connections', column: 'from_person_id', references: 'people' },
+      { kind: 'fk', table: 'person_connections', column: 'to_person_id', references: 'people' },
+      { kind: 'column', table: 'person_connections', column: 'relation' },
+    ],
+    chain: 1,
+    pair: ['TYPE-PERSON', 'TYPE-PERSON'],
+    title: 'Person ↔ Person',
+    joint: 'person_connections',
+    cardinality: 'Many-to-many, directed — `relation` names the direction (parent-of, not sibling-of)',
+    implementedBy: 'person_connections — from_person_id → to_person_id with a named relation',
+    writtenBy: 'generate_event_connections · the people surface',
+    guardedBy: 'person-connection forgery test (tests/db/person-connections-forgery.db.test.ts)',
+    traps:
+      'created_by_event_id is PROVENANCE, not scope. Filtering the graph by it turns a durable family tree back into a per-event guest list.',
+  },
+  {
+    /**
+     * Stewardship: an ACCOUNT looks after a BRANCH of the person graph. The
+     * steward is a user; the thing stewarded is a person. Both ends differ from
+     * ownership, and neither end is a guest.
+     */
+    id: 'J22',
+    claims: [
+      { kind: 'table', table: 'person_stewardships' },
+      { kind: 'fk', table: 'person_stewardships', column: 'steward_user_id', references: 'users' },
+      { kind: 'fk', table: 'person_stewardships', column: 'branch_person_id', references: 'people' },
+      { kind: 'column', table: 'person_stewardships', column: 'kind' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User ↔ Person (stewardship)',
+    joint: 'person_stewardships',
+    cardinality: 'Many-to-many — a user may steward several branches; a branch may have several stewards',
+    implementedBy: 'person_stewardships — steward_user_id looks after branch_person_id',
+    writtenBy: 'the people surface',
+    guardedBy: 'RLS on person_stewardships',
+    traps:
+      'Stewarding a branch is NOT owning the people in it. A steward may curate; the claim bond (people.claimed_by_user_id) is what makes a person someone.',
+  },
+  {
+    /**
+     * Guardian-held dependents — an account holds a record for someone who has
+     * no account of their own (a child, an elder).
+     *
+     * ⚠ THE TRAP IS THE CASCADE, NOT A MISSING KEY.
+     * `owner_user_id` DOES have a foreign key — to `auth.users(id)`, with
+     * **ON DELETE CASCADE**. Deleting the guardian's account therefore DELETES
+     * every dependent record they hold. For a guardian-held record about a
+     * child or an elder that is a destructive default, and it is invisible from
+     * the `public` schema: a constraint scan filtered to `table_schema='public'`
+     * returns nothing for this table and reads as "no integrity at all".
+     *
+     * That is exactly the mistake this joint's first draft made — it asserted
+     * `no_fk` and the claim guard rejected it against the replayed schema. The
+     * annotation now records the real shape, and the `column` claims below fail
+     * if either column is renamed away.
+     */
+    id: 'J23',
+    claims: [
+      { kind: 'table', table: 'dependents' },
+      { kind: 'column', table: 'dependents', column: 'dependent_id' },
+      { kind: 'column', table: 'dependents', column: 'relationship' },
+      { kind: 'column', table: 'dependents', column: 'owner_user_id' },
+    ],
+    chain: 2,
+    pair: ['TYPE-USERS', 'TYPE-PERSON'],
+    title: 'User → Dependent (guardian-held)',
+    joint: 'dependents',
+    cardinality: 'One-to-many — a guardian holds several dependents; a dependent has one owner',
+    implementedBy: 'dependents — owner_user_id holds the record, relationship names the tie',
+    writtenBy: 'the dependents surface',
+    guardedBy: 'RLS, plus an FK to auth.users — see the trap for what that FK does on delete',
+    traps:
+      'owner_user_id → auth.users ON DELETE CASCADE: deleting the guardian DELETES the dependent records. A constraint scan scoped to schema `public` shows none of this and reads as "no integrity at all".',
+  },
+  {
+    /** A package is a TREE: items hang off the package, options off an item, and
+     *  an item can hang off an option (`parent_option_id`). That recursion is
+     *  the "pick a lunch, then pick its drink" shape. */
+    id: 'J24',
+    claims: [
+      { kind: 'table', table: 'vendor_package_items' },
+      { kind: 'fk', table: 'vendor_package_items', column: 'package_id', references: 'vendor_packages' },
+      { kind: 'table', table: 'vendor_package_item_options' },
+      { kind: 'fk', table: 'vendor_package_item_options', column: 'item_id', references: 'vendor_package_items' },
+      { kind: 'fk', table: 'vendor_package_items', column: 'parent_option_id', references: 'vendor_package_item_options' },
+    ],
+    chain: 1,
+    pair: ['TYPE-PACKAGE', 'TYPE-PACKAGE'],
+    title: 'Package → items → options',
+    joint: 'vendor_package_items',
+    cardinality: 'Tree — a package has items, an item has options, an option can carry further items',
+    implementedBy: 'vendor_package_items.package_id + .parent_option_id · vendor_package_item_options.item_id',
+    writtenBy: 'the vendor package builder',
+    guardedBy: 'package-option-branching.db.test.ts',
+    traps: 'Flattening this to a list loses the branch. An item reached via parent_option_id is CONDITIONAL on that option being chosen.',
+  },
+  {
+    /** The ONLY path from a package to a proposal, and it is optional. */
+    id: 'J25',
+    claims: [
+      { kind: 'table', table: 'vendor_proposal_templates' },
+      { kind: 'fk', table: 'vendor_proposal_templates', column: 'default_package_id', references: 'vendor_packages' },
+      { kind: 'fk', table: 'vendor_proposals', column: 'template_id', references: 'vendor_proposal_templates' },
+    ],
+    chain: 2,
+    pair: ['TYPE-PACKAGE', 'TYPE-PROPOSAL'],
+    title: 'Package → Proposal (via template)',
+    joint: 'vendor_proposal_templates',
+    cardinality: 'Optional many-to-one — template_id is NULLABLE, so a proposal may have no package at all',
+    implementedBy: 'vendor_proposals.template_id → vendor_proposal_templates.default_package_id → vendor_packages',
+    writtenBy: 'the proposal maker',
+    guardedBy: 'nothing enforces that a proposal HAS a package — by design',
+    traps: 'A freehand proposal is first-class. Code that assumes every proposal has a package behind it is wrong for the nullable case.',
+  },
+  {
+    /** A proposal keeps changing after it is sent. */
+    id: 'J26',
+    claims: [
+      { kind: 'table', table: 'proposal_amendments' },
+      { kind: 'fk', table: 'proposal_amendments', column: 'base_proposal_id', references: 'vendor_proposals' },
+      { kind: 'table', table: 'proposal_amendment_items' },
+      { kind: 'fk', table: 'proposal_amendment_items', column: 'amendment_id', references: 'proposal_amendments' },
+    ],
+    chain: 2,
+    pair: ['TYPE-PROPOSAL', 'TYPE-PROPOSAL'],
+    title: 'Proposal → Amendment',
+    joint: 'proposal_amendments',
+    cardinality: 'One-to-many — a proposal accrues amendments, each with its own line items',
+    implementedBy: 'proposal_amendments.base_proposal_id + proposal_amendment_items.amendment_id',
+    writtenBy: 'the proposal maker',
+    guardedBy: 'RLS on both tables',
+    traps: 'The BASE proposal row is not the agreement — the agreement is the base plus every amendment. Reading the base alone understates it.',
+  },
+  {
+    /**
+     * 🚨 THE BREAK IN THE DEAL CHAIN.
+     *
+     * A contract binds to the BOOKING and the MONEY and carries no reference to
+     * the proposal it came from. The `no_column` claim below asserts that
+     * absence, so this annotation fails the day a link is added — which the
+     * owner has decided it should be (2026-08-01).
+     */
+    id: 'J27',
+    claims: [
+      { kind: 'table', table: 'vendor_contracts' },
+      { kind: 'fk', table: 'vendor_contracts', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'vendor_contracts', column: 'order_id', references: 'orders' },
+      { kind: 'no_column', table: 'vendor_contracts', column: 'proposal_id' },
+    ],
+    chain: 3,
+    pair: ['TYPE-PROPOSAL', 'TYPE-CONTRACT'],
+    title: 'Proposal → Contract (MISSING)',
+    joint: 'vendor_contracts',
+    cardinality: 'NOT IMPLEMENTED — there is no column joining these two',
+    implementedBy: 'nothing. The contract reaches the booking (event_vendor_id) and the order (order_id) only.',
+    writtenBy: 'the contract upload / e-sign flow',
+    guardedBy: 'nothing — the bond does not exist to guard',
+    traps: 'Proposals are AMENDABLE after sending, so "what did they agree to?" is unanswerable from a signed contract. The order amount is the only trace and cannot tell an original package from an amended one that totals the same.',
+  },
+  {
+    /** Reviews fold under Vendor rather than standing alone (owner, 2026-08-01). */
+    id: 'J28',
+    claims: [
+      { kind: 'table', table: 'vendor_reviews' },
+      { kind: 'fk', table: 'vendor_reviews', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_reviews', column: 'event_id', references: 'events' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Vendor ↔ Event (review)',
+    joint: 'vendor_reviews',
+    cardinality: 'One review per (vendor, event) — the event is what earns the right to review',
+    implementedBy: 'vendor_reviews — scoped to the event the couple actually booked',
+    writtenBy: 'the couple, post-event',
+    guardedBy: 'RLS + vendor-verified-stamp-integrity.db.test.ts',
+    traps: 'override_admin_id exists — an admin can override a review. Any rating average that ignores it reports something the vendor page does not show.',
   },
 ];
 

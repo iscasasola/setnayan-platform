@@ -20,6 +20,17 @@ export type PlatformSettingsRow = {
    */
   bdo_qr_payload: string | null;
   gcash_qr_payload: string | null;
+  /**
+   * Manual-rail kill switches + monthly receiving caps (migration
+   * 20271028100000). Setnayan receives on PERSONAL accounts, and a personal
+   * GCash wallet FAILS incoming transfers past its monthly limit rather than
+   * queuing them — so the owner must be able to close a rail the moment its
+   * account is at cap. Read through lib/payment-channels.ts, never directly.
+   */
+  gcash_enabled: boolean;
+  bdo_enabled: boolean;
+  gcash_monthly_cap_php: number | null;
+  bdo_monthly_cap_php: number | null;
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
@@ -77,6 +88,12 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_qr_url: null,
   bdo_qr_payload: null,
   gcash_qr_payload: null,
+  // FALLBACK means "we could not read settings" — default both rails OPEN so a
+  // transient read failure never silently closes checkout.
+  gcash_enabled: true,
+  bdo_enabled: true,
+  gcash_monthly_cap_php: null,
+  bdo_monthly_cap_php: null,
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
@@ -110,8 +127,32 @@ const FALLBACK: PlatformSettingsRow = {
  * or a cancelled migration job (which is exactly what happened on the #3964
  * deploy) reproduces it. So these live in their own probe that degrades to
  * nulls, and null already means "serve the static QR" everywhere downstream.
+ *
+ * The channel kill switches + caps (migration 20271028100000) ride the SAME
+ * probe for the same reason. Their failure default is deliberately ENABLED:
+ * a transient read error must never silently close checkout.
  */
-const QR_PAYLOAD_SELECT = 'bdo_qr_payload,gcash_qr_payload';
+const SOFT_SELECT =
+  'bdo_qr_payload,gcash_qr_payload,gcash_enabled,bdo_enabled,gcash_monthly_cap_php,bdo_monthly_cap_php';
+
+type SoftColumns = Pick<
+  PlatformSettingsRow,
+  | 'bdo_qr_payload'
+  | 'gcash_qr_payload'
+  | 'gcash_enabled'
+  | 'bdo_enabled'
+  | 'gcash_monthly_cap_php'
+  | 'bdo_monthly_cap_php'
+>;
+
+const SOFT_DEFAULTS: SoftColumns = {
+  bdo_qr_payload: null,
+  gcash_qr_payload: null,
+  gcash_enabled: true,
+  bdo_enabled: true,
+  gcash_monthly_cap_php: null,
+  bdo_monthly_cap_php: null,
+};
 
 export async function fetchPlatformSettings(
   supabase: SupabaseClient,
@@ -123,30 +164,34 @@ export async function fetchPlatformSettings(
     .maybeSingle();
   if (error || !data) return FALLBACK;
 
-  // Soft probe — a failure here costs the amount-in-QR nicety and nothing
-  // else. Never let it take the core payment details down with it.
-  let qr: { bdo_qr_payload: string | null; gcash_qr_payload: string | null } = {
-    bdo_qr_payload: null,
-    gcash_qr_payload: null,
-  };
+  // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
+  // rails OPEN. Never let it take the core payment details down with it, and
+  // never let it close checkout.
+  let soft: SoftColumns = { ...SOFT_DEFAULTS };
   try {
-    const { data: qrRow, error: qrError } = await supabase
+    const { data: softRow, error: softError } = await supabase
       .from('platform_settings')
-      .select(QR_PAYLOAD_SELECT)
+      .select(SOFT_SELECT)
       .eq('id', 1)
       .maybeSingle();
-    if (!qrError && qrRow) {
-      const row = qrRow as Partial<typeof qr>;
-      qr = {
+    if (!softError && softRow) {
+      const row = softRow as Partial<SoftColumns>;
+      soft = {
         bdo_qr_payload: row.bdo_qr_payload ?? null,
         gcash_qr_payload: row.gcash_qr_payload ?? null,
+        // `?? true` not `!== false`: a NULL/absent column means the migration
+        // has not landed, which must read as OPEN.
+        gcash_enabled: row.gcash_enabled ?? true,
+        bdo_enabled: row.bdo_enabled ?? true,
+        gcash_monthly_cap_php: row.gcash_monthly_cap_php ?? null,
+        bdo_monthly_cap_php: row.bdo_monthly_cap_php ?? null,
       };
     }
   } catch {
-    /* keep the nulls — downstream falls back to the static QR image */
+    /* keep the defaults — static QR, both rails open */
   }
 
-  return { ...(data as object), ...qr } as PlatformSettingsRow;
+  return { ...(data as object), ...soft } as PlatformSettingsRow;
 }
 
 // ---------------------------------------------------------------------------

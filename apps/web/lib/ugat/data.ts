@@ -51,6 +51,14 @@ export interface UgatCounts {
   community: number;
   /** Papic: provisioned paparazzi seats — the unit of entitlement. */
   papic: number;
+  /** Person: durable identities. Reads 0 until the counsel-gated spine lands. */
+  person: number;
+  /** Package: what vendors have authored for sale. */
+  package: number;
+  /** Proposal: offers made to a specific event. */
+  proposal: number;
+  /** Contract: signed artefacts. */
+  contract: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -144,6 +152,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     papicSeats,
     papicPhotoRows,
     papicGuestCaptureRows,
+    peopleRows,
+    packageRows,
+    proposalRows,
+    contractRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -196,6 +208,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // device and EXIF metadata, none of which an admin roll-up needs.
     headCount(admin, 'papic_photos'),
     headCount(admin, 'papic_guest_captures'),
+    headCount(admin, 'people'),
+    headCount(admin, 'vendor_packages'),
+    headCount(admin, 'vendor_proposals'),
+    headCount(admin, 'vendor_contracts'),
   ]);
 
   return {
@@ -211,6 +227,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     taxonomy: taxLeaves,
     community: communitiesLive,
     papic: papicSeats,
+    person: peopleRows,
+    package: packageRows,
+    proposal: proposalRows,
+    contract: contractRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -731,6 +751,10 @@ export interface UgatSearchGroup {
 const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
   community: 'TYPE-SAMAHAN',
   papic: 'TYPE-PAPIC',
+  person: 'TYPE-PERSON',
+  package: 'TYPE-PACKAGE',
+  proposal: 'TYPE-PROPOSAL',
+  contract: 'TYPE-CONTRACT',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

@@ -45,6 +45,11 @@
   /* Papic — rose. The capture cluster reads as its own thing rather than a
      shade of guests (green) or services (orange-red). */
   --ug-e-papic: #b0517a; --ug-e-papic-bg: #f7e9ef;
+  /* Person spine — the durable identity behind a guest (2026-08-01). */
+  --ug-e-person: #5a6fb0; --ug-e-person-bg: #e9ecf7;
+  /* The deal chain — package -> proposal -> contract share a hue on purpose:
+     they are three stages of one thing, and the map should read them as a run. */
+  --ug-e-deal: #8a6d3b; --ug-e-deal-bg: #f4ecdd;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

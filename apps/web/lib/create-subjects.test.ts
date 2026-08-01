@@ -15,6 +15,7 @@ import {
   dependentSubjects,
   gridHiddenTypes,
   hiddenTypesForSubject,
+  subjectHonoreeDependentId,
   subjectHonoreeLabel,
   type CreateSubject,
 } from './create-subjects';
@@ -131,6 +132,22 @@ test('picking “You” keeps the UNLABELED honoree slot', () => {
 test('picking an alaga carries their first name as the honoree key', () => {
   assert.equal(subjectHonoreeLabel(person({ name: '  Nina  ' })), 'Nina');
   assert.equal(subjectHonoreeLabel(person({ name: 'x'.repeat(200) })).length, 80);
+});
+
+test('picking an alaga also carries WHICH record — the key that beats a spelling', () => {
+  assert.equal(subjectHonoreeDependentId(person({ id: 'dep-9' })), 'dep-9');
+  // Every non-person alaga carries one too: a pet has a birthday party, and its
+  // record is just as much the thing being celebrated.
+  assert.equal(subjectHonoreeDependentId(person({ id: 'dep-9', kind: 'pet' })), 'dep-9');
+});
+
+test('“You” and “Someone else” carry NO link — symmetric with the label', () => {
+  // Load-bearing: the unlabeled/unlinked slot has always meant the account
+  // holder, and "You" is a users row, not a dependents row. Stamping anything
+  // here would open a second slot beside every event they already created.
+  assert.equal(subjectHonoreeDependentId(buildSelfSubject('Ice')), null);
+  assert.equal(subjectHonoreeDependentId(buildUnspecifiedSubject()), null);
+  assert.equal(subjectHonoreeDependentId(null), null);
 });
 
 test('dependentSubjects drops what it cannot honestly offer', () => {

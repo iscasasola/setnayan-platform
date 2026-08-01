@@ -156,6 +156,12 @@ export function GenericOnboarding(props: Props) {
   // a second birthday/debut/christening/graduation/gender-reveal was refused
   // forever with a generic error (fixed 2026-07-31).
   const [honoree, setHonoree] = useState('');
+  // WHICH alaga that name is, when the create step's who question named one.
+  // Deliberately NOT persisted in the draft: it is only ever meaningful paired
+  // with the name it arrived with, and a 30-day draft outliving that pairing is
+  // how a link ends up on the wrong person. A resumed draft keeps the name and
+  // falls back to label-keyed capping, which is the shipped behaviour.
+  const [honoreeDependentId, setHonoreeDependentId] = useState<string | null>(null);
   const gatedLifeType = isGatedLifeType(eventType);
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
@@ -266,7 +272,13 @@ export function GenericOnboarding(props: Props) {
     // asking the same question twice. Only for the types that actually ask.
     if (gatedLifeType) {
       const carried = takeHonoree();
-      if (carried) setHonoree(carried);
+      if (carried) {
+        setHonoree(carried.name);
+        // …and WHICH record that name is, so the cap keys on the person rather
+        // than the spelling. A CLAIM only — commitOnboardingEvent re-reads it
+        // under `owner_user_id = you` and drops anything else.
+        setHonoreeDependentId(carried.dependentId);
+      }
     }
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
@@ -411,6 +423,7 @@ export function GenericOnboarding(props: Props) {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
       honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
+      honoreeDependentId: gatedLifeType ? honoreeDependentId : null,
       anchorDate: isAnniversary ? anchorDate || null : null,
       anchorOrigin: isAnniversary ? anchorOrigin : null,
       // Anniversary and birthday return every year by nature; the toggle types
@@ -546,6 +559,11 @@ export function GenericOnboarding(props: Props) {
             value={honoree}
             onChange={(e) => {
               setHonoree(e.target.value);
+              // Typing here means "this one is for someone else" — so the alaga
+              // carried in from the who step no longer describes it. Drop the
+              // link rather than file the event under the previous person; the
+              // typed name still keys the cap, exactly as it did before.
+              setHonoreeDependentId(null);
               if (blockedBy) setBlockedBy(null);
             }}
             placeholder="e.g. Nina"

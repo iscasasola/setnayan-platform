@@ -15,6 +15,7 @@ import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/even
 import { beyondHorizon, horizonDaysFor, isGatedLifeType } from '@/lib/life-event-gate';
 import {
   gridHiddenTypes,
+  subjectHonoreeDependentId,
   subjectHonoreeLabel,
   type CreateSubject,
 } from '@/lib/create-subjects';
@@ -156,7 +157,9 @@ export function EventTypePicker({
     // /onboarding/[type], which asks the same question one screen later. It
     // rides in sessionStorage, NOT the URL: it is a person's first name, and a
     // query param would put it in history, the Referer header and access logs.
-    stashHonoree(subjectHonoreeLabel(subject));
+    // The alaga's record id travels with it so the onboarding path can key the
+    // cap on WHO, not on a spelling — the server re-verifies it before writing.
+    stashHonoree(subjectHonoreeLabel(subject), subjectHonoreeDependentId(subject));
     // Samahan context: community events ALWAYS use the inline form below —
     // it carries the hidden community_id; the tailored onboarding routes
     // don't know about communities (plan §7).
@@ -454,6 +457,18 @@ export function EventTypePicker({
                 maxLength={80}
                 placeholder="First name — e.g. Maria"
                 type="text"
+              />
+              {/* WHICH alaga this is, when the who step named one. A link to a
+                  RECORD outlives a spelling: renaming the alaga no longer moves
+                  the event to a different slot, and two alaga called "Maria"
+                  stop sharing one. Empty for "You" / "Someone else", i.e. for
+                  every account without a People roster — unchanged behaviour.
+                  A CLAIM only: the server re-reads the row under
+                  `owner_user_id = you` and drops anything else. */}
+              <input
+                name="honoree_dependent_id"
+                type="hidden"
+                value={subjectHonoreeDependentId(subject) ?? ''}
               />
               <p className="text-xs text-ink/50">
                 The celebrant’s first name keeps their celebrations tidy — one{' '}

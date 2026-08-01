@@ -29,16 +29,44 @@ export function isHandoffFresh(stampedAtMs: unknown, nowMs: number): boolean {
   return age >= 0 && age < HONOREE_HANDOFF_TTL_MS;
 }
 
-/** Stash the chosen celebrant's name. An empty name CLEARS instead of storing ''. */
-export function stashHonoree(name: string): void {
+/**
+ * What the create step answered: the celebrant's name, and — when they picked a
+ * real alaga rather than "You" / "Someone else" — WHICH record that was.
+ *
+ * The id rides beside the name because the name alone is a weak key: renaming
+ * an alaga would otherwise change which events it caps against, and two alaga
+ * called "Maria" would share one in-planning slot. It is still only a CLAIM
+ * here — the server re-verifies ownership before writing it
+ * (lib/honoree-dependent-link.ts).
+ *
+ * The id is opaque and meaningless outside this account, so it is no more
+ * disclosive than the name it travels with — and it takes the same
+ * sessionStorage route for the same reason: never the URL.
+ */
+export type HonoreeCarry = {
+  name: string;
+  /** `dependents.dependent_id`, or null for "You" / "Someone else". */
+  dependentId: string | null;
+};
+
+/**
+ * Stash the chosen celebrant. An empty name CLEARS instead of storing '' — and
+ * clears the id with it, because an id with no name is a link to a person this
+ * flow can no longer show the user.
+ */
+export function stashHonoree(name: string, dependentId?: string | null): void {
   if (typeof window === 'undefined') return;
   const trimmed = name.trim().slice(0, 80);
+  const dep = typeof dependentId === 'string' ? dependentId.trim() : '';
   try {
     if (!trimmed) {
       window.sessionStorage.removeItem(KEY);
       return;
     }
-    window.sessionStorage.setItem(KEY, JSON.stringify({ n: trimmed, t: Date.now() }));
+    window.sessionStorage.setItem(
+      KEY,
+      JSON.stringify({ n: trimmed, ...(dep ? { d: dep } : {}), t: Date.now() }),
+    );
   } catch {
     /* private mode / quota — the wizard simply asks */
   }
@@ -46,18 +74,21 @@ export function stashHonoree(name: string): void {
 
 /**
  * Read AND consume the stash. Returns null when absent, stale, or unreadable —
- * never a partial value, never twice.
+ * never a partial value, never twice. A payload with a name but no `d` (every
+ * stash written before this field existed, and every "You" pick) returns
+ * `dependentId: null`, which is exactly the pre-existing behaviour.
  */
-export function takeHonoree(): string | null {
+export function takeHonoree(): HonoreeCarry | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return null;
     window.sessionStorage.removeItem(KEY);
-    const parsed = JSON.parse(raw) as { n?: unknown; t?: unknown };
+    const parsed = JSON.parse(raw) as { n?: unknown; d?: unknown; t?: unknown };
     if (typeof parsed?.n !== 'string' || !parsed.n.trim()) return null;
     if (!isHandoffFresh(parsed.t, Date.now())) return null;
-    return parsed.n.trim().slice(0, 80);
+    const dep = typeof parsed.d === 'string' && parsed.d.trim() ? parsed.d.trim() : null;
+    return { name: parsed.n.trim().slice(0, 80), dependentId: dep };
   } catch {
     return null;
   }

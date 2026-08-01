@@ -53,12 +53,6 @@ panood_* | map-backlog — Panood / Live Studio broadcast subsystem
 live_studio_* | map-backlog — Live Studio channel pool and grants (the Setnayan-owned channel model)
 patiktok_* | map-backlog — Patiktok recording subsystem
 households | map-backlog — event-scoped guest grouping (its only FK is event_id → events). Assumed to be part of the person spine on 2026-08-01 and it is NOT; belongs under GUESTS.
-vendor_packages | map-backlog — vendor package builder; a first-class product concept
-vendor_package_items | map-backlog — package line items; belongs with the vendor_packages node
-vendor_proposals | map-backlog — vendor proposal system
-proposal_* | map-backlog — proposal amendments and versioning; belongs with vendor_proposals
-vendor_contracts | map-backlog — contract intelligence and e-signature (iteration 0032)
-vendor_reviews | map-backlog — vendor review and rating system
 vendor_schedule_* | map-backlog — vendor schedule pools and calendar services
 vendor_branches | map-backlog — multi-branch vendor locations
 vendor_coverages | map-backlog — vendor service coverage areas

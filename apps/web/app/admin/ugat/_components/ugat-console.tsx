@@ -1538,6 +1538,9 @@ function TablesView({
     billing: 'TYPE-BILLING',
     taxonomy: 'TYPE-TAXONOMY',
     person: 'TYPE-PERSON',
+    package: 'TYPE-PACKAGE',
+    proposal: 'TYPE-PROPOSAL',
+    contract: 'TYPE-CONTRACT',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

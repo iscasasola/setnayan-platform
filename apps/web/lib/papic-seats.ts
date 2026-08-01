@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { envFlagEnabled } from '@/lib/env-flag';
 import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
@@ -71,7 +72,15 @@ export const PAPIC_SEATS_SERVICE_KEY = 'PAPIC_SEATS';
  * component) and the claim action read the SAME flag — one source of truth.
  */
 export function papicSeatAnonEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED === 'true';
+  // Reads through the shared lenient parser (lib/env-flag.ts). This flag used
+  // strict `=== 'true'`, so `TRUE` / `1` / a trailing space silently did
+  // nothing — indistinguishable from OFF, with no error anywhere. That cost a
+  // deploy cycle on 2026-08-01.
+  //
+  // Passing the value (not the name) is required: NEXT_PUBLIC_* is inlined at
+  // build time by static analysis of this exact expression, so a dynamic
+  // `process.env[key]` lookup would read undefined in the browser.
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED);
 }
 
 /**

@@ -2,6 +2,8 @@ import { CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
 import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { capUsage, capMessage, PAY_CHANNEL_LABEL } from '@/lib/payment-channels';
+import { formatPhp } from '@/lib/orders';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -65,6 +67,38 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
+
+  // Rolling 30-day APPROVED inflow per rail — the number behind each meter.
+  //
+  // Counts 'matched' payments only — that is what approvePayment writes; there
+  // is NO 'approved' value in the payment_status enum, and querying one would
+  // return zero rows forever while rendering a reassuring 0% meter. A pending
+  // row is money we have not confirmed arrived, so counting it would inflate
+  // the meter into closing a rail that still has headroom. Dates come from
+  // paid_at (when the couple
+  // says they paid), not created_at, because that is the date the bank's own
+  // monthly window is keyed to.
+  //
+  // Fail-soft: a read error yields zeroes and the meter simply reads low. It
+  // must never take the settings form down — the admin may be opening this
+  // page precisely BECAUSE payments are misbehaving.
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const received30d = { gcash: 0, bdo: 0 };
+  try {
+    const { data: inflow } = await admin
+      .from('payments')
+      .select('channel, amount_php')
+      .eq('status', 'matched')
+      .gte('paid_at', since);
+    for (const row of (inflow ?? []) as { channel: string; amount_php: number }[]) {
+      if (row.channel === 'gcash') received30d.gcash += Number(row.amount_php) || 0;
+      else if (row.channel === 'bdo') received30d.bdo += Number(row.amount_php) || 0;
+    }
+  } catch {
+    /* meter reads zero; the form still renders */
+  }
   const { data, error } = await admin
     .from('setnayan_pay_methods')
     .select(
@@ -148,6 +182,12 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               className="input-field font-mono"
             />
           </Field>
+          <ChannelSwitch
+            kind="bdo"
+            enabled={settings.bdo_enabled}
+            capPhp={settings.bdo_monthly_cap_php}
+            received30d={received30d.bdo}
+          />
         </section>
 
         <section className="space-y-4">
@@ -174,6 +214,12 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               className="input-field font-mono"
             />
           </Field>
+          <ChannelSwitch
+            kind="gcash"
+            enabled={settings.gcash_enabled}
+            capPhp={settings.gcash_monthly_cap_php}
+            received30d={received30d.gcash}
+          />
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
@@ -377,5 +423,110 @@ function QrUploadBlock({
 
       <QrUploadForm kind={kind} replace={!!currentUrl} />
     </section>
+  );
+}
+
+/**
+ * Per-rail kill switch + rolling-30-day cap meter.
+ *
+ * Setnayan receives on PERSONAL accounts (owner 2026-08-01: no business
+ * account yet). A personal GCash wallet has a monthly RECEIVING limit —
+ * ₱500,000 — and past it incoming transfers **fail rather than queue**, with
+ * no warning inside GCash's own flow. The first signal would otherwise be a
+ * couple reporting a bounced payment.
+ *
+ * So this pairs the switch with the number that tells you when to use it.
+ *
+ * ⚠ The meter counts money that came through SETNAYAN ORDERS ONLY. The cap
+ * applies to everything the account receives, including the owner's personal
+ * transfers, which we cannot see. The figure is therefore a FLOOR — the copy
+ * says so in every band, because a number trusted as complete is worse than
+ * no number at all.
+ */
+function ChannelSwitch({
+  kind,
+  enabled,
+  capPhp,
+  received30d,
+}: {
+  kind: 'gcash' | 'bdo';
+  enabled: boolean;
+  capPhp: number | null;
+  received30d: number;
+}) {
+  const label = PAY_CHANNEL_LABEL[kind];
+  const usage = capUsage(received30d, capPhp);
+  const tone =
+    usage == null
+      ? 'border-ink/10 bg-cream'
+      : usage.band === 'over' || usage.band === 'critical'
+        ? 'border-warn-300/70 bg-warn-50'
+        : usage.band === 'warn'
+          ? 'border-warn-300/40 bg-warn-50/60'
+          : 'border-ink/10 bg-cream';
+
+  return (
+    <div className={`space-y-3 rounded-xl border p-4 ${tone}`}>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name={`${kind}_enabled`}
+          defaultChecked={enabled}
+          className="mt-0.5 h-4 w-4 accent-[var(--sn-success,green)]"
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-ink">
+            Accept {label} payments
+          </span>
+          <span className="block text-[12px] leading-relaxed text-ink/60">
+            Uncheck to stop offering {label} at checkout — do this the moment
+            the account reaches its monthly cap, because transfers past the
+            limit <strong>fail</strong> instead of queuing. Turning both rails
+            off pauses payments entirely, which is deliberate: a working-looking
+            button on a capped account is worse than an honest pause.
+          </span>
+        </span>
+      </label>
+
+      <Field label={`${label} monthly receiving cap (₱)`} htmlFor={`${kind}_monthly_cap_php`}>
+        <input
+          id={`${kind}_monthly_cap_php`}
+          name={`${kind}_monthly_cap_php`}
+          defaultValue={capPhp != null ? String(capPhp) : ''}
+          inputMode="decimal"
+          placeholder={kind === 'gcash' ? '500000' : 'leave blank if none'}
+          className="input-field font-mono"
+        />
+      </Field>
+
+      {usage ? (
+        <div className="space-y-1.5">
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
+            role="img"
+            aria-label={`${Math.round(usage.pct)} percent of cap used`}
+          >
+            <div
+              className={`h-full rounded-full ${
+                usage.band === 'over' || usage.band === 'critical'
+                  ? 'bg-[var(--sn-warning,orange)]'
+                  : 'bg-[var(--sn-success,green)]'
+              }`}
+              style={{ width: `${Math.min(100, Math.round(usage.pct))}%` }}
+            />
+          </div>
+          <p className="text-[12px] leading-relaxed text-ink/70">
+            {capMessage(usage, label)}
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            {formatPhp(usage.receivedPhp)} of {formatPhp(usage.capPhp)} · last 30 days
+          </p>
+        </div>
+      ) : (
+        <p className="text-[12px] text-ink/55">
+          Set a cap above to see how close this account is to its limit.
+        </p>
+      )}
+    </div>
   );
 }

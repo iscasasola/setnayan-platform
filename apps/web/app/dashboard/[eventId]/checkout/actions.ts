@@ -47,6 +47,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { resolveChannel } from '@/lib/payment-channels';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -265,7 +266,6 @@ export async function submitOrderAction(
   ) {
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
   }
-
   // Per-USER Setnayan AI subscription term pass — the ONE eventless SKU. It is
   // bought per account (covers all the buyer's events), so it has no event_id.
   // Every other SKU stays strictly event-scoped exactly as before.
@@ -311,6 +311,35 @@ export async function submitOrderAction(
       ok: false,
       reason: 'Create your account to complete this purchase — your plan stays exactly as it is.',
       needsAccount: true,
+    };
+  }
+
+  // ⭐ The channel kill switch is enforced HERE, not just in the picker.
+  //
+  // Setnayan receives on PERSONAL accounts, and a personal GCash wallet FAILS
+  // incoming transfers once it passes its monthly receiving cap — it does not
+  // queue them. When the owner closes a rail because its account is at cap,
+  // accepting an order on it would send the couple to pay into an account that
+  // physically cannot receive, and the failure surfaces as "I paid and nothing
+  // happened". A hidden radio button in the client does not prevent that; this
+  // does. See lib/payment-channels.ts + migration 20271028100000.
+  const channelSettings = await fetchPlatformSettings(supabase);
+  const openChannel = resolveChannel(channel, channelSettings);
+  if (!openChannel) {
+    return {
+      ok: false,
+      reason:
+        'Payments are paused right now while we switch receiving accounts. Please try again shortly — nothing has been charged.',
+    };
+  }
+  if (openChannel !== channel) {
+    // The posted rail is closed. Refuse rather than silently rebooking onto a
+    // different account: the couple is looking at the QR and details for the
+    // rail they picked, and quietly moving them would mean paying the wrong
+    // destination.
+    return {
+      ok: false,
+      reason: `${channel === 'gcash' ? 'GCash' : 'BDO'} is temporarily unavailable. Please refresh and choose another payment method.`,
     };
   }
 

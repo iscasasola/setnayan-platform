@@ -55,6 +55,15 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
+/** Blank → NULL (no cap configured); otherwise a positive number. */
+function nullIfBlankNumber(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim().replace(/,/g, '');
+  if (t.length === 0) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -216,6 +225,14 @@ export async function savePaymentInstruments(formData: FormData) {
     bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
     gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
     gcash_number: nullIfBlank(formData.get('gcash_number')),
+    // Kill switches. An unchecked HTML checkbox posts NOTHING, so absence must
+    // mean OFF here — reading it as "unchanged" would make the switch
+    // impossible to turn off, which is the direction that matters when an
+    // account is at its cap and transfers are bouncing.
+    gcash_enabled: formData.get('gcash_enabled') === 'on',
+    bdo_enabled: formData.get('bdo_enabled') === 'on',
+    gcash_monthly_cap_php: nullIfBlankNumber(formData.get('gcash_monthly_cap_php')),
+    bdo_monthly_cap_php: nullIfBlankNumber(formData.get('bdo_monthly_cap_php')),
     updated_at: new Date().toISOString(),
   };
 

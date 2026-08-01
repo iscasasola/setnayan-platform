@@ -497,7 +497,7 @@ const guestListReach: Probe = {
 /**
  * The registry.
  *
- * These probes cover a fraction of the 83 mapped joints, and the map itself
+ * These probes cover a fraction of the mapped joints, and the map itself
  * reaches roughly a third of the app — the remainder is the `map-backlog` list
  * in `ugat-concept.baseline.txt`.
  *

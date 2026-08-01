@@ -43,7 +43,9 @@ export type UgatEntityType =
   | 'person'
   | 'package'
   | 'proposal'
-  | 'contract';
+  | 'contract'
+  | 'availability'
+  | 'geography';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -495,6 +497,89 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'settles', to: 'TYPE-ORDERS' },
     ],
   },
+  {
+    /**
+     * VENDOR AVAILABILITY — who gets a finite day.
+     *
+     * The only place in the schema deciding a RIVALROUS resource. Everything
+     * else under VENDOR describes what a vendor IS or SELLS and reads
+     * concurrently without conflict; this decides who gets the date, and it
+     * owns concurrency machinery that exists nowhere else — deterministic
+     * `FOR UPDATE` ordering against deadlock, a partial unique index for
+     * idempotent re-acquire, and a capacity number.
+     *
+     * ⚠ SCOPED BY CONCEPT, NOT BY PREFIX. `vendor_calendar_blocks` and
+     * `vendor_calendar_day_states` do NOT match `vendor_schedule_%` and are the
+     * gates deciding whether a date is bookable at all. A prefix-scoped node
+     * would ship with its two most decision-bearing tables missing — which is
+     * why this node had to be drawn deliberately rather than derived.
+     *
+     * ⚠ UNPROVEN, NOT BUILT. 1 booking row against 45 `event_vendors`, and four
+     * of the six tables at zero. The mechanism is effectively unexercised in
+     * production, so its behaviour under contention has never actually happened.
+     */
+    id: 'TYPE-AVAILABILITY',
+    type: 'availability',
+    name: 'Availability',
+    blurb: 'who gets a finite day — pools, blocks, day states',
+    countKey: 'availability',
+    icon: 'link',
+    color: 'var(--ug-e-avail)',
+    colorBg: 'var(--ug-e-avail-bg)',
+    table: 'vendor_schedule_pools',
+    x: 1040,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'pool_id', note: 'the bookable unit — a vendor may run several' },
+      { key: '', name: 'daily_booking_capacity', note: 'checked inside acquire_schedule_pools(), not by a constraint' },
+      { key: '', name: 'is_active', note: 'the closed switch — see J29 for what it did NOT do until 2026-08-01' },
+    ],
+    edges: [
+      { verb: 'held by', to: 'TYPE-VENDORS' },
+      { verb: 'books', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * GEOGRAPHY — the shared region vocabulary.
+     *
+     * Not a vendor concept and not an event concept: ~11 tables across four
+     * different existing nodes join to it BY TEXT, so filing it under any one
+     * of them makes a shared vocabulary that node's private property and hides
+     * the drift from everyone else.
+     *
+     * 🚨 EXACTLY ONE FOREIGN KEY IN THE ENTIRE DATABASE POINTS AT `regions`
+     * (`wedding_destinations.region_code`, asserted in J31). Every other
+     * reference — `events.region`, `vendor_profiles.hq_region`, the market and
+     * pricing bands — is unenforced text. This is the tiles-vs-categories shape
+     * again, one join further out.
+     *
+     * ⚠ AND IT HAS ALREADY BITTEN ONCE, in a way worth remembering rather than
+     * fearing: the retired `token_burn_bands` table carried long-form slugs
+     * (`central_luzon`, `davao_region`) against a `regions` table using short
+     * form (`c-luzon`, `davao`). It mis-keyed six regions and UNDERCHARGED
+     * them. It was fixed on 2026-07-01 by collapsing onto `regions.burn_band`,
+     * and the dead table still sits in prod holding 10 of 20 rows that match no
+     * real region. Nothing reads it — verified — so the drift is inert, but it
+     * is a loaded gun for anyone who greps the schema and trusts what they find.
+     */
+    id: 'TYPE-GEOGRAPHY',
+    type: 'geography',
+    name: 'Geography',
+    blurb: 'the shared region vocabulary — joined by text almost everywhere',
+    countKey: 'geography',
+    icon: 'globe',
+    color: 'var(--ug-e-geo)',
+    colorBg: 'var(--ug-e-geo-bg)',
+    table: 'regions',
+    x: 300,
+    y: 760,
+    fields: [
+      { key: 'pk', name: 'slug', note: 'SHORT form (c-luzon, davao, car) — the only correct spelling' },
+      { key: '', name: 'burn_band', note: 'the single source for region token pricing since 2026-07-01' },
+    ],
+    edges: [{ verb: 'locates', to: 'TYPE-EVENTS' }],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -550,6 +635,18 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'receipt',
     color: 'var(--ug-e-deal)',
     colorBg: 'var(--ug-e-deal-bg)',
+  },
+  availability: {
+    label: 'Availability',
+    icon: 'link',
+    color: 'var(--ug-e-avail)',
+    colorBg: 'var(--ug-e-avail-bg)',
+  },
+  geography: {
+    label: 'Geography',
+    icon: 'globe',
+    color: 'var(--ug-e-geo)',
+    colorBg: 'var(--ug-e-geo-bg)',
   },
 };
 
@@ -1621,6 +1718,169 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'the couple, post-event',
     guardedBy: 'RLS + vendor-verified-stamp-integrity.db.test.ts',
     traps: 'override_admin_id exists — an admin can override a review. Any rating average that ignores it reports something the vendor page does not show.',
+  },
+  {
+    /**
+     * 🚨 THE POOL SWITCH. `is_active` is what an operator flips to close a pool,
+     * and until 2026-08-01 `acquire_schedule_pools()` filtered on it in the
+     * VALIDATION loop but not in the INSERT — so a closed pool skipped every
+     * gate and still took bookings. Fixed in migration 20271028166046.
+     *
+     * ⚠ `daily_booking_capacity` is checked ONLY inside that function. No
+     * constraint and no exclusion index enforces it, so any write that does not
+     * route through the function is unbounded.
+     */
+    id: 'J29',
+    claims: [
+      { kind: 'table', table: 'vendor_schedule_pools' },
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'is_active' },
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'daily_booking_capacity' },
+      { kind: 'fk', table: 'vendor_calendar_day_states', column: 'pool_id', references: 'vendor_schedule_pools' },
+      { kind: 'fk', table: 'vendor_calendar_blocks', column: 'pool_id', references: 'vendor_schedule_pools' },
+      { kind: 'table', table: 'vendor_schedule_pool_categories' },
+      { kind: 'table', table: 'vendor_schedule_calendar_services' },
+    ],
+    chain: 1,
+    pair: ['TYPE-AVAILABILITY', 'TYPE-VENDORS'],
+    title: 'Pool → gates (blocks · day states)',
+    joint: 'vendor_schedule_pools',
+    cardinality: 'One-to-many — a pool accrues blocks and day states that close its dates',
+    implementedBy: 'vendor_calendar_blocks.pool_id + vendor_calendar_day_states.pool_id',
+    writtenBy: 'the vendor calendar surface · acquire_schedule_pools()',
+    guardedBy: 'pool-bypass-and-oauth-block.db.test.ts (the is_active half)',
+    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ.',
+  },
+  {
+    /**
+     * 🚨 THE DATE IS COPIED, NOT DERIVED. `booked_date` duplicates
+     * `events.event_date` with no FK, no trigger and no generated column keeping
+     * them in step. The project's own fixture instructions are the proof: moving
+     * the test event's date needs TWO updates, one per table.
+     */
+    id: 'J30',
+    claims: [
+      { kind: 'table', table: 'vendor_schedule_pool_bookings' },
+      { kind: 'column', table: 'vendor_schedule_pool_bookings', column: 'booked_date' },
+      { kind: 'fk', table: 'vendor_schedule_pool_bookings', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'vendor_schedule_pool_bookings', column: 'event_vendor_id', references: 'event_vendors' },
+    ],
+    chain: 2,
+    pair: ['TYPE-AVAILABILITY', 'TYPE-EVENTS'],
+    title: 'Booking ↔ Event (the held date)',
+    joint: 'vendor_schedule_pool_bookings',
+    cardinality: 'One booking per (pool, event_vendor) while released_at IS NULL',
+    implementedBy: 'vendor_schedule_pool_bookings — the row that holds the day',
+    writtenBy: 'acquire_schedule_pools() · release_schedule_pools()',
+    guardedBy: 'the partial unique index on (pool_id, event_vendor_id) WHERE released_at IS NULL',
+    traps: 'booked_date drifts from events.event_date whenever a couple reschedules by any path that does not release+acquire. ALSO: event_vendor_id references event_vendors(VENDOR_ID) \u2014 the column name and the target PK name differ, so joining on matching names is wrong.',
+  },
+  {
+    /**
+     * GEOGRAPHY's only enforced edge — the one FK in the whole database that
+     * points at `regions`. Asserted precisely because it is the exception: if a
+     * second one ever lands, that is good news worth noticing.
+     */
+    id: 'J31',
+    claims: [
+      { kind: 'table', table: 'regions' },
+      { kind: 'column', table: 'regions', column: 'burn_band' },
+      { kind: 'fk', table: 'wedding_destinations', column: 'region_code', references: 'regions' },
+    ],
+    chain: 1,
+    pair: ['TYPE-GEOGRAPHY', 'TYPE-EVENTS'],
+    title: 'Region → destinations (the only enforced region link)',
+    joint: 'wedding_destinations',
+    cardinality: 'Many-to-one — destinations sit in a region',
+    implementedBy: 'wedding_destinations.region_code → regions.slug ON UPDATE CASCADE',
+    writtenBy: 'the destinations seed',
+    guardedBy: 'the FK itself — and it is the ONLY one',
+    traps: 'Every other region reference in the schema is unenforced TEXT (events.region, vendor_profiles.hq_region, the market and pricing bands). Slugs are SHORT form (c-luzon, davao, car); long form (central_luzon, davao_region) matches nothing and is what mis-keyed the retired token_burn_bands.',
+  },
+  {
+    /**
+     * 🚨 THE BADGE IS NOT IN THE VERIFICATION TABLES. What the product reads is
+     * `vendor_profiles.verification_state`; nothing syncs it from either
+     * verification table, and the three carry three different status
+     * vocabularies. Same shape as tiles-vs-categories, on the trust surface.
+     *
+     * ⚠ Deleting an account CASCADES BOTH TABLES AWAY — auth.users → users →
+     * vendor_profiles → here, with no soft-delete column anywhere. The KYC
+     * record does not survive the account, which collides with the retention
+     * obligation.
+     */
+    id: 'J32',
+    claims: [
+      { kind: 'table', table: 'vendor_verification_applications' },
+      { kind: 'table', table: 'vendor_verifications' },
+      { kind: 'column', table: 'vendor_profiles', column: 'verification_state' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-VENDORS'],
+    title: 'Vendor → verification (badge lives elsewhere)',
+    joint: 'vendor_verification_applications',
+    cardinality: 'Unbounded — NEITHER table is unique on vendor_profile_id, so "the vendor\u2019s application" is undefined',
+    implementedBy: 'two generations of the same flow coexisting with no link between them',
+    writtenBy: 'the vendor verification surface',
+    guardedBy: 'nothing syncs verification_state — it is set by application code',
+    traps: 'A .single() on vendor_profile_id will start throwing the moment a vendor submits twice. Neither table is the badge; vendor_profiles.verification_state is.',
+  },
+  {
+    /**
+     * Instagram folds under VENDOR (no node of its own: 3 tables, zero
+     * connections, one never-completed handshake — mapping it would be mapping
+     * speculation). Recorded because two of its shapes bite.
+     */
+    id: 'J33',
+    claims: [
+      { kind: 'table', table: 'vendor_ig_connections' },
+      { kind: 'table', table: 'vendor_ig_media' },
+      { kind: 'no_column', table: 'vendor_ig_media', column: 'vendor_ig_connection_id' },
+      { kind: 'fk', table: 'vendor_ig_oauth_state', column: 'initiated_by', references: 'users' },
+    ],
+    chain: 3,
+    pair: ['TYPE-VENDORS', 'TYPE-VENDORS'],
+    title: 'Vendor → Instagram (media outlives the connection)',
+    joint: 'vendor_ig_connections',
+    cardinality: 'One connection per vendor — but NOT one vendor per Instagram account',
+    implementedBy: 'vendor_ig_connections, with media hanging off the vendor rather than the connection',
+    writtenBy: 'the Instagram connect flow',
+    guardedBy: 'a unique index on vendor_profile_id only',
+    traps: 'Revoking or deleting a connection unpublishes NOTHING \u2014 vendor_ig_media has no link to it (asserted above), so every synced post keeps rendering. And ig_user_id has no unique constraint, so two vendors can claim the same Instagram account.',
+  },
+  {
+    /**
+     * Branches, coverage and services fold under VENDOR — no node of their own.
+     * Two of the three are empty and none carries a lifecycle VENDOR lacks.
+     *
+     * 🚨 'COVERAGE' HOLDS NO GEOGRAPHY. Despite the name it is
+     * `canonical_service` + `event_types[]` + `faiths[]` — the matching
+     * vocabulary, not a service area. The `no_column` claim below pins that,
+     * because filing it next to branches under a "coverage area" heading is the
+     * obvious and wrong reading, and the name invites it.
+     *
+     * ⚠ SILENT UNTYPING. `vendor_services.coverage_id` is NULLABLE with ON
+     * DELETE SET NULL, and `vendor_services` has no canonical_service column —
+     * so the coverage row IS the service's type. Delete a coverage and every
+     * service under it survives as a TYPELESS row rather than raising.
+     */
+    id: 'J34',
+    claims: [
+      { kind: 'table', table: 'vendor_branches' },
+      { kind: 'table', table: 'vendor_coverages' },
+      { kind: 'table', table: 'vendor_services' },
+      { kind: 'no_column', table: 'vendor_coverages', column: 'region_slug' },
+      { kind: 'fk', table: 'vendor_branches', column: 'parent_vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_coverages', column: 'vendor_profile_id', references: 'vendor_profiles' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
+    title: 'Vendor → branches · coverage · services',
+    joint: 'vendor_coverages',
+    cardinality: 'One vendor, many branches and coverage rows; UNIQUE (vendor_profile_id, canonical_service) on coverage',
+    implementedBy: 'vendor_branches + vendor_coverages, both hanging off vendor_profiles',
+    writtenBy: 'the vendor profile + branches surfaces',
+    guardedBy: 'RLS — there is no public read policy on either, so neither is visible to discovery',
+    traps: 'vendor_coverages is WHAT a vendor serves, not WHERE. Geography lives on vendor_profiles (hq_region, radii) and vendor_branches (city, lat/lon, radius) \u2014 two parallel copies nothing reconciles. Also: branch_subscription_active defaults to TRUE, so any direct INSERT creates a fully active PAID branch for free.',
   },
 ];
 

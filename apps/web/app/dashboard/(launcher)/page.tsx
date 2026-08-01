@@ -72,6 +72,8 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { EventScene } from './_components/event-scene';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { eventTypePhotoSrc } from '../(account)/create-event/_components/event-types';
+import { renderableImageSrc } from '@/lib/event-card-art';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -570,6 +572,70 @@ export default async function LauncherPage({
   const heroFor = (type: string) =>
     eventTypeHero.get(type) ?? `/event-types/${type}.webp`;
 
+  // THE EVENT'S OWN HERO — the card's correct picture whenever it exists.
+  // `events.landing_page_hero_image_url` is the couple's guest-site hero,
+  // stored as an `r2://bucket/key` ref, so it has to be presigned before it
+  // can be an <img src>. It is NULL on every event in prod today, which is
+  // exactly why the type stock photo needed the per-event treatment as well:
+  // this layer is the right long-term answer and becomes true for free as
+  // couples fill in their sites, but it fixes nothing on its own yet.
+  //
+  // ⚠ Deliberately NOT folded into fetchUserEvents(): that helper is React
+  // cache()d and shared by all four dashboard layouts, and its own comment
+  // records that one bad column there empties the event switcher app-wide.
+  // This read is isolated and failure-tolerant — an empty map just means every
+  // card falls back to the type scene, which is the state of the world today.
+  const ownHeroById = new Map<string, string>();
+  const cardEventIds = [
+    ...new Set([...upcoming, ...finished].map((e) => e.event_id)),
+  ];
+  if (cardEventIds.length > 0) {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('event_id, landing_page_hero_image_url')
+        .in('event_id', cardEventIds)
+        .not('landing_page_hero_image_url', 'is', null);
+      if (error) {
+        logQueryError(
+          'Launcher (events.landing_page_hero_image_url SELECT)',
+          error,
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+      } else {
+        const rows = (data ?? []) as Array<{
+          event_id: string;
+          landing_page_hero_image_url: string | null;
+        }>;
+        // Presign in parallel — each is a local signing operation, but they
+        // are still N of them and a card row can hold a handful of events.
+        const signed = await Promise.all(
+          rows.map((r) =>
+            displayUrlForStoredAsset(r.landing_page_hero_image_url).catch(
+              () => null,
+            ),
+          ),
+        );
+        rows.forEach((r, i) => {
+          // The column is host-writable straight through PostgREST and any
+          // non-`r2://` value passes through displayUrlForStoredAsset
+          // unchanged, so what lands in an <img src> gets narrowed to an
+          // actual image URL first.
+          const src = renderableImageSrc(signed[i]);
+          if (src) ownHeroById.set(r.event_id, src);
+        });
+      }
+    } catch (caught) {
+      logQueryError(
+        'Launcher (own hero resolve threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+    }
+  }
+
   const lifeOn = lifeStoryEnabled();
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
@@ -988,6 +1054,7 @@ export default async function LauncherPage({
               event={event}
               pct={progressByEvent.get(event.event_id) ?? null}
               heroSrc={heroFor(event.event_type)}
+              ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
               index={i}
             />
           ))}
@@ -998,6 +1065,7 @@ export default async function LauncherPage({
                   event={event}
                   pct={progressByEvent.get(event.event_id) ?? null}
                   heroSrc={heroFor(event.event_type)}
+                  ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
                   finished
                   index={upcoming.length + i}
                 />
@@ -1441,6 +1509,7 @@ function GlassEventCard({
   event,
   pct,
   heroSrc,
+  ownHeroSrc = null,
   finished,
   index = 0,
 }: {
@@ -1449,6 +1518,9 @@ function GlassEventCard({
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
    *  <EventScene> falls back to the branded gradient if it 404s. */
   heroSrc: string;
+  /** The event's OWN presigned hero, when the couple has uploaded one. It
+   *  outranks the type hero and suppresses the per-event treatment. */
+  ownHeroSrc?: string | null;
   finished?: boolean;
   /** Position in the grid — drives the entrance-cascade + ring/count-up
    *  stagger delays (computed, never hardcoded per card). */
@@ -1468,17 +1540,21 @@ function GlassEventCard({
       }`}
       style={{ animationDelay: `${0.5 + index * 0.08}s` }}
     >
-      {/* THE SCENE (prototype `events()` → `.top`): the event's own type hero,
-          scrimmed, with the type badge, the monogram floating over the band's
-          edge, and the event's NAME + PLACE set on it — the thing that makes an
-          event imaginable instead of a stripe (owner 2026-07-30). The hero and
-          its gradient fallback are the ones the create-event picker already
-          uses; nothing new is invented, and a type with no asset gets its
-          deterministic branded gradient, never another type's photo. */}
+      {/* THE SCENE (prototype `events()` → `.top`): the event's hero, scrimmed,
+          with the type badge, the monogram floating over the band's edge, and
+          the event's NAME + PLACE set on it — the thing that makes an event
+          imaginable instead of a stripe (owner 2026-07-30). The couple's OWN
+          hero when they have one; otherwise the same type hero (+ gradient
+          fallback) the create-event picker uses, under the per-event treatment
+          that keeps two events of one type from reading as the same
+          photograph. Nothing new is invented, and a type with no asset gets
+          its deterministic branded gradient, never another type's photo. */}
       <div className="relative h-32 shrink-0 sm:h-36">
         <EventScene
+          eventId={event.event_id}
           eventType={event.event_type}
           photoSrc={heroSrc}
+          ownPhotoSrc={ownHeroSrc}
           muted={finished}
         />
         <span className="absolute left-3 top-3 inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">

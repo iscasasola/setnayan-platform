@@ -185,7 +185,7 @@ export default async function EventDocumentsPage({ params }: Props) {
     receipts.length;
 
   return (
-    <section className="space-y-8">
+    <section className="sn-col space-y-8">
       <header className="sn-reveal space-y-1.5">
         <p className="sn-eye">Documents</p>
         <h1 className="sn-h1">

@@ -216,7 +216,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const errorMessage = search.error ?? null;
 
   return (
-    <section className="space-y-6 pb-12">
+    <section className="sn-col space-y-6 pb-12">
       <Link
         href={`/dashboard/${eventId}`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"

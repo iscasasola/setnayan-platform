@@ -557,7 +557,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        scoped to this page via the injected <style> tag — the nav returns
        the moment the host navigates away. -mt-6 cancels the <main py-6>
        top-padding so the page content sits flush under the bottom-nav. */
-    <section className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0">
+    <section className="sn-col -mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-0">
       <style>{`.shell-topbar{display:none}`}</style>
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15

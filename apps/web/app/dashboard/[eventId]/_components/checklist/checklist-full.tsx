@@ -262,7 +262,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="sn-col space-y-6">
       <header className="sn-reveal space-y-3">
         <div className="space-y-1">
           <p className="sn-eye">{chrome.eyebrow}</p>

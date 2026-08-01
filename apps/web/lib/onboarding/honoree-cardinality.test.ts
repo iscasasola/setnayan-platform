@@ -65,14 +65,14 @@ const OPTS: GenericInsertOpts = {
   homeSignalsEnabled: true,
 };
 
-const row = (honoree: string | null) => ({
+const row = (honoree: string | null, dependentId: string | null = null) => ({
   event_id: 'e1',
   event_type: 'birthday',
   display_name: 'Nina turns 7',
   event_date: null,
   archived: false,
   honoree_label: honoree,
-  honoree_dependent_id: null,
+  honoree_dependent_id: dependentId,
   created_at: CREATED,
 });
 
@@ -121,6 +121,98 @@ test('the same celebrant is still capped — the rule is not weakened', () => {
     true,
     'honoree keys normalize, so casing cannot buy a second slot',
   );
+});
+
+// ── the dependent LINK (2026-08-01) ─────────────────────────────────────────
+// THE SECOND DEFECT: `events.honoree_dependent_id` was never written by any
+// create path — only copied forward by event-recurrence — so the gate's
+// strongest branch was unreachable and the cap always keyed on the label
+// STRING. These pin that the insert now originates it, and what that buys.
+
+const DEP_NINA = '11111111-2222-4333-8444-555555555555';
+const DEP_BEA = '99999999-2222-4333-8444-555555555555';
+
+test('the insert now carries the LINK too — this is the half that was dead', () => {
+  const insert = buildGenericEventInsert(
+    payload({ honoreeLabel: 'Nina', honoreeDependentId: DEP_NINA }),
+    OPTS,
+  );
+  assert.equal(insert.honoree_dependent_id, DEP_NINA);
+});
+
+test('an absent or blank link stores NULL — every existing row behaves as today', () => {
+  for (const v of ['   ', undefined, null]) {
+    const insert = buildGenericEventInsert(
+      payload({ honoreeLabel: 'Nina', honoreeDependentId: v as string | null }),
+      OPTS,
+    );
+    assert.equal(insert.honoree_dependent_id, null, `for ${JSON.stringify(v)}`);
+  }
+});
+
+test('the link WINS over the label when both sides have one', () => {
+  // Same spelling, two different children — the label alone said "collide".
+  assert.equal(
+    blocksLifeEventCreation(
+      row('Maria', DEP_NINA),
+      { eventType: 'birthday', honoreeLabel: 'Maria', honoreeDependentId: DEP_BEA },
+      TODAY,
+    ),
+    false,
+    'two different alaga must not share one slot just because they share a name',
+  );
+  assert.equal(
+    blocksLifeEventCreation(
+      row('Maria', DEP_NINA),
+      { eventType: 'birthday', honoreeLabel: 'Totally Different', honoreeDependentId: DEP_NINA },
+      TODAY,
+    ),
+    true,
+    'the same record must still collide however the label is spelled',
+  );
+});
+
+test('RENAMING the alaga no longer moves it to a different slot', () => {
+  // The whole point: event 1 was created while she was "Nina"; she is now
+  // "Nina Santos". A label-keyed cap would call that a different celebrant.
+  const existing = row('Nina', DEP_NINA);
+  assert.equal(
+    blocksLifeEventCreation(
+      existing,
+      { eventType: 'birthday', honoreeLabel: 'Nina Santos', honoreeDependentId: DEP_NINA },
+      TODAY,
+    ),
+    true,
+    'the cap keys on the record, not on the spelling',
+  );
+  // …and without the link (the pre-fix world) the rename buys a second slot.
+  assert.equal(
+    blocksLifeEventCreation(existing, { eventType: 'birthday', honoreeLabel: 'Nina Santos' }, TODAY),
+    false,
+    'this is the behaviour the link exists to replace',
+  );
+});
+
+test('a one-sided link falls back to the label — unlinked rows are unchanged', () => {
+  // Legacy row (NULL link) vs a linked candidate: the label still decides.
+  assert.equal(
+    blocksLifeEventCreation(
+      row('Nina'),
+      { eventType: 'birthday', honoreeLabel: 'Nina', honoreeDependentId: DEP_NINA },
+      TODAY,
+    ),
+    true,
+  );
+  assert.equal(
+    blocksLifeEventCreation(
+      row('Nina'),
+      { eventType: 'birthday', honoreeLabel: 'Bea', honoreeDependentId: DEP_BEA },
+      TODAY,
+    ),
+    false,
+  );
+  // Two unlabeled, unlinked events still contend for the singleton slot.
+  assert.equal(blocksLifeEventCreation(row(null), { eventType: 'birthday' }, TODAY), true);
 });
 
 test('every gated type gets the question; lifestyle types do not', () => {

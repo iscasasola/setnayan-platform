@@ -25,6 +25,7 @@ import {
 } from '@/lib/communities';
 import {
   fetchChecklistItems,
+  checklistRunwayFor,
   daysUntilEvent,
   dueDateForItem,
 } from '@/lib/checklist';
@@ -337,9 +338,13 @@ export default async function LauncherPage({
           const items = await fetchChecklistItems(supabase, e.event_id);
           if (items.length === 0) return [e.event_id, { pct: null, overdue: 0 }];
           const done = items.filter((i) => i.status === 'done').length;
+          // Same runway rule the checklist page renders with — an event whose
+          // template is longer than its runway must not report every task as
+          // overdue on the card either. Null runway ⇒ authored offsets stand.
+          const runway = checklistRunwayFor(items, e.event_date, e.created_at ?? null);
           const overdue = items.filter((i) => {
             if (i.status !== 'pending') return false;
-            const due = dueDateForItem(e.event_date, i.due_offset_days);
+            const due = dueDateForItem(e.event_date, i.due_offset_days, runway);
             return !!due && due < todayISO;
           }).length;
           return [

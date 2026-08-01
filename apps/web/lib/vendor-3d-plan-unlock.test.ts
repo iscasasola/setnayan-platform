@@ -12,8 +12,11 @@ import {
   VENDOR_3D_PLAN_UNLOCK_DENY_MESSAGE,
 } from './vendor-3d-plan-unlock';
 
-// The standard SEATING_3D catalog price is ₱2,999 (migration 20270712300000).
-const STANDARD_CENTAVOS = 2999 * 100;
+// The standard SEATING_3D catalog price is ₱1,500 per wedding (owner-locked
+// 2026-07-23, applied to the catalog by migration 20271032178949; it was ₱2,999
+// from 20270712300000 until then). The vendor-unlock price stays ₱1,000, so the
+// discount survives the reprice — it is now ₱500 off rather than ₱1,999 off.
+const STANDARD_CENTAVOS = 1500 * 100;
 const DISCOUNT_CENTAVOS = VENDOR_3D_PLAN_UNLOCK_PRICE_PHP * 100; // ₱1,000
 
 // ── vendor3dPlanUnlockEligibility (the three gates) ──────────────────────────

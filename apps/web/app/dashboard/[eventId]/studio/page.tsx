@@ -167,11 +167,14 @@ export default async function StudioPage({ params, searchParams }: Props) {
   //   off) under the owner's 2026-07-29 two-type lock.
   //
   //   The predicate still runs, and still matters, for the reason above it: it
-  //   decides WHICH EVENT TYPES may be offered the pool at all (anniversary
-  //   controller split · phase ladder), and it fails closed for a new type.
-  //   Widening it is an owner/DPO decision — `papic-event-access.ts` says so at
-  //   PAPIC_ACCESS_CURRENT_PHASE — never a drive-by edit here. The `travel` deny
-  //   this comment used to name was dropped by owner decision 2026-08-01.
+  //   decides WHICH EVENT TYPES may be offered the pool at all, and it fails
+  //   closed for a new type. Narrowing or widening it is an owner decision —
+  //   never a drive-by edit here.
+  //
+  //   ⚠ IT DENIES NO LIVE TYPE TODAY. Owner, 2026-08-01: "Drop the travel
+  //   exclusion — offer Papic everywhere." All 16 types are Phase 1 and the
+  //   anniversary controller split is gone. `communityId` is still threaded
+  //   below because the predicate's signature keeps it for a future re-tiering.
   //
   //   ⚠ Verdict gates 0d/0e (guest-media ROPA row + DPO sign-off that the RSVP
   //   consent text names guest-phone capture and face-sorted delivery) are STILL

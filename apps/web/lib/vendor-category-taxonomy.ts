@@ -81,7 +81,11 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   mobile_bar: { kind: 'tile', tile: 'mobile_bar' },
   reception_decor: { kind: 'tile', tile: 'stylist_decorator' },
   gifts_and_giveaways: { kind: 'tile', tile: 'souvenir_giveaways' },
-  accommodation: { kind: 'tile', tile: 'reception' },
+  // Re-anchored 2026-08-01: `accommodation` used to point at `reception`
+  // because lodging had no tile of its own — so "shop this category" sent a
+  // couple looking for a hotel into the reception-VENUE shelf. It now anchors
+  // to the real `accommodation` tile.
+  accommodation: { kind: 'tile', tile: 'accommodation' },
   // Non-wedding event-type gap leaves (2026-07-20) — each couple-side key
   // anchors 1:1 to its same-named tier-2 tile (12 new tiles + the 2 tiles
   // that already existed: performers, choreographer).
@@ -101,7 +105,10 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   restaurant_reservation: { kind: 'tile', tile: 'restaurant_reservation' },
   // ── B · coarse alias (many-to-one — genuinely spans tiles) ──────────────────
   band_dj: { kind: 'tiles', tiles: ['live_band', 'dj'] },
-  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle'] },
+  // `transfers_rentals` added 2026-08-01: on a TRAVEL event the couple-side
+  // "transportation" category means an airport transfer or a van/scooter
+  // rental, and neither of the two wedding tiles could ever surface one.
+  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle', 'transfers_rentals'] },
   // ── C · couple-only (exempt — no marketplace tile) ──────────────────────────
   officiant: { kind: 'exempt', reason: 'auto_resolves_from_venue' },
   church_fees: { kind: 'exempt', reason: 'budget_line_not_vendor' },

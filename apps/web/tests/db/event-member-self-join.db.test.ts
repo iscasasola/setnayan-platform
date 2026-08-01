@@ -16,8 +16,8 @@
  * approval. And `current_event_ids()` has no member_type filter, so that one
  * forged row promoted the attacker into every `event_id IN current_event_ids()`
  * predicate in the schema: measured in production, 47 policies across 29 tables,
- * including partner birth dates and budget (events), guest postal addresses
- * (households), harassment reports together with the reporter's identity
+ * including partner birth dates and budget (events), the guest roster
+ * (guests), harassment reports together with the reporter's identity
  * (user_reports), and the consent record that authorises checkout
  * (coordinator_access_consents — writable AND deletable).
  *
@@ -107,10 +107,16 @@ before(async () => {
     `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'guest')`,
     [F.eventId, F.victimGuest],
   );
+  // The guest-roster canary. This was `households` until 2026-08-01 — a table
+  // that shipped with iteration 0001, was never built on, and held zero rows
+  // forever, so the assertion below proved only that a stranger could not read
+  // an empty table. `guests` is the same event-scoped, couples-write, RLS
+  // Pattern B shape and actually carries the names, so the same assertion now
+  // proves something about data that exists. households was dropped in
+  // migration 20271029415972 once this canary replaced it.
   await db.query(
-    `INSERT INTO public.households (event_id, name, address)
-     VALUES ($1, 'The Reyes Family',
-             '{"line1": "18 Kalayaan Ave", "city": "Quezon City"}'::jsonb)`,
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+     VALUES ($1, 'Ana', 'Reyes', 'bride', 'family')`,
     [F.eventId],
   );
   await db.query(
@@ -241,16 +247,36 @@ test('a member can still READ their own membership row', async () => {
 
 // ── 3. THE DOWNSTREAM ESCALATION IS DENIED ───────────────────────────────────
 
+test('ANTI-VACUITY · the three rows the stranger must not read DO exist', async () => {
+  // Every assertion in the next test is "the attacker read 0 rows", which passes
+  // just as happily when the row was never seeded. Prove the targets exist first,
+  // with RLS off, or the denials below prove nothing.
+  //
+  // Added 2026-08-01 alongside the households->guests canary swap. The gap
+  // predates that change and applies to all three targets, not just the new one.
+  await reset();
+  const ev = await db.query(`SELECT event_id FROM public.events WHERE event_id = $1`, [F.eventId]);
+  const g = await db.query(`SELECT first_name FROM public.guests WHERE event_id = $1`, [F.eventId]);
+  const ur = await db.query(`SELECT reporter_user_id FROM public.user_reports WHERE event_id = $1`, [
+    F.eventId,
+  ]);
+  assert.equal(ev.rows.length, 1, 'the event fixture did not land');
+  assert.equal(g.rows.length, 1, 'the guest canary did not land — the denial below would be vacuous');
+  assert.equal(ur.rows.length, 1, 'the harassment-report fixture did not land');
+});
+
 test('the stranger reads NOTHING the self-join used to unlock', async () => {
   await asUser(F.attacker);
   const ev = await db.query(`SELECT event_id FROM public.events WHERE event_id = $1`, [F.eventId]);
-  const hh = await db.query(`SELECT name FROM public.households WHERE event_id = $1`, [F.eventId]);
+  const hh = await db.query(`SELECT first_name, last_name FROM public.guests WHERE event_id = $1`, [
+    F.eventId,
+  ]);
   const ur = await db.query(`SELECT reporter_user_id FROM public.user_reports WHERE event_id = $1`, [
     F.eventId,
   ]);
   await reset();
   assert.equal(ev.rows.length, 0, 'partner birth dates / budget / venue coords');
-  assert.equal(hh.rows.length, 0, 'guest names + postal addresses');
+  assert.equal(hh.rows.length, 0, 'the guest roster — names, sides, RSVP');
   assert.equal(
     ur.rows.length,
     0,

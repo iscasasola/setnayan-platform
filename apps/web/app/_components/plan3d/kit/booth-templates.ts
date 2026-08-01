@@ -304,6 +304,19 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Reception Venue',
     cardKind: 'inclusions',
   },
+  // Travel vertical, 2026-08-01. Lodging split off `reception` onto its own
+  // tile, so it needs its own booth: a front-desk DESK with the property scale
+  // model plus the availability calendar a check-in counter actually shows.
+  accommodation: {
+    chassis: 'DESK',
+    props: [
+      { kind: 'maquette', position: [-0.35, 0.79, 0.05], scale: 0.85 },
+      { kind: 'calendar_board', position: [0.45, 0.79, 0.08], rotY: -0.15 },
+    ],
+    staff: { outfit: 'uniform', idle: 'wave', count: 1 },
+    signText: 'Accommodation',
+    cardKind: 'inclusions',
+  },
   ceremony_venue: {
     chassis: 'BACKDROP',
     // Chapel arch across the floor zone + warm-gold capiz string in front of
@@ -676,6 +689,20 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     ],
     staff: { outfit: 'vest', idle: 'thumbsUp', count: 1 },
     signText: 'Escort',
+    cardKind: 'inclusions',
+  },
+  // Travel vertical, 2026-08-01 — airport transfers, car/van charter, scooter
+  // and boat rental. A booking DESK rather than the VEHICLE chassis the three
+  // tiles above use: the tile sells the ARRANGEMENT, and its leaves span cars,
+  // vans, scooters and bancas, so no single vehicle silhouette is honest.
+  transfers_rentals: {
+    chassis: 'DESK',
+    props: [
+      { kind: 'calendar_board', position: [-0.35, 0.79, 0.05] },
+      { kind: 'clipboard_board', position: [0.45, 0.79, 0.08], rotY: -0.15 },
+    ],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Transfers & Rentals',
     cardKind: 'inclusions',
   },
   // ── NON-WEDDING EVENT-TYPE GAP LEAVES (2026-07-20 · §gap-leaves) ──────────

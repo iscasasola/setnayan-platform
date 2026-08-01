@@ -52,8 +52,12 @@ const TYPE_COPY: Record<
     title: 'Papic Pool',
     kind: 'Unlimited cameras · shared shots',
     desc:
-      'One shared pot for the whole event — every guest who scans your QR shoots ' +
-      'from it. Add shots any time; they never expire before your day.',
+      // ⚠ Same false promise as the studio Pool card (see its comment): there
+      // is no single couple-owned QR anyone can scan. Cameras come from each
+      // guest's own invite QR, plus the claim links the host hands out.
+      'One shared pot for the whole event — every camera draws from it, from ' +
+      'each guest’s own QR to the links you hand out. Add shots any time; ' +
+      'they never expire before your day.',
     Icon: Users,
   },
   one: {

@@ -21,6 +21,7 @@ import {
   Unlink2,
   Users,
   BatteryWarning,
+  QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -423,6 +424,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     extraCameraCount = count ?? 0;
   }
 
+  // Claim-link cameras — every seat that carries its own QR (the free pool
+  // cameras, the free Papic One, and any paid extras). Counted here so the QR
+  // tile below can say how many are ready and how many are still unclaimed,
+  // rather than sending the couple to a page to find out.
+  let claimLinkTotal = 0;
+  let claimLinkUnclaimed = 0;
+  {
+    const { data: seatRows } = await supabase
+      .from('paparazzi_seats')
+      .select('claimer_user_id')
+      .eq('event_id', eventId)
+      .is('revoked_at', null);
+    const rows = seatRows ?? [];
+    claimLinkTotal = rows.length;
+    claimLinkUnclaimed = rows.filter((r) => !r.claimer_user_id).length;
+  }
+
   return (
     <section className="space-y-7 pb-12">
       <Link
@@ -537,6 +555,48 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           <h2 className="text-xl font-semibold tracking-tight">Your cameras</h2>
         </div>
+
+        {/* ── HOW PEOPLE ACTUALLY START SHOOTING. ─────────────────────────
+            Owner, 2026-08-01: "i cannot find the qr for the papic services."
+            They were not missing — they were behind a small text link tucked
+            into the header of the off-guest-list tile, two sections down. The
+            QR is the whole mechanic of Papic, so it gets its own block, at the
+            top of Your cameras, with the counts resolved here rather than
+            making the couple open a page to discover them. */}
+        {claimLinkTotal > 0 ? (
+          <div className="sn-tile flex flex-wrap items-center justify-between gap-3 border border-terracotta/30 p-4 sm:p-5">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <QrCode aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+                Camera QR codes
+              </p>
+              <p className="mt-0.5 max-w-prose text-xs text-ink/60">
+                {claimLinkUnclaimed > 0
+                  ? `${claimLinkUnclaimed} of ${claimLinkTotal} still to hand out. `
+                  : `All ${claimLinkTotal} claimed. `}
+                Each camera has its own QR and link — show it, they scan, they
+                shoot. Every shot draws from your shared pool.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+              >
+                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Show the QR codes
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew/print`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+              >
+                Print cards
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         {/* Capture window — sets the price (days) AND how long cameras shoot. */}
         <PapicWindowPicker

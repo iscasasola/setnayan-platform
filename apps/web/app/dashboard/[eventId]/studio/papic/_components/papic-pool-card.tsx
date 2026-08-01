@@ -95,10 +95,22 @@ export async function PapicPoolCard({
           <Users aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
           Papic Pool — shots everyone shares
         </p>
+        {/* ⚠ THIS SENTENCE WAS A PROMISE WITH NOTHING BEHIND IT. It read "Every
+            guest who scans your QR shoots from it" — which reads as ONE QR the
+            couple prints and anyone scans. No such QR exists. Every Papic QR in
+            the product is a per-SEAT claim link: single use, and the first
+            scanner takes it. The genuine many-camera path is the guest list —
+            each guest's own invite QR becomes their camera (syncGuestCameras) —
+            so an event with no guest list has three single-use links and
+            nothing else, which is exactly what the owner hit on 2026-08-01.
+            The one-QR-for-everyone poster is a real build, deliberately queued
+            behind an abuse decision (an open QR + a shared pool means one
+            scanner can drain it). Until it ships, this says what is true. */}
         <p className="text-sm text-ink/70">
-          One shared pot for the whole event. Every guest who scans your QR
-          shoots from it, on any phone, with nothing to install. Add shots any
-          time — they never expire before your day.
+          One shared pot for the whole event. Every camera draws from it — each
+          guest&rsquo;s own invite QR, plus the claim links you hand out — on any
+          phone, with nothing to install. Add shots any time; they never expire
+          before your day.
         </p>
       </div>
 

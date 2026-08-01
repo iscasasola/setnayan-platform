@@ -202,32 +202,23 @@ export default async function VendorOnTheDayLivePage({
   // WHICH ROLES THEY WERE BOOKED FOR — read from what they were booked to DO,
   // not only the booking row's single summary category (owner, 2026-08-01).
   //
-  // A booking already lists its services (`requested_service_ids`) and each
-  // service carries its own category, so a supplier hired as the band AND the
-  // emcee has always been recorded — it was simply never read. Best-effort and
-  // UNION-only: if this read fails or the booking predates services, the answer
-  // is exactly the summary category, so no historic booking can regress.
-  const { data: bookedServiceRows } = await supabase
-    .from('event_vendors')
-    .select('requested_service_ids')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', profile.vendor_profile_id)
-    .maybeSingle();
-
-  const serviceIds =
-    (bookedServiceRows as { requested_service_ids?: string[] | null } | null)
-      ?.requested_service_ids ?? [];
-
-  let bookedServiceCategories: string[] = [];
-  if (serviceIds.length > 0) {
-    const { data: svcRows } = await supabase
-      .from('vendor_services')
-      .select('category')
-      .in('vendor_service_id', serviceIds);
-    bookedServiceCategories = ((svcRows ?? []) as Array<{ category: string | null }>)
-      .map((r) => r.category)
-      .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
-  }
+  // ⚠ VIA A SECURITY DEFINER RPC, NOT A DIRECT READ. A marketplace vendor
+  // CANNOT read their own `event_vendors` row under RLS — verified in prod as
+  // the vendor's own identity — so `requested_service_ids` is invisible to
+  // them and a direct read returns an empty list with NO ERROR. That is the
+  // same reason `booked_categories` comes from `get_vendor_event_brief`, which
+  // is SECURITY DEFINER for exactly this.
+  //
+  // Best-effort and UNION-only: if this returns nothing (no booking, no
+  // services authored, a failure), the answer is exactly the summary category —
+  // the behaviour that shipped before any of this.
+  const { data: bookedSvcCats } = await supabase.rpc(
+    'get_vendor_booked_service_categories',
+    { p_event_id: eventId },
+  );
+  const bookedServiceCategories = Array.isArray(bookedSvcCats)
+    ? (bookedSvcCats as unknown[]).filter((c): c is string => typeof c === 'string')
+    : [];
 
   const eventTiles = eventTilesForBooking({
     bookedCategories: brief?.booked_categories ?? null,

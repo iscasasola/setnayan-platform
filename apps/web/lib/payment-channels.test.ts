@@ -15,6 +15,7 @@ import {
   headroomMessage,
   inSameCalendarMonth,
   monthStartISO,
+  phDateISO,
   isPayChannel,
 } from './payment-channels';
 
@@ -229,4 +230,57 @@ test('inSameCalendarMonth is year-aware', () => {
   assert.equal(inSameCalendarMonth(new Date('2026-08-01'), new Date('2026-08-31')), true);
   assert.equal(inSameCalendarMonth(new Date('2026-07-31'), new Date('2026-08-01')), false);
   assert.equal(inSameCalendarMonth(new Date('2025-08-15'), new Date('2026-08-15')), false);
+});
+
+// ── the Manila month boundary (owner 2026-08-01: reset on the 1st, PH time) ──
+
+test('the month turns at Manila midnight, not UTC midnight', () => {
+  // 2026-09-01 00:30 PHT is still 2026-08-31 16:30 UTC. The server must agree
+  // with the calendar the owner is looking at.
+  const earlySeptPHT = new Date('2026-08-31T16:30:00Z');
+  assert.equal(phDateISO(earlySeptPHT), '2026-09-01');
+  assert.equal(monthStartISO(earlySeptPHT), '2026-09-01');
+});
+
+test('a balance entered at 2am on the 1st PHT is NOT treated as last month', () => {
+  // The whole point of the fix. Under UTC this pair looked like different
+  // months, so the reading went stale hours later and the meter fell back to
+  // the optimistic cap — telling the owner they had room they did not have.
+  const enteredAt = new Date('2026-08-31T18:00:00Z'); // 2026-09-01 02:00 PHT
+  const laterSameDay = new Date('2026-09-01T05:00:00Z'); // 2026-09-01 13:00 PHT
+  assert.equal(inSameCalendarMonth(enteredAt, laterSameDay), true);
+
+  const h = channelHeadroom({
+    ...base,
+    availablePhp: 400_000,
+    availableAsOf: enteredAt,
+    inflowSinceAsOfPhp: 25_000,
+    inflowThisMonthPhp: 0,
+    now: laterSameDay,
+  })!;
+  assert.equal(h.source, 'owner_balance', 'must NOT fall back to the cap');
+  assert.equal(h.remainingPhp, 375_000);
+});
+
+test('last month\'s reading still goes stale in Manila terms', () => {
+  // The reset must still happen — just on Manila's 1st, not UTC's.
+  const augReading = new Date('2026-08-20T04:00:00Z'); // 2026-08-20 PHT
+  const sept = new Date('2026-09-02T04:00:00Z'); // 2026-09-02 PHT
+  assert.equal(inSameCalendarMonth(augReading, sept), false);
+
+  const h = channelHeadroom({
+    ...base,
+    availablePhp: 12_000,
+    availableAsOf: augReading,
+    inflowThisMonthPhp: 40_000,
+    now: sept,
+  })!;
+  assert.equal(h.source, 'cap', 'resets to the monthly limit');
+  assert.equal(h.startingPhp, 500_000);
+});
+
+test('the last minute of a Manila month is still that month', () => {
+  const endAug = new Date('2026-08-31T15:59:00Z'); // 2026-08-31 23:59 PHT
+  assert.equal(phDateISO(endAug), '2026-08-31');
+  assert.equal(inSameCalendarMonth(endAug, new Date('2026-08-01T00:00:00Z')), true);
 });

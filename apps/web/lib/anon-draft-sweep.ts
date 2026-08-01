@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { ANON_EMAIL_DOMAIN } from '@/lib/anon-onboarding';
 import { describeUserDeleteBlocker } from '@/lib/user-delete-blockers';
+import { CLAIM_TOKEN_ROTATIONS, freshClaimToken } from '@/lib/erasure/coverage';
 
 /**
  * Abandoned anonymous-draft cleanup (RA 10173 data-minimization).
@@ -128,6 +129,57 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
           await markSkipped(uid);
           continue;
         }
+      }
+
+      // 🔴 ROTATE BEFORE DELETING. `paparazzi_seats.claimer_user_id` is
+      // `REFERENCES auth.users(id) ON DELETE SET NULL`, and `claim_qr_token` is
+      // NOT in that clause. So deleting the auth user below silently unclaims
+      // every seat this person holds while leaving their printed QR intact:
+      // seatClaimability() flips from 'taken' back to 'claimable', and
+      // papic_claim_seat's `AND claimer_user_id IS NULL` then passes. The QR
+      // they walked in with 30 days ago becomes a working claim credential for
+      // whoever is holding it.
+      //
+      // The sweep never noticed because its only guard looks for `event_members`
+      // rows with member_type='couple', and a seat claimer is never a couple
+      // member of the event — so eventIds is empty and the legal-hold block
+      // above is skipped in full.
+      //
+      // This is the same invariant the erasure path enforces: THE UNCLAIM AND
+      // THE ROTATION MUST NEVER BE SEPARATED. Here the unclaim is performed by
+      // the database, so the rotation has to happen first.
+      let rotateFailed = false;
+      for (const rot of CLAIM_TOKEN_ROTATIONS) {
+        const { data: held, error: selErr } = await admin
+          .from(rot.table)
+          .select(rot.idColumn)
+          .eq(rot.subjectColumn, uid);
+        if (selErr) {
+          console.error(`[anon-draft-sweep] seat lookup failed (${uid}):`, selErr.message);
+          rotateFailed = true;
+          break;
+        }
+        // One statement per row: both token columns are UNIQUE, so a single
+        // table-wide update would write one value to every seat they hold and
+        // be rejected by the index the moment they hold two.
+        for (const row of (held ?? []) as unknown as Array<Record<string, string | number>>) {
+          const { error: rotErr } = await admin
+            .from(rot.table)
+            .update({ [rot.tokenColumn]: freshClaimToken(), ...rot.clear })
+            .eq(rot.idColumn, row[rot.idColumn]);
+          if (rotErr) {
+            console.error(`[anon-draft-sweep] token rotate failed (${uid}):`, rotErr.message);
+            rotateFailed = true;
+            break;
+          }
+        }
+        if (rotateFailed) break;
+      }
+      // Fail CLOSED: if we could not revoke the printed QR, do NOT delete the
+      // user, because the FK would unclaim the seat and arm that QR.
+      if (rotateFailed) {
+        await markSkipped(uid);
+        continue;
       }
 
       // Hard-delete the auth user → cascades public.users. Skip-on-throw so one

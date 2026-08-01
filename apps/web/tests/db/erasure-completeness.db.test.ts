@@ -474,6 +474,31 @@ before(async () => {
   before_.enrollments = await count(`SELECT count(*) FROM public.guest_face_enrollments WHERE guest_id = $1`, [SUBJECT_GUEST]);
   before_.wizardKeys = await count(
     `SELECT count(*) FROM jsonb_object_keys((SELECT wizard_state FROM public.events WHERE event_id = $1))`, [EVENT]);
+  // ── seats the subject claimed (2026-08-01) ───────────────────────────────
+  // The finding: erasure never touched these tables, so claimer_user_id kept
+  // pointing at a deleted account and both claimability gates read "taken" —
+  // the couple's paid seat was held forever by a ghost. Freeing it is the fix;
+  // rotating the token in the same statement is what stops the fix from handing
+  // the seat back to the QR the erased person still has printed.
+  await db.exec(`
+    INSERT INTO public.paparazzi_seats (event_id, seat_index, sku_code, claim_qr_token, claimer_user_id, claimed_at)
+    VALUES ('${EVENT}', 91, 'PAPIC_SEATS', 'SEAT-TOKEN-BEFORE-ERASURE', '${SUBJECT}', now())
+    ON CONFLICT DO NOTHING;
+    -- A SECOND seat for the SAME person. Both token columns are UNIQUE, so a
+    -- table-wide update writing one fresh value to every row of theirs trips the
+    -- index, the statement fails whole, and the best-effort step() swallows it —
+    -- leaving NOTHING freed for exactly the people most likely to have two seats.
+    -- Seeding one seat per table hid that completely.
+    INSERT INTO public.paparazzi_seats (event_id, seat_index, sku_code, claim_qr_token, claimer_user_id, claimed_at)
+    VALUES ('${EVENT}', 92, 'PAPIC_SEATS', 'SEAT-TOKEN-2-BEFORE-ERASURE', '${SUBJECT}', now())
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.panood_camera_operators (event_id, camera_index, claim_qr_token, claimer_user_id, claimed_at)
+    VALUES ('${EVENT}', 91, 'CAM-TOKEN-BEFORE-ERASURE', '${SUBJECT}', now())
+    ON CONFLICT DO NOTHING;
+  `);
+  before_.claimTokens = await count(
+    `SELECT count(*) FROM public.paparazzi_seats WHERE claimer_user_id = $1`, [SUBJECT]);
+
   seededWizardTaskCount = before_.wizardKeys ?? 0;
 
   rest = await createPgliteRestClient(db);
@@ -519,6 +544,79 @@ test('META-2 · the adapter REJECTS an unknown column (this is what makes the ru
   // …and it is returned as data, not thrown — the exact shape that let the real
   // bug hide inside a best-effort handler.
   assert.equal(probe.data, null);
+});
+
+test('2o · the ghost-held seat is freed AND the old QR cannot take it back', async () => {
+  // Two properties, and the whole finding is that ONE without the other is a
+  // defect either way:
+  //
+  //   freed but not rotated → the erased person's printed QR walks back in
+  //   rotated but not freed → the couple's paid seat is stuck forever
+  //
+  // So assert both, and assert them the way the shipped gate does. Both claim
+  // paths reduce to: the token matches a row AND that row has no claimer.
+  //
+  //   app/papic/actions.ts   if (seat.claimer_user_id) return 'taken';
+  //   app/panood/actions.ts  if (cam.claimer_user_id)  return 'taken';
+
+  for (const [what, table, idCol, stale] of [
+    ['Papic seat', 'paparazzi_seats', 'seat_id', 'SEAT-TOKEN-BEFORE-ERASURE'],
+    ['2nd Papic seat', 'paparazzi_seats', 'seat_id', 'SEAT-TOKEN-2-BEFORE-ERASURE'],
+    ['camera slot', 'panood_camera_operators', 'id', 'CAM-TOKEN-BEFORE-ERASURE'],
+  ] as const) {
+    // (a) The value the erased person can physically present resolves to
+    //     nothing — proved by looking it up, not by reading a flag.
+    const hit = await db.query(
+      `SELECT ${idCol} FROM public.${table} WHERE claim_qr_token = '${stale}'`,
+    );
+    assert.equal(
+      hit.rows.length,
+      0,
+      `the erased person’s printed ${what} QR still resolves — freeing the row handed it straight back to them`,
+    );
+  }
+
+  // (b) The seat SURVIVES and is claimable again. Deleting it would destroy the
+  //     couple's paid entitlement because its holder left; leaving the claimer
+  //     in place is the stuck-forever bug this whole change exists to fix.
+  const seat = await db.query<{ claimer_user_id: string | null; claim_qr_token: string }>(
+    `SELECT claimer_user_id, claim_qr_token FROM public.paparazzi_seats
+      WHERE event_id = '${EVENT}' AND seat_index = 91`,
+  );
+  assert.equal(seat.rows.length, 1, 'the seat was deleted — it belongs to the event, not the claimer');
+  assert.equal(
+    seat.rows[0]?.claimer_user_id,
+    null,
+    'seatClaimability() still reports "taken" — the seat is held forever by a deleted account',
+  );
+  assert.ok(
+    (seat.rows[0]?.claim_qr_token ?? '').length > 10,
+    'the token was nulled rather than rotated — claim_qr_token is NOT NULL and a nulled seat can never be re-issued',
+  );
+  assert.notEqual(
+    seat.rows[0]?.claim_qr_token,
+    'SEAT-TOKEN-BEFORE-ERASURE',
+    'the seat was freed but the token was left in place — the old QR is now a live door',
+  );
+
+  // (c) BOTH of the person's seats came back, each with its OWN token. One
+  //     statement per table would have written a single value to both and been
+  //     rejected by the UNIQUE index, freeing neither.
+  const pair = await db.query<{ claim_qr_token: string; claimer_user_id: string | null }>(
+    `SELECT claim_qr_token, claimer_user_id FROM public.paparazzi_seats
+      WHERE event_id = '${EVENT}' AND seat_index IN (91, 92)`,
+  );
+  assert.equal(pair.rows.length, 2, 'a seat vanished — the rotation deleted rather than freed');
+  assert.deepEqual(
+    pair.rows.map((r) => r.claimer_user_id),
+    [null, null],
+    'holding two seats made the whole rotation fail — the unique index rejected the batch and step() swallowed it',
+  );
+  assert.equal(
+    new Set(pair.rows.map((r) => r.claim_qr_token)).size,
+    2,
+    'both seats got the SAME fresh token — one QR would open two seats, and the unique index only tolerated it by luck',
+  );
 });
 
 test('META-3 · the seed really landed (a purge of nothing passes trivially)', () => {

@@ -83,16 +83,45 @@ export function resolveChannel(
 
 export type CapBand = 'ok' | 'warn' | 'critical' | 'over';
 
-/** Same calendar month in the same year? Used for the monthly reset. */
-export function inSameCalendarMonth(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+/**
+ * The month boundary is MANILA's, not the server's.
+ *
+ * Vercel runs in UTC, which is 8 hours behind Philippine time. Using the
+ * server's own calendar would mean that for the first 8 hours of every month —
+ * roughly midnight to 8am PHT on the 1st — Manila says September while the
+ * server still says August.
+ *
+ * That window is not harmless. A balance the owner entered at 2am on the 1st
+ * would be stamped as the PREVIOUS month, go stale hours later when UTC caught
+ * up, and silently drop the meter back to cap mode — which reads HIGHER than
+ * the truth. Failing toward "you have more room than you do" is the one
+ * direction that costs a bounced transfer.
+ *
+ * `en-CA` is used purely because it formats as YYYY-MM-DD, which sorts and
+ * slices correctly; the locale is not user-facing.
+ */
+const PH_TIME_ZONE = 'Asia/Manila';
+
+const PH_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: PH_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/** `d` as a Manila-local calendar date, `YYYY-MM-DD`. */
+export function phDateISO(d: Date): string {
+  return PH_DATE_FMT.format(d);
 }
 
-/** First instant of `now`'s calendar month, as an ISO date (YYYY-MM-DD). */
+/** Same calendar month in Manila? Drives the monthly reset. */
+export function inSameCalendarMonth(a: Date, b: Date): boolean {
+  return phDateISO(a).slice(0, 7) === phDateISO(b).slice(0, 7);
+}
+
+/** First day of `now`'s Manila calendar month, as `YYYY-MM-DD`. */
 export function monthStartISO(now: Date): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}-01`;
+  return `${phDateISO(now).slice(0, 7)}-01`;
 }
 
 export type HeadroomSource = 'owner_balance' | 'cap';

@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 
 export type ChecklistCategory =
@@ -414,13 +415,14 @@ export function daysUntilEvent(
 // screens a click apart. This helper is that page's shipped predicate lifted
 // verbatim — the ladder is unchanged, only its address is.
 
-/** The `events` columns the deadline anchor is resolved from. */
-export type ChecklistAnchorEvent = {
+/**
+ * The `events` columns the deadline anchor is resolved from: the three date
+ * columns of the shared ladder (`EventDateFields`) plus the one column this
+ * surface adds a policy on top of.
+ */
+export type ChecklistAnchorEvent = EventDateFields & {
   /** `event_type_vocab` key. NULL is treated as wedding — see `isWeddingLike`. */
   event_type?: string | null;
-  event_date?: string | null;
-  date_candidates?: string[] | null;
-  date_window_start?: string | null;
 };
 
 /**
@@ -446,25 +448,27 @@ export type ChecklistAnchorEvent = {
  * `checklistRunwayFor` and `dueDateForItem`, whose composition is documented
  * below.
  *
- * (`resolveEarliestDate` in lib/wedding-roadmap-signals.ts computes the same
- * three-step ladder WITHOUT the wedding gate, for Studio's recommendation
- * heuristic. Not reused here on purpose: its own header declares it "NOT a
- * cross-surface contract", and borrowing a helper from a module named
- * wedding-roadmap to express "weddings do not use this ladder" would obscure
- * the one rule this function exists to state.)
+ * COMPOSITION — the three-step ladder itself is NOT this function's idea. It is
+ * `earliestKnownEventDate()` in lib/event-dates.ts, a dependency-free module
+ * shared with Studio's recommendation heuristic (which reads the ladder
+ * ungated). What lives HERE is the wedding gate, because the gate is the
+ * checklist's POLICY while the ladder is a type-agnostic FACT about a row.
+ *
+ * That split answers the objection this comment used to raise against sharing:
+ * borrowing a helper from a module named wedding-roadmap-signals to express
+ * "weddings do not use this ladder" would indeed obscure the rule — but the
+ * objection was to the NAME and the dependency direction, not to sharing, and a
+ * neutral third home dissolves both. This function still states its own rule in
+ * its own words; it just stopped carrying a second copy of the arithmetic
+ * underneath it. (Copy #1 and copy #2 were equivalent on every input, so this
+ * is a pure de-duplication — see lib/event-dates.test.ts.)
  */
 export function checklistAnchorDateFor(event: ChecklistAnchorEvent): string | null {
-  const lockedDate = event.event_date ?? null;
   const isWeddingLike = event.event_type == null || event.event_type === 'wedding';
-  // Earliest candidate (defensive sort — YYYY-MM-DD sorts chronologically —
-  // rather than trusting stored order), then the window start. `.filter()`
-  // already returns a fresh array, so the in-place `.sort()` cannot disturb
-  // the caller's row.
-  const earliestCandidate = (event.date_candidates ?? []).filter(Boolean).sort()[0] ?? null;
-  return (
-    lockedDate ??
-    (isWeddingLike ? null : (earliestCandidate ?? event.date_window_start ?? null))
-  );
+  // THE GATE: a wedding's anchor is the locked date or nothing. Returning early
+  // rather than resolving-then-discarding keeps the rule readable as one line.
+  if (isWeddingLike) return event.event_date ?? null;
+  return earliestKnownEventDate(event);
 }
 
 // ── Runway compression ───────────────────────────────────────────────────────

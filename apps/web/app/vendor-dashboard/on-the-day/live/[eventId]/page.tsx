@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -199,7 +199,40 @@ export default async function VendorOnTheDayLivePage({
   ]);
   const blocks = blocksRaw ?? [];
 
-  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
+  // WHICH ROLES THEY WERE BOOKED FOR — read from what they were booked to DO,
+  // not only the booking row's single summary category (owner, 2026-08-01).
+  //
+  // A booking already lists its services (`requested_service_ids`) and each
+  // service carries its own category, so a supplier hired as the band AND the
+  // emcee has always been recorded — it was simply never read. Best-effort and
+  // UNION-only: if this read fails or the booking predates services, the answer
+  // is exactly the summary category, so no historic booking can regress.
+  const { data: bookedServiceRows } = await supabase
+    .from('event_vendors')
+    .select('requested_service_ids')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', profile.vendor_profile_id)
+    .maybeSingle();
+
+  const serviceIds =
+    (bookedServiceRows as { requested_service_ids?: string[] | null } | null)
+      ?.requested_service_ids ?? [];
+
+  let bookedServiceCategories: string[] = [];
+  if (serviceIds.length > 0) {
+    const { data: svcRows } = await supabase
+      .from('vendor_services')
+      .select('category')
+      .in('vendor_service_id', serviceIds);
+    bookedServiceCategories = ((svcRows ?? []) as Array<{ category: string | null }>)
+      .map((r) => r.category)
+      .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+  }
+
+  const eventTiles = eventTilesForBooking({
+    bookedCategories: brief?.booked_categories ?? null,
+    bookedServiceCategories,
+  });
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 

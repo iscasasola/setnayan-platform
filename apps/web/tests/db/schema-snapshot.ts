@@ -104,11 +104,26 @@ export function isKnownGap(key: string, gaps: ReadonlyMap<string, string> = KNOW
  *      migration DROPS the column, the fix is already in flight and re-reporting
  *      it would block the very pull request that repairs it.
  *
- *   PROD_NOT_DECLARED = prod − declaredAll
+ *   PROD_NOT_DECLARED = prod − declaredAll − declaredLedger
  *     "prod has this and nothing in the repo creates it — not even a pending
  *      migration." Using `declaredAll` here means a pull request that back-fills
  *      an out-of-band column clears the finding immediately, which is the
  *      behaviour that makes fixing these feel worth doing.
+ *
+ *      ⚠ THE `− declaredLedger` TERM (added 2026-08-01) is the mirror of the
+ *      intersection above, and it exists because this guard had an asymmetry: it
+ *      excused a pending migration that ADDS a column, and a pending migration
+ *      that drops a PHANTOM column, but NOT a pending migration that drops a
+ *      REAL one. In that case prod legitimately still has the column (the
+ *      migration has not been applied yet), it IS in the ledger (an applied
+ *      migration created it, so the record is perfectly faithful), and it is
+ *      absent from `declaredAll` only because the pending migration removes it.
+ *      Reporting that as "nothing in the repo creates it" is simply false, and
+ *      it red-lights every PR that retires a table — the first one being
+ *      20271028225106 (retiring the per-USER Setnayan AI path).
+ *
+ *      The out-of-band case this guard exists for is untouched: a column applied
+ *      straight to prod is in NEITHER set, so it still fires.
  *
  * A brand-new column added by a pending migration is in `declaredAll` but not
  * in `declaredLedger`, so it falls out of BOTH sets. That is the no-noise case,
@@ -126,7 +141,10 @@ export function diffSchema(
     if (declaredAll.has(key) && !prod.has(key)) out.push({ kind: 'DECLARED_NOT_IN_PROD', key });
   }
   for (const key of prod) {
-    if (!declaredAll.has(key)) out.push({ kind: 'PROD_NOT_DECLARED', key });
+    // `!declaredLedger.has(key)` keeps a PENDING DROP quiet — see the docblock.
+    if (!declaredAll.has(key) && !declaredLedger.has(key)) {
+      out.push({ kind: 'PROD_NOT_DECLARED', key });
+    }
   }
   out.sort((a, b) => a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key));
   return out;

@@ -41,12 +41,10 @@ import {
   SCHEDULE_BLOCK_LABEL,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   runTriggers,
@@ -702,17 +700,9 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?suri=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(adminClient, eventId)
-    : null;
-  const aiEntitled = isSetnayanAiActiveForUser(
+  const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   const viewerIsInternal =
     (viewerRes.data as { is_internal?: boolean | null } | null)?.is_internal === true;

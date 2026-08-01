@@ -276,11 +276,11 @@ export default async function SuitePage({ params }: Props) {
   //   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`,
   //      but migration 20270804110223 added `rsvp` to EVERY non-wedding profile
   //      row — all 16 types carry it in prod today. So the surface check alone
-  //      admits the pool on a roaming multi-day `travel` trip, where a pass
-  //      metered per event-day is structurally the wrong unit and the bystander
-  //      density is the highest of any type. papicGuestPassAccess() carries the
-  //      permanent travel deny, the anniversary controller split and the phase
-  //      ladder, and it FAILS CLOSED for a type nobody has scoped yet.
+  //      admits the pool on types nobody has scoped. papicGuestPassAccess()
+  //      carries the anniversary controller split and the phase ladder, and it
+  //      FAILS CLOSED for a type nobody has scoped yet (today: `date`,
+  //      `hangout`). `travel` WAS denied here; the owner dropped that exclusion
+  //      on 2026-08-01 — "offer Papic everywhere".
   //
   // ⚠ WHY THIS IS BEING RE-ADDED, not added: the predicate WAS wired — into
   // `studio/page.tsx`. That page now `redirect()`s here on its first statement

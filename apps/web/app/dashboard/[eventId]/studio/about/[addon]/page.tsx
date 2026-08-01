@@ -46,7 +46,8 @@ export default async function AddOnDetailPage({ params }: Props) {
   // This route had NONE. The Suite grid filters its cards by event type, but a
   // grid that hides a card does not close the URL behind it — and this page is
   // the URL. `/dashboard/<id>/studio/about/papic-guest` rendered the Papic Pool
-  // pitch on a `travel` event, the one type on the permanent V1 deny list, and
+  // pitch on event types the grid was hiding (the motivating example was
+  // `travel`, then denied; allowed since 2026-08-01), and
   // `/about/save-the-date` rendered on types whose profile disables that
   // surface. Every "learn more" link in the product points here, so the deep
   // link is not exotic — it is the ordinary path with the grid skipped.

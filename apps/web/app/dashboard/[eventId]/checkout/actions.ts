@@ -52,7 +52,6 @@ import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { isVendorSurfaceServiceKey } from '@/lib/vendor-surface-service-keys';
-import { AI_SUB_SKU } from '@/lib/setnayan-ai-subscription';
 import {
   resolveOrderChargeCentavos,
   refusalMessage,
@@ -266,13 +265,15 @@ export async function submitOrderAction(
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
   }
 
-  // Per-USER Setnayan AI subscription term pass — the ONE eventless SKU. It is
-  // bought per account (covers all the buyer's events), so it has no event_id.
-  // Every other SKU stays strictly event-scoped exactly as before.
-  const isAiSub = serviceKey === AI_SUB_SKU;
+  // 🔒 EVERY SKU IS EVENT-SCOPED (owner 2026-08-01: "it is per event").
+  // `SETNAYAN_AI_SUB`, the per-USER term pass, was the ONE eventless SKU and had
+  // an exemption here that skipped the event_id requirement — the same exemption
+  // that let a forged POST mint an order with no event to check membership
+  // against. It is retired along with the rest of the per-user path, so the
+  // requirement is now unconditional.
   const eventIdClean =
     typeof eventId === 'string' && eventId.trim().length > 0 ? eventId.trim() : null;
-  if (!isAiSub && !eventIdClean) {
+  if (!eventIdClean) {
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
   }
 
@@ -317,9 +318,13 @@ export async function submitOrderAction(
   // #13 (money bug-hunt): the order must be for an event the buyer belongs to.
   // The orders RLS only checks `user_id = auth.uid()`, so a forged `event_id`
   // would otherwise bind the order (and its pax-priced amount) to a stranger's
-  // event. SKIPPED for the per-user subscription — it is intentionally eventless
-  // (bound to the buyer, not an event), so there is no membership to verify.
-  if (!isAiSub) {
+  // event.
+  //
+  // 🔒 This check is now UNCONDITIONAL. It used to be skipped for the eventless
+  // per-USER subscription (`if (!isAiSub)`); that SKU was retired 2026-08-01, and
+  // with it the only path through checkout that reached the insert without a
+  // membership check.
+  {
     const { data: membership } = await supabase
       .from('event_members')
       .select('event_id')
@@ -455,16 +460,16 @@ export async function submitOrderAction(
   // to demote "retired SKU charged its real price" into "charged whatever the
   // browser sent". Both properties survive.
   //
-  // ⚠ `cycles` IS NOT PARSED HERE ANYMORE. The authority owns `parseCycles` and
-  // performs `unit × cycles` in exactly one place, returning a BRANDED
-  // `OrderTotalCentavos`. Any arithmetic on that brand yields a plain bigint that
-  // will not type-check back into a total — so re-multiplying by `cycles` (the
-  // 36× overcharge the client already pre-multiplies for) is a COMPILE ERROR
-  // rather than a review item. See the module header.
+  // ⚠ `cycles` IS NOT PARSED HERE, and as of 2026-08-01 it is not parsed
+  // ANYWHERE: retiring the per-USER subscription removed the only SKU with a
+  // cycle multiplier, so the charge path no longer multiplies at all. Every
+  // total is a catalog figure sealed as-is into a branded `OrderTotalCentavos`,
+  // and arithmetic on that brand yields a plain bigint that will not type-check
+  // back into a total. The 36× overcharge is now unrepresentable rather than
+  // guarded. See the module header.
   const authority = await resolveOrderChargeCentavos({
     serviceKey,
-    eventId: isAiSub ? null : eventIdClean,
-    cyclesRaw: formData.get('cycles'),
+    eventId: eventIdClean,
   });
   if (!authority.ok) {
     await insertFaultLog({
@@ -675,18 +680,17 @@ export async function submitOrderAction(
   // (line ~321), and `coordinatorMoneyScopeAllowed(… 'checkout')` (line ~336).
   // RLS never checked event_id here — that scoping was always code-side.
   //
-  // ⚠ eventId FIX (found while converting): the `if (!isAiSub)` guard SKIPS the
-  // membership + coordinator checks for the eventless per-user AI subscription,
-  // yet the payload still carried the caller-supplied `eventIdClean`. Nothing
-  // verified it, and under service_role that would have become a way to bind an
-  // eventless purchase to a stranger's event. The SKU "has no event_id" by
-  // design (see the comment at the top of this function), so it is pinned to
-  // null: an event id is now only ever written when a membership check covered
-  // it.
+  // The invariant this once had to special-case now holds by construction: an
+  // event id is only ever written when a membership check covered it, because
+  // every SKU is event-scoped and the check above is unconditional. (History: the
+  // eventless per-USER AI subscription skipped that check while still carrying
+  // the caller-supplied `eventIdClean`, which under service_role was a way to
+  // bind a purchase to a stranger's event. Both the SKU and the exemption were
+  // removed 2026-08-01.)
   const insertPayload: Record<string, unknown> = orderRowFor(
     {
       userId: user.id,
-      eventId: isAiSub ? null : eventIdClean,
+      eventId: eventIdClean,
       vendorProfileId: null, // couple-side purchase — never vendor-billed.
     },
     {

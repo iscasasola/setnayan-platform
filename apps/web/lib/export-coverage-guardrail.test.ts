@@ -348,7 +348,16 @@ const KNOWN_GAPS: Record<string, string> = {
   supplies_orders: 'TODO(RA10173-backlog): the subject’s own supplies orders.',
   thread_calls:
     'TODO(RA10173-backlog): call metadata (never content — calls are locked never-recorded); metadata is still personal data.',
-  user_ai_subscription: 'TODO(RA10173-backlog): the subject’s own AI subscription record.',
+  // ⚠ TABLE DROPPED 2026-08-01 (migration 20271028225106) with the per-USER
+  // Setnayan AI path — owner: "it is per event". The entry STAYS because
+  // lib/security/migration-schema.ts derives the schema from migration HISTORY
+  // and does not parse DROP TABLE, so the historical CREATE still makes this
+  // table visible to the classifier. Removing the line fails the "every
+  // subject-bearing table is classified" gate. Several already-dropped tables
+  // (patiktok_*, panood_roam_*, telemetry_events, creator_applications) sit in
+  // these lists for the same reason; teaching the parser about DROP TABLE would
+  // prune them all at once and is deliberately NOT bundled into this change.
+  user_ai_subscription: 'TODO(RA10173-backlog): table DROPPED 2026-08-01 — nothing to export.',
   user_devices: 'TODO(RA10173-backlog): the subject’s devices — same credential caveat as push_subscriptions.',
   user_face_profiles:
     'TODO(RA10173-backlog): account-level face profile — must ship METADATA ONLY, mirroring guest_face_enrollments.',

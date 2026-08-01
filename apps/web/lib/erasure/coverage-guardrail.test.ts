@@ -189,7 +189,16 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   vendor_token_purchases: 'Financial record (token pack purchase).',
   comp_grants: 'Comp/discount grant — the money-side record of a waived charge.',
   discount_code_redemptions: 'Redemption record attached to a retained order.',
-  user_ai_subscription: 'Subscription/entitlement record with a billing history behind it.',
+  // ⚠ TABLE DROPPED 2026-08-01 (migration 20271028225106) with the per-USER
+  // Setnayan AI path — owner: "it is per event". The entry STAYS because
+  // lib/security/migration-schema.ts derives the schema from migration HISTORY
+  // and does not parse DROP TABLE, so the historical CREATE still makes this
+  // table visible to the classifier. Removing the line fails the "every
+  // subject-bearing table is classified" gate. Several already-dropped tables
+  // (patiktok_*, panood_roam_*, telemetry_events, creator_applications) sit in
+  // these lists for the same reason; teaching the parser about DROP TABLE would
+  // prune them all at once and is deliberately NOT bundled into this change.
+  user_ai_subscription: 'Table DROPPED 2026-08-01 — no rows ever existed; nothing to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',
 

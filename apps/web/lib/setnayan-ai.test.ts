@@ -1,163 +1,121 @@
 /**
  * Setnayan AI gate invariants (node:test via tsx).
  *
- * Locks the PER-USER subscription foundation: the new gate is byte-identical to
- * the per-event gate while the per-user flag is OFF (inert), and only when ON
- * does the subscription window fan out to entitle the event. Also pins the
- * lazy-expiry window predicate.
+ * 🔒 SETNAYAN AI IS PER EVENT (owner 2026-08-01: "it is per event").
+ *
+ * This suite used to lock the PER-USER subscription foundation — that the gate
+ * was byte-identical while the per-user flag was OFF, and that flipping it ON
+ * fanned a user's subscription window out across all their events. That model is
+ * retired: the table, the flag, the resolver and the helpers are deleted.
+ *
+ * What is locked now is the opposite property: an event's entitlement is a
+ * function of THAT EVENT'S OWN ROW and nothing else. No argument, no option and
+ * no ambient state may make one event's purchase light up another.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   isSetnayanAiActive,
-  isSetnayanAiActiveForUser,
+  isSetnayanAiActiveForEvent,
   shouldOfferSetnayanAiPurchase,
-  shouldOfferSetnayanAiPurchaseForUser,
-  userAiSubscriptionActive,
+  shouldOfferSetnayanAiPurchaseForEvent,
 } from './setnayan-ai';
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const FUTURE = new Date(Date.now() + 30 * 24 * 3600 * 1000);
 const PAST = new Date(Date.now() - 1000);
 
-// ---- userAiSubscriptionActive (lazy expiry) --------------------------------
+// ---- the per-EVENT gate agrees with the plain gate -------------------------
 
-test('userAiSubscriptionActive: future window active, past/absent/invalid inactive', () => {
-  assert.equal(userAiSubscriptionActive({ active_until: FUTURE }), true);
-  assert.equal(userAiSubscriptionActive({ active_until: FUTURE.toISOString() }), true);
-  assert.equal(userAiSubscriptionActive({ active_until: PAST }), false);
-  assert.equal(userAiSubscriptionActive({ active_until: null }), false);
-  assert.equal(userAiSubscriptionActive(null), false);
-  assert.equal(userAiSubscriptionActive(undefined), false);
-  assert.equal(userAiSubscriptionActive({ active_until: 'not-a-date' }), false);
-});
-
-// ---- per-user flag OFF → byte-identical to the per-event gate ---------------
-
-test('per-user OFF: matches isSetnayanAiActive exactly (paywall off)', () => {
-  const evNormal = { planning_mode: null, setnayan_ai_active: false };
-  const evManual = { planning_mode: 'manual', setnayan_ai_active: false };
-  for (const ev of [evNormal, evManual]) {
-    assert.equal(
-      isSetnayanAiActiveForUser(ev, { perUserEnabled: false, paywallEnabled: false }),
-      isSetnayanAiActive(ev, false),
-    );
-  }
-});
-
-test('per-user OFF: matches isSetnayanAiActive exactly (paywall on)', () => {
-  const evPaid = { planning_mode: null, setnayan_ai_active: true };
-  const evUnpaid = { planning_mode: null, setnayan_ai_active: false };
-  for (const ev of [evPaid, evUnpaid]) {
-    assert.equal(
-      isSetnayanAiActiveForUser(ev, { perUserEnabled: false, paywallEnabled: true }),
-      isSetnayanAiActive(ev, true),
-    );
-  }
-});
-
-// ---- per-user flag ON → subscription fans out -------------------------------
-
-test('per-user ON: per-event entitlement still activates', () => {
-  const ev = { planning_mode: null, setnayan_ai_active: true };
-  assert.equal(isSetnayanAiActiveForUser(ev, { perUserEnabled: true }), true);
-});
-
-test('per-user ON: active subscription activates even without the per-event flag', () => {
-  const ev = { planning_mode: null, setnayan_ai_active: false };
-  assert.equal(
-    isSetnayanAiActiveForUser(ev, {
-      perUserEnabled: true,
-      subscription: { active_until: FUTURE },
-    }),
-    true,
-  );
-});
-
-test('per-user ON: no entitlement + no active sub → inactive', () => {
-  const ev = { planning_mode: null, setnayan_ai_active: false };
-  assert.equal(
-    isSetnayanAiActiveForUser(ev, {
-      perUserEnabled: true,
-      subscription: { active_until: PAST },
-    }),
-    false,
-  );
-});
-
-test('per-user ON: Manual toggle still wins over an active subscription', () => {
-  const ev = { planning_mode: 'manual', setnayan_ai_active: false };
-  assert.equal(
-    isSetnayanAiActiveForUser(ev, {
-      perUserEnabled: true,
-      subscription: { active_until: FUTURE },
-    }),
-    false,
-  );
-});
-
-// ---- shouldOfferSetnayanAiPurchaseForUser (buy CTA) -------------------------
-
-test('buy CTA per-user OFF: byte-identical to the per-event offer', () => {
-  const evUnpaid = { setnayan_ai_active: false };
-  const evPaid = { setnayan_ai_active: true };
+test('isSetnayanAiActiveForEvent matches isSetnayanAiActive for windowless rows', () => {
+  const rows = [
+    { planning_mode: null, setnayan_ai_active: false },
+    { planning_mode: 'manual', setnayan_ai_active: false },
+    { planning_mode: null, setnayan_ai_active: true },
+    { planning_mode: 'manual', setnayan_ai_active: true },
+  ];
   for (const paywallEnabled of [false, true]) {
-    for (const ev of [evUnpaid, evPaid]) {
+    for (const ev of rows) {
       assert.equal(
-        shouldOfferSetnayanAiPurchaseForUser(ev, {
-          perUserEnabled: false,
-          paywallEnabled,
-        }),
-        shouldOfferSetnayanAiPurchase(ev, paywallEnabled),
+        isSetnayanAiActiveForEvent(ev, { paywallEnabled }),
+        isSetnayanAiActive(ev, paywallEnabled),
+        `${JSON.stringify(ev)} @ paywall=${paywallEnabled}`,
       );
     }
   }
 });
 
-test('buy CTA per-user ON: offered when paywall on, unpaid, no active sub', () => {
-  const ev = { setnayan_ai_active: false };
+test('shouldOfferSetnayanAiPurchaseForEvent matches its plain sibling', () => {
+  const rows = [{ setnayan_ai_active: false }, { setnayan_ai_active: true }];
+  for (const paywallEnabled of [false, true]) {
+    for (const ev of rows) {
+      assert.equal(
+        shouldOfferSetnayanAiPurchaseForEvent(ev, { paywallEnabled }),
+        shouldOfferSetnayanAiPurchase(ev, paywallEnabled),
+        `${JSON.stringify(ev)} @ paywall=${paywallEnabled}`,
+      );
+    }
+  }
+});
+
+// ---- the window still governs (2026-07-09 fix, unchanged by this PR) -------
+
+test('a lapsed per-EVENT window turns AI off; a future one keeps it on', () => {
+  const opts = { paywallEnabled: true };
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(ev, {
-      paywallEnabled: true,
-      perUserEnabled: true,
-      subscription: { active_until: PAST },
-    }),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: FUTURE }, opts),
+    true,
+  );
+  assert.equal(
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: PAST }, opts),
+    false,
+  );
+  // No window at all = grandfathered permanent unlock.
+  assert.equal(
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: null }, opts),
     true,
   );
 });
 
-test('buy CTA per-user ON: SUPPRESSED for an active subscriber', () => {
-  const ev = { setnayan_ai_active: false };
+// ---- 🔒 NO CROSS-EVENT ENTITLEMENT ------------------------------------------
+
+test('no option can entitle an event that does not own Setnayan AI', () => {
+  // The per-USER path used to work exactly like this: pass a `subscription` with
+  // a future `active_until` and an unowned event went ACTIVE. Anyone re-adding a
+  // cross-event entitlement would have to make this test fail first.
+  const unowned = { planning_mode: null, setnayan_ai_active: false };
+  const smuggled = {
+    paywallEnabled: true,
+    // Deliberately shaped like the retired inputs. Extra keys must be inert.
+    subscription: { active_until: FUTURE },
+    perUserEnabled: true,
+  } as unknown as { paywallEnabled: boolean };
+
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(ev, {
-      paywallEnabled: true,
-      perUserEnabled: true,
-      subscription: { active_until: FUTURE },
-    }),
+    isSetnayanAiActiveForEvent(unowned, smuggled),
     false,
+    'an unowned event must stay OFF no matter what else is passed',
+  );
+  assert.equal(
+    shouldOfferSetnayanAiPurchaseForEvent(unowned, smuggled),
+    true,
+    'and it must still be OFFERED the purchase — a "subscription" cannot suppress the CTA',
   );
 });
 
-test('buy CTA per-user ON: SUPPRESSED for a per-event owner (never double-charge)', () => {
-  const ev = { setnayan_ai_active: true };
-  assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(ev, {
-      paywallEnabled: true,
-      perUserEnabled: true,
-      subscription: null,
-    }),
-    false,
-  );
-});
-
-test('buy CTA per-user ON: never offered while the paywall is off', () => {
-  const ev = { setnayan_ai_active: false };
-  assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(ev, {
-      paywallEnabled: false,
-      perUserEnabled: true,
-      subscription: { active_until: PAST },
-    }),
-    false,
-  );
+test('the AI gate module holds no user-scoped entitlement concept', () => {
+  // Source-level guard. The runtime assertions above cannot see a NEW per-user
+  // path added beside them; this can.
+  const src = readFileSync(join(HERE, 'setnayan-ai.ts'), 'utf8');
+  for (const banned of ['user_ai_subscription', 'userAiSubscriptionActive', 'perUserEnabled']) {
+    assert.ok(
+      !new RegExp(`^(?!\\s*(//|\\*)).*${banned}`, 'm').test(src),
+      `lib/setnayan-ai.ts references ${banned} in CODE. Setnayan AI is per event ` +
+        '(owner 2026-08-01) — a user-scoped window is not a thing this module may express.',
+    );
+  }
 });

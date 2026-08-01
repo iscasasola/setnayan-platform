@@ -498,14 +498,20 @@ test('SEC-7 · checkout cannot multiply the total by cycles (the 36× overcharge
     'checkout multiplies by cycles again — that is the 36× overcharge',
   );
 
-  // The multiply lives in the PURE half, and there is exactly one of it.
+  // 🔒 THERE IS NO MULTIPLY LEFT AT ALL (2026-08-01). `resolveAiSubTotal` was the
+  // single `unit × cycles` site; retiring the per-USER subscription removed the
+  // only SKU that took a cycle count, so the charge path now performs NO
+  // arithmetic between a catalog price and an order total. This assertion went
+  // from "exactly one" to "exactly zero" — a stronger property, and the reason
+  // the 36× class is retired rather than defended. A new multiplier here is a
+  // pricing-model change and must be an owner decision first.
   const math = read('lib/order-charge-math.ts');
   const multiplies = [...math.matchAll(/BigInt\([^;]*?\)\s*\*\s*BigInt\(/g)];
   assert.equal(
     multiplies.length,
-    1,
-    'unit × cycles must happen in exactly ONE place; found ' +
-      `${multiplies.length}. Two multiply sites is how cycles² comes back.`,
+    0,
+    `the charge math multiplies at ${multiplies.length} site(s); expected 0. ` +
+      'Multiplying a catalog price by a client-influenced count is how cycles² came back.',
   );
   assert.match(
     math,
@@ -513,15 +519,16 @@ test('SEC-7 · checkout cannot multiply the total by cycles (the 36× overcharge
     'the branded total is what makes double-multiplication unrepresentable — keep the brand',
   );
   // The brand may only be applied to a number READ FROM A CATALOG, never to the
-  // product of arithmetic on an existing total. Two sites: the generic
-  // constructor and the AI unit × cycles. A third is a new way to launder a
-  // multiplied total back into a "total".
+  // product of arithmetic on an existing total. ONE site remains — the generic
+  // `sealServerResolvedTotal` constructor — since `resolveAiSubTotal` was removed
+  // 2026-08-01. A second is a new way to launder a multiplied total back into a
+  // "total".
   const seals = [...math.matchAll(/as OrderTotalCentavos/g)];
   assert.equal(
     seals.length,
-    2,
-    `the brand is applied at ${seals.length} sites, expected 2 (sealServerResolvedTotal + ` +
-      'resolveAiSubTotal). Every extra site is a place a re-multiplied value can be called a total.',
+    1,
+    `the brand is applied at ${seals.length} sites, expected 1 (sealServerResolvedTotal). ` +
+      'Every extra site is a place a re-multiplied value can be called a total.',
   );
   const authority = read('lib/order-charge-authority.ts');
   assert.ok(

@@ -24,12 +24,13 @@
  * ── The rule ──────────────────────────────────────────────────────────────
  *   Phase 1  surfaceEnabled(profile,'rsvp')
  *            AND type ∈ {wedding, debut, birthday, christening,
- *                        gender_reveal, graduation}
+ *                        gender_reveal, graduation, simple_event, travel}
  *            OR  (type = 'anniversary' AND community_id IS NULL)
  *   Phase 2  + reunion, celebration, gala_night,
  *              anniversary (community_id IS NOT NULL)   [self-join hardening]
  *   Phase 3  + corporate, tournament                    [CSAM matcher, DPA]
- *   Denied   travel — always, in V1 (explicit; see PAPIC_ACCESS_DENIED_TYPES)
+ *
+ * There is NO deny list. See the `travel` entry in PAPIC_ACCESS_PHASE_1_TYPES.
  *
  * PURE + SYNCHRONOUS on purpose: one helper, no I/O, so every surface (Studio
  * hub, the guest camera page, checkout) can share the exact same decision
@@ -74,6 +75,27 @@ export const PAPIC_ACCESS_PHASE_1_TYPES = [
   // live, owner-locked offer ("Papic on ALL 16 event types", 2026-07-27) from
   // the one type whose entire purpose is to exercise the in-app services.
   'simple_event',
+  // `travel` — added 2026-08-01 by OWNER DECISION: "Drop the travel exclusion —
+  // offer Papic everywhere."
+  //
+  // ⚠ DO NOT "restore" this as a bug fix. Until this date `travel` sat on an
+  // explicit deny list (`PAPIC_ACCESS_DENIED_TYPES`, now deleted) on the
+  // reasoning that a roaming, multi-day trip has the maximal bystander density
+  // of any type and that a pass metered per event-day is the wrong unit for it.
+  // The owner was shown that reasoning and overrode it. It also aligns the
+  // predicate with the older standing lock "Papic on ALL 16 event types"
+  // (2026-07-27), which the deny list had been contradicting.
+  //
+  // Placed in PHASE 1 because Phase 1 is the only phase live today
+  // (PAPIC_ACCESS_CURRENT_PHASE) — anywhere else would still read as "denied".
+  //
+  // KNOWN FOLLOW-UP, deliberately NOT changed here: travel is the only allowed
+  // type with `multi_day=TRUE` + `layer_mode='roaming'`, so the per-event-day
+  // metering unit is a real open question. This PR changes ELIGIBILITY only —
+  // pricing, entitlements and the free-grant paths are untouched. The separate
+  // multi-day capture-window model (`lib/papic-window.ts` `isTravelEventType`)
+  // already handles travel and is unaffected.
+  'travel',
 ] as const;
 
 /** Roster-backed group types — poster-QR self-join is the primary entry path. */
@@ -87,27 +109,21 @@ export const PAPIC_ACCESS_PHASE_2_TYPES = [
 export const PAPIC_ACCESS_PHASE_3_TYPES = ['corporate', 'tournament'] as const;
 
 /**
- * EXPLICIT DENY — never eligible in V1, at any phase.
+ * There is deliberately NO deny list.
  *
- * `travel` is `layer_mode='roaming'` + `multi_day=TRUE`
- * (`20270807254184_composable_event_foundation.sql:37-44`), so a pass metered
- * "per event-day" is structurally the wrong unit, and a roaming trip has the
- * maximal bystander density of any type. It must be listed HERE rather than
- * left to `surfaceEnabled` because migration
- * `20270804110223_unlock_nonwedding_guest_surfaces.sql` added `rsvp` to EVERY
- * non-wedding profile row — travel's profile enables `rsvp` in prod today, so
- * the surface check alone would let it through and merchandise a fake door.
+ * `PAPIC_ACCESS_DENIED_TYPES = ['travel']` lived here until 2026-08-01, when the
+ * owner ruled: "Drop the travel exclusion — offer Papic everywhere." Travel now
+ * sits in PAPIC_ACCESS_PHASE_1_TYPES like any other eligible type; the deny
+ * mechanism is gone rather than emptied, so re-denying a type is a deliberate
+ * act and not a one-word edit.
  */
-export const PAPIC_ACCESS_DENIED_TYPES = ['travel'] as const;
 
 export type PapicAccessDenyReason =
-  /** Type is on the permanent V1 deny list (travel). */
-  | 'type_denied_v1'
   /** The type's profile has no `rsvp` surface ⇒ no guest identity to consent. */
   | 'no_rsvp_surface'
   /** Known type, but its phase has not shipped yet. */
   | 'phase_not_reached'
-  /** Type is in no phase set at all (e.g. simple_event, or a future type). */
+  /** Type is in no phase set at all (e.g. `date`/`hangout`, or a future type). */
   | 'type_out_of_scope';
 
 export type PapicAccessDecision =
@@ -157,20 +173,21 @@ export function papicGuestPassAccess(input: PapicAccessInput): PapicAccessDecisi
   const { profile, communityId = null, phase = PAPIC_ACCESS_CURRENT_PHASE } = input;
   const eventType = profile.eventType;
 
-  // 1) Permanent deny first — travel's profile DOES enable `rsvp` in prod, so
-  //    this must not be left to the surface check below.
-  if (includes(PAPIC_ACCESS_DENIED_TYPES, eventType)) {
-    return { allowed: false, phase: null, reason: 'type_denied_v1' };
-  }
-
-  // 2) No RSVP surface ⇒ no guest roster ⇒ no named, consenting subject. This
-  //    is how `simple_event` is excluded — for the right reason, not by name.
+  // 1) No RSVP surface ⇒ no guest roster ⇒ no named, consenting subject.
   if (!surfaceEnabled(profile, 'rsvp')) {
     return { allowed: false, phase: null, reason: 'no_rsvp_surface' };
   }
 
-  // 3) Positive scope. A type in NO phase set is denied (fail-closed): a new
+  // 2) Positive scope. A type in NO phase set is denied (fail-closed): a new
   //    event type does not inherit the pass by simply having an RSVP surface.
+  //
+  //    ⚠ THIS IS WHY `date` AND `hangout` ARE STILL DENIED (2026-08-01). Both
+  //    enable `rsvp` in prod but appear in no phase set, so they fall through
+  //    here to `type_out_of_scope`. The 2026-08-01 owner decision named the
+  //    TRAVEL exclusion only and did not tier `date`/`hangout`, so they keep the
+  //    pre-existing fail-closed default rather than being silently opted in.
+  //    Offering Papic on them is a one-line addition to PHASE_1 — an owner call,
+  //    not a drive-by edit.
   const typePhase = phaseForType(eventType, communityId);
   if (typePhase === null) {
     return { allowed: false, phase: null, reason: 'type_out_of_scope' };

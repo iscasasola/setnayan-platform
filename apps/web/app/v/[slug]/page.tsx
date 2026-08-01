@@ -101,11 +101,9 @@ import { fetchRequirementFields, type RequirementField } from '@/lib/requirement
 import { joinVendorWaitlist } from './waitlist-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { getEventPreference } from '@/lib/event-preferences';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
@@ -1413,20 +1411,14 @@ export async function renderVendorBySlug({
       .eq('event_id', coupleEventId)
       .maybeSingle();
     const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-    const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-    // Resolve via the admin client + the event id in scope — the public page has
-    // no session, so the host's subscription window can only be read with the
-    // service-role client (RLS-bypassed).
-    const aiSubscription = aiPerUserEnabled
-      ? await getEventHostAiSubscription(admin, coupleEventId)
-      : null;
-    aiActive = isSetnayanAiActiveForUser(
+    // Entitlement is read entirely off THIS event's own row (owner 2026-08-01:
+    // "it is per event"). This page used to additionally resolve the host's
+    // per-USER subscription window via the service-role client; that fan-out is
+    // retired, so a public visitor's view can no longer depend on anything the
+    // host bought for a different event.
+    aiActive = isSetnayanAiActiveForEvent(
       aiEventRow as { planning_mode?: string | null; setnayan_ai_active?: boolean | null } | null,
-      {
-        paywallEnabled: aiPaywallEnabled,
-        perUserEnabled: aiPerUserEnabled,
-        subscription: aiSubscription,
-      },
+      { paywallEnabled: aiPaywallEnabled },
     );
   }
 

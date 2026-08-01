@@ -781,14 +781,11 @@ export default async function LauncherPage({
       kind: 'action',
       icon: 'user',
     },
-    {
-      id: 'action-setnayan-ai',
-      label: 'Setnayan AI',
-      sublabel: 'Your planning copilot',
-      href: '/dashboard/setnayan-ai',
-      kind: 'action',
-      icon: 'wand',
-    },
+    // 🔒 REMOVED 2026-08-01 — the ACCOUNT-level "Setnayan AI" tile pointed at
+    // /dashboard/setnayan-ai, the per-USER subscription surface. Setnayan AI is
+    // PER EVENT (owner: "it is per event"), so an account-level doorway would be
+    // a door to nothing. The real surface is per event, at
+    // /dashboard/[eventId]/studio/setnayan-ai, reached from that event.
     {
       id: 'action-notifications',
       label: 'Notifications',

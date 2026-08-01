@@ -45,13 +45,11 @@ import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
-  isSetnayanAiActiveForUser,
-  shouldOfferSetnayanAiPurchaseForUser,
+  isSetnayanAiActiveForEvent,
+  shouldOfferSetnayanAiPurchaseForEvent,
 } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   BUDGET_BUILD_TABS,
@@ -881,16 +879,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const perUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = perUserEnabled
-    ? await getEventHostAiSubscription(createAdminClient(), eventId)
-    : null;
-  const aiGateOpts = {
-    paywallEnabled,
-    perUserEnabled,
-    subscription: aiSubscription,
-  };
-  const aiActive = isSetnayanAiActiveForUser(
+  const aiGateOpts = { paywallEnabled };
+  const aiActive = isSetnayanAiActiveForEvent(
     ev ? { ...ev, planning_mode: null } : ev,
     aiGateOpts,
   );
@@ -955,7 +945,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
   // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
-  const aiOffer = shouldOfferSetnayanAiPurchaseForUser(ev, aiGateOpts);
+  const aiOffer = shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

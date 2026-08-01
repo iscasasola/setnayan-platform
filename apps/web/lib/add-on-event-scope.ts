@@ -9,9 +9,11 @@ import type { AddOnEntry } from '@/lib/add-ons-catalog';
  * Suite grid and the `/studio/about/<key>` deep-link cannot drift. They already
  * had: Suite ran the two-layer gate, and the About route — the page every "learn
  * more" link in the product points at — ran NOTHING. So
- * `/dashboard/<id>/studio/about/papic-guest` rendered the Papic Pool pitch on a
- * `travel` event, the one type on the permanent V1 deny list. A grid that hides
- * a card does not close the URL behind it.
+ * `/dashboard/<id>/studio/about/papic-guest` rendered the Papic Pool pitch on
+ * event types the grid was hiding. A grid that hides a card does not close the
+ * URL behind it. (The example that motivated this was `travel`, then on a deny
+ * list; travel is allowed since 2026-08-01, but the drift risk is unchanged —
+ * `date` and `hangout` are still out of scope.)
  *
  * ── WHY THIS IS ITS OWN MODULE AND NOT PART OF add-ons-catalog.ts ────────────
  * Because putting it there broke the production build, and the failure is worth
@@ -41,9 +43,9 @@ import type { AddOnEntry } from '@/lib/add-ons-catalog';
  *   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`, but
  *      migration 20270804110223 put `rsvp` on EVERY non-wedding profile row —
  *      all 16 types carry it in prod — so the surface check alone admits the
- *      pool everywhere. `papicGuestPassAccess()` carries the permanent travel
- *      deny, the anniversary controller split and the phase ladder, and it
- *      FAILS CLOSED for a type nobody has scoped.
+ *      pool everywhere. `papicGuestPassAccess()` carries the anniversary
+ *      controller split and the phase ladder, and it FAILS CLOSED for a type
+ *      nobody has scoped (today: `date` and `hangout`).
  *
  * PURE + synchronous: callers pass the already-resolved profile and
  * `events.community_id`, so this adds no I/O to either surface.

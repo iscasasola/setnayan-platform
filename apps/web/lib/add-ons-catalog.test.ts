@@ -44,8 +44,8 @@ test('wedding-surface add-ons carry the right surface', () => {
     'animated-monogram': 'monogram',
     // Papic Buong Araw (PAPIC_GUEST) — the flat guest-camera pass needs a guest
     // ROSTER, so it hides wherever the type has no RSVP surface (simple_event).
-    // NOTE: `surface` alone does NOT deny travel (its profile enables rsvp) —
-    // lib/papic-event-access.ts carries that deny.
+    // NOTE: `surface` alone does NOT scope this by event type (every
+    // non-wedding profile enables rsvp) — lib/papic-event-access.ts does.
     'papic-guest': 'rsvp',
   };
   for (const [key, surface] of Object.entries(expected)) {

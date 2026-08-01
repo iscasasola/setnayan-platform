@@ -26,12 +26,6 @@ import {
   panoodCameraCapForSku,
 } from '@/lib/panood-camera-seats';
 import {
-  AI_SUB_SKU,
-  cyclesFromAmount,
-  extendUserAiSubscription,
-  reverseUserAiSubscriptionWindow,
-} from '@/lib/setnayan-ai-subscription';
-import {
   VENDOR_AI_ADDON_SKU_CODE,
   isVendorAiAddonActive,
   nextVendorAiAddonExpiry,
@@ -338,8 +332,8 @@ async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
  * remaining time), and — defensively — marks the one-time trial used if a paid
  * order somehow lands with it still NULL.
  *
- * IDEMPOTENT via a prior 'service_activated' ledger row for this order (same
- * guard as SETNAYAN_AI_SUB), so a re-approval never double-extends the window.
+ * IDEMPOTENT via a prior 'service_activated' ledger row for this order, so a
+ * re-approval never double-extends the window.
  * Throws only on the write so activateOrderSku's outer catch logs + the order
  * stays 'paid' (recoverable). (Function declaration → hoisted so the frozen
  * EXACT_HOOKS map below can reference it.)
@@ -831,97 +825,19 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     // ever existed to stop a second approval adding another 28 days.)
   },
 
-  // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,
-  // owner 2026-06-29). Extends the BUYER's user_ai_subscription window by
-  // (paid amount ÷ admin unit price) cycles × 28 days, fanning AI out to all
-  // their events. Idempotent two ways: a prior 'service_activated' ledger row
-  // for this order, OR the window already carrying this order as last_order_id —
-  // either short-circuits so a re-approval never double-grants. INERT while the
-  // per-user flag is off (the gate ignores the window), but the grant records
-  // safely regardless. Throws only on the write so the dispatcher logs + retries.
-  [AI_SUB_SKU]: async (ctx) => {
-    // (1) Idempotency — already activated this order?
-    const { data: priorLedger } = await ctx.admin
-      .from('order_ledger')
-      .select('order_id')
-      .eq('order_id', ctx.orderId)
-      .eq('event_type', 'service_activated')
-      .limit(1)
-      .maybeSingle();
-    if (priorLedger) return;
-
-    // (2) Buyer + paid amount off the order.
-    const { data: order } = await ctx.admin
-      .from('orders')
-      .select('user_id, confirmed_total_php, requested_total_php')
-      .eq('order_id', ctx.orderId)
-      .maybeSingle();
-    if (!order?.user_id) return;
-    const amountPhp = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
-
-    // (3) Admin-managed unit price (single source = the catalog).
-    const { data: sku } = await ctx.admin
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php')
-      .eq('service_code', AI_SUB_SKU)
-      .maybeSingle();
-    const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
-    // ⭐ SEC-7 · `null` = the unit price is unknowable, so how many cycles this
-    // payment bought is unknowable too. REFUSE — the old behaviour was
-    // `cyclesFromAmount` silently returning 1, which is how a ₱0.01 order bought
-    // a full 28-day subscription (SETNAYAN_AI_SUB has no catalog row in prod).
-    // Raise the alarm instead of guessing: an admin can grant the window by hand
-    // once someone has seeded the SKU's admin-managed price.
-    if (cycles === null) {
-      reportActivationFault(
-        'activate:SETNAYAN_AI_SUB:no-unit-price',
-        ctx,
-        new Error(
-          `SETNAYAN_AI_SUB has no admin-managed retail_price_php — refusing to grant ` +
-            `cycles for a ₱${amountPhp} payment (order ${ctx.orderId}). Seed the catalog row, ` +
-            `then re-approve.`,
-        ),
-      );
-      return;
-    }
-    if (cycles <= 0) return;
-
-    // (4) Current window (one row per user) → extend, with a second idempotency
-    // guard for the upsert-succeeded-but-ledger-failed retry case.
-    const { data: existing } = await ctx.admin
-      .from('user_ai_subscription')
-      .select('active_until, last_order_id')
-      .eq('user_id', order.user_id)
-      .maybeSingle();
-    if (existing?.last_order_id === ctx.orderId) return;
-    const newUntil = extendUserAiSubscription(
-      existing?.active_until ?? null,
-      cycles,
-      new Date(),
-    );
-
-    const { error } = await ctx.admin.from('user_ai_subscription').upsert(
-      {
-        user_id: order.user_id,
-        active_until: newUntil.toISOString(),
-        source: 'paid',
-        last_order_id: ctx.orderId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    );
-    if (error) {
-      throw new Error(`SETNAYAN_AI_SUB activation write failed: ${error.message}`);
-    }
-
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'service_activated',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, cycles, active_until: newUntil.toISOString() },
-    });
-  },
+  // 🔒 'SETNAYAN_AI_SUB' HANDLER REMOVED 2026-08-01 — Setnayan AI is PER EVENT.
+  //
+  // It extended the BUYER's `user_ai_subscription` window by (paid amount ÷ unit
+  // price) cycles × 28 days, fanning AI out to every event that user hosted.
+  // Owner decision: "it is per event." The table, the flag and this writer are
+  // all gone.
+  //
+  // Nothing is stranded: prod held 0 orders of ANY kind, 0 user_ai_subscription
+  // rows and no SETNAYAN_AI_SUB catalog row, so the SKU was never purchasable —
+  // the charge path refused it for having no server-resolvable unit price
+  // (SEC-7). Its refund counterpart (reverseUserAiSubscriptionOrder) is removed
+  // in the same change, so activate/reverse stay symmetric and no order can
+  // activate without a matching rollback.
 
   // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
   // stored unlock flag). On approval the hook PROVISIONS the 5 paparazzi seats
@@ -1661,77 +1577,10 @@ async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Prom
   }
 }
 
-/**
- * Reverse the Setnayan AI per-USER subscription window a refunded/rejected
- * SETNAYAN_AI_SUB term-pass order stamped — without this, a refund left the
- * per-user AI window live ("refund the money, keep the sub"), symmetric to the
- * SETNAYAN_AI (per-event flag) reversal below. Reads the buyer off the order +
- * the cycles this order granted from its own 'service_activated' ledger row, then
- * rolls back user_ai_subscription.active_until ONLY when this order is still the
- * window's tail (reverseUserAiSubscriptionWindow: a later stacked re-up is never
- * clobbered). Clears last_order_id so a re-reversal is a no-op. Throws only on
- * the write so deactivateOrderSku's per-branch catch logs + reports it.
- */
-async function reverseUserAiSubscriptionOrder(ctx: ActivationContext): Promise<void> {
-  const { data: order } = await ctx.admin
-    .from('orders')
-    .select('user_id')
-    .eq('order_id', ctx.orderId)
-    .maybeSingle();
-  const userId = (order as { user_id?: string | null } | null)?.user_id ?? null;
-  if (!userId) return;
-
-  // How many cycles did THIS order grant? (its own activation ledger metadata)
-  const { data: ledgerRow } = await ctx.admin
-    .from('order_ledger')
-    .select('metadata')
-    .eq('order_id', ctx.orderId)
-    .eq('event_type', 'service_activated')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const meta =
-    (ledgerRow as { metadata?: Record<string, unknown> | null } | null)?.metadata ?? null;
-  const cycles = Number(meta?.cycles ?? 0);
-  if (!Number.isFinite(cycles) || cycles <= 0) return; // this order granted nothing
-
-  const { data: sub } = await ctx.admin
-    .from('user_ai_subscription')
-    .select('active_until, last_order_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  const reduced = reverseUserAiSubscriptionWindow({
-    currentActiveUntil: (sub as { active_until?: string | null } | null)?.active_until ?? null,
-    lastOrderId: (sub as { last_order_id?: string | null } | null)?.last_order_id ?? null,
-    orderId: ctx.orderId,
-    cycles,
-    now: new Date(),
-  });
-  if (!reduced) return; // a later re-up owns the tail (or nothing to reverse) → no-op
-
-  const { error } = await ctx.admin
-    .from('user_ai_subscription')
-    .update({
-      active_until: reduced.toISOString(),
-      last_order_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-  if (error) throw new Error(`SETNAYAN_AI_SUB reversal write failed: ${error.message}`);
-
-  await appendLedger(ctx.admin, {
-    order_id: ctx.orderId,
-    event_type: 'order_refunded',
-    actor_user_id: ctx.actorUserId,
-    actor_role: 'admin',
-    metadata: {
-      service_key: ctx.serviceKey,
-      user_id: userId,
-      cycles_reversed: cycles,
-      active_until: reduced.toISOString(),
-    },
-  });
-}
+// 🔒 reverseUserAiSubscriptionOrder() REMOVED 2026-08-01 together with the
+// SETNAYAN_AI_SUB activation handler it mirrored. It rolled back
+// user_ai_subscription.active_until on a refund/reject. With per-USER retired
+// there is no window to reverse. The per-EVENT reversal below is untouched.
 
 /**
  * Reverse the flag-backed side effects of an order that was just REVERSED
@@ -1740,7 +1589,7 @@ async function reverseUserAiSubscriptionOrder(ctx: ActivationContext): Promise<v
  * the order's status flip is committed so the re-derivation sees the new state.
  *
  * Entitlements with a STORED window/row need reversing: SETNAYAN_AI (per-event
- * flag), SETNAYAN_AI_SUB (per-USER subscription window), the vendor extra-seat
+ * flag), the vendor extra-seat
  * COUNT, Vendor AI + 3D Booth (28-day window), and the Photo Challenge
  * sponsorship row. `vendor_deep_search` is already-consumed (a completed web/AI
  * run) → nothing to reverse. PAPIC_SEATS' seat provisioning + all other
@@ -1801,15 +1650,10 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
     }
-  } else if (ctx.serviceKey === AI_SUB_SKU) {
-    // Setnayan AI per-USER subscription — roll back the window this order stamped
-    // (else: refund the money, keep the sub). Non-fatal + idempotent.
-    try {
-      await reverseUserAiSubscriptionOrder(ctx);
-    } catch (e) {
-      reportActivationFault('deactivate:setnayan_ai_sub', ctx, e);
-    }
   }
+  // 🔒 The `SETNAYAN_AI_SUB` branch that stood here was removed 2026-08-01 with
+  // the rest of the per-USER path. Its activation handler went in the same
+  // change, so there is no grant left for it to reverse.
 
   // Vendor extra seat — a refunded/cancelled seat order must LOWER the paid seat
   // count. Recompute from the live paid-order set (the reversed order already

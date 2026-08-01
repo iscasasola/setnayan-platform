@@ -148,13 +148,12 @@ export default async function StudioPage({ params, searchParams }: Props) {
   //   1. The generic SURFACE gate (0053 · 2026-06-28) — an add-on tagged with a
   //      `surface` shows only when this event type's profile enables it.
   //   2. The Papic guest-pass PREDICATE. `papic-guest` is tagged
-  //      `surface: 'rsvp'`, but travel's profile DOES enable rsvp in prod
+  //      `surface: 'rsvp'`, but EVERY non-wedding profile enables rsvp in prod
   //      (migration 20270804110223) — so the surface check alone would offer the
-  //      pass on a roaming, multi-day trip where "per event-day" is structurally
-  //      the wrong unit. That is a fake door. papicGuestPassAccess() carries the
-  //      permanent travel deny, the anniversary community split and the phase
-  //      ladder, and it FAILS CLOSED: a new event type does not inherit the pass
-  //      merely by having an RSVP surface.
+  //      pass on types nobody has scoped. That is a fake door.
+  //      papicGuestPassAccess() carries the anniversary community split and the
+  //      phase ladder, and it FAILS CLOSED: a new event type does not inherit
+  //      the pass merely by having an RSVP surface.
   //
   // Until now the predicate had ZERO production callers — it shipped in PR #3423
   // and nothing consulted it. This is that wiring.
@@ -168,10 +167,11 @@ export default async function StudioPage({ params, searchParams }: Props) {
   //   off) under the owner's 2026-07-29 two-type lock.
   //
   //   The predicate still runs, and still matters, for the reason above it: it
-  //   decides WHICH EVENT TYPES may be offered the pool at all (permanent travel
-  //   deny · anniversary controller split · phase ladder), and it fails closed for
-  //   a new type. Widening it is an owner/DPO decision — `papic-event-access.ts`
-  //   says so at PAPIC_ACCESS_CURRENT_PHASE — never a drive-by edit here.
+  //   decides WHICH EVENT TYPES may be offered the pool at all (anniversary
+  //   controller split · phase ladder), and it fails closed for a new type.
+  //   Widening it is an owner/DPO decision — `papic-event-access.ts` says so at
+  //   PAPIC_ACCESS_CURRENT_PHASE — never a drive-by edit here. The `travel` deny
+  //   this comment used to name was dropped by owner decision 2026-08-01.
   //
   //   ⚠ Verdict gates 0d/0e (guest-media ROPA row + DPO sign-off that the RSVP
   //   consent text names guest-phone capture and face-sorted delivery) are STILL

@@ -69,3 +69,42 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
     assert.equal(setnayanAiTierSkuForEventType(t as string | null | undefined), 'SETNAYAN_AI_C');
   }
 });
+
+/* ── Regression guard for the 2026-08-01 per-USER retirement ─────────────────
+ * The change that removed `user_ai_subscription`, the
+ * `setnayan_ai_per_user_enabled` flag and the `SETNAYAN_AI_SUB` term pass was
+ * required to leave the PER-EVENT price ladder byte-identical. This pins the
+ * complete triple — tier · catalog SKU · fallback ₱ — for every event type in
+ * ONE assertion, so "we did not change what anyone is charged or shown" is a
+ * test result rather than a claim in a PR description.
+ * ------------------------------------------------------------------------- */
+test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', () => {
+  const expected: Record<string, [string, string | null, number]> = {
+    wedding: ['A', 'SETNAYAN_AI', 1499],
+    debut: ['B', 'SETNAYAN_AI_B', 899],
+    corporate: ['B', 'SETNAYAN_AI_B', 899],
+    gala_night: ['B', 'SETNAYAN_AI_B', 899],
+    christening: ['C', 'SETNAYAN_AI_C', 499],
+    birthday: ['C', 'SETNAYAN_AI_C', 499],
+    celebration: ['C', 'SETNAYAN_AI_C', 499],
+    travel: ['C', 'SETNAYAN_AI_C', 499],
+    anniversary: ['C', 'SETNAYAN_AI_C', 499],
+    graduation: ['C', 'SETNAYAN_AI_C', 499],
+    reunion: ['C', 'SETNAYAN_AI_C', 499],
+    tournament: ['D', 'SETNAYAN_AI_D', 99],
+    gender_reveal: ['D', 'SETNAYAN_AI_D', 99],
+    date: ['D', 'SETNAYAN_AI_D', 99],
+    hangout: ['D', 'SETNAYAN_AI_D', 99],
+    simple_event: ['E', null, 0],
+  };
+
+  for (const [type, [tier, sku, php]] of Object.entries(expected)) {
+    assert.equal(setnayanAiTierForEventType(type), tier, `${type} tier`);
+    assert.equal(setnayanAiTierSkuForEventType(type), sku, `${type} SKU`);
+    assert.equal(setnayanAiTierFallbackPhp(type), php, `${type} fallback ₱`);
+  }
+
+  // Papic's travel exclusion was dropped in the SAME change. Confirm that did
+  // NOT leak into AI pricing — travel is still Tier C at ₱499, exactly as before.
+  assert.equal(setnayanAiTierFallbackPhp('travel'), 499, 'travel AI price must not move');
+});

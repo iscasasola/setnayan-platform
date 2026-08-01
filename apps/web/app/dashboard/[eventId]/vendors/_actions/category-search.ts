@@ -42,11 +42,9 @@ import {
 import { computeCompatScore } from '@/lib/compat-score';
 import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   monthsToWedding,
@@ -392,17 +390,9 @@ export async function searchCategoryVendors(input: {
   // below), NOT the match score. (Supersedes owner 2026-06-08 "govern now,
   // monetize next" for matching specifically.)
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(createAdminClient(), eventId)
-    : null;
-  const aiActive = isSetnayanAiActiveForUser(
+  const aiActive = isSetnayanAiActiveForEvent(
     ev as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   // The Event Brief is the deterministic read-model the scorer reads (Rule 1,
   // 2026-07-12). Built from the event row; admit-unknown, so a thin row is fine.

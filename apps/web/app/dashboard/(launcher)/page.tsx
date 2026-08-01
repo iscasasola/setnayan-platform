@@ -25,6 +25,7 @@ import {
 } from '@/lib/communities';
 import {
   fetchChecklistItems,
+  checklistAnchorDateFor,
   checklistRunwayFor,
   daysUntilEvent,
   dueDateForItem,
@@ -340,13 +341,22 @@ export default async function LauncherPage({
           const items = await fetchChecklistItems(supabase, e.event_id);
           if (items.length === 0) return [e.event_id, { pct: null, overdue: 0 }];
           const done = items.filter((i) => i.status === 'done').length;
+          // Same deadline ANCHOR the checklist page dates by — locked date, else
+          // earliest candidate, else window start; weddings on the locked date
+          // alone. This card used to pass `e.event_date` straight through, so a
+          // non-wedding event whose date isn't locked yet resolved no due dates
+          // at all and the card claimed 0 overdue while the page it links to
+          // listed real deadlines. One helper, both surfaces, no drift.
+          const anchorDate = checklistAnchorDateFor(e);
           // Same runway rule the checklist page renders with — an event whose
           // template is longer than its runway must not report every task as
           // overdue on the card either. Null runway ⇒ authored offsets stand.
-          const runway = checklistRunwayFor(items, e.event_date, e.created_at ?? null);
+          // Measured from the SAME anchor: the runway is (creation → anchor), so
+          // it has to move with the anchor or the compression would disagree too.
+          const runway = checklistRunwayFor(items, anchorDate, e.created_at ?? null);
           const overdue = items.filter((i) => {
             if (i.status !== 'pending') return false;
-            const due = dueDateForItem(e.event_date, i.due_offset_days, runway);
+            const due = dueDateForItem(anchorDate, i.due_offset_days, runway);
             return !!due && due < todayISO;
           }).length;
           return [

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Lock, Mic, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { buildScriptWorkbook, type ScriptBlock } from '@/lib/emcee-script-layer';
@@ -167,10 +168,22 @@ export async function ScriptTab({
           <span>
             <strong className="text-ink">Drafted from your lines</strong> — {prefilled} of{' '}
             {workbook.entries.length} moments arrived already written, in your words with their
-            names filled in. Edit anything that should be different for {coupleName}.
+            names filled in. Edit anything that should be different for {coupleName}.{' '}
+            <Link href="/vendor-dashboard/lines" className="underline">
+              My lines
+            </Link>
           </span>
         </p>
-      ) : null}
+      ) : (
+        <p className="text-xs text-ink/50">
+          Lines you write here are saved to{' '}
+          <Link href="/vendor-dashboard/lines" className="underline">
+            My lines
+          </Link>{' '}
+          automatically — with {coupleName}&rsquo;s names swapped out — so your next wedding opens
+          already written.
+        </p>
+      )}
 
       {attention.length > 0 ? (
         <div className="rounded-xl border border-gold/40 border-l-4 border-l-gold bg-white p-3">

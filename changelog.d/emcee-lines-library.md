@@ -80,3 +80,38 @@ lesson). The My Lines browse surface and the day-of delta are their own PRs.
 
 SPEC IMPACT: None — implements the locked spec as written. No pricing, no policy change to any
 existing object.
+
+---
+
+## 2026-08-01 (same PR) · My Lines — the library screen, and the last spec item
+
+Item **5**, the final one. `/vendor-dashboard/lines` — sibling of
+`/vendor-dashboard/activities` (his named segments) and deliberately the same kind of screen: a
+vendor-owned reusable list, plain form posts, no client state machine.
+
+**Three rules the screen is built around, each of which could have gone wrong quietly:**
+
+1. **It shows the TEMPLATE, slots and all** — `⟨the couple⟩`, never a filled preview. The promise is
+   that a stored line carries no real person, and he should be able to *see* that. It is also how he
+   learns to write a slot.
+2. **Private notes are separated and labelled "never reused."** They are here so he can find them,
+   not so they get used — `matchLines` already refuses them at the source, and this screen must not
+   imply otherwise.
+3. **Editing here never touches a wedding.** The library is upstream of every event copy, never
+   retroactive. Silently rewriting a script he has already rehearsed would be the worst thing this
+   screen could do — so `vendor_block_scripts` is not touched by any action on this page.
+
+**Delete is soft, and that is load-bearing.** `deleted_at` rather than a real delete: every partial
+unique carries `WHERE deleted_at IS NULL`, so retiring a line frees its key immediately and he can
+write a fresh one for the same moment straight away. A hard delete would also be indistinguishable
+from "never written".
+
+**Rung 2 → rung 1 promotion.** He can attach a line to one of his named segments, turning a
+matched-by-name guess into an exact match that holds forever — the same UUID travels to every
+wedding. Attaching validates the segment is **his** first, so a stray id cannot bind his line to
+someone else's segment.
+
+Reachable from the Script tab in both states — the "drafted from your lines" banner when the
+library is working, and a quiet line explaining the automatic save when it is still empty.
+
+**All six items of the locked spec are now built.**

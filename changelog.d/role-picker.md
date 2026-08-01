@@ -46,13 +46,14 @@ before.
 - `tsc --noEmit` **exit 0, 0 errors** (8 GB heap) · `next lint` clean · **`test:unit` 5,958 / 5,958**
 - No migration, no policy, no schema.
 
-### Not in this PR
+### ~~Not in this PR~~ → Phase 2 landed here too, see below
 
-The **role-scoped run of day** (Phase 2) — the couple's timeline filtered to the one role, which is
-where the *focus* the owner asked for actually happens, and what makes a role without a bespoke desk
-worth switching into at all.
+*(This section said the role-scoped run of day was a separate PR. It is in this one — the picker
+owns the same file, so shipping them together avoided a conflict and a stacked branch, and the two
+halves only make sense side by side: the picker says WHICH desk, Phase 2 says what that role's
+night looks like.)*
 
-SPEC IMPACT: None — implements Phase 1 without touching the design's open questions (§ 7).
+SPEC IMPACT: None — implements Phases 1 and 2 without touching the design's open questions (§ 7).
 
 ---
 

@@ -55,9 +55,6 @@ patiktok_* | map-backlog — Patiktok recording subsystem
 vendor_event_* | map-backlog — per-event vendor access grants
 vendor_service_time_slots | map-backlog — vendor time-slot supply, plus the table-reservation ledger now built on it (service_slot_day_state, service_slot_reservations). It only became hub-shaped on 2026-08-01, when "Setnayan holds the reservation" gave it two more dependants; it has been real product since 2026-09-28 and the map has never covered vendor AVAILABILITY at all. An admission, not a decision — availability is a strong node candidate, since orders, bookings and the day-of surfaces all ultimately ask "is this vendor free?".
 event_vendor_* | map-backlog — the event↔vendor booking cluster (9 tables): unlocks incl. 3D Plan, line items, working notes, policy acknowledgements. Joint J7 documents the booking bond itself but no node owns this cluster.
-event_tables | map-backlog — seating chart tables (iteration 0008)
-event_floor_* | map-backlog — floor plan and venue geometry
-event_schedule_* | map-backlog — day-of schedule blocks
 event_type_* | map-backlog — event-type vocab and onboarding config; likely belongs under the taxonomy node
 event_vendor_line_items | map-backlog — per-vendor budget line items
 songs | map-backlog — the song catalogue behind the song desk

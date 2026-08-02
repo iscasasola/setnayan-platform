@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useRef, useState, useTransition } from 'react';
 import { Flag, X, Check } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { fileReport } from '@/lib/reports';
 
 /**
@@ -45,6 +46,14 @@ export function ReportPageButton({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Escape-to-close, Tab trapped inside, focus restored to the trigger. Held
+  // open while a submit is in flight, matching the backdrop and close button.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => {
+    if (!pending) setOpen(false);
+  }, [pending]);
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
+
   function submit() {
     if (!reason) {
       setError('Pick a reason.');
@@ -74,11 +83,12 @@ export function ReportPageButton({
 
       {open && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Report this page"
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
-          onClick={() => !pending && setOpen(false)}
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
+          onClick={close}
         >
           <div
             className="w-full max-w-sm rounded-2xl border border-ink/15 bg-cream p-5 shadow-xl"

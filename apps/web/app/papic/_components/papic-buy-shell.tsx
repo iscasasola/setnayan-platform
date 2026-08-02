@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, X, Zap } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { startPapicGuestPurchase } from '../buy/actions';
 import type { PapicGuestOffer } from '@/lib/papic-guest-buy';
 import type { BuyWait } from '@/lib/papic-buy-urgency';
@@ -72,6 +73,14 @@ export function PapicBuyShell({
   // shutter, which turns a helpful offer into a thing to fight with.
   const autoOpened = useRef(false);
 
+  // Escape-to-close, Tab trapped inside, focus moved in on open and restored
+  // to the trigger on close. Without it a guest who opened this over the
+  // viewfinder — often automatically, at the exhaustion moment — could tab
+  // straight out into the camera behind the backdrop with no way back.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
+
   useEffect(() => {
     const onOut = () => {
       if (autoOpened.current) return;
@@ -100,10 +109,11 @@ export function PapicBuyShell({
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Add shots"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 focus:outline-none sm:items-center sm:p-4"
         >
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">

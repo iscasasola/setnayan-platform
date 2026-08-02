@@ -68,3 +68,39 @@ Facebook-grey + mandarin direction (owner chose warm over cool the same week) an
 the 2026-07-12 gold-CTA half of the Atelier lock. Gold is retained as the sole
 decorative colour; the slate indigo is scoped to links + secondary buttons only,
 so the "one decorative family" kit rule still holds.
+
+### Palette LOCK (owner: "lock it", 2026-08-01)
+
+Terracotta is locked as the CTA. Because a doc row cannot stop a fifth palette
+turn, the lock ships as an enforceable guard: `apps/web/lib/palette-lock.test.ts`,
+8 tests.
+
+It **parses the live token values out of `globals.css` and computes WCAG contrast
+from them** — it does not compare two hand-typed hexes, which is the guard shape
+this repo has been bitten by before (both copies drift together and CI stays
+green). Change a token and the math re-runs.
+
+What it holds:
+- body text ≥ AAA on the page
+- **the CTA vs the label the app ACTUALLY renders** (`text-cream`, not white)
+- the hover state never contrasts worse than rest
+- links ≥ AA
+- gold may stay under 4.5 (it is UI-only) **but its text escalation must pass**
+- **CTA ≠ accent** — the structural half of the lock; when both slots held gold,
+  a primary button was indistinguishable from a selected filter chip
+- the `--color-*` and `--m-*` families have not drifted apart
+- the marketing CTA vs its own hard-coded `#fff` label (a different floor from
+  the app CTA, so both are checked)
+
+**Adversarially verified — the guard was proven to FAIL before being trusted.**
+Four regressions were injected and all four were caught: reverting the CTA to
+gold, using the originally-requested `#E05A2B`, drifting `--m-paper` from
+`--color-cream`, and the `#C75026` near-miss that passes against white and fails
+against cream. Restores to 8/8 green. Full sweep: **5,705/5,705**.
+
+⚠️ One bug in the guard's own first draft is worth recording, since it is the
+same class of error the guard exists to catch: it scoped "light mode" by slicing
+the file at the text `html.dark`, but that string appears in a **prose comment
+~45 lines above the light token block**, so the slice excluded the very tokens it
+meant to read and threw "token `--color-cream` not found" against a file that
+plainly defines it. Now extracts real `:root { … }` blocks instead.

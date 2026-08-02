@@ -256,13 +256,18 @@ export function buildEventBrief(source: EventBriefSource | null | undefined): Ev
   // told about the wrong day.
   //
   // Deliberately NOT gated on `date_status === 'locked'`, even though the lock
-  // writes it: all 5 prod rows read `'undecided'` today, including all 3 that
-  // carry a real `event_date`, so gating on it would ignore `event_date`
-  // everywhere and silently reintroduce this same bug. `event_date` being
-  // non-null IS the commitment. (The column is SELECT-granted to authenticated
-  // and anon — the blocker is the data, not the grant. It is also absent from
-  // `category-search.ts`'s narrow column list, so a gate would additionally
-  // resolve differently per consumer.)
+  // writes it. The original reason was that every prod row read `'undecided'`,
+  // including the ones carrying a real `event_date` — migration 20271033121603
+  // has since fixed that drift at the table (trigger `sync_event_date_status_trg`),
+  // so that specific evidence is now stale. The CONCLUSION still stands, for two
+  // reasons that the fix does not touch:
+  //   · `date_status = 'undecided'` is deliberately reachable WITH a non-null
+  //     `event_date` — that is exactly what `markDateUndecided` writes — so a
+  //     gate here would drop a real date the couple is simply unsure about,
+  //     which is the wrong answer to give a VENDOR asking about availability.
+  //   · `date_status` is absent from `category-search.ts`'s narrow column list,
+  //     so a gate would resolve differently per consumer.
+  // `event_date` being non-null IS the commitment for this reader.
   //
   // The values handed over are already normalised by `str`/`strArr` above
   // (trimmed, empties dropped, non-array guarded), so the shared helper's own

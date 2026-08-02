@@ -18,8 +18,6 @@ import {
   papicSeatJoinUrl,
 } from '@/lib/papic-seats';
 import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
-import { ensurePapicPoolToken } from '@/lib/papic-pool-join';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
@@ -72,6 +70,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
   // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
   // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
+  const { data: eventRow } = await supabase
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventSlug = (eventRow as { slug?: string | null } | null)?.slug ?? null;
+
   const ownsPack = await eventPapicSeatsActive(supabase, eventId);
   const seats = await fetchPapicSeats(supabase, eventId);
 
@@ -124,16 +129,25 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const claimedCount = seats.filter((s) => s.claimer_user_id).length;
 
-  // ── THE POSTER QR (owner-locked 2026-08-01) ────────────────────────────────
-  // One code for the whole event: print it, put it on a table, anyone who scans
-  // gets their own camera on the shared pool. No limit, first come first served.
+  // ── THE POSTER QR — the EVENT SITE's own join link ─────────────────────────
   //
-  // This is the QR the product had been PROMISING and never had — until now the
-  // only codes here were per-seat claim links, single use, first scanner takes
-  // it. Minted lazily: the token exists from the moment a host opens this page,
-  // never for an event that has no use for a poster.
-  const poolToken = await ensurePapicPoolToken(createAdminClient(), eventId);
-  const poolJoinUrl = poolToken ? `${appUrl}/papic/pool/${poolToken}` : null;
+  // ⚠ REWRITTEN 2026-08-02. The first version of this minted a bespoke
+  // `papic_pool_token` and pointed at a standalone /papic/pool/[token] camera.
+  // That was a SECOND DOOR built beside one that already existed: `/{slug}/invite`
+  // is the shared join link the couple already hands out, already rotatable and
+  // revocable, already feeding the guest list's self-join reconcile queue. Both
+  // the bespoke route and its column are gone (zero were ever minted).
+  //
+  // Pointing the poster at the event site is also the BETTER experience, not
+  // just the cheaper one. A scanner lands on the guest site and gets all three
+  // things: a camera, their own QR so others can tag them, and a gallery of
+  // photos of them. The standalone camera gave only the first — so a poster
+  // scanner could shoot but could never receive.
+  //
+  // Requires a slug (the site's address). No slug ⇒ no poster, rather than a QR
+  // pointing nowhere.
+  const posterUrl = eventSlug ? `${appUrl}/${eventSlug}/invite` : null;
+  const poolJoinUrl = posterUrl;
   const poolQrSvg = poolJoinUrl ? await renderUrlQrSvg(poolJoinUrl, 200) : null;
 
   return (

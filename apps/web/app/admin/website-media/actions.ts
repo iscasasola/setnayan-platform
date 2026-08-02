@@ -30,6 +30,7 @@ import { revalidatePath } from 'next/cache';
 
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
+import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { assertDeletableKey, isDeletableUsage } from '@/lib/website-media';
 import { usageForKey } from '@/lib/website-media-server';
 
@@ -61,6 +62,12 @@ export async function getDownloadUrlAction(
       bucket: R2_BUCKETS.media,
       key,
       expiresIn: 60 * 10,
+      // Force a SAVE, not a preview. Without this the browser plays the clip or
+      // shows the image in a tab and nothing lands on disk — which would quietly
+      // hollow out the one step that makes deleting safe.
+      responseContentDisposition: contentDispositionAttachment(
+        key.split('/').pop() || 'website-media',
+      ),
     });
     return { ok: true, url };
   } catch (err) {

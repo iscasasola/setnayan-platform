@@ -411,6 +411,18 @@ export async function r2SignedGet(args: {
    * even on the presigned path — without touching how the object was uploaded.
    */
   responseCacheControl?: string;
+  /**
+   * Overrides the `Content-Disposition` header R2 returns (the S3
+   * `response-content-disposition` param, signed into the URL).
+   *
+   * WITHOUT THIS, A "DOWNLOAD" LINK DOES NOT DOWNLOAD. R2 stores these objects
+   * with their real media type, so a presigned GET for an `.mp4` or `.jpg`
+   * renders INLINE in the tab and the file never reaches the disk. Pass
+   * `attachment; filename="…"` (see `contentDispositionAttachment`) anywhere the
+   * point is to save a copy — /admin/website-media leans on it as the step that
+   * makes deleting safe.
+   */
+  responseContentDisposition?: string;
 }): Promise<string> {
   const client = requireR2Client();
   return await getSignedUrl(
@@ -419,10 +431,12 @@ export async function r2SignedGet(args: {
       Bucket: args.bucket,
       Key: args.key,
       ResponseCacheControl: args.responseCacheControl,
+      ResponseContentDisposition: args.responseContentDisposition,
     }),
     { expiresIn: args.expiresIn ?? 60 * 60 * 24 },
   );
 }
+
 
 /**
  * Returns the direct public URL for an R2 object. Alias for `publicUrlFor`

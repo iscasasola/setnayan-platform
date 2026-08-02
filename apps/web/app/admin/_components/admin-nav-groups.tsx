@@ -458,6 +458,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/background-videos',
       },
       {
+        // Website media — the READ side of the media bucket, sitting next to the
+        // upload tools it audits. Those tools repoint a row without deleting the
+        // object they replaced, so left-over files are invisible everywhere else.
+        key: 'website-media',
+        label: 'Website media',
+        href: '/admin/website-media',
+        icon: Images,
+        matchPrefix: '/admin/website-media',
+      },
+      {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).
         // matchPrefix keeps this item lit on the legacy /admin/reveal-studio
         // path (redirects in). NB /admin/studio and /admin/reveal-studio are

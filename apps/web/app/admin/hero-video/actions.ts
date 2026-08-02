@@ -11,10 +11,12 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { R2_BUCKETS, publicUrlFor } from '@/lib/r2';
+import { retireReplacedMedia } from '@/lib/website-media-server';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -43,6 +45,31 @@ export async function saveHeroVideo(input: {
     }
     const db = createAdminClient();
     const frameUrls = input.frameKeys.map((k) => publicUrlFor(R2_BUCKETS.media, k));
+
+    // Read the outgoing refs BEFORE the update. Each upload writes an entirely
+    // NEW `hero-frames/<sessionId>/` folder, so a re-upload strands the whole
+    // previous sequence — the bulkiest leftovers in the bucket. After the update
+    // the row no longer remembers them and they are unreachable forever.
+    const { data: before } = await db
+      .from('homepage_hero_config')
+      .select('video_r2_key, frame_keys, frame_urls')
+      .eq('id', 1)
+      .maybeSingle();
+    const prev = (before ?? null) as {
+      video_r2_key: string | null;
+      frame_keys: unknown;
+      frame_urls: unknown;
+    } | null;
+    const asArray = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    const previousRefs: (string | null)[] = [
+      prev?.video_r2_key ?? null,
+      ...asArray(prev?.frame_keys),
+      // Rows written before `frame_keys` existed carry only URLs; retirableKeys
+      // parses those back into keys, so those sequences get swept too.
+      ...asArray(prev?.frame_urls),
+    ];
+
     const { error } = await db
       .from('homepage_hero_config')
       .update({
@@ -64,6 +91,21 @@ export async function saveHeroVideo(input: {
       })
       .eq('id', 1);
     if (error) return { ok: false, error: error.message };
+
+    // Sweep OFF the request path. A hero replace retires the ENTIRE previous
+    // frame folder — 73-361 objects — and awaiting that many deletes would add
+    // seconds to a save that has already succeeded, risking a function timeout
+    // and a false "Save failed" on a row that was written correctly. after()
+    // runs it once the response is out; retireReplacedMedia uses only the admin
+    // client and never throws.
+    after(async () => {
+      await retireReplacedMedia({
+        previous: previousRefs,
+        next: [input.videoKey, ...input.frameKeys],
+        context: 'sign-in hero video',
+      });
+    });
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Save failed.' };

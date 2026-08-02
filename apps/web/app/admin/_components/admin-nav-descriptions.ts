@@ -77,6 +77,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'The Setnayan-owned YouTube channels every Live Studio event streams on. Connect, verify, and release pool channels — couples never connect a Google account.',
   'background-videos':
     'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
+  'website-media':
+    'Everything stored for the site’s own pictures and videos, and which files nothing points at any more. Download a copy, then free the space. Guest photos and documents are not shown here.',
   'hero-video':
     'The /login left-panel hero still — upload a video; its first frame becomes the sign-in page image. (The public homepage hero runs on Background videos, not this.)',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',

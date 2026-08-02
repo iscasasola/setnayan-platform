@@ -194,7 +194,11 @@ export default async function PapicGuestPage({
         signed setnayan_guest_session cookie, which the buy action re-reads. The
         guest camera shoots from the SHARED pool by definition, so only the pool
         rungs are on offer (canReloadOwnCamera stays false). */}
-    <PapicGuestBuyPanel returnTo="/papic/guest" error={buyError} />
+    <PapicGuestBuyPanel
+      returnTo="/papic/guest"
+      error={buyError}
+      eventId={session.event_id}
+    />
     </>
   );
 }

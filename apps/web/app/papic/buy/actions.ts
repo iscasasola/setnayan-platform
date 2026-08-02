@@ -233,13 +233,20 @@ export async function startPapicGuestPurchase(formData: FormData) {
     if (!target.ok) backTo(returnTo, target.reason);
     seatId = target.ok ? target.seatId : null;
 
-    const { data: dedicated, error: dedErr } = await admin.rpc(
-      'papic_seat_dedicated_points',
-      { p_seat_id: seatId },
-    );
-    // Fail CLOSED: an unreadable balance is not permission to sell a reload for
-    // a camera that may have nothing to reload.
-    if (dedErr || !(Number(dedicated) > 0)) backTo(returnTo, 'not_reloadable');
+    // ⚠ NO "must already hold dedicated points" CHECK (removed 2026-08-02).
+    //
+    // It was circular — a guest could not buy their FIRST private shots without
+    // already owning private shots — so a pool guest whose shared pot ran dry
+    // could only top up the HOST's pool, money anyone else could then spend.
+    //
+    // Nothing is unguarded by its removal. `resolveGuestReloadTarget` above
+    // still refuses any seat but the one this buyer is holding (a hard refusal,
+    // never a silent redirect), and the buyer's seat is resolved from their own
+    // credential, not from the form. What the check actually protected was the
+    // host's pool accounting, and that protects itself:
+    // papic_reserve_event_points_for_seat returns -1 only WHILE the seat has
+    // dedicated points, so a camera spends what its holder paid for first and
+    // rejoins the shared pool the moment those are gone.
   }
 
   // ── the price — catalog only, never the form ────────────────────────────

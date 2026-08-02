@@ -156,6 +156,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── final batch, settled 2026-08-02 ──
+  platform_settings:
+    'No user-bearing column exists — verified column by column against prod-schema.snapshot.txt, and the table has ZERO lines in user-fk-behaviour.generated.txt. Key/value platform configuration written by admins through a settings surface that stamps nothing. Nothing to erase.',
+
   // ── settled 2026-08-02, batch 2 ──
   creator_applications:
     'DOES NOT EXIST IN PRODUCTION. Created by 20270813536704 and DROPPED by 20270815042234 (the self-apply→approve pipe was retired). The parser sees it because it unions every CREATE TABLE ever written; prod-schema.snapshot.txt has zero columns for it. Nothing to erase.',
@@ -343,15 +347,11 @@ const KNOWN_GAPS: Record<string, string> = {
  * place and issues no DELETE, so the clause never fires on that path.
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
-  'photo_delivery_jobs', 'platform_compliance_facts', 'platform_expenses', 'platform_settings',
-  'promo_free_windows', 'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets',
-  'vendor_event_access_grants', 'vendor_ig_connections', 'vendor_locked_qr_tokens',
-  'vendor_member_token_wallets', 'vendor_recommendations', 'vendor_release_history',
-  'vendor_review_appeals', 'vendor_self_comp_caps', 'vendor_team_members',
+  // EMPTY — every subject-bearing table now carries a decision.
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 17;
+const BACKLOG_HIGH_WATER = 0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

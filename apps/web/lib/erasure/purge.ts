@@ -685,6 +685,18 @@ export async function purgeUserOwnedRecords(
       await step('vendor-push-tokens-delete', () =>
         admin.from('vendor_push_tokens').delete().eq('vendor_profile_id', vendorProfileId),
       );
+      // vendor_ig_connections — the same shape, and a LIVE CREDENTIAL:
+      // `access_token_enc` is an encrypted Instagram OAuth token. The table has
+      // NO user column at all (only vendor_profile_id), so it cannot go through
+      // SUBJECT_ROW_DELETES — `.eq(column, targetUserId)` would compare a profile
+      // id against a user id and match NOTHING, a silent no-op wearing the shape
+      // of a fix. Its CASCADE is a decoy too: it fires from vendor_profiles on a
+      // HARD delete, and erasure never issues one.
+      //
+      // Three stale rows of this table once blocked account deletion outright.
+      await step('vendor-ig-connections-delete', () =>
+        admin.from('vendor_ig_connections').delete().eq('vendor_profile_id', vendorProfileId),
+      );
     }
   }
 

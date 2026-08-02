@@ -9,7 +9,18 @@ import type { R2BucketName, R2HeadResult } from '@/lib/r2';
 import { clipWebKeyDistinct, isClipRow } from '@/lib/papic-display-ref';
 
 /** Free full-res window before OUR R2 original is dropped (owner 2026-07-11). */
-export const DEFAULT_FULL_RES_RETENTION_DAYS = 90;
+export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
+
+/**
+ * Days after the EVENT DATE before an original may be dropped, whatever the
+ * 6-month clock says. The owner's stated reason for the 5-month window cap was
+ * "so they have at least 30 days to download the files they have" — this makes
+ * that a rule rather than an arithmetic coincidence that only holds while
+ * nobody starts earlier than 5 months out or moves their date.
+ *
+ * It can only ever KEEP files longer. It can never cause an earlier deletion.
+ */
+export const FULL_RES_POST_EVENT_GRACE_DAYS = 30;
 
 /**
  * A clip's web copy must have EXISTED for at least this long before its raw is
@@ -58,7 +69,12 @@ export type DropCandidate = {
  *   • already dropped → skip (idempotent);
  *   • NO web copy (display_r2_key null) → skip — dropping would LOSE the photo;
  *   • a `sample/...` key → skip — never touch seed/demo data;
- *   • younger than the retention window → skip.
+ *   • the EVENT's clock has not run out → skip. ⚠ NOT the photo's own age: the
+ *     clock is per EVENT (6 months from its first capture), because a per-photo
+ *     fuse deleted a couple's earliest journey photos BEFORE the wedding those
+ *     photos were leading up to. The caller passes only rows whose event has
+ *     already expired (papic_events_past_fullres_clock), so age is not re-tested
+ *     here — re-testing it is exactly the bug.
  * The couple's Drive copy is never involved here (this only decides OUR R2 copy).
  */
 export function isEligibleForDrop(
@@ -68,10 +84,15 @@ export function isEligibleForDrop(
   if (row.full_res_dropped_at) return false;
   if (!row.display_r2_key) return false;
   if (!row.r2_object_key || row.r2_object_key.startsWith('sample/')) return false;
+  // captured_at must still PARSE — an unreadable timestamp is a row we do not
+  // understand, and we never delete what we do not understand.
   const capturedMs = new Date(row.captured_at).getTime();
   if (!Number.isFinite(capturedMs)) return false;
-  const ageDays = (opts.nowMs - capturedMs) / MS_PER_DAY;
-  return ageDays >= opts.retentionDays;
+  // ⚠ Deliberately NO age comparison. See the docblock: eligibility by age is
+  // decided per EVENT, upstream. `retentionDays` stays on the options type so
+  // the summary can report the window in force.
+  void opts;
+  return true;
 }
 
 // ============================================================================
@@ -152,8 +173,15 @@ export function clipEligibleForDrop(
   }
   const capturedMs = new Date(row.captured_at).getTime();
   if (!Number.isFinite(capturedMs)) return false;
-  const ageDays = (opts.nowMs - capturedMs) / MS_PER_DAY;
-  return ageDays >= opts.retentionDays;
+  // Same move as the photo path: the age fuse is per EVENT, decided upstream by
+  // papic_events_past_fullres_clock. A clip shot during the ceremony and a photo
+  // shot five months earlier belong to ONE keepsake and must expire together —
+  // two clocks would delete half of a couple's journey while keeping the rest.
+  // The clip's OWN object-level guards (a distinct web copy, its byte floor, the
+  // fresh-grace on that object) are above and stay per-clip, because those are
+  // about whether a playable copy really exists, not about age.
+  void opts;
+  return true;
 }
 
 /**

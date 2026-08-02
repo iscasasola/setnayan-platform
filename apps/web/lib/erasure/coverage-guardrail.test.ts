@@ -337,26 +337,24 @@ const KNOWN_GAPS: Record<string, string> = {
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
   'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
-  'concierge_response_cache', 'coordinator_broadcasts', 'coordinator_feature_recommendations',
-  'creator_chapters', 'discount_code_eligible_users', 'discount_codes', 'event_appointments',
-  'event_egift_methods', 'event_feature_policy_override', 'event_inspiration_assets',
-  'event_journey_steps', 'event_meaningful_dates', 'event_schedule_suggestions',
-  'event_vendor_working_notes', 'feature_policy', 'feature_reviews', 'force_majeure_flags',
-  'founder_seats', 'founder_time_log', 'homepage_background_videos', 'homepage_hero_config',
-  'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets', 'owner_alerts',
-  'photo_delivery_jobs', 'platform_compliance_facts', 'platform_expenses', 'platform_settings',
-  'promo_free_windows', 'proposal_amendments', 'referral_codes', 'referral_redemptions',
-  'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers',
-  'vendor_admin_motion_votes', 'vendor_admin_motions', 'vendor_correction_requests',
-  'vendor_creator_offers', 'vendor_date_waitlist', 'vendor_disputes',
-  'vendor_event_access_grants', 'vendor_ig_connections', 'vendor_invites',
+  'concierge_response_cache', 'coordinator_feature_recommendations',
+  'discount_code_eligible_users', 'discount_codes', 'event_egift_methods',
+  'event_feature_policy_override', 'event_inspiration_assets', 'event_journey_steps',
+  'event_meaningful_dates', 'event_schedule_suggestions', 'event_vendor_working_notes',
+  'feature_policy', 'force_majeure_flags', 'founder_seats', 'founder_time_log',
+  'homepage_background_videos', 'homepage_hero_config', 'manpower_gigs',
+  'moodboard_library_assets', 'owner_alerts', 'photo_delivery_jobs',
+  'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
+  'proposal_amendments', 'referral_codes', 'referral_redemptions', 'reveal_studio_config',
+  'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers', 'vendor_admin_motion_votes',
+  'vendor_admin_motions', 'vendor_event_access_grants', 'vendor_ig_connections',
   'vendor_locked_qr_tokens', 'vendor_meetings', 'vendor_member_token_wallets',
   'vendor_recommendations', 'vendor_release_history', 'vendor_review_appeals',
   'vendor_self_comp_caps', 'vendor_team_members',
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 57;
+const BACKLOG_HIGH_WATER = 47;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -260,6 +260,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
  * would under-claim.
  */
 const PARTIALLY_PURGED: Record<string, string> = {
+  // ── settled 2026-08-02, batch 5 ──
+  event_egift_methods:
+    'PURGED: created_by_user_id. DEFERRED: account_name, handle (a GCash/Maya number, bank account or PayPal.me URL) and the uploaded payment QR. The stamp records WHO FIRST PRESSED ADD — the update path rewrites the handle but never the stamp — so nothing in the schema maps a payout destination to partner 1 or partner 2. Under the owner’s 2026-07-26 ruling (delete only what is PROVABLY the leaver’s) these are retained, which means a financial identifier can outlive an erasure request when its owner cannot be proven. Same shared-record question as events.our_photos. ⚠ NEEDS A DPO/OWNER CALL.',
+  discount_code_eligible_users:
+    'PURGED: added_by_admin_id, the staff stamp. DEFERRED: user_id, which is CASCADE + NOT NULL — the schema’s verdict is that the row dies with the account, but the eligibility grant is the platform’s record of a commercial concession it made. Retained on that basis and flagged rather than silently deleted.',
+
   events:
     'PURGED: birth/consent data, the photo-delivery account + credential, and the wizard_state personal payload. DEFERRED: bride/groom names, venue, and ~20 jointly-authored jsonb blobs (love_story, our_photos, std_media, reception_design …) — the shared-record DPO question.',
   guests:
@@ -337,12 +343,8 @@ const KNOWN_GAPS: Record<string, string> = {
  * place and issues no DELETE, so the clause never fires on that path.
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
-  'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
-  'concierge_response_cache', 'coordinator_feature_recommendations',
-  'discount_code_eligible_users', 'discount_codes', 'event_egift_methods',
-  'event_feature_policy_override', 'event_inspiration_assets', 'event_schedule_suggestions',
-  'feature_policy', 'force_majeure_flags', 'founder_seats', 'founder_time_log',
-  'homepage_background_videos', 'homepage_hero_config', 'manpower_gigs',
+  'event_schedule_suggestions', 'feature_policy', 'force_majeure_flags', 'founder_seats',
+  'founder_time_log', 'homepage_background_videos', 'homepage_hero_config', 'manpower_gigs',
   'moodboard_library_assets', 'owner_alerts', 'photo_delivery_jobs',
   'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
   'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets', 'vendor_event_access_grants',
@@ -352,7 +354,7 @@ const UNDECIDED_BACKLOG: readonly string[] = [
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 37;
+const BACKLOG_HIGH_WATER = 27;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

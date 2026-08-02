@@ -58,7 +58,14 @@ function folderOf(key: string): string {
   return at === -1 ? '' : key.slice(0, at + 1);
 }
 
-export function MediaTable({ rows }: { rows: MediaRow[] }) {
+export function MediaTable({
+  rows,
+  unreadable = false,
+}: {
+  rows: MediaRow[];
+  /** True when the folder's listing FAILED — "nothing here" would be a lie. */
+  unreadable?: boolean;
+}) {
   const [, startTransition] = useTransition();
   // A SET, not one key: two rows can be in flight at once, and a single shared
   // key would unlock a row whose own request is still running.
@@ -224,7 +231,7 @@ export function MediaTable({ rows }: { rows: MediaRow[] }) {
         </table>
       </div>
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && !unreadable ? (
         <p className="py-3 text-[13px] text-[var(--m-slate,#6a6e76)]">Nothing left in this folder.</p>
       ) : null}
     </div>

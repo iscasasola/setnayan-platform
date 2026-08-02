@@ -11,6 +11,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -72,14 +73,23 @@ export async function saveBackgroundVideo(input: {
       .eq('slot', input.slot);
     if (error) return { ok: false, error: error.message };
 
-    // Sweep the clip this one replaced. Best-effort and deliberately unawaited
-    // in spirit: it re-proves the old key is unreferenced before deleting, and a
-    // failure leaves an orphan (removable from /admin/website-media), never a
-    // failed save. Awaited only so the log lands inside the request.
-    await retireReplacedMedia({
-      previous: [previousKey],
-      next: [input.videoKey],
-      context: `background-video slot ${input.slot}`,
+    // Purge the cached homepage BEFORE the sweep runs. The homepage bakes this
+    // slot's URL into its cached HTML, so deleting the old object while that
+    // HTML is still being served would hand visitors a dead video URL. Order
+    // matters: stop serving the stale page, then remove what it pointed at.
+    revalidatePath('/');
+
+    // Sweep the clip this one replaced, off the request path — the row is
+    // already written, so the admin's save must not wait on storage cleanup. It
+    // re-proves the old key is unreferenced before deleting, and never throws:
+    // a failure leaves an orphan (removable from /admin/website-media), never a
+    // failed save.
+    after(async () => {
+      await retireReplacedMedia({
+        previous: [previousKey],
+        next: [input.videoKey],
+        context: `background-video slot ${input.slot}`,
+      });
     });
 
     return { ok: true };

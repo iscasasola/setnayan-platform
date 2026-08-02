@@ -275,9 +275,19 @@ export async function r2List(args: {
         size: o.Size ?? 0,
         lastModified: o.LastModified ?? null,
       });
-      if (objects.length >= ceiling) return { objects, truncated: true };
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
+
+    // Stop at the ceiling — but "we filled the ceiling" is NOT the same as
+    // "there is more". A folder holding exactly `maxKeys` objects has been read
+    // in full, and reporting it truncated would paint a "there is more you
+    // cannot see" warning over a complete listing. Truncated means: we dropped
+    // something, or R2 says another page exists.
+    if (objects.length >= ceiling) {
+      const dropped = objects.length > ceiling;
+      objects.length = Math.min(objects.length, ceiling);
+      return { objects, truncated: dropped || Boolean(token) };
+    }
   } while (token);
 
   return { objects, truncated: false };

@@ -50,12 +50,14 @@ test('the allowlist holds the prefixes the app ACTUALLY writes', () => {
   //   hero-uploader.tsx              'hero-videos' · `hero-frames/${sessionId}`
   //   onboarding-surface.tsx         pathPrefix="onboarding/background-music"
   //   admin/settings/actions.ts      `brand-icon/${randomUUID()}`
+  //   admin/menus/actions.ts         `nav-icons/${slot}-${randomUUID()}.${ext}`
   const prefixes = SITE_MEDIA_PREFIXES.map((p) => p.prefix).sort();
   assert.deepEqual(prefixes, [
     'brand-icon/',
     'hero-frames/',
     'hero-videos/',
     'homepage-bg/',
+    'nav-icons/',
     'onboarding/',
   ]);
 
@@ -66,6 +68,7 @@ test('the allowlist holds the prefixes the app ACTUALLY writes', () => {
     'hero-frames/sess123/frame-001.jpg',
     'onboarding/background-music/abc-track.mp3',
     'brand-icon/uuid-1/favicon.ico',
+    'nav-icons/guests-uuid.svg',
   ]) {
     assert.equal(isSiteMediaKey(key), true, key);
   }
@@ -100,6 +103,7 @@ test('a prefix that merely STARTS like an allowlisted one is refused', () => {
   assert.equal(isSiteMediaKey('onboarding-drafts/user.png'), false);
   assert.equal(isSiteMediaKey('hero-videos-archive/old.mp4'), false);
   assert.equal(isSiteMediaKey('brand-iconography/x.svg'), false);
+  assert.equal(isSiteMediaKey('nav-icons-backup/x.svg'), false);
   assert.throws(() => assertDeletableKey('onboarding-drafts/user.png'));
 });
 

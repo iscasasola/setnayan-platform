@@ -67,6 +67,7 @@ export type SiteMediaPrefix = {
  *   hero-frames/    ← hero-uploader.tsx              `hero-frames/${sessionId}`
  *   onboarding/     ← onboarding-surface.tsx          pathPrefix="onboarding/background-music"
  *   brand-icon/     ← admin/settings/actions.ts      `brand-icon/${randomUUID()}`
+ *   nav-icons/      ← admin/menus/actions.ts         `nav-icons/${slot}-${randomUUID()}.${ext}`
  *
  * Deliberately ABSENT (customer or financial content in the same bucket):
  *   events/ · living-heroes/ · locked-qr-proof/ · merchant-qr/ · editorial-vendor/
@@ -79,15 +80,21 @@ export const SITE_MEDIA_PREFIXES: readonly SiteMediaPrefix[] = [
       'The looping clips behind the homepage — one main video and five pillar clips. Replacing one leaves the old file here.',
   },
   {
+    // ⚠ NOT rendered anywhere today: `fetchPublishedHeroVideo` has no callers.
+    // The uploader still writes here, so the files accumulate for a screen that
+    // does not exist. Say that plainly rather than describing a feature the
+    // owner cannot see — the last review found copy claiming a live role for
+    // files nothing reads.
     prefix: 'hero-videos/',
-    label: 'Sign-in page video',
-    blurb: 'The clip uploaded on the Hero video page, shown beside the sign-in form.',
+    label: 'Sign-in page video (not in use)',
+    blurb:
+      'Clips uploaded on the Hero video page. Nothing on the site shows these at the moment, so they are only taking up space — but the newest one is still marked In use because the settings point at it.',
   },
   {
     prefix: 'hero-frames/',
-    label: 'Sign-in page frames',
+    label: 'Sign-in page frames (not in use)',
     blurb:
-      'The still frames taken from that clip. Each upload writes a brand-new folder, so only the newest one is live and every earlier folder is left over.',
+      'Still frames taken from those clips. Every upload writes a brand-new folder, so earlier folders are left over. Like the clips above, nothing on the site shows these today — this is usually the biggest thing to clear.',
   },
   {
     prefix: 'onboarding/',
@@ -96,10 +103,19 @@ export const SITE_MEDIA_PREFIXES: readonly SiteMediaPrefix[] = [
       'The music that plays while a couple answers the sign-up questions. Only the track currently chosen is live. (The city and style pictures are not stored here — they ship inside the app itself.)',
   },
   {
+    // The brand-icon uploader ALREADY removes the previous set (settings/actions.ts
+    // calls deletePublicAsset over the five brand_icon_*_url columns), so leftovers
+    // here are the exception, not the rule. Do not promise a pile that is not there.
     prefix: 'brand-icon/',
     label: 'Brand icons',
     blurb:
-      'The logo set — favicon, touch icon, PNG and SVG. Each upload writes a new numbered set, so earlier sets are left over.',
+      'The logo set — favicon, touch icon, PNG and SVG. Replacing the logo already removes the old set automatically, so anything left here is unusual.',
+  },
+  {
+    prefix: 'nav-icons/',
+    label: 'Menu icons',
+    blurb:
+      'Custom icons uploaded for individual menu items. Changing one leaves the previous icon here.',
   },
 ] as const;
 

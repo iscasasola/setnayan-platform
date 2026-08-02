@@ -11,6 +11,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -91,13 +92,18 @@ export async function saveHeroVideo(input: {
       .eq('id', 1);
     if (error) return { ok: false, error: error.message };
 
-    // Sweep the clip and the frame folder this upload replaced. Each candidate
-    // is re-proved unreferenced first; a failure leaves an orphan (removable
-    // from /admin/website-media), never a failed save.
-    await retireReplacedMedia({
-      previous: previousRefs,
-      next: [input.videoKey, ...input.frameKeys],
-      context: 'sign-in hero video',
+    // Sweep OFF the request path. A hero replace retires the ENTIRE previous
+    // frame folder — 73-361 objects — and awaiting that many deletes would add
+    // seconds to a save that has already succeeded, risking a function timeout
+    // and a false "Save failed" on a row that was written correctly. after()
+    // runs it once the response is out; retireReplacedMedia uses only the admin
+    // client and never throws.
+    after(async () => {
+      await retireReplacedMedia({
+        previous: previousRefs,
+        next: [input.videoKey, ...input.frameKeys],
+        context: 'sign-in hero video',
+      });
     });
 
     return { ok: true };

@@ -38,12 +38,12 @@ export default async function AdminWebsiteMediaPage() {
         </div>
         <h1 className="text-2xl font-semibold text-[var(--m-ink,#1b1a17)]">Website media</h1>
         <p className="text-[14px] leading-relaxed text-[var(--m-slate,#4f535b)] mt-2 max-w-2xl">
-          Every picture and video stored for the website itself — the homepage clips, the sign-in
-          page, the onboarding music, the logo set. Files marked <strong>Left over</strong> are ones
-          nothing on the site points at any more; download a copy, then remove them to free up
-          space. Anything we can&rsquo;t check is left alone and can&rsquo;t be deleted here.
-          Guests&rsquo; photos, receipts and vendor documents are not shown on this page and
-          cannot be touched from it.
+          The website&rsquo;s own pictures and videos — the homepage clips, the sign-in page, the
+          onboarding music, the logo set and the menu icons. Files marked <strong>Left over</strong>{' '}
+          are ones nothing on the site points at any more; download a copy, then remove them to free
+          up space. Anything we can&rsquo;t check is left alone and can&rsquo;t be deleted here.
+          Guests&rsquo; photos, receipts and vendor documents are not shown on this page and cannot
+          be touched from it.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export default async function AdminWebsiteMediaPage() {
 
           {groups.length === 0 ? (
             <p className="rounded-lg border border-[var(--m-line,#e6e2da)] px-4 py-3 text-[14px] text-[var(--m-slate,#4f535b)]">
-              No website media is stored yet.
+              Nothing is stored in any of these folders yet.
             </p>
           ) : (
             <div className="space-y-8">
@@ -140,7 +140,7 @@ export default async function AdminWebsiteMediaPage() {
                     </p>
                   ) : null}
 
-                  <MediaTable rows={g.rows} />
+                  <MediaTable rows={g.rows} unreadable={Boolean(g.listingError)} />
                 </section>
               ))}
             </div>

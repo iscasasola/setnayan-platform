@@ -144,7 +144,14 @@ async function readPlatformSettingsRefs(): Promise<ReferenceLookup> {
   const { data, error } = await supabase
     .from('platform_settings')
     .select(
-      'onboarding_bg_music_r2_key, brand_icon_master_url, brand_favicon_ico_url, brand_apple_touch_url, brand_icon_png_512_url, brand_icon_svg_url',
+      // ⚠ BOTH music columns. Production carries a PLURAL
+      // `onboarding_bg_music_r2_keys TEXT[]` alongside the singular
+      // `onboarding_bg_music_r2_key` (migration 20271011873973 reconciles it).
+      // Reading only the singular would report a track referenced solely by the
+      // array as unreferenced — deletable on this page AND sweepable by the
+      // replacement cleanup. That is the same defect class the first review
+      // caught on this exact folder.
+      'onboarding_bg_music_r2_key, onboarding_bg_music_r2_keys, brand_icon_master_url, brand_favicon_ico_url, brand_apple_touch_url, brand_icon_png_512_url, brand_icon_svg_url',
     );
 
   if (error) {
@@ -152,13 +159,45 @@ async function readPlatformSettingsRefs(): Promise<ReferenceLookup> {
   }
 
   const keys = new Set<string>();
+  const add = (value: unknown) => {
+    if (typeof value !== 'string' || !value) return;
+    keys.add(value);
+    const p = keyFromRef(value);
+    if (p) keys.add(p);
+  };
   for (const row of data ?? []) {
     for (const value of Object.values(row as Record<string, unknown>)) {
-      if (typeof value !== 'string' || !value) continue;
-      keys.add(value);
-      const p = keyFromRef(value);
-      if (p) keys.add(p);
+      // Array columns (the plural music list) and scalars alike.
+      if (Array.isArray(value) || (typeof value === 'string' && !value.startsWith('http'))) {
+        for (const v of toStringArray(value)) add(v);
+      }
+      add(value);
     }
+  }
+  return { ok: true, keys };
+}
+
+/**
+ * References held by `nav_slot_override.custom_url` — the uploaded icon for an
+ * individual menu item.
+ *
+ * Stored as a public URL, so `keyFromRef` recovers the key.
+ */
+async function readNavIconRefs(): Promise<ReferenceLookup> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from('nav_slot_override').select('custom_url');
+
+  if (error) {
+    return { ok: false, reason: `Could not read the menu icons (${error.message}).` };
+  }
+
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    const v = (row as { custom_url: string | null }).custom_url;
+    if (!v) continue;
+    keys.add(v);
+    const p = keyFromRef(v);
+    if (p) keys.add(p);
   }
   return { ok: true, keys };
 }
@@ -168,7 +207,7 @@ async function readPlatformSettingsRefs(): Promise<ReferenceLookup> {
  * prefix throws at build/dev time rather than defaulting to a permanently
  * `unknown` folder.
  */
-type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings';
+type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings' | 'navIcons';
 
 const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'homepage-bg/': 'backgroundVideos',
@@ -176,6 +215,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'hero-frames/': 'hero',
   'onboarding/': 'platformSettings',
   'brand-icon/': 'platformSettings',
+  'nav-icons/': 'navIcons',
 };
 
 /**
@@ -188,7 +228,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
  * classify its two groups from different reads.
  */
 async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> {
-  const [backgroundVideos, hero, platformSettings] = await Promise.all([
+  const [backgroundVideos, hero, platformSettings, navIcons] = await Promise.all([
     readBackgroundVideoRefs().catch(
       (e: unknown): ReferenceLookup => ({
         ok: false,
@@ -207,8 +247,14 @@ async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> 
         reason: `Could not read the site settings (${e instanceof Error ? e.message : String(e)}).`,
       }),
     ),
+    readNavIconRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the menu icons (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
   ]);
-  return { backgroundVideos, hero, platformSettings };
+  return { backgroundVideos, hero, platformSettings, navIcons };
 }
 
 export type WebsiteMediaReport = {
@@ -334,6 +380,8 @@ export async function retireReplacedMedia(args: {
 
     const sources = await readAllSources();
 
+    // Decide first (synchronous, one shared read), delete second.
+    const doomed: string[] = [];
     for (const key of candidates) {
       const prefix = prefixFor(key);
       const source = prefix ? SOURCE_FOR_PREFIX[prefix.prefix] : undefined;
@@ -350,19 +398,35 @@ export async function retireReplacedMedia(args: {
         kept.push(key);
         continue;
       }
-
-      try {
-        await r2Delete({ bucket: R2_BUCKETS.media, key });
-        deleted.push(key);
-      } catch (err) {
-        kept.push(key);
-        console.warn(
-          `[website-media] could not remove the replaced object ${key} (${args.context}): ` +
-            `${err instanceof Error ? err.message : String(err)}. It stays in storage and can be ` +
-            'removed from /admin/website-media.',
-        );
-      }
+      doomed.push(key);
     }
+
+    // Bounded concurrency, NOT a serial loop. A hero replace retires the whole
+    // previous frame folder — 73–361 objects (hero-uploader clamps frame count
+    // to MIN_FRAMES..MAX_FRAMES) — and one round trip each would add tens of
+    // seconds to whatever awaits this. Deleting them 8 at a time keeps even the
+    // largest sequence to a couple of seconds.
+    const CONCURRENCY = 8;
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < doomed.length) {
+        const key = doomed[cursor++]!;
+        try {
+          await r2Delete({ bucket: R2_BUCKETS.media, key });
+          deleted.push(key);
+        } catch (err) {
+          kept.push(key);
+          console.warn(
+            `[website-media] could not remove the replaced object ${key} (${args.context}): ` +
+              `${err instanceof Error ? err.message : String(err)}. It stays in storage and can be ` +
+              'removed from /admin/website-media.',
+          );
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, doomed.length) }, () => worker()),
+    );
 
     if (deleted.length || kept.length) {
       console.info(

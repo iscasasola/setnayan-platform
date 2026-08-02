@@ -496,6 +496,26 @@ before(async () => {
     VALUES ('${EVENT}', 91, 'CAM-TOKEN-BEFORE-ERASURE', '${SUBJECT}', now())
     ON CONFLICT DO NOTHING;
   `);
+  // ── the eleven tables where the subject's uuid outlived erasure (2026-08-02) ──
+  // Two seeded, one per code path: an AUTHOR STAMP that must be nulled while the
+  // row survives, and a SUBJECT ROW that must go entirely. Nine of the eleven
+  // declare ON DELETE SET NULL, which never fires because erasure issues no
+  // DELETE — seeding proves the purge clears them anyway. A statement against an
+  // empty table passes trivially, which is exactly what META-3 guards against.
+  await db.exec(`
+    INSERT INTO public.event_preparation_items (event_id, due_date, label, source_tag, created_by)
+    VALUES ('${EVENT}', CURRENT_DATE, 'Confirm the venue walkthrough', 'couple_manual', '${SUBJECT}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.vendor_feature_recommendations
+      (event_id, vendor_profile_id, recommended_by_user_id, addon_key, status)
+    VALUES ('${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'papic_pool', 'pending')
+    ON CONFLICT DO NOTHING;
+  `);
+  before_.authorStamp = await count(
+    `SELECT count(*) FROM public.event_preparation_items WHERE created_by = $1`, [SUBJECT]);
+  before_.subjectRow = await count(
+    `SELECT count(*) FROM public.vendor_feature_recommendations WHERE recommended_by_user_id = $1`, [SUBJECT]);
+
   before_.claimTokens = await count(
     `SELECT count(*) FROM public.paparazzi_seats WHERE claimer_user_id = $1`, [SUBJECT]);
 
@@ -616,6 +636,32 @@ test('2o · the ghost-held seat is freed AND the old QR cannot take it back', as
     new Set(pair.rows.map((r) => r.claim_qr_token)).size,
     2,
     'both seats got the SAME fresh token — one QR would open two seats, and the unique index only tolerated it by luck',
+  );
+});
+
+test('2p · the eleven leak tables — the stamp is nulled, the subject row is gone', async () => {
+  // AUTHOR STAMP → nulled, row SURVIVES. Deleting it would strip the item off
+  // the co-partner's shared agenda because the person who typed it left.
+  const item = await db.query<{ created_by: string | null; label: string }>(
+    `SELECT created_by, label FROM public.event_preparation_items WHERE event_id = '${EVENT}'`,
+  );
+  assert.equal(item.rows.length, 1, 'the preparation item was deleted — it belongs to the event, not its author');
+  assert.equal(
+    item.rows[0]?.created_by,
+    null,
+    'the subject’s uuid is still stamped on the item — ON DELETE SET NULL never fires, because erasure issues no DELETE',
+  );
+  assert.ok((item.rows[0]?.label ?? '').length > 0, 'the item’s own content was destroyed along with the stamp');
+
+  // SUBJECT ROW → gone. NOT NULL with no FK, so nothing could ever have cleared
+  // it: not a cascade, not a set-null, not the schema.
+  const rec = await db.query(
+    `SELECT 1 FROM public.vendor_feature_recommendations WHERE recommended_by_user_id = '${SUBJECT}'`,
+  );
+  assert.equal(
+    rec.rows.length,
+    0,
+    'the subject’s own recommendation survived erasure — a row whose whole subject is the person',
   );
 });
 

@@ -351,6 +351,123 @@ export const SCAN_EVENT_SCANNER_NULLS = {
 } as const;
 
 /**
+ * ELEVEN TABLES WHERE THE SUBJECT'S UUID SURVIVED ERASURE (settled 2026-08-02).
+ *
+ * ── WHY THEY WERE ALL MISSED THE SAME WAY ──────────────────────────────────
+ * Nine of the eleven declare `ON DELETE SET NULL` on the subject column, and
+ * that clause reads like the problem is already handled. It is not:
+ *
+ *   🔑 ERASURE ISSUES NO DELETE. `purge.ts` anonymizes the auth user in place
+ *   via `auth.admin.updateUserById` — it never calls `auth.admin.deleteUser` —
+ *   so `ON DELETE SET NULL` NEVER FIRES on the erasure path. The subject's uuid
+ *   is still sitting in the column after their erasure request completes.
+ *
+ * SET NULL fires only for a hard delete (the anon-draft sweep). Reading it as
+ * "self-de-identifying" is what excluded these tables in the first place.
+ *
+ * ⚠ Two of them are worse: `vendor_change_orders` and
+ * `vendor_feature_recommendations` carry the uuid with **no FK at all**, so no
+ * clause exists to fire under any circumstance.
+ *
+ * ── WHY COLUMN-NULL AND NOT ROW-DELETE, FOR MOST ───────────────────────────
+ * These rows are read by EVENT or by VENDOR, not by their author — a shared
+ * agenda, a playlist, a walkthrough note, a call log. Deleting rows keyed on
+ * the author would strip the co-partner's or the vendor's own records because
+ * the person who typed them left. Nulling the author costs nothing: none of
+ * these columns is selected by any reader, none carries a label, and no RLS
+ * policy consults it. Same call already made for `scan_events.scanner_user_id`.
+ *
+ * ── HOW THIS SET WAS ARRIVED AT ────────────────────────────────────────────
+ * An earlier bulk pass over the whole 78-table backlog was 53% wrong, in the
+ * direction of under-erasure, because it reasoned from `CREATE TABLE` text that
+ * migration 20271032282809 had already invalidated. These eleven were re-settled
+ * one table per agent against `tests/db/user-fk-behaviour.generated.txt`, then
+ * each settlement attacked by an independent reader: 10 of 11 survived
+ * unchanged, and the eleventh came back "keep the disposition, fix the wording".
+ * Every column below is exact-matched against `prod-schema.snapshot.txt`.
+ */
+export const AUTHOR_UUID_NULLS: ReadonlyArray<{
+  table: string;
+  /** The column holding the subject's uuid. Nulled, and filtered on. */
+  column: string;
+  why: string;
+}> = [
+  {
+    table: 'event_preparation_items',
+    column: 'created_by',
+    why: 'The shared preparation agenda. Read by event, so the row is the co-partner’s and the booked vendor’s too — the author’s uuid goes, the item stays.',
+  },
+  {
+    table: 'event_playlist_picks',
+    column: 'created_by_user_id',
+    why: 'The couple’s shared playlist. Made nullable by 20271032282809, so it CAN be de-identified in place — the earlier pass excluded it believing it was still NOT NULL.',
+  },
+  {
+    table: 'event_walkthrough_zones',
+    column: 'uploaded_by_user_id',
+    why: 'Venue walkthrough notes belonging to the event. Deleting them would erase the co-partner’s record of the venue.',
+  },
+  {
+    table: 'editorial_vendor_media',
+    column: 'created_by',
+    why: 'The vendor shop’s day-of submission must outlive the team member who pressed submit — the same call vendor_profiles makes in keeping the profile shell.',
+  },
+  {
+    table: 'kwento_assignments',
+    column: 'assigned_by_user_id',
+    why: 'Who handed out a story assignment. The assignment belongs to the event and is read by it.',
+  },
+  {
+    table: 'thread_calls',
+    column: 'started_by_user_id',
+    why: 'Who opened a call on a shared thread. The call log is the counterparty’s record as much as the subject’s.',
+  },
+  {
+    table: 'social_posts',
+    column: 'created_by',
+    why: 'The staff author of an announcement. The announcement is platform content and survives; the stamp does not.',
+  },
+  {
+    table: 'vendor_change_orders',
+    column: 'proposed_by_user_id',
+    why: '⚠ NO FK AT ALL — a raw uuid that no ON DELETE clause can ever clear. The change order is the contract record and stays.',
+  },
+  {
+    table: 'vendor_change_orders',
+    column: 'acknowledged_by_user_id',
+    why: '⚠ NO FK AT ALL, same table, the counter-signature side. Nulled on the same pass.',
+  },
+] as const;
+
+/**
+ * Rows whose whole reason for existing is the subject, keyed by a column the
+ * generic OWN_ROW_DELETES list cannot express (a non-`user_id` name, or no FK).
+ * Deleting the row IS the erasure here — keeping it would be keeping a dossier
+ * on someone who asked to be forgotten.
+ */
+export const SUBJECT_ROW_DELETES: ReadonlyArray<{
+  table: string;
+  column: string;
+  why: string;
+}> = [
+  {
+    table: 'vendor_lock_proposals',
+    column: 'proposed_by_user_id',
+    why: 'A proposal the subject personally raised. NOT NULL and ON DELETE CASCADE — the schema’s own answer is that it dies with the account; erasure just never issued the delete that would have fired it.',
+  },
+  {
+    table: 'vendor_feature_recommendations',
+    column: 'recommended_by_user_id',
+    why: '⚠ NOT NULL with NO FK — nothing can null it and nothing would cascade it. The row is the subject’s own suggestion, authored by them and about their own opinion.',
+  },
+  {
+    table: 'vendor_web_dossiers',
+    column: 'requested_by',
+    why: 'A verbatim snapshot of the subject’s own vendor profile, taken at their request. The row is ABOUT them, so it goes with them.',
+  },
+] as const;
+
+/**
  * `public.vendor_verification_applications` — the government-ID payload.
  *
  * ── WHY THIS TABLE HAD NO ERASURE CODE AT ALL ───────────────────────────────
@@ -670,6 +787,13 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
   people: [...Object.keys(PEOPLE_ANONYMIZE_NULLS), ...PEOPLE_COMPUTED_COLUMNS],
   event_moderators: Object.keys(EVENT_MODERATOR_SELF_NULLS),
   scan_events: Object.keys(SCAN_EVENT_SCANNER_NULLS),
+  // DERIVED from AUTHOR_UUID_NULLS — one entry per table, columns merged, so a
+  // typo is a G1 phantom-column failure instead of a silent PGRST204 that voids
+  // the whole update and gets swallowed by the best-effort step().
+  ...AUTHOR_UUID_NULLS.reduce<Record<string, string[]>>((acc, r) => {
+    (acc[r.table] ??= []).push(r.column);
+    return acc;
+  }, {}),
   // Written with literal payloads inside purge.ts (tombstone strings, not
   // reusable constants) — named here so the guardrail still checks them.
   guest_claims: ['claimer_name', 'claimer_email', 'otp_sent_to'],
@@ -690,6 +814,8 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
 
 /** Tables erasure deletes rows from, with the column it filters on. */
 export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = {
+  // DERIVED from SUBJECT_ROW_DELETES — see the note on ERASURE_COLUMN_WRITES.
+  ...Object.fromEntries(SUBJECT_ROW_DELETES.map((r) => [r.table, [r.column]])),
   chat_messages: ['sender_user_id'],
   user_face_profiles: ['user_id'],
   push_subscriptions: ['user_id'],
@@ -720,6 +846,12 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
  * already covered by the row-delete map.
  */
 export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  // DERIVED — every column the eleven-leak purge filters on.
+  ...AUTHOR_UUID_NULLS.reduce<Record<string, string[]>>((acc, r) => {
+    (acc[r.table] ??= []).push(r.column);
+    return acc;
+  }, {}),
+  ...Object.fromEntries(SUBJECT_ROW_DELETES.map((r) => [r.table, [r.column]])),
   // DERIVED — the rotation filters on the subject to FIND rows and on the
   // primary key to rotate each one. Both must be real columns or the select
   // returns nothing and the whole step silently no-ops.

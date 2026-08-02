@@ -21,11 +21,9 @@ import { PapicBuyShell } from './papic-buy-shell';
  *   • the flag is off (NEXT_PUBLIC_PAPIC_GUEST_BUY) — the whole feature;
  *   • no rung has a live catalog price — nothing is on sale, so offering it
  *     would be a button that can only fail;
- *   • the caller holds no camera of their own (`canReloadOwnCamera` false) — the
- *     One rungs are dropped and only the shared pool is offered. That is the
- *     seatless guest camera (/papic/guest), whose identity is a signed cookie
- *     rather than a seat, so there is nothing for a dedicated balance to attach
- *     to.
+ *   • `canReloadOwnCamera` false — the One rungs are dropped and only the
+ *     shared pool is offered. Both live capture surfaces now pass true; the
+ *     default stays false so a new caller has to opt in deliberately.
  *
  * ⚠ It never decides ENTITLEMENT. Whether this caller may actually buy — which
  * event, whose camera, is one already pending — is re-decided from the

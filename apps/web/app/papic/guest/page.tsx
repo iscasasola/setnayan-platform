@@ -194,10 +194,17 @@ export default async function PapicGuestPage({
         signed setnayan_guest_session cookie, which the buy action re-reads. The
         guest camera shoots from the SHARED pool by definition, so only the pool
         rungs are on offer (canReloadOwnCamera stays false). */}
+    {/* canReloadOwnCamera TRUE here since 2026-08-02: this surface has no seat,
+        but the buy action mints the guest a camera of their own at purchase
+        (paparazzi_seats.guest_id — the shape host-bought Limited cameras already
+        use), so the "this camera only" rungs now have somewhere to land. Before
+        this the event-site guest — the free-pool guest the owner asked about —
+        could only top up the HOST's pool. */}
     <PapicGuestBuyPanel
       returnTo="/papic/guest"
       error={buyError}
       eventId={session.event_id}
+      canReloadOwnCamera
     />
     </>
   );

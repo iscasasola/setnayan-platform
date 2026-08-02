@@ -61,11 +61,22 @@ test('🔒 but "only YOUR camera" still holds — the identity check survives', 
     /resolveGuestReloadTarget\(/,
     'the seat being reloaded must still be resolved against the buyer credential',
   );
+  // ⚠ REWRITTEN 2026-08-02. This used to assert that a seatless (cookie-only)
+  // guest could NOT buy at all — true then, and the exact gap the follow-up
+  // closed: that guest is the free-pool guest the feature was built for. They
+  // are now minted a camera of their own at purchase. The invariant that
+  // MATTERS survived both changes and is what is pinned now — the camera is
+  // resolved from the buyer's own credential, never from the form.
   assert.match(
     action,
-    /buyer!\.kind !== 'seat'\)\s*backTo\(returnTo, 'no_camera'\)/,
-    'a seatless (cookie-only) guest still cannot buy a dedicated balance — ' +
-      'there is no seat for it to attach to',
+    /ensureGuestOwnCameraAdmin\(\s*\n?\s*admin,\s*\n?\s*buyer!\.eventId,\s*\n?\s*buyer!\.guestId,/,
+    'a cookie-only buyer gets a camera minted from their SIGNED SESSION — ' +
+      'a form-supplied guest id would let anyone mint against any guest',
+  );
+  assert.match(
+    action,
+    /if \(!seatId\) backTo\(returnTo, 'no_camera'\)/,
+    'and no camera still means no order — never sell points with nowhere to land',
   );
 });
 

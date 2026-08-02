@@ -191,3 +191,48 @@ test('🪤 the gallery renders CHAPTERS, not one flat grid', () => {
     'a trip counts its days; everything else counts down to the day',
   );
 });
+
+test('🪤 "photos of you" chapters too, on the SHOT time not the tag time', () => {
+  // A guest tagged today into a five-month-old planning photo belongs in the
+  // chapter the photo was TAKEN in. Keying on the tag's created_at would drag
+  // every back-tagged photo into this week and quietly rewrite the journey.
+  const { readFileSync } = require('node:fs') as typeof import('node:fs');
+  const { join, dirname } = require('node:path') as typeof import('node:path');
+  const { fileURLToPath } = require('node:url') as typeof import('node:url');
+  const web = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+  const loader = readFileSync(join(web, 'lib/guest-live-gallery.ts'), 'utf8');
+  assert.match(loader, /capturedAt: string \| null;/, 'the photo must carry its shot time');
+  // The ASSIGNMENT, not merely a mention of the map — an earlier version of this
+  // assertion matched a name that survived the very mutation it was meant to
+  // catch, because the map was still populated elsewhere in the file.
+  assert.match(
+    loader,
+    /capturedAt: shotAtById\.get\(id\) \?\? null/,
+    'the photo\u2019s capturedAt must come from the CAPTURE row',
+  );
+  assert.match(
+    loader,
+    /captured_at'\)/,
+    'and captured_at must actually be selected from the capture tables',
+  );
+  assert.ok(
+    !/capturedAt: new Date\(\)/.test(loader),
+    'never stamp "now" — that files every back-tagged photo into this week',
+  );
+
+  const page = readFileSync(join(web, 'app/papic/me/[token]/page.tsx'), 'utf8');
+  assert.match(page, /groupIntoChapters\(gallery\.photos, \(p\) => p\.capturedAt \?\? '', chapters\)/);
+  assert.match(page, /\{chapter\.items\.map/, 'and iterate ITS items, not all photos');
+});
+
+test('a single-chapter gallery shows no heading at all', () => {
+  // A lone "The day" over six photos is chrome, not orientation. Asserted
+  // because the comment claiming it once shipped without the code doing it.
+  const { readFileSync } = require('node:fs') as typeof import('node:fs');
+  const { join, dirname } = require('node:path') as typeof import('node:path');
+  const { fileURLToPath } = require('node:url') as typeof import('node:url');
+  const web = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const page = readFileSync(join(web, 'app/papic/me/[token]/page.tsx'), 'utf8');
+  assert.match(page, /groups\.length > 1 \? \(/);
+});

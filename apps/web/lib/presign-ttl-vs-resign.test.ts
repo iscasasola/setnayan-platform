@@ -6,7 +6,7 @@
  * The register lists these as "admin surfaces still issue 7-day TTLs,
  * `assertAdmin`-gated, so not urgent". Two corrections after reading the code:
  *
- *   1. They are NOT admin-only. `lib/hero-video.ts` and `lib/background-videos.ts`
+ *   1. They are NOT admin-only. `lib/background-videos.ts`
  *      are consumed by `app/page.tsx` — the PUBLIC homepage, on ISR
  *      (`revalidate = 300`). So a bad TTL change is a public breakage, which makes
  *      it MORE dangerous to touch casually, not less.
@@ -47,7 +47,10 @@ function readSeconds(file: string, name: string): number {
 }
 
 const CASES: ReadonlyArray<[string, string, string, string]> = [
-  ['hero-video.ts', 'PRESIGN_TTL_SECONDS', 'FRAME_CACHE_TTL_SECONDS', 'the homepage hero frames'],
+  // `hero-video.ts` was here until 2026-08-02. The sign-in hero was retired
+  // (PR #4055) and the module deleted, so there is no longer a presign to check.
+  // Re-add a row here if that surface ever comes back — see
+  // website-media-retired-hero.test.ts, which fails if it does.
   ['background-videos.ts', 'PRESIGN_TTL_SECONDS', 'PRESIGN_CACHE_TTL_SECONDS', 'the homepage pillar videos'],
 ];
 

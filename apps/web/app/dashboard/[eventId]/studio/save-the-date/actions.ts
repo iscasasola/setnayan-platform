@@ -341,8 +341,16 @@ export async function saveAllStdContent(
   // only `events.event_date` writer that didn't set precision alongside it.
   // `std_film_date` is a specific day, so 'day' is the honest precision — and
   // year → day is a NARROWING, which the refine-only ratchet in
-  // `[eventId]/actions.ts` allows. `date_status` is deliberately untouched:
-  // committing to a date is `date-selection/actions.ts`'s job, not a film's.
+  // `[eventId]/actions.ts` allows. This action still does not WRITE
+  // `date_status` — but as of migration 20271033121603 it no longer leaves it
+  // stale either: the `sync_event_date_status_trg` trigger on `events` promotes
+  // an untouched `date_status` to 'locked' whenever a DAY-precise `event_date`
+  // lands. That is deliberate. The previous note here claimed committing was
+  // "date-selection/actions.ts's job, not a film's", but this writer puts the
+  // day into `events.event_date` — the column every countdown, deadline and
+  // vendor surface treats as THE date — so calling it uncommitted was a
+  // distinction the rest of the app did not honour, and it was one of the four
+  // paths that left `date_status` permanently 'undecided' in prod.
   if (filmDate) {
     await supabase
       .from('events')

@@ -100,11 +100,24 @@
 --   · `grep -rl "from('<table>')" app lib components | xargs grep -l "supabase/client"`
 --     returns NOTHING for all 23 — no browser/anon-session client touches any
 --     of them.
---   · Every remaining reader is either `createAdminClient()` (service_role,
---     which bypasses grants AND RLS) or a `supabase/server` client inside
---     `app/dashboard/**` / `app/admin/**` / `app/vendor-dashboard/**`, i.e.
---     behind an auth gate where the role is `authenticated`, not `anon`.
---   · No file under a public route group reads any of the 23.
+--   · SEVEN files OUTSIDE the auth-gated route groups do read these tables, and
+--     each was opened rather than assumed. Every one of them uses the
+--     service-role client, which bypasses grants AND RLS:
+--       app/papic/order/[token]/page.tsx        payments  → createAdminClient
+--       app/papic/buy/actions.ts                orders    → createMoneyWriterClient
+--       app/claim/[token]/page.tsx + actions.ts dependents→ createAdminClient
+--                                               (its own comment says so: "the
+--                                                visitor has no RLS path to the
+--                                                row pre-claim")
+--       app/[slug]/actions.ts                   user_face_profiles → admin
+--       app/[slug]/_components/editorial/data.ts orders   → admin
+--       app/panood/control/[eventId]/page.tsx   oauth_grants → session client,
+--                                               but the page redirects to
+--                                               /login when there is no user,
+--                                               so the role is never `anon`.
+--   · Every other reader is `createAdminClient()` or a `supabase/server` client
+--     inside `app/dashboard/**` / `app/admin/**` / `app/vendor-dashboard/**`,
+--     i.e. behind an auth gate where the role is `authenticated`, not `anon`.
 --
 -- SCOPE — deliberately narrow:
 --   · `authenticated` is NOT touched. Post-condition P2 proves it, and it does

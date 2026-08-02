@@ -24,8 +24,11 @@ Five of them (`platform_integration_secrets`, `platform_secret_rotations`, `manu
 anon grant there is unambiguously dead weight.
 
 No behaviour change, and it was checked rather than assumed: no browser/anon-session client
-(`lib/supabase/client`) reads any of the 23 anywhere in `app`, `lib` or `components`; every reader
-is `createAdminClient()` (service_role) or a `supabase/server` client behind an auth gate.
+(`lib/supabase/client`) reads any of the 23 anywhere in `app`, `lib` or `components`. Seven files
+*do* sit outside the auth-gated route groups (`app/papic/order/[token]`, `app/papic/buy`,
+`app/claim/[token]` ×2, `app/[slug]/actions.ts`, `app/[slug]/…/editorial/data.ts`,
+`app/panood/control/[eventId]`) — each was opened; all six of the first use the service-role client,
+and the seventh redirects to `/login` before its `oauth_grants` read, so the role is never `anon`.
 `authenticated` and `service_role` are untouched — the positive control **snapshots**
 `authenticated`'s effective privileges before the revokes and diffs after, rather than hardcoding an
 expectation, because `vendor_ig_connections` already grants `authenticated` nothing and a hardcoded

@@ -80,21 +80,19 @@ export const SITE_MEDIA_PREFIXES: readonly SiteMediaPrefix[] = [
       'The looping clips behind the homepage — one main video and five pillar clips. Replacing one leaves the old file here.',
   },
   {
-    // ⚠ NOT rendered anywhere today: `fetchPublishedHeroVideo` has no callers.
-    // The uploader still writes here, so the files accumulate for a screen that
-    // does not exist. Say that plainly rather than describing a feature the
-    // owner cannot see — the last review found copy claiming a live role for
-    // files nothing reads.
+    // RETIRED 2026-08-02: the uploader, its Studio surface and lib/hero-video.ts
+    // were deleted. Nothing reads these prefixes, so every object under them is
+    // genuinely unreferenced — see readHeroRefs() and its guard test.
     prefix: 'hero-videos/',
-    label: 'Sign-in page video (not in use)',
+    label: 'Sign-in page video (retired)',
     blurb:
-      'Clips uploaded on the Hero video page. Nothing on the site shows these at the moment, so they are only taking up space — but the newest one is still marked In use because the settings point at it.',
+      'Clips from the old sign-in page video tool, which has been removed. Nothing on the site uses these, so all of them can go.',
   },
   {
     prefix: 'hero-frames/',
-    label: 'Sign-in page frames (not in use)',
+    label: 'Sign-in page frames (retired)',
     blurb:
-      'Still frames taken from those clips. Every upload writes a brand-new folder, so earlier folders are left over. Like the clips above, nothing on the site shows these today — this is usually the biggest thing to clear.',
+      'Still frames from those same clips — a new folder every time one was uploaded. Nothing uses these either, and this is usually the biggest thing to clear.',
   },
   {
     prefix: 'onboarding/',

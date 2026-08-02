@@ -91,44 +91,25 @@ async function readBackgroundVideoRefs(): Promise<ReferenceLookup> {
 }
 
 /**
- * References held by `homepage_hero_config` — the hero clip AND its frame
- * sequence. One read serves both the `hero-videos/` and `hero-frames/` groups.
+ * References to the sign-in hero clip and its frames: NONE — the feature is
+ * retired.
  *
- * All rows are read, not just the published one: an unpublished draft's frames
- * are still needed the moment it is published, so treating them as leftover
- * would delete the next hero out from under the owner.
+ * The uploader, its Studio surface and `lib/hero-video.ts` were deleted on
+ * 2026-08-02. Nothing reads `hero-videos/` or `hero-frames/` any more, so every
+ * object under those prefixes is genuinely unreferenced and the owner can clear
+ * the lot. `homepage_hero_config` is deliberately NOT consulted: it is an inert
+ * leftover row, and honouring it would keep the last uploaded set pinned as
+ * "In use" for a screen that does not exist.
+ *
+ * ⚠ THIS IS THE ONE HAND-ASSERTED EMPTY SET IN THIS MODULE, AND IT IS GUARDED.
+ * Everywhere else, "nothing references this" is the result of an actual read; a
+ * hard-coded empty set is exactly the shape that deletes live files if the world
+ * changes underneath it. `website-media-retired-hero.test.ts` fails the build if
+ * a hero reader, surface or route is reintroduced, which forces whoever brings
+ * the feature back to replace this with a real resolver.
  */
 async function readHeroRefs(): Promise<ReferenceLookup> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from('homepage_hero_config')
-    .select('video_r2_key, frame_keys, frame_urls');
-
-  if (error) {
-    return { ok: false, reason: `Could not read the sign-in page settings (${error.message}).` };
-  }
-
-  const keys = new Set<string>();
-  for (const row of data ?? []) {
-    const r = row as { video_r2_key: string | null; frame_keys: unknown; frame_urls: unknown };
-    if (r.video_r2_key) {
-      keys.add(r.video_r2_key);
-      const p = keyFromRef(r.video_r2_key);
-      if (p) keys.add(p);
-    }
-    for (const k of toStringArray(r.frame_keys)) {
-      keys.add(k);
-      const p = keyFromRef(k);
-      if (p) keys.add(p);
-    }
-    // Legacy rows carry only URLs — recover the keys so live frames are never
-    // reported as left over.
-    for (const u of toStringArray(r.frame_urls)) {
-      const p = keyFromRef(u);
-      if (p) keys.add(p);
-    }
-  }
-  return { ok: true, keys };
+  return { ok: true, keys: new Set<string>() };
 }
 
 /**

@@ -595,6 +595,57 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'added_by_user_id',
     why: 'Who pinned an inspiration image. The mood board is the couple’s shared work.',
   },
+  // ── batch 6, settled 2026-08-02 · mostly staff stamps on platform config ──
+  {
+    table: 'event_schedule_suggestions',
+    column: 'resolved_by_user_id',
+    why: 'Who accepted or declined a vendor’s timeline suggestion. The couple’s decision stamp; the suggestion itself is handled separately.',
+  },
+  {
+    table: 'feature_policy',
+    column: 'updated_by_admin_id',
+    why: 'Which admin last changed a feature’s policy. One row per feature slug — platform config with a staff stamp on it.',
+  },
+  {
+    table: 'force_majeure_flags',
+    column: 'couple_user_id',
+    why: 'Who raised the force-majeure flag. The flag is a two-party dispute record and the vendor’s side must survive.',
+  },
+  {
+    table: 'force_majeure_flags',
+    column: 'admin_handler_user_id',
+    why: 'Which admin handled it. A staff stamp on the same record.',
+  },
+  {
+    table: 'founder_seats',
+    column: 'granted_by',
+    why: 'Who granted the seat. An actor stamp — the seat itself is the holder’s and is deleted separately.',
+  },
+  {
+    table: 'homepage_background_videos',
+    column: 'updated_by_admin_id',
+    why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
+  },
+  {
+    table: 'homepage_hero_config',
+    column: 'updated_by_admin_id',
+    why: 'Same, for the singleton hero row.',
+  },
+  {
+    table: 'manpower_gigs',
+    column: 'posted_by_user_id',
+    why: 'Who posted the gig. A host↔vendor business record read by both; only the poster’s identity goes.',
+  },
+  {
+    table: 'moodboard_library_assets',
+    column: 'uploaded_by',
+    why: 'Who contributed an asset to the SHARED platform library. The asset stays for everyone else.',
+  },
+  {
+    table: 'owner_alerts',
+    column: 'acknowledged_by',
+    why: 'Which staff member acknowledged an internal ops alert. The alert is about the PLATFORM, not a person.',
+  },
   {
     table: 'event_egift_methods',
     column: 'created_by_user_id',
@@ -696,6 +747,22 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_admin_motion_votes',
     column: 'voter_user_id',
     why: 'CASCADE + NOT NULL, and half the PRIMARY KEY — a row IS one named person’s single ballot, with no shared payload in it.',
+  },
+  // ── batch 6 ──
+  {
+    table: 'event_schedule_suggestions',
+    column: 'suggested_by_user_id',
+    why: '⚠ NOT NULL with NO FK — nulling is rejected and would void the statement. The row is the vendor’s own proposal; its resolution stamp is nulled instead, so the couple’s decision record is not disturbed.',
+  },
+  {
+    table: 'founder_seats',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — a founder seat is a per-person entitlement, not config. The row is the record that THIS person holds one.',
+  },
+  {
+    table: 'founder_time_log',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — hours logged BY this person. An internal-team member’s erasure request reaches their own timesheet like anyone else’s.',
   },
   {
     table: 'community_members',

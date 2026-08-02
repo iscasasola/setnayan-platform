@@ -343,18 +343,15 @@ const KNOWN_GAPS: Record<string, string> = {
  * place and issues no DELETE, so the clause never fires on that path.
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
-  'event_schedule_suggestions', 'feature_policy', 'force_majeure_flags', 'founder_seats',
-  'founder_time_log', 'homepage_background_videos', 'homepage_hero_config', 'manpower_gigs',
-  'moodboard_library_assets', 'owner_alerts', 'photo_delivery_jobs',
-  'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
-  'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets', 'vendor_event_access_grants',
-  'vendor_ig_connections', 'vendor_locked_qr_tokens', 'vendor_member_token_wallets',
-  'vendor_recommendations', 'vendor_release_history', 'vendor_review_appeals',
-  'vendor_self_comp_caps', 'vendor_team_members',
+  'photo_delivery_jobs', 'platform_compliance_facts', 'platform_expenses', 'platform_settings',
+  'promo_free_windows', 'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets',
+  'vendor_event_access_grants', 'vendor_ig_connections', 'vendor_locked_qr_tokens',
+  'vendor_member_token_wallets', 'vendor_recommendations', 'vendor_release_history',
+  'vendor_review_appeals', 'vendor_self_comp_caps', 'vendor_team_members',
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 27;
+const BACKLOG_HIGH_WATER = 17;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

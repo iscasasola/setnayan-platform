@@ -134,8 +134,12 @@ const CSP_REPORT_ONLY = [
   // Origins named in the deferral comment above, plus the embeds already trusted by
   // the enforced `frame-src`. Anything MISSING here is precisely what the reports
   // will surface.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com",
+  // ↑ MEASURED 2026-08-02: PostHog loads its client from
+  // `us-assets.i.posthog.com`, and it was in connect-src but NOT script-src —
+  // so the policy let PostHog SEND but not LOAD. Enforcing the old list would
+  // have killed product analytics outright. Exactly what report-only is for.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
   "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
   "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",

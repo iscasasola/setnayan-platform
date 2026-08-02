@@ -511,6 +511,24 @@ before(async () => {
     VALUES ('${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'papic_pool', 'pending')
     ON CONFLICT DO NOTHING;
   `);
+  // ── delegations: the over-deletion trap (batch 2, 2026-08-02) ─────────────
+  // TWO rows, and the whole point is that they must be treated DIFFERENTLY.
+  // The first draft proposed deleting a delegation whenever the subject appeared
+  // in ANY of its three user columns — which would revoke a working coordinator's
+  // access because the leaver happened to be the person who granted it.
+  // The schema itself settles it: delegate_user_id is CASCADE + NOT NULL (the row
+  // is ABOUT them), granted_by/revoked_by are SET NULL (an actor stamp).
+  await db.exec(`
+    INSERT INTO public.event_delegates (event_id, delegate_user_id, role, granted_by_user_id)
+    VALUES ('${EVENT}', '${SUBJECT}', 'coordinator', '${PARTNER}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.event_delegates (event_id, delegate_user_id, role, granted_by_user_id)
+    VALUES ('${EVENT}', '${OUTSIDER}', 'planner', '${SUBJECT}')
+    ON CONFLICT DO NOTHING;
+  `);
+  before_.delegations = await count(
+    `SELECT count(*) FROM public.event_delegates WHERE event_id = $1`, [EVENT]);
+
   before_.authorStamp = await count(
     `SELECT count(*) FROM public.event_preparation_items WHERE created_by = $1`, [SUBJECT]);
   before_.subjectRow = await count(
@@ -663,6 +681,33 @@ test('2p · the eleven leak tables — the stamp is nulled, the subject row is g
     0,
     'the subject’s own recommendation survived erasure — a row whose whole subject is the person',
   );
+});
+
+test('2q · a delegation the subject GRANTED survives — only the one about them is deleted', async () => {
+  // The row ABOUT the subject (they were the delegate) is gone.
+  const own = await db.query(
+    `SELECT 1 FROM public.event_delegates
+      WHERE event_id = '${EVENT}' AND delegate_user_id = '${SUBJECT}'`,
+  );
+  assert.equal(own.rows.length, 0, 'the subject’s own delegation survived their erasure');
+
+  // The OUTSIDER's delegation — which the subject merely granted — must still
+  // exist, or erasing one person silently revokes a working coordinator.
+  const others = await db.query<{ granted_by_user_id: string | null; role: string }>(
+    `SELECT granted_by_user_id, role FROM public.event_delegates
+      WHERE event_id = '${EVENT}' AND delegate_user_id = '${OUTSIDER}'`,
+  );
+  assert.equal(
+    others.rows.length,
+    1,
+    'OVER-DELETION: a third party lost their event access because the person who granted it erased their account',
+  );
+  assert.equal(
+    others.rows[0]?.granted_by_user_id,
+    null,
+    'the subject is still named as the granter — the actor stamp was not cleared',
+  );
+  assert.equal(others.rows[0]?.role, 'planner', 'the surviving delegation lost its own data');
 });
 
 test('META-3 · the seed really landed (a purge of nothing passes trivially)', () => {

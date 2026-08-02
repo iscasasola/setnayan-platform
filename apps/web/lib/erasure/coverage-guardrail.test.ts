@@ -82,6 +82,7 @@ import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from '../security/migration-schema';
 import {
+  KNOWN_RESIDUAL_SUBJECT_UUIDS,
   AUTHOR_UUID_NULLS,
   SUBJECT_ROW_DELETES,
   ERASURE_COLUMN_WRITES,
@@ -339,22 +340,19 @@ const UNDECIDED_BACKLOG: readonly string[] = [
   'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
   'concierge_response_cache', 'coordinator_feature_recommendations',
   'discount_code_eligible_users', 'discount_codes', 'event_egift_methods',
-  'event_feature_policy_override', 'event_inspiration_assets', 'event_journey_steps',
-  'event_meaningful_dates', 'event_schedule_suggestions', 'event_vendor_working_notes',
+  'event_feature_policy_override', 'event_inspiration_assets', 'event_schedule_suggestions',
   'feature_policy', 'force_majeure_flags', 'founder_seats', 'founder_time_log',
   'homepage_background_videos', 'homepage_hero_config', 'manpower_gigs',
   'moodboard_library_assets', 'owner_alerts', 'photo_delivery_jobs',
   'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
-  'proposal_amendments', 'referral_codes', 'referral_redemptions', 'reveal_studio_config',
-  'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers', 'vendor_admin_motion_votes',
-  'vendor_admin_motions', 'vendor_event_access_grants', 'vendor_ig_connections',
-  'vendor_locked_qr_tokens', 'vendor_meetings', 'vendor_member_token_wallets',
+  'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets', 'vendor_event_access_grants',
+  'vendor_ig_connections', 'vendor_locked_qr_tokens', 'vendor_member_token_wallets',
   'vendor_recommendations', 'vendor_release_history', 'vendor_review_appeals',
   'vendor_self_comp_caps', 'vendor_team_members',
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 47;
+const BACKLOG_HIGH_WATER = 37;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -673,4 +671,19 @@ test('G6 · every non-CASCADE delete exception is real and argued', () => {
     assert.ok(listed.has(key), `${key} is excepted but is not in SUBJECT_ROW_DELETES — stale exception, delete it`);
     assert.ok(why.trim().length > 80, `${key} is excepted with no argument — write one or drop the row-delete`);
   }
+});
+
+test('G7 · every known residual subject uuid is real and argued', () => {
+  // A residual is a column erasure knowingly LEAVES. The list must stay tiny and
+  // each entry must name why neither delete nor null was available — otherwise
+  // it becomes a quiet dumping ground for "too hard", which is how the first 78
+  // tables ended up unclassified.
+  for (const { column, why } of KNOWN_RESIDUAL_SUBJECT_UUIDS) {
+    assert.match(column, /^[a-z0-9_]+\.[a-z0-9_]+$/, `${column} is not a table.column`);
+    assert.ok(why.trim().length > 60, `${column} is left in place with no argument`);
+  }
+  assert.ok(
+    KNOWN_RESIDUAL_SUBJECT_UUIDS.length <= 3,
+    `${KNOWN_RESIDUAL_SUBJECT_UUIDS.length} residuals — this list is becoming a backlog. Settle them.`,
+  );
 });

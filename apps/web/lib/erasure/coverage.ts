@@ -521,6 +521,43 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'claimed_by_user_id',
     why: 'The vendor who accepted an invitation. SET NULL ⇒ a stamp on the STORE’s invite; the store keeps its record when a staff member leaves.',
   },
+
+  // ── batch 4, settled 2026-08-02 ──
+  {
+    table: 'event_journey_steps',
+    column: 'completed_by',
+    why: 'Who ticked a planning step. Twin of event_preparation_items.created_by — the shared journey belongs to the event, the tick’s author does not.',
+  },
+  {
+    table: 'event_meaningful_dates',
+    column: 'created_by_user_id',
+    why: 'Who added an anniversary or milestone. The date is the couple’s shared record; only the recorder’s identity goes.',
+  },
+  {
+    table: 'proposal_amendments',
+    column: 'proposed_by_user_id',
+    why: '⚠ NO FK — a raw uuid nothing can clear. Successor table to vendor_change_orders and takes the identical call: the amendment is the contract record and stays.',
+  },
+  {
+    table: 'stewardship_transfers',
+    column: 'created_by_user_id',
+    why: 'Who recorded the handover. The transfer audit is the ward’s protection and must outlive every party to it.',
+  },
+  {
+    table: 'stewardship_transfers',
+    column: 'from_user_id',
+    why: 'The outgoing steward. SET NULL ⇒ a party stamp; the purge is subject-scoped, so only the leaver’s own occurrence is cleared and the counterparty’s stays.',
+  },
+  {
+    table: 'stewardship_transfers',
+    column: 'to_user_id',
+    why: 'The incoming steward, same shape as from_user_id. Nulling one side never touches the other.',
+  },
+  {
+    table: 'vendor_meetings',
+    column: 'created_by_user_id',
+    why: 'Who booked the meeting. The meeting is a two-party record read by the vendor; the booker’s identity goes and the slot stays.',
+  },
 ] as const;
 
 /**
@@ -590,6 +627,59 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'coordinator_broadcasts',
     column: 'sender_user_id',
     why: '⚠ NOT NULL with NO FK — nulling is impossible (Postgres rejects it and voids the whole statement) and nothing would cascade. The row is 1–500 chars of prose the subject typed to the couple’s guests on a day now long past; same call as chat_messages, where authored prose goes and the thread stays.',
+  },
+
+  // ── batch 4, settled 2026-08-02 ──
+  {
+    table: 'event_vendor_working_notes',
+    column: 'author_user_id',
+    why: '⚠ NOT NULL with NO FK — nulling would be rejected and would void the statement. The row is free prose the subject wrote about a booking; same call as chat_messages and coordinator_broadcasts.',
+  },
+  {
+    table: 'referral_codes',
+    column: 'owner_user_id',
+    why: 'CASCADE + NOT NULL, and UNIQUE — one code per account, so the row is strictly 1:1 with the subject and co-owned by nobody.',
+  },
+  {
+    table: 'referral_redemptions',
+    column: 'referred_user_id',
+    why: 'CASCADE + NOT NULL. The row cannot exist without both parties, and the schema says it dies with either.',
+  },
+  {
+    table: 'referral_redemptions',
+    column: 'referrer_user_id',
+    why: 'CASCADE + NOT NULL, the other side of the same row. Both are subject columns; neither could be nulled even as a fallback.',
+  },
+  {
+    table: 'vendor_admin_motion_votes',
+    column: 'voter_user_id',
+    why: 'CASCADE + NOT NULL, and half the PRIMARY KEY — a row IS one named person’s single ballot, with no shared payload in it.',
+  },
+  {
+    table: 'vendor_admin_motions',
+    column: 'target_user_id',
+    why: 'CASCADE + NOT NULL — the motion is ABOUT this person’s admin standing. ⚠ DELIBERATELY NOT proposed_by, which is also CASCADE + NOT NULL: deleting a motion because the subject PROPOSED it would destroy a governance record about a THIRD PARTY. The cost is recorded honestly — see the residual note below.',
+  },
+] as const;
+
+/**
+ * ⚠ RESIDUAL, KNOWN AND ACCEPTED: `vendor_admin_motions.proposed_by`.
+ *
+ * It is CASCADE + NOT NULL like `target_user_id`, so the schema's own verdict is
+ * that the motion dies with its proposer too. We deliberately do NOT delete on
+ * it, because a motion is a governance record ABOUT its target — removing it
+ * because the PROPOSER left would erase a third party's record of a demotion
+ * that happened. That is the `event_delegates` over-deletion in a different suit.
+ *
+ * The cost: after erasure, a motion the subject proposed still carries their
+ * uuid, and NOT NULL means it cannot be nulled instead. Neither option is clean.
+ * Written down rather than quietly picked, because a silent residual is how the
+ * first 78 got classified wrong.
+ */
+export const KNOWN_RESIDUAL_SUBJECT_UUIDS: ReadonlyArray<{ column: string; why: string }> = [
+  {
+    column: 'vendor_admin_motions.proposed_by',
+    why: 'Deleting on it would destroy a governance record about the motion’s TARGET; NOT NULL forecloses nulling. Needs a product/DPO call on whether a proposer’s identity may be retained in a peer-governance record.',
   },
 ] as const;
 

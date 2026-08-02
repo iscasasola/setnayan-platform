@@ -287,14 +287,31 @@ test('SEC-8 · the deny-set is EXACTLY the two credential columns, per the catal
   `);
   assert.ok(rows.rows.length >= 12, 'oauth_grants lost columns — the schema moved under this test');
 
-  const deniedToBrowser = rows.rows.filter((r) => !r.a || !r.an).map((r) => r.attname).sort();
+  // The deny-set is asserted for `authenticated` ONLY. It used to be
+  // `!r.a || !r.an` — a single set covering both browser roles — which stopped
+  // being meaningful at 20271032407062 (stale-anon-grant revoke, batch 2):
+  // `anon` now holds NOTHING on oauth_grants, so every column is denied to it
+  // and the OR-ed set collapsed to "all columns". Folding the two roles back
+  // together would only be possible by re-granting anon, so they are asserted
+  // separately: `authenticated` keeps exactly the intended three-column
+  // deny-set, and `anon` is denied everything (checked below, per column, so a
+  // partial re-grant cannot hide inside an aggregate).
+  const deniedToAuthenticated = rows.rows.filter((r) => !r.a).map((r) => r.attname).sort();
   assert.deepEqual(
-    deniedToBrowser,
+    deniedToAuthenticated,
     // granted_by_user_id is locked by 20271009200000 (it is an erasure-control
     // input, not user data); the two tokens by 20271009210000.
     ['access_token', 'granted_by_user_id', 'refresh_token'],
     'the browser deny-set on oauth_grants is not what this PR intends',
   );
+
+  for (const r of rows.rows) {
+    assert.equal(
+      r.an,
+      false,
+      `anon regained SELECT on oauth_grants.${r.attname} — 20271032407062 revoked the whole table`,
+    );
+  }
 
   // The server keeps everything — asserted per column so a partial revoke on
   // service_role cannot hide inside an aggregate.

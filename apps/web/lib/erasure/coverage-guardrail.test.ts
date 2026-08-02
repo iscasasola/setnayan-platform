@@ -331,30 +331,26 @@ const UNDECIDED_BACKLOG: readonly string[] = [
   'blocked_users', 'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
   'concierge_response_cache', 'coordinator_broadcasts', 'coordinator_feature_recommendations',
   'creator_applications', 'creator_chapters', 'discount_code_eligible_users', 'discount_codes',
-  'editorial_vendor_media', 'event_appointments', 'event_blocked_users', 'event_delegates',
-  'event_egift_methods', 'event_feature_policy_override', 'event_inspiration_assets',
-  'event_journey_steps', 'event_meaningful_dates', 'event_playlist_picks',
-  'event_preparation_items', 'event_schedule_suggestions', 'event_vendor_working_notes',
-  'event_walkthrough_zones', 'feature_policy', 'feature_reviews', 'force_majeure_flags',
-  'founder_seats', 'founder_time_log', 'guest_checkins', 'guest_souvenir_claims',
-  'homepage_background_videos', 'homepage_hero_config', 'kwento_assignments',
-  'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets', 'owner_alerts',
-  'person_connections', 'person_stewardships', 'photo_delivery_jobs',
+  'event_appointments', 'event_blocked_users', 'event_delegates', 'event_egift_methods',
+  'event_feature_policy_override', 'event_inspiration_assets', 'event_journey_steps',
+  'event_meaningful_dates', 'event_schedule_suggestions', 'event_vendor_working_notes',
+  'feature_policy', 'feature_reviews', 'force_majeure_flags', 'founder_seats',
+  'founder_time_log', 'guest_checkins', 'guest_souvenir_claims', 'homepage_background_videos',
+  'homepage_hero_config', 'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets',
+  'owner_alerts', 'person_connections', 'person_stewardships', 'photo_delivery_jobs',
   'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
   'proposal_amendments', 'referral_codes', 'referral_redemptions', 'reveal_studio_config',
-  'setnayan_pay_methods', 'site_widgets', 'social_posts', 'stewardship_transfers',
-  'thread_calls', 'vendor_admin_motion_votes', 'vendor_admin_motions', 'vendor_change_orders',
-  'vendor_client_notes', 'vendor_correction_requests', 'vendor_creator_offers',
-  'vendor_date_waitlist', 'vendor_disputes', 'vendor_event_access_grants',
-  'vendor_feature_recommendations', 'vendor_ig_connections', 'vendor_invites',
-  'vendor_lock_proposals', 'vendor_locked_qr_tokens', 'vendor_meetings',
-  'vendor_member_token_wallets', 'vendor_recommendations', 'vendor_release_history',
-  'vendor_review_appeals', 'vendor_reviews', 'vendor_self_comp_caps', 'vendor_team_members',
-  'vendor_web_dossiers',
+  'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers', 'vendor_admin_motion_votes',
+  'vendor_admin_motions', 'vendor_client_notes', 'vendor_correction_requests',
+  'vendor_creator_offers', 'vendor_date_waitlist', 'vendor_disputes',
+  'vendor_event_access_grants', 'vendor_ig_connections', 'vendor_invites',
+  'vendor_locked_qr_tokens', 'vendor_meetings', 'vendor_member_token_wallets',
+  'vendor_recommendations', 'vendor_release_history', 'vendor_review_appeals',
+  'vendor_reviews', 'vendor_self_comp_caps', 'vendor_team_members',
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 80;
+const BACKLOG_HIGH_WATER = 67;
 
 // ─────────────────────────────────────────────────────────────────────────────
 

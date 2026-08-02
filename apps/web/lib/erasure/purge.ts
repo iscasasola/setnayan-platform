@@ -47,12 +47,14 @@ import {
   EVENTS_OWNER_PII_NULLS,
   EVENT_PAPERWORK_PII_NULLS,
   EVENT_MODERATOR_SELF_NULLS,
+  AUTHOR_UUID_NULLS,
   CLAIM_TOKEN_ROTATIONS,
   OWN_ROW_DELETES,
   OWN_ROW_DELETES_BY_EMAIL,
   freshClaimToken,
   PEOPLE_ANONYMIZE_NULLS,
   SCAN_EVENT_SCANNER_NULLS,
+  SUBJECT_ROW_DELETES,
   USERS_ANONYMIZE_NULLS,
   VENDOR_PROFILE_PII_SCRUB,
   VENDOR_VERIFICATION_DOC_SCRUB,
@@ -707,6 +709,33 @@ export async function purgeUserOwnedRecords(
       .update({ ...SCAN_EVENT_SCANNER_NULLS })
       .eq('scanner_user_id', targetUserId),
   );
+
+  // The eleven tables where the subject's uuid outlived their erasure request
+  // (settled 2026-08-02). Nine declare ON DELETE SET NULL, which is exactly why
+  // they were missed: THAT CLAUSE NEVER FIRES HERE. This purge anonymizes the
+  // auth user in place (updateUserById, below) and issues no DELETE, so the
+  // uuid just sits there. Two of them — vendor_change_orders and
+  // vendor_feature_recommendations — carry it with no FK at all.
+  //
+  // Author stamps are NULLED, not deleted: these rows are read by event or by
+  // vendor, so deleting them would strip the co-partner's agenda or the shop's
+  // own records because the person who typed them left.
+  for (const { table, column } of AUTHOR_UUID_NULLS) {
+    await step(`${table}-author-anonymize`, () =>
+      admin
+        .from(table)
+        .update({ [column]: null })
+        .eq(column, targetUserId),
+    );
+  }
+
+  // Rows whose whole subject IS the person. Keeping one after erasure is
+  // keeping a dossier on someone who asked to be forgotten.
+  for (const { table, column } of SUBJECT_ROW_DELETES) {
+    await step(`${table}-subject-delete`, () =>
+      admin.from(table).delete().eq(column, targetUserId),
+    );
+  }
 
   // Whole-row deletes keyed by the subject's own FK — the cleanup the disarmed
   // ON DELETE CASCADEs used to do. Reason per table in coverage.ts.

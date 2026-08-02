@@ -4,6 +4,7 @@ import { fetchPapicOneTiers } from '@/lib/papic-one';
 import { papicOneRungPhrase, papicPoolRungPhrase } from '@/lib/papic-tier-copy';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { guestOneRungs, guestPoolRungs, type PapicGuestOffer } from '@/lib/papic-guest-buy';
+import { isSameDayInManila, buyWaitCopy } from '@/lib/papic-buy-urgency';
 import { PapicBuyShell } from './papic-buy-shell';
 
 /**
@@ -20,8 +21,11 @@ import { PapicBuyShell } from './papic-buy-shell';
  *   • the flag is off (NEXT_PUBLIC_PAPIC_GUEST_BUY) — the whole feature;
  *   • no rung has a live catalog price — nothing is on sale, so offering it
  *     would be a button that can only fail;
- *   • the caller has no camera of their own (`canReloadOwnCamera` false) — the
- *     One rungs are dropped and only the shared pool is offered.
+ *   • the caller holds no camera of their own (`canReloadOwnCamera` false) — the
+ *     One rungs are dropped and only the shared pool is offered. That is the
+ *     seatless guest camera (/papic/guest), whose identity is a signed cookie
+ *     rather than a seat, so there is nothing for a dedicated balance to attach
+ *     to.
  *
  * ⚠ It never decides ENTITLEMENT. Whether this caller may actually buy — which
  * event, whose camera, is one already pending — is re-decided from the
@@ -34,27 +38,36 @@ export async function PapicGuestBuyPanel({
   returnTo,
   error,
   canReloadOwnCamera = false,
+  eventId = null,
 }: {
   /** The claim token when this renders on a seat camera; null on the guest camera. */
   seatToken?: string | null;
   returnTo: string;
   error?: string | null;
   /**
-   * Does the caller hold a camera with its own DEDICATED balance? Only such a
-   * camera can be reloaded — one that shoots from the shared pool has no
-   * private balance to top up, and granting it one would silently move it off
-   * the pool the host is watching. Resolved by the page, which already knows
-   * the seat.
+   * Does the caller hold a camera of their own — i.e. a SEAT? Only a seat can
+   * carry a dedicated balance, so only a seat can be offered the One rungs.
+   *
+   * ⚠ This used to mean "a camera that ALREADY has dedicated points", which was
+   * circular: nobody could buy their first private shots. Widened 2026-08-02 —
+   * any camera its holder claimed may buy shots for itself.
    */
   canReloadOwnCamera?: boolean;
+  /** Drives the wait the guest is promised. Omitted → the ordinary 24-hour line. */
+  eventId?: string | null;
 }) {
   if (!papicGuestBuyEnabled()) return null;
 
   const admin = createAdminClient();
-  const [poolTiers, oneTiers] = await Promise.all([
+  const [poolTiers, oneTiers, eventDate] = await Promise.all([
     fetchPapicPassTiers(admin),
     fetchPapicOneTiers(admin),
+    fetchEventDate(admin, eventId),
   ]);
+  // Same-day → the guest is promised the front of the queue, and /admin/payments
+  // puts them there off the SAME function. Missing date → the ordinary 24-hour
+  // line, because over-promising a wait we might not beat is the worse failure.
+  const wait = buyWaitCopy(isSameDayInManila(eventDate));
 
   const rungs = [
     ...(canReloadOwnCamera ? guestOneRungs(oneTiers) : []),
@@ -91,6 +104,7 @@ export async function PapicGuestBuyPanel({
       seatToken={seatToken ?? null}
       returnTo={returnTo}
       error={error ?? null}
+      wait={wait}
     />
   );
 }
@@ -124,5 +138,27 @@ async function fetchRungPrices(
     return out;
   } catch {
     return out;
+  }
+}
+
+/**
+ * The event's date, for the same-day check. Degrades to null on anything at all
+ * — a missing date costs the guest the priority LINE, never the camera.
+ */
+async function fetchEventDate(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string | null,
+): Promise<string | null> {
+  if (!eventId) return null;
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select('event_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) return null;
+    return (data?.event_date as string | null) ?? null;
+  } catch {
+    return null;
   }
 }

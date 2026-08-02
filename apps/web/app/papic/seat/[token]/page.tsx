@@ -125,21 +125,25 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // NEXT_PUBLIC_PAPIC_GUEST_BUY — the panel self-gates and renders null when the
   // flag is off, so this page is byte-identical today.
   //
-  // Only a camera that ALREADY holds a dedicated balance may be reloaded: one
-  // that shoots from the shared pool has no private balance to top up, and
-  // granting it one would silently move it off the pool the host is watching
-  // (papic_reserve_event_points_for_seat returns -1 the moment a seat has
-  // dedicated points). Read display-only here; the buy action re-checks it.
-  // Behind the flag, so the flag-off path does not even pay for the round-trip.
-  const canReloadOwnCamera = papicGuestBuyEnabled()
-    ? Number(
-        (
-          await admin.rpc('papic_seat_dedicated_points', {
-            p_seat_id: seat.seat_id as string,
-          })
-        ).data,
-      ) > 0
-    : false;
+  // ── ANY camera the holder claimed may buy its OWN shots (owner 2026-08-02) ──
+  //
+  // This used to require a camera that ALREADY held a dedicated balance, which
+  // is circular: a guest could not buy their first private shots without
+  // already having private shots. So a pool guest whose shared pot ran dry had
+  // no way to keep shooting, and the only purchase on offer topped up the
+  // HOST's pool — money that anyone else could then spend.
+  //
+  // The old note warned that granting a pool seat dedicated points "silently
+  // moves it off the pool the host is watching". True, and it is the intended
+  // behaviour rather than a hazard: `papic_reserve_event_points_for_seat`
+  // returns -1 only WHILE `papic_seat_dedicated_points(seat) > 0`, so a camera
+  // spends what its holder paid for FIRST and falls back to the shared pool the
+  // moment those run out. The host is never billed for shots a guest bought,
+  // and the guest is never stranded once they are spent.
+  //
+  // Entitlement is still decided in app/papic/buy/actions.ts from the
+  // credential — this is only an offer.
+  const canReloadOwnCamera = papicGuestBuyEnabled();
 
   return (
     <>
@@ -168,6 +172,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         returnTo={`/papic/seat/${token}`}
         error={buyError ?? null}
         canReloadOwnCamera={canReloadOwnCamera}
+        eventId={(seat.event_id as string) ?? null}
       />
     </>
   );

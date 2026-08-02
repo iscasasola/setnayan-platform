@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, X, Zap } from 'lucide-react';
 import { startPapicGuestPurchase } from '../buy/actions';
 import type { PapicGuestOffer } from '@/lib/papic-guest-buy';
+import type { BuyWait } from '@/lib/papic-buy-urgency';
 
 /**
  * "ADD SHOTS" — the guest's doorway, on the capture screen itself.
@@ -53,6 +54,7 @@ export function PapicBuyShell({
   seatToken,
   returnTo,
   error,
+  wait,
 }: {
   offers: readonly PapicGuestOffer[];
   /** Present on the seat camera; absent on the guest camera (cookie identity). */
@@ -60,6 +62,9 @@ export function PapicBuyShell({
   /** Where a refusal bounces back to. Re-validated server-side — see safeReturnTo. */
   returnTo: string;
   error?: string | null;
+  /** The confirmation wait, resolved server-side so the promise and the admin
+   *  queue's ordering come off one function (lib/papic-buy-urgency.ts). */
+  wait: BuyWait;
 }) {
   const [open, setOpen] = useState<boolean>(Boolean(error));
   // Only ever auto-open ONCE. A camera that keeps refusing shots would
@@ -106,8 +111,7 @@ export function PapicBuyShell({
                 <h2 className="text-lg font-semibold tracking-tight">Add shots</h2>
                 <p className="text-sm text-ink/70">
                   Keep the cameras going. You don&rsquo;t need an account — you&rsquo;ll get a
-                  reference code and a QR to pay, and the shots go live once the Setnayan
-                  team confirms it.
+                  reference code and a QR to pay.
                 </p>
               </div>
               <button
@@ -129,11 +133,27 @@ export function PapicBuyShell({
               </p>
             ) : null}
 
+            {/* The wait, stated before any price — a guest deciding whether to pay
+                needs to know it is not instant, and a same-day guest needs to know
+                they are not simply out of luck. Same source as the queue order. */}
+            <p
+              className={
+                wait.sameDay
+                  ? 'mt-4 rounded-xl border border-terracotta/40 bg-terracotta/5 px-3 py-2 text-xs text-ink/80'
+                  : 'mt-4 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/70'
+              }
+            >
+              {wait.sameDay ? <Zap aria-hidden className="mr-1 inline h-3.5 w-3.5" strokeWidth={2} /> : null}
+              {wait.copy}
+            </p>
+
             {one.length > 0 ? (
               <section className="mt-5 space-y-2">
                 <p className="sn-eye">This camera only</p>
                 <p className="text-xs text-ink/60">
-                  Shots that stay on the camera in your hand. Nobody else can spend them.
+                  Shots that stay on the camera in your hand — nobody else can spend them.
+                  You shoot these first; when they run out your camera goes back to the
+                  shared pool.
                 </p>
                 {one.map((o) => (
                   <OfferForm

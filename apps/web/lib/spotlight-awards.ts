@@ -25,6 +25,7 @@
  * RLS — callers MUST gate on admin/server context before invoking the writers.
  */
 
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { unstable_cache } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -158,13 +159,29 @@ async function fetchVerifiedVendorPool(
     string,
     { business_name: string | null; business_slug: string | null; logo_url: string | null }
   >();
-  for (const r of rows) {
+  // ⚠ `vendor_profiles.logo_url` STORES A RAW `r2://` REF — that is the shipped
+  // contract (`vendor-dashboard/actions.ts` writes `logo_url: logoRef`), and
+  // `VendorAvatar`'s docblock states the other half of it: "a raw r2:// ref will
+  // not render, so pass the resolved URL or null." This builder passed the raw
+  // value straight through, so the public Spotlight strip rendered
+  // `<img src="r2://setnayan-media/...">` — an image that cannot load, on the
+  // homepage. Latent only because the strip is double-gated and inert by
+  // default; it would have broken on the day it was switched on.
+  //
+  // Found by the report-only CSP: `img-src r2://setnayan-media` (2026-08-02).
+  // `displayUrlForStoredAsset` is idempotent — a legacy plain URL passes through
+  // untouched, an r2:// ref is presigned — so it is safe on every row. Resolved
+  // in ONE Promise.all because each call is a separate signing round trip.
+  const logoUrls = await Promise.all(
+    rows.map((r) => displayUrlForStoredAsset(r.logo_url).catch(() => null)),
+  );
+  rows.forEach((r, i) => {
     display.set(r.vendor_profile_id, {
       business_name: r.business_name,
       business_slug: r.business_slug,
-      logo_url: r.logo_url,
+      logo_url: logoUrls[i] ?? null,
     });
-  }
+  });
 
   // Rating aggregates from the materialized view (avg_rating_overall +
   // total_count). Vendors absent here have 0 reviews — defaulted below.

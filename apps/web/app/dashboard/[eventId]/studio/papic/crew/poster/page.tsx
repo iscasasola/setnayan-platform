@@ -1,9 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
-import { ensurePapicPoolToken } from '@/lib/papic-pool-join';
 
 // Papic · the printable POSTER (owner-locked 2026-08-01).
 //
@@ -43,18 +41,23 @@ export default async function PapicPoolPosterPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name')
+    .select('display_name, slug')
     .eq('event_id', eventId)
     .maybeSingle();
 
-  const admin = createAdminClient();
-  const token = await ensurePapicPoolToken(admin, eventId);
-  if (!token) redirect(`/dashboard/${eventId}/studio/papic/crew`);
+  // ⚠ The poster encodes the EVENT SITE's own join link, not a bespoke Papic
+  // token. The first version minted its own and pointed at a standalone camera —
+  // a second door beside `/{slug}/invite`, which already existed, is already
+  // rotatable, and lands the scanner somewhere strictly better: the guest site,
+  // where they get a camera AND their own QR to be tagged by AND a gallery of
+  // photos of them. The standalone camera gave only the first of the three.
+  const slug = (event as { slug?: string | null } | null)?.slug ?? null;
+  if (!slug) redirect(`/dashboard/${eventId}/studio/papic/crew`);
 
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
   const proto = h.get('x-forwarded-proto') ?? 'https';
-  const joinUrl = `${proto}://${host}/papic/pool/${token}`;
+  const joinUrl = `${proto}://${host}/${slug}/invite`;
   // Large: this is read from across a table, not from a card in the hand.
   const qrSvg = await renderUrlQrSvg(joinUrl, 520);
 

@@ -60,6 +60,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import {
   computeAuspiciousReasons,
+  isCeremonyType,
   type CeremonyType,
   type MeaningfulDate,
   type MeaningfulDateKind,
@@ -82,27 +83,14 @@ function isValidWizardTaskId(value: unknown): value is WizardTaskId {
   return typeof value === 'string' && VALID_WIZARD_TASK_IDS.has(value);
 }
 
-/** Runtime CeremonyType validator · matches the union in auspicious-date.ts.
- *  Inline here (vs imported) because the lib doesn't export a runtime
- *  array · matches the same local-const pattern in
- *  /date-selection/actions.ts line 50. */
-const VALID_CEREMONY_TYPES = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'mixed',
-] as const;
-
-function isCeremonyType(value: unknown): value is CeremonyType {
-  return (
-    typeof value === 'string' &&
-    (VALID_CEREMONY_TYPES as readonly string[]).includes(value)
-  );
-}
+/* Runtime CeremonyType validation is `isCeremonyType`, imported from
+ * lib/auspicious-date.ts (which now DOES export the canonical runtime array,
+ * `CEREMONY_TYPES`, derived from the union).
+ *
+ * The comment that stood here claimed the local list "matches the union in
+ * auspicious-date.ts" and "matches …/date-selection/actions.ts line 50" —
+ * both halves were false: the local list was 8 members, the union is 16, and
+ * the write path's list was 16. That silent subset is the whole defect. */
 
 /**
  * Helper · merge a single task entry into the wizard_state JSONB and return

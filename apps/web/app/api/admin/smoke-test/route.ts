@@ -22,6 +22,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
 import { getOwnerNotificationEmail } from '@/lib/hiring-guide/emails';
+import { markResendKeyVerified } from '@/lib/integrations/write';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,10 +93,20 @@ export async function GET(request: NextRequest) {
       ].join('\n'),
     });
 
+    // The console's "Last verified" line. Stamped ONLY on a real send, and only
+    // when the DB is the thing holding the key — see markResendKeyVerified. It
+    // never throws and its outcome deliberately does NOT affect the response:
+    // the smoke test reports whether the EMAIL sent, not whether we managed to
+    // write a timestamp about it.
+    const verifiedStamped = result.ok ? await markResendKeyVerified() : false;
+
     return NextResponse.json({
       ok: result.ok,
       type: 'resend',
       recipient: ownerEmail,
+      // Distinguishes "sent, and the stored key is now marked verified" from
+      // "sent using the env fallback, so there is no stored key to mark".
+      verifiedStamped,
       ...(result.ok
         ? { messageId: (result as { id: string }).id, via: 'resend' }
         : { reason: (result as { reason: string }).reason, error: (result as { error?: string }).error }),

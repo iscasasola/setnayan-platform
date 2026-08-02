@@ -14,6 +14,7 @@
 
 import {
   Clapperboard,
+  HardDrive,
   RadioTower,
   Activity,
   AlertOctagon,
@@ -456,6 +457,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/background-videos',
         icon: Clapperboard,
         matchPrefix: '/admin/background-videos',
+      },
+      {
+        // Website media — the READ side of the media bucket, sitting next to the
+        // upload tools it audits. Those tools repoint a row without deleting the
+        // object they replaced, so left-over files are invisible everywhere else.
+        key: 'website-media',
+        label: 'Website media',
+        href: '/admin/website-media',
+        icon: HardDrive,
+        matchPrefix: '/admin/website-media',
       },
       {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).

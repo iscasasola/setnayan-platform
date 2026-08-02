@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -228,6 +229,51 @@ export async function r2Upload(args: {
     }),
   );
   return publicUrlFor(args.bucket, args.key);
+}
+
+/**
+ * Lists every object under `prefix`, following pagination to the end.
+ *
+ * Read-only. Used by the admin website-media surface to see what is ACTUALLY
+ * stored, as opposed to what the database still points at — the two drift apart
+ * because several upload paths repoint a row without deleting the object they
+ * replaced.
+ *
+ * `maxKeys` is a hard stop, not a page size: callers pass a ceiling so a
+ * mistakenly broad prefix can't pull an unbounded listing into a page render.
+ */
+export async function r2List(args: {
+  bucket: R2BucketName;
+  prefix: string;
+  maxKeys?: number;
+}): Promise<{ key: string; size: number; lastModified: Date | null }[]> {
+  const client = requireR2Client();
+  const ceiling = args.maxKeys ?? 5000;
+  const out: { key: string; size: number; lastModified: Date | null }[] = [];
+  let token: string | undefined;
+
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: args.bucket,
+        Prefix: args.prefix,
+        ContinuationToken: token,
+        MaxKeys: 1000,
+      }),
+    );
+    for (const o of page.Contents ?? []) {
+      if (!o.Key) continue;
+      out.push({
+        key: o.Key,
+        size: o.Size ?? 0,
+        lastModified: o.LastModified ?? null,
+      });
+      if (out.length >= ceiling) return out;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+
+  return out;
 }
 
 /**

@@ -2475,6 +2475,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 42,
   },
   {
+    key: "admin.sidebar.website-media",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/website-media",
+    label: "Website media",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "HardDrive",
+    customRef: null,
+    sortOrder: 43,
+  },
+  {
     key: "admin.sidebar.reveal-studio",
     scope: "admin",
     area: "admin-sidebar",

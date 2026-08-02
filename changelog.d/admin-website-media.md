@@ -8,42 +8,66 @@ pictures and videos.
 bytes from database rows. None can show a file the database stopped referencing, which is
 exactly the file that costs money forever.
 
-**Two paths were quietly accumulating orphans**, both found while building this:
+**Upload paths quietly accumulating orphans**, found while building this and left unchanged
+(this PR makes them visible; a follow-up stops them refilling):
 
 - `admin/background-videos/actions.ts` writes the new `video_r2_key` and never calls
-  `r2Delete` on the object it replaced — every replace since launch left its predecessor.
+  `r2Delete` on the object it replaced.
 - `admin/hero-video` writes frames to `hero-frames/<sessionId>/`, a **new folder per
   upload**, so every re-upload orphans an entire previous sequence.
+- `admin/settings` writes `brand-icon/<uuid>/`, a new set per upload.
 
-Neither is changed here; this PR makes them visible. Deleting is the owner's keystroke.
+**Three safety properties, all tested:**
 
-**Two safety properties, both deliberate and both tested:**
-
-1. **An allowlist, not a filter.** `SITE_MEDIA_PREFIXES` names the four site-furniture
-   prefixes. Guest photos, payment screenshots, contracts and verification IDs are not
+1. **An allowlist, not a filter.** `SITE_MEDIA_PREFIXES` names the five site-furniture
+   prefixes. Customer and financial content in the same bucket (`events/`,
+   `living-heroes/`, `locked-qr-proof/`, `merchant-qr/`, `editorial-vendor/`) is not
    reachable from this surface at all. `assertDeletableKey` re-checks the same allowlist
-   *inside* the server action, because the key arrives in a form field and a form field is
-   user input, not a permission.
+   *inside* the server action, because the key arrives in a form field.
 2. **Unproven is not unused.** A file is reported "Left over" only when a resolver actually
    read the references and came back without it. A failed or denied read degrades the whole
-   folder to "Not sure" — an RLS denial and an empty read are the same value, and treating
-   "nothing came back" as "nothing is used" would paint every file deletable at once.
+   folder to "Not sure" — an RLS denial and an empty read are the same value.
+3. **Only proven-leftover is deletable.** `isDeletableUsage` allows `unreferenced` and
+   nothing else; "Not sure" is refused exactly as firmly as "In use". The delete action
+   **re-derives usage server-side** before deleting rather than trusting the client's
+   `disabled` attribute.
 
-There is **no bulk delete and no select-all**, for the same reason. Rows already in use have
-their Delete button disabled; each row carries a Download link so a copy can be taken first.
+No bulk delete and no select-all, for the same reason. Every row carries a Download link so
+a copy can be taken first.
 
-Resolvers cover `homepage-background-videos/` (`homepage_background_videos.video_r2_key`)
-and `hero-videos/` + `hero-frames/` (`homepage_hero_config`, reading `video_r2_key`,
-`frame_keys`, **and** legacy `frame_urls` parsed back into keys so live frames are never
-mistaken for leftovers). `onboarding/` and `brand/` have no database reference and are
-always "Not sure", with the reason printed verbatim.
+### An adversarial review ran before this merged — 30 findings attacked, 21 confirmed
 
-- `lib/website-media.ts` — allowlist, guard, classification, totals (new, 11 unit tests)
-- `lib/website-media-server.ts` — listing + reference resolvers (new)
-- `lib/r2.ts` — adds paginated read-only `r2List`
-- `app/admin/website-media/{page,actions,media-table}.tsx` — the surface
-- nav registered in all three places: `admin-nav-groups.tsx`, `admin-nav-descriptions.ts`,
-  `nav-registry-defaults.ts`
+The first revision passed typecheck, lint and 11 unit tests, and was **substantially
+wrong**. Corrections now in:
+
+- 🔴 **`onboarding/` holds a LIVE file.** The onboarding background music
+  (`platform_settings.onboarding_bg_music_r2_key`, heard by every couple on the sign-up
+  flow) sat in an unresolved folder, under prose reading *"probably left over"*, with
+  **Delete enabled**. Fixed twice over: the folder now has a real resolver, and `unknown`
+  is no longer deletable under any wording. **Prose is not a safety mechanism.**
+- 🔴 **The prefixes were guessed from module names, not read from the upload call sites.**
+  `homepage-background-videos/` matches nothing — the uploader writes `homepage-bg/slot-N/`.
+  `brand/` is not an R2 prefix at all; brand icons are `brand-icon/<uuid>/`. The page's
+  headline case was invisible and its allowlist matched zero objects.
+- `HardDrive` is not in the curated `NAV_ICON_NAMES`, so `nav-registry-defaults.test.ts`
+  **would have failed CI**. Now `Images`.
+- Server actions used the PAGE gate `requireAdmin()` inside a `try`, swallowing Next's
+  thrown `redirect()`/`notFound()`. Now `requireAdminAction()`, with `NEXT_*` digests
+  rethrown.
+- `window.open` ran after an `await`, so popup blockers killed the "save a copy first" step.
+  Now opened synchronously inside the click, with a visible fallback link if still blocked.
+- `r2List` truncated at 5,000 keys with no signal; the page presented the truncated total as
+  fact. It now returns `truncated`, and the summary labels itself a minimum.
+- A folder that failed to list was skipped silently, reading as "clean" and shrinking the
+  reported total. Now shown with its error.
+- Hero lookups were cached in module-level state shared across concurrent requests. Now
+  request-scoped.
+- Dates formatted without a pinned timezone (hydration mismatch); one shared `busyKey`
+  unlocked the wrong row mid-flight. Both fixed.
+
+Files: `lib/website-media.ts` (+17 unit tests) · `lib/website-media-server.ts` ·
+`lib/r2.ts` (adds read-only `r2List`) · `app/admin/website-media/{page,actions,media-table}.tsx` ·
+nav registered in `admin-nav-groups.tsx`, `admin-nav-descriptions.ts`, `nav-registry-defaults.ts`.
 
 SPEC IMPACT: None. No schema change, no migration, no pricing or policy change. Read-only
 plus a manual single-file delete of site furniture; customer content is out of scope by

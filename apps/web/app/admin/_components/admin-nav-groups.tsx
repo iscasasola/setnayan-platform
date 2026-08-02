@@ -14,7 +14,6 @@
 
 import {
   Clapperboard,
-  HardDrive,
   RadioTower,
   Activity,
   AlertOctagon,
@@ -465,7 +464,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         key: 'website-media',
         label: 'Website media',
         href: '/admin/website-media',
-        icon: HardDrive,
+        icon: Images,
         matchPrefix: '/admin/website-media',
       },
       {

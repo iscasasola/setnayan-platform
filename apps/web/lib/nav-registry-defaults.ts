@@ -2482,7 +2482,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Website media",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "HardDrive",
+    lucideName: "Images",
     customRef: null,
     sortOrder: 43,
   },

@@ -4,65 +4,72 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, R2_BUCKETS, r2List } from '@/lib/r2';
 import {
   classifyGroup,
+  keyFromRef,
+  prefixFor,
   SITE_MEDIA_PREFIXES,
   summarize,
   type MediaGroup,
   type MediaSummary,
   type ReferenceLookup,
+  type StoredObject,
 } from '@/lib/website-media';
 
 /**
  * Server side of `/admin/website-media`: list the bucket, then ask the database
  * which of those keys are still doing a job.
  *
- * THE ASYMMETRY THAT GOVERNS EVERY RESOLVER BELOW: over-reporting a reference
- * is harmless (the file shows as in-use and simply stays), while under-reporting
+ * THE ASYMMETRY THAT GOVERNS EVERY RESOLVER BELOW: over-reporting a reference is
+ * harmless (the file shows as in-use and simply stays), while under-reporting
  * one invites the owner to delete something live. So each resolver collects
  * generously — current column AND legacy fallback — and any error at all
  * degrades the whole prefix to `unknown` rather than returning the keys it
  * managed to read. A partial answer is the dangerous shape here: it looks
  * complete.
+ *
+ * EVERY allowlisted prefix has a resolver. That is a requirement, not a
+ * coincidence: without one a folder is permanently `unknown`, and an earlier
+ * revision paired that state with an enabled Delete button and a blurb guessing
+ * the files were junk — over a folder whose only occupant was live. Adding a
+ * prefix to the allowlist without adding its resolver here reintroduces exactly
+ * that. `resolverFor` therefore has no silent default.
  */
 
-/** Hard ceiling per prefix so a broad listing can't stall a page render. */
+/**
+ * Hard ceiling per prefix so a broad listing can't stall a page render.
+ * `hero-frames/` accumulates a folder per upload and is the one built to grow,
+ * so truncation is reported rather than hidden — see `r2List`'s `truncated`.
+ */
 const MAX_KEYS_PER_PREFIX = 5000;
 
-type Resolver = () => Promise<ReferenceLookup>;
-
-/** Pulls a string array out of a jsonb/text[] column without trusting its shape. */
+/** Pulls a string array out of a jsonb / text[] column without trusting its shape. */
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string');
   if (typeof value === 'string') {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
-    } catch {
-      return [];
+    const s = value.trim();
+    if (!s) return [];
+    // jsonb arrives as JSON; a Postgres text[] can arrive as `{a,b}`.
+    if (s.startsWith('[')) {
+      try {
+        const parsed: unknown = JSON.parse(s);
+        return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+      } catch {
+        return [];
+      }
     }
+    if (s.startsWith('{') && s.endsWith('}')) {
+      return s
+        .slice(1, -1)
+        .split(',')
+        .map((p) => p.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean);
+    }
+    return [s];
   }
   return [];
 }
 
-/**
- * Recovers an object key from a stored URL.
- *
- * Rows written before the `frame_keys` column existed hold only URLs, and those
- * frames are still on screen. Ignoring them would mark a live sequence
- * unreferenced, so we parse them back into keys.
- */
-function keyFromUrl(url: string): string | null {
-  if (typeof url !== 'string' || !url) return null;
-  const withoutQuery = url.split('?')[0] ?? '';
-  for (const p of SITE_MEDIA_PREFIXES) {
-    const at = withoutQuery.indexOf(`/${p.prefix}`);
-    if (at !== -1) return withoutQuery.slice(at + 1);
-    if (withoutQuery.startsWith(p.prefix)) return withoutQuery;
-  }
-  return null;
-}
-
 /** References held by `homepage_background_videos` (the six homepage clips). */
-const resolveBackgroundVideos: Resolver = async () => {
+async function readBackgroundVideoRefs(): Promise<ReferenceLookup> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('homepage_background_videos')
@@ -75,78 +82,138 @@ const resolveBackgroundVideos: Resolver = async () => {
   const keys = new Set<string>();
   for (const row of data ?? []) {
     const k = (row as { video_r2_key: string | null }).video_r2_key;
-    if (k) keys.add(k);
+    const parsed = k ? keyFromRef(k) : null;
+    if (parsed) keys.add(parsed);
+    if (k) keys.add(k); // belt and braces — over-reporting is the safe direction
   }
   return { ok: true, keys };
-};
+}
 
 /**
  * References held by `homepage_hero_config` — the hero clip AND its frame
- * sequence. One read serves both the `hero-videos/` and `hero-frames/` groups,
- * so a single failure degrades both rather than half-answering either.
+ * sequence. One read serves both the `hero-videos/` and `hero-frames/` groups.
+ *
+ * All rows are read, not just the published one: an unpublished draft's frames
+ * are still needed the moment it is published, so treating them as leftover
+ * would delete the next hero out from under the owner.
  */
-let heroLookupPromise: Promise<ReferenceLookup> | null = null;
-const resolveHeroConfig: Resolver = () => {
-  heroLookupPromise ??= (async (): Promise<ReferenceLookup> => {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from('homepage_hero_config')
-      .select('video_r2_key, frame_keys, frame_urls');
+async function readHeroRefs(): Promise<ReferenceLookup> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('homepage_hero_config')
+    .select('video_r2_key, frame_keys, frame_urls');
 
-    if (error) {
-      return { ok: false, reason: `Could not read the hero settings (${error.message}).` };
-    }
+  if (error) {
+    return { ok: false, reason: `Could not read the sign-in page settings (${error.message}).` };
+  }
 
-    const keys = new Set<string>();
-    for (const row of data ?? []) {
-      const r = row as {
-        video_r2_key: string | null;
-        frame_keys: unknown;
-        frame_urls: unknown;
-      };
-      if (r.video_r2_key) keys.add(r.video_r2_key);
-      for (const k of toStringArray(r.frame_keys)) keys.add(k);
-      // Legacy rows carry only URLs — recover the keys so live frames are not
-      // reported as left-over.
-      for (const u of toStringArray(r.frame_urls)) {
-        const k = keyFromUrl(u);
-        if (k) keys.add(k);
-      }
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    const r = row as { video_r2_key: string | null; frame_keys: unknown; frame_urls: unknown };
+    if (r.video_r2_key) {
+      keys.add(r.video_r2_key);
+      const p = keyFromRef(r.video_r2_key);
+      if (p) keys.add(p);
     }
-    return { ok: true, keys };
-  })();
-  return heroLookupPromise;
+    for (const k of toStringArray(r.frame_keys)) {
+      keys.add(k);
+      const p = keyFromRef(k);
+      if (p) keys.add(p);
+    }
+    // Legacy rows carry only URLs — recover the keys so live frames are never
+    // reported as left over.
+    for (const u of toStringArray(r.frame_urls)) {
+      const p = keyFromRef(u);
+      if (p) keys.add(p);
+    }
+  }
+  return { ok: true, keys };
+}
+
+/**
+ * References held by `platform_settings` — the onboarding background music and
+ * the brand icon set. One read serves both groups.
+ *
+ * ⚠ This resolver exists because a review found the onboarding music sitting in
+ * an unresolved folder, labelled "probably left over", with Delete enabled. It
+ * is the live track every couple hears on the sign-up flow.
+ */
+async function readPlatformSettingsRefs(): Promise<ReferenceLookup> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('platform_settings')
+    .select(
+      'onboarding_bg_music_r2_key, brand_icon_master_url, brand_favicon_ico_url, brand_apple_touch_url, brand_icon_png_512_url, brand_icon_svg_url',
+    );
+
+  if (error) {
+    return { ok: false, reason: `Could not read the site settings (${error.message}).` };
+  }
+
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    for (const value of Object.values(row as Record<string, unknown>)) {
+      if (typeof value !== 'string' || !value) continue;
+      keys.add(value);
+      const p = keyFromRef(value);
+      if (p) keys.add(p);
+    }
+  }
+  return { ok: true, keys };
+}
+
+/**
+ * Which read backs which prefix. Exhaustive by construction — an unmapped
+ * prefix throws at build/dev time rather than defaulting to a permanently
+ * `unknown` folder.
+ */
+type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings';
+
+const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
+  'homepage-bg/': 'backgroundVideos',
+  'hero-videos/': 'hero',
+  'hero-frames/': 'hero',
+  'onboarding/': 'platformSettings',
+  'brand-icon/': 'platformSettings',
 };
 
 /**
- * Prefixes with no resolver.
+ * Reads each source AT MOST ONCE per call and hands the same result to every
+ * prefix that depends on it.
  *
- * Stated as a reason rather than left to a default, because the page prints it
- * verbatim: the owner should see WHY a folder can't be judged instead of a bare
- * "unknown". Onboarding art is the interesting case — the app ships its own
- * copies in `public/`, so these are very likely left-over, but "likely" is not
- * the standard this page deletes on.
+ * Request-scoped on purpose: an earlier revision cached these in a module-level
+ * promise, which is shared across concurrent requests in a Next server module,
+ * so one request's reset could land between another's two hero lookups and
+ * classify its two groups from different reads.
  */
-const NO_RESOLVER: Record<string, string> = {
-  'onboarding/':
-    'These are not tracked in the database. The sign-up pages load their pictures from the app’s own files, so copies here are probably left over — but check one before deleting it.',
-  'brand/':
-    'These are not tracked in the database — brand artwork is referenced directly by the page code.',
-};
-
-function resolverFor(prefix: string): Resolver {
-  if (prefix === 'homepage-background-videos/') return resolveBackgroundVideos;
-  if (prefix === 'hero-videos/' || prefix === 'hero-frames/') return resolveHeroConfig;
-  const reason = NO_RESOLVER[prefix] ?? 'No automatic check exists for this folder.';
-  return async () => ({ ok: false, reason });
+async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> {
+  const [backgroundVideos, hero, platformSettings] = await Promise.all([
+    readBackgroundVideoRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the homepage videos list (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
+    readHeroRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the sign-in page settings (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
+    readPlatformSettingsRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the site settings (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
+  ]);
+  return { backgroundVideos, hero, platformSettings };
 }
 
 export type WebsiteMediaReport = {
   configured: boolean;
   groups: MediaGroup[];
   summary: MediaSummary;
-  /** Set when the bucket itself could not be listed. */
-  listingError?: string;
 };
 
 /** Builds the whole page model: every allowlisted prefix, listed and classified. */
@@ -161,41 +228,70 @@ export async function loadWebsiteMedia(): Promise<WebsiteMediaReport> {
         reclaimableBytes: 0,
         reclaimableCount: 0,
         unknownCount: 0,
+        incomplete: false,
       },
     };
   }
 
-  // Fresh per request — a cached lookup would outlive the row it describes.
-  heroLookupPromise = null;
-
+  const sources = await readAllSources();
   const groups: MediaGroup[] = [];
-  let listingError: string | undefined;
 
   for (const prefix of SITE_MEDIA_PREFIXES) {
-    let objects: { key: string; size: number; lastModified: Date | null }[] = [];
+    const source = SOURCE_FOR_PREFIX[prefix.prefix];
+    const lookup: ReferenceLookup = source
+      ? sources[source]
+      : {
+          ok: false,
+          reason:
+            'This folder has no automatic check yet, so nothing in it can be removed from here.',
+        };
+
+    let objects: StoredObject[] = [];
+    let truncated = false;
+    let listingError: string | undefined;
+
     try {
-      objects = await r2List({
+      const listed = await r2List({
         bucket: R2_BUCKETS.media,
         prefix: prefix.prefix,
         maxKeys: MAX_KEYS_PER_PREFIX,
       });
+      truncated = listed.truncated;
+      objects = listed.objects.map((o) => ({
+        key: o.key,
+        size: o.size,
+        lastModified: o.lastModified ? o.lastModified.toISOString() : null,
+      }));
     } catch (err) {
-      // Could not even see the folder. Report it and skip — showing an empty
-      // group would read as "this folder is clean".
       listingError = err instanceof Error ? err.message : String(err);
-      continue;
     }
 
-    if (objects.length === 0) continue;
+    // A folder that failed to list is SHOWN, with its error — omitting it would
+    // read as "this folder is clean" and quietly shrink the reported total.
+    if (objects.length === 0 && !listingError) continue;
 
-    const lookup = await resolverFor(prefix.prefix)();
-    groups.push(classifyGroup({ prefix, objects, lookup }));
+    groups.push(classifyGroup({ prefix, objects, lookup, truncated, listingError }));
   }
 
-  return {
-    configured: true,
-    groups,
-    summary: summarize(groups),
-    ...(listingError ? { listingError } : {}),
-  };
+  return { configured: true, groups, summary: summarize(groups) };
+}
+
+/**
+ * Re-derives, server-side, whether ONE key is still referenced.
+ *
+ * The delete action calls this instead of trusting the page's rendering. The
+ * client's Delete button is disabled for anything not proven-leftover, but a
+ * `disabled` attribute is a hint to a browser, not a permission — and the
+ * verdict it was computed from may be seconds stale, or may have come from a
+ * read that has since started failing.
+ */
+export async function usageForKey(key: string): Promise<ReferenceLookup> {
+  const prefix = prefixFor(key);
+  if (!prefix) return { ok: false, reason: 'That file is not website media.' };
+
+  const source = SOURCE_FOR_PREFIX[prefix.prefix];
+  if (!source) return { ok: false, reason: 'This folder has no automatic check yet.' };
+
+  const sources = await readAllSources();
+  return sources[source];
 }

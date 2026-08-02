@@ -232,7 +232,7 @@ export async function r2Upload(args: {
 }
 
 /**
- * Lists every object under `prefix`, following pagination to the end.
+ * Lists objects under `prefix`, following pagination up to `maxKeys`.
  *
  * Read-only. Used by the admin website-media surface to see what is ACTUALLY
  * stored, as opposed to what the database still points at — the two drift apart
@@ -241,15 +241,22 @@ export async function r2Upload(args: {
  *
  * `maxKeys` is a hard stop, not a page size: callers pass a ceiling so a
  * mistakenly broad prefix can't pull an unbounded listing into a page render.
+ *
+ * ⚠ RETURNS `truncated`, AND CALLERS MUST SURFACE IT. Hitting the ceiling means
+ * the result is a floor, not a measurement; a caller that renders a total from a
+ * truncated listing states a smaller number than the truth with full confidence.
  */
 export async function r2List(args: {
   bucket: R2BucketName;
   prefix: string;
   maxKeys?: number;
-}): Promise<{ key: string; size: number; lastModified: Date | null }[]> {
+}): Promise<{
+  objects: { key: string; size: number; lastModified: Date | null }[];
+  truncated: boolean;
+}> {
   const client = requireR2Client();
   const ceiling = args.maxKeys ?? 5000;
-  const out: { key: string; size: number; lastModified: Date | null }[] = [];
+  const objects: { key: string; size: number; lastModified: Date | null }[] = [];
   let token: string | undefined;
 
   do {
@@ -263,17 +270,17 @@ export async function r2List(args: {
     );
     for (const o of page.Contents ?? []) {
       if (!o.Key) continue;
-      out.push({
+      objects.push({
         key: o.Key,
         size: o.Size ?? 0,
         lastModified: o.LastModified ?? null,
       });
-      if (out.length >= ceiling) return out;
+      if (objects.length >= ceiling) return { objects, truncated: true };
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);
 
-  return out;
+  return { objects, truncated: false };
 }
 
 /**

@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { R2_BUCKETS, publicUrlFor } from '@/lib/r2';
+import { retireReplacedMedia } from '@/lib/website-media-server';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -47,6 +48,16 @@ export async function saveBackgroundVideo(input: {
     if (!validSlot(input.slot)) return { ok: false, error: 'Invalid slot.' };
     if (!input.videoKey) return { ok: false, error: 'No uploaded video to save.' };
     const db = createAdminClient();
+
+    // Read the outgoing key BEFORE the update — after it, the row no longer
+    // remembers what it replaced and the old object is unreachable forever.
+    const { data: before } = await db
+      .from('homepage_background_videos')
+      .select('video_r2_key')
+      .eq('slot', input.slot)
+      .maybeSingle();
+    const previousKey = (before as { video_r2_key: string | null } | null)?.video_r2_key ?? null;
+
     const { error } = await db
       .from('homepage_background_videos')
       .update({
@@ -60,6 +71,17 @@ export async function saveBackgroundVideo(input: {
       })
       .eq('slot', input.slot);
     if (error) return { ok: false, error: error.message };
+
+    // Sweep the clip this one replaced. Best-effort and deliberately unawaited
+    // in spirit: it re-proves the old key is unreferenced before deleting, and a
+    // failure leaves an orphan (removable from /admin/website-media), never a
+    // failed save. Awaited only so the log lands inside the request.
+    await retireReplacedMedia({
+      previous: [previousKey],
+      next: [input.videoKey],
+      context: `background-video slot ${input.slot}`,
+    });
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Save failed.' };

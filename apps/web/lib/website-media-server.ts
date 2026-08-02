@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isR2Configured, R2_BUCKETS, r2List } from '@/lib/r2';
+import { isR2Configured, R2_BUCKETS, r2Delete, r2List } from '@/lib/r2';
+import { retirableKeys } from '@/lib/media-retirement';
 import {
   classifyGroup,
   keyFromRef,
@@ -294,4 +295,88 @@ export async function usageForKey(key: string): Promise<ReferenceLookup> {
 
   const sources = await readAllSources();
   return sources[source];
+}
+
+/**
+ * Sweeps up the objects an upload path just replaced.
+ *
+ * Called by `saveBackgroundVideo` / `saveHeroVideo` AFTER their row update
+ * succeeds. Until this existed, every replace left its predecessor in the bucket
+ * forever — one clip per background-video replace, and an entire
+ * `hero-frames/<sessionId>/` folder per hero re-upload.
+ *
+ * TWO INDEPENDENT REASONS ARE REQUIRED before anything is deleted:
+ *   1. `retirableKeys` — the key is site media and is not among the new values;
+ *   2. a FRESH reference read says nothing points at it any more.
+ *
+ * (2) is what makes this safe to run unattended. Two slots could in principle
+ * hold the same object, or a row we do not update could still reference it; the
+ * read settles that instead of assuming. If the read fails, NOTHING is deleted —
+ * an empty result and a denied query are the same value, and treating a failure
+ * as "unreferenced" would delete the live file this function exists to protect.
+ *
+ * BEST-EFFORT BY CONTRACT, matching `r2Delete`'s own docblock: a failure here
+ * leaves an orphan (visible and removable at /admin/website-media), never a
+ * broken publish. It never throws, and callers ignore the result.
+ */
+export async function retireReplacedMedia(args: {
+  previous: readonly (string | null | undefined)[];
+  next: readonly (string | null | undefined)[];
+  /** For the log line, e.g. 'background-video slot 3'. */
+  context: string;
+}): Promise<{ deleted: string[]; kept: string[] }> {
+  const deleted: string[] = [];
+  const kept: string[] = [];
+
+  try {
+    const candidates = retirableKeys({ previous: args.previous, next: args.next });
+    if (candidates.length === 0) return { deleted, kept };
+
+    const sources = await readAllSources();
+
+    for (const key of candidates) {
+      const prefix = prefixFor(key);
+      const source = prefix ? SOURCE_FOR_PREFIX[prefix.prefix] : undefined;
+      const lookup = source ? sources[source] : undefined;
+
+      // No resolver, or the read failed → we cannot prove it is unused. Leave it.
+      if (!lookup || !lookup.ok) {
+        kept.push(key);
+        continue;
+      }
+      if (lookup.keys.has(key)) {
+        // Something still points at it — a sibling row, or a value shape we
+        // normalised differently. Leave it alone.
+        kept.push(key);
+        continue;
+      }
+
+      try {
+        await r2Delete({ bucket: R2_BUCKETS.media, key });
+        deleted.push(key);
+      } catch (err) {
+        kept.push(key);
+        console.warn(
+          `[website-media] could not remove the replaced object ${key} (${args.context}): ` +
+            `${err instanceof Error ? err.message : String(err)}. It stays in storage and can be ` +
+            'removed from /admin/website-media.',
+        );
+      }
+    }
+
+    if (deleted.length || kept.length) {
+      console.info(
+        `[website-media] ${args.context}: removed ${deleted.length} replaced file(s), ` +
+          `kept ${kept.length} that could not be proven unused.`,
+      );
+    }
+  } catch (err) {
+    // Never let cleanup break a publish.
+    console.warn(
+      `[website-media] replacement sweep failed for ${args.context}: ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return { deleted, kept };
 }

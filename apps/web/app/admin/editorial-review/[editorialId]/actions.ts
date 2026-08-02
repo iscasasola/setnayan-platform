@@ -71,12 +71,18 @@ async function notifyCoupleEditorialDecision(
  * lookup through `createAdminClient()` — the RLS-bypassing service-role client
  * — which is the wrong client to let decide who you are.
  *
+ * NAMED `requireAdminWithServiceClient`, deliberately NOT `requireAdmin`: now
+ * that this file imports the canonical module, a local `requireAdmin` would
+ * SHADOW the real export — the precise pattern `lib/security/shadowed-export-scan.ts`
+ * exists to catch, and the shape that produced the divergence above. The name
+ * also states what it actually returns, which a bare `requireAdmin` did not.
+ *
  * The service-role client is still obtained here and still does all the WORK:
  * `event_editorial` reads/writes and the `event_members` fan-out in
  * `notifyCoupleEditorialDecision` genuinely need to bypass RLS (admins are not
  * members of the couple's event). It just no longer decides authorization.
  */
-async function requireAdmin() {
+async function requireAdminWithServiceClient() {
   const { userId } = await requireAdminAction();
   return { userId, admin: createAdminClient() };
 }
@@ -87,7 +93,7 @@ export async function resolveFlag(
   action: 'accept' | 'dismiss' | 'edit',
   adminEdit?: string,
 ) {
-  const { userId, admin } = await requireAdmin();
+  const { userId, admin } = await requireAdminWithServiceClient();
 
   const { data } = await admin
     .from('event_editorial')
@@ -117,7 +123,7 @@ export async function resolveFlag(
 }
 
 export async function unlockForCouple(editorialId: string) {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireAdminWithServiceClient();
 
   const { data } = await admin
     .from('event_editorial')
@@ -156,7 +162,7 @@ export async function unlockForCouple(editorialId: string) {
 }
 
 export async function triggerRescan(editorialId: string) {
-  const { admin } = await requireAdmin();
+  const { admin } = await requireAdminWithServiceClient();
 
   await admin
     .from('event_editorial')

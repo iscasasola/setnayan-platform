@@ -2451,18 +2451,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 41,
   },
   {
-    key: "admin.sidebar.hero-video",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/hero-video",
-    label: "Hero video",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Video",
-    customRef: null,
-    sortOrder: 42,
-  },
-  {
     key: "admin.sidebar.background-videos",
     scope: "admin",
     area: "admin-sidebar",

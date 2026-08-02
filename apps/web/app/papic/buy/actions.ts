@@ -24,6 +24,7 @@ import {
   resolveGuestRung,
   type PapicGuestBuyer,
 } from '@/lib/papic-guest-buy';
+import { ensureGuestOwnCameraAdmin } from '@/lib/papic-guest-own-camera';
 
 /**
  * GUESTS CAN BUY PAPIC — the I/O half (owner-locked 2026-07-29).
@@ -223,27 +224,52 @@ export async function startPapicGuestPurchase(formData: FormData) {
   // granting it one would silently move it off the pool the couple is watching).
   let seatId: string | null = buyer!.kind === 'seat' ? buyer!.seatId : null;
   if (rung.kind === 'one_reload') {
-    if (buyer!.kind !== 'seat') backTo(returnTo, 'no_camera');
-    // String() not a cast: a FormData entry can be a File, and a cast would let
-    // one reach `.trim()` and throw where a plain refusal belongs.
-    const target = resolveGuestReloadTarget(
-      String(formData.get('reload_seat_id') ?? ''),
-      buyer!.seatId,
-    );
-    if (!target.ok) backTo(returnTo, target.reason);
-    seatId = target.ok ? target.seatId : null;
+    if (buyer!.kind === 'seat') {
+      // String() not a cast: a FormData entry can be a File, and a cast would let
+      // one reach `.trim()` and throw where a plain refusal belongs.
+      const target = resolveGuestReloadTarget(
+        String(formData.get('reload_seat_id') ?? ''),
+        buyer!.seatId,
+      );
+      if (!target.ok) backTo(returnTo, target.reason);
+      seatId = target.ok ? target.seatId : null;
+    } else {
+      // ── THE EVENT-SITE GUEST (2026-08-02) ────────────────────────────────
+      // They hold a signed cookie, not a seat — and often no auth user at all —
+      // so before this there was nothing for a dedicated balance to attach to
+      // and they were refused outright. They are also exactly the guest the
+      // owner asked about: the one shooting the free shared pool.
+      //
+      // Give them a camera of their own. `guest_id` on paparazzi_seats already
+      // exists for host-bought Limited cameras, and those already run with a
+      // NULL claimer, so this is an INSERT into a shape the product has rather
+      // than a new identity model. Reuses their existing camera when they have
+      // one; the unique index makes a second impossible either way.
+      //
+      // 🔒 The guest id comes from `resolveGuestBuyer`, which re-reads the
+      // signed cookie under the admin client — never from this form. A form
+      // value here would let anyone mint a camera against any guest.
+      seatId = await ensureGuestOwnCameraAdmin(
+        admin,
+        buyer!.eventId,
+        buyer!.guestId,
+        rung.serviceCode,
+      );
+      // Fail CLOSED: no camera, no order. Selling points with nowhere to land
+      // would take money for shots that could never be granted.
+      if (!seatId) backTo(returnTo, 'no_camera');
+    }
 
-    // ⚠ NO "must already hold dedicated points" CHECK (removed 2026-08-02).
+    // ⚠ NEITHER BRANCH CHECKS "already holds dedicated points" (removed
+    // 2026-08-02). It was circular — nobody could buy their FIRST private shots
+    // — so a guest whose shared pot ran dry could only top up the HOST's pool,
+    // money anyone else could then spend.
     //
-    // It was circular — a guest could not buy their FIRST private shots without
-    // already owning private shots — so a pool guest whose shared pot ran dry
-    // could only top up the HOST's pool, money anyone else could then spend.
-    //
-    // Nothing is unguarded by its removal. `resolveGuestReloadTarget` above
-    // still refuses any seat but the one this buyer is holding (a hard refusal,
-    // never a silent redirect), and the buyer's seat is resolved from their own
-    // credential, not from the form. What the check actually protected was the
-    // host's pool accounting, and that protects itself:
+    // Nothing is unguarded by its removal. Each branch resolves the camera from
+    // the buyer's OWN credential and never from the form: a seat buyer through
+    // resolveGuestReloadTarget (a hard refusal for any other seat), a cookie
+    // buyer through their signed guest session. What the old check actually
+    // protected was the host's pool accounting, and that protects itself —
     // papic_reserve_event_points_for_seat returns -1 only WHILE the seat has
     // dedicated points, so a camera spends what its holder paid for first and
     // rejoins the shared pool the moment those are gone.

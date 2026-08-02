@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Loader2, Plus, X } from 'lucide-react';
 import type { PoolTile } from '@/lib/papic-pool-gallery';
+import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 
 /**
  * Shared Pool Gallery grid — the client half of /papic/pool.
@@ -19,9 +20,15 @@ type LinkState = 'idle' | 'busy';
 export function PoolGrid({
   initialTiles,
   initialCursor,
+  chapters,
 }: {
   initialTiles: PoolTile[];
   initialCursor: string | null;
+  /**
+   * How to chapter the feed — a countdown to the day, or the days of a trip.
+   * Resolved on the server from the event itself.
+   */
+  chapters: ChapterContext;
 }) {
   const [tiles, setTiles] = useState<PoolTile[]>(initialTiles);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
@@ -112,8 +119,13 @@ export function PoolGrid({
           {notice}
         </p>
       ) : null}
-      <ul className="grid grid-cols-3 gap-2">
-        {tiles.map((tile) => {
+      {groupIntoChapters(tiles, (t) => t.capturedAt, chapters).map((chapter) => (
+        <section key={chapter.key} className="mb-6 last:mb-0">
+          {/* One heading per chapter that actually has photos — a couple who shot
+              on four days sees four headings, not thirty empty ones. */}
+          <h2 className="sn-eye mb-2 text-ink/55">{chapter.label}</h2>
+          <ul className="grid grid-cols-3 gap-2">
+        {chapter.items.map((tile) => {
           const busy = busyId === tile.id;
           const state: LinkState = busy ? 'busy' : 'idle';
           return (
@@ -164,7 +176,9 @@ export function PoolGrid({
             </li>
           );
         })}
-      </ul>
+          </ul>
+        </section>
+      ))}
       {cursor ? (
         <button
           type="button"

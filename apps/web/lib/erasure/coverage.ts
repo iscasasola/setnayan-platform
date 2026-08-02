@@ -595,6 +595,78 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'added_by_user_id',
     why: 'Who pinned an inspiration image. The mood board is the couple’s shared work.',
   },
+  // ── final batch, settled 2026-08-02 · closes the 78-table backlog ──
+  {
+    table: 'vendor_release_history',
+    column: 'host_user_id',
+    why: 'The host side of a release record. Both parties are SET NULL stamps on a two-party event; the purge is subject-scoped so only the leaver’s own side is cleared.',
+  },
+  {
+    table: 'vendor_release_history',
+    column: 'vendor_user_id',
+    why: 'The vendor side of the same record. The release itself — reason, notes, snapshots — is the counterparty’s business history and stays.',
+  },
+  {
+    table: 'photo_delivery_jobs',
+    column: 'triggered_by_user_id',
+    why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
+  },
+  {
+    table: 'platform_compliance_facts',
+    column: 'updated_by',
+    why: 'Which admin last saved Setnayan’s own DPO/NPC registration facts. A singleton config row with a staff stamp.',
+  },
+  {
+    table: 'platform_expenses',
+    column: 'created_by',
+    why: 'Which admin logged an internal expense. Setnayan’s own money-out ledger; the entry stays, the clerk goes.',
+  },
+  {
+    table: 'promo_free_windows',
+    column: 'created_by',
+    why: 'Which admin scheduled a free-services window. Platform promo config.',
+  },
+  {
+    table: 'reveal_studio_config',
+    column: 'updated_by_admin_id',
+    why: 'Staff stamp on a five-column singleton config row.',
+  },
+  {
+    table: 'setnayan_pay_methods',
+    column: 'updated_by_user_id',
+    why: 'Which admin last edited a payment-rail row. Every rail is inactive in V1; the config is not a person’s record.',
+  },
+  {
+    table: 'site_widgets',
+    column: 'updated_by_admin_id',
+    why: 'Staff stamp on a homepage widget slug.',
+  },
+  {
+    table: 'vendor_self_comp_caps',
+    column: 'raised_by_admin',
+    why: 'Which admin raised a store’s quarterly comp ceiling. The cap belongs to the store.',
+  },
+  {
+    table: 'vendor_recommendations',
+    column: 'recommended_by_user_id',
+    why: 'Who recommended a vendor. The row is ABOUT the vendor; only the authorship is about the subject.',
+  },
+  {
+    table: 'vendor_locked_qr_tokens',
+    column: 'claimed_by_user_id',
+    why: 'The couple’s “this account consumed the token” stamp. #4032 settled the TOKEN separately — single use is enforced by the claim RPC’s conditional UPDATE, so rotation buys nothing; this covers the identity half it left open.',
+  },
+  {
+    table: 'vendor_review_appeals',
+    column: 'decided_by_admin',
+    why: 'Which admin ruled on the appeal. A staff stamp; the appeal itself is the reviewer’s and is deleted.',
+  },
+  {
+    table: 'vendor_event_access_grants',
+    column: 'granted_by',
+    why: 'Who issued the access grant. Deleting on this would revoke a THIRD PARTY’s access — the event_delegates lesson.',
+  },
+
   // ── batch 6, settled 2026-08-02 · mostly staff stamps on platform config ──
   {
     table: 'event_schedule_suggestions',
@@ -748,6 +820,28 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     column: 'voter_user_id',
     why: 'CASCADE + NOT NULL, and half the PRIMARY KEY — a row IS one named person’s single ballot, with no shared payload in it.',
   },
+  // ── final batch ──
+  {
+    table: 'vendor_team_members',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — the row IS this person’s seat in a store, and a seat is a credential that must not outlive the account. ⚠ Collides with the open VENDOR_LAST_ADMIN question: a store whose only admin leaves. That is a product decision about the STORE, not a reason to keep a departed person’s access.',
+  },
+  {
+    table: 'vendor_member_token_wallets',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — a personal, non-transferable balance mixing purchases, admin comps and escrow refunds. An earlier pass called it “lawful retention (a token purchase)” and was refuted: the money history lives in vendor_token_purchases and the redemption logs, which are untouched.',
+  },
+  {
+    table: 'vendor_review_appeals',
+    column: 'reviewer_user_id',
+    why: 'CASCADE + NOT NULL — the appeal is a dossier about this reviewer’s own review. Nulling is impossible and would void the statement.',
+  },
+  {
+    table: 'vendor_event_access_grants',
+    column: 'grantee_user_id',
+    why: 'CASCADE + NOT NULL — the row is THIS person’s access to an event. Its granted_by side is an actor stamp and is nulled instead, so nobody else loses access.',
+  },
+
   // ── batch 6 ──
   {
     table: 'event_schedule_suggestions',
@@ -1155,6 +1249,9 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   user_face_profiles: ['user_id'],
   push_subscriptions: ['user_id'],
   vendor_push_tokens: ['vendor_profile_id'],
+  // Purged inline in purge.ts through the subject's vendor profile — it has NO
+  // user column, so the generic .eq(column, targetUserId) loop cannot reach it.
+  vendor_ig_connections: ['vendor_profile_id'],
   dependents: ['owner_user_id'],
   godparents: ['owner_user_id'],
   guest_face_enrollments: ['guest_id'],

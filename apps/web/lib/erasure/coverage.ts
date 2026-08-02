@@ -558,6 +558,48 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'created_by_user_id',
     why: 'Who booked the meeting. The meeting is a two-party record read by the vendor; the booker’s identity goes and the slot stays.',
   },
+
+  // ── batch 5, settled 2026-08-02 · mostly STAFF stamps on platform content ──
+  {
+    table: 'concierge_brain_chunks',
+    column: 'last_verified_by_user_id',
+    why: 'Which staff member last checked a knowledge-base entry. The entry is Setnayan-authored platform content; only the reviewer’s identity is personal.',
+  },
+  {
+    table: 'concierge_plan_templates',
+    column: 'admin_edited_by_user_id',
+    why: 'Staff edit stamp on a platform planning template.',
+  },
+  {
+    table: 'concierge_response_cache',
+    column: 'admin_edited_by_user_id',
+    why: 'Staff edit stamp on a cached answer. The cache row holds no person’s data.',
+  },
+  {
+    table: 'discount_codes',
+    column: 'created_by_admin_id',
+    why: 'Which admin minted the code. The code is a platform pricing object with no subject.',
+  },
+  {
+    table: 'discount_code_eligible_users',
+    column: 'added_by_admin_id',
+    why: 'Which admin granted eligibility. ⚠ The row’s own user_id is retained — see PARTIALLY_PURGED; this entry covers only the staff stamp.',
+  },
+  {
+    table: 'event_feature_policy_override',
+    column: 'set_by_admin_id',
+    why: 'Which admin flipped a per-event feature. The override belongs to the event.',
+  },
+  {
+    table: 'event_inspiration_assets',
+    column: 'added_by_user_id',
+    why: 'Who pinned an inspiration image. The mood board is the couple’s shared work.',
+  },
+  {
+    table: 'event_egift_methods',
+    column: 'created_by_user_id',
+    why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
+  },
 ] as const;
 
 /**
@@ -654,6 +696,16 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_admin_motion_votes',
     column: 'voter_user_id',
     why: 'CASCADE + NOT NULL, and half the PRIMARY KEY — a row IS one named person’s single ballot, with no shared payload in it.',
+  },
+  {
+    table: 'community_members',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — a membership row is the record of THIS person belonging to a community.',
+  },
+  {
+    table: 'coordinator_feature_recommendations',
+    column: 'recommended_by_user_id',
+    why: '⚠ NOT NULL with NO FK — nulling is rejected by Postgres and would void the whole statement, and no clause could ever clear it. The row is the subject’s own suggestion.',
   },
   {
     table: 'vendor_admin_motions',

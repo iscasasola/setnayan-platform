@@ -437,6 +437,58 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'acknowledged_by_user_id',
     why: '⚠ NO FK AT ALL, same table, the counter-signature side. Nulled on the same pass.',
   },
+
+  // ── batch 2, settled 2026-08-02 ──────────────────────────────────────────
+  // 🔑 THE SCHEMA ITSELF SORTS THESE. Where a column is CASCADE + NOT NULL the
+  // row is ABOUT the person (it belongs in SUBJECT_ROW_DELETES); where it is
+  // SET NULL + nullable it is an ACTOR STAMP and belongs here. That is the same
+  // actor-or-subject test migration 20271032282809 applied to 30 FKs, read back
+  // out of tests/db/user-fk-behaviour.generated.txt rather than re-argued.
+  {
+    table: 'guest_checkins',
+    column: 'checked_in_by_user_id',
+    why: 'Whoever worked the door. The row’s subject is the arriving GUEST; the couple’s desk list reads it by event, never by its author.',
+  },
+  {
+    table: 'guest_souvenir_claims',
+    column: 'claimed_by_user_id',
+    why: 'The crew member handing out the souvenir, not the guest receiving it. Same object as a scan_events row with a different noun.',
+  },
+  {
+    table: 'event_blocked_users',
+    column: 'blocked_by_user_id',
+    why: 'Who applied the block. The block protects the EVENT and must outlive the organiser who set it, or it silently lifts.',
+  },
+  {
+    table: 'vendor_client_notes',
+    column: 'author_user_id',
+    why: 'The shop’s working notes on a client. The note belongs to the vendor business and is read by it; only the staff author’s identity goes.',
+  },
+  {
+    table: 'person_connections',
+    column: 'created_by_user_id',
+    why: 'Who recorded that two people are related. The relationship is the OTHER two people’s, so the edge stays and the recorder’s stamp goes.',
+  },
+  {
+    table: 'vendor_reviews',
+    column: 'couple_user_id',
+    why: 'Nulling anonymises the review; deleting it would silently move a vendor’s public star rating, which is a third party’s commercial record erasure does not reach.',
+  },
+  {
+    table: 'event_delegates',
+    column: 'granted_by_user_id',
+    why: 'SET NULL + nullable ⇒ an actor stamp. Deleting a delegation because the subject GRANTED it would revoke the coordinator’s access — someone else’s row.',
+  },
+  {
+    table: 'event_delegates',
+    column: 'revoked_by_user_id',
+    why: 'Same table, the revocation side. Also an actor stamp.',
+  },
+  {
+    table: 'person_stewardships',
+    column: 'created_by_user_id',
+    why: 'Who recorded the stewardship. Deleting on this column would destroy a THIRD PARTY’s stewardship because the subject happened to set it up.',
+  },
 ] as const;
 
 /**
@@ -464,6 +516,16 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_web_dossiers',
     column: 'requested_by',
     why: 'A verbatim snapshot of the subject’s own vendor profile, taken at their request. The row is ABOUT them, so it goes with them.',
+  },
+  {
+    table: 'event_delegates',
+    column: 'delegate_user_id',
+    why: 'CASCADE + NOT NULL — the schema’s own verdict that the row dies with the account. It is the record of THIS person’s access; erasure just never issued the delete that would have fired it. ⚠ Only this column: granted_by/revoked_by are actor stamps and are nulled instead.',
+  },
+  {
+    table: 'person_stewardships',
+    column: 'steward_user_id',
+    why: 'CASCADE + NOT NULL — the row records that THIS person stewards someone. The ward’s own record lives on people.claimed_by_user_id and is untouched; the transfer audit survives via ON DELETE SET NULL.',
   },
 ] as const;
 

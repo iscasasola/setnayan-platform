@@ -82,6 +82,8 @@ import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from '../security/migration-schema';
 import {
+  AUTHOR_UUID_NULLS,
+  SUBJECT_ROW_DELETES,
   ERASURE_COLUMN_WRITES,
   ERASURE_FILTER_COLUMNS,
   ERASURE_ROW_DELETES,
@@ -153,6 +155,12 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── settled 2026-08-02, batch 2 ──
+  creator_applications:
+    'DOES NOT EXIST IN PRODUCTION. Created by 20270813536704 and DROPPED by 20270815042234 (the self-apply→approve pipe was retired). The parser sees it because it unions every CREATE TABLE ever written; prod-schema.snapshot.txt has zero columns for it. Nothing to erase.',
+  blocked_users:
+    'A platform-wide block the SUBJECT placed or received. Erasing it would silently un-block someone — restoring contact the other party may have blocked for their own safety. The safety of the counterparty outranks the tidiness of the subject’s row; revisit only with a DPO ruling.',
+
   // ── de-identifies itself on account deletion ──
   // The ONLY subject-identifying column is `set_by_user_id`, declared
   // `ON DELETE SET NULL` (migration 20271022150821). Erasing the account
@@ -328,29 +336,27 @@ const KNOWN_GAPS: Record<string, string> = {
  * place and issues no DELETE, so the clause never fires on that path.
  */
 const UNDECIDED_BACKLOG: readonly string[] = [
-  'blocked_users', 'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
+  'community_members', 'concierge_brain_chunks', 'concierge_plan_templates',
   'concierge_response_cache', 'coordinator_broadcasts', 'coordinator_feature_recommendations',
-  'creator_applications', 'creator_chapters', 'discount_code_eligible_users', 'discount_codes',
-  'event_appointments', 'event_blocked_users', 'event_delegates', 'event_egift_methods',
-  'event_feature_policy_override', 'event_inspiration_assets', 'event_journey_steps',
-  'event_meaningful_dates', 'event_schedule_suggestions', 'event_vendor_working_notes',
-  'feature_policy', 'feature_reviews', 'force_majeure_flags', 'founder_seats',
-  'founder_time_log', 'guest_checkins', 'guest_souvenir_claims', 'homepage_background_videos',
-  'homepage_hero_config', 'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets',
-  'owner_alerts', 'person_connections', 'person_stewardships', 'photo_delivery_jobs',
-  'platform_compliance_facts', 'platform_expenses', 'platform_settings', 'promo_free_windows',
-  'proposal_amendments', 'referral_codes', 'referral_redemptions', 'reveal_studio_config',
-  'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers', 'vendor_admin_motion_votes',
-  'vendor_admin_motions', 'vendor_client_notes', 'vendor_correction_requests',
+  'creator_chapters', 'discount_code_eligible_users', 'discount_codes', 'event_appointments',
+  'event_egift_methods', 'event_feature_policy_override', 'event_inspiration_assets',
+  'event_journey_steps', 'event_meaningful_dates', 'event_schedule_suggestions',
+  'event_vendor_working_notes', 'feature_policy', 'feature_reviews', 'force_majeure_flags',
+  'founder_seats', 'founder_time_log', 'homepage_background_videos', 'homepage_hero_config',
+  'lead_token_holds', 'manpower_gigs', 'moodboard_library_assets', 'owner_alerts',
+  'photo_delivery_jobs', 'platform_compliance_facts', 'platform_expenses', 'platform_settings',
+  'promo_free_windows', 'proposal_amendments', 'referral_codes', 'referral_redemptions',
+  'reveal_studio_config', 'setnayan_pay_methods', 'site_widgets', 'stewardship_transfers',
+  'vendor_admin_motion_votes', 'vendor_admin_motions', 'vendor_correction_requests',
   'vendor_creator_offers', 'vendor_date_waitlist', 'vendor_disputes',
   'vendor_event_access_grants', 'vendor_ig_connections', 'vendor_invites',
   'vendor_locked_qr_tokens', 'vendor_meetings', 'vendor_member_token_wallets',
   'vendor_recommendations', 'vendor_release_history', 'vendor_review_appeals',
-  'vendor_reviews', 'vendor_self_comp_caps', 'vendor_team_members',
+  'vendor_self_comp_caps', 'vendor_team_members',
 ];
 
 /** Ratchet high-water mark. May be LOWERED, never raised. */
-const BACKLOG_HIGH_WATER = 67;
+const BACKLOG_HIGH_WATER = 57;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -563,4 +569,110 @@ test('G8 · the wizard_state allow-list matches WizardState’s CLOSED fields', 
       'field needs a decision: is it progress (add it, and say why it holds no personal data) ' +
       'or payload (leave it out — it is already stripped, this test just makes you look).',
   );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G6 · ACTOR-OR-SUBJECT — the schema decides, not the author of the list.
+//
+// A column you DELETE rows on must be the one the database itself marks as
+// dying with the account (ON DELETE CASCADE). A column you merely NULL must not
+// be. Getting this backwards is not a style error: on 2026-08-02 a settlement
+// proposed deleting an `event_delegates` row whenever the subject appeared in
+// ANY of its three user columns — which would revoke a WORKING COORDINATOR's
+// access because the leaver happened to be the person who granted it.
+//
+// ⚠ THE DB TEST DOES NOT CATCH THAT ON ITS OWN. `purge.ts` runs the null loop
+// BEFORE the delete loop, so a column listed in both is nulled first and the
+// delete then matches nothing. The over-deletion is masked by ORDERING — swap
+// the two loops and it becomes live again with every test still green. That is
+// why this check is structural and not behavioural.
+//
+// Source of truth is the generated FK map, never the migration text: migration
+// 20271032282809 rewrites 30 FKs inside a DO block, so CREATE TABLE lies.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FK_MAP = path.resolve(HERE, '..', '..', 'tests', 'db', 'user-fk-behaviour.generated.txt');
+
+/** `table.column` -> 'CASCADE' | 'SET NULL' | … , read from the generated map. */
+function fkBehaviour(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!fs.existsSync(FK_MAP)) return out;
+  for (const raw of fs.readFileSync(FK_MAP, 'utf8').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const m = /^(\S+)\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT)\s/.exec(line);
+    if (m?.[1] && m[2]) out.set(m[1], m[2]);
+  }
+  return out;
+}
+
+test('META · the generated FK map is readable (an empty map would pass everything)', () => {
+  const fk = fkBehaviour();
+  assert.ok(fk.size > 150, `only ${fk.size} FK behaviours parsed — regenerate the map, do not trust this run`);
+});
+
+test('G6 · no column is BOTH nulled and deleted-on — ordering must not be load-bearing', () => {
+  const nulled = new Set(AUTHOR_UUID_NULLS.map((r) => `${r.table}.${r.column}`));
+  const both = SUBJECT_ROW_DELETES.map((r) => `${r.table}.${r.column}`).filter((k) => nulled.has(k));
+  assert.deepEqual(
+    both,
+    [],
+    'A column in both lists is nulled first and the delete then matches nothing — the row survives ' +
+      'only because of loop order in purge.ts. Pick one: is the row ABOUT this person, or did they just touch it?\n  ' +
+      both.join('\n  '),
+  );
+});
+
+/**
+ * Row-deletes on a NON-CASCADE column, each with the argument for why the
+ * schema's clause is not the last word here.
+ *
+ * ⚠ The heuristic is strong but it is NOT a law. `ON DELETE CASCADE` is only
+ * evidence that someone APPLIED the actor-or-subject test — true of the 30
+ * columns migration 20271032282809 classified deliberately, and not guaranteed
+ * of anything older. A `SET NULL` that nobody ever thought about proves nothing.
+ * So an exception is allowed, and it has to be argued in writing.
+ */
+const DELETE_ON_NON_CASCADE: Record<string, string> = {
+  'vendor_web_dossiers.requested_by':
+    'The row is a verbatim snapshot of the SUBJECT’S OWN vendor profile, taken at their request — it is about them, not authored by them about someone else. Its SET NULL looks like an unexamined default: on a hard delete it would leave an orphaned dossier of a person who no longer exists, which is the outcome erasure exists to prevent. Settled 2026-08-02 and survived an adversarial pass.',
+};
+
+test('G6 · a row-delete column is one the schema says dies with the account', () => {
+  const fk = fkBehaviour();
+  const wrong = SUBJECT_ROW_DELETES.filter((r) => {
+    const key = `${r.table}.${r.column}`;
+    if (key in DELETE_ON_NON_CASCADE) return false;
+    const b = fk.get(key);
+    // No FK at all is allowed — nothing could ever have cleared it, which is
+    // precisely why erasure must. Anything WITH an FK must be CASCADE.
+    return b !== undefined && b !== 'CASCADE';
+  }).map((r) => `${r.table}.${r.column} is ${fk.get(`${r.table}.${r.column}`)}, not CASCADE`);
+
+  assert.deepEqual(
+    wrong,
+    [],
+    'These are ACTOR stamps by the database’s own reckoning, and deleting rows on them destroys ' +
+      'records belonging to whoever the row is actually about:\n  ' + wrong.join('\n  '),
+  );
+});
+
+test('G6 · a nulled column is NOT one the schema says dies with the account', () => {
+  const fk = fkBehaviour();
+  const wrong = AUTHOR_UUID_NULLS.filter((r) => fk.get(`${r.table}.${r.column}`) === 'CASCADE')
+    .map((r) => `${r.table}.${r.column}`);
+  assert.deepEqual(
+    wrong,
+    [],
+    'CASCADE means the row is ABOUT this person — nulling the column keeps a record that should ' +
+      'have gone with the account:\n  ' + wrong.join('\n  '),
+  );
+});
+
+test('G6 · every non-CASCADE delete exception is real and argued', () => {
+  const listed = new Set(SUBJECT_ROW_DELETES.map((r) => `${r.table}.${r.column}`));
+  for (const [key, why] of Object.entries(DELETE_ON_NON_CASCADE)) {
+    assert.ok(listed.has(key), `${key} is excepted but is not in SUBJECT_ROW_DELETES — stale exception, delete it`);
+    assert.ok(why.trim().length > 80, `${key} is excepted with no argument — write one or drop the row-delete`);
+  }
 });

@@ -489,6 +489,38 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'created_by_user_id',
     why: 'Who recorded the stewardship. Deleting on this column would destroy a THIRD PARTY’s stewardship because the subject happened to set it up.',
   },
+
+  // ── batch 3, settled 2026-08-02 · every split is the FK map's own verdict ──
+  {
+    table: 'event_appointments',
+    column: 'proposed_by_user_id',
+    why: 'Who proposed the meeting time. Nullable with NO FK, so nothing could ever clear it. The appointment belongs to both parties and is read by event.',
+  },
+  {
+    table: 'feature_reviews',
+    column: 'couple_user_id',
+    why: 'Nulling anonymises the feedback; the review itself is product data the platform acts on, not a record about the person.',
+  },
+  {
+    table: 'vendor_disputes',
+    column: 'opened_by_user_id',
+    why: 'Who raised the dispute. The dispute is a two-party record and the vendor’s side of it must survive the complainant leaving.',
+  },
+  {
+    table: 'vendor_correction_requests',
+    column: 'resolved_by',
+    why: 'The staff member who resolved it. An admin actor stamp on someone else’s correction request.',
+  },
+  {
+    table: 'vendor_creator_offers',
+    column: 'holder_user_id',
+    why: 'The member who pays for the offer. SET NULL ⇒ actor stamp; the offer belongs to the store, and its creator side is handled separately below.',
+  },
+  {
+    table: 'vendor_invites',
+    column: 'claimed_by_user_id',
+    why: 'The vendor who accepted an invitation. SET NULL ⇒ a stamp on the STORE’s invite; the store keeps its record when a staff member leaves.',
+  },
 ] as const;
 
 /**
@@ -526,6 +558,38 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'person_stewardships',
     column: 'steward_user_id',
     why: 'CASCADE + NOT NULL — the row records that THIS person stewards someone. The ward’s own record lives on people.claimed_by_user_id and is untouched; the transfer audit survives via ON DELETE SET NULL.',
+  },
+
+  // ── batch 3 · every one of these is CASCADE + NOT NULL, or has no FK at all ──
+  {
+    table: 'creator_chapters',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL. A creator chapter is the subject’s own body of work on the platform.',
+  },
+  {
+    table: 'lead_token_holds',
+    column: 'holder_user_id',
+    why: 'CASCADE + NOT NULL. A hold the subject personally placed; it expires on its own and holds no counterparty record.',
+  },
+  {
+    table: 'vendor_date_waitlist',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL. The subject asked to be told when a date frees up — a standing request to CONTACT them, which must not outlive the account. Leaving it would email an erased person.',
+  },
+  {
+    table: 'vendor_creator_offers',
+    column: 'creator_user_id',
+    why: 'CASCADE + NOT NULL — the offer is addressed TO this creator, so the row is about them. Its holder side is an actor stamp and is nulled instead.',
+  },
+  {
+    table: 'vendor_invites',
+    column: 'invited_by_user_id',
+    why: 'CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it. The claimed side is a stamp and is nulled, so a store that already accepted keeps its record.',
+  },
+  {
+    table: 'coordinator_broadcasts',
+    column: 'sender_user_id',
+    why: '⚠ NOT NULL with NO FK — nulling is impossible (Postgres rejects it and voids the whole statement) and nothing would cascade. The row is 1–500 chars of prose the subject typed to the couple’s guests on a day now long past; same call as chat_messages, where authored prose goes and the thread stays.',
   },
 ] as const;
 

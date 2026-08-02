@@ -27,6 +27,16 @@ export type GuestLivePhoto = {
   /** Which capture table `id` points at — lets the guest drop a wrong auto-tag. */
   sourceTable: 'papic_photos' | 'papic_guest_captures';
   url: string;
+  /**
+   * When the photo was SHOT — not when it was tagged. Drives the gallery's
+   * chapters (lib/papic-chapters.ts). Null when the row has no timestamp, which
+   * lands the photo under "Everything else" rather than losing it.
+   *
+   * ⚠ Deliberately the capture time and not `photo_tags.created_at`: a guest
+   * tagged into a five-month-old planning photo today belongs in the chapter
+   * where the photo was TAKEN, not in this week's.
+   */
+  capturedAt: string | null;
 };
 
 export type GuestLiveGallery = {
@@ -63,7 +73,7 @@ export async function getGuestLiveGallery(
       photoIds.length
         ? admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, thumb_r2_key, display_r2_key')
+            .select('photo_id, r2_object_key, thumb_r2_key, display_r2_key, captured_at')
             .in('photo_id', photoIds)
             .eq('moderation_state', 'clean')
             .eq('photo_type', 'photo')
@@ -74,12 +84,13 @@ export async function getGuestLiveGallery(
               r2_object_key: string;
               thumb_r2_key: string | null;
               display_r2_key: string | null;
+              captured_at: string | null;
             }[],
           }),
       captureIds.length
         ? admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, thumb_r2_key, display_r2_key')
+            .select('capture_id, r2_object_key, thumb_r2_key, display_r2_key, captured_at')
             .in('capture_id', captureIds)
             .eq('moderation_state', 'clean')
             // Guest CLIPS (media_type='clip') are excluded — this gallery is
@@ -95,6 +106,7 @@ export async function getGuestLiveGallery(
               r2_object_key: string;
               thumb_r2_key: string | null;
               display_r2_key: string | null;
+              captured_at: string | null;
             }[],
           }),
     ]);
@@ -114,13 +126,22 @@ export async function getGuestLiveGallery(
       display_r2_key: string | null;
     }): string | undefined => r.thumb_r2_key ?? r.display_r2_key ?? undefined;
     const keyById = new Map<string, string>();
+    // Capture time rides alongside the key so the chapters below read the moment
+    // the photo was SHOT, not the moment somebody tagged this guest into it.
+    const shotAtById = new Map<string, string | null>();
     for (const p of photosRes.data ?? []) {
       const k = webRef(p);
-      if (k) keyById.set(p.photo_id, k);
+      if (k) {
+        keyById.set(p.photo_id, k);
+        shotAtById.set(p.photo_id, (p.captured_at as string | null) ?? null);
+      }
     }
     for (const c of capturesRes.data ?? []) {
       const k = webRef(c);
-      if (k) keyById.set(c.capture_id, k);
+      if (k) {
+        keyById.set(c.capture_id, k);
+        shotAtById.set(c.capture_id, (c.captured_at as string | null) ?? null);
+      }
     }
 
     const ordered = tags
@@ -138,7 +159,9 @@ export async function getGuestLiveGallery(
       await Promise.all(
         top.map(async ({ id, sourceTable, key }) => {
           const url = await displayUrlForStoredAsset(key, { ttlSeconds: URL_TTL_SECONDS });
-          return url ? { id, sourceTable, url } : null;
+          return url
+            ? { id, sourceTable, url, capturedAt: shotAtById.get(id) ?? null }
+            : null;
         }),
       )
     ).filter((p): p is GuestLivePhoto => Boolean(p));

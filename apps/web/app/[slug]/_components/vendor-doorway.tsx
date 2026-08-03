@@ -46,7 +46,7 @@ export function VendorDoorway({ capability }: { capability: VendorCapability }) 
           <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-link">
+          <span className="block font-mono text-xs font-bold uppercase tracking-[0.14em] text-link">
             You are booked here
           </span>
           <span className="block truncate text-sm text-ink/75">

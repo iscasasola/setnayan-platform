@@ -2,6 +2,46 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
+## 🛑 RULE 0 — FIND IT BEFORE YOU BUILD IT (owner-locked 2026-07-27)
+
+**This project is ~2 years of design and code. Almost nothing you are asked for is new.**
+The owner has paid, more than once, to have a page recreated that already existed. Assume what
+you are about to build **already exists** and your job is to *locate it and extend it*.
+
+**Before writing ANY code, prototype, migration, or design, run this and paste the results into
+your reply:**
+
+```bash
+# 1. THE SHIPPED COMPONENT — what does the app already do?
+grep -rln "<the feature noun>" apps/web/app apps/web/lib --include="*.tsx" --include="*.ts" | head
+# 2. THE DESIGN — open the file whose NAME matches the task, not the ones near it
+ls ~/Documents/Claude/Projects/Setnayan/Design_*/ ; ls ~/Documents/Claude/Projects/Setnayan/*.md
+# 3. THE DECISION — is it already settled?
+grep -n "<the feature noun>" ~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md | tail -20
+```
+
+Then state, in one line each, **what exists · what is missing · the delta you will build.**
+If you cannot name the existing component and the existing design, **you have not searched enough
+— do not start.**
+
+### The rules that follow from it
+
+1. **Extend, never re-draw.** Open the shipped component and reproduce its real copy and
+   structure. Your output shows only the DELTA. Recreating a working screen is a defect, not a
+   deliverable.
+2. **Read the owner's phrasing as an instruction about an existing thing.** "their package will
+   show completely… *then* at the bottom a line… *then* a checkbox" = **append one section.**
+   Words like *then · at the bottom · also · as well* signal an addition, never a new screen.
+3. **A flag/filter flip beats new schema.** Before adding a column, ask which existing column
+   already encodes it (`is_default_included`, `is_required`, `pricing_basis`, `is_active`).
+   Worked example: "catalogue picker" turned out to be `vendor_package_items` rows with
+   `is_default_included = false`, which vendors already author and `lock-modal.tsx` deliberately
+   hides.
+4. **A dated `*_LOCKED_*.md` / `*_BUILD_SPEC_*.md` outranks any handoff.** Handoffs go stale;
+   locked docs are the decision. Check both before asking the owner anything.
+5. **If it already exists, say where — do not build a demo to prove the point.**
+6. **Never ask the owner a question the corpus answers.** Grep first; cite what you checked.
+
 ## What this repo is
 
 The Setnayan V1 implementation. **All product specs and decision logs live OUTSIDE this repo** at `~/Documents/Claude/Projects/Setnayan/`. Read that folder's `CLAUDE.md` for the canonical decision log before any iteration work.

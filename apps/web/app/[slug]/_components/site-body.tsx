@@ -29,6 +29,7 @@ import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { VendorDoorway } from './vendor-doorway';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
@@ -69,6 +70,7 @@ import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
   OwnerCapability,
+  VendorCapability,
   SiteIdentity,
 } from '../_lib/site-identity';
 import type {
@@ -319,6 +321,8 @@ type SiteBodyProps = {
    *  visitor including the owner. The PR that mounts owner controls consumes
    *  it — and must keep the gate here on the server, never by hiding UI. */
   ownerCapability?: OwnerCapability | null;
+  /** A booked supplier's server-verified grant; drives the doorway strip. */
+  vendorCapability?: VendorCapability | null;
 };
 
 export function SiteBody({
@@ -351,6 +355,7 @@ export function SiteBody({
   siteColorVars,
   editorMode = false,
   ownerCapability = null,
+  vendorCapability = null,
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -1531,6 +1536,12 @@ export function SiteBody({
           phase: the STD film owns audio there, and this floating speaker control
           would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
       {plan.backgroundMusic && bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* THE SUPPLIER DOORWAY. Rendered here, above the tier fork, because a
+          booked supplier can arrive as EITHER tier — as a guest if the couple
+          also invited them, or anonymously with just the link. Gating it inside
+          one tree would hide it from the other half of real suppliers.
+          `vendorCapability` is null for everyone else, so nothing renders. */}
+      {vendorCapability ? <VendorDoorway capability={vendorCapability} /> : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
       {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
           editor's preview iframe. `editorMode` is TRUE only for a verified host

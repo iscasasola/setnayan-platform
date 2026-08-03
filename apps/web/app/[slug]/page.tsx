@@ -38,6 +38,7 @@ import {
   loadEventShell,
   loadGuestContext,
   loadHostMembership,
+  loadVendorBooking,
   loadLiveLayer,
   loadMedia,
   loadWidgets,
@@ -46,6 +47,7 @@ import {
   anonymousIdentity,
   guestIdentity,
   resolveOwnerCapability,
+  resolveVendorCapability,
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
@@ -493,6 +495,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
   });
 
+  // The supplier doorway's grant. Same shape and same discipline as the owner
+  // capability above: one query, answered by the DB, bound to this event and
+  // this auth user. A cookie-only guest has no account, so no capability.
+  const vendorCapability = await resolveVendorCapability({
+    eventId: event.event_id,
+    viewerUserId: viewerAccount?.id ?? null,
+    checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
+  });
+
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
@@ -527,6 +538,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     editorMode,
     // Declared-but-unconsumed foundation (see the owner-layer block above).
     ownerCapability,
+    vendorCapability,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

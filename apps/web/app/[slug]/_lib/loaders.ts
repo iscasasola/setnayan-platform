@@ -156,6 +156,62 @@ export const loadHostMembership = cache(
 );
 
 /**
+ * Booked-vendor probe for the vendor doorway.
+ *
+ * WHAT IT ANSWERS: "is the signed-in viewer a supplier this couple has booked
+ * on THIS event, and if so which of their businesses is it?" It is the vendor
+ * twin of `loadHostMembership`, and it is deliberately just as narrow — it
+ * returns an id and a trading name, never anything about the event.
+ *
+ * WHY THE ADMIN CLIENT. The couple's `/[slug]` page renders for anonymous
+ * visitors with no RLS session, exactly as `loadHostMembership` and the widget
+ * registry already do. The membership question is answered HERE, in one query,
+ * and the answer is the only thing that travels — so a stranger cannot reach a
+ * vendor control by asking for one.
+ *
+ * TWO JOINS, ONE ANSWER. `event_vendors` is the couple's own list of who they
+ * booked; `linked_vendor_profile_id` is set once a real Setnayan vendor claims
+ * that row. So an unclaimed hand-typed "Tita's Catering" resolves to nobody,
+ * which is correct — there is no account to send anywhere.
+ *
+ * React.cache'd: the page asks once even if several surfaces want it.
+ */
+export const loadVendorBooking = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    userId: string,
+  ): Promise<{ vendorProfileId: string; businessName: string } | null> => {
+    // The businesses this user owns or administers.
+    const { data: mine } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .eq('user_id', userId);
+    const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
+    if (owned.length === 0) return null;
+
+    // …narrowed to the one the couple actually booked on this event.
+    const { data: booked } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', eventId)
+      .in(
+        'linked_vendor_profile_id',
+        owned.map((v) => v.vendor_profile_id),
+      )
+      .limit(1)
+      .maybeSingle();
+
+    const id = (booked as { linked_vendor_profile_id: string | null } | null)
+      ?.linked_vendor_profile_id;
+    if (!id) return null;
+    const match = owned.find((v) => v.vendor_profile_id === id);
+    if (!match) return null;
+    return { vendorProfileId: match.vendor_profile_id, businessName: match.business_name };
+  },
+);
+
+/**
  * Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
  * Drives which widgets render on this page and in what order. Every event
  * has 12 rows after the backfill; pre-backfill events fall back to "render

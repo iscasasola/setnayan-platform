@@ -30,6 +30,7 @@ import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { VendorDoorway } from './vendor-doorway';
+import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
@@ -468,6 +469,23 @@ export function SiteBody({
         <EditorialContent eventId={event.event_id} />
       )
     ) : plan.body === 'save_the_date' ? (
+      // OPEN BROWSE: the film stops being a wall. It still plays first and in
+      // full — nothing bought is skipped — but once its closing beat is reached
+      // the visitor can step into the site, and step back to the film whenever
+      // they like. Flag-off keeps the takeover exactly as today: the wrapper is
+      // not mounted at all, so that path is byte-identical.
+      plan.openBrowse ? (
+        <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
+      ) : (
+        stdFilmView()
+      )
+    ) : (
+      normalBody()
+    );
+
+  /** The Save-the-Date view, factored so the open-browse and flag-off branches
+   *  above render the IDENTICAL film rather than two drifting copies. */
+  const stdFilmView = () => (
       <SaveTheDateView
         displayName={event.display_name}
         dateIso={event.event_date}
@@ -505,10 +523,9 @@ export function SiteBody({
         launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
         themeId={event.std_theme}
         accentHex={stdAccentColor(event)}
+        canExit={plan.openBrowse}
       />
-    ) : (
-      normalBody()
-    );
+  );
 
   /** The anonymous tree — verbatim the old PublicLanding body. */
   const anonymousTree = (anon: AnonymousSiteIdentity) => {

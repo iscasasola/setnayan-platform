@@ -29,6 +29,8 @@ import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 
 type Props = {
+  /** Open browse: let the film offer a way into the site once it has finished. */
+  canExit?: boolean;
   displayName: string;
   dateIso: string | null;
   venueName: string | null;
@@ -89,6 +91,7 @@ type Props = {
 };
 
 export function SaveTheDateView({
+  canExit = false,
   displayName,
   dateIso,
   venueName,
@@ -152,6 +155,7 @@ export function SaveTheDateView({
           <StdBackgroundLayer background={background} imageUrl={backgroundImageUrl ?? null} fixed />
         ) : null}
         <SaveTheDateFilm
+          canExit={canExit}
           content={content}
           themeId={resolveStdTheme(themeId)}
           transparent={Boolean(background)}

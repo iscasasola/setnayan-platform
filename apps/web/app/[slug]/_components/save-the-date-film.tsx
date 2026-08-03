@@ -180,6 +180,15 @@ const ANIM = {
  * it will bypass the onboarding logo"). Reuses HeroMonogram — the one canonical
  * lockup renderer — so the film matches the hero/chrome/QR mark exactly.
  */
+/**
+ * The film's way out. A CustomEvent rather than a callback prop because the
+ * film is mounted by SERVER components (SaveTheDateView ← site-body), so a
+ * function cannot cross the boundary. Same pattern the Papic buy sheet already
+ * uses for `papic:out-of-shots`. Exported so the listener can never drift from
+ * the dispatcher.
+ */
+export const STD_FILM_EXIT_EVENT = 'std:film-exit';
+
 export type StdLockup = {
   /** events monogram design columns (HeroMonogram reads these). */
   design: {
@@ -344,6 +353,7 @@ export function SaveTheDateFilm({
   preview = false,
   fill = false,
   transparent = false,
+  canExit = false,
   tone = null,
   lockup = null,
   accentHex = null,
@@ -378,6 +388,8 @@ export function SaveTheDateFilm({
    *  Background layer behind it shows through (Background replaces the theme bg;
    *  the theme still drives fonts + text/accent colours). 2026-06-19. */
   transparent?: boolean;
+  /** Open browse only: offer a way out of the film once it has finished. */
+  canExit?: boolean;
   /** Legibility text tone over a Step-1 background (lib/std-backgrounds ·
    *  resolveStdLegibility). 'light' = light text (on a darkened veil), 'dark' =
    *  dark text (on a cream veil), null = use the theme's own text colours. The
@@ -713,6 +725,28 @@ export function SaveTheDateFilm({
             >
               Add to calendar
             </a>
+          </div>
+        ) : null}
+        {/* THE WAY OUT — open browse only, and ONLY once this beat is ACTIVE.
+            `idx === closeIdx` is a real mount condition, not a style: every beat
+            node is mounted for the whole film behind `pointer-events-none` +
+            `aria-hidden`, and NEITHER removes an element from the tab order. A
+            button merely *rendered inside* this beat would be Tab-reachable from
+            frame one — under the veil, before the music, the clip or the gallery
+            have played. Two keystrokes would skip everything the couple paid
+            for. Mounting it here means it does not exist until the film is
+            genuinely over. */}
+        {canExit && idx === closeIdx ? (
+          <div className="mt-5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-5 py-2.5 text-sm font-medium opacity-80 transition-opacity hover:opacity-100 ${theme.outerFg}`}
+              style={{ borderColor: 'currentColor' }}
+            >
+              See our page
+              <span aria-hidden>↓</span>
+            </button>
           </div>
         ) : null}
       </div>

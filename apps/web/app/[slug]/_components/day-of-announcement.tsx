@@ -40,7 +40,7 @@ export function DayOfAnnouncement({ body }: { body: string }) {
           <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-terracotta-700">
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700">
             From the coordinator
           </p>
           {/* The coordinator's own words, rendered as text. Never markdown,

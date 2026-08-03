@@ -208,6 +208,10 @@ export const loadVendorBooking = cache(
     const match = owned.find((v) => v.vendor_profile_id === id);
     if (!match) return null;
     return { vendorProfileId: match.vendor_profile_id, businessName: match.business_name };
+  },
+);
+
+/**
  * Day-of announcements for the GUEST side.
  *
  * ── THE HALF THAT WAS MISSING ───────────────────────────────────────────────

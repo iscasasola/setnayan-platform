@@ -78,7 +78,6 @@ import {
   UserX,
   Users,
   UsersRound,
-  Video,
   Wallet,
   WifiOff,
 } from 'lucide-react';
@@ -96,6 +95,332 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     key: 'queues',
     label: 'Overview',
     items: [
+      {
+        key: 'overview',
+        label: 'Overview',
+        href: '/admin',
+        icon: Home,
+      },
+      {
+        // All work — the command-center worklist: every act-now queue ranked
+        // most-urgent-first (overdue → due-soon → busiest) in one view. This is
+        // the desktop entry to the /admin/work feed the mobile Work tab already
+        // lands on. Unbadged on purpose — the per-queue rows below carry counts.
+        key: 'work-home',
+        label: 'All work',
+        href: '/admin/work',
+        icon: ListChecks,
+        matchPrefix: '/admin/work',
+      },
+      {
+        key: 'verify',
+        label: 'Verify',
+        href: '/admin/verify',
+        icon: BadgeCheck,
+        matchPrefix: '/admin/verify',
+      },
+      {
+        // Vendor Partnerships — two-admin verification queue for vendor-to-vendor
+        // commercial relationships (accredited / sponsored / general). Badges are
+        // invisible until a second admin confirms. Vendor-side stub at
+        // /vendor-dashboard/partnerships lets vendors submit claims.
+        key: 'vendor-partnerships',
+        label: 'Partnerships',
+        href: '/admin/vendor-partnerships',
+        icon: Handshake,
+        matchPrefix: '/admin/vendor-partnerships',
+      },
+      {
+        key: 'payments',
+        label: 'Payments',
+        href: '/admin/payments',
+        icon: Banknote,
+        matchPrefix: '/admin/payments',
+      },
+      {
+        // Money queue — vendor payout release (was in Money group).
+        key: 'payouts',
+        label: 'Payouts',
+        href: '/admin/payouts',
+        icon: Wallet,
+      },
+      {
+        // Money queue — vendor token-pack purchase reconcile (was in Money).
+        key: 'token-purchases',
+        label: 'Token sales',
+        href: '/admin/token-purchases',
+        icon: ShoppingBag,
+        matchPrefix: '/admin/token-purchases',
+      },
+      {
+        // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
+        key: 'subscriptions',
+        label: 'Subscriptions',
+        href: '/admin/subscriptions',
+        icon: RefreshCw,
+        matchPrefix: '/admin/subscriptions',
+      },
+      {
+        key: 'payment-options',
+        label: 'Payment options',
+        href: '/admin/payment-options',
+        icon: CreditCard,
+        matchPrefix: '/admin/payment-options',
+      },
+      {
+        key: 'disputes',
+        label: 'Disputes',
+        href: '/admin/disputes',
+        icon: Shield,
+        matchPrefix: '/admin/disputes',
+      },
+      {
+        key: 'pax-changes',
+        label: 'Pax changes',
+        href: '/admin/pax-changes',
+        icon: UsersRound,
+        matchPrefix: '/admin/pax-changes',
+      },
+      {
+        key: 'force-majeure',
+        label: 'Force majeure',
+        href: '/admin/force-majeure',
+        icon: AlertOctagon,
+        matchPrefix: '/admin/force-majeure',
+      },
+      {
+        key: 'completions',
+        label: 'Completions',
+        href: '/admin/completions',
+        icon: Handshake,
+        matchPrefix: '/admin/completions',
+      },
+      {
+        key: 'reviews',
+        label: 'Reviews',
+        href: '/admin/reviews',
+        icon: Star,
+      },
+      {
+        key: 'concierge-abuse',
+        label: "Setnayan AI abuse",
+        href: '/admin/concierge-abuse',
+        icon: Flag,
+      },
+      {
+        // Self-serve account-deletion request queue (App Store 5.1.1(v) /
+        // Google Play data-deletion). Couples + vendors file deletion requests
+        // from Profile → Privacy & data; an admin approves (runs the existing
+        // hard-delete / blacklist) or rejects within 24h.
+        key: 'account-deletions',
+        label: 'Account deletions',
+        href: '/admin/account-deletions',
+        icon: UserX,
+        matchPrefix: '/admin/account-deletions',
+      },
+      {
+        // UGC report queue (Apple 1.2 / Google Play UGC). Reports filed against
+        // Papic guest gallery content land here for moderator review.
+        key: 'user-reports',
+        label: 'User reports',
+        href: '/admin/user-reports',
+        icon: MessageSquareWarning,
+        matchPrefix: '/admin/user-reports',
+      },
+      {
+        // Off-platform-contact chat flags. Couple↔vendor messages caught sharing
+        // a phone/email/social link/@handle/app-name/euphemism/solicitation get
+        // masked at send time and recorded here (gated by
+        // CHAT_CONTACT_FILTER_ENABLED). Anti-disintermediation review queue.
+        key: 'chat-flags',
+        label: 'Chat contact flags',
+        href: '/admin/chat-flags',
+        icon: ShieldAlert,
+        matchPrefix: '/admin/chat-flags',
+      },
+      {
+        // Reverse-image repost-watch queue. Cross-vendor perceptual-hash matches
+        // (a vendor's new upload matching an older image owned by a DIFFERENT,
+        // non-demo vendor). Detect-and-review only — never auto-takes-down.
+        key: 'repost-watch',
+        label: 'Repost watch',
+        href: '/admin/repost-watch',
+        icon: ScanSearch,
+        matchPrefix: '/admin/repost-watch',
+      },
+      {
+        // Request-a-correction queue (verified-profile lock, owner 2026-07-02).
+        // Verified shops can't edit their 8 identity fields directly; they file
+        // a correction request that an admin applies or declines here.
+        key: 'corrections',
+        label: 'Profile corrections',
+        href: '/admin/corrections',
+        icon: PencilRuler,
+        matchPrefix: '/admin/corrections',
+      },
+      {
+        // Data Privacy & NPC Filing hub (RA 10173) — one surface, four tabs:
+        // the live control board (one approval switch per privacy-sensitive
+        // capability; feature gates read status='active'), filing coverage &
+        // drift, the NPC pre-filing checklist, and the submission documents.
+        // /admin/npc-readiness redirects into ?tab=checklist.
+        key: 'data-privacy',
+        label: 'Data Privacy & NPC Filing',
+        href: '/admin/data-privacy',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/data-privacy',
+      },
+      {
+        // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost
+        // listings). Deterministic scoring of submitted reviews (velocity/burst,
+        // rating anomaly, shared-device reviewer clusters) + placeholder /
+        // abandoned / duplicate marketplace listings. Detect-and-review only —
+        // never auto-deletes a review or hides a listing without an admin click.
+        key: 'integrity-watch',
+        label: 'Integrity watch',
+        href: '/admin/integrity-watch',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/integrity-watch',
+      },
+      {
+        // Anti-fraud Phase 4 (§ 5) — per-VENDOR fraud queue + enforcement. The
+        // continuous fake-results hunt scores whole vendors (ring / velocity /
+        // graph / import / rating-shape); this surface reviews them and runs the
+        // two-stage enforcement (reversible auto-suspend + admin-confirmed
+        // wipe+ban). Distinct from integrity-watch (per-review/per-listing).
+        key: 'fraud',
+        label: 'Fraud queue',
+        href: '/admin/fraud',
+        icon: ShieldAlert,
+        matchPrefix: '/admin/fraud',
+      },
+      {
+        // Two-admin (four-eyes) approval queue — §9.1. A different admin
+        // approves a major decision before it executes.
+        key: 'approvals',
+        label: 'Approvals',
+        href: '/admin/approvals',
+        icon: CheckCheck,
+      },
+      {
+        // Pakanta songwriting queue — each couple's custom-song brief, auto-
+        // composed from their onboarding love story + Pakanta music prefs
+        // (lib/pakanta-brief.ts). The music team writes the song from it.
+        key: 'pakanta',
+        label: 'Pakanta queue',
+        href: '/admin/pakanta',
+        icon: Music,
+        matchPrefix: '/admin/pakanta',
+      },
+      {
+        key: 'editorial-review',
+        label: 'Editorial review',
+        href: '/admin/editorial-review',
+        icon: Newspaper,
+        matchPrefix: '/admin/editorial-review',
+      },
+      {
+        key: 'help',
+        label: 'Help',
+        href: '/admin/help',
+        icon: LifeBuoy,
+      },
+    ],
+  },
+  {
+    // ACCOUNTS (key 'directory' kept for localStorage continuity) — pure
+    // record-lookup. UNCHANGED items. (Spotlight Awards + Journal Spotlights
+    // live in Studio — featuring is a curation/publishing lever, not look-up.)
+    key: 'directory',
+    label: 'Accounts',
+    items: [
+      {
+        // Repointed to the Accounts Studio Users tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/users path + any future
+        // /admin/users/[id] detail route (which stays standalone).
+        key: 'users',
+        label: 'Users',
+        href: '/admin/accounts?tab=users',
+        icon: Users,
+        matchPrefix: '/admin/users',
+      },
+      {
+        // Founder seats — up to 10 owner-granted platform-founder accounts
+        // (owner-locked 2026-07-16): all in-app features comped + token-free
+        // vendor inquiries + the server-asserted founder badge. Standalone
+        // surface (grant/revoke writes go through the service-role actions).
+        key: 'founder-seats',
+        label: 'Founder seats',
+        href: '/admin/founder-seats',
+        icon: Crown,
+        matchPrefix: '/admin/founder-seats',
+      },
+      {
+        // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix
+        // keeps this item lit on the legacy /admin/vendors path + the
+        // standalone /admin/vendors/[id]/edit + /tokens + /team detail routes
+        // (which stay standalone).
+        key: 'vendors',
+        label: 'Vendors',
+        href: '/admin/accounts?tab=vendors',
+        icon: Briefcase,
+        matchPrefix: '/admin/vendors',
+      },
+      {
+        // Repointed to the Accounts Studio Demo vendors tab (slice 4, final).
+        // matchPrefix keeps this item lit on the legacy /admin/demo-vendors
+        // path + the standalone /admin/demo-vendors/inquiries +
+        // inquiries/[threadId] flows (which stay standalone).
+        key: 'demo-vendors',
+        label: 'Demo vendors',
+        href: '/admin/accounts?tab=demo-vendors',
+        icon: TestTube,
+        matchPrefix: '/admin/demo-vendors',
+      },
+      {
+        // Repointed to the Accounts Studio Events tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/events path.
+        key: 'events',
+        label: 'Events',
+        href: '/admin/accounts?tab=events',
+        icon: CalendarDays,
+        matchPrefix: '/admin/events',
+      },
+      {
+        // Repointed to the Accounts Studio Venues tab (slice 2). matchPrefix
+        // keeps this item lit on the legacy /admin/venues path + the standalone
+        // /admin/venues/[id] detail + /admin/venues/new create routes (which
+        // stay standalone).
+        key: 'venues',
+        label: 'Venues',
+        href: '/admin/accounts?tab=venues',
+        icon: MapPin,
+        matchPrefix: '/admin/venues',
+      },
+    ],
+  },
+  {
+    // STUDIO (key 'media' kept for localStorage continuity — was "Content").
+    // Everything an admin CURATES or PUBLISHES: the old Content publishing/
+    // asset lane FIRST, then the old Marketing lane (the retired 'marketing'
+    // group folded in here 2026-07-04 — item keys/icons unchanged).
+    key: 'media',
+    label: 'Studio',
+    defaultOpen: false,
+    items: [
+      {
+        // Repointed to the Studio Studio Website tab (slice 1). matchPrefix
+        // keeps this item lit on the legacy /admin/website path (which now
+        // redirects in).
+        key: 'website',
+        label: 'Website',
+        href: '/admin/studio?tab=website',
+        icon: Globe,
+        matchPrefix: '/admin/website',
+      },
+      // 'hero-video' item REMOVED 2026-08-02 — the sign-in hero was retired
+      // (deleted, no tombstone) because it sliced every upload into stills for a
+      // screen nothing rendered. Guarded by lib/website-media-retired-hero.test.ts.
       // Live Studio channel pool (WAVE 9 · Live_Studio_Unified_Spec § 4h) — the
       // Setnayan-owned YouTube channels every event streams on, so couples never
       // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:

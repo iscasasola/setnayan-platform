@@ -39,6 +39,7 @@ import {
   loadGuestContext,
   loadHostMembership,
   loadVendorBooking,
+  loadDayOfBroadcast,
   loadLiveLayer,
   loadMedia,
   loadWidgets,
@@ -503,6 +504,10 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     viewerUserId: viewerAccount?.id ?? null,
     checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
   });
+  // The coordinator's announcement for the guests in the room. Live window
+  // only — the loader returns null outside it, so nothing stale survives the
+  // day. Guests only; see the render site in site-body.
+  const dayOfBroadcast = await loadDayOfBroadcast(admin, event.event_id, dayOfPhase === 'live');
 
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
@@ -515,6 +520,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     studioAnim,
     bespokeSvg,
     dayOfPhase,
+    dayOfBroadcast,
     phasesEnabled,
     lifecyclePhase,
     stdFilm,

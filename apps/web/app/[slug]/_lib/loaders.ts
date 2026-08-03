@@ -212,6 +212,55 @@ export const loadVendorBooking = cache(
 );
 
 /**
+ * Day-of announcements for the GUEST side.
+ *
+ * ── THE HALF THAT WAS MISSING ───────────────────────────────────────────────
+ * The composer has shipped for months: `coordinator-broadcast-card.tsx` on the
+ * couple's day-of screen writes `coordinator_broadcasts`, the Data Privacy
+ * control `coordinator_day_of_broadcast` is ACTIVE in production, and the table
+ * is live. But nothing on the guest site ever read it — every "broadcast" under
+ * app/[slug] is the Panood LIVESTREAM, not an announcement. So a coordinator
+ * could write "phones down, the ceremony is starting" and only the couple's own
+ * dashboard would show it. This is the receiver.
+ *
+ * LIVE WINDOW ONLY. An announcement is a thing shouted across a room; it has no
+ * meaning the week before or the month after. The caller passes the resolved
+ * day-of phase and this returns nothing outside it, so a stale "we are running
+ * late" cannot haunt the page forever.
+ *
+ * ONE, NOT A FEED. The guest gets the latest only. A scrollback of operational
+ * chatter is the coordinator's business, not a guest's — and a feed on the
+ * event page would compete with the couple's own words.
+ *
+ * Admin client for the same reason as the widget registry above: this page
+ * renders for visitors with no RLS session. The read is scoped to one event and
+ * returns nothing but the announcement text and when it was sent.
+ */
+export const loadDayOfBroadcast = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    isLive: boolean,
+  ): Promise<{ body: string; createdAt: string } | null> => {
+    if (!isLive) return null;
+    const { data, error } = await admin
+      .from('coordinator_broadcasts')
+      .select('body, created_at')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
+    // read error must never take the wedding page down on the day.
+    if (error || !data) return null;
+    const row = data as { body: string; created_at: string };
+    const body = row.body?.trim();
+    if (!body) return null;
+    return { body, createdAt: row.created_at };
+  },
+);
+
+/**
  * Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
  * Drives which widgets render on this page and in what order. Every event
  * has 12 rows after the backfill; pre-backfill events fall back to "render

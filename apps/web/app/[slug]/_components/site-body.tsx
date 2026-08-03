@@ -28,7 +28,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
-import { siteMenuEnabled, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
@@ -519,9 +519,15 @@ export function SiteBody({
     // whether Details/Story always render (they carry event-level facts + a
     // teaser plate under open-browse, so their menu tabs are never dead).
     const archiveTense = plan.body === 'editorial';
+    // Details and Story anchor INSIDE `normalBody()`, which `phasedBody` skips
+    // in the save-the-date phase — so both tabs must first ask whether that
+    // body renders at all. Without this, open browse forced them on and the
+    // taps went nowhere (the council's no-dead-anchors rule, broken by its own
+    // open-browse branch).
+    const bodyRenders = browsableBodyRenders(plan);
     const menuSections = {
-      details: plan.openBrowse || plan.publicSafeWidgets.length > 0,
-      story: plan.openBrowse || Boolean(event.love_story),
+      details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
+      story: bodyRenders && (plan.openBrowse || Boolean(event.love_story)),
       // "Gallery" = the live photo wall (the livestream is a separate concern).
       gallery: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(liveWall),
     };
@@ -799,9 +805,13 @@ export function SiteBody({
       flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
       isSample: Boolean(event.is_sample),
     });
+    // Same guard as the anonymous tree: the guest's Details/Story anchors are
+    // sr-only spans inside the normal body, so they are absent in the phases
+    // `phasedBody` does not reach.
+    const guestBodyRenders = browsableBodyRenders(plan);
     const menuSections = {
-      details: plan.hideableInOrder.length > 0,
-      story: Boolean(event.love_story),
+      details: guestBodyRenders && plan.hideableInOrder.length > 0,
+      story: guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall (mirrors the LiveWallBlock gate below).
       gallery: isLive && Boolean(liveWall),
     };

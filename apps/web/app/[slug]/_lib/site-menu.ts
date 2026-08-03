@@ -74,3 +74,39 @@ export function siteMenuEnabled(opts: {
 }): boolean {
   return opts.isSample || opts.flag === 'true';
 }
+
+/**
+ * Does the browsable body actually render in this phase?
+ *
+ * WHY THIS EXISTS. The Details and Story anchors live inside `normalBody()` in
+ * site-body.tsx, and `phasedBody` does not call it in every phase. Under open
+ * browse the caller was forcing both tabs on regardless:
+ *
+ *     details: plan.openBrowse || plan.publicSafeWidgets.length > 0
+ *     story:   plan.openBrowse || Boolean(event.love_story)
+ *
+ * In the `save_the_date` phase that renders two tabs whose anchors were never
+ * emitted, so tapping them does nothing — breaking the rule the file states in
+ * its own comment ("never anchors to a section that did not render"). It bites
+ * whenever the event is more than STD_THRESHOLD_DAYS out, which is nearly every
+ * newly-created wedding, and it is invisible to inspection because the only
+ * open-browse event in prod sits in exactly that phase behind the full-screen
+ * film.
+ *
+ * The two phases that DO reach `normalBody()`, read off `phasedBody`:
+ *   · 'normal'    — the else branch
+ *   · 'editorial' — only when open browse is on (the archive keeps the site
+ *                   below the cover essay); without it the cover replaces the
+ *                   whole body.
+ * 'save_the_date' never does.
+ *
+ * Pure so the golden suites can pin it without a render.
+ */
+export function browsableBodyRenders(plan: {
+  body: 'normal' | 'save_the_date' | 'editorial';
+  openBrowse: boolean;
+}): boolean {
+  if (plan.body === 'save_the_date') return false;
+  if (plan.body === 'editorial') return plan.openBrowse;
+  return true;
+}

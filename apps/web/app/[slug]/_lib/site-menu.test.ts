@@ -8,7 +8,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { siteMenuTabs, siteMenuEnabled, SITE_MENU_ANCHORS } from './site-menu';
+import {
+  siteMenuTabs,
+  siteMenuEnabled,
+  browsableBodyRenders,
+  SITE_MENU_ANCHORS,
+} from './site-menu';
 
 test('all sections present → the full five tabs in order', () => {
   const tabs = siteMenuTabs({ details: true, story: true, gallery: true });
@@ -49,4 +54,47 @@ test('enable gate: flag-dark by default, always on for the sample event', () => 
   assert.equal(siteMenuEnabled({ flag: 'false', isSample: false }), false, 'explicit off');
   assert.equal(siteMenuEnabled({ flag: 'true', isSample: false }), true, 'flag flips it on');
   assert.equal(siteMenuEnabled({ flag: undefined, isSample: true }), true, 'sample always on');
+});
+
+// ── browsableBodyRenders — the no-dead-anchors guard ─────────────────────────
+//
+// Details and Story anchor inside `normalBody()`. `phasedBody` does not call it
+// in every phase, so a tab offered when it did not render is a tap that goes
+// nowhere. This is the predicate the callers ask before offering either tab.
+//
+// The bug it closes: open browse forced both tabs on regardless of phase, and
+// the save-the-date phase renders the film INSTEAD of the body. It bites on any
+// event more than STD_THRESHOLD_DAYS out — i.e. nearly every new wedding.
+
+test('browsableBodyRenders · the save-the-date film replaces the body, so no tab may anchor into it', () => {
+  assert.equal(browsableBodyRenders({ body: 'save_the_date', openBrowse: false }), false);
+  // Open browse must NOT rescue it — this is exactly the case that shipped broken.
+  assert.equal(browsableBodyRenders({ body: 'save_the_date', openBrowse: true }), false);
+});
+
+test('browsableBodyRenders · the editorial cover replaces the body UNLESS open browse keeps it below', () => {
+  assert.equal(browsableBodyRenders({ body: 'editorial', openBrowse: false }), false);
+  assert.equal(browsableBodyRenders({ body: 'editorial', openBrowse: true }), true);
+});
+
+test('browsableBodyRenders · the normal body always renders', () => {
+  assert.equal(browsableBodyRenders({ body: 'normal', openBrowse: false }), true);
+  assert.equal(browsableBodyRenders({ body: 'normal', openBrowse: true }), true);
+});
+
+test('browsableBodyRenders · every phase is answered — a new one must not default to true', () => {
+  // If a fourth body kind is added, this sweep still passes only because the
+  // helper returns a value for it. The point of the assertion is that someone
+  // adding a phase has to come here and decide, rather than inheriting `true`.
+  const phases = ['normal', 'save_the_date', 'editorial'] as const;
+  const seen = phases.map((body) => ({
+    body,
+    off: browsableBodyRenders({ body, openBrowse: false }),
+    on: browsableBodyRenders({ body, openBrowse: true }),
+  }));
+  assert.deepEqual(seen, [
+    { body: 'normal', off: true, on: true },
+    { body: 'save_the_date', off: false, on: false },
+    { body: 'editorial', off: false, on: true },
+  ]);
 });

@@ -1,6 +1,7 @@
 'use server';
 
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { initialLandingVisibility } from '@/lib/onboarding/initial-visibility';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
@@ -463,6 +464,12 @@ export async function commitOnboardingWedding(
       venue_address: null,
       slug,
       is_primary: true,
+      // Visible by link from creation — unless still an anonymous draft. The
+      // rule lives in lib/onboarding/initial-visibility.ts because this insert
+      // runs as service-role and the RLS anon-publish guard cannot see it.
+      landing_page_visibility: initialLandingVisibility({
+        isAnonymous: Boolean(user.is_anonymous),
+      }),
       // Iteration 0043 wedding-type columns (CHECK-constraint-required for weddings)
       ceremony_type: ceremonyType,
       venue_setting: venueSetting,

@@ -66,6 +66,7 @@ import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
+import { DayOfAnnouncement } from './day-of-announcement';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
@@ -245,6 +246,8 @@ type SiteBodyProps = {
    *  film's monogram beats. null → text initials. */
   bespokeSvg: string | null;
   dayOfPhase: DayOfPhase;
+  /** The coordinator's latest announcement, live window only. Guests only. */
+  dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -333,6 +336,7 @@ export function SiteBody({
   studioAnim,
   bespokeSvg,
   dayOfPhase,
+  dayOfBroadcast = null,
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
@@ -835,6 +839,12 @@ export function SiteBody({
 
     return (
       <>
+        {/* THE COORDINATOR'S ANNOUNCEMENT — first thing a guest sees during the
+            live window, above the couple's own page. Guests only: an
+            announcement is for the people in the room, and a stranger with the
+            link has no business knowing the ceremony is running late. Null
+            outside the live window, so nothing stale survives the day. */}
+        {dayOfBroadcast ? <DayOfAnnouncement body={dayOfBroadcast.body} /> : null}
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
             reveal. Deliberately an explicit marker rather than a bare
             `article > *` selector — `article` is used liberally in this tree

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20270929824517_open_browse_default_new_events_on.sql
+-- 20271102765509_open_browse_default_new_events_on.sql
 --
 -- OPEN-BROWSE LAUNCH (council verdict 2026-07-22 build-plan row 11, the go-live
 -- lever): "new events default ON at creation; existing launched events opt in
@@ -32,6 +32,16 @@
 -- from the board if needed). Reversible.
 --
 -- IDEMPOTENT: SET DEFAULT is declarative; re-running is a no-op.
+-- ⚠ RE-ALLOCATED 2026-08-03. This shipped originally as 20270929824517, whose
+--   prefix had fallen BELOW main's applied head (20271102113000) while the PR
+--   sat open. Migrations apply once, in prefix order, so the original would
+--   have merged with green CI and changed NOTHING — the launch would have
+--   looked successful and done nothing at all. Prefix re-allocated via
+--   `pnpm migration:new`; the SQL below is unchanged.
+--   VERIFY THE OBJECT AFTER MERGE, not schema_migrations:
+--     SELECT column_default FROM information_schema.columns
+--      WHERE table_name='events' AND column_name='website_open_browse';
+--   It must read `true`.
 -- ============================================================================
 
 BEGIN;
@@ -41,7 +51,7 @@ ALTER TABLE public.events
 
 COMMENT ON COLUMN public.events.website_open_browse IS
   'Open-browse master switch for the guest event website (council verdict '
-  '2026-07-22). Default flipped to TRUE at launch (migration 20270929824517) so '
+  '2026-07-22). Default flipped to TRUE at launch (migration 20271102765509) so '
   'NEW events ship open-browse; existing launched events were NOT backfilled '
   '(they opt in via the couple board — in-flight weddings must not reshape '
   'overnight). FALSE = legacy phase-gated site; TRUE = five-tab open-browse site '

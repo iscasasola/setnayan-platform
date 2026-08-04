@@ -89,7 +89,11 @@ function moduleHref(id: DayOfModuleId, eventId: string): string | null {
     case 'setlist':
       return `/vendor-dashboard/repertoire`;
     case 'qr_scanner':
-      return `/vendor-dashboard/clients/${eventId}`;
+      // null, NOT a link: the seat scanner is a panel on THIS page (SeatScanner
+      // inside FloorCommand), not a destination. It used to point at the
+      // generic client page, which has no scanner — a tile that promised a
+      // scan and delivered a client record.
+      return null;
     case 'review_qr':
     case 'live_reviews':
       return null; // rendered inline below

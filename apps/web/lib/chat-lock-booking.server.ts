@@ -1,7 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 
 /**
@@ -10,7 +9,7 @@ import { planChatLockBooking } from '@/lib/chat-lock-booking';
  * `event_vendors` row into 'contracted' at the couple-negotiated total and
  * collects the Booking Fee, reusing the EXACT same two pieces the vendor-page
  * `finalizeVendor` uses — `isMarketplaceVendorBookable` (verified-gate) and
- * `collectBookingFeeAtLock` (the 5% / free-5 / idempotent QR-order path). Because
+ * `the booking-fee collector` (the 5% / free-5 / idempotent QR-order path). Because
  * both entry points converge on the one `event_vendors.total_cost_php` and the
  * one `booking_fee_open_lock_charge` RPC, the chat price and the charged base are
  * identical by construction, and a second lock (either entry point) is a no-op.

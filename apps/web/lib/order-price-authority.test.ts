@@ -824,9 +824,10 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // must pass the money writer, and those callers are scanned normally.
   const INJECTED_CLIENT_REVIEWED: Record<string, string> = {
     'lib/booking-fee-lock.server.ts':
-      '`admin: SupabaseClient` is a parameter. Both production callers ' +
-      '(app/dashboard/[eventId]/vendors/actions.ts and …/vendors/packages/actions.ts) pass ' +
-      'createMoneyWriterClient(); tests/db passes its replay client.',
+      '`admin: SupabaseClient` is a parameter. Its ONE production caller ' +
+      '(app/vendor-dashboard/clients/[eventId]/actions.ts → vendorAcknowledgeDeposit) passes ' +
+      'createMoneyWriterClient(); tests/db passes its replay client. The two lock actions ' +
+      'named here before 2026-08-03 no longer call it — the fee moved to payment-acceptance.',
   };
 
   const offenders: string[] = [];
@@ -846,10 +847,12 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   }
 
   // …and the exemption is not a blank cheque: the callers must actually pass it.
-  for (const caller of [
-    'app/dashboard/[eventId]/vendors/actions.ts',
-    'app/dashboard/[eventId]/vendors/packages/actions.ts',
-  ]) {
+  // ONE caller, since 2026-08-03. The fee used to fire from the two lock actions
+  // above; the owner's 2026-07-27 ruling moved it to the vendor's payment
+  // acknowledgement, and the three lock sites were removed in the same commit.
+  // Keep this list EXACT — it is what proves the surviving call site passes the
+  // money writer. lint-booking-fee-single-trigger.mjs proves there is only one.
+  for (const caller of ['app/vendor-dashboard/clients/[eventId]/actions.ts']) {
     const src = readFileSync(join(WEB, caller), 'utf8');
     if (!/collectBookingFeeAtLock\(\s*createMoneyWriterClient\(\)/.test(src)) {
       offenders.push(`${caller} → passes a non-money client into collectBookingFeeAtLock`);

@@ -12,11 +12,9 @@ import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
-import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { resolveLivePax } from '@/lib/pax';
@@ -2174,7 +2172,7 @@ export async function finalizeVendor(
   // Booking fee AT LOCK (owner 2026-07-24 — the fee TRIGGER moved from proposal
   // SEND to the LOCK; base = the couple-confirmed event_vendors.total_cost_php).
   //
-  // SHIPS DARK: collectBookingFeeAtLock is a pure no-op unless
+  // SHIPS DARK: the booking-fee collector is a pure no-op unless
   // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on, so this block is byte-behaviour-
   // identical to today. Pre-gated on the marketplace link too, so an off-platform
   // vendor never even calls in. A verified vendor's first 5 booked customers are

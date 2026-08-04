@@ -3,11 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { resolveLivePax } from '@/lib/pax';
-import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
   priceCustomizedPackage,
@@ -542,7 +540,7 @@ export async function lockPackage(
       // covered row outright (`covered_row_no_fee`) so that cannot happen even
       // by mistake.
       //
-      // Ships dark: `collectBookingFeeAtLock` is a no-op unless
+      // Ships dark: `the booking-fee collector` is a no-op unless
       // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on. Fail-soft on purpose — the
       // couple's booking must never fail because a fee could not be opened;
       // the next lock re-attempts it.

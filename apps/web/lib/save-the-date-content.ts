@@ -129,14 +129,24 @@ export function deriveMonogram(name: string): string {
   return (name.trim().charAt(0) || '✦').toUpperCase();
 }
 
-/** Compact "MM.DD.YY" for the date card; null on a missing/invalid date. */
+/**
+ * Compact "MM.DD.YY" for the date card; null on a missing/invalid date.
+ *
+ * Read straight off the calendar day. `event_date` is a DATE column, so
+ * `new Date(iso)` lands on midnight UTC and the local getters below then
+ * reported the PREVIOUS day to any reader west of Greenwich — a 12 June
+ * wedding printed "06.11.27" on the save-the-date for family in the US.
+ */
 export function shortDate(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${mm}.${dd}.${String(d.getFullYear()).slice(-2)}`;
+  const [yearStr, monthStr, dayStr] = iso.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return null;
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${mm}.${dd}.${String(year).slice(-2)}`;
 }
 
 /** A one-line love-story teaser (≤120 chars, ellipsized); null when absent. */

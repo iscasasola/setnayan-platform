@@ -17,9 +17,16 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
  * endpoint, with `region: 'auto'`. Credentials come from environment vars set
  * in Vercel (and `.env.local` for local dev).
  *
- * Bucket map matches the four PH-region buckets the owner provisioned months
- * ago. Use the `R2_BUCKETS` constant rather than raw strings so a typo at the
- * call site becomes a compile error.
+ * Bucket map matches the five buckets the owner provisioned months ago. Use
+ * the `R2_BUCKETS` constant rather than raw strings so a typo at the call site
+ * becomes a compile error.
+ *
+ * ⚠ These buckets are in Cloudflare's **Asia-Pacific (APAC)** region, NOT the
+ * Philippines — R2 has no PH region. This comment previously read "the four
+ * PH-region buckets", which was wrong twice over (there are five, and none is
+ * in PH), and that phrasing propagated into the live public `/privacy` notice
+ * as a residency claim we cannot support. Confirmed in the Cloudflare
+ * dashboard 2026-08-01. Do not reintroduce a PH-residency claim here.
  *
  * # Graceful Supabase Storage fallback
  *

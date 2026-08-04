@@ -29,6 +29,7 @@ import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { resolveSiteNav, type NavPhase } from '../_lib/site-nav';
 import { VendorDoorway } from './vendor-doorway';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
@@ -492,6 +493,13 @@ export function SiteBody({
 
   /** The Save-the-Date view, factored so the open-browse and flag-off branches
    *  above render the IDENTICAL film rather than two drifting copies. */
+  /** App state → the resolver's vocabulary, in ONE place so the two trees can
+   *  never drift into disagreeing about what phase it is. */
+  const navPhase: NavPhase =
+    dayOfPhase === 'live' ? 'day' : dayOfPhase === 'post' ? 'after' : 'before';
+  const navWatchHref =
+    dayOfPhase === 'live' && plan.liveMediaVisible && watchLive ? `/${event.slug}/hub` : null;
+
   const stdFilmView = () => (
       <SaveTheDateView
         displayName={event.display_name}
@@ -784,16 +792,14 @@ export function SiteBody({
             the old bars. */}
         {menuOn ? (
           <SiteMenuBar
-            sections={menuSections}
-            // Papic. The host's switch is the gate (owner 2026-08-03: "the papic
-            // service will always run but the host of the event has the power to
-            // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
-            // absent — the camera is part of what the invitation promises.
-            camera={
-              hostCameraOpen
-                ? { href: '/papic/guest' }
-                : { locked: true, reason: 'The host has not opened the camera' }
-            }
+            slots={resolveSiteNav({
+              viewer: { kind: 'public' },
+              phase: navPhase,
+              hostAllowsCamera: hostCameraOpen,
+              anyChapterPublic: menuSections.gallery,
+              liveBroadcast: Boolean(navWatchHref),
+              destinations: { camera: '/papic/guest', watch: navWatchHref },
+            }).filter((s) => s.key !== 'story' || menuSections.story)}
           />
         ) : null}
       </>
@@ -888,8 +894,26 @@ export function SiteBody({
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
           {menuOn ? (
-            <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
-          ) : null}
+          <SiteMenuBar
+            slots={resolveSiteNav({
+              viewer: { kind: 'guest' },
+              phase: navPhase,
+              hostAllowsCamera: hostCameraOpen,
+              anyChapterPublic: menuSections.gallery,
+              liveBroadcast: Boolean(navWatchHref),
+              destinations: {
+                // Their own paid roll first, then the couple's shared camera —
+                // the same order GuestHubBar already uses.
+                camera: papicGuest
+                  ? `/papic/me/${guest.qr_token}`
+                  : hostCameraOpen
+                    ? '/papic/guest'
+                    : null,
+                watch: navWatchHref,
+              },
+            }).filter((s) => s.key !== 'story' || menuSections.story)}
+          />
+        ) : null}
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
               event.website_open_browse is TRUE; identity-aware (guest → RSVP /
               event → Watch Live). */}

@@ -65,6 +65,10 @@ import {
   normalizeTab,
   type CustomerCardTab,
 } from './_components/customer-card-nav';
+import { ScriptTab } from './_components/script-tab';
+import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
+import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
+import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { ActivityFeed, type ActivityEvent } from './_components/customer-card-activity';
 import type { ClientNote } from './_components/customer-card-notes';
 import {
@@ -1074,6 +1078,28 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </>
   );
 
+  // SCRIPT — the host/MC prep surface (owner-locked 2026-08-01). Gated on the
+  // same entitlement the day-of Stage-Script desk uses, so exactly one trade
+  // sees the tab. `eventTiles` narrows to what this vendor was actually booked
+  // for, via the shipped category→tile bridge.
+  const scriptAccess = await resolveVendorSpecializationAccessForVendor(
+    supabase,
+    profile.vendor_profile_id,
+    {
+      services: (profile as { services?: string[] | null }).services,
+      eventTiles: tilesForVendorCategories(brief.booked_categories),
+    },
+  );
+  const showScript = holdsSpecialization(scriptAccess, 'stage_script');
+
+  const scriptNode = showScript ? (
+    <ScriptTab
+      eventId={eventId}
+      vendorProfileId={profile.vendor_profile_id}
+      coupleName={eventName}
+    />
+  ) : null;
+
   const activityNode = (
     <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
   );
@@ -1092,7 +1118,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
             {/* Tab rail */}
             <div className="mt-2">
-              <CardTabs eventId={eventId} active={tab} />
+              <CardTabs eventId={eventId} active={tab} showScript={showScript} />
             </div>
           </header>
 
@@ -1102,6 +1128,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? filesNode : null}
             {tab === 'schedule' ? scheduleNode : null}
+            {tab === 'script' ? scriptNode : null}
             {tab === 'activity' ? activityNode : null}
           </div>
         </div>

@@ -10,14 +10,36 @@ import { CheckCircle2 } from 'lucide-react';
  * horizontally scrollable pill row; the pipeline strip scrolls too.
  */
 
-export type CustomerCardTab = 'overview' | 'quote' | 'files' | 'schedule' | 'activity';
+export type CustomerCardTab =
+  | 'overview'
+  | 'quote'
+  | 'files'
+  | 'schedule'
+  | 'script'
+  | 'activity';
 
-export const CARD_TABS: { key: CustomerCardTab; label: string }[] = [
+/**
+ * `script` is the host/MC's prep surface (owner-locked 2026-08-01) and is the
+ * one tab that is NOT shown to every vendor — a florist has no script. The page
+ * passes `showScript` from the specialization gate; `normalizeTab` still accepts
+ * the key so a deep link from triage resolves, and the page renders the empty
+ * state rather than 404-ing if an unentitled vendor arrives on it.
+ */
+const BASE_TABS: { key: CustomerCardTab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'quote', label: 'Quote & Payments' },
   { key: 'files', label: 'Files' },
   { key: 'schedule', label: 'Schedule' },
   { key: 'activity', label: 'Activity' },
+];
+
+const SCRIPT_TAB: { key: CustomerCardTab; label: string } = { key: 'script', label: 'Script' };
+
+/** Every key `normalizeTab` will accept — including the gated one. */
+export const CARD_TABS: { key: CustomerCardTab; label: string }[] = [
+  ...BASE_TABS.slice(0, 4),
+  SCRIPT_TAB,
+  ...BASE_TABS.slice(4),
 ];
 
 export function normalizeTab(raw: string | undefined): CustomerCardTab {
@@ -27,16 +49,20 @@ export function normalizeTab(raw: string | undefined): CustomerCardTab {
 export function CardTabs({
   eventId,
   active,
+  showScript = false,
 }: {
   eventId: string;
   active: CustomerCardTab;
+  /** Host/MC only — see the note on `CustomerCardTab`. */
+  showScript?: boolean;
 }) {
+  const tabs = showScript ? CARD_TABS : BASE_TABS;
   return (
     <nav
       aria-label="Customer card sections"
       className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:gap-1 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      {CARD_TABS.map((t) => {
+      {tabs.map((t) => {
         const on = t.key === active;
         return (
           <Link

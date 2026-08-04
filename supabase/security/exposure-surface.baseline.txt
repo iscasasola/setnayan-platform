@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6183
+# facts: 6176
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     669
-#   col       4467
-#   policy    828
+#   col       4462
+#   policy    826
 #   view      10
 #   func      205
 #
@@ -568,6 +568,7 @@ tpriv	public.vendor_image_hashes|anon	SIUD
 tpriv	public.vendor_image_hashes|authenticated	SIUD
 tpriv	public.vendor_invites|anon	SIUD
 tpriv	public.vendor_invites|authenticated	SIUD
+tpriv	public.vendor_lines|authenticated	SIUD
 tpriv	public.vendor_lock_proposals|anon	SIUD
 tpriv	public.vendor_lock_proposals|authenticated	SIUD
 tpriv	public.vendor_locked_qr_tokens|anon	SIUD
@@ -613,7 +614,6 @@ tpriv	public.vendor_release_history|anon	SIUD
 tpriv	public.vendor_release_history|authenticated	SIUD
 tpriv	public.vendor_reply_templates|anon	SIUD
 tpriv	public.vendor_reply_templates|authenticated	SIUD
-tpriv	public.vendor_reuse_requests|authenticated	SIUD
 tpriv	public.vendor_review_appeals|anon	SIUD
 tpriv	public.vendor_review_appeals|authenticated	SIUD
 tpriv	public.vendor_review_flags|anon	SIUD
@@ -4308,6 +4308,18 @@ col	public.vendor_invites.source	anon=SIU authenticated=SIU
 col	public.vendor_invites.status	anon=SIU authenticated=SIU
 col	public.vendor_invites.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_invites.vendor_id	anon=SIU authenticated=SIU
+col	public.vendor_lines.activity_id	anon=- authenticated=SIU
+col	public.vendor_lines.block_type	anon=- authenticated=SIU
+col	public.vendor_lines.body	anon=- authenticated=SIU
+col	public.vendor_lines.created_at	anon=- authenticated=SIU
+col	public.vendor_lines.deleted_at	anon=- authenticated=SIU
+col	public.vendor_lines.is_private_note	anon=- authenticated=SIU
+col	public.vendor_lines.label_key	anon=- authenticated=SIU
+col	public.vendor_lines.last_used_at	anon=- authenticated=SIU
+col	public.vendor_lines.line_id	anon=- authenticated=SIU
+col	public.vendor_lines.updated_at	anon=- authenticated=SIU
+col	public.vendor_lines.use_count	anon=- authenticated=SIU
+col	public.vendor_lines.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_lock_proposals.created_at	anon=SIU authenticated=SIU
 col	public.vendor_lock_proposals.event_id	anon=SIU authenticated=SIU
 col	public.vendor_lock_proposals.event_vendor_id	anon=SIU authenticated=SIU
@@ -4692,23 +4704,6 @@ col	public.vendor_reply_templates.package_id	anon=SIU authenticated=SIU
 col	public.vendor_reply_templates.phrasings	anon=SIU authenticated=SIU
 col	public.vendor_reply_templates.service_id	anon=SIU authenticated=SIU
 col	public.vendor_reply_templates.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_reuse_requests.category	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.created_at	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.decline_reason	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.quoted_at	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.quoted_total_php	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.request_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.requested_by_user_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.resolved_at	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.resolved_event_vendor_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.scope_snapshot	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.source_event_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.source_event_vendor_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.status	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.target_event_id	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.updated_at	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.vendor_name	anon=- authenticated=SIU
-col	public.vendor_reuse_requests.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_review_appeals.appeal_id	anon=SIU authenticated=SIU
 col	public.vendor_review_appeals.appeal_reason	anon=SIU authenticated=SIU
 col	public.vendor_review_appeals.decided_at	anon=SIU authenticated=SIU
@@ -5835,6 +5830,7 @@ policy	public.vendor_image_hashes|vendor_image_hashes_admin_read	mode=PERMISSIVE
 policy	public.vendor_invites|vendor_invites_admin_write_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_invites|vendor_invites_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=NULL
 policy	public.vendor_invites|vendor_invites_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))))
+policy	public.vendor_lines|vendor_lines_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin()) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin())
 policy	public.vendor_lock_proposals|vendor_lock_proposals_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
 policy	public.vendor_lock_proposals|vendor_lock_proposals_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) AND (proposed_by_user_id = auth.uid()))
 policy	public.vendor_lock_proposals|vendor_lock_proposals_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=NULL
@@ -5895,9 +5891,6 @@ policy	public.vendor_release_history|vendor_release_history_host_read	mode=PERMI
 policy	public.vendor_release_history|vendor_release_history_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_user_id = auth.uid()) check=NULL
 policy	public.vendor_reply_templates|vendor_reply_templates_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_reply_templates|vendor_reply_templates_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR is_admin()) check=NULL
-policy	public.vendor_reuse_requests|vendor_reuse_requests_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.vendor_reuse_requests|vendor_reuse_requests_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((target_event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (target_event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
-policy	public.vendor_reuse_requests|vendor_reuse_requests_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_review_appeals|vendor_review_appeals_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(reviewer_user_id = auth.uid())
 policy	public.vendor_review_appeals|vendor_review_appeals_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(reviewer_user_id = auth.uid()) check=NULL
 policy	public.vendor_review_flags|vendor_review_flags_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()

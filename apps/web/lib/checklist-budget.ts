@@ -27,6 +27,11 @@ import {
   checklistTier3PlanGroups,
 } from './checklist';
 import { PICK_TO_GROUP } from './onboarding-availability';
+import { isBudgetTruthEnabled } from './budget-truth-flag';
+import {
+  attributeCommitted,
+  groupsCarryingMoney,
+} from './checklist-budget-attribution';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -72,6 +77,17 @@ export type ChecklistBudgetHealth = {
   isOverBudgetBestCase: boolean;
   isOverBudgetWorstCase: boolean;
   lines: PlanGroupBudgetLine[];
+  /**
+   * BUD-3 · R2 — real commitments the LEGACY rule threw away (a vendor with an
+   * empty `covers_plan_groups` was skipped outright). ₱810,000 across 12 rows
+   * on prod, reported as ₱0. Reported rather than silently folded in, per
+   * §18.5 rule 8: nothing disappears, and nothing REappears, without saying so.
+   *
+   * 0 under flag OFF by construction.
+   */
+  recoveredCentavos: number;
+  /** How many committed vendors those pesos came from. */
+  recoveredCount: number;
 };
 
 // ─── Statuses that lock in a vendor cost ─────────────────────────────────────
@@ -176,30 +192,23 @@ export async function computeBudgetHealth(
 
   const committedVendors = vendors ?? [];
 
-  // Build a map: plan_group_id → total committed centavos
-  // A vendor row covers its `covers_plan_groups` array; we attribute the full
-  // package cost to the PRIMARY covers_plan_groups[0], which is the booking
-  // plan group. When covers_plan_groups is empty, we skip (no plan_group_id
-  // on the row itself, only vendor_category — not yet mapped here).
-  const committedByGroup = new Map<string, number>();
-  for (const v of committedVendors) {
-    const groups: string[] = Array.isArray(v.covers_plan_groups) ? v.covers_plan_groups : [];
-    if (groups.length === 0) continue; // no plan-group mapping — skip
-
-    // Compute total cost in centavos (total_cost_php + transport_php + food_allowance_php)
-    const totalPhp =
-      (v.total_cost_php ?? 0) + (v.transport_php ?? 0) + (v.food_allowance_php ?? 0);
-    const totalCentavos = Math.round(totalPhp * 100);
-
-    // Attribute cost to primary group; secondary groups are marked committed (zero cost
-    // duplicated — they're already paid via the primary booking).
-    const [primary, ...secondary] = groups as [string, ...string[]];
-    committedByGroup.set(primary, (committedByGroup.get(primary) ?? 0) + totalCentavos);
-    for (const g of secondary) {
-      // Mark as committed with zero additive cost (already covered).
-      committedByGroup.set(g, committedByGroup.get(g) ?? 0);
-    }
-  }
+  // Build a map: plan_group_id → total committed centavos.
+  //
+  // BUD-3 · R2. A vendor row covers its `covers_plan_groups` array and the full
+  // package cost is attributed to the PRIMARY entry. The LEGACY rule SKIPPED a
+  // row whose array was empty — which lost the money AND left the plan group
+  // looking un-booked, so the health card substituted a market guess for a
+  // service already paid for. ₱810,000 across 12 rows on prod, reported as ₱0.
+  //
+  // Flag ON attributes through `bucketForVendor` — the resolver's own mapping,
+  // which falls back to the vendor's category and lands the genuinely
+  // unmappable in 'other'. One mapping, both surfaces.
+  const budgetTruth = isBudgetTruthEnabled();
+  const {
+    byGroup: committedByGroup,
+    recoveredCentavos,
+    recoveredCount,
+  } = attributeCommitted({ enabled: budgetTruth, vendors: committedVendors });
 
   // ── 4. Fetch admin-seeded market benchmarks ──────────────────────────────
   // budget_leaf_benchmarks has per-plan_group_id price anchors:
@@ -237,7 +246,17 @@ export async function computeBudgetHealth(
   let totalProjectedMin = 0;
   let totalProjectedMax = 0;
 
-  for (const pgId of allPlanGroups) {
+  // BUD-3 · the second half of R2, unnamed in the spec: even a vendor WITH
+  // `covers_plan_groups` is dropped from the total when that group sits outside
+  // the couple's tier-1/2/3 scope, because this loop only ever visited
+  // `allPlanGroups`. Widen it to every bucket that actually carries money.
+  const extraGroups = groupsCarryingMoney({
+    enabled: budgetTruth,
+    byGroup: committedByGroup,
+    inScope: allPlanGroups,
+  });
+
+  for (const pgId of [...allPlanGroups, ...extraGroups]) {
     const isCommitted = committedByGroup.has(pgId);
     const committedCentavos = committedByGroup.get(pgId) ?? 0;
 
@@ -295,6 +314,8 @@ export async function computeBudgetHealth(
     isOverBudgetBestCase: bestCaseBufferCentavos < 0,
     isOverBudgetWorstCase: worstCaseBufferCentavos < 0,
     lines,
+    recoveredCentavos,
+    recoveredCount,
   };
 }
 

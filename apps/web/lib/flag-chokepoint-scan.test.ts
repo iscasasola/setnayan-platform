@@ -112,12 +112,15 @@ const FLAGS: FlagSpec[] = [
       // The strip's "Committed", the live card's "Total to pay", and which
       // vendors get a card — the three row sets R1 is about.
       'app/dashboard/[eventId]/budget/page.tsx',
+      // BUD-3 — the empty-`covers_plan_groups` skip (R2, ₱810,000).
+      'lib/checklist-budget.ts',
     ],
     pureCores: [
-      // Takes `enabled` as a parameter, so its suite drives BOTH states in one
-      // process — including the assertion that flag OFF still reproduces the
-      // live prod contradiction verbatim.
+      // Take `enabled` as a parameter, so their suites drive BOTH states in one
+      // process — including the assertions that flag OFF still reproduces each
+      // live prod defect verbatim.
       'lib/budget-page-money.ts',
+      'lib/checklist-budget-attribution.ts',
     ],
     locals: ['budgetTruth'],
   },

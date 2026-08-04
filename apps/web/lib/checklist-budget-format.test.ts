@@ -21,6 +21,10 @@ function health(p: Partial<ChecklistBudgetHealth>): ChecklistBudgetHealth {
     isOverBudgetBestCase: false,
     isOverBudgetWorstCase: false,
     lines: [],
+    // BUD-3 · R2. Zero is the flag-OFF value: the legacy rule recovers nothing
+    // because it never lost anything it admitted to.
+    recoveredCentavos: 0,
+    recoveredCount: 0,
     ...p,
   };
 }

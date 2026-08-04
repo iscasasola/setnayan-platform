@@ -102,6 +102,32 @@ export type PaymentRow = {
 const ORDER_SELECT =
   'order_id,public_id,event_id,user_id,service_key,description,requested_total_php,confirmed_total_php,status,reference_code,admin_notes,created_at,updated_at';
 
+/**
+ * PostgREST `.or()` predicate that DROPS vendor-payer orders from a couple /
+ * co-host event-orders read while KEEPING legacy null-service_key ad-hoc orders.
+ *
+ * WHY: the vendor Booking Fee (lib/booking-fee-lock.server.ts) mints a
+ * VENDOR-payer order stamped with the COUPLE'S event_id (so the vendor's own pay
+ * screen can scope it) — `service_key` = `vendor_booking_fee__{chargeId}`,
+ * `user_id` = the vendor's account. A couple must NOT see what their vendor is
+ * charged. Every vendor-billing order is `vendor_`-prefixed (mirrors
+ * {@link isVatInclusiveServiceKey}) and none belong in a couple's event-order
+ * list, so excluding `vendor_%` is correct and never hides a legit couple order
+ * (customer SKUs are UPPER_SNAKE like `SETNAYAN_AI`).
+ *
+ * DEFENSE-IN-DEPTH belt: the real guard is RLS (orders_owner_read now requires
+ * the order's payer to be an event member — see
+ * 20271102603681_orders_exclude_vendor_payer_from_event_reads.sql). This filter is a
+ * second layer so a couple-facing list can never surface the fee order even if
+ * the RLS guard were ever loosened.
+ *
+ * Null-safe: `service_key IS NULL OR service_key NOT LIKE 'vendor_%'` — a bare
+ * `.not('service_key','like',…)` would drop NULL rows (NOT NULL ⇒ NULL ⇒
+ * filtered), silently hiding legacy ad-hoc orders that have no service_key.
+ */
+export const COUPLE_ORDERS_HIDE_VENDOR_FILTER =
+  'service_key.is.null,service_key.not.like.vendor_*';
+
 const PAYMENT_SELECT =
   'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_by_user_id,reviewed_at,created_at';
 
@@ -113,6 +139,9 @@ export async function fetchOrdersForEvent(
     .from('orders')
     .select(ORDER_SELECT)
     .eq('event_id', eventId)
+    // Belt over RLS: never surface the vendor-payer booking-fee order (or any
+    // vendor_-billing order) in a couple/co-host event-orders list.
+    .or(COUPLE_ORDERS_HIDE_VENDOR_FILTER)
     .order('created_at', { ascending: false });
   if (error) throw new Error(`fetchOrdersForEvent failed: ${error.message}`);
   return (data ?? []) as OrderRow[];

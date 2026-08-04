@@ -459,6 +459,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     liveWall,
     watchLive,
     publicCandidCameraActive,
+    hostCameraOpen,
     publicAlbumHref,
   } = await loadLiveLayer(admin, event, dayOfPhase);
   // The loader returns the parsed CONFIG; the JSX wrap stays here (same
@@ -520,6 +521,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     studioAnim,
     bespokeSvg,
     dayOfPhase,
+    hostCameraOpen,
     dayOfBroadcast,
     phasesEnabled,
     lifecyclePhase,

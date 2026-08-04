@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 205 single-column FKs onto auth.users / public.users
-# CASCADE=59  RESTRICT=3  SET NULL=143
+# 206 single-column FKs onto auth.users / public.users
+# CASCADE=59  RESTRICT=3  SET NULL=144
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -206,6 +206,7 @@ vendor_qr_media_flags.reviewed_by                   SET NULL     nullable  -> us
 vendor_recommendations.recommended_by_user_id       SET NULL     nullable  -> auth.users
 vendor_release_history.host_user_id                 SET NULL     nullable  -> auth.users
 vendor_release_history.vendor_user_id               SET NULL     nullable  -> auth.users
+vendor_reuse_requests.requested_by_user_id          SET NULL     nullable  -> users
 vendor_review_appeals.decided_by_admin              SET NULL     nullable  -> users
 vendor_review_appeals.reviewer_user_id              CASCADE      NOT NULL  -> users
 vendor_review_flags.reviewed_by_admin_id            SET NULL     nullable  -> auth.users

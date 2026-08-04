@@ -14,6 +14,7 @@ import {
 } from '@/lib/vendor-proposals';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createProposal, deleteTemplate, saveTemplate } from './actions';
+import { VendorReuseInbox } from './_components/reuse-inbox';
 
 export const metadata = { title: 'Proposals · Vendor' };
 
@@ -139,6 +140,10 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
           {notice.text}
         </p>
       ) : null}
+
+      {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
+          renders null when off (owner 2026-07-24). */}
+      <VendorReuseInbox />
 
       {/* New proposal */}
       <div className="sn-tile p-4 sm:p-6">

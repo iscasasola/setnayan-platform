@@ -353,7 +353,13 @@ export function bucketLabel(bucketId: string): string {
  * is ever skipped here; an unmappable category falls into `'other'` and is
  * still counted.
  */
-export function bucketForVendor(v: VendorMoneyRow): string {
+export function bucketForVendor(
+  // Minimal shape on purpose: BUD-3's checklist rows carry only these two
+  // fields, and the whole point of that slice is that BOTH surfaces attribute
+  // a vendor's money the same way. A wider parameter would have forced a
+  // second mapping, which is the defect.
+  v: Pick<VendorMoneyRow, 'covers_plan_groups' | 'category'>,
+): string {
   const groups = Array.isArray(v.covers_plan_groups) ? v.covers_plan_groups : [];
   const primary = groups.find((g) => typeof g === 'string' && g.length > 0);
   if (primary) return primary;

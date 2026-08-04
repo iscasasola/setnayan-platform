@@ -49,7 +49,17 @@ CREATE TABLE IF NOT EXISTS public.vendor_reuse_requests (
 
   -- The couple's NEW event (the instance owner) + who kicked it off.
   target_event_id        UUID NOT NULL REFERENCES public.events(event_id) ON DELETE CASCADE,
-  requested_by_user_id   UUID NOT NULL,
+  -- ACTOR STAMP, not the subject of the row (added FK + made nullable
+  -- 2026-08-04). The row's subjects are the couple's event and the vendor, both
+  -- CASCADE above; this column only records who pressed the button. It shipped
+  -- as `NOT NULL` with NO foreign key at all, which meant three things at once:
+  -- user deletion left a dangling uuid, the schema stated no verdict, and the
+  -- erasure guardrail (G3) could not classify the table — it failed CI.
+  -- Per G6 (`CASCADE`+`NOT NULL` ⇒ the row is ABOUT them; `SET NULL` ⇒ an actor
+  -- stamp) this is a SET NULL: erasing the person who clicked must not delete
+  -- the vendor's pending request. Same shape as event_preparation_items
+  -- .created_by — "the author's uuid goes, the item stays".
+  requested_by_user_id   UUID REFERENCES public.users(user_id) ON DELETE SET NULL,
 
   -- Snapshot fields used to seed the new booking. category/vendor_name are
   -- vendor-owned identity, safe to carry. scope_snapshot is the sanitized,

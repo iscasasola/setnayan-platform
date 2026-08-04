@@ -224,8 +224,11 @@ export async function quoteReuseRequest(
   if (error) return { status: 'error', reason: error.message };
 
   const targetEventId = loaded.row.target_event_id as string;
-  const requester = loaded.row.requested_by_user_id as string;
-  await emitNotification({
+  // NULL once the requester exercises erasure (ON DELETE SET NULL). Skip the
+  // notification rather than address one to a deleted account — the state
+  // change itself already succeeded above.
+  const requester = loaded.row.requested_by_user_id as string | null;
+  if (requester) await emitNotification({
     userId: requester,
     type: 'order_quoted',
     title: 'Your re-booking has a new quote',
@@ -261,8 +264,11 @@ export async function declineReuseRequest(
   if (error) return { status: 'error', reason: error.message };
 
   const targetEventId = loaded.row.target_event_id as string;
-  const requester = loaded.row.requested_by_user_id as string;
-  await emitNotification({
+  // NULL once the requester exercises erasure (ON DELETE SET NULL). Skip the
+  // notification rather than address one to a deleted account — the state
+  // change itself already succeeded above.
+  const requester = loaded.row.requested_by_user_id as string | null;
+  if (requester) await emitNotification({
     userId: requester,
     type: 'inquiry_declined',
     title: 'A re-booking request was declined',

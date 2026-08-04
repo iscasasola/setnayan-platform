@@ -65,3 +65,25 @@ pushing migration 20270929330649"*. Re-allocated to `20271103100614`.
 must be non-NULL. The feature stays dark — `NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED` is empty.
 
 SPEC IMPACT: None — the feature is unchanged and still flag-dark.
+
+### Follow-up: `requested_by_user_id` had no foreign key at all
+
+The erasure guardrail's **G3** ("every subject-bearing table is classified") then failed on the
+new table, and the cause was a modelling gap rather than a missing declaration:
+`requested_by_user_id` shipped **`NOT NULL` with no `REFERENCES` clause**. Three consequences at
+once — deleting a user left a dangling uuid, the schema stated no verdict for **G6** to read
+(`CASCADE`+`NOT NULL` ⇒ the row is about them; `SET NULL` ⇒ an actor stamp), and the table could
+not be classified.
+
+It is an **actor stamp**. The row's subjects are the target event and the vendor profile, both
+already `CASCADE`; this column only records who pressed the button, and erasing that person must
+not delete the vendor's pending request. Same shape as the `event_preparation_items.created_by`
+precedent already in `coverage.ts` — *"the author's uuid goes, the item stays"*. Now nullable
+with `ON DELETE SET NULL`, and covered as de-identify-in-place.
+
+**It also closed a latent defect.** Both consumers use the column solely to address a
+notification. They now skip when it is NULL, so a re-quote or decline can never be emailed to an
+account that exercised erasure — the same shape as the waitlist find on 2026-08-02.
+
+17/17 guardrail, 32/32 erasure suite. `UNDECIDED_BACKLOG` stays at **0** — the ratchet may be
+lowered, never raised, so this was classified rather than parked.

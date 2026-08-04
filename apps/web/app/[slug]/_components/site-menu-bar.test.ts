@@ -18,6 +18,42 @@ const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
 const VEIL = readFileSync(join(HERE, 'reveal', 'reveal-overlay.tsx'), 'utf8');
 const HANDOFF = readFileSync(join(HERE, 'std-film-handoff.tsx'), 'utf8');
 
+test('menu bar · icon AND label on every slot — never icons alone', () => {
+  // The owner's design, and the strongest convention in the PH market: the
+  // labelled grid every GCash user already knows. The bar shipped as uppercase
+  // mono TEXT with no icons at all, and he said so on sight.
+  assert.match(BAR, /from 'lucide-react'/);
+  // Every slot renders an icon component next to its label.
+  for (const icon of ['Home', 'Info', 'BookOpen', 'Camera', 'Images', 'Radio', 'User']) {
+    assert.ok(BAR.includes(icon), `the bar has no ${icon} icon`);
+  }
+  // …and the label still renders — icons alone would be a regression.
+  assert.match(BAR, /\{tab\.label\}/);
+  // The old mono-uppercase treatment must be gone.
+  assert.ok(!BAR.includes('uppercase tracking-[0.12em]'), 'the old text-only bar chrome survives');
+});
+
+test('menu bar · labels can never wrap, whatever they say', () => {
+  // A label that wraps grows its slot and tilts the entire bar.
+  assert.match(BAR, /whitespace-nowrap/);
+  assert.match(BAR, /overflow-hidden/);
+  assert.match(BAR, /min-w-0/);
+});
+
+test('menu bar · a home-indicator strip keeps labels off the home bar', () => {
+  assert.match(BAR, /safe-area-inset-bottom/);
+});
+
+test('menu bar · Watch has its OWN slot and never takes the gallery\'s', () => {
+  // Owner: "papic button as well" — on the day a guest needs the camera AND the
+  // gallery, so a broadcast may not displace either.
+  assert.match(BAR, /export type SiteMenuWatch/);
+  const watchBlock = BAR.slice(BAR.indexOf('{watch ?'));
+  assert.ok(watchBlock.includes('Radio'), 'the watch slot has no icon');
+  // It is rendered as its own <li>, not by replacing a tab.
+  assert.match(BAR, /\{watch \? \(\s*<li/);
+});
+
 test('menu bar · a closed camera is DRAWN and locked, never absent', () => {
   // Owner 2026-08-03: the host holds the switch, but the camera is part of what
   // the invitation promises. An absent slot says the wedding has no camera; a

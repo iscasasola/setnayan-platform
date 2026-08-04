@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -80,12 +81,10 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
 }
 
 function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
-  if (typeof raw !== 'string' || raw.length === 0) return null;
-  // <input type="datetime-local"> gives e.g. "2026-12-12T15:30"; treat as
-  // local time, convert to ISO with the user's local TZ offset.
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  // The wall clock the couple typed, stored verbatim. Its twin — the prefill —
+  // lives in the same module so the two can never disagree again; when they
+  // did, saving without editing moved the block eight hours.
+  return typeof raw === 'string' ? fromDatetimeLocalValue(raw) : null;
 }
 
 export async function createScheduleBlock(formData: FormData) {

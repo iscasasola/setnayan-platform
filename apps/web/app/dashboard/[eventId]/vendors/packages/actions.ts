@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { resolveLivePax } from '@/lib/pax';
 import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
@@ -546,7 +547,11 @@ export async function lockPackage(
       // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on. Fail-soft on purpose — the
       // couple's booking must never fail because a fee could not be opened;
       // the next lock re-attempts it.
-      if (isBookingFeeEnabled()) {
+      //
+      // ⚠ TRIGGER MOVED — see the note in `vendors/actions.ts`. 2 of 3 call
+      // sites. `isLockHandshakeEnabled()` ON defers this to vendor
+      // payment-acceptance; OFF keeps billing here at the lock.
+      if (!isLockHandshakeEnabled() && isBookingFeeEnabled()) {
         try {
           await collectBookingFeeAtLock(createMoneyWriterClient(), {
             eventVendorId: anchorRow.vendor_id,

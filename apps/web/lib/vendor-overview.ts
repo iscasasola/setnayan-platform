@@ -478,6 +478,17 @@ async function fetchLockRequests(
     .eq('marketplace_vendor_id', vendorProfileId)
     .not('deposit_recorded_at', 'is', null)
     .is('deposit_acknowledged_at', null)
+    // PR-I · §12.2 step 9. This feed hands its raw `vendor_id` straight to
+    // `vendorAcknowledgeDeposit`, which now moves MONEY — so it must never
+    // offer a row that is not a sale:
+    //   · `package_role='covered'` is a cascade line carrying ₱0; the anchor
+    //     is the money row, and the "covered rows carry no money" CHECK
+    //     constrains the AMOUNTS only, not the deposit markers, so nothing at
+    //     the DB layer stops one appearing here.
+    //   · an archived row is a rejected/withdrawn booking.
+    // `resolveFeeAnchorRowId` is the backstop; this is the design.
+    .or('package_role.is.null,package_role.eq.anchor')
+    .is('archived_at', null)
     .order('deposit_recorded_at', { ascending: false });
   return ((data ?? []) as Array<{
     vendor_id: string;

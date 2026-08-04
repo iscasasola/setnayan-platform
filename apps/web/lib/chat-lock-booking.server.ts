@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 
 /**
@@ -116,12 +117,20 @@ export async function bookVendorAtChatLock(
   // ENABLED is on; free for the vendor's first 5 booked customers; 6th+ mints a
   // 5% vendor-payer order. Fail-soft: the lock committed — a fee hiccup here must
   // never roll it back.
+  //
+  // ⚠ TRIGGER MOVED — see the note in `dashboard/[eventId]/vendors/actions.ts`.
+  // 3 of 3 call sites. This is the one most easily missed: it bills from a CHAT
+  // message, not from a lock screen, so a sweep that greps the vendors surface
+  // alone walks straight past it and the couple gets billed twice by taking a
+  // different route to the same booking.
   let feeCharged = false;
-  try {
-    const res = await collectBookingFeeAtLock(admin, { eventVendorId });
-    feeCharged = res.status === 'ordered';
-  } catch {
-    // swallow — the lock stands; the next lock/re-lock re-attempts the fee.
+  if (!isLockHandshakeEnabled()) {
+    try {
+      const res = await collectBookingFeeAtLock(admin, { eventVendorId });
+      feeCharged = res.status === 'ordered';
+    } catch {
+      // swallow — the lock stands; the next lock/re-lock re-attempts the fee.
+    }
   }
 
   return action === 'refresh_fee_only'

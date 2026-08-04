@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -2182,7 +2183,17 @@ export async function finalizeVendor(
   // the locked schedule — 5%, then 1% beyond ₱100,000 (lib/booking-fee.ts).
   // Fully fail-soft: the lock already committed — a fee hiccup never rolls it back.
   // ----------------------------------------------------------------------
-  if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
+  //
+  // ⚠ TRIGGER MOVED (owner 2026-07-27 — the LOCK HANDSHAKE ruling, the FIFTH
+  // ruling in this lineage). A couple's lock is now a REQUEST; the fee is
+  // "billed alongside accepting" at VENDOR payment-acceptance
+  // (`vendorAcknowledgeDeposit`). `isLockHandshakeEnabled()` OFF keeps the
+  // 2026-07-24 placement below — bill here, at the lock — so the move is
+  // reversible by env var. This is one of THREE call sites that had to move
+  // together; the others are `vendors/packages/actions.ts` (lockPackage) and
+  // `lib/chat-lock-booking.server.ts`. Leaving any one behind would double-bill
+  // by path: fee at lock here, fee again at acknowledge there.
+  if (!isLockHandshakeEnabled() && isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
     try {
       await collectBookingFeeAtLock(createMoneyWriterClient(), { eventVendorId: vendorId });
     } catch (e) {

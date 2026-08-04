@@ -16,6 +16,34 @@
 //     hands out a collision-resistant, never-round prefix; this rule forces it
 //     for new work. Existing migrations are grandfathered (they're on main).
 //
+//   NOT A RULE — ORDERING. This script does NOT check that a prefix sorts above
+//     prod's applied head, and it does not need to. ⚠ There is a persistent
+//     false belief in this repo that a migration whose prefix has fallen below
+//     the applied head "merges with green CI and creates nothing". IT IS FALSE.
+//     `deploy-prod.yml` and `supabase-migrations.yml` both run
+//     `supabase db push --include-all --yes`, and `--include-all` exists exactly
+//     to apply migrations dated before the remote head.
+//
+//     Measured 2026-08-04, 13 ways: 12 migrations were historically added out of
+//     order (e.g. 20271032407062 added 2026-08-02 when the head was already
+//     20271033104200) and ALL 12 are applied in prod; and the open-browse launch
+//     migration 20271102765509 applied on 2026-08-04 while sitting TWO prefixes
+//     below the head (events.website_open_browse column_default reads `true`).
+//
+//     ⚠ Two MERGED migration headers still assert the false version and must not
+//     be trusted: 20271102765509_open_browse_default_new_events_on.sql and
+//     20271102810371_vendor_lines_library.sql. They are applied, so they are not
+//     edited (never edit an applied migration); this comment is the correction.
+//
+//     WHAT A LOW PREFIX ACTUALLY COSTS — the PGlite REPLAY, not prod.
+//     apps/web/tests/db/replay-migrations.ts replays with
+//     `readdirSync(...).filter('.sql').sort()`, i.e. FILENAME order. So a
+//     low-prefixed migration that DEPENDS on an object created by a
+//     higher-prefixed, already-merged migration fails EVERY *.db.test.ts while
+//     prod is perfectly fine. Prod applies in merge order; the tests apply in
+//     prefix order, and only one of those two is the filename. That — plus
+//     RULE 1 — is why `pnpm migration:new` allocates forward.
+//
 // Pure rule functions are exported for unit tests; the CLI runs only when this
 // file is executed directly (so importing it in a test has no side effects).
 

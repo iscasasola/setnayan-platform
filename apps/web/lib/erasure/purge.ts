@@ -47,10 +47,14 @@ import {
   EVENTS_OWNER_PII_NULLS,
   EVENT_PAPERWORK_PII_NULLS,
   EVENT_MODERATOR_SELF_NULLS,
+  AUTHOR_UUID_NULLS,
+  CLAIM_TOKEN_ROTATIONS,
   OWN_ROW_DELETES,
   OWN_ROW_DELETES_BY_EMAIL,
+  freshClaimToken,
   PEOPLE_ANONYMIZE_NULLS,
   SCAN_EVENT_SCANNER_NULLS,
+  SUBJECT_ROW_DELETES,
   USERS_ANONYMIZE_NULLS,
   VENDOR_PROFILE_PII_SCRUB,
   VENDOR_VERIFICATION_DOC_SCRUB,
@@ -594,6 +598,48 @@ export async function purgeUserOwnedRecords(
     admin.from('godparents').delete().eq('owner_user_id', targetUserId),
   );
 
+  // Seats the erased person claimed. THE ROW SURVIVES AND RETURNS TO UNCLAIMED —
+  // a seat belongs to the event that paid for it, not to whoever claimed it.
+  //
+  // Until 2026-08-01 erasure did not name these tables, so claimer_user_id kept
+  // pointing at a deleted account and both claimability gates read "taken": the
+  // couple's paid seat was held forever by a ghost.
+  //
+  // ⚠ THE UNCLAIM AND THE ROTATION MUST STAY IN ONE STATEMENT. Clearing the
+  // claimer alone flips the row back to `claimable`, and the erased person's QR
+  // is still printed and still points at that token — freeing the seat without
+  // rotating hands it straight back to them. The token is REPLACED rather than
+  // nulled so the seat stays re-issuable (and because claim_qr_token is NOT
+  // NULL). See CLAIM_TOKEN_ROTATIONS for why only two tables qualify.
+  //
+  // ⚠ ONE STATEMENT PER ROW, NOT ONE PER TABLE. Both token columns are UNIQUE
+  // (`claim_qr_token TEXT NOT NULL UNIQUE`, and
+  // panood_camera_operators_claim_qr_token_key). A single
+  // `.update({ token: freshClaimToken() }).eq(subject, id)` would write the SAME
+  // value to every row the person claimed, so anyone holding two seats — two
+  // events, or two seats at one event — trips the unique index, the whole
+  // statement fails, and the best-effort step() logs it and moves on leaving
+  // NOTHING freed. That is the same swallow-the-failure shape as the
+  // events.owner_email PGRST204 bug. Each row therefore gets its own token.
+  for (const rot of CLAIM_TOKEN_ROTATIONS) {
+    await step(`claim-token-rotate:${rot.table}`, async () => {
+      const { data, error } = await admin
+        .from(rot.table)
+        .select(rot.idColumn)
+        .eq(rot.subjectColumn, targetUserId);
+      if (error) return { error };
+      const rows = (data ?? []) as unknown as Array<Record<string, string | number>>;
+      for (const row of rows) {
+        const { error: upErr } = await admin
+          .from(rot.table)
+          .update({ [rot.tokenColumn]: freshClaimToken(), ...rot.clear })
+          .eq(rot.idColumn, row[rot.idColumn]);
+        if (upErr) return { error: upErr };
+      }
+      return { error: null };
+    });
+  }
+
   // guest_claims — the user's own name/email presented when claiming a guest
   // seat. claimer_name is NOT NULL → tombstone; the rest → null.
   await step('guest-claims-anonymize', () =>
@@ -639,6 +685,18 @@ export async function purgeUserOwnedRecords(
       await step('vendor-push-tokens-delete', () =>
         admin.from('vendor_push_tokens').delete().eq('vendor_profile_id', vendorProfileId),
       );
+      // vendor_ig_connections — the same shape, and a LIVE CREDENTIAL:
+      // `access_token_enc` is an encrypted Instagram OAuth token. The table has
+      // NO user column at all (only vendor_profile_id), so it cannot go through
+      // SUBJECT_ROW_DELETES — `.eq(column, targetUserId)` would compare a profile
+      // id against a user id and match NOTHING, a silent no-op wearing the shape
+      // of a fix. Its CASCADE is a decoy too: it fires from vendor_profiles on a
+      // HARD delete, and erasure never issues one.
+      //
+      // Three stale rows of this table once blocked account deletion outright.
+      await step('vendor-ig-connections-delete', () =>
+        admin.from('vendor_ig_connections').delete().eq('vendor_profile_id', vendorProfileId),
+      );
     }
   }
 
@@ -663,6 +721,33 @@ export async function purgeUserOwnedRecords(
       .update({ ...SCAN_EVENT_SCANNER_NULLS })
       .eq('scanner_user_id', targetUserId),
   );
+
+  // The eleven tables where the subject's uuid outlived their erasure request
+  // (settled 2026-08-02). Nine declare ON DELETE SET NULL, which is exactly why
+  // they were missed: THAT CLAUSE NEVER FIRES HERE. This purge anonymizes the
+  // auth user in place (updateUserById, below) and issues no DELETE, so the
+  // uuid just sits there. Two of them — vendor_change_orders and
+  // vendor_feature_recommendations — carry it with no FK at all.
+  //
+  // Author stamps are NULLED, not deleted: these rows are read by event or by
+  // vendor, so deleting them would strip the co-partner's agenda or the shop's
+  // own records because the person who typed them left.
+  for (const { table, column } of AUTHOR_UUID_NULLS) {
+    await step(`${table}-author-anonymize`, () =>
+      admin
+        .from(table)
+        .update({ [column]: null })
+        .eq(column, targetUserId),
+    );
+  }
+
+  // Rows whose whole subject IS the person. Keeping one after erasure is
+  // keeping a dossier on someone who asked to be forgotten.
+  for (const { table, column } of SUBJECT_ROW_DELETES) {
+    await step(`${table}-subject-delete`, () =>
+      admin.from(table).delete().eq(column, targetUserId),
+    );
+  }
 
   // Whole-row deletes keyed by the subject's own FK — the cleanup the disarmed
   // ON DELETE CASCADEs used to do. Reason per table in coverage.ts.
@@ -938,13 +1023,24 @@ export type EraseResult = {
  * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
  *
  * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
- * activity: ~46 foreign keys to auth.users / public.users are ON DELETE
+ * activity: ~46 foreign keys to auth.users / public.users were ON DELETE
  * NO ACTION / RESTRICT, and `vendor_team_guard_trg` aborts the delete of a
  * vendor's sole admin. So the admin Delete button — and the RA 10173 self-serve
  * erasure queue that funnels through here — 500'd on real accounts, leaving
  * erasure unfulfillable. Worse, the two PII purges used to run and COMMIT
  * *before* the throwing hard-delete, so a failed delete left the account LIVE
  * with its birth data + chat already erased (an inconsistent, unrecoverable state).
+ *
+ * ⚠ PAST TENSE ON PURPOSE (2026-08-02). Those foreign keys have since been swept
+ * — 48 of them decided across two migrations, and exactly THREE still refuse, all
+ * deliberately (order_refunds · supplies_orders · vendor_contract_signatures; see
+ * tests/db/user-delete-refusing-fks.baseline.txt). A hard delete would therefore
+ * succeed today for most accounts, and that does NOT make it the right call. The
+ * FK situation was only ever the reason the old code CRASHED; the reason this
+ * function anonymizes instead is the one in "Legal posture" below — erase the
+ * personal data, keep the business record. Reintroducing a DELETE on the strength
+ * of the FKs now being clear would destroy transactional history that the very
+ * same sweep concluded must survive its author.
  *
  * Fix: we never DELETE auth.users. Instead we
  *   0. capture what the anonymize is about to destroy but the purges still need

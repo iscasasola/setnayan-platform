@@ -1,0 +1,48 @@
+-- drop households and guests.household_id
+--
+-- `households` was going to be the "one invitation per family" feature: group
+-- the five Reyeses who live together into one household with one postal
+-- address, so the couple posts one envelope while the headcount still counts
+-- five. Philippine wedding invitations very often go to a family rather than a
+-- person, so it was a sensible thing to design.
+--
+-- It shipped on 2026-05-13 in the very first guest-list migration
+-- (20260513010000_iteration_0001_guests.sql) — the same one that created
+-- `guests`, the Filipino role enum (ninong, ninang, veil sponsor, coin bearer),
+-- the RSVP statuses and the per-guest QR token. It was designed in from day one.
+--
+-- Then it was never built. Eleven weeks later:
+--
+--   households                 0 rows, ever
+--   guests.household_id        0 of 39 populated
+--   screens that touch it      none
+--   queries that read or write none
+--
+-- ⚠ IMPORTANT — it was NOT unreferenced. A reference scan that excluded
+-- `*.test.*` reported it as dead and led to a first attempt at this drop that
+-- broke TEN security assertions. `households` was a canary in
+-- `event-member-self-join.db.test.ts`: the suite proving a stranger who
+-- self-joins an event cannot read that event's data seeded a household row and
+-- asserted the attacker could not read it back.
+--
+-- That canary was replaced in the same PR — by `guests`, which is the same
+-- event-scoped, couples-write, RLS Pattern B shape and actually carries names.
+-- The assertion is STRONGER now: it previously proved only that a stranger
+-- could not read a table which would always be empty.
+--
+-- Owner decision 2026-08-01, after asking what the feature actually was:
+-- "just remove it." Guest grouping may still be worth building; it will not be
+-- built on a table nobody wrote to for eleven weeks, and an empty table with a
+-- plausible name is what a future session builds on by mistake.
+--
+-- RECOVERY: the defining DDL is in migration history. There is no data to
+-- recover — the table was empty its entire life.
+--
+-- IDEMPOTENT. Order matters: the referring column goes first, taking its FK.
+
+-- ── 1 · the FK column on the live guests table ─────────────────────────────
+-- Verified populated on 0 of 39 rows before writing this, so nothing is lost.
+ALTER TABLE public.guests DROP COLUMN IF EXISTS household_id;
+
+-- ── 2 · the table itself ───────────────────────────────────────────────────
+DROP TABLE IF EXISTS public.households;

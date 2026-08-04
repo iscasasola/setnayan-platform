@@ -1,0 +1,45 @@
+-- drop the retired token_burn_bands table
+--
+-- `token_burn_bands` was the per-region map deciding how many tokens a vendor
+-- burns to answer an inquiry. It was replaced on 2026-07-01 by a single source
+-- of truth — `regions.burn_band` — in 20270331100000_burn_band_single_source.sql,
+-- and it has been retired ever since.
+--
+-- It was retired BECAUSE it was wrong. It keyed regions by long-form slug while
+-- the rest of the schema uses underscore/PSGC form, so six regions mis-resolved
+-- and eight were missing entirely. The live path never reads it: the only burn
+-- lookup in the app is `resolveBurnBand()`
+-- (apps/web/lib/vendor-autoreply/auto-accept.ts:365), which queries
+-- `regions.burn_band` and nothing else.
+--
+-- ⚠ VERIFIED UNREAD BEFORE DROPPING — with the boundary stated, because the
+-- `households` drop (20271029415972) broke ten security assertions after a scan
+-- that excluded `*.test.*` called it dead:
+--
+--   git grep -nE "from\(['\"]token_burn_bands['\"]\)" origin/main -- apps/web
+--                                                            → 0 hits
+--   git grep -ln "token_burn_bands" origin/main               → 27 files, and
+--     EVERY app-code hit is a COMMENT explaining the retirement:
+--       app/admin/pricing/_surfaces/token-bands-surface.tsx:28,32
+--       app/admin/token-bands/actions.ts:17
+--       lib/v2/region-token-burn.ts:53
+--       lib/ugat/graph.ts:565,1974
+--     the rest are migrations (history), changelog fragments, CHANGELOG.md and
+--     the two generated security artifacts.
+--   tests referencing it (apps/web/tests, *.test.*)            → none
+--     (this is the households check: no canary depends on the row existing)
+--   foreign keys pointing AT it                                → none
+--
+-- The admin surface that once edited it (`/admin/token-bands`) already writes
+-- `regions.burn_band`; its comment at actions.ts:17 records the switch. So the
+-- console keeps working and nothing loses a screen.
+--
+-- Per the owner's standing rule (2026-07-31): retired means DELETED, no
+-- tombstones — a retired object left in prod is a lie the next reader has to
+-- disprove. This is the object, not a rename.
+--
+-- The two generated security artifacts are regenerated in this same PR, because
+-- the exposure freeze treats a removed line as a NARROWING and would otherwise
+-- keep asserting grants on a table that no longer exists.
+
+DROP TABLE IF EXISTS public.token_burn_bands;

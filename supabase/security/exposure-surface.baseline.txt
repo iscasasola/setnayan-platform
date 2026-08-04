@@ -9,27 +9,23 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6246
+# facts: 6161
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     709
-#   col       4474
-#   policy    832
+#   tpriv     668
+#   col       4450
+#   policy    825
 #   view      10
-#   func      217
+#   func      204
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
 schema	public	usage=anon,authenticated
 schema	storage	usage=anon,authenticated
-tpriv	public.account_deletion_requests|anon	SIUD
 tpriv	public.account_deletion_requests|authenticated	SIUD
-tpriv	public.admin_approval_requests|anon	SIUD
 tpriv	public.admin_approval_requests|authenticated	SIUD
-tpriv	public.admin_audit_log|anon	SIUD
 tpriv	public.admin_audit_log|authenticated	SIUD
-tpriv	public.admin_data_access_log|anon	SIUD
 tpriv	public.admin_data_access_log|authenticated	SIUD
 tpriv	public.anniversary_email_log|anon	SIUD
 tpriv	public.anniversary_email_log|authenticated	SIUD
@@ -37,9 +33,7 @@ tpriv	public.anniversary_headsup_log|anon	SIUD
 tpriv	public.anniversary_headsup_log|authenticated	SIUD
 tpriv	public.anon_onboarding_ip_throttle|anon	SIUD
 tpriv	public.anon_onboarding_ip_throttle|authenticated	SIUD
-tpriv	public.api_keys|anon	SIUD
 tpriv	public.api_keys|authenticated	SIUD
-tpriv	public.app_telemetry_logs|anon	SIUD
 tpriv	public.app_telemetry_logs|authenticated	SIUD
 tpriv	public.appointment_type_catalog|anon	SIUD
 tpriv	public.appointment_type_catalog|authenticated	SIUD
@@ -57,11 +51,9 @@ tpriv	public.booking_handovers|anon	SIUD
 tpriv	public.booking_handovers|authenticated	SIUD
 tpriv	public.budget_allocation_config|anon	SIUD
 tpriv	public.budget_allocation_config|authenticated	SIUD
-tpriv	public.budget_allocation_decisions|anon	SIUD
 tpriv	public.budget_allocation_decisions|authenticated	SIUD
 tpriv	public.budget_band_config|anon	SIUD
 tpriv	public.budget_band_config|authenticated	SIUD
-tpriv	public.budget_builds|anon	SIUD
 tpriv	public.budget_builds|authenticated	SIUD
 tpriv	public.budget_leaf_benchmarks|anon	SIUD
 tpriv	public.budget_leaf_benchmarks|authenticated	SIUD
@@ -120,7 +112,6 @@ tpriv	public.demand_radar_rollups|anon	SIUD
 tpriv	public.demand_radar_rollups|authenticated	SIUD
 tpriv	public.demo_sessions|anon	SIUD
 tpriv	public.demo_sessions|authenticated	SIUD
-tpriv	public.dependents|anon	SIUD
 tpriv	public.dependents|authenticated	SIUD
 tpriv	public.discount_code_eligible_users|anon	SIUD
 tpriv	public.discount_code_eligible_users|authenticated	SIUD
@@ -154,19 +145,13 @@ tpriv	public.event_checklist_items|authenticated	SIUD
 tpriv	public.event_day_requests|authenticated	SIU
 tpriv	public.event_delegates|anon	SIUD
 tpriv	public.event_delegates|authenticated	SIUD
-tpriv	public.event_editorial|anon	SIUD
 tpriv	public.event_editorial|authenticated	SIUD
 tpriv	public.event_egift_methods|anon	SIUD
 tpriv	public.event_egift_methods|authenticated	SIUD
 tpriv	public.event_feature_policy_override|anon	SIUD
 tpriv	public.event_feature_policy_override|authenticated	SIUD
-tpriv	public.event_floor_areas|anon	SIUD
-tpriv	public.event_floor_areas|authenticated	SIUD
 tpriv	public.event_floor_booths|anon	SIUD
 tpriv	public.event_floor_booths|authenticated	SIUD
-tpriv	public.event_floor_objects|anon	SIUD
-tpriv	public.event_floor_objects|authenticated	SIUD
-tpriv	public.event_floor_plan|anon	SIUD
 tpriv	public.event_floor_plan|authenticated	SIUD
 tpriv	public.event_floor_signs|anon	SIUD
 tpriv	public.event_floor_signs|authenticated	SIUD
@@ -268,7 +253,6 @@ tpriv	public.guest_claims|anon	SIUD
 tpriv	public.guest_claims|authenticated	SIUD
 tpriv	public.guest_columns|anon	SIUD
 tpriv	public.guest_columns|authenticated	SIUD
-tpriv	public.guest_face_enrollments|anon	SIUD
 tpriv	public.guest_face_enrollments|authenticated	SIUD
 tpriv	public.guest_group_memberships|anon	SIUD
 tpriv	public.guest_group_memberships|authenticated	SIUD
@@ -292,8 +276,6 @@ tpriv	public.homepage_background_videos|anon	SIUD
 tpriv	public.homepage_background_videos|authenticated	SIUD
 tpriv	public.homepage_hero_config|anon	SIUD
 tpriv	public.homepage_hero_config|authenticated	SIUD
-tpriv	public.households|anon	SIUD
-tpriv	public.households|authenticated	SIUD
 tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
 tpriv	public.inquiry_outcomes|anon	SIUD
@@ -308,9 +290,7 @@ tpriv	public.kwento_assignments|anon	SIUD
 tpriv	public.kwento_assignments|authenticated	SIUD
 tpriv	public.lead_token_holds|anon	SIUD
 tpriv	public.lead_token_holds|authenticated	SIUD
-tpriv	public.live_studio_channel_grants|anon	SIUD
 tpriv	public.live_studio_channel_grants|authenticated	SIUD
-tpriv	public.live_studio_channel_oauth_state|anon	SIUD
 tpriv	public.live_studio_channel_oauth_state|authenticated	SIUD
 tpriv	public.live_studio_highlights|anon	SIUD
 tpriv	public.live_studio_highlights|authenticated	SIUD
@@ -324,7 +304,6 @@ tpriv	public.live_studio_roam_zones|anon	SIUD
 tpriv	public.live_studio_roam_zones|authenticated	SIUD
 tpriv	public.manpower_gigs|anon	SIUD
 tpriv	public.manpower_gigs|authenticated	SIUD
-tpriv	public.manual_payment_logs|anon	SIUD
 tpriv	public.manual_payment_logs|authenticated	SIUD
 tpriv	public.market_funnel_bands|anon	SIUD
 tpriv	public.market_funnel_bands|authenticated	SIUD
@@ -342,19 +321,14 @@ tpriv	public.notifications|anon	SIUD
 tpriv	public.notifications|authenticated	SIUD
 tpriv	public.npc_filing_tasks|anon	SIUD
 tpriv	public.npc_filing_tasks|authenticated	SIUD
-tpriv	public.oauth_grants|anon	D
 tpriv	public.oauth_grants|authenticated	D
-tpriv	public.oauth_state|anon	SIUD
 tpriv	public.oauth_state|authenticated	SIUD
 tpriv	public.onboarding_refinement_options|anon	SIUD
 tpriv	public.onboarding_refinement_options|authenticated	SIUD
 tpriv	public.onboarding_refinements|anon	SIUD
 tpriv	public.onboarding_refinements|authenticated	SIUD
-tpriv	public.order_ledger|anon	SI
 tpriv	public.order_ledger|authenticated	SI
-tpriv	public.order_refunds|anon	SIUD
 tpriv	public.order_refunds|authenticated	SIUD
-tpriv	public.orders|anon	SU
 tpriv	public.orders|authenticated	SU
 tpriv	public.owner_alerts|anon	SIUD
 tpriv	public.owner_alerts|authenticated	SIUD
@@ -394,9 +368,7 @@ tpriv	public.papic_seat_day_usage|anon	SIUD
 tpriv	public.papic_seat_day_usage|authenticated	SIUD
 tpriv	public.papic_tier_config|anon	SIUD
 tpriv	public.papic_tier_config|authenticated	SIUD
-tpriv	public.patiktok_oauth_grants|anon	IUD
 tpriv	public.patiktok_oauth_grants|authenticated	IUD
-tpriv	public.patiktok_oauth_state|anon	SIUD
 tpriv	public.patiktok_oauth_state|authenticated	SIUD
 tpriv	public.patiktok_render_job_clips|anon	SIUD
 tpriv	public.patiktok_render_job_clips|authenticated	SIUD
@@ -406,7 +378,6 @@ tpriv	public.patiktok_source_clips|anon	SIUD
 tpriv	public.patiktok_source_clips|authenticated	SIUD
 tpriv	public.pax_change_audit|anon	SIUD
 tpriv	public.pax_change_audit|authenticated	SIUD
-tpriv	public.payments|anon	SU
 tpriv	public.payments|authenticated	SU
 tpriv	public.people|authenticated	SIU
 tpriv	public.person_connections|authenticated	SIU
@@ -425,13 +396,11 @@ tpriv	public.platform_compliance_facts|anon	SIUD
 tpriv	public.platform_compliance_facts|authenticated	SIUD
 tpriv	public.platform_expenses|anon	SIUD
 tpriv	public.platform_expenses|authenticated	SIUD
-tpriv	public.platform_integration_secrets|anon	IUD
 tpriv	public.platform_integration_secrets|authenticated	IUD
 tpriv	public.platform_package_catalog|anon	SIUD
 tpriv	public.platform_package_catalog|authenticated	SIUD
 tpriv	public.platform_retail_catalog_v2|anon	SIUD
 tpriv	public.platform_retail_catalog_v2|authenticated	SIUD
-tpriv	public.platform_secret_rotations|anon	SIUD
 tpriv	public.platform_secret_rotations|authenticated	SIUD
 tpriv	public.platform_settings|authenticated	S
 tpriv	public.promo_free_windows|anon	SIUD
@@ -444,7 +413,6 @@ tpriv	public.push_subscriptions|anon	SIUD
 tpriv	public.push_subscriptions|authenticated	SIUD
 tpriv	public.rate_limit_hits|anon	SIUD
 tpriv	public.rate_limit_hits|authenticated	SIUD
-tpriv	public.receipts|anon	SIUD
 tpriv	public.receipts|authenticated	SIUD
 tpriv	public.reel_music_tracks|anon	SIUD
 tpriv	public.reel_music_tracks|authenticated	SIUD
@@ -476,6 +444,8 @@ tpriv	public.service_catalog|anon	SIUD
 tpriv	public.service_catalog|authenticated	SIUD
 tpriv	public.service_categories|anon	SIUD
 tpriv	public.service_categories|authenticated	SIUD
+tpriv	public.service_slot_day_state|authenticated	S
+tpriv	public.service_slot_reservations|authenticated	S
 tpriv	public.setnayan_ai_guard_log|anon	SIUD
 tpriv	public.setnayan_ai_guard_log|authenticated	SIUD
 tpriv	public.setnayan_pay_methods|anon	SIUD
@@ -506,14 +476,11 @@ tpriv	public.supplies_order_line_items|anon	SIUD
 tpriv	public.supplies_order_line_items|authenticated	SIUD
 tpriv	public.supplies_orders|anon	SIUD
 tpriv	public.supplies_orders|authenticated	SIUD
-tpriv	public.taxonomy_category_requests|anon	SIUD
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
 tpriv	public.thread_service_interests|anon	SIUD
 tpriv	public.thread_service_interests|authenticated	SIUD
-tpriv	public.token_burn_bands|anon	SIUD
-tpriv	public.token_burn_bands|authenticated	SIUD
 tpriv	public.token_grants_log|anon	SIUD
 tpriv	public.token_grants_log|authenticated	SIUD
 tpriv	public.token_redemptions_log|anon	SIUD
@@ -522,7 +489,6 @@ tpriv	public.token_rewards_log|anon	SIUD
 tpriv	public.token_rewards_log|authenticated	SIUD
 tpriv	public.user_devices|anon	SIUD
 tpriv	public.user_devices|authenticated	SIUD
-tpriv	public.user_face_profiles|anon	SIUD
 tpriv	public.user_face_profiles|authenticated	SIUD
 tpriv	public.user_follows|anon	SIUD
 tpriv	public.user_follows|authenticated	SIUD
@@ -593,10 +559,8 @@ tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
 tpriv	public.vendor_guest_deliveries|anon	SIUD
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
-tpriv	public.vendor_ig_connections|anon	IUD
 tpriv	public.vendor_ig_media|anon	SIUD
 tpriv	public.vendor_ig_media|authenticated	SIUD
-tpriv	public.vendor_ig_oauth_state|anon	SIUD
 tpriv	public.vendor_ig_oauth_state|authenticated	SIUD
 tpriv	public.vendor_image_flags|anon	SIUD
 tpriv	public.vendor_image_flags|authenticated	SIUD
@@ -604,7 +568,6 @@ tpriv	public.vendor_image_hashes|anon	SIUD
 tpriv	public.vendor_image_hashes|authenticated	SIUD
 tpriv	public.vendor_invites|anon	SIUD
 tpriv	public.vendor_invites|authenticated	SIUD
-tpriv	public.vendor_lines|authenticated	SIUD
 tpriv	public.vendor_lock_proposals|anon	SIUD
 tpriv	public.vendor_lock_proposals|authenticated	SIUD
 tpriv	public.vendor_locked_qr_tokens|anon	SIUD
@@ -625,9 +588,7 @@ tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
-tpriv	public.vendor_payment_methods|anon	SIUD
 tpriv	public.vendor_payment_methods|authenticated	SIUD
-tpriv	public.vendor_payouts|anon	SIUD
 tpriv	public.vendor_payouts|authenticated	SIUD
 tpriv	public.vendor_portion_rules|anon	SIUD
 tpriv	public.vendor_portion_rules|authenticated	SIUD
@@ -672,7 +633,6 @@ tpriv	public.vendor_self_comp_caps|anon	SIUD
 tpriv	public.vendor_self_comp_caps|authenticated	SIUD
 tpriv	public.vendor_service_addons|anon	SIUD
 tpriv	public.vendor_service_addons|authenticated	SIUD
-tpriv	public.vendor_service_agents|anon	SIUD
 tpriv	public.vendor_service_agents|authenticated	SIUD
 tpriv	public.vendor_service_attributes|anon	SIUD
 tpriv	public.vendor_service_attributes|authenticated	SIUD
@@ -690,7 +650,6 @@ tpriv	public.vendor_service_price_history|anon	SIUD
 tpriv	public.vendor_service_price_history|authenticated	SIUD
 tpriv	public.vendor_service_recommendations|anon	SIUD
 tpriv	public.vendor_service_recommendations|authenticated	SIUD
-tpriv	public.vendor_service_time_slots|anon	SIUD
 tpriv	public.vendor_service_time_slots|authenticated	SIUD
 tpriv	public.vendor_services|anon	SIUD
 tpriv	public.vendor_services|authenticated	SIUD
@@ -732,45 +691,45 @@ tpriv	public.wedding_tradition_items|anon	SIUD
 tpriv	public.wedding_tradition_items|authenticated	SIUD
 tpriv	public.wedding_type_launch_status|anon	SIUD
 tpriv	public.wedding_type_launch_status|authenticated	SIUD
-col	public.account_deletion_requests.admin_note	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.created_at	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.id	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.reason	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.request_id	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.reviewed_at	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.reviewed_by	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.status	anon=SIU authenticated=SIU
-col	public.account_deletion_requests.user_id	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.action_type	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.approval_id	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.created_at	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.decided_at	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.decided_by	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.decision_reason	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.expires_at	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.initiated_by	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.payload	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.public_id	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.rationale	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.status	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.target_id	anon=SIU authenticated=SIU
-col	public.admin_approval_requests.target_user_id	anon=SIU authenticated=SIU
-col	public.admin_audit_log.action	anon=SIU authenticated=SIU
-col	public.admin_audit_log.actor_user_id	anon=SIU authenticated=SIU
-col	public.admin_audit_log.after_json	anon=SIU authenticated=SIU
-col	public.admin_audit_log.audit_log_id	anon=SIU authenticated=SIU
-col	public.admin_audit_log.before_json	anon=SIU authenticated=SIU
-col	public.admin_audit_log.created_at	anon=SIU authenticated=SIU
-col	public.admin_audit_log.metadata	anon=SIU authenticated=SIU
-col	public.admin_audit_log.reason	anon=SIU authenticated=SIU
-col	public.admin_audit_log.target_id	anon=SIU authenticated=SIU
-col	public.admin_audit_log.target_table	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.access_log_id	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.accessed_user_id	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.admin_user_id	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.context	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.created_at	anon=SIU authenticated=SIU
-col	public.admin_data_access_log.surface	anon=SIU authenticated=SIU
+col	public.account_deletion_requests.admin_note	anon=- authenticated=SIU
+col	public.account_deletion_requests.created_at	anon=- authenticated=SIU
+col	public.account_deletion_requests.id	anon=- authenticated=SIU
+col	public.account_deletion_requests.reason	anon=- authenticated=SIU
+col	public.account_deletion_requests.request_id	anon=- authenticated=SIU
+col	public.account_deletion_requests.reviewed_at	anon=- authenticated=SIU
+col	public.account_deletion_requests.reviewed_by	anon=- authenticated=SIU
+col	public.account_deletion_requests.status	anon=- authenticated=SIU
+col	public.account_deletion_requests.user_id	anon=- authenticated=SIU
+col	public.admin_approval_requests.action_type	anon=- authenticated=SIU
+col	public.admin_approval_requests.approval_id	anon=- authenticated=SIU
+col	public.admin_approval_requests.created_at	anon=- authenticated=SIU
+col	public.admin_approval_requests.decided_at	anon=- authenticated=SIU
+col	public.admin_approval_requests.decided_by	anon=- authenticated=SIU
+col	public.admin_approval_requests.decision_reason	anon=- authenticated=SIU
+col	public.admin_approval_requests.expires_at	anon=- authenticated=SIU
+col	public.admin_approval_requests.initiated_by	anon=- authenticated=SIU
+col	public.admin_approval_requests.payload	anon=- authenticated=SIU
+col	public.admin_approval_requests.public_id	anon=- authenticated=SIU
+col	public.admin_approval_requests.rationale	anon=- authenticated=SIU
+col	public.admin_approval_requests.status	anon=- authenticated=SIU
+col	public.admin_approval_requests.target_id	anon=- authenticated=SIU
+col	public.admin_approval_requests.target_user_id	anon=- authenticated=SIU
+col	public.admin_audit_log.action	anon=- authenticated=SIU
+col	public.admin_audit_log.actor_user_id	anon=- authenticated=SIU
+col	public.admin_audit_log.after_json	anon=- authenticated=SIU
+col	public.admin_audit_log.audit_log_id	anon=- authenticated=SIU
+col	public.admin_audit_log.before_json	anon=- authenticated=SIU
+col	public.admin_audit_log.created_at	anon=- authenticated=SIU
+col	public.admin_audit_log.metadata	anon=- authenticated=SIU
+col	public.admin_audit_log.reason	anon=- authenticated=SIU
+col	public.admin_audit_log.target_id	anon=- authenticated=SIU
+col	public.admin_audit_log.target_table	anon=- authenticated=SIU
+col	public.admin_data_access_log.access_log_id	anon=- authenticated=SIU
+col	public.admin_data_access_log.accessed_user_id	anon=- authenticated=SIU
+col	public.admin_data_access_log.admin_user_id	anon=- authenticated=SIU
+col	public.admin_data_access_log.context	anon=- authenticated=SIU
+col	public.admin_data_access_log.created_at	anon=- authenticated=SIU
+col	public.admin_data_access_log.surface	anon=- authenticated=SIU
 col	public.anniversary_email_log.anniversary_year	anon=SIU authenticated=SIU
 col	public.anniversary_email_log.event_id	anon=SIU authenticated=SIU
 col	public.anniversary_email_log.resend_id	anon=SIU authenticated=SIU
@@ -782,27 +741,27 @@ col	public.anniversary_headsup_log.sent_at	anon=SIU authenticated=SIU
 col	public.anon_onboarding_ip_throttle.attempts	anon=SIU authenticated=SIU
 col	public.anon_onboarding_ip_throttle.ip_hash	anon=SIU authenticated=SIU
 col	public.anon_onboarding_ip_throttle.window_start	anon=SIU authenticated=SIU
-col	public.api_keys.api_key_id	anon=SIU authenticated=SIU
-col	public.api_keys.created_at	anon=SIU authenticated=SIU
-col	public.api_keys.expires_at	anon=SIU authenticated=SIU
-col	public.api_keys.key_hash	anon=SIU authenticated=SIU
-col	public.api_keys.key_prefix	anon=SIU authenticated=SIU
-col	public.api_keys.last_used_at	anon=SIU authenticated=SIU
-col	public.api_keys.name	anon=SIU authenticated=SIU
-col	public.api_keys.public_id	anon=SIU authenticated=SIU
-col	public.api_keys.revoked_at	anon=SIU authenticated=SIU
-col	public.api_keys.scopes	anon=SIU authenticated=SIU
-col	public.api_keys.updated_at	anon=SIU authenticated=SIU
-col	public.api_keys.user_id	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.created_at	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.element_name	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.error_message	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.event_type	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.file_path	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.id	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.payload_snapshot	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.resolved_at	anon=SIU authenticated=SIU
-col	public.app_telemetry_logs.status	anon=SIU authenticated=SIU
+col	public.api_keys.api_key_id	anon=- authenticated=SIU
+col	public.api_keys.created_at	anon=- authenticated=SIU
+col	public.api_keys.expires_at	anon=- authenticated=SIU
+col	public.api_keys.key_hash	anon=- authenticated=SIU
+col	public.api_keys.key_prefix	anon=- authenticated=SIU
+col	public.api_keys.last_used_at	anon=- authenticated=SIU
+col	public.api_keys.name	anon=- authenticated=SIU
+col	public.api_keys.public_id	anon=- authenticated=SIU
+col	public.api_keys.revoked_at	anon=- authenticated=SIU
+col	public.api_keys.scopes	anon=- authenticated=SIU
+col	public.api_keys.updated_at	anon=- authenticated=SIU
+col	public.api_keys.user_id	anon=- authenticated=SIU
+col	public.app_telemetry_logs.created_at	anon=- authenticated=SIU
+col	public.app_telemetry_logs.element_name	anon=- authenticated=SIU
+col	public.app_telemetry_logs.error_message	anon=- authenticated=SIU
+col	public.app_telemetry_logs.event_type	anon=- authenticated=SIU
+col	public.app_telemetry_logs.file_path	anon=- authenticated=SIU
+col	public.app_telemetry_logs.id	anon=- authenticated=SIU
+col	public.app_telemetry_logs.payload_snapshot	anon=- authenticated=SIU
+col	public.app_telemetry_logs.resolved_at	anon=- authenticated=SIU
+col	public.app_telemetry_logs.status	anon=- authenticated=SIU
 col	public.appointment_type_catalog.catalog_id	anon=SIU authenticated=SIU
 col	public.appointment_type_catalog.category	anon=SIU authenticated=SIU
 col	public.appointment_type_catalog.default_duration_min	anon=SIU authenticated=SIU
@@ -884,23 +843,23 @@ col	public.budget_allocation_config.med_confidence_n	anon=SIU authenticated=SIU
 col	public.budget_allocation_config.min_sample_n	anon=SIU authenticated=SIU
 col	public.budget_allocation_config.surplus_mode	anon=SIU authenticated=SIU
 col	public.budget_allocation_config.updated_at	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.auto_reduced_for_pin	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.canonical_service	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.decision_id	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.event_id	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.event_type	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.final_amount_php	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.final_share_bp	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.pax	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.pin_order	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.recommended_amount_php	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.recommended_share_bp	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.recorded_at	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.recorded_by	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.region	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.snapshot_id	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.total_budget_php	anon=SIU authenticated=SIU
-col	public.budget_allocation_decisions.was_pinned	anon=SIU authenticated=SIU
+col	public.budget_allocation_decisions.auto_reduced_for_pin	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.canonical_service	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.decision_id	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.event_id	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.event_type	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.final_amount_php	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.final_share_bp	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.pax	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.pin_order	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.recommended_amount_php	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.recommended_share_bp	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.recorded_at	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.recorded_by	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.region	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.snapshot_id	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.total_budget_php	anon=- authenticated=SIU
+col	public.budget_allocation_decisions.was_pinned	anon=- authenticated=SIU
 col	public.budget_band_config.band_slug	anon=SIU authenticated=SIU
 col	public.budget_band_config.is_active	anon=SIU authenticated=SIU
 col	public.budget_band_config.label	anon=SIU authenticated=SIU
@@ -908,17 +867,17 @@ col	public.budget_band_config.per_head_median_centavos	anon=SIU authenticated=SI
 col	public.budget_band_config.sort_order	anon=SIU authenticated=SIU
 col	public.budget_band_config.tag	anon=SIU authenticated=SIU
 col	public.budget_band_config.updated_at	anon=SIU authenticated=SIU
-col	public.budget_builds.basket	anon=SIU authenticated=SIU
-col	public.budget_builds.budget_php	anon=SIU authenticated=SIU
-col	public.budget_builds.build_id	anon=SIU authenticated=SIU
-col	public.budget_builds.created_at	anon=SIU authenticated=SIU
-col	public.budget_builds.created_by	anon=SIU authenticated=SIU
-col	public.budget_builds.event_id	anon=SIU authenticated=SIU
-col	public.budget_builds.label	anon=SIU authenticated=SIU
-col	public.budget_builds.snapshot	anon=SIU authenticated=SIU
-col	public.budget_builds.title	anon=SIU authenticated=SIU
-col	public.budget_builds.total_php	anon=SIU authenticated=SIU
-col	public.budget_builds.updated_at	anon=SIU authenticated=SIU
+col	public.budget_builds.basket	anon=- authenticated=SIU
+col	public.budget_builds.budget_php	anon=- authenticated=SIU
+col	public.budget_builds.build_id	anon=- authenticated=SIU
+col	public.budget_builds.created_at	anon=- authenticated=SIU
+col	public.budget_builds.created_by	anon=- authenticated=SIU
+col	public.budget_builds.event_id	anon=- authenticated=SIU
+col	public.budget_builds.label	anon=- authenticated=SIU
+col	public.budget_builds.snapshot	anon=- authenticated=SIU
+col	public.budget_builds.title	anon=- authenticated=SIU
+col	public.budget_builds.total_php	anon=- authenticated=SIU
+col	public.budget_builds.updated_at	anon=- authenticated=SIU
 col	public.budget_leaf_benchmarks.benchmark_php	anon=SIU authenticated=SIU
 col	public.budget_leaf_benchmarks.floor_php	anon=SIU authenticated=SIU
 col	public.budget_leaf_benchmarks.is_active	anon=SIU authenticated=SIU
@@ -1256,27 +1215,27 @@ col	public.demo_sessions.joined_b	anon=SIU authenticated=SIU
 col	public.demo_sessions.shot_count	anon=SIU authenticated=SIU
 col	public.demo_sessions.token_a	anon=SIU authenticated=SIU
 col	public.demo_sessions.token_b	anon=SIU authenticated=SIU
-col	public.dependents.birth_date	anon=SIU authenticated=SIU
-col	public.dependents.birth_date_consent_at	anon=SIU authenticated=SIU
-col	public.dependents.claim_token	anon=SIU authenticated=SIU
-col	public.dependents.claim_token_expires_at	anon=SIU authenticated=SIU
-col	public.dependents.claim_token_purpose	anon=SIU authenticated=SIU
-col	public.dependents.claimed_user_id	anon=SIU authenticated=SIU
-col	public.dependents.created_at	anon=SIU authenticated=SIU
-col	public.dependents.dependent_id	anon=SIU authenticated=SIU
-col	public.dependents.dependent_kind	anon=SIU authenticated=SIU
-col	public.dependents.handed_over_at	anon=SIU authenticated=SIU
-col	public.dependents.handed_over_by_user_id	anon=SIU authenticated=SIU
-col	public.dependents.id	anon=SIU authenticated=SIU
-col	public.dependents.name	anon=SIU authenticated=SIU
-col	public.dependents.owner_user_id	anon=SIU authenticated=SIU
-col	public.dependents.public_id	anon=SIU authenticated=SIU
-col	public.dependents.relationship	anon=SIU authenticated=SIU
-col	public.dependents.religion	anon=SIU authenticated=SIU
-col	public.dependents.religion_consent_at	anon=SIU authenticated=SIU
-col	public.dependents.sex	anon=SIU authenticated=SIU
-col	public.dependents.shared_with_spouse	anon=SIU authenticated=SIU
-col	public.dependents.updated_at	anon=SIU authenticated=SIU
+col	public.dependents.birth_date	anon=- authenticated=SIU
+col	public.dependents.birth_date_consent_at	anon=- authenticated=SIU
+col	public.dependents.claim_token	anon=- authenticated=SIU
+col	public.dependents.claim_token_expires_at	anon=- authenticated=SIU
+col	public.dependents.claim_token_purpose	anon=- authenticated=SIU
+col	public.dependents.claimed_user_id	anon=- authenticated=SIU
+col	public.dependents.created_at	anon=- authenticated=SIU
+col	public.dependents.dependent_id	anon=- authenticated=SIU
+col	public.dependents.dependent_kind	anon=- authenticated=SIU
+col	public.dependents.handed_over_at	anon=- authenticated=SIU
+col	public.dependents.handed_over_by_user_id	anon=- authenticated=SIU
+col	public.dependents.id	anon=- authenticated=SIU
+col	public.dependents.name	anon=- authenticated=SIU
+col	public.dependents.owner_user_id	anon=- authenticated=SIU
+col	public.dependents.public_id	anon=- authenticated=SIU
+col	public.dependents.relationship	anon=- authenticated=SIU
+col	public.dependents.religion	anon=- authenticated=SIU
+col	public.dependents.religion_consent_at	anon=- authenticated=SIU
+col	public.dependents.sex	anon=- authenticated=SIU
+col	public.dependents.shared_with_spouse	anon=- authenticated=SIU
+col	public.dependents.updated_at	anon=- authenticated=SIU
 col	public.discount_code_eligible_users.added_at	anon=SIU authenticated=SIU
 col	public.discount_code_eligible_users.added_by_admin_id	anon=SIU authenticated=SIU
 col	public.discount_code_eligible_users.discount_code_id	anon=SIU authenticated=SIU
@@ -1451,23 +1410,23 @@ col	public.event_delegates.revoked_by_user_id	anon=SIU authenticated=SIU
 col	public.event_delegates.revoked_reason	anon=SIU authenticated=SIU
 col	public.event_delegates.role	anon=SIU authenticated=SIU
 col	public.event_delegates.updated_at	anon=SIU authenticated=SIU
-col	public.event_editorial.created_at	anon=SIU authenticated=SIU
-col	public.event_editorial.draft_json	anon=SIU authenticated=SIU
-col	public.event_editorial.edited_by_couple	anon=SIU authenticated=SIU
-col	public.event_editorial.editorial_id	anon=SIU authenticated=SIU
-col	public.event_editorial.editorial_tone	anon=SIU authenticated=SIU
-col	public.event_editorial.essay_photo_ids	anon=SIU authenticated=SIU
-col	public.event_editorial.event_id	anon=SIU authenticated=SIU
-col	public.event_editorial.generated_at	anon=SIU authenticated=SIU
-col	public.event_editorial.hero_photo_id	anon=SIU authenticated=SIU
-col	public.event_editorial.impact_metrics	anon=SIU authenticated=SIU
-col	public.event_editorial.published_at	anon=SIU authenticated=SIU
-col	public.event_editorial.scan_completed_at	anon=SIU authenticated=SIU
-col	public.event_editorial.scan_flags	anon=SIU authenticated=SIU
-col	public.event_editorial.scan_status	anon=SIU authenticated=SIU
-col	public.event_editorial.status	anon=SIU authenticated=SIU
-col	public.event_editorial.unlocked_for_couple_at	anon=SIU authenticated=SIU
-col	public.event_editorial.updated_at	anon=SIU authenticated=SIU
+col	public.event_editorial.created_at	anon=- authenticated=SIU
+col	public.event_editorial.draft_json	anon=- authenticated=SIU
+col	public.event_editorial.edited_by_couple	anon=- authenticated=SIU
+col	public.event_editorial.editorial_id	anon=- authenticated=SIU
+col	public.event_editorial.editorial_tone	anon=- authenticated=SIU
+col	public.event_editorial.essay_photo_ids	anon=- authenticated=SIU
+col	public.event_editorial.event_id	anon=- authenticated=SIU
+col	public.event_editorial.generated_at	anon=- authenticated=SIU
+col	public.event_editorial.hero_photo_id	anon=- authenticated=SIU
+col	public.event_editorial.impact_metrics	anon=- authenticated=SIU
+col	public.event_editorial.published_at	anon=- authenticated=SIU
+col	public.event_editorial.scan_completed_at	anon=- authenticated=SIU
+col	public.event_editorial.scan_flags	anon=- authenticated=SIU
+col	public.event_editorial.scan_status	anon=- authenticated=SIU
+col	public.event_editorial.status	anon=- authenticated=SIU
+col	public.event_editorial.unlocked_for_couple_at	anon=- authenticated=SIU
+col	public.event_editorial.updated_at	anon=- authenticated=SIU
 col	public.event_egift_methods.account_name	anon=SIU authenticated=SIU
 col	public.event_egift_methods.created_at	anon=SIU authenticated=SIU
 col	public.event_egift_methods.created_by_user_id	anon=SIU authenticated=SIU
@@ -1488,16 +1447,6 @@ col	public.event_feature_policy_override.feature_key	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.reason	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_at	anon=SIU authenticated=SIU
 col	public.event_feature_policy_override.set_by_admin_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.area_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.area_type	anon=SIU authenticated=SIU
-col	public.event_floor_areas.created_at	anon=SIU authenticated=SIU
-col	public.event_floor_areas.event_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.label	anon=SIU authenticated=SIU
-col	public.event_floor_areas.schedule_block_id	anon=SIU authenticated=SIU
-col	public.event_floor_areas.sort_order	anon=SIU authenticated=SIU
-col	public.event_floor_areas.updated_at	anon=SIU authenticated=SIU
-col	public.event_floor_areas.venue_length_m	anon=SIU authenticated=SIU
-col	public.event_floor_areas.venue_width_m	anon=SIU authenticated=SIU
 col	public.event_floor_booths.booth_id	anon=SIU authenticated=SIU
 col	public.event_floor_booths.booth_type	anon=SIU authenticated=SIU
 col	public.event_floor_booths.created_at	anon=SIU authenticated=SIU
@@ -1511,53 +1460,43 @@ col	public.event_floor_booths.updated_at	anon=SIU authenticated=SIU
 col	public.event_floor_booths.x_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.y_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.zone	anon=SIU authenticated=SIU
-col	public.event_floor_objects.area_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.created_at	anon=SIU authenticated=SIU
-col	public.event_floor_objects.event_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.event_vendor_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.label	anon=SIU authenticated=SIU
-col	public.event_floor_objects.object_id	anon=SIU authenticated=SIU
-col	public.event_floor_objects.object_type	anon=SIU authenticated=SIU
-col	public.event_floor_objects.updated_at	anon=SIU authenticated=SIU
-col	public.event_floor_objects.x_pos	anon=SIU authenticated=SIU
-col	public.event_floor_objects.y_pos	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_enabled	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_h	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_label	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_length_m	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_linked	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_schedule_block_id	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_vendor_edit	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_w	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_width_m	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_x	anon=SIU authenticated=SIU
-col	public.event_floor_plan.cocktail_y	anon=SIU authenticated=SIU
-col	public.event_floor_plan.dance_enabled	anon=SIU authenticated=SIU
-col	public.event_floor_plan.dance_h	anon=SIU authenticated=SIU
-col	public.event_floor_plan.dance_w	anon=SIU authenticated=SIU
-col	public.event_floor_plan.dance_x	anon=SIU authenticated=SIU
-col	public.event_floor_plan.dance_y	anon=SIU authenticated=SIU
-col	public.event_floor_plan.entrance_depth_m	anon=SIU authenticated=SIU
-col	public.event_floor_plan.entrance_enabled	anon=SIU authenticated=SIU
-col	public.event_floor_plan.entrance_kind	anon=SIU authenticated=SIU
-col	public.event_floor_plan.entrance_x	anon=SIU authenticated=SIU
-col	public.event_floor_plan.entrance_y	anon=SIU authenticated=SIU
-col	public.event_floor_plan.event_id	anon=SIU authenticated=SIU
-col	public.event_floor_plan.ghost_booths_dismissed	anon=SIU authenticated=SIU
-col	public.event_floor_plan.ghost_booths_enabled	anon=SIU authenticated=SIU
-col	public.event_floor_plan.priority_order	anon=SIU authenticated=SIU
-col	public.event_floor_plan.published_at	anon=SIU authenticated=SIU
-col	public.event_floor_plan.service_entrance_enabled	anon=SIU authenticated=SIU
-col	public.event_floor_plan.service_entrance_x	anon=SIU authenticated=SIU
-col	public.event_floor_plan.service_entrance_y	anon=SIU authenticated=SIU
-col	public.event_floor_plan.stage_h	anon=SIU authenticated=SIU
-col	public.event_floor_plan.stage_w	anon=SIU authenticated=SIU
-col	public.event_floor_plan.stage_x	anon=SIU authenticated=SIU
-col	public.event_floor_plan.stage_y	anon=SIU authenticated=SIU
-col	public.event_floor_plan.updated_at	anon=SIU authenticated=SIU
-col	public.event_floor_plan.venue_length_m	anon=SIU authenticated=SIU
-col	public.event_floor_plan.venue_photo_visibility	anon=SIU authenticated=SIU
-col	public.event_floor_plan.venue_width_m	anon=SIU authenticated=SIU
+col	public.event_floor_plan.cocktail_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_h	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_label	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_length_m	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_linked	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_schedule_block_id	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_vendor_edit	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_w	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_width_m	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_x	anon=- authenticated=SIU
+col	public.event_floor_plan.cocktail_y	anon=- authenticated=SIU
+col	public.event_floor_plan.dance_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.dance_h	anon=- authenticated=SIU
+col	public.event_floor_plan.dance_w	anon=- authenticated=SIU
+col	public.event_floor_plan.dance_x	anon=- authenticated=SIU
+col	public.event_floor_plan.dance_y	anon=- authenticated=SIU
+col	public.event_floor_plan.entrance_depth_m	anon=- authenticated=SIU
+col	public.event_floor_plan.entrance_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.entrance_kind	anon=- authenticated=SIU
+col	public.event_floor_plan.entrance_x	anon=- authenticated=SIU
+col	public.event_floor_plan.entrance_y	anon=- authenticated=SIU
+col	public.event_floor_plan.event_id	anon=- authenticated=SIU
+col	public.event_floor_plan.ghost_booths_dismissed	anon=- authenticated=SIU
+col	public.event_floor_plan.ghost_booths_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.priority_order	anon=- authenticated=SIU
+col	public.event_floor_plan.published_at	anon=- authenticated=SIU
+col	public.event_floor_plan.service_entrance_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.service_entrance_x	anon=- authenticated=SIU
+col	public.event_floor_plan.service_entrance_y	anon=- authenticated=SIU
+col	public.event_floor_plan.stage_h	anon=- authenticated=SIU
+col	public.event_floor_plan.stage_w	anon=- authenticated=SIU
+col	public.event_floor_plan.stage_x	anon=- authenticated=SIU
+col	public.event_floor_plan.stage_y	anon=- authenticated=SIU
+col	public.event_floor_plan.updated_at	anon=- authenticated=SIU
+col	public.event_floor_plan.venue_length_m	anon=- authenticated=SIU
+col	public.event_floor_plan.venue_photo_visibility	anon=- authenticated=SIU
+col	public.event_floor_plan.venue_width_m	anon=- authenticated=SIU
 col	public.event_floor_signs.created_at	anon=SIU authenticated=SIU
 col	public.event_floor_signs.event_id	anon=SIU authenticated=SIU
 col	public.event_floor_signs.id	anon=SIU authenticated=SIU
@@ -2315,22 +2254,22 @@ col	public.guest_columns.submitted_at	anon=SIU authenticated=SIU
 col	public.guest_columns.title	anon=SIU authenticated=SIU
 col	public.guest_columns.updated_at	anon=SIU authenticated=SIU
 col	public.guest_columns.user_deleted_at	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.asset_url	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.consent_at	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.consent_copy_version	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.consent_source	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.created_at	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.enrollment_id	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.event_id	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.face_vector	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.guest_id	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.id	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.quality_meta	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.quality_score	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.revoked_at	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.source	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.updated_at	anon=SIU authenticated=SIU
-col	public.guest_face_enrollments.vector_model	anon=SIU authenticated=SIU
+col	public.guest_face_enrollments.asset_url	anon=- authenticated=SIU
+col	public.guest_face_enrollments.consent_at	anon=- authenticated=SIU
+col	public.guest_face_enrollments.consent_copy_version	anon=- authenticated=SIU
+col	public.guest_face_enrollments.consent_source	anon=- authenticated=SIU
+col	public.guest_face_enrollments.created_at	anon=- authenticated=SIU
+col	public.guest_face_enrollments.enrollment_id	anon=- authenticated=SIU
+col	public.guest_face_enrollments.event_id	anon=- authenticated=SIU
+col	public.guest_face_enrollments.face_vector	anon=- authenticated=SIU
+col	public.guest_face_enrollments.guest_id	anon=- authenticated=SIU
+col	public.guest_face_enrollments.id	anon=- authenticated=SIU
+col	public.guest_face_enrollments.quality_meta	anon=- authenticated=SIU
+col	public.guest_face_enrollments.quality_score	anon=- authenticated=SIU
+col	public.guest_face_enrollments.revoked_at	anon=- authenticated=SIU
+col	public.guest_face_enrollments.source	anon=- authenticated=SIU
+col	public.guest_face_enrollments.updated_at	anon=- authenticated=SIU
+col	public.guest_face_enrollments.vector_model	anon=- authenticated=SIU
 col	public.guest_group_memberships.added_at	anon=SIU authenticated=SIU
 col	public.guest_group_memberships.group_id	anon=SIU authenticated=SIU
 col	public.guest_group_memberships.guest_id	anon=SIU authenticated=SIU
@@ -2387,7 +2326,6 @@ col	public.guests.faceblock_enabled	anon=SIU authenticated=SIU
 col	public.guests.first_name	anon=SIU authenticated=SIU
 col	public.guests.group_category	anon=SIU authenticated=SIU
 col	public.guests.guest_id	anon=SIU authenticated=SIU
-col	public.guests.household_id	anon=SIU authenticated=SIU
 col	public.guests.id	anon=SIU authenticated=SIU
 col	public.guests.invitation_sent_at	anon=SIU authenticated=SIU
 col	public.guests.invited_to_blocks	anon=SIU authenticated=SIU
@@ -2478,13 +2416,6 @@ col	public.homepage_hero_config.updated_by_admin_id	anon=SIU authenticated=SIU
 col	public.homepage_hero_config.video_mime_type	anon=SIU authenticated=SIU
 col	public.homepage_hero_config.video_r2_key	anon=SIU authenticated=SIU
 col	public.homepage_hero_config.video_url	anon=SIU authenticated=SIU
-col	public.households.address	anon=SIU authenticated=SIU
-col	public.households.created_at	anon=SIU authenticated=SIU
-col	public.households.event_id	anon=SIU authenticated=SIU
-col	public.households.household_id	anon=SIU authenticated=SIU
-col	public.households.id	anon=SIU authenticated=SIU
-col	public.households.name	anon=SIU authenticated=SIU
-col	public.households.updated_at	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.applies_to	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.created_at	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.is_active	anon=SIU authenticated=SIU
@@ -2563,25 +2494,25 @@ col	public.lead_token_holds.thread_id	anon=SIU authenticated=SIU
 col	public.lead_token_holds.tier	anon=SIU authenticated=SIU
 col	public.lead_token_holds.tokens	anon=SIU authenticated=SIU
 col	public.lead_token_holds.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.access_token	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.access_token_expires_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.channel_pool_id	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.connection_health	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.created_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.external_account_display	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.granted_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.id	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.last_refreshed_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.metadata	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.refresh_token	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.revoked_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.scopes	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.updated_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_grants.youtube_channel_id	anon=SIU authenticated=SIU
-col	public.live_studio_channel_oauth_state.channel_pool_id	anon=SIU authenticated=SIU
-col	public.live_studio_channel_oauth_state.created_at	anon=SIU authenticated=SIU
-col	public.live_studio_channel_oauth_state.initiated_by	anon=SIU authenticated=SIU
-col	public.live_studio_channel_oauth_state.state_token	anon=SIU authenticated=SIU
+col	public.live_studio_channel_grants.access_token	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.access_token_expires_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.channel_pool_id	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.connection_health	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.created_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.external_account_display	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.granted_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.id	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.last_refreshed_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.metadata	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.refresh_token	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.revoked_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.scopes	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.updated_at	anon=- authenticated=SIU
+col	public.live_studio_channel_grants.youtube_channel_id	anon=- authenticated=SIU
+col	public.live_studio_channel_oauth_state.channel_pool_id	anon=- authenticated=SIU
+col	public.live_studio_channel_oauth_state.created_at	anon=- authenticated=SIU
+col	public.live_studio_channel_oauth_state.initiated_by	anon=- authenticated=SIU
+col	public.live_studio_channel_oauth_state.state_token	anon=- authenticated=SIU
 col	public.live_studio_highlights.channel	anon=SIU authenticated=SIU
 col	public.live_studio_highlights.channel_label	anon=SIU authenticated=SIU
 col	public.live_studio_highlights.created_at	anon=SIU authenticated=SIU
@@ -2651,13 +2582,13 @@ col	public.manpower_gigs.posted_at	anon=SIU authenticated=SIU
 col	public.manpower_gigs.posted_by_user_id	anon=SIU authenticated=SIU
 col	public.manpower_gigs.status	anon=SIU authenticated=SIU
 col	public.manpower_gigs.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.amount_php	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.created_at	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.event_id	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.id	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.items_ordered	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.payment_status	anon=SIU authenticated=SIU
-col	public.manual_payment_logs.reference_number	anon=SIU authenticated=SIU
+col	public.manual_payment_logs.amount_php	anon=- authenticated=SIU
+col	public.manual_payment_logs.created_at	anon=- authenticated=SIU
+col	public.manual_payment_logs.event_id	anon=- authenticated=SIU
+col	public.manual_payment_logs.id	anon=- authenticated=SIU
+col	public.manual_payment_logs.items_ordered	anon=- authenticated=SIU
+col	public.manual_payment_logs.payment_status	anon=- authenticated=SIU
+col	public.manual_payment_logs.reference_number	anon=- authenticated=SIU
 col	public.market_funnel_bands.category	anon=SIU authenticated=SIU
 col	public.market_funnel_bands.computed_at	anon=SIU authenticated=SIU
 col	public.market_funnel_bands.conversion_p25	anon=SIU authenticated=SIU
@@ -2743,25 +2674,25 @@ col	public.npc_filing_tasks.task_key	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.tier	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.title	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.updated_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.access_token	anon=IU authenticated=IU
-col	public.oauth_grants.access_token_expires_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.connection_health	anon=SIU authenticated=SIU
-col	public.oauth_grants.event_id	anon=SIU authenticated=SIU
-col	public.oauth_grants.external_account_display	anon=SIU authenticated=SIU
-col	public.oauth_grants.external_account_id	anon=SIU authenticated=SIU
-col	public.oauth_grants.grant_id	anon=SIU authenticated=SIU
-col	public.oauth_grants.granted_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.last_refreshed_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.metadata	anon=SIU authenticated=SIU
-col	public.oauth_grants.provider	anon=SIU authenticated=SIU
-col	public.oauth_grants.refresh_token	anon=IU authenticated=IU
-col	public.oauth_grants.revoked_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.scopes	anon=SIU authenticated=SIU
-col	public.oauth_state.created_at	anon=SIU authenticated=SIU
-col	public.oauth_state.event_id	anon=SIU authenticated=SIU
-col	public.oauth_state.initiated_by	anon=SIU authenticated=SIU
-col	public.oauth_state.provider	anon=SIU authenticated=SIU
-col	public.oauth_state.state_token	anon=SIU authenticated=SIU
+col	public.oauth_grants.access_token	anon=- authenticated=IU
+col	public.oauth_grants.access_token_expires_at	anon=- authenticated=SIU
+col	public.oauth_grants.connection_health	anon=- authenticated=SIU
+col	public.oauth_grants.event_id	anon=- authenticated=SIU
+col	public.oauth_grants.external_account_display	anon=- authenticated=SIU
+col	public.oauth_grants.external_account_id	anon=- authenticated=SIU
+col	public.oauth_grants.grant_id	anon=- authenticated=SIU
+col	public.oauth_grants.granted_at	anon=- authenticated=SIU
+col	public.oauth_grants.last_refreshed_at	anon=- authenticated=SIU
+col	public.oauth_grants.metadata	anon=- authenticated=SIU
+col	public.oauth_grants.provider	anon=- authenticated=SIU
+col	public.oauth_grants.refresh_token	anon=- authenticated=IU
+col	public.oauth_grants.revoked_at	anon=- authenticated=SIU
+col	public.oauth_grants.scopes	anon=- authenticated=SIU
+col	public.oauth_state.created_at	anon=- authenticated=SIU
+col	public.oauth_state.event_id	anon=- authenticated=SIU
+col	public.oauth_state.initiated_by	anon=- authenticated=SIU
+col	public.oauth_state.provider	anon=- authenticated=SIU
+col	public.oauth_state.state_token	anon=- authenticated=SIU
 col	public.onboarding_refinement_options.created_at	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.emoji	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.label_en	anon=SIU authenticated=SIU
@@ -2781,53 +2712,53 @@ col	public.onboarding_refinements.sort_order	anon=SIU authenticated=SIU
 col	public.onboarding_refinements.status	anon=SIU authenticated=SIU
 col	public.onboarding_refinements.tile_id	anon=SIU authenticated=SIU
 col	public.onboarding_refinements.updated_at	anon=SIU authenticated=SIU
-col	public.order_ledger.actor_role	anon=SI authenticated=SI
-col	public.order_ledger.actor_user_id	anon=SI authenticated=SI
-col	public.order_ledger.amount_centavos	anon=SI authenticated=SI
-col	public.order_ledger.created_at	anon=SI authenticated=SI
-col	public.order_ledger.event_type	anon=SI authenticated=SI
-col	public.order_ledger.ledger_id	anon=SI authenticated=SI
-col	public.order_ledger.metadata	anon=SI authenticated=SI
-col	public.order_ledger.order_id	anon=SI authenticated=SI
-col	public.order_ledger.payment_id	anon=SI authenticated=SI
-col	public.order_ledger.voucher_code	anon=SI authenticated=SI
-col	public.order_refunds.created_at	anon=SIU authenticated=SIU
-col	public.order_refunds.order_id	anon=SIU authenticated=SIU
-col	public.order_refunds.proof_url	anon=SIU authenticated=SIU
-col	public.order_refunds.reason	anon=SIU authenticated=SIU
-col	public.order_refunds.refund_amount_centavos	anon=SIU authenticated=SIU
-col	public.order_refunds.refund_id	anon=SIU authenticated=SIU
-col	public.order_refunds.refunded_at	anon=SIU authenticated=SIU
-col	public.order_refunds.refunded_by_admin_id	anon=SIU authenticated=SIU
-col	public.order_refunds.status	anon=SIU authenticated=SIU
-col	public.order_refunds.updated_at	anon=SIU authenticated=SIU
-col	public.orders.admin_notes	anon=SU authenticated=SU
-col	public.orders.bir_withholding_centavos	anon=SU authenticated=SU
-col	public.orders.comp_grant_id	anon=SU authenticated=SU
-col	public.orders.confirmed_total_php	anon=SU authenticated=SU
-col	public.orders.created_at	anon=SU authenticated=SU
-col	public.orders.description	anon=SU authenticated=SU
-col	public.orders.disbursement_fee_centavos	anon=SU authenticated=SU
-col	public.orders.event_id	anon=SU authenticated=SU
-col	public.orders.expires_at	anon=SU authenticated=SU
-col	public.orders.gateway_fee_centavos	anon=SU authenticated=SU
-col	public.orders.order_id	anon=SU authenticated=SU
-col	public.orders.pax_snapshot	anon=SU authenticated=SU
-col	public.orders.payment_method_key	anon=SU authenticated=SU
-col	public.orders.platform	anon=SU authenticated=SU
-col	public.orders.public_id	anon=SU authenticated=SU
-col	public.orders.reference_code	anon=SU authenticated=SU
-col	public.orders.requested_total_php	anon=SU authenticated=SU
-col	public.orders.service_key	anon=SU authenticated=SU
-col	public.orders.setnayan_fee_bps	anon=SU authenticated=SU
-col	public.orders.status	anon=SU authenticated=SU
-col	public.orders.updated_at	anon=SU authenticated=SU
-col	public.orders.user_id	anon=SU authenticated=SU
-col	public.orders.vendor_absorbed_fee	anon=SU authenticated=SU
-col	public.orders.vendor_net_centavos	anon=SU authenticated=SU
-col	public.orders.vendor_profile_id	anon=SU authenticated=SU
-col	public.orders.voucher_code_applied	anon=SU authenticated=SU
-col	public.orders.voucher_discount_centavos	anon=SU authenticated=SU
+col	public.order_ledger.actor_role	anon=- authenticated=SI
+col	public.order_ledger.actor_user_id	anon=- authenticated=SI
+col	public.order_ledger.amount_centavos	anon=- authenticated=SI
+col	public.order_ledger.created_at	anon=- authenticated=SI
+col	public.order_ledger.event_type	anon=- authenticated=SI
+col	public.order_ledger.ledger_id	anon=- authenticated=SI
+col	public.order_ledger.metadata	anon=- authenticated=SI
+col	public.order_ledger.order_id	anon=- authenticated=SI
+col	public.order_ledger.payment_id	anon=- authenticated=SI
+col	public.order_ledger.voucher_code	anon=- authenticated=SI
+col	public.order_refunds.created_at	anon=- authenticated=SIU
+col	public.order_refunds.order_id	anon=- authenticated=SIU
+col	public.order_refunds.proof_url	anon=- authenticated=SIU
+col	public.order_refunds.reason	anon=- authenticated=SIU
+col	public.order_refunds.refund_amount_centavos	anon=- authenticated=SIU
+col	public.order_refunds.refund_id	anon=- authenticated=SIU
+col	public.order_refunds.refunded_at	anon=- authenticated=SIU
+col	public.order_refunds.refunded_by_admin_id	anon=- authenticated=SIU
+col	public.order_refunds.status	anon=- authenticated=SIU
+col	public.order_refunds.updated_at	anon=- authenticated=SIU
+col	public.orders.admin_notes	anon=- authenticated=SU
+col	public.orders.bir_withholding_centavos	anon=- authenticated=SU
+col	public.orders.comp_grant_id	anon=- authenticated=SU
+col	public.orders.confirmed_total_php	anon=- authenticated=SU
+col	public.orders.created_at	anon=- authenticated=SU
+col	public.orders.description	anon=- authenticated=SU
+col	public.orders.disbursement_fee_centavos	anon=- authenticated=SU
+col	public.orders.event_id	anon=- authenticated=SU
+col	public.orders.expires_at	anon=- authenticated=SU
+col	public.orders.gateway_fee_centavos	anon=- authenticated=SU
+col	public.orders.order_id	anon=- authenticated=SU
+col	public.orders.pax_snapshot	anon=- authenticated=SU
+col	public.orders.payment_method_key	anon=- authenticated=SU
+col	public.orders.platform	anon=- authenticated=SU
+col	public.orders.public_id	anon=- authenticated=SU
+col	public.orders.reference_code	anon=- authenticated=SU
+col	public.orders.requested_total_php	anon=- authenticated=SU
+col	public.orders.service_key	anon=- authenticated=SU
+col	public.orders.setnayan_fee_bps	anon=- authenticated=SU
+col	public.orders.status	anon=- authenticated=SU
+col	public.orders.updated_at	anon=- authenticated=SU
+col	public.orders.user_id	anon=- authenticated=SU
+col	public.orders.vendor_absorbed_fee	anon=- authenticated=SU
+col	public.orders.vendor_net_centavos	anon=- authenticated=SU
+col	public.orders.vendor_profile_id	anon=- authenticated=SU
+col	public.orders.voucher_code_applied	anon=- authenticated=SU
+col	public.orders.voucher_discount_centavos	anon=- authenticated=SU
 col	public.owner_alerts.acknowledged_at	anon=SIU authenticated=SIU
 col	public.owner_alerts.acknowledged_by	anon=SIU authenticated=SIU
 col	public.owner_alerts.alert_id	anon=SIU authenticated=SIU
@@ -3065,25 +2996,25 @@ col	public.papic_tier_config.sort_order	anon=SIU authenticated=SIU
 col	public.papic_tier_config.tier_code	anon=SIU authenticated=SIU
 col	public.papic_tier_config.updated_at	anon=SIU authenticated=SIU
 col	public.papic_tier_config.wedding_day_cap_php	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.access_token	anon=IU authenticated=IU
-col	public.patiktok_oauth_grants.created_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.event_id	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.expires_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.grant_id	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.granted_by	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.refresh_token	anon=IU authenticated=IU
-col	public.patiktok_oauth_grants.refreshed_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.revoked_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.revoked_reason	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.scope	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.tiktok_handle	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.tiktok_open_id	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.tiktok_union_id	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_grants.updated_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_state.created_at	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_state.event_id	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_state.initiated_by	anon=SIU authenticated=SIU
-col	public.patiktok_oauth_state.state_token	anon=SIU authenticated=SIU
+col	public.patiktok_oauth_grants.access_token	anon=- authenticated=IU
+col	public.patiktok_oauth_grants.created_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.event_id	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.expires_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.grant_id	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.granted_by	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.refresh_token	anon=- authenticated=IU
+col	public.patiktok_oauth_grants.refreshed_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.revoked_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.revoked_reason	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.scope	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.tiktok_handle	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.tiktok_open_id	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.tiktok_union_id	anon=- authenticated=SIU
+col	public.patiktok_oauth_grants.updated_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_state.created_at	anon=- authenticated=SIU
+col	public.patiktok_oauth_state.event_id	anon=- authenticated=SIU
+col	public.patiktok_oauth_state.initiated_by	anon=- authenticated=SIU
+col	public.patiktok_oauth_state.state_token	anon=- authenticated=SIU
 col	public.patiktok_render_job_clips.clip_id	anon=SIU authenticated=SIU
 col	public.patiktok_render_job_clips.created_at	anon=SIU authenticated=SIU
 col	public.patiktok_render_job_clips.job_id	anon=SIU authenticated=SIU
@@ -3141,22 +3072,22 @@ col	public.pax_change_audit.prev_total_php	anon=SIU authenticated=SIU
 col	public.pax_change_audit.quote_base_pax	anon=SIU authenticated=SIU
 col	public.pax_change_audit.rate_php	anon=SIU authenticated=SIU
 col	public.pax_change_audit.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.payments.admin_notes	anon=SU authenticated=SU
-col	public.payments.admin_resubmit_notice	anon=SU authenticated=SU
-col	public.payments.amount_php	anon=SU authenticated=SU
-col	public.payments.channel	anon=SU authenticated=SU
-col	public.payments.client_idempotency_key	anon=SU authenticated=SU
-col	public.payments.created_at	anon=SU authenticated=SU
-col	public.payments.order_id	anon=SU authenticated=SU
-col	public.payments.paid_at	anon=SU authenticated=SU
-col	public.payments.payment_id	anon=SU authenticated=SU
-col	public.payments.reference_number	anon=SU authenticated=SU
-col	public.payments.reviewed_at	anon=SU authenticated=SU
-col	public.payments.reviewed_by_user_id	anon=SU authenticated=SU
-col	public.payments.screenshot_url	anon=SU authenticated=SU
-col	public.payments.status	anon=SU authenticated=SU
-col	public.payments.updated_at	anon=SU authenticated=SU
-col	public.payments.user_id	anon=SU authenticated=SU
+col	public.payments.admin_notes	anon=- authenticated=SU
+col	public.payments.admin_resubmit_notice	anon=- authenticated=SU
+col	public.payments.amount_php	anon=- authenticated=SU
+col	public.payments.channel	anon=- authenticated=SU
+col	public.payments.client_idempotency_key	anon=- authenticated=SU
+col	public.payments.created_at	anon=- authenticated=SU
+col	public.payments.order_id	anon=- authenticated=SU
+col	public.payments.paid_at	anon=- authenticated=SU
+col	public.payments.payment_id	anon=- authenticated=SU
+col	public.payments.reference_number	anon=- authenticated=SU
+col	public.payments.reviewed_at	anon=- authenticated=SU
+col	public.payments.reviewed_by_user_id	anon=- authenticated=SU
+col	public.payments.screenshot_url	anon=- authenticated=SU
+col	public.payments.status	anon=- authenticated=SU
+col	public.payments.updated_at	anon=- authenticated=SU
+col	public.payments.user_id	anon=- authenticated=SU
 col	public.people.birth_date	anon=- authenticated=SIU
 col	public.people.claimed_by_user_id	anon=- authenticated=SIU
 col	public.people.created_at	anon=- authenticated=SIU
@@ -3310,18 +3241,18 @@ col	public.platform_expenses.receipt_uploaded_at	anon=SIU authenticated=SIU
 col	public.platform_expenses.recurs_monthly	anon=SIU authenticated=SIU
 col	public.platform_expenses.updated_at	anon=SIU authenticated=SIU
 col	public.platform_expenses.vendor_name	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.google_drive_oauth_client_secret_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.id	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.last_verified_at	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.maya_public_api_key_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.maya_secret_api_key_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.meta_page_access_token_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.openai_api_key_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.resend_api_key_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.tiktok_access_token_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.tiktok_client_secret_enc	anon=IU authenticated=IU
-col	public.platform_integration_secrets.updated_at	anon=SIU authenticated=SIU
-col	public.platform_integration_secrets.youtube_oauth_client_secret_enc	anon=IU authenticated=IU
+col	public.platform_integration_secrets.google_drive_oauth_client_secret_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.id	anon=- authenticated=SIU
+col	public.platform_integration_secrets.last_verified_at	anon=- authenticated=SIU
+col	public.platform_integration_secrets.maya_public_api_key_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.maya_secret_api_key_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.meta_page_access_token_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.openai_api_key_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.resend_api_key_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.tiktok_access_token_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.tiktok_client_secret_enc	anon=- authenticated=IU
+col	public.platform_integration_secrets.updated_at	anon=- authenticated=SIU
+col	public.platform_integration_secrets.youtube_oauth_client_secret_enc	anon=- authenticated=IU
 col	public.platform_package_catalog.created_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.description	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.is_active	anon=SIU authenticated=SIU
@@ -3346,11 +3277,11 @@ col	public.platform_retail_catalog_v2.service_code	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.title	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.updated_at	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.updated_by_admin_id	anon=SIU authenticated=SIU
-col	public.platform_secret_rotations.last_rotated_at	anon=SIU authenticated=SIU
-col	public.platform_secret_rotations.note	anon=SIU authenticated=SIU
-col	public.platform_secret_rotations.rotated_by	anon=SIU authenticated=SIU
-col	public.platform_secret_rotations.secret_id	anon=SIU authenticated=SIU
-col	public.platform_secret_rotations.updated_at	anon=SIU authenticated=SIU
+col	public.platform_secret_rotations.last_rotated_at	anon=- authenticated=SIU
+col	public.platform_secret_rotations.note	anon=- authenticated=SIU
+col	public.platform_secret_rotations.rotated_by	anon=- authenticated=SIU
+col	public.platform_secret_rotations.secret_id	anon=- authenticated=SIU
+col	public.platform_secret_rotations.updated_at	anon=- authenticated=SIU
 col	public.platform_settings.admin_digest_enabled	anon=- authenticated=S
 col	public.platform_settings.admin_digest_last_sent_at	anon=- authenticated=S
 col	public.platform_settings.bdo_account_name	anon=- authenticated=S
@@ -3474,19 +3405,19 @@ col	public.push_subscriptions.user_id	anon=SIU authenticated=SIU
 col	public.rate_limit_hits.bucket	anon=SIU authenticated=SIU
 col	public.rate_limit_hits.ident	anon=SIU authenticated=SIU
 col	public.rate_limit_hits.ts	anon=SIU authenticated=SIU
-col	public.receipts.created_at	anon=SIU authenticated=SIU
-col	public.receipts.gross_total_php	anon=SIU authenticated=SIU
-col	public.receipts.issued_at	anon=SIU authenticated=SIU
-col	public.receipts.issued_to_email	anon=SIU authenticated=SIU
-col	public.receipts.issued_to_name	anon=SIU authenticated=SIU
-col	public.receipts.issued_to_tin	anon=SIU authenticated=SIU
-col	public.receipts.or_serial	anon=SIU authenticated=SIU
-col	public.receipts.order_id	anon=SIU authenticated=SIU
-col	public.receipts.pre_vat_php	anon=SIU authenticated=SIU
-col	public.receipts.receipt_id	anon=SIU authenticated=SIU
-col	public.receipts.user_id	anon=SIU authenticated=SIU
-col	public.receipts.vat_amount_php	anon=SIU authenticated=SIU
-col	public.receipts.vat_rate_pct	anon=SIU authenticated=SIU
+col	public.receipts.created_at	anon=- authenticated=SIU
+col	public.receipts.gross_total_php	anon=- authenticated=SIU
+col	public.receipts.issued_at	anon=- authenticated=SIU
+col	public.receipts.issued_to_email	anon=- authenticated=SIU
+col	public.receipts.issued_to_name	anon=- authenticated=SIU
+col	public.receipts.issued_to_tin	anon=- authenticated=SIU
+col	public.receipts.or_serial	anon=- authenticated=SIU
+col	public.receipts.order_id	anon=- authenticated=SIU
+col	public.receipts.pre_vat_php	anon=- authenticated=SIU
+col	public.receipts.receipt_id	anon=- authenticated=SIU
+col	public.receipts.user_id	anon=- authenticated=SIU
+col	public.receipts.vat_amount_php	anon=- authenticated=SIU
+col	public.receipts.vat_rate_pct	anon=- authenticated=SIU
 col	public.reel_music_tracks.beat_grid	anon=SIU authenticated=SIU
 col	public.reel_music_tracks.bpm	anon=SIU authenticated=SIU
 col	public.reel_music_tracks.category	anon=SIU authenticated=SIU
@@ -3640,6 +3571,28 @@ col	public.service_categories.sort_order	anon=SIU authenticated=SIU
 col	public.service_categories.status	anon=SIU authenticated=SIU
 col	public.service_categories.tier	anon=SIU authenticated=SIU
 col	public.service_categories.updated_at	anon=SIU authenticated=SIU
+col	public.service_slot_day_state.created_at	anon=- authenticated=S
+col	public.service_slot_day_state.reserved_date	anon=- authenticated=S
+col	public.service_slot_day_state.seats_capacity	anon=- authenticated=S
+col	public.service_slot_day_state.seats_taken	anon=- authenticated=S
+col	public.service_slot_day_state.slot_id	anon=- authenticated=S
+col	public.service_slot_day_state.updated_at	anon=- authenticated=S
+col	public.service_slot_reservations.cancel_reason	anon=- authenticated=S
+col	public.service_slot_reservations.cancelled_at	anon=- authenticated=S
+col	public.service_slot_reservations.cancelled_by	anon=- authenticated=S
+col	public.service_slot_reservations.confirmed_at	anon=- authenticated=S
+col	public.service_slot_reservations.created_at	anon=- authenticated=S
+col	public.service_slot_reservations.created_by	anon=- authenticated=S
+col	public.service_slot_reservations.event_id	anon=- authenticated=S
+col	public.service_slot_reservations.guest_note	anon=- authenticated=S
+col	public.service_slot_reservations.party_size	anon=- authenticated=S
+col	public.service_slot_reservations.reservation_id	anon=- authenticated=S
+col	public.service_slot_reservations.reserved_date	anon=- authenticated=S
+col	public.service_slot_reservations.slot_id	anon=- authenticated=S
+col	public.service_slot_reservations.status	anon=- authenticated=S
+col	public.service_slot_reservations.updated_at	anon=- authenticated=S
+col	public.service_slot_reservations.vendor_profile_id	anon=- authenticated=S
+col	public.service_slot_reservations.vendor_service_id	anon=- authenticated=S
 col	public.setnayan_ai_guard_log.dedupe_key	anon=SIU authenticated=SIU
 col	public.setnayan_ai_guard_log.event_id	anon=SIU authenticated=SIU
 col	public.setnayan_ai_guard_log.id	anon=SIU authenticated=SIU
@@ -3788,18 +3741,18 @@ col	public.supplies_orders.total_markup_centavos	anon=SIU authenticated=SIU
 col	public.supplies_orders.total_retail_centavos	anon=SIU authenticated=SIU
 col	public.supplies_orders.total_wholesale_centavos	anon=SIU authenticated=SIU
 col	public.supplies_orders.updated_at	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.created_at	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.mapped_to_canonical	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.proposed_label	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.proposed_note	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.request_id	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.resolution_note	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.reviewed_at	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.reviewed_by_admin_id	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.status	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.tile_id	anon=SIU authenticated=SIU
-col	public.taxonomy_category_requests.updated_at	anon=SIU authenticated=SIU
+col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.proposed_label	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.proposed_note	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.request_id	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.resolution_note	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.reviewed_at	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.reviewed_by_admin_id	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.status	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.tile_id	anon=- authenticated=SIU
+col	public.taxonomy_category_requests.updated_at	anon=- authenticated=SIU
 col	public.thread_calls.call_id	anon=SIU authenticated=SIU
 col	public.thread_calls.ended_at	anon=SIU authenticated=SIU
 col	public.thread_calls.event_id	anon=SIU authenticated=SIU
@@ -3817,12 +3770,6 @@ col	public.thread_service_interests.source	anon=SIU authenticated=SIU
 col	public.thread_service_interests.status	anon=SIU authenticated=SIU
 col	public.thread_service_interests.thread_id	anon=SIU authenticated=SIU
 col	public.thread_service_interests.vendor_service_id	anon=SIU authenticated=SIU
-col	public.token_burn_bands.band	anon=SIU authenticated=SIU
-col	public.token_burn_bands.label	anon=SIU authenticated=SIU
-col	public.token_burn_bands.min_wage_php	anon=SIU authenticated=SIU
-col	public.token_burn_bands.region_slug	anon=SIU authenticated=SIU
-col	public.token_burn_bands.tokens	anon=SIU authenticated=SIU
-col	public.token_burn_bands.updated_at	anon=SIU authenticated=SIU
 col	public.token_grants_log.grant_id	anon=SIU authenticated=SIU
 col	public.token_grants_log.grant_source	anon=SIU authenticated=SIU
 col	public.token_grants_log.granted_at	anon=SIU authenticated=SIU
@@ -3849,19 +3796,19 @@ col	public.token_rewards_log.vendor_id	anon=SIU authenticated=SIU
 col	public.user_devices.device_hash	anon=SIU authenticated=SIU
 col	public.user_devices.last_seen_at	anon=SIU authenticated=SIU
 col	public.user_devices.user_id	anon=SIU authenticated=SIU
-col	public.user_face_profiles.consent_granted_at	anon=SIU authenticated=SIU
-col	public.user_face_profiles.consent_version	anon=SIU authenticated=SIU
-col	public.user_face_profiles.created_at	anon=SIU authenticated=SIU
-col	public.user_face_profiles.face_vector	anon=SIU authenticated=SIU
-col	public.user_face_profiles.id	anon=SIU authenticated=SIU
-col	public.user_face_profiles.profile_id	anon=SIU authenticated=SIU
-col	public.user_face_profiles.quality_score	anon=SIU authenticated=SIU
-col	public.user_face_profiles.revoked_at	anon=SIU authenticated=SIU
-col	public.user_face_profiles.source_event_ids	anon=SIU authenticated=SIU
-col	public.user_face_profiles.updated_at	anon=SIU authenticated=SIU
-col	public.user_face_profiles.user_id	anon=SIU authenticated=SIU
-col	public.user_face_profiles.vector_model	anon=SIU authenticated=SIU
-col	public.user_face_profiles.vectors	anon=SIU authenticated=SIU
+col	public.user_face_profiles.consent_granted_at	anon=- authenticated=SIU
+col	public.user_face_profiles.consent_version	anon=- authenticated=SIU
+col	public.user_face_profiles.created_at	anon=- authenticated=SIU
+col	public.user_face_profiles.face_vector	anon=- authenticated=SIU
+col	public.user_face_profiles.id	anon=- authenticated=SIU
+col	public.user_face_profiles.profile_id	anon=- authenticated=SIU
+col	public.user_face_profiles.quality_score	anon=- authenticated=SIU
+col	public.user_face_profiles.revoked_at	anon=- authenticated=SIU
+col	public.user_face_profiles.source_event_ids	anon=- authenticated=SIU
+col	public.user_face_profiles.updated_at	anon=- authenticated=SIU
+col	public.user_face_profiles.user_id	anon=- authenticated=SIU
+col	public.user_face_profiles.vector_model	anon=- authenticated=SIU
+col	public.user_face_profiles.vectors	anon=- authenticated=SIU
 col	public.user_follows.created_at	anon=SIU authenticated=SIU
 col	public.user_follows.followed_user_id	anon=SIU authenticated=SIU
 col	public.user_follows.follower_user_id	anon=SIU authenticated=SIU
@@ -4293,18 +4240,17 @@ col	public.vendor_guest_deliveries.guest_id	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.item_label	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_guest_deliveries.voided_at	anon=SIU authenticated=SIU
-col	public.vendor_ig_connections.access_token_enc	anon=IU authenticated=-
-col	public.vendor_ig_connections.connected_at	anon=SIU authenticated=S
-col	public.vendor_ig_connections.created_at	anon=SIU authenticated=S
-col	public.vendor_ig_connections.ig_user_id	anon=SIU authenticated=S
-col	public.vendor_ig_connections.ig_username	anon=SIU authenticated=S
-col	public.vendor_ig_connections.last_synced_at	anon=SIU authenticated=S
-col	public.vendor_ig_connections.status	anon=SIU authenticated=S
-col	public.vendor_ig_connections.status_detail	anon=SIU authenticated=S
-col	public.vendor_ig_connections.token_expires_at	anon=SIU authenticated=S
-col	public.vendor_ig_connections.updated_at	anon=SIU authenticated=S
-col	public.vendor_ig_connections.vendor_ig_connection_id	anon=SIU authenticated=S
-col	public.vendor_ig_connections.vendor_profile_id	anon=SIU authenticated=S
+col	public.vendor_ig_connections.connected_at	anon=- authenticated=S
+col	public.vendor_ig_connections.created_at	anon=- authenticated=S
+col	public.vendor_ig_connections.ig_user_id	anon=- authenticated=S
+col	public.vendor_ig_connections.ig_username	anon=- authenticated=S
+col	public.vendor_ig_connections.last_synced_at	anon=- authenticated=S
+col	public.vendor_ig_connections.status	anon=- authenticated=S
+col	public.vendor_ig_connections.status_detail	anon=- authenticated=S
+col	public.vendor_ig_connections.token_expires_at	anon=- authenticated=S
+col	public.vendor_ig_connections.updated_at	anon=- authenticated=S
+col	public.vendor_ig_connections.vendor_ig_connection_id	anon=- authenticated=S
+col	public.vendor_ig_connections.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_ig_media.caption	anon=SIU authenticated=SIU
 col	public.vendor_ig_media.created_at	anon=SIU authenticated=SIU
 col	public.vendor_ig_media.ig_media_id	anon=SIU authenticated=SIU
@@ -4317,10 +4263,10 @@ col	public.vendor_ig_media.taken_at	anon=SIU authenticated=SIU
 col	public.vendor_ig_media.thumbnail_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_ig_media.vendor_ig_media_id	anon=SIU authenticated=SIU
 col	public.vendor_ig_media.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_ig_oauth_state.created_at	anon=SIU authenticated=SIU
-col	public.vendor_ig_oauth_state.initiated_by	anon=SIU authenticated=SIU
-col	public.vendor_ig_oauth_state.state_token	anon=SIU authenticated=SIU
-col	public.vendor_ig_oauth_state.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_ig_oauth_state.created_at	anon=- authenticated=SIU
+col	public.vendor_ig_oauth_state.initiated_by	anon=- authenticated=SIU
+col	public.vendor_ig_oauth_state.state_token	anon=- authenticated=SIU
+col	public.vendor_ig_oauth_state.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_image_flags.created_at	anon=SIU authenticated=SIU
 col	public.vendor_image_flags.flagged_r2_ref	anon=SIU authenticated=SIU
 col	public.vendor_image_flags.flagged_surface	anon=SIU authenticated=SIU
@@ -4361,18 +4307,6 @@ col	public.vendor_invites.source	anon=SIU authenticated=SIU
 col	public.vendor_invites.status	anon=SIU authenticated=SIU
 col	public.vendor_invites.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_invites.vendor_id	anon=SIU authenticated=SIU
-col	public.vendor_lines.activity_id	anon=- authenticated=SIU
-col	public.vendor_lines.block_type	anon=- authenticated=SIU
-col	public.vendor_lines.body	anon=- authenticated=SIU
-col	public.vendor_lines.created_at	anon=- authenticated=SIU
-col	public.vendor_lines.deleted_at	anon=- authenticated=SIU
-col	public.vendor_lines.is_private_note	anon=- authenticated=SIU
-col	public.vendor_lines.label_key	anon=- authenticated=SIU
-col	public.vendor_lines.last_used_at	anon=- authenticated=SIU
-col	public.vendor_lines.line_id	anon=- authenticated=SIU
-col	public.vendor_lines.updated_at	anon=- authenticated=SIU
-col	public.vendor_lines.use_count	anon=- authenticated=SIU
-col	public.vendor_lines.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_lock_proposals.created_at	anon=SIU authenticated=SIU
 col	public.vendor_lock_proposals.event_id	anon=SIU authenticated=SIU
 col	public.vendor_lock_proposals.event_vendor_id	anon=SIU authenticated=SIU
@@ -4506,56 +4440,56 @@ col	public.vendor_partnerships.recommended_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommending_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.relationship_type	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.status	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.account_name	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.account_number	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.created_at	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.decoded_destination	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.is_primary	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.is_shown	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.label	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.link_domain	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.link_url	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.method_type	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.moderation_note	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.moderation_status	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.note	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.payment_method_id	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.provider	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.qr_r2_key	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_payment_methods.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_payouts.amount_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.audit_log	anon=SIU authenticated=SIU
-col	public.vendor_payouts.bir_withholding_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.created_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.disbursement_fee_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.dispute_window_ends_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.form_2307_issued	anon=SIU authenticated=SIU
-col	public.vendor_payouts.form_2307_url	anon=SIU authenticated=SIU
-col	public.vendor_payouts.gateway_fee_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.gross_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.hold_reason	anon=SIU authenticated=SIU
-col	public.vendor_payouts.on_hold	anon=SIU authenticated=SIU
-col	public.vendor_payouts.order_id	anon=SIU authenticated=SIU
-col	public.vendor_payouts.paid_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payment_method	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payout_id	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payout_method	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payout_reference	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payout_stage	anon=SIU authenticated=SIU
-col	public.vendor_payouts.payout_type	anon=SIU authenticated=SIU
-col	public.vendor_payouts.public_id	anon=SIU authenticated=SIU
-col	public.vendor_payouts.released_after_dispute_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.released_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.scheduled_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.stage	anon=SIU authenticated=SIU
-col	public.vendor_payouts.stage_pct	anon=SIU authenticated=SIU
-col	public.vendor_payouts.supplies_order_id	anon=SIU authenticated=SIU
-col	public.vendor_payouts.trigger_date	anon=SIU authenticated=SIU
-col	public.vendor_payouts.trigger_type	anon=SIU authenticated=SIU
-col	public.vendor_payouts.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_payouts.vendor_net_centavos	anon=SIU authenticated=SIU
-col	public.vendor_payouts.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_payment_methods.account_name	anon=- authenticated=SIU
+col	public.vendor_payment_methods.account_number	anon=- authenticated=SIU
+col	public.vendor_payment_methods.created_at	anon=- authenticated=SIU
+col	public.vendor_payment_methods.decoded_destination	anon=- authenticated=SIU
+col	public.vendor_payment_methods.is_primary	anon=- authenticated=SIU
+col	public.vendor_payment_methods.is_shown	anon=- authenticated=SIU
+col	public.vendor_payment_methods.label	anon=- authenticated=SIU
+col	public.vendor_payment_methods.link_domain	anon=- authenticated=SIU
+col	public.vendor_payment_methods.link_url	anon=- authenticated=SIU
+col	public.vendor_payment_methods.method_type	anon=- authenticated=SIU
+col	public.vendor_payment_methods.moderation_note	anon=- authenticated=SIU
+col	public.vendor_payment_methods.moderation_status	anon=- authenticated=SIU
+col	public.vendor_payment_methods.note	anon=- authenticated=SIU
+col	public.vendor_payment_methods.payment_method_id	anon=- authenticated=SIU
+col	public.vendor_payment_methods.provider	anon=- authenticated=SIU
+col	public.vendor_payment_methods.qr_r2_key	anon=- authenticated=SIU
+col	public.vendor_payment_methods.updated_at	anon=- authenticated=SIU
+col	public.vendor_payment_methods.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_payouts.amount_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.audit_log	anon=- authenticated=SIU
+col	public.vendor_payouts.bir_withholding_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.created_at	anon=- authenticated=SIU
+col	public.vendor_payouts.disbursement_fee_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.dispute_window_ends_at	anon=- authenticated=SIU
+col	public.vendor_payouts.form_2307_issued	anon=- authenticated=SIU
+col	public.vendor_payouts.form_2307_url	anon=- authenticated=SIU
+col	public.vendor_payouts.gateway_fee_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.gross_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.hold_reason	anon=- authenticated=SIU
+col	public.vendor_payouts.on_hold	anon=- authenticated=SIU
+col	public.vendor_payouts.order_id	anon=- authenticated=SIU
+col	public.vendor_payouts.paid_at	anon=- authenticated=SIU
+col	public.vendor_payouts.payment_method	anon=- authenticated=SIU
+col	public.vendor_payouts.payout_id	anon=- authenticated=SIU
+col	public.vendor_payouts.payout_method	anon=- authenticated=SIU
+col	public.vendor_payouts.payout_reference	anon=- authenticated=SIU
+col	public.vendor_payouts.payout_stage	anon=- authenticated=SIU
+col	public.vendor_payouts.payout_type	anon=- authenticated=SIU
+col	public.vendor_payouts.public_id	anon=- authenticated=SIU
+col	public.vendor_payouts.released_after_dispute_at	anon=- authenticated=SIU
+col	public.vendor_payouts.released_at	anon=- authenticated=SIU
+col	public.vendor_payouts.scheduled_at	anon=- authenticated=SIU
+col	public.vendor_payouts.stage	anon=- authenticated=SIU
+col	public.vendor_payouts.stage_pct	anon=- authenticated=SIU
+col	public.vendor_payouts.supplies_order_id	anon=- authenticated=SIU
+col	public.vendor_payouts.trigger_date	anon=- authenticated=SIU
+col	public.vendor_payouts.trigger_type	anon=- authenticated=SIU
+col	public.vendor_payouts.updated_at	anon=- authenticated=SIU
+col	public.vendor_payouts.vendor_net_centavos	anon=- authenticated=SIU
+col	public.vendor_payouts.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_portion_rules.applies_to_block	anon=SIU authenticated=SIU
 col	public.vendor_portion_rules.applies_to_meals	anon=SIU authenticated=SIU
 col	public.vendor_portion_rules.created_at	anon=SIU authenticated=SIU
@@ -4842,9 +4776,9 @@ col	public.vendor_service_addons.sort_order	anon=SIU authenticated=SIU
 col	public.vendor_service_addons.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_service_addons.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_service_addons.vendor_service_id	anon=SIU authenticated=SIU
-col	public.vendor_service_agents.created_at	anon=SIU authenticated=SIU
-col	public.vendor_service_agents.vendor_service_id	anon=SIU authenticated=SIU
-col	public.vendor_service_agents.vendor_team_member_id	anon=SIU authenticated=SIU
+col	public.vendor_service_agents.created_at	anon=- authenticated=SIU
+col	public.vendor_service_agents.vendor_service_id	anon=- authenticated=SIU
+col	public.vendor_service_agents.vendor_team_member_id	anon=- authenticated=SIU
 col	public.vendor_service_attributes.attribute_payload	anon=SIU authenticated=SIU
 col	public.vendor_service_attributes.canonical_service	anon=SIU authenticated=SIU
 col	public.vendor_service_attributes.completeness_score	anon=SIU authenticated=SIU
@@ -4925,17 +4859,18 @@ col	public.vendor_service_recommendations.service_code	anon=SIU authenticated=SI
 col	public.vendor_service_recommendations.tile_id	anon=SIU authenticated=SIU
 col	public.vendor_service_recommendations.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_service_recommendations.updated_by_admin_id	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.created_at	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.display_order	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.end_time	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.is_active	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.slot_capacity	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.slot_id	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.slot_label	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.start_time	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_service_time_slots.vendor_service_id	anon=SIU authenticated=SIU
+col	public.vendor_service_time_slots.created_at	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.display_order	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.end_time	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.is_active	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.seat_capacity	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.slot_capacity	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.slot_id	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.slot_label	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.start_time	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.updated_at	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_service_time_slots.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_services.added_pax_block	anon=SIU authenticated=SIU
 col	public.vendor_services.added_pax_price_php	anon=SIU authenticated=SIU
 col	public.vendor_services.base_pax	anon=SIU authenticated=SIU
@@ -5379,16 +5314,10 @@ policy	public.event_editorial|event_editorial_moderator_rw	mode=PERMISSIVE cmd=A
 policy	public.event_egift_methods|event_egift_methods_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = auth.uid()) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
 policy	public.event_feature_policy_override|event_feature_policy_override_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.event_feature_policy_override|event_feature_policy_override_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (event_id IN ( SELECT current_event_ids() AS current_event_ids))) check=NULL
-policy	public.event_floor_areas|event_floor_areas_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
-policy	public.event_floor_areas|event_floor_areas_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
-policy	public.event_floor_areas|event_floor_areas_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_floor_booths|event_floor_booths_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_floor_booths|event_floor_booths_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_booths|event_floor_booths_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
 policy	public.event_floor_booths|event_floor_booths_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
-policy	public.event_floor_objects|event_floor_objects_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
-policy	public.event_floor_objects|event_floor_objects_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
-policy	public.event_floor_objects|event_floor_objects_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_floor_plan|event_floor_plan_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_floor_plan|event_floor_plan_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_floor_plan|event_floor_plan_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
@@ -5563,10 +5492,6 @@ policy	public.hiring_roadmap|hiring_roadmap_owner_read	mode=PERMISSIVE cmd=SELEC
 policy	public.hiring_roadmap|hiring_roadmap_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.homepage_background_videos|homepage_background_videos_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.homepage_hero_config|homepage_hero_config_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
-policy	public.households|couple_writes_household	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
-policy	public.households|event_member_can_read_household	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
-policy	public.households|households_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) check=NULL
-policy	public.households|households_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text)
 policy	public.inquiry_outcome_reason_codes|reason_codes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.inquiry_outcome_reason_codes|reason_codes_read_active	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_active = true) check=NULL
 policy	public.inquiry_outcomes|inquiry_outcomes_org_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
@@ -5739,6 +5664,12 @@ policy	public.seo_suggestions|seo_suggestions_admin_all	mode=PERMISSIVE cmd=ALL 
 policy	public.service_catalog|service_catalog_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.service_categories|service_categories_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.service_categories|service_categories_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.service_slot_day_state|sscds_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.service_slot_day_state|sscds_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_service_id IN ( SELECT ev.service_id FROM event_vendors ev WHERE ((ev.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (ev.service_id IS NOT NULL)))))) check=NULL
+policy	public.service_slot_day_state|sscds_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=NULL
+policy	public.service_slot_reservations|sssr_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
+policy	public.service_slot_reservations|sssr_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.service_slot_reservations|sssr_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.setnayan_ai_guard_log|admin_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
@@ -5773,8 +5704,6 @@ policy	public.thread_calls|thread_calls_member_update	mode=PERMISSIVE cmd=UPDATE
 policy	public.thread_service_interests|thread_service_interests_member_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(((added_by_role = 'couple'::text) AND (source = ANY (ARRAY['initial'::text, 'linked'::text, 'couple_added'::text])) AND (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE (t.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))))) OR ((added_by_role = 'vendor'::text) AND (source = 'vendor_offered'::text) AND (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))))
 policy	public.thread_service_interests|thread_service_interests_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))) check=NULL
 policy	public.thread_service_interests|thread_service_interests_member_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))) check=(thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))))
-policy	public.token_burn_bands|token_burn_bands_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type)))))
-policy	public.token_burn_bands|token_burn_bands_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(auth.uid() IS NOT NULL) check=NULL
 policy	public.token_grants_log|token_grants_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.token_grants_log|token_grants_log_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
 policy	public.token_redemptions_log|token_redemptions_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
@@ -5888,7 +5817,6 @@ policy	public.vendor_image_hashes|vendor_image_hashes_admin_read	mode=PERMISSIVE
 policy	public.vendor_invites|vendor_invites_admin_write_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.vendor_invites|vendor_invites_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=NULL
 policy	public.vendor_invites|vendor_invites_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))))
-policy	public.vendor_lines|vendor_lines_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin()) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR is_admin())
 policy	public.vendor_lock_proposals|vendor_lock_proposals_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
 policy	public.vendor_lock_proposals|vendor_lock_proposals_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) AND (proposed_by_user_id = auth.uid()))
 policy	public.vendor_lock_proposals|vendor_lock_proposals_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=NULL
@@ -6061,7 +5989,6 @@ func	public.admin_churn_risk_events(p_stale_days integer, p_limit integer)	secde
 func	public.admin_inquiry_outcomes_overview()	secdef=yes exec=authenticated search_path=public
 func	public.admin_lead_scores(p_limit integer)	secdef=yes exec=authenticated search_path=public
 func	public.admin_market_analytics()	secdef=yes exec=authenticated search_path=public
-func	public.admin_override_publish_review(p_appeal_id uuid, p_admin_id uuid, p_reason text, p_rating_overall integer, p_rating_communication integer, p_rating_quality integer, p_rating_value integer, p_rating_on_time integer, p_body text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.advance_schedule_block(p_block_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.agent_assigned_service_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.agent_customer_event_ids()	secdef=yes exec=anon,authenticated search_path=public
@@ -6071,16 +5998,16 @@ func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
+func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
-func	public.claim_unlock_vendor_event(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.confirm_vendor_payment(p_payment_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.consume_vendor_assets(p_vendor_id uuid, p_spend_amount integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
-func	public.count_vendor_disputes_30d(v_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.create_vendor_token_purchase(p_pack_sku_code text, p_holder_user_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public
@@ -6102,8 +6029,8 @@ func	public.current_vendor_profile_ids()	secdef=yes exec=anon,authenticated sear
 func	public.decline_change_order(p_change_order_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.demand_radar_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
@@ -6119,6 +6046,7 @@ func	public.generate_screen_name_for_vendor(p_vendor_profile_id uuid)	secdef=yes
 func	public.get_lead_trust_flags(p_vendor_profile_id uuid, p_event_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.get_pending_inquiry_basics(p_thread_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.get_returning_client_flags(p_vendor_profile_id uuid, p_event_ids uuid[])	secdef=yes exec=anon,authenticated search_path=UNPINNED
+func	public.get_vendor_booked_service_categories(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_catering_metrics(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_cocktail_editor(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.get_vendor_event_brief(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6134,12 +6062,10 @@ func	public.is_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_couple_member(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.moderator_can_see_row(p_event_id uuid, p_user_id uuid, p_private_to_role text[], p_hidden_from_role text[], p_surprise_for_role text)	secdef=no exec=anon,authenticated search_path=UNPINNED
-func	public.next_screen_name_id(p_city text, p_canonical_service text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.pabati_event_owns_pabati(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.pabati_record_clip(p_event_id uuid, p_guest_id uuid, p_r2_object_key text, p_duration_ms integer, p_guest_label text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6153,20 +6079,14 @@ func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated se
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_owns_service(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_points_remaining(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_pool_status(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_grant_camera_points(p_event_id uuid, p_order_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_release_camera_points(p_seat_id uuid, p_cost integer)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_release_event_points(p_event_id uuid, p_cost integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_reserve_camera_capture(p_seat_id uuid, p_event_id uuid, p_kind text, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_reserve_camera_points(p_seat_id uuid, p_event_id uuid, p_cost integer)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_reserve_event_points(p_event_id uuid, p_cost integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_set_completion_consent(p_guest_id uuid, p_mission_id uuid, p_consent boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_tag_capture(p_token text, p_photo_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6176,11 +6096,8 @@ func	public.papic_vendor_challenges(p_event_id uuid)	secdef=yes exec=anon,authen
 func	public.price_band_pax_bucket(p_pax integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.purge_expired_chat(p_years integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_funnel_bands()	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_price_bands()	secdef=yes exec=anon,authenticated search_path=public
-func	public.record_std_view(p_event_id uuid, p_date date)	secdef=yes exec=anon,authenticated search_path=public
-func	public.redeem_vendor_token_voucher(p_vendor_id uuid, p_vendor_user_id uuid, p_code text)	secdef=yes exec=anon search_path=UNPINNED
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6193,23 +6110,23 @@ func	public.reject_vendor_token_purchase(p_purchase_id uuid, p_reason text)	secd
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.report_guest_capture(p_reporter_guest_id uuid, p_capture_id uuid, p_reason text, p_details text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.reserve_service_slot_seats(p_event_id uuid, p_slot_id uuid, p_reserved_date date, p_party_size integer, p_guest_note text)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_custom_domain(p_host text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_subdomain(p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_event_vendor_for_contract(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_or_claim_person(p_email text, p_display_name text, p_first_name text, p_last_name text, p_phone text, p_photo_url text, p_birth_date date, p_claimer uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public
 func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
-func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.respond_vendor_proposal(p_proposal_id uuid, p_response text, p_coarse_category text)	secdef=yes exec=authenticated search_path=public
 func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
-func	public.save_vendor_service(p_vendor_profile_id uuid, p_service_id uuid, p_fields jsonb, p_links jsonb, p_schedule jsonb, p_discounts jsonb, p_brackets jsonb, p_inclusions jsonb, p_publish boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=UNPINNED
-func	public.subscriptions_due_for_renewal_reminder(p_days integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public
@@ -6221,7 +6138,6 @@ func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, 
 func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated search_path=public
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.user_holds_founder_seat(p_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
-func	public.vendor_block_booked_date(p_vendor_profile_id uuid, p_date date, p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_booking_daily_series(p_vendor_profile_id uuid, p_days integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_booking_monthly_series(p_vendor_profile_id uuid, p_months integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_cancel_admin_motion(p_motion_id uuid)	secdef=yes exec=anon,authenticated search_path=public
@@ -6255,9 +6171,8 @@ func	public.vendor_upsert_sign(p_event_id uuid, p_sign_id uuid, p_label text, p_
 func	public.vendor_vote_admin_motion(p_motion_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_waitlist_depth(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_win_loss(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
-func	public.vendor_worked_with_ids(for_vendor uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_worked_with_ids(for_vendor uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendors_blocked_on_date(p_vendor_ids uuid[], p_event_date date)	secdef=yes exec=authenticated search_path=public
-func	public.vendors_worked_together(vendor_a uuid, vendor_b uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.verify_and_activate_manual_payment(p_reference_number text, p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.visible_connection_names(p_person_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.wall_approve_caption(p_message_id uuid)	secdef=yes exec=authenticated search_path=public

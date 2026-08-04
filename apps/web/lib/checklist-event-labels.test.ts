@@ -127,6 +127,44 @@ test('newly-labelled types render the expected copy', () => {
 });
 
 /**
+ * The `<noun> date` template doubled the word for the `date` event type — the
+ * live checklist read "worked out from your date date" and "Add your date date
+ * to see a due date on every task".
+ *
+ * Derived, not hand-typed: it walks the WHOLE roster and every string field of
+ * the chrome, so a future date-ish noun fails here instead of shipping. A
+ * hand-written `assert.equal` per type would only ever cover the types someone
+ * remembered to add.
+ */
+test('no chrome string repeats a word ("your date date")', () => {
+  const DOUBLED_WORD = /\b(\w+)\s+\1\b/i;
+  for (const key of [...EVENT_TYPE_ROSTER, 'quinceanera', null]) {
+    const chrome = checklistChrome(key);
+    for (const [field, value] of Object.entries(chrome)) {
+      if (typeof value !== 'string') continue;
+      const hit = DOUBLED_WORD.exec(value);
+      assert.equal(
+        hit,
+        null,
+        `'${key}'.${field} repeats "${hit?.[1]}" — "${value}"`,
+      );
+    }
+  }
+});
+
+/** The exact copy the `date` type now renders. */
+test('the date event type reads without the doubled noun', () => {
+  const chrome = checklistChrome('date');
+  assert.equal(chrome.heading, 'Date checklist');
+  assert.equal(chrome.eyebrow, 'Your date');
+  assert.equal(chrome.dateHint, 'Add your date to see a due date on every task');
+  assert.ok(
+    chrome.intro.includes('worked out from your date —'),
+    `intro still doubles the noun: "${chrome.intro}"`,
+  );
+});
+
+/**
  * The unknown-key fall-through is UNCHANGED by this fix. A key that is not in
  * the map still gets the wedding chrome — the safe default for a typo or a
  * runtime-created type. Mirrors the assertion in lib/checklist.test.ts.

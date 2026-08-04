@@ -12,8 +12,10 @@ import type { AddOnEntry } from '@/lib/add-ons-catalog';
  * `/dashboard/<id>/studio/about/papic-guest` rendered the Papic Pool pitch on
  * event types the grid was hiding. A grid that hides a card does not close the
  * URL behind it. (The example that motivated this was `travel`, then on a deny
- * list; travel is allowed since 2026-08-01, but the drift risk is unchanged —
- * `date` and `hangout` are still out of scope.)
+ * list. Since 2026-08-01 NO live type is out of scope — the owner ruled "offer
+ * Papic everywhere" — so this split currently gates nothing but a
+ * newer-than-the-ruling event type. Keep both surfaces on the shared predicate
+ * anyway: the drift is what bites, and it bit before the scope narrowed.)
  *
  * ── WHY THIS IS ITS OWN MODULE AND NOT PART OF add-ons-catalog.ts ────────────
  * Because putting it there broke the production build, and the failure is worth
@@ -43,9 +45,14 @@ import type { AddOnEntry } from '@/lib/add-ons-catalog';
  *   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`, but
  *      migration 20270804110223 put `rsvp` on EVERY non-wedding profile row —
  *      all 16 types carry it in prod — so the surface check alone admits the
- *      pool everywhere. `papicGuestPassAccess()` carries the anniversary
- *      controller split and the phase ladder, and it FAILS CLOSED for a type
- *      nobody has scoped (today: `date` and `hangout`).
+ *      pool everywhere. `papicGuestPassAccess()` carries the phase ladder and
+ *      FAILS CLOSED for a type nobody has scoped.
+ *
+ *      ⚠ Since the owner's 2026-08-01 "offer Papic everywhere" ruling, layer 2
+ *      denies NO live type: all 16 are Phase 1, and the anniversary controller
+ *      split is gone. It still earns its keep for the SEVENTEENTH type — one
+ *      created from /admin/event-types needs no code change and must not
+ *      inherit a guest-camera pass by default.
  *
  * PURE + synchronous: callers pass the already-resolved profile and
  * `events.community_id`, so this adds no I/O to either surface.

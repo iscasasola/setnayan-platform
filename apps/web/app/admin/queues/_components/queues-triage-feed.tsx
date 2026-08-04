@@ -46,6 +46,16 @@ type Props = {
   totalOpen: number;
   /** Page heading. Defaults to "Queues"; the Work landing passes "Work". */
   title?: string;
+  /**
+   * Active lane filter from `?lane=`. Undefined = show everything.
+   * Filtering is URL-driven rather than client state so this stays a Server
+   * Component: the chips are plain links, they work with JS off, and a filtered
+   * view is bookmarkable. (The rest of the admin uses the same `?tab=`/`?view=`
+   * convention.)
+   */
+  lane?: AdminQueueLane;
+  /** Base path the lane chips link to. */
+  basePath?: string;
 };
 
 const LANE_LABEL: Record<AdminQueueLane, string> = {
@@ -54,6 +64,8 @@ const LANE_LABEL: Record<AdminQueueLane, string> = {
   growth: 'Growth',
   support: 'Support',
 };
+
+const LANE_ORDER: AdminQueueLane[] = ['money', 'trust', 'growth', 'support'];
 
 // Accent + badge colour by urgency. ok/open keeps the brand orange; overdue and
 // due-soon escalate to red / amber so the eye lands on the deadline first.
@@ -145,14 +157,131 @@ function TriageRow({ item }: { item: TriageItem }) {
   );
 }
 
-export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) {
+/**
+ * The morning read: how much of the open work is late, close, or fine.
+ *
+ * Counts ITEMS WAITING, not queues — the same unit as the nav badge and the
+ * subtitle, so no two numbers on this screen mean different things. Built from
+ * the UNFILTERED list on purpose: the strip is the whole picture, and a lane
+ * filter narrows the list below it without hiding how the day actually looks.
+ */
+function triageTotals(items: TriageItem[]) {
+  let late = 0,
+    soon = 0,
+    onPace = 0;
+  for (const i of items) {
+    const n = i.count ?? 0;
+    if (n <= 0) continue;
+    if (i.dueState === 'overdue') late += n;
+    else if (i.dueState === 'due-soon') soon += n;
+    else onPace += n;
+  }
+  return { late, soon, onPace, total: late + soon + onPace };
+}
+
+function TriageStrip({ items }: { items: TriageItem[] }) {
+  const { late, soon, onPace, total } = triageTotals(items);
+  if (total === 0) return null;
+  const pct = (n: number) => `${(n / total) * 100}%`;
+  const parts: Array<[number, string, string]> = [
+    [late, 'past promise', '#B42318'],
+    [soon, 'due soon', '#B54708'],
+    [onPace, 'on pace', '#8A6A2E'],
+  ];
+  return (
+    <div className="sn-tile mb-5 p-4">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+        {parts.map(([n, label, colour]) => (
+          <span key={label} className="flex items-baseline gap-1.5">
+            <span
+              className="font-mono text-xl font-bold tabular-nums"
+              style={{ color: n > 0 ? colour : 'var(--sn-ink-500)' }}
+            >
+              {n}
+            </span>
+            <span className="text-xs text-[color:var(--sn-ink-500)]">{label}</span>
+          </span>
+        ))}
+      </div>
+      <div
+        className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-ink/5"
+        role="img"
+        aria-label={`${late} past promise, ${soon} due soon, ${onPace} on pace`}
+      >
+        {parts.map(([n, label, colour]) =>
+          n > 0 ? (
+            <span key={label} style={{ width: pct(n), background: colour }} />
+          ) : null,
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Lane chips as links — see the `lane` prop note on why this isn't client state. */
+function LaneChips({
+  items,
+  lane,
+  basePath,
+}: {
+  items: TriageItem[];
+  lane?: AdminQueueLane;
+  basePath: string;
+}) {
+  const waiting = (rows: TriageItem[]) =>
+    rows.reduce((sum, i) => sum + Math.max(0, i.count ?? 0), 0);
+
+  const present = LANE_ORDER.filter((l) => items.some((i) => i.lane === l));
+  if (present.length < 2) return null; // a filter with one option is not a filter
+
+  const chip = (href: string, label: string, n: number, active: boolean) => (
+    <Link
+      key={label}
+      href={href}
+      aria-current={active ? 'true' : undefined}
+      className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+      style={{
+        borderColor: active ? '#8A6A2E' : 'var(--sn-line)',
+        background: active ? 'var(--sn-paper)' : 'transparent',
+        color: active ? '#8A6A2E' : 'var(--sn-ink-500)',
+      }}
+    >
+      {label}
+      <span className="font-mono text-[10px] opacity-70">{n}</span>
+    </Link>
+  );
+
+  return (
+    <div className="mb-5 flex flex-wrap gap-2" aria-label="Filter by lane">
+      {chip(basePath, 'All', waiting(items), !lane)}
+      {present.map((l) =>
+        chip(
+          `${basePath}?lane=${l}`,
+          LANE_LABEL[l],
+          waiting(items.filter((i) => i.lane === l)),
+          lane === l,
+        ),
+      )}
+    </div>
+  );
+}
+
+export function QueuesTriageFeed({
+  items,
+  totalOpen,
+  title = 'Queues',
+  lane,
+  basePath = '/admin/work',
+}: Props) {
   const subtitle =
     totalOpen === 0
       ? "You're all caught up — nothing is waiting on you right now."
       : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across all queues.`;
 
-  const overdue = items.filter((i) => i.dueState === 'overdue');
-  const rest = items.filter((i) => i.dueState !== 'overdue');
+  // The strip + chips read the FULL list; only the rows below are filtered.
+  const shown = lane ? items.filter((i) => i.lane === lane) : items;
+  const overdue = shown.filter((i) => i.dueState === 'overdue');
+  const rest = shown.filter((i) => i.dueState !== 'overdue');
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
@@ -161,6 +290,9 @@ export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) 
         <h1 className="sn-h1">{title}</h1>
         <p className="text-sm text-[color:var(--sn-ink-500)]">{subtitle}</p>
       </header>
+
+      <TriageStrip items={items} />
+      <LaneChips items={items} lane={lane} basePath={basePath} />
 
       {totalOpen === 0 && (
         <div
@@ -214,6 +346,28 @@ export function QueuesTriageFeed({ items, totalOpen, title = 'Queues' }: Props) 
             ))}
           </ul>
         </section>
+      )}
+
+      {/* A lane can be chosen while every queue in it is clear. Without this the
+          page would render the header and then nothing, which reads as broken
+          rather than as good news. */}
+      {shown.length === 0 && (
+        <div className="sn-tile flex items-center gap-3 p-4">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/5">
+            <Check
+              aria-hidden
+              className="h-5 w-5"
+              strokeWidth={2}
+              style={{ color: 'var(--sn-ink-500)' }}
+            />
+          </span>
+          <span className="text-sm text-[color:var(--sn-ink-500)]">
+            Nothing waiting in {lane ? LANE_LABEL[lane] : 'this lane'}.{' '}
+            <Link href={basePath} className="underline underline-offset-2">
+              See every queue
+            </Link>
+          </span>
+        </div>
       )}
     </div>
   );

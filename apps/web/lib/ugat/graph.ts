@@ -45,7 +45,10 @@ export type UgatEntityType =
   | 'proposal'
   | 'contract'
   | 'availability'
-  | 'geography';
+  | 'geography'
+  | 'seatplan'
+  | 'runofshow'
+  | 'livestudio';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -362,11 +365,15 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      * them would put three nodes on the map for one concept and start the slide
      * from a concept map toward an ERD.
      *
-     * ⚠ `households` was assumed to belong here and DOES NOT. Its only foreign
-     * key is `event_id → events`: it is an event-scoped guest grouping, not a
-     * person-spine concept. It stays on the map-backlog re-filed against
-     * GUESTS. The assumption was caught only by reading the live FKs, which is
-     * the whole argument for claim-checking a map instead of describing one.
+     * ⚠ `households` was assumed to belong here and DID NOT. Its only foreign
+     * key was `event_id → events` — an event-scoped guest grouping, not a
+     * person-spine concept. Caught only by reading the live FKs, which is the
+     * whole argument for claim-checking a map instead of describing one. It
+     * then turned out to hold no rows, no product reader and no writer in the
+     * eleven weeks since it shipped. DROPPED 2026-08-01 (owner: "just remove
+     * it") once its one real dependency — a canary in
+     * `event-member-self-join.db.test.ts` — was moved onto `guests`, which
+     * carries actual names and so asserts more than the empty table did.
      *
      * ⚠ EMPTY AND COUNSEL-GATED, DELIBERATELY MAPPED ANYWAY. `people` holds
      * zero rows today and the family-tree work is waiting on legal review. It
@@ -580,6 +587,158 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     ],
     edges: [{ verb: 'locates', to: 'TYPE-EVENTS' }],
   },
+  {
+    /**
+     * SEAT PLAN — the WHERE. Tables, chairs, who sits in them, and the room
+     * they sit in.
+     *
+     * Geometry is NOT split from placement, and both investigations reached
+     * that independently: one file writes both, one RPC reads both, and
+     * auto-seat consumes the floor plan's priority order alongside the table
+     * and assignment rows. `event_floor_*` alone is not a concept anyone names.
+     *
+     * 🚨 GUEST READS DO NOT GO THROUGH RLS — the single most important thing on
+     * this node. `event_tables` and `event_seat_assignments` grant anon nothing
+     * (five policies each, all `authenticated`), yet /find-my-table, /seat and
+     * /hub correctly show a guest their table. They read through anon-executable
+     * SECURITY DEFINER RPCs (`public_seat_lookup`, `public_venue_scene`). An
+     * RLS-only audit concludes "guests cannot see their seat" — FALSE — and
+     * misses that the real exposure surface is the function body, not the policy.
+     * That discovery is what triggered the 2026-08-01 anon-RPC audit.
+     *
+     * ⚠ THE PUBLISH GATE LIVES ONLY IN FUNCTION BODIES. `event_floor_plan
+     * .published_at` and `event_walkthrough_zones.published_at` are enforced
+     * inside the RPCs; no policy references either. A new reader that forgets
+     * the check fails OPEN and serves an unpublished seat plan.
+     *
+     * ⚠ `seating_editor_locks` LOOKS DEAD AND IS FULLY LIVE. A grep for the
+     * table name finds only tests — all access runs through four SECURITY
+     * DEFINER RPCs (acquire / refresh / release / assert), driven by a 30-second
+     * heartbeat and asserted before every write. It was nearly deleted on the
+     * strength of that grep.
+     */
+    id: 'TYPE-SEATPLAN',
+    type: 'seatplan',
+    name: 'Seat Plan',
+    blurb: 'the WHERE — tables, chairs, assignments, the room',
+    countKey: 'seatplan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_tables',
+    x: 60,
+    y: 520,
+    fields: [
+      { key: 'pk', name: 'table_id', note: 'one table in the room' },
+      { key: '', name: 'link_group_id', note: 'FK-SHAPED BUT NOT AN FK (verified, any schema) — groups tables into one serpentine run' },
+      { key: 'fk', name: 'walkthrough_zone_id', note: 'nullable, SET NULL — the one non-destructive outbound link' },
+    ],
+    edges: [
+      { verb: 'seats', to: 'TYPE-GUESTS' },
+      { verb: 'lays out', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * RUN OF SHOW — the WHEN. A machine, not a field on EVENT: two enums, a
+     * SECURITY DEFINER state machine (`advance_schedule_block`), a DB-enforced
+     * single-live-block invariant, its own realtime channel, ~25 importing
+     * modules.
+     *
+     * It is the four-way intersection where COUPLE, VENDORS, coordinator and
+     * GUESTS meet on one row — six RLS policies, roughly one per role. That is
+     * precisely the cross-role JOIN surface that already caused a live prod
+     * outage in this same day-of area (the tiles-vs-categories desk lockout).
+     *
+     * ⚠ THE PREFIX UNDER-CAPTURES THE CONCEPT. `vendor_block_scripts.block_id`
+     * CASCADEs from a block, so deleting a block DESTROYS THE EMCEE SCRIPT
+     * written for it — and blocks have no soft-delete. Meanwhile
+     * `event_floor_plan.cocktail_schedule_block_id` merely SET NULLs. Any audit
+     * scoped to `event_schedule_%` misses both the destructive cascade and the
+     * SECURITY DEFINER writer.
+     */
+    id: 'TYPE-RUNOFSHOW',
+    type: 'runofshow',
+    name: 'Run of Show',
+    blurb: 'the WHEN — nested blocks, one live at a time',
+    countKey: 'runofshow',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+    table: 'event_schedule_blocks',
+    x: 300,
+    y: 560,
+    fields: [
+      { key: 'pk', name: 'block_id', note: 'one moment in the day' },
+      { key: 'fk', name: 'parent_block_id', note: 'self-referencing, CASCADE — blocks NEST' },
+      { key: '', name: 'event_id', note: 'the day it belongs to' },
+    ],
+    edges: [
+      { verb: 'paces', to: 'TYPE-EVENTS' },
+      { verb: 'cues', to: 'TYPE-VENDORS' },
+    ],
+  },
+  {
+    /**
+     * LIVE STUDIO — the control room. Cameras, cut points, the wall, the
+     * broadcast.
+     *
+     * ⚠ ONE NODE OVER TWO PREFIXES, AND THE PREFIXES ARE A RENAME ARTIFACT.
+     * The product was renamed Panood → Live Studio on 2026-06-29; the tables
+     * were not. `live_studio_roam_zones` carries a COMPOSITE foreign key
+     * `(camera_operator_id, event_id) → panood_camera_operators(id, event_id)`,
+     * and three `live-studio-*.ts` modules read `panood_*` tables directly.
+     * Drawing two nodes would map the rename instead of the system, and would
+     * hide the family's only inbound bond across a node boundary.
+     *
+     * This is the THIRD cluster where a name prefix under-captured a concept —
+     * after the calendar tables that do not match `vendor_schedule_%` and the
+     * emcee script that does not match `event_schedule_%`. A prefix is a naming
+     * convention, never a boundary.
+     *
+     * ⚠ THE BROADCAST LEDGER HAS NEVER RECORDED ANYTHING. `panood_broadcasts`
+     * has held zero rows for its entire existence while `panood_control_state`
+     * carries two rows with `first_live_at` stamped — the control room has been
+     * driven live twice and no broadcast was ever created. Its only writer sits
+     * behind three YouTube Data API calls that must all succeed, so zero rows is
+     * POSITIVE evidence the YouTube leg has never completed in production.
+     * (Whether the suspended Google Cloud Identity account is the cause was NOT
+     * verified and is not asserted here.)
+     *
+     * 🔴 RA 10173 GAP, ALREADY ASSERTED BY THE CODEBASE ITSELF.
+     * `panood_camera_operators.claimer_user_id` is a data-subject key with NO
+     * foreign key (verified across every schema), and the subject-rights
+     * plumbing does not cover this table: `export-coverage-guardrail.test.ts`
+     * classifies it verbatim as `TODO(RA10173-backlog)`, and the erasure
+     * guardrail lists it in `UNDECIDED_BACKLOG` — a ratchet whose own header
+     * reads "NOT A CLEAN BILL OF HEALTH — the opposite". A data-subject export
+     * or erasure today omits it, and the guardrails are what know.
+     *
+     * ⚠ DO NOT DROP THIS TABLE ON A NAME GREP. It is a live canary in two
+     * security suites — the same shape that broke ten assertions when
+     * `households` was dropped.
+     */
+    id: 'TYPE-LIVESTUDIO',
+    type: 'livestudio',
+    name: 'Live Studio',
+    blurb: 'the control room — cameras, cuts, the wall, the broadcast',
+    countKey: 'livestudio',
+    icon: 'camera',
+    color: 'var(--ug-e-studio)',
+    colorBg: 'var(--ug-e-studio-bg)',
+    table: 'panood_camera_operators',
+    x: 620,
+    y: 60,
+    fields: [
+      { key: 'pk', name: 'camera_index', note: 'the camera\u2019s identity — referenced everywhere as free text, not by id' },
+      { key: '', name: 'claimer_user_id', note: 'a data-subject key with NO FK (verified any schema) and no erasure coverage' },
+      { key: '', name: 'claim_qr_token', note: 'the operator\u2019s credential \u2014 survives erasure today, see the RA 10173 note' },
+    ],
+    edges: [
+      { verb: 'broadcasts', to: 'TYPE-EVENTS' },
+      { verb: 'cued by', to: 'TYPE-RUNOFSHOW' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -647,6 +806,24 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'globe',
     color: 'var(--ug-e-geo)',
     colorBg: 'var(--ug-e-geo-bg)',
+  },
+  seatplan: {
+    label: 'Seat Plan',
+    icon: 'layers',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+  },
+  runofshow: {
+    label: 'Run of Show',
+    icon: 'link',
+    color: 'var(--ug-e-dayof)',
+    colorBg: 'var(--ug-e-dayof-bg)',
+  },
+  livestudio: {
+    label: 'Live Studio',
+    icon: 'camera',
+    color: 'var(--ug-e-studio)',
+    colorBg: 'var(--ug-e-studio-bg)',
   },
 };
 
@@ -1881,6 +2058,160 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'the vendor profile + branches surfaces',
     guardedBy: 'RLS — there is no public read policy on either, so neither is visible to discovery',
     traps: 'vendor_coverages is WHAT a vendor serves, not WHERE. Geography lives on vendor_profiles (hq_region, radii) and vendor_branches (city, lat/lon, radius) \u2014 two parallel copies nothing reconciles. Also: branch_subscription_active defaults to TRUE, so any direct INSERT creates a fully active PAID branch for free.',
+  },
+  {
+    /**
+     * The seam between the roster and the room — and where the soft-delete
+     * asymmetry lives.
+     *
+     * 🚨 `guests` is SOFT-deleted (`deleted_at`); `event_seat_assignments` has
+     * NO such column (both verified). The FK is ON DELETE CASCADE, so it never
+     * fires on a soft delete, and the only automatic seat-release trigger fires
+     * on `rsvp_status = 'declined'` — not on removal. A removed guest therefore
+     * leaves an assignment the editor's guest list cannot account for, while the
+     * chair-uniqueness index keeps that chair permanently occupied.
+     *
+     * LATENT, NOT LIVE: 4 soft-deleted guests exist and none holds a seat.
+     */
+    id: 'J35',
+    claims: [
+      { kind: 'table', table: 'event_seat_assignments' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'event_seat_assignments', column: 'table_id', references: 'event_tables' },
+      { kind: 'no_column', table: 'event_seat_assignments', column: 'deleted_at' },
+      { kind: 'column', table: 'guests', column: 'deleted_at' },
+    ],
+    chain: 2,
+    pair: ['TYPE-SEATPLAN', 'TYPE-GUESTS'],
+    title: 'Seat ↔ Guest (the soft-delete seam)',
+    joint: 'event_seat_assignments',
+    cardinality: 'One guest per chair — UNIQUE (event_id, table_id, seat_number)',
+    implementedBy: 'event_seat_assignments — the row that puts a person in a chair',
+    writtenBy: 'the seating editor · auto-arrange',
+    guardedBy: 'the chair-uniqueness index; NOT by anything that reacts to a soft delete',
+    traps: 'Removing a guest is a SOFT delete, so the CASCADE never fires and the chair stays occupied by someone the guest list no longer shows. Also: nothing requires the assignment\u2019s event_id to match its table\u2019s event_id — no composite FK, no CHECK — and the chair-uniqueness index is keyed on event_id, so a divergent one would defeat it.',
+  },
+  {
+    /**
+     * The room itself, and the publish gate that decides whether a guest sees
+     * any of it. Enforcement lives in RPC bodies, never in a policy.
+     */
+    id: 'J36',
+    claims: [
+      { kind: 'table', table: 'event_floor_plan' },
+      { kind: 'column', table: 'event_floor_plan', column: 'published_at' },
+      { kind: 'table', table: 'event_walkthrough_zones' },
+      { kind: 'column', table: 'event_walkthrough_zones', column: 'published_at' },
+      { kind: 'fk', table: 'event_tables', column: 'walkthrough_zone_id', references: 'event_walkthrough_zones' },
+      { kind: 'table', table: 'event_floor_booths' },
+      { kind: 'table', table: 'event_floor_signs' },
+      { kind: 'table', table: 'event_seating_constraints' },
+      { kind: 'table', table: 'seating_editor_locks' },
+      { kind: 'fk', table: 'seating_editor_locks', column: 'holder_user_id', references: 'users' },
+    ],
+    chain: 1,
+    pair: ['TYPE-SEATPLAN', 'TYPE-EVENTS'],
+    title: 'Seat Plan → the room (geometry · zones · locks)',
+    joint: 'event_floor_plan',
+    cardinality: 'One floor plan per event; many zones, booths, signs and tables within it',
+    implementedBy: 'event_floor_plan + event_walkthrough_zones + event_floor_booths/signs',
+    writtenBy: 'the seating editor (one file writes geometry AND placement)',
+    guardedBy: 'published_at, checked ONLY inside public_seat_lookup / public_venue_scene',
+    traps: 'TWO publish gates, not one, and neither is enforced by any RLS policy \u2014 a new reader that forgets the check fails OPEN. seating_editor_locks.holder_user_id references auth.users (CROSS-SCHEMA): a constraint scan filtered to schema public reports this table as having one FK and misses a CASCADE onto a user.',
+  },
+  {
+    /**
+     * Blocks nest, and one deletion reaches further than the prefix suggests.
+     */
+    id: 'J37',
+    claims: [
+      { kind: 'table', table: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_blocks', column: 'parent_block_id', references: 'event_schedule_blocks' },
+      { kind: 'table', table: 'event_schedule_suggestions' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_block_scripts', column: 'block_id', references: 'event_schedule_blocks' },
+    ],
+    chain: 2,
+    pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
+    title: 'Block → suggestions · scripts',
+    joint: 'event_schedule_blocks',
+    cardinality: 'A tree of blocks; vendors attach suggestions and scripts to a block',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts hang off a block',
+    writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
+    guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+  },
+  {
+    /**
+     * 🔑 THE BOND THAT PROVES PANOOD AND LIVE STUDIO ARE ONE SYSTEM.
+     * A COMPOSITE foreign key — unusual in this schema — pinning a roam zone to
+     * a camera operator AND the event together, so a zone can never point at an
+     * operator on a different event. It is also the family's only inbound bond,
+     * and it crosses the two name prefixes. Asserted because if the rename is
+     * ever finished, this claim is what tells whoever does it that the two
+     * halves are joined.
+     */
+    id: 'J38',
+    claims: [
+      { kind: 'table', table: 'panood_camera_operators' },
+      { kind: 'table', table: 'live_studio_roam_zones' },
+      { kind: 'fk', table: 'live_studio_roam_zones', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'panood_camera_operators', column: 'camera_index' },
+      { kind: 'no_fk', table: 'panood_camera_operators', column: 'claimer_user_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-LIVESTUDIO', 'TYPE-LIVESTUDIO'],
+    title: 'Camera operator ↔ roam zone (across the rename)',
+    joint: 'live_studio_roam_zones',
+    cardinality: 'Composite — (camera_operator_id, event_id), so a zone cannot borrow an operator from another event',
+    implementedBy: 'live_studio_roam_zones.(camera_operator_id, event_id) → panood_camera_operators.(id, event_id)',
+    writtenBy: 'the roam zone editor',
+    guardedBy: 'the composite FK itself — event scoping is enforced, not merely conventional',
+    traps: 'The panood_/live_studio_ split is a RENAME, not a boundary. claimer_user_id is a data-subject key with NO FK and no erasure coverage \u2014 it is named in export-coverage-guardrail.test.ts as TODO(RA10173-backlog). Do NOT drop this table on a name grep; it is a canary in two security suites.',
+  },
+  {
+    /**
+     * The control plane, and the two things it routes by that nothing enforces.
+     *
+     * ⚠ CAMERA IDENTITY IS FREE TEXT. `program_source` / `preview_source` hold
+     * `'cam' || camera_index` with no FK and no CHECK (verified), so nothing at
+     * the database level keeps a routed source pointing at a camera that
+     * exists. Latent, not live: every one of the 16 live moments was joined
+     * against the operators and all resolve on their own event. It stays latent
+     * only because both allocators ever APPEND — camera_index is never
+     * renumbered and never hard-deleted.
+     *
+     * ⚠ THE CHANNEL POOL IS SETNAYAN-OWNED (owner-locked 2026-07-26, reversing
+     * the couple-owns-the-channel model). `checked_out_event_id` SET NULLs on
+     * event delete, which returns the channel to the pool rather than orphaning
+     * it — the right behaviour for a shared resource.
+     */
+    id: 'J39',
+    claims: [
+      { kind: 'table', table: 'panood_control_state' },
+      { kind: 'fk', table: 'panood_control_state', column: 'active_moment_id', references: 'panood_moments' },
+      { kind: 'no_fk', table: 'panood_control_state', column: 'program_source' },
+      { kind: 'table', table: 'live_studio_roam_channel_pool' },
+      { kind: 'fk', table: 'live_studio_roam_channel_pool', column: 'checked_out_event_id', references: 'events' },
+      { kind: 'table', table: 'panood_broadcasts' },
+      { kind: 'table', table: 'panood_screens' },
+      { kind: 'table', table: 'panood_moments' },
+      { kind: 'table', table: 'live_studio_channel_grants' },
+      { kind: 'table', table: 'live_studio_highlights' },
+      { kind: 'table', table: 'live_studio_overlay_settings' },
+      { kind: 'table', table: 'live_studio_roam_streams' },
+      { kind: 'table', table: 'live_studio_channel_oauth_state' },
+    ],
+    chain: 2,
+    pair: ['TYPE-LIVESTUDIO', 'TYPE-EVENTS'],
+    title: 'Control room → cameras · moments · the channel pool',
+    joint: 'panood_control_state',
+    cardinality: 'One control state per event; one channel checked out of a shared Setnayan-owned pool',
+    implementedBy: 'panood_control_state routes program/preview; the pool lends a channel per event',
+    writtenBy: 'the control room (control-room.tsx) · the setup flow',
+    guardedBy: 'RLS per event; the routed source is guarded by NOTHING',
+    traps: 'panood_broadcasts has held ZERO rows for its entire existence while control_state shows the room driven live twice \u2014 the YouTube leg has never completed in prod. Its only writer sits behind three YouTube API calls that must all succeed. Downstream readers handle the empty table correctly and none mis-bills.',
   },
 ];
 

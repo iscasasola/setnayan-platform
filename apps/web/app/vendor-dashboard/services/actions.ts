@@ -15,6 +15,7 @@ import {
   type VendorCategory,
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   parseDiscountRows,
   type DiscountDraft,
@@ -1673,7 +1674,16 @@ export async function commitVendorService(formData: FormData) {
   }));
 
   // ---- ONE atomic write ----
-  const { data: savedId, error } = await supabase.rpc('save_vendor_service', {
+  // ⚠ ADMIN CLIENT, DELIBERATELY (2026-08-01 security round two).
+  // `save_vendor_service` is SECURITY DEFINER and took `p_vendor_profile_id` as
+  // a TRUSTED PARAMETER with no ownership check in its body — so while this
+  // action resolved the vendor correctly from the session, ANY authenticated
+  // account could call the RPC directly and rewrite ANY vendor's published
+  // prices, discounts, payment schedules and inclusions. Migration
+  // 20271030569442 revokes it from `anon` and `authenticated`; the ownership
+  // answer now comes from `ensureProfile()` above — the session — instead of
+  // from an argument the database was willing to believe.
+  const { data: savedId, error } = await createAdminClient().rpc('save_vendor_service', {
     p_vendor_profile_id: profile.vendor_profile_id,
     p_service_id: serviceId,
     p_fields: fields,

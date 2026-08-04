@@ -1543,6 +1543,9 @@ function TablesView({
     contract: 'TYPE-CONTRACT',
     availability: 'TYPE-AVAILABILITY',
     geography: 'TYPE-GEOGRAPHY',
+    seatplan: 'TYPE-SEATPLAN',
+    runofshow: 'TYPE-RUNOFSHOW',
+    livestudio: 'TYPE-LIVESTUDIO',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

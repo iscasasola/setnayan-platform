@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 
 export type ChecklistCategory =
@@ -357,6 +358,14 @@ export type ChecklistItemView = ChecklistItemRow & {
   dueDate: string | null;
   /** Whole days from `now` until due. Negative = overdue. Null = no due date. */
   daysUntilDue: number | null;
+  /**
+   * The authored `due_offset_days` after runway compression — the offset that
+   * actually produced `dueDate`, and the one the phase ladder buckets on.
+   * IDENTICAL to `due_offset_days` whenever no compression applies (see
+   * {@link checklistRunwayFor}), which is the case for every event whose
+   * planning runway is at least as long as its template assumes.
+   */
+  effectiveOffsetDays: number | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -389,15 +398,214 @@ export function daysUntilEvent(
   return Math.round((eventMs - startOfDay(now)) / DAY_MS);
 }
 
-/** The ISO yyyy-mm-dd an item is due by = event_date − offset days. */
+// ── The deadline anchor ──────────────────────────────────────────────────────
+// THE RULE: both checklist surfaces must date an event the same way.
+//
+// `events.event_date` is the LOCKED day, and for a wedding it is the only
+// honest answer — weddings lock their date through the date-selection ceremony,
+// and anchoring one on a mere candidate is a separate flagship decision nobody
+// has made. But the non-wedding types (`date`, `hangout`, `birthday`, …) ship
+// date-as-OUTPUT: `event_date` stays NULL until it locks, while creation seeds
+// `date_candidates` / `date_window_start` with the best-known day. Reading only
+// `event_date` for those events yields no anchor, hence no due dates, hence
+// "nothing is overdue" — an answer that is wrong rather than merely cautious.
+//
+// The checklist PAGE already resolved the fuller ladder inline; the launcher
+// card did not, so the same event reported different overdue counts on two
+// screens a click apart. This helper is that page's shipped predicate lifted
+// verbatim — the ladder is unchanged, only its address is.
+
+/**
+ * The `events` columns the deadline anchor is resolved from: the three date
+ * columns of the shared ladder (`EventDateFields`) plus the one column this
+ * surface adds a policy on top of.
+ */
+export type ChecklistAnchorEvent = EventDateFields & {
+  /** `event_type_vocab` key. NULL is treated as wedding — see `isWeddingLike`. */
+  event_type?: string | null;
+};
+
+/**
+ * The day this event's checklist deadlines count back from:
+ *
+ *     locked `event_date`  →  else earliest `date_candidates`  →  else `date_window_start`
+ *     BUT weddings anchor on `event_date` ONLY.
+ *
+ * A NULL `event_type` counts as wedding-like, matching every other
+ * wedding-or-unset guard in the app (the budget gate on this same page, and
+ * `isWeddingBudget` beside it) — legacy rows pre-date the column and are all
+ * weddings.
+ *
+ * SCOPE — deliberately narrower than "the event's date". This is the CHECKLIST's
+ * anchor and nothing else. Day-of/recap mode, the countdown, `isPast()` on the
+ * launcher, and SetDateNudge all keep reading `events.event_date` directly, and
+ * must: a candidate date is a guess, and letting a guess flip an event into
+ * "day-of" or file it under "completed" would be a real regression. That is why
+ * this lives in `lib/checklist.ts` and not in `lib/events.ts` — an
+ * `eventAnchorDate()` sitting next to `EventRow` advertises itself as the
+ * event's date to every surface that imports events, which is exactly the
+ * spread this rule must not have. It also sits beside its only two consumers,
+ * `checklistRunwayFor` and `dueDateForItem`, whose composition is documented
+ * below.
+ *
+ * COMPOSITION — the three-step ladder itself is NOT this function's idea. It is
+ * `earliestKnownEventDate()` in lib/event-dates.ts, a dependency-free module
+ * shared with Studio's recommendation heuristic (which reads the ladder
+ * ungated). What lives HERE is the wedding gate, because the gate is the
+ * checklist's POLICY while the ladder is a type-agnostic FACT about a row.
+ *
+ * That split answers the objection this comment used to raise against sharing:
+ * borrowing a helper from a module named wedding-roadmap-signals to express
+ * "weddings do not use this ladder" would indeed obscure the rule — but the
+ * objection was to the NAME and the dependency direction, not to sharing, and a
+ * neutral third home dissolves both. This function still states its own rule in
+ * its own words; it just stopped carrying a second copy of the arithmetic
+ * underneath it. (Copy #1 and copy #2 were equivalent on every input, so this
+ * is a pure de-duplication — see lib/event-dates.test.ts.)
+ */
+export function checklistAnchorDateFor(event: ChecklistAnchorEvent): string | null {
+  const isWeddingLike = event.event_type == null || event.event_type === 'wedding';
+  // THE GATE: a wedding's anchor is the locked date or nothing. Returning early
+  // rather than resolving-then-discarding keeps the rule readable as one line.
+  if (isWeddingLike) return event.event_date ?? null;
+  return earliestKnownEventDate(event);
+}
+
+// ── Runway compression ───────────────────────────────────────────────────────
+// THE RULE: a task may never be due before the plan existed.
+//
+// COMPOSES WITH THE ANCHOR ABOVE, and the order matters: the runway is measured
+// from the creation stamp to the ANCHOR, so resolving a different anchor moves
+// the runway with it. Both are therefore a single decision — feed
+// `checklistAnchorDateFor()` to `checklistRunwayFor()` and to `dueDateForItem()`
+// and the two surfaces agree on the due date AND on the compression. Feed the
+// anchor to only one of them and they disagree silently, which is the class of
+// defect this pairing exists to close.
+//
+// `dueOffsetDays` encodes INTENT — "a week ahead, if you have a week." Reading
+// it as a literal subtraction from the event date breaks the moment the event
+// is sooner than the template assumes: a `date` event created for TONIGHT ran
+// 7/5/3/1 days backwards and opened 100 % overdue, 0 of 4 done, on a checklist
+// twenty minutes old. That teaches the couple that red means nothing.
+//
+// So the RENDERER adapts the authored offsets to the runway that actually
+// exists — the days between the day the event was created and the event day —
+// and the templates keep their authored intent untouched. Compression is:
+//
+//   * PROPORTIONAL, not clipped. Collapsing every over-long offset onto the
+//     creation day would stack the whole plan on one date, which is not a plan
+//     either; scaling preserves the order and the spacing of the ladder.
+//   * OPT-IN by arithmetic. It engages only when the runway is SHORTER than the
+//     template span. A wedding booked 18 months out has runway ≥ span, so
+//     `checklistRunwayFor` returns null and every due date is byte-identical to
+//     what it was before this rule existed.
+//   * PRE-EVENT ONLY. Offsets ≤ 0 (the day itself, and the post-event tasks:
+//     claim the certificate, thank-you notes) are anchored to the event, not to
+//     the runway, and pass through untouched.
+//
+// The invariant falls out for free: with an effective offset never exceeding
+// the runway, `event_date − offset` can never land before the creation day. No
+// separate clamp is needed, and none is applied.
+
+export type ChecklistRunway = {
+  /** Whole days from the day the event was created to the event day. Never negative. */
+  runwayDays: number;
+  /** The largest positive authored offset among this event's items. Always > 0. */
+  templateSpanDays: number;
+};
+
+/**
+ * The calendar day a stored value falls on, as a local-midnight epoch.
+ *
+ * `event_date` is a Postgres `date` — a bare calendar day, read as-is.
+ * `created_at` is a `timestamptz` — an INSTANT, which must be resolved to the
+ * rendering clock's calendar day so that "created twenty minutes ago" reads as
+ * TODAY. Taking its UTC date prefix instead would file a 1 a.m. Manila signup
+ * under "yesterday" and hand the plan a day of runway that never existed.
+ * Falls back to the date prefix for any timestamp shape this runtime can't
+ * parse (Postgres' space-separated text format, notably) — a day of slack is
+ * harmless; a NaN is not.
+ */
+function calendarDayEpoch(value: string): number {
+  if (/\d{1,2}:\d{2}/.test(value)) {
+    const instant = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+    if (Number.isFinite(instant.getTime())) return startOfDay(instant);
+  }
+  return dateToLocalEpoch(value);
+}
+
+/**
+ * The compression to apply to this event's checklist, or **null when none
+ * applies** — the signal that every authored offset stands exactly as written.
+ *
+ * Null is returned (and today's behaviour preserved byte-for-byte) when the
+ * event has no date, no creation stamp, no forward-looking tasks at all, or —
+ * the common case — a runway at least as long as its template span.
+ *
+ * `rows` supplies the span rather than a template constant so the measurement
+ * is of the event's ACTUAL seeded tasks: ceremony tailoring drops items, hosts
+ * add their own, and a top-up can extend the list after creation.
+ */
+export function checklistRunwayFor(
+  rows: ReadonlyArray<{ due_offset_days: number | null }>,
+  eventDate: string | null,
+  eventCreatedAt: string | null | undefined,
+): ChecklistRunway | null {
+  if (!eventDate || !eventCreatedAt) return null;
+
+  const eventMs = dateToLocalEpoch(eventDate);
+  const createdMs = calendarDayEpoch(eventCreatedAt);
+  if (!Number.isFinite(eventMs) || !Number.isFinite(createdMs)) return null;
+
+  let templateSpanDays = 0;
+  for (const r of rows) {
+    const o = r.due_offset_days;
+    if (o != null && o > templateSpanDays) templateSpanDays = o;
+  }
+  // Nothing scheduled ahead of the event ⇒ nothing to compress. Also the
+  // divide-by-zero guard: `templateSpanDays` is the scaling denominator.
+  if (templateSpanDays <= 0) return null;
+
+  // Floored at 0 so an event back-filled AFTER it happened yields a same-day
+  // plan rather than a negative (order-inverting) scale factor.
+  const runwayDays = Math.max(0, Math.round((eventMs - createdMs) / DAY_MS));
+
+  // The plan already fits the runway — leave every authored offset alone.
+  if (runwayDays >= templateSpanDays) return null;
+
+  return { runwayDays, templateSpanDays };
+}
+
+/**
+ * An authored offset scaled into the runway that exists. Returns the input
+ * unchanged when `runway` is null (no compression) or the offset is ≤ 0 (the
+ * day itself and everything after it are anchored to the event, not the runway).
+ */
+export function effectiveOffsetDays(
+  dueOffsetDays: number | null,
+  runway: ChecklistRunway | null | undefined,
+): number | null {
+  if (dueOffsetDays == null) return null;
+  if (!runway || dueOffsetDays <= 0) return dueOffsetDays;
+  return Math.round((dueOffsetDays * runway.runwayDays) / runway.templateSpanDays);
+}
+
+/**
+ * The ISO yyyy-mm-dd an item is due by = event_date − offset days.
+ *
+ * `runway` is optional and defaults to null (= no compression), so every
+ * pre-existing 2-argument call site keeps its exact previous result.
+ */
 export function dueDateForItem(
   eventDate: string | null,
   dueOffsetDays: number | null,
+  runway: ChecklistRunway | null = null,
 ): string | null {
   if (!eventDate || dueOffsetDays == null) return null;
   const eventMs = dateToLocalEpoch(eventDate);
   if (!Number.isFinite(eventMs)) return null;
-  const due = new Date(eventMs - dueOffsetDays * DAY_MS);
+  const offset = effectiveOffsetDays(dueOffsetDays, runway) ?? dueOffsetDays;
+  const due = new Date(eventMs - offset * DAY_MS);
   const y = due.getFullYear();
   const mo = String(due.getMonth() + 1).padStart(2, '0');
   const d = String(due.getDate()).padStart(2, '0');
@@ -409,13 +617,19 @@ export function toChecklistView(
   row: ChecklistItemRow,
   eventDate: string | null,
   now: Date = new Date(),
+  runway: ChecklistRunway | null = null,
 ): ChecklistItemView {
-  const dueDate = dueDateForItem(eventDate, row.due_offset_days);
+  const dueDate = dueDateForItem(eventDate, row.due_offset_days, runway);
   const daysUntilDue =
     dueDate != null
       ? Math.round((dateToLocalEpoch(dueDate) - startOfDay(now)) / DAY_MS)
       : null;
-  return { ...row, dueDate, daysUntilDue };
+  return {
+    ...row,
+    dueDate,
+    daysUntilDue,
+    effectiveOffsetDays: effectiveOffsetDays(row.due_offset_days, runway),
+  };
 }
 
 export type RankOptions = {
@@ -423,6 +637,12 @@ export type RankOptions = {
   limit?: number;
   /** Clock, injectable for deterministic tests. */
   now?: Date;
+  /**
+   * `events.created_at`. Supplying it lets the ranking compress a short-runway
+   * plan instead of reporting every task as overdue. Omitting it keeps the
+   * previous literal `event_date − offset` behaviour.
+   */
+  eventCreatedAt?: string | null;
 };
 
 /**
@@ -447,10 +667,13 @@ export function rankUrgentChecklistItems(
 ): ChecklistItemView[] {
   const limit = opts.limit ?? 3;
   const now = opts.now ?? new Date();
+  // Measured over ALL rows, not just the open ones: the span is a property of
+  // the plan, and it must not shrink as the couple ticks the long-lead tasks off.
+  const runway = checklistRunwayFor(rows, eventDate, opts.eventCreatedAt);
 
   const open = rows
     .filter((r) => r.status === 'pending')
-    .map((r) => toChecklistView(r, eventDate, now));
+    .map((r) => toChecklistView(r, eventDate, now, runway));
 
   open.sort((a, b) => {
     // Dated items always rank above undated ones.
@@ -562,21 +785,29 @@ export type ChecklistPhaseGroup = {
  * window first), then done items — per the "completion-sink" rule, done tasks
  * stay visible but settle to the bottom. Undated custom items collect in a
  * trailing null-phase group. Empty phases are dropped.
+ *
+ * Buckets on the EFFECTIVE offset, so a compressed plan is captioned by when
+ * its tasks are actually due: a date happening tonight groups under "The day
+ * itself", not under "This week" with every row already red. With no
+ * `eventCreatedAt` (or a runway that already fits) the effective offset IS the
+ * authored one and the grouping is unchanged.
  */
 export function groupChecklistByPhase(
   rows: ReadonlyArray<ChecklistItemRow>,
   eventDate: string | null,
   now: Date = new Date(),
   eventType?: string | null,
+  eventCreatedAt?: string | null,
 ): ChecklistPhaseGroup[] {
-  const views = rows.map((r) => toChecklistView(r, eventDate, now));
+  const runway = checklistRunwayFor(rows, eventDate, eventCreatedAt);
+  const views = rows.map((r) => toChecklistView(r, eventDate, now, runway));
   const phases = checklistPhasesFor(eventType);
   const order = new Map(phases.map((p, i) => [p.id, i]));
 
   const buckets = new Map<string, ChecklistItemView[]>();
   const undated: ChecklistItemView[] = [];
   for (const v of views) {
-    const phase = phaseForOffset(v.due_offset_days, eventType);
+    const phase = phaseForOffset(v.effectiveOffsetDays, eventType);
     if (!phase) {
       undated.push(v);
       continue;
@@ -589,9 +820,12 @@ export function groupChecklistByPhase(
   const sortWithin = (a: ChecklistItemView, b: ChecklistItemView): number => {
     // Open before done (completion-sink).
     if (a.status !== b.status) return a.status === 'done' ? 1 : -1;
-    // Earliest planning window first (larger days-before = earlier).
-    const ao = a.due_offset_days ?? -Infinity;
-    const bo = b.due_offset_days ?? -Infinity;
+    // Earliest planning window first (larger days-before = earlier). Read from
+    // the EFFECTIVE offset to match the bucketing; compression is monotonic, so
+    // this only ever re-ties rows that now share a day — and the sort_order
+    // tiebreak below keeps those in authored template order.
+    const ao = a.effectiveOffsetDays ?? -Infinity;
+    const bo = b.effectiveOffsetDays ?? -Infinity;
     if (ao !== bo) return bo - ao;
     return a.sort_order - b.sort_order;
   };
@@ -865,6 +1099,19 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
 };
 
 /**
+ * "your ___" — the phrase naming the event's anchor date.
+ *
+ * Normally `<noun> date` ("your debut date"). A noun that ALREADY ends in
+ * "date" doubles the word: the `date` event type shipped the literal "your
+ * date date" into the live intro and date hint. Derived from the noun rather
+ * than a hand-kept exception list, so a future date-ish noun (e.g. a
+ * "save the date" type) can't reintroduce the collision silently.
+ */
+function eventDatePhrase(noun: string): string {
+  return /(^|\s)date$/.test(noun) ? noun : `${noun} date`;
+}
+
+/**
  * Resolve the checklist chrome for an event type. Wedding (and null/unknown)
  * returns the EXACT original wedding copy — the live wedding checklist is
  * unchanged. Non-wedding types get event-aware title/heading/copy and
@@ -885,13 +1132,14 @@ export function checklistChrome(eventType: string | null | undefined): Checklist
     };
   }
   const { noun, title } = CHECKLIST_EVENT_LABELS[eventType]!;
+  const datePhrase = eventDatePhrase(noun);
   return {
     eventNoun: noun,
     pageTitle: `${title} checklist · Setnayan`,
     heading: `${title} checklist`,
     eyebrow: `Your ${noun}`,
-    intro: `Your full plan, laid out by when things are due. Every due date is worked out from your ${noun} date — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.`,
-    dateHint: `Add your ${noun} date to see a due date on every task`,
+    intro: `Your full plan, laid out by when things are due. Every due date is worked out from your ${datePhrase} — change the date and the whole countdown shifts with it. Tick things off at your own pace; this is a guide, not a gate.`,
+    dateHint: `Add your ${datePhrase} to see a due date on every task`,
     dayOfLabel: `${title} day & after`,
     showPhaseBlurbs: false,
   };

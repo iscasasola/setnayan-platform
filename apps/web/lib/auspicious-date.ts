@@ -44,7 +44,95 @@ export type CeremonyType =
   | 'sikh'
   | 'buddhist'
   | 'orthodox'
+  // ── The two values the union used to omit (widened 2026-07-27) ──
+  // Not a new faith: `born_again` has been `status='active'` in
+  // `wedding_type_launch_status` since 2026-06-04 (owner-activated, migration
+  // 20260808000000) and `jewish` is `coming_soon` there. FOUR shipped sources
+  // already said 18 — the `events_ceremony_type_check` DB CHECK, the
+  // ceremony-type picker, `lib/faith-registry.ts`, and that launch row. Only
+  // this union said 16, so a live Born Again couple's persisted
+  // `ceremony_type` read back as `null` and landed in the Catholic seed-date
+  // branch. Widening makes the code agree with what already ships.
+  | 'jewish'
+  | 'born_again'
   | 'mixed';
+
+/**
+ * The canonical runtime value list for `CeremonyType` — ONE list, imported by
+ * every `ceremony_type` guard in the app. Do NOT re-declare it anywhere else.
+ *
+ * WHY it lives right here, beside the union (divergence fix 2026-07-27):
+ * four hand-rolled copies of this array had drifted apart, and TypeScript
+ * could not see it because every copy was a legal SUBSET of the union. The
+ * date-selection WRITE path accepted all 16 members while both READ paths
+ * (date-selection/page.tsx, wizard-actions.ts) accepted only 8 — so a host who
+ * picked Hindu (or Aglipayan / LDS / SDA / JW / Sikh / Buddhist) had the value
+ * persisted and `ceremony_type_locked_at` stamped, then on the next render the
+ * short guard returned false, `ceremonyType` collapsed to `null`, the radio
+ * group showed NOTHING selected, and `suggestMeaningfulDates` routed them into
+ * the `ceremonyType === 'catholic' || ceremonyType === null` seed-date branch.
+ *
+ * The array and the union are now inseparable in BOTH directions:
+ *   - `satisfies readonly CeremonyType[]` rejects a value that is not a union
+ *     member;
+ *   - the exhaustiveness assertion below rejects a union member that is
+ *     missing from the array (and names it in the error).
+ * Adding to one without the other fails `tsc --noEmit`.
+ */
+export const CEREMONY_TYPES = [
+  'catholic',
+  'civil',
+  'inc',
+  'christian',
+  'muslim',
+  'cultural',
+  'chinese',
+  'aglipayan',
+  'lds',
+  'sda',
+  'jw',
+  'hindu',
+  'sikh',
+  'buddhist',
+  'orthodox',
+  'jewish',
+  'born_again',
+  'mixed',
+] as const satisfies readonly CeremonyType[];
+
+/**
+ * Compile-time drift guard, union → array direction. Resolves to `true` only
+ * while `CEREMONY_TYPES` covers every `CeremonyType`; otherwise it resolves to
+ * a tuple naming the missing member(s) and the assignment below stops
+ * typechecking.
+ */
+type CeremonyTypesExhaustive =
+  [Exclude<CeremonyType, (typeof CEREMONY_TYPES)[number]>] extends [never]
+    ? true
+    : [
+        'CEREMONY_TYPES is missing a CeremonyType member',
+        Exclude<CeremonyType, (typeof CEREMONY_TYPES)[number]>,
+      ];
+
+const CEREMONY_TYPES_ARE_EXHAUSTIVE: CeremonyTypesExhaustive = true;
+void CEREMONY_TYPES_ARE_EXHAUSTIVE;
+
+/**
+ * The ONE runtime `CeremonyType` guard — used by every read AND write path so
+ * a value a write accepts can never be a value a read rejects.
+ *
+ * Case-sensitive by design: this is the LOWERCASE `events.ceremony_type`
+ * keyspace, not the Title-Case `faith_vocab` marketplace keyspace.
+ *
+ * The set is pinned to the `events_ceremony_type_check` DB CHECK by
+ * `tests/db/ceremony-type-check-parity.db.test.ts` — if a migration widens the
+ * column, that test fails until this union follows (and vice-versa). Together
+ * with `lib/ceremony-validation.test.ts` (which pins `lib/faith-registry.ts`
+ * to the same CHECK), both TS keyspaces are now anchored to the same authority.
+ */
+export function isCeremonyType(value: unknown): value is CeremonyType {
+  return typeof value === 'string' && (CEREMONY_TYPES as readonly string[]).includes(value);
+}
 
 export type MeaningfulDateKind =
   | 'honor'

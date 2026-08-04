@@ -48,7 +48,6 @@ export type StdFilmContent = {
   /** Reception city/area subtitle; null → name only. */
   receptionCity?: string | null;
   storyTeaser?: string | null;
-  websiteUrl?: string | null;
   gcalUrl?: string | null;
   icsHref?: string | null;
   icsFilename: string;
@@ -89,8 +88,6 @@ export type ResolveStdFilmInput = {
   receptionCity?: string | null;
   /** Raw events.love_story (unknown shape) — teaser extracted + truncated. */
   loveStory?: unknown;
-  /** "See details" target; null → the button hides (P4 builder can set it). */
-  websiteUrl?: string | null;
   publicId: string;
   /** Presigned soundtrack URL (the couple's site music) — resolved server-side. */
   musicUrl?: string | null;
@@ -185,7 +182,6 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     receptionVenue: input.receptionVenue?.trim() || null,
     receptionCity: input.receptionCity?.trim() || null,
     storyTeaser: storyTeaserOf(input.loveStory),
-    websiteUrl: input.websiteUrl ?? null,
     gcalUrl,
     icsHref: ics ? icsDataHref(ics) : null,
     icsFilename: `${input.displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,

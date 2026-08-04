@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -16,9 +17,16 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
  * endpoint, with `region: 'auto'`. Credentials come from environment vars set
  * in Vercel (and `.env.local` for local dev).
  *
- * Bucket map matches the four PH-region buckets the owner provisioned months
- * ago. Use the `R2_BUCKETS` constant rather than raw strings so a typo at the
- * call site becomes a compile error.
+ * Bucket map matches the five buckets the owner provisioned months ago. Use
+ * the `R2_BUCKETS` constant rather than raw strings so a typo at the call site
+ * becomes a compile error.
+ *
+ * ⚠ These buckets are in Cloudflare's **Asia-Pacific (APAC)** region, NOT the
+ * Philippines — R2 has no PH region. This comment previously read "the four
+ * PH-region buckets", which was wrong twice over (there are five, and none is
+ * in PH), and that phrasing propagated into the live public `/privacy` notice
+ * as a residency claim we cannot support. Confirmed in the Cloudflare
+ * dashboard 2026-08-01. Do not reintroduce a PH-residency claim here.
  *
  * # Graceful Supabase Storage fallback
  *
@@ -231,6 +239,68 @@ export async function r2Upload(args: {
 }
 
 /**
+ * Lists objects under `prefix`, following pagination up to `maxKeys`.
+ *
+ * Read-only. Used by the admin website-media surface to see what is ACTUALLY
+ * stored, as opposed to what the database still points at — the two drift apart
+ * because several upload paths repoint a row without deleting the object they
+ * replaced.
+ *
+ * `maxKeys` is a hard stop, not a page size: callers pass a ceiling so a
+ * mistakenly broad prefix can't pull an unbounded listing into a page render.
+ *
+ * ⚠ RETURNS `truncated`, AND CALLERS MUST SURFACE IT. Hitting the ceiling means
+ * the result is a floor, not a measurement; a caller that renders a total from a
+ * truncated listing states a smaller number than the truth with full confidence.
+ */
+export async function r2List(args: {
+  bucket: R2BucketName;
+  prefix: string;
+  maxKeys?: number;
+}): Promise<{
+  objects: { key: string; size: number; lastModified: Date | null }[];
+  truncated: boolean;
+}> {
+  const client = requireR2Client();
+  const ceiling = args.maxKeys ?? 5000;
+  const objects: { key: string; size: number; lastModified: Date | null }[] = [];
+  let token: string | undefined;
+
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: args.bucket,
+        Prefix: args.prefix,
+        ContinuationToken: token,
+        MaxKeys: 1000,
+      }),
+    );
+    for (const o of page.Contents ?? []) {
+      if (!o.Key) continue;
+      objects.push({
+        key: o.Key,
+        size: o.Size ?? 0,
+        lastModified: o.LastModified ?? null,
+      });
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+
+    // Stop at the ceiling — but "we filled the ceiling" is NOT the same as
+    // "there is more". A folder holding exactly `maxKeys` objects has been read
+    // in full, and reporting it truncated would paint a "there is more you
+    // cannot see" warning over a complete listing. Truncated means: we dropped
+    // something, or R2 says another page exists.
+    if (objects.length >= ceiling) {
+      const dropped = objects.length > ceiling;
+      objects.length = Math.min(objects.length, ceiling);
+      return { objects, truncated: dropped || Boolean(token) };
+    }
+  } while (token);
+
+  return { objects, truncated: false };
+}
+
+/**
  * Deletes one object from R2 via a single DELETE. Best-effort by contract —
  * callers MUST wrap it: a failed delete leaves an orphaned object (cleaned later
  * by an R2 lifecycle rule), never lost data, and must not break the calling flow.
@@ -348,6 +418,18 @@ export async function r2SignedGet(args: {
    * even on the presigned path — without touching how the object was uploaded.
    */
   responseCacheControl?: string;
+  /**
+   * Overrides the `Content-Disposition` header R2 returns (the S3
+   * `response-content-disposition` param, signed into the URL).
+   *
+   * WITHOUT THIS, A "DOWNLOAD" LINK DOES NOT DOWNLOAD. R2 stores these objects
+   * with their real media type, so a presigned GET for an `.mp4` or `.jpg`
+   * renders INLINE in the tab and the file never reaches the disk. Pass
+   * `attachment; filename="…"` (see `contentDispositionAttachment`) anywhere the
+   * point is to save a copy — /admin/website-media leans on it as the step that
+   * makes deleting safe.
+   */
+  responseContentDisposition?: string;
 }): Promise<string> {
   const client = requireR2Client();
   return await getSignedUrl(
@@ -356,10 +438,12 @@ export async function r2SignedGet(args: {
       Bucket: args.bucket,
       Key: args.key,
       ResponseCacheControl: args.responseCacheControl,
+      ResponseContentDisposition: args.responseContentDisposition,
     }),
     { expiresIn: args.expiresIn ?? 60 * 60 * 24 },
   );
 }
+
 
 /**
  * Returns the direct public URL for an R2 object. Alias for `publicUrlFor`

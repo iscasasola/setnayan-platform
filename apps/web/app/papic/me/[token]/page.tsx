@@ -4,6 +4,7 @@ import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } fr
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
 
@@ -86,13 +87,17 @@ async function GuestGallery({
   eventId,
   guestId,
   token,
+  chapters,
 }: {
   eventId: string;
   guestId: string;
   token: string;
+  /** How to chapter this guest's photos — the same rule the shared gallery uses. */
+  chapters: ChapterContext;
 }) {
   const gallery = await getGuestLiveGallery(eventId, guestId);
   if (!gallery || gallery.photos.length === 0) return null;
+  const groups = groupIntoChapters(gallery.photos, (p) => p.capturedAt ?? '', chapters);
   return (
     <section aria-label="Photos of you" className="mt-6">
       <div className="flex items-center justify-between gap-3">
@@ -102,8 +107,20 @@ async function GuestGallery({
         </p>
         <p className="text-sm text-ink/60">{gallery.total.toLocaleString()}</p>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {gallery.photos.map((p) => (
+      {/* Chaptered like the shared gallery (owner 2026-08-02) — a guest's own
+          photos are part of the same journey, so they read in the same units.
+          Grouping is DERIVED from when each photo was shot, so a guest tagged
+          today into a five-month-old planning photo still sees it under the
+          chapter it was TAKEN in. */}
+      {groups.map((chapter) => (
+      <div key={chapter.key} className="mt-4">
+        {/* Headings only earn their space when there is more than one chapter —
+            a lone "The day" over a handful of photos is chrome, not orientation. */}
+        {groups.length > 1 ? (
+          <h3 className="sn-eye mb-2 text-ink/55">{chapter.label}</h3>
+        ) : null}
+        <div className="grid grid-cols-3 gap-2">
+        {chapter.items.map((p) => (
           <a
             key={p.id}
             // Thumbnail is the light derivative (`p.url`); the LINK opens the
@@ -122,7 +139,9 @@ async function GuestGallery({
             <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
           </a>
         ))}
+        </div>
       </div>
+      ))}
       {/* Download all — the full set of tagged captures as a ZIP (not just the
           preview grid above), streamed from the token-scoped download route. */}
       <a
@@ -161,7 +180,15 @@ export default async function PapicMyCameraPage({ params }: Props) {
   // (for the "back to your invitation" link) is a second cheap read so we avoid
   // a PostgREST embed (keeps this off the typed-relationship path).
   let guest:
-    | { guest_id: string; event_id: string; first_name: string | null; slug: string | null }
+    | {
+        guest_id: string;
+        event_id: string;
+        first_name: string | null;
+        slug: string | null;
+        /** Chapter context for "Photos of you" — resolved once, used by all three
+         *  render paths so they cannot label the same photo differently. */
+        chapters: ChapterContext;
+      }
     | null = null;
   if (cleanToken) {
     const { data } = await admin
@@ -173,7 +200,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
     if (data) {
       const { data: ev } = await admin
         .from('events')
-        .select('slug')
+        .select('slug, event_date, event_type, papic_window_start')
         .eq('event_id', data.event_id as string)
         .maybeSingle();
       guest = {
@@ -181,6 +208,11 @@ export default async function PapicMyCameraPage({ params }: Props) {
         event_id: data.event_id as string,
         first_name: (data.first_name as string | null) ?? null,
         slug: (ev?.slug as string | null) ?? null,
+        chapters: {
+          eventDateIso: (ev?.event_date as string | null) ?? null,
+          mode: (ev?.event_type as string | null) === 'travel' ? 'trip' : 'countdown',
+          tripStartIso: (ev?.papic_window_start as string | null) ?? null,
+        },
       };
     }
   }
@@ -236,10 +268,15 @@ export default async function PapicMyCameraPage({ params }: Props) {
           Your Papic camera isn&rsquo;t ready yet
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          The couple hasn&rsquo;t turned on Papic for the guest list yet — or your
+          The host hasn&rsquo;t turned on Papic for the guest list yet — or your
           spot is still being set up. Check back closer to the day.
         </p>
-        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+        <GuestGallery
+          eventId={guest.event_id}
+          guestId={guest.guest_id}
+          token={cleanToken!}
+          chapters={guest.chapters}
+        />
         <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
       </Shell>
@@ -255,11 +292,16 @@ export default async function PapicMyCameraPage({ params }: Props) {
           Payment under review
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          Your camera is reserved! The Setnayan team is confirming the couple&rsquo;s
+          Your camera is reserved! The Setnayan team is confirming the host&rsquo;s
           payment — this usually clears within a day. Come back and your camera
           will be ready to shoot.
         </p>
-        <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+        <GuestGallery
+          eventId={guest.event_id}
+          guestId={guest.guest_id}
+          token={cleanToken!}
+          chapters={guest.chapters}
+        />
         <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
       </Shell>
@@ -288,7 +330,12 @@ export default async function PapicMyCameraPage({ params }: Props) {
         Open my camera
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
-      <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+      <GuestGallery
+          eventId={guest.event_id}
+          guestId={guest.guest_id}
+          token={cleanToken!}
+          chapters={guest.chapters}
+        />
       <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
     </Shell>

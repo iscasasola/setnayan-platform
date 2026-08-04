@@ -11,10 +11,12 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { R2_BUCKETS, publicUrlFor } from '@/lib/r2';
+import { retireReplacedMedia } from '@/lib/website-media-server';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -47,6 +49,16 @@ export async function saveBackgroundVideo(input: {
     if (!validSlot(input.slot)) return { ok: false, error: 'Invalid slot.' };
     if (!input.videoKey) return { ok: false, error: 'No uploaded video to save.' };
     const db = createAdminClient();
+
+    // Read the outgoing key BEFORE the update — after it, the row no longer
+    // remembers what it replaced and the old object is unreachable forever.
+    const { data: before } = await db
+      .from('homepage_background_videos')
+      .select('video_r2_key')
+      .eq('slot', input.slot)
+      .maybeSingle();
+    const previousKey = (before as { video_r2_key: string | null } | null)?.video_r2_key ?? null;
+
     const { error } = await db
       .from('homepage_background_videos')
       .update({
@@ -60,6 +72,26 @@ export async function saveBackgroundVideo(input: {
       })
       .eq('slot', input.slot);
     if (error) return { ok: false, error: error.message };
+
+    // Purge the cached homepage BEFORE the sweep runs. The homepage bakes this
+    // slot's URL into its cached HTML, so deleting the old object while that
+    // HTML is still being served would hand visitors a dead video URL. Order
+    // matters: stop serving the stale page, then remove what it pointed at.
+    revalidatePath('/');
+
+    // Sweep the clip this one replaced, off the request path — the row is
+    // already written, so the admin's save must not wait on storage cleanup. It
+    // re-proves the old key is unreferenced before deleting, and never throws:
+    // a failure leaves an orphan (removable from /admin/website-media), never a
+    // failed save.
+    after(async () => {
+      await retireReplacedMedia({
+        previous: [previousKey],
+        next: [input.videoKey],
+        context: `background-video slot ${input.slot}`,
+      });
+    });
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Save failed.' };

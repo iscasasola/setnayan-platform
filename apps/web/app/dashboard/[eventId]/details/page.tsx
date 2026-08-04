@@ -150,7 +150,7 @@ export default async function PersonalizationPage({
       : null;
 
   return (
-    <section className="space-y-5">
+    <section className="sn-col space-y-5">
       <PageMasthead title="Personalization" lede="Everything from your onboarding lives here. Refine it anytime — it tunes the services we match and sort for you." />
 
       {/* Band 1 — the basics (governance-free, editable inline) */}

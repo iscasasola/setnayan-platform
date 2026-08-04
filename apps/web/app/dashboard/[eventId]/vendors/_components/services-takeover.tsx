@@ -211,7 +211,19 @@ export function ServicesTakeover({
           left, the build + compare in a STICKY right rail that stays in view while
           you browse categories. Same single DOM — the slots are never mounted
           twice (no duplicate client state) — only reflowed by grid + sticky. The
-          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched. */}
+          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched.
+
+          DO NOT ADD `.sn-col` HERE (asked twice — 2026-08-01). The 64rem reading
+          column that caps the 13 text-led event routes is WRONG for this one,
+          because the right rail is a FIXED 380px: every pixel the cap removes
+          comes out of the shortlist column, not the rail.
+            today   @1440px viewport → 1120px content → 1120-380-24 = 716px left
+            .sn-col @1440px viewport → 1024px content → 1024-380-24 = 620px left
+          That is a 13% narrowing of the browse surface. Worse, `.sn-col` only
+          binds ABOVE a ~1344px viewport — exactly where this two-column layout
+          finally has room — so it can only ever hurt. Same category as `suite`
+          (deliberate `2xl:grid-cols-4`): a real wide layout, not an unfixed one.
+          See globals.css `.sn-col`. */}
       <div className="grid min-w-0 gap-8 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6 lg:pb-0">
         <div className="min-w-0">
           <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>

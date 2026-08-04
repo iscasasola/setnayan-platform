@@ -84,7 +84,7 @@ test('/privacy does NOT re-claim that call media never reaches our servers', () 
 
 test('the policy states its own last-updated date as the day it last changed', () => {
   // A policy that changes without moving its date misrepresents its currency.
-  assert.match(privacySrc, /last updated 2026-07-30/);
+  assert.match(privacySrc, /last updated 2026-08-04/);
 });
 
 test('the coverage map still shows the filing gap — the alarm is not silenced', async () => {

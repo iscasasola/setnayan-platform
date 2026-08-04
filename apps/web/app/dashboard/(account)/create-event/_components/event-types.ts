@@ -18,6 +18,8 @@
 // /onboarding/wedding; others fall back to the inline name form). That exact
 // state is what the fallback — and the 20261204000000 vocab seed — preserve.
 
+import { hashToHue } from '@/lib/event-card-art';
+
 export type EventTypeRow = {
   /** vocab key (event_type_vocab.event_type) — `^[a-z][a-z0-9_]{2,30}$`. */
   key: string;
@@ -69,10 +71,14 @@ export const EVENT_TYPE_PHOTO_FALLBACK = '/event-types/wedding.webp';
  * The hue is hashed from the key so each type gets a distinct but always dark,
  * warm-muted tile that keeps the white serif label legible and sits cohesively
  * next to the real feel-photos.
+ *
+ * The hash itself now lives in `lib/event-card-art.ts` alongside the per-EVENT
+ * derivation that reuses the idiom, rather than being copied into both. The
+ * arithmetic is byte-identical, so every existing type gradient renders
+ * unchanged — `event-card-art.test.ts` pins that against the original.
  */
 export function eventTypePlaceholderGradient(key: string): string {
-  let h = 0;
-  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) % 360;
+  const h = hashToHue(key);
   const h2 = (h + 26) % 360;
   return `linear-gradient(155deg, hsl(${h} 32% 34%) 0%, hsl(${h2} 30% 23%) 48%, #1B1A17 100%)`;
 }

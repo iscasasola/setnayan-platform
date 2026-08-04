@@ -14,11 +14,14 @@
  * `completed` dimension is inert for new couples; existing values still read.
  *
  * Deterministic structural facts only — never AI or inference (same contract as
- * lib/wedding-roadmap.ts). The pure derivations (`resolveEarliestDate`,
- * `deriveRoadmapSignals`) are unit-tested; `fetchRoadmapState` is the thin
- * server wrapper that runs the five lightweight reads.
+ * lib/wedding-roadmap.ts). `deriveRoadmapSignals` is a pure derivation;
+ * `fetchRoadmapState` is the thin server wrapper that runs the five lightweight
+ * reads. (This header used to claim both pure derivations were "unit-tested".
+ * Neither had a test file — corrected rather than left standing. The date
+ * ladder is now covered by lib/event-dates.test.ts at its new home.)
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { monthsUntil, type RoadmapSignals } from '@/lib/wedding-roadmap';
@@ -40,29 +43,25 @@ const VENUE_CATEGORIES = new Set<string>([
 // new variants (papic_guest_captures, panood_daily_broadcast, …) still count.
 const CAPTURE_SKU_RE = /^(papic|panood|patiktok)/i;
 
-/** The exact `events` columns the roadmap state reads. */
-export type RoadmapEventRow = {
-  event_date?: string | null;
-  date_candidates?: string[] | null;
-  date_window_start?: string | null;
+/**
+ * The exact `events` columns the roadmap state reads. The three date columns
+ * come from `EventDateFields` so this row and the shared ladder can never drift
+ * apart — widening the ladder widens the SELECT this type describes.
+ */
+export type RoadmapEventRow = EventDateFields & {
   roadmap_completed?: string[] | null;
   estimated_budget_centavos?: number | null;
 };
 
-/**
- * Earliest chosen date — committed `event_date` → earliest candidate → window
- * start (the same anchor the countdown + roadmap use). ISO yyyy-mm-dd sorts
- * chronologically. This is deliberately precision-agnostic: planning timing
- * starts as soon as there's ANY target, even a rough window — the app's
- * canonical answer to "how far out are we for planning?".
- */
-export function resolveEarliestDate(ev: RoadmapEventRow): string | null {
-  const candidates = ((ev.date_candidates ?? []) as string[])
-    .filter(Boolean)
-    .slice()
-    .sort();
-  return ev.event_date ?? candidates[0] ?? ev.date_window_start ?? null;
-}
+// The "earliest chosen date" ladder (committed `event_date` → earliest
+// candidate → window start) used to be a local `resolveEarliestDate()` here.
+// It now lives in lib/event-dates.ts — a neutral, dependency-free home shared
+// with the checklist's deadline anchor, which layers a wedding gate on top of
+// the same three steps. The local copy is gone rather than aliased: it had no
+// caller outside this file, and leaving an export here would invite a future
+// surface to reach the ladder THROUGH this server module (which imports
+// Supabase types + lib/events) instead of the pure one. Behaviour is unchanged
+// — the two implementations were equivalent on every input.
 
 /**
  * Pure signal derivation from already-fetched rows. A vendor counts as "booked"
@@ -161,7 +160,7 @@ export async function fetchRoadmapState(
     ),
   });
 
-  const earliest = resolveEarliestDate(ev);
+  const earliest = earliestKnownEventDate(ev);
   return {
     months: monthsUntil(earliest, now.getTime()),
     completed: (ev.roadmap_completed ?? []) as string[],

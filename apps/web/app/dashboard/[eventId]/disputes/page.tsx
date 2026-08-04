@@ -99,7 +99,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
   );
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">Disputes</p>
         <div className="flex items-center gap-2">

@@ -17,8 +17,9 @@
  * guests to the vendor's Setnayan page, not a promise of anonymous review.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Maximize2, Printer, X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 export function GuestReviewQr({
   qrSvg,
@@ -31,20 +32,14 @@ export function GuestReviewQr({
 }) {
   const [fullscreen, setFullscreen] = useState(false);
 
-  // Esc closes the fullscreen overlay; lock body scroll while it's open.
-  useEffect(() => {
-    if (!fullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [fullscreen]);
+  // Esc-to-close + body-scroll lock (both were here), PLUS the two halves that
+  // were missing: Tab is trapped inside the overlay, and focus returns to the
+  // "Show fullscreen" button on close. The overlay is shown on a screen the
+  // vendor holds up to a room, so a keyboard user tabbing out of it lands on
+  // controls nobody can see.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeFullscreen = useCallback(() => setFullscreen(false), []);
+  useModalA11y({ open: fullscreen, onClose: closeFullscreen, containerRef: dialogRef });
 
   function print() {
     const w = window.open('', '_blank', 'width=720,height=900');
@@ -119,11 +114,12 @@ export function GuestReviewQr({
 
       {fullscreen ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Review QR, fullscreen"
-          onClick={() => setFullscreen(false)}
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 p-6"
+          onClick={closeFullscreen}
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 p-6 focus:outline-none"
           style={{ background: 'var(--m-ink)' }}
         >
           <button

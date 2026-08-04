@@ -23,6 +23,23 @@ export type CspViolationSummary = {
   directive: string;
   /** scheme+host only, e.g. `https://cdn.example.com`. Or a CSP keyword. */
   blockedOrigin: string;
+  /**
+   * WHERE it happened, as a route SHAPE — `/dashboard/:id/seating`, never the
+   * real URL. Added 2026-08-02.
+   *
+   * The summary previously kept only directive + origin, and that is one field
+   * short of actionable: a live `img-src r2://setnayan-media` violation (a raw
+   * internal storage ref reaching a browser as an image source — a broken image
+   * for a real user) could not be traced to a page, so finding it meant grepping
+   * the codebase blind.
+   *
+   * Ids are stripped rather than the field being dropped, because BOTH things
+   * are true: the retention schedule commits to "no PII in logs" (class 9), and
+   * a violation you cannot locate is a violation you will not fix. The shape
+   * satisfies both — `/dashboard/:id/seating` names the surface and identifies
+   * nobody.
+   */
+  path: string;
 };
 
 /** Directives we are prepared to name. An unknown value is reported as `other`. */
@@ -68,6 +85,71 @@ export function blockedOriginOf(blockedUri: unknown): string | null {
  * has nothing to say, and inventing a summary would pollute the signal we are
  * collecting the reports to get.
  */
+/**
+ * Every top-level route the app actually serves. A first segment IN this set is
+ * a static route name and is safe to log; anything else at the root is a
+ * user-owned slug — a couple's public page (`/maria-and-jose`), a vendor
+ * (`/some-studio`) — and naming it in a log identifies a real wedding.
+ *
+ * Derived from `apps/web/app/*`. Missing an entry costs nothing but precision:
+ * the path collapses to `/:slug`, which is the safe direction.
+ */
+const STATIC_ROUTE_ROOTS = new Set([
+  '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'auth', 'blog',
+  'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev', 'download',
+  'explore', 'features', 'forgot-password', 'health', 'help', 'host',
+  'how-it-works', 'join', 'login', 'monogram', 'onboarding', 'open-shop', 'pa3d',
+  'pabati', 'palogo', 'panood', 'papic', 'patiktok', 'pawebsite', 'pricing',
+  'privacy', 'proposals', 'prototype', 'realstories', 'receipts', 'refunds',
+  'reset-password', 'samahan', 'setnayan-ai', 'signup', 'site-editor', 'terms',
+  'tl', 'tour', 'u', 'v', 'vendor', 'vendor-dashboard', 'vendor-invite',
+  'vendors', 'waitlist', 'wall', 'why-setnayan',
+]);
+
+/**
+ * Reduce a report's document URL to a route SHAPE — `/dashboard/:id/seating` —
+ * so a violation can be LOCATED without naming anyone.
+ *
+ * ⚠ THE CONSTRAINT THAT SHAPES THIS. `csp-report.test.ts` carries a deliberate
+ * PII guard asserting the summary leaks none of a signed-URL signature, a guest
+ * token, an event folder id, **or a couple's public slug** (`maria-and-jose`).
+ * A naive "strip UUIDs and numbers" pass satisfies the first three and fails the
+ * last, because a slug is just a short word segment — and `/maria-and-jose` in a
+ * log names a real wedding. So the rule is inverted: a first segment is kept
+ * ONLY if it is a route the app actually serves; every other root becomes
+ * `/:slug`. Unknown ⇒ anonymised is the safe direction.
+ *
+ * Dropped outright: origin, query and fragment (a query can carry a token).
+ * Returns `'unknown'` rather than throwing — a malformed report is the norm here
+ * and must never cost us the directive we DID parse.
+ */
+export function routeShapeOf(raw: unknown): string {
+  if (typeof raw !== 'string' || raw.length === 0) return 'unknown';
+  let pathname: string;
+  try {
+    pathname = new URL(raw, 'https://x.invalid').pathname;
+  } catch {
+    return 'unknown';
+  }
+  const segs = pathname.split('/').filter((x) => x.length > 0);
+  if (segs.length === 0) return '/';
+  if (!STATIC_ROUTE_ROOTS.has(segs[0]!)) return '/:slug';
+
+  const shaped = segs.map((seg, i) => {
+    if (i === 0) return seg;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(seg)) return ':id';
+    if (/^S89[A-Z]-[0-9A-Z]{10}$/.test(seg)) return ':id';
+    if (/^\d+$/.test(seg)) return ':id';
+    if (seg.length >= 24 && !seg.includes('.')) return ':id';
+    // A nested segment under a known root is a route name unless it looks like
+    // an id — but a slug can nest too (`/v/some-vendor`), so anything that is
+    // not plainly a route word is anonymised.
+    return /^[a-z0-9][a-z0-9-]*$/i.test(seg) && seg.length <= 20 ? seg : ':id';
+  });
+  const out = `/${shaped.join('/')}`;
+  return out.length > 120 ? `${out.slice(0, 120)}…` : out;
+}
+
 export function cspViolationSummary(rawBody: string): CspViolationSummary | null {
   let parsed: unknown;
   try {
@@ -102,5 +184,7 @@ export function cspViolationSummary(rawBody: string): CspViolationSummary | null
   const blockedOrigin = blockedOriginOf(body['blockedURL'] ?? body['blocked-uri']);
   if (!blockedOrigin) return null;
 
-  return { directive, blockedOrigin };
+  const path = routeShapeOf(body['documentURL'] ?? body['document-uri']);
+
+  return { directive, blockedOrigin, path };
 }

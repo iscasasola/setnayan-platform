@@ -277,10 +277,16 @@ export default async function SuitePage({ params }: Props) {
   //      but migration 20270804110223 added `rsvp` to EVERY non-wedding profile
   //      row — all 16 types carry it in prod today. So the surface check alone
   //      admits the pool on types nobody has scoped. papicGuestPassAccess()
-  //      carries the anniversary controller split and the phase ladder, and it
-  //      FAILS CLOSED for a type nobody has scoped yet (today: `date`,
-  //      `hangout`). `travel` WAS denied here; the owner dropped that exclusion
-  //      on 2026-08-01 — "offer Papic everywhere".
+  //      carries the phase ladder and FAILS CLOSED for a type nobody has
+  //      scoped yet.
+  //
+  //      ⚠ AS OF 2026-08-01 THIS LAYER DENIES NO LIVE TYPE. The owner ruled
+  //      "offer Papic everywhere": `travel` came off the deny list, and the
+  //      remaining eight — `date` · `hangout` (untiered), `reunion` ·
+  //      `celebration` · `gala_night` (Phase 2), `corporate` · `tournament`
+  //      (Phase 3) and Samahan-owned `anniversary` (a hardcoded controller
+  //      split) — all moved to Phase 1. It still fires for a type created after
+  //      that ruling. Keep calling it; do not inline "always true".
   //
   // ⚠ WHY THIS IS BEING RE-ADDED, not added: the predicate WAS wired — into
   // `studio/page.tsx`. That page now `redirect()`s here on its first statement

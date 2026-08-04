@@ -255,7 +255,7 @@ export default async function BudgetPage({ params }: Props) {
   const installmentsByVendor = new Map<string, PlanInstance[] | null>(planEntries);
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}

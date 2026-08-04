@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     // Sentry when configured, the platform log otherwise. Deliberately a WARNING,
     // not an error: a report-only violation is information, and paging on it while
     // the allowlist is still being learned would train people to mute it.
-    console.warn('[csp-report-only]', summary.directive, summary.blockedOrigin);
+    console.warn('[csp-report-only]', summary.directive, summary.blockedOrigin, summary.path);
   } catch {
     // A malformed body is the norm here (browsers differ), never an incident.
   }

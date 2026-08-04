@@ -1497,6 +1497,41 @@ export function SaveTheDateFilm({
         </div>
       ) : null}
 
+      {/* THE WAY OUT, AVAILABLE THROUGHOUT — not only at the end.
+          The film's closing beat has always carried a "See our page" button.
+          But that beat is the LAST one, so a visitor who lifted the veil and
+          wanted the website had no way to get there except by watching the
+          whole film to its end. The owner hit exactly that on his phone
+          (2026-08-04) — he lifted the veil, the petals kept falling over
+          everything, and there was nothing to press. Three days of fixes had
+          landed and the experience was unchanged, because the missing piece was
+          never the veil's retirement: it was the door.
+
+          `started` is the mount condition, and it is load-bearing. Every beat
+          of this film is mounted from frame one behind `pointer-events-none` +
+          `aria-hidden`, and NEITHER removes an element from the tab order — so
+          a control merely rendered here would be Tab-reachable under the veil,
+          before the music, the clip or the gallery have played, letting two
+          keystrokes skip past everything the couple paid for. `started` only
+          flips at the lift, so this does not exist until the film is genuinely
+          the experience — and once it is, leaving it is the visitor's call.
+
+          Deliberately quiet: same size and weight as the mute control it
+          mirrors on the other side, so it reads as chrome rather than as a
+          competing call to action. The closing beat keeps its full button. */}
+      {canExit && started && !preview ? (
+        <div className="absolute bottom-5 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
+            className="flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+          >
+            See our page
+            <span aria-hidden>↓</span>
+          </button>
+        </div>
+      ) : null}
+
       {/* The film carries no "swipe up to continue" cue — it duplicated the veil's
           "Lift the veil ↑ / or double-tap" swipe-up pill, so the two were
           consolidated into that single pill (owner 2026-06-21). What remains is a

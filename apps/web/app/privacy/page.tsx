@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-31 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-08-04 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -78,8 +78,9 @@ export default function PrivacyPage() {
             (Google LLC, when you connect the optional Google Drive or YouTube
             integrations) — are subject to RA 10173 § 21 and the
             provider&rsquo;s adequacy commitments. We do not run servers of our
-            own; every location above is a third-party provider, and wherever
-            you are, your data is held outside your own country.
+            own; every location above is a third-party provider, and{' '}
+            <strong>none of them is in the Philippines</strong> — no Setnayan
+            data is stored on Philippine soil.
             Third-party identity-verification providers (such as Persona,
             Veriff, or Onfido) are <strong>not currently active</strong> — the
             integration is a stub with no personal data flowing to them; we will

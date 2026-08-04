@@ -58,3 +58,30 @@ SPEC IMPACT: **Yes — applied in the corpus this session.**
 `~/Documents/Claude/Projects/Setnayan/CLAUDE.md` lines 184 and 295 (the origin of the
 claim) now state APAC + "nothing is hosted in the Philippines", and carry the
 dashboard-confirmation flag. The NPC pack was corrected earlier the same day.
+
+---
+
+## 2026-08-04 · fix(privacy): the dashboard fact arrived — comments corrected, date guard moved
+
+**The blocker above is CLOSED.** The owner opened the Cloudflare dashboard on 2026-08-01 and
+read `setnayan-media` → Location: **Asia-Pacific (APAC)**. The page's wording was already
+right; what was still outstanding was the *source* of the false claim.
+
+- **The two code comments that propagated it are fixed.** `lib/r2.ts` and
+  `app/_components/file-upload.tsx` both said "the **four PH-region** buckets" — wrong twice
+  over: `R2_BUCKETS` has **five** members (`media` · `thread-files` · `vendor-contracts` ·
+  `samples` · `vendor-verification`), and none is in the Philippines. `lib/r2.ts` now carries
+  a do-not-reintroduce note naming this as the phrase that reached the public notice.
+  `lib/regions.ts`, the pricing token-bands surface and `api/health` also match "PH region"
+  and are **correctly left alone** — planner geography and ping origin, not storage.
+- **One over-claim removed from the page itself.** The draft closed with *"wherever you are,
+  your data is held outside your own country"* — false for a reader in Singapore, on the very
+  page whose defect was a false residency claim. It now states the actual point: none of the
+  locations is in the Philippines.
+- **The last-updated date moved to 2026-08-04** and `privacy-live-flow-disclosure.test.ts`
+  moved with it. That guard is what failed CI: the draft bumped the page to 07-31 and left the
+  test pinned at 07-30. It did its job — a policy that changes without moving its date
+  misrepresents its currency.
+
+SPEC IMPACT: **None beyond what this fragment already applied.** The corpus already states
+APAC + "nothing is hosted in the Philippines"; this only removes the last in-code repetitions.

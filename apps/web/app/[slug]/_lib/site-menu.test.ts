@@ -66,10 +66,31 @@ test('enable gate: flag-dark by default, always on for the sample event', () => 
 // the save-the-date phase renders the film INSTEAD of the body. It bites on any
 // event more than STD_THRESHOLD_DAYS out — i.e. nearly every new wedding.
 
-test('browsableBodyRenders · the save-the-date film replaces the body, so no tab may anchor into it', () => {
+test('browsableBodyRenders · the save-the-date film replaces the body — UNLESS open browse keeps it below', () => {
+  // Flag off: the film IS the page, nothing to anchor into.
   assert.equal(browsableBodyRenders({ body: 'save_the_date', openBrowse: false }), false);
-  // Open browse must NOT rescue it — this is exactly the case that shipped broken.
-  assert.equal(browsableBodyRenders({ body: 'save_the_date', openBrowse: true }), false);
+  // Open browse: since the film handoff, `phasedBody` renders the browsable body
+  // BENEATH the film, so the anchors exist and the tabs are honest.
+  //
+  // ⚠ THIS ASSERTION USED TO SAY `false`, AND WAS RIGHT WHEN WRITTEN. The film
+  // handoff changed what phasedBody does, and this test — asserting the OLD
+  // truth — kept passing while the bar silently lost two tabs on a rich page.
+  // It was caught by the owner opening the sample wedding on his phone, not by
+  // anything here. If phasedBody changes again, change this with it.
+  assert.equal(browsableBodyRenders({ body: 'save_the_date', openBrowse: true }), true);
+});
+
+test('browsableBodyRenders · both takeover phases follow the SAME rule', () => {
+  // The drift above happened because the two were written as separate cases.
+  // Pinning them as equal means a future change to one cannot silently diverge.
+  for (const openBrowse of [true, false]) {
+    assert.equal(
+      browsableBodyRenders({ body: 'save_the_date', openBrowse }),
+      browsableBodyRenders({ body: 'editorial', openBrowse }),
+      `the film and the editorial cover disagree at openBrowse=${openBrowse} — ` +
+        `phasedBody treats them identically, so this must too`,
+    );
+  }
 });
 
 test('browsableBodyRenders · the editorial cover replaces the body UNLESS open browse keeps it below', () => {
@@ -94,7 +115,7 @@ test('browsableBodyRenders · every phase is answered — a new one must not def
   }));
   assert.deepEqual(seen, [
     { body: 'normal', off: true, on: true },
-    { body: 'save_the_date', off: false, on: false },
+    { body: 'save_the_date', off: false, on: true },
     { body: 'editorial', off: false, on: true },
   ]);
 });

@@ -93,12 +93,25 @@ export function siteMenuEnabled(opts: {
  * open-browse event in prod sits in exactly that phase behind the full-screen
  * film.
  *
- * The two phases that DO reach `normalBody()`, read off `phasedBody`:
- *   · 'normal'    — the else branch
- *   · 'editorial' — only when open browse is on (the archive keeps the site
- *                   below the cover essay); without it the cover replaces the
- *                   whole body.
- * 'save_the_date' never does.
+ * The phases that reach `normalBody()`, read off `phasedBody`:
+ *   · 'normal'        — the else branch, always
+ *   · 'editorial'     — only under open browse (the archive keeps the site
+ *                       below the cover essay)
+ *   · 'save_the_date' — only under open browse, SINCE THE FILM HANDOFF
+ *
+ * ⚠ THAT LAST LINE CHANGED UNDER THIS FUNCTION'S FEET, and it is worth the
+ * paragraph. When this guard was written (#4068) the save-the-date phase
+ * rendered the film INSTEAD of the body, so it correctly returned `false`
+ * unconditionally. Hours later the film handoff (#4069) made the body render
+ * BENEATH the film under open browse — and this guard, still saying `false`,
+ * started hiding tabs whose anchors now existed. The owner caught it by opening
+ * the sample wedding on his phone: a rich page with only "Home" and "Me" in the
+ * bar.
+ *
+ * 🔑 The lesson, for whoever touches this next: a guard that is exactly right
+ * can be made wrong by a change somewhere else, and nothing fails when it
+ * happens — the tests kept passing because they asserted the OLD truth. This
+ * predicate must mirror `phasedBody`; if you change one, change both.
  *
  * Pure so the golden suites can pin it without a render.
  */
@@ -106,7 +119,9 @@ export function browsableBodyRenders(plan: {
   body: 'normal' | 'save_the_date' | 'editorial';
   openBrowse: boolean;
 }): boolean {
-  if (plan.body === 'save_the_date') return false;
-  if (plan.body === 'editorial') return plan.openBrowse;
+  // Both takeover phases follow the SAME rule, because `phasedBody` now treats
+  // them the same: the cover/film keeps its takeover, and under open browse the
+  // browsable site persists BELOW it.
+  if (plan.body === 'save_the_date' || plan.body === 'editorial') return plan.openBrowse;
   return true;
 }

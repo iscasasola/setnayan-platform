@@ -779,7 +779,22 @@ export function SiteBody({
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires
             the old bars. */}
-        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
+        {menuOn ? (
+          <SiteMenuBar
+            sections={menuSections}
+            // Papic. The host's switch is the gate (owner 2026-08-03: "the papic
+            // service will always run but the host of the event has the power to
+            // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
+            // absent — the camera is part of what the invitation promises.
+            camera={
+              dayOfPhase === 'live'
+                ? publicCandidCameraActive
+                  ? { href: '/papic/guest' }
+                  : { locked: true, reason: 'The host has not opened the camera' }
+                : null
+            }
+          />
+        ) : null}
       </>
     );
   };
@@ -1509,7 +1524,21 @@ export function SiteBody({
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.
             Coexists with the GuestHubBar (page.tsx) until PR11 retires the old
             bars. */}
-        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
+        {menuOn ? (
+          <SiteMenuBar
+            sections={menuSections}
+            // A guest's own roll first, then the couple's shared camera — the
+            // same order GuestHubBar already uses. Locked, not hidden, when the
+            // host has opened neither.
+            camera={
+              isLive
+                ? papicGuest
+                  ? { href: `/papic/me/${guest.qr_token}` }
+                  : { locked: true, reason: 'The host has not opened the camera' }
+                : null
+            }
+          />
+        ) : null}
       </>
     );
   };

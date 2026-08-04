@@ -797,9 +797,10 @@ export function SiteBody({
               phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
+              hasStory: menuSections.story,
               liveBroadcast: Boolean(navWatchHref),
               destinations: { camera: '/papic/guest', watch: navWatchHref },
-            }).filter((s) => s.key !== 'story' || menuSections.story)}
+            })}
           />
         ) : null}
       </>
@@ -894,26 +895,8 @@ export function SiteBody({
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
           {menuOn ? (
-          <SiteMenuBar
-            slots={resolveSiteNav({
-              viewer: { kind: 'guest' },
-              phase: navPhase,
-              hostAllowsCamera: hostCameraOpen,
-              anyChapterPublic: menuSections.gallery,
-              liveBroadcast: Boolean(navWatchHref),
-              destinations: {
-                // Their own paid roll first, then the couple's shared camera —
-                // the same order GuestHubBar already uses.
-                camera: papicGuest
-                  ? `/papic/me/${guest.qr_token}`
-                  : hostCameraOpen
-                    ? '/papic/guest'
-                    : null,
-                watch: navWatchHref,
-              },
-            }).filter((s) => s.key !== 'story' || menuSections.story)}
-          />
-        ) : null}
+            <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
+          ) : null}
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
               event.website_open_browse is TRUE; identity-aware (guest → RSVP /
               event → Watch Live). */}
@@ -1551,17 +1534,24 @@ export function SiteBody({
             bars. */}
         {menuOn ? (
           <SiteMenuBar
-            sections={menuSections}
-            // A guest's own roll first, then the couple's shared camera — the
-            // same order GuestHubBar already uses. Locked, not hidden, when the
-            // host has opened neither.
-            camera={
-              papicGuest
-                ? { href: `/papic/me/${guest.qr_token}` }
-                : hostCameraOpen
-                  ? { href: '/papic/guest' }
-                  : { locked: true, reason: 'The host has not opened the camera' }
-            }
+            slots={resolveSiteNav({
+              viewer: { kind: 'guest' },
+              phase: navPhase,
+              hostAllowsCamera: hostCameraOpen,
+              anyChapterPublic: menuSections.gallery,
+              hasStory: menuSections.story,
+              liveBroadcast: Boolean(navWatchHref),
+              destinations: {
+                // Their own paid roll first, then the couple's shared camera —
+                // the same order GuestHubBar already uses.
+                camera: papicGuest
+                  ? `/papic/me/${guest.qr_token}`
+                  : hostCameraOpen
+                    ? '/papic/guest'
+                    : null,
+                watch: navWatchHref,
+              },
+            })}
           />
         ) : null}
       </>

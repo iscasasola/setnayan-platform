@@ -65,7 +65,7 @@ export type VendorKit = 'floor_command' | 'song_desk' | 'stage_script';
 /** How close the wedding is. */
 export type NavPhase = 'before' | 'day' | 'after';
 
-export type NavSlotKey = 'home' | 'details' | 'camera' | 'watch' | 'gallery' | 'me';
+export type NavSlotKey = 'home' | 'details' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -92,6 +92,8 @@ export type NavInput = {
   hostAllowsCamera: boolean;
   /** Has the couple made at least one gallery chapter public? */
   anyChapterPublic: boolean;
+  /** Did the couple write a story section? */
+  hasStory?: boolean;
   /** Is a broadcast running right now? */
   liveBroadcast: boolean;
   /** Where each leaving slot goes, resolved by the caller (it knows the slug,
@@ -102,9 +104,10 @@ export type NavInput = {
 };
 
 /** In-page anchors, mirroring SITE_MENU_ANCHORS. */
-const ANCHOR: Record<'home' | 'details' | 'gallery' | 'me', string> = {
+const ANCHOR: Record<'home' | 'details' | 'story' | 'gallery' | 'me', string> = {
   home: '#site-home',
   details: '#site-details',
+  story: '#site-story',
   gallery: '#site-gallery',
   me: '#site-me',
 };
@@ -124,6 +127,7 @@ const KIT_SLOT_LABEL: Record<VendorKit, string> = {
 export function resolveSiteNav(input: NavInput): NavSlot[] {
   const { viewer, phase, hostAllowsCamera, anyChapterPublic, liveBroadcast } = input;
   const dest = input.destinations ?? {};
+  const hasStory = input.hasStory ?? false;
   const isVendor = viewer.kind === 'vendor';
   const isCouple = viewer.kind === 'couple';
   const slots: NavSlot[] = [];
@@ -151,7 +155,14 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
   }
 
-  // 3 — CAMERA (Papic). The centre slot on the day.
+  // 3 — STORY. The couple's own words, before the day only: once the wedding is
+  //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
+  //     holds five.
+  if (phase === 'before' && !isVendor && hasStory) {
+    slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
+  }
+
+  // 4 — CAMERA (Papic). The centre slot on the day.
   if (isCouple) {
     // Unconditional. It is their wedding.
     slots.push(

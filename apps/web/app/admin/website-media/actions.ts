@@ -3,11 +3,16 @@
 /**
  * Server actions for /admin/website-media.
  *
- * Two actions, both single-file by design. There is no "delete all left-over
- * files" control anywhere on this surface, and adding one would be a mistake:
+ * Two single-file actions, plus ONE bulk action added 2026-08-04.
+ *
+ * ⚠ THIS HEADER USED TO FORBID THE BULK ACTION, and its reasoning was right:
  * the left-over verdict comes from a database read, and a read that breaks or
- * gets scoped wrong reports every file as left-over at once. One keystroke
- * should never be able to act on that.
+ * gets scoped wrong reports every file as left-over at once — one keystroke
+ * should never be able to act on that. That danger is not dismissed; it is now
+ * CAUGHT, by gates 3 and 4 on `clearLeftoverMediaAction` below. The rule
+ * changed because the page reported 1,878 deletable files: a surface that can
+ * only be cleared one confirmation at a time never gets cleared, and
+ * "impossible to do safely" and "impossible to do" are different problems.
  *
  * THREE GATES, IN ORDER, ALL SERVER-SIDE:
  *   1. `requireAdminAction()` — the ACTION gate, not the page gate. A server
@@ -32,7 +37,7 @@ import { requireAdminAction } from '@/lib/admin/require-admin';
 import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { assertDeletableKey, isDeletableUsage } from '@/lib/website-media';
-import { usageForKey } from '@/lib/website-media-server';
+import { usageForKey, loadWebsiteMedia } from '@/lib/website-media-server';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -117,5 +122,130 @@ export async function deleteWebsiteMediaAction(key: string): Promise<Result> {
       ok: false,
       error: err instanceof Error ? err.message : 'Could not delete that file.',
     };
+  }
+}
+
+/**
+ * Clear every file in ONE folder that a FRESH read proves is left over.
+ *
+ * ─── THIS FILE USED TO FORBID EXACTLY THIS, AND THE REASON WAS SOUND ──────
+ * The header above said a bulk control "would be a mistake: the left-over
+ * verdict comes from a database read, and a read that breaks or gets scoped
+ * wrong reports every file as left-over at once. One keystroke should never be
+ * able to act on that."
+ *
+ * That danger is real and is NOT dismissed here — it is what the extra gates
+ * below exist to catch. The prohibition is lifted only because the alternative
+ * became worse: `/admin/website-media` reports **1,878** deletable files, and a
+ * surface that can only be cleared one confirmation at a time is a surface that
+ * never gets cleared. "Impossible to do safely" and "impossible to do" are
+ * different problems.
+ *
+ * ─── THE FIVE GATES ──────────────────────────────────────────────────────
+ *   1. `requireAdminAction()`                                    — as before.
+ *   2. A FRESH `loadWebsiteMedia()`. The screen's verdict is never trusted;
+ *      every key is re-classified now, and only rows THIS read calls left-over
+ *      are eligible.
+ *   3. ⛔ REFUSE A BROKEN READ. If the folder's reference lookup failed, or its
+ *      listing failed, or it was truncated, nothing is deleted. A failed read
+ *      and an empty result are the same value — that is the whole hazard.
+ *   4. ⛔ REFUSE AN IMPLAUSIBLE VERDICT — the specific signature the header
+ *      warns about. If a read breaks or is mis-scoped it marks EVERYTHING left
+ *      over. So: if not one single file in the entire bucket is still in use,
+ *      that is not a tidy bucket, it is a broken query. Setnayan always has
+ *      live media (the logo set, the menu icons, the onboarding music — this
+ *      page's own copy says so). Refuse.
+ *   5. `expectedCount` must match what this read found. The caller passes the
+ *      number it showed the admin; a mismatch means the bucket moved between
+ *      render and click, and the admin is confirming a figure that no longer
+ *      exists.
+ *
+ * Deletes one object at a time through the same key allowlist as the
+ * single-file path. A failure on one file is reported, not fatal — the rest
+ * still clear, and the count returned is what actually happened, not what was
+ * attempted.
+ */
+export async function clearLeftoverMediaAction(args: {
+  prefix: string;
+  expectedCount: number;
+}): Promise<Result & { deleted?: number; failed?: number }> {
+  try {
+    await requireAdminAction();
+
+    const report = await loadWebsiteMedia();
+    if (!report.configured) {
+      return { ok: false, error: 'Nothing was deleted. Storage is not configured.' };
+    }
+
+    const group = report.groups.find((g) => g.prefix === args.prefix);
+    if (!group) {
+      return { ok: false, error: 'Nothing was deleted. That folder is not on this page.' };
+    }
+
+    // GATE 3 — a read that did not complete cannot authorise a deletion.
+    if (group.lookupFailure) {
+      return {
+        ok: false,
+        error:
+          'Nothing was deleted. We could not confirm which files are still in use ' +
+          `(${group.lookupFailure}), and a check that did not finish is not a "no".`,
+      };
+    }
+    if (group.listingError) {
+      return { ok: false, error: `Nothing was deleted. That folder could not be listed (${group.listingError}).` };
+    }
+    if (group.truncated) {
+      return {
+        ok: false,
+        error:
+          'Nothing was deleted. This folder has more files than one listing returns, ' +
+          'so the verdict below is not the whole folder.',
+      };
+    }
+
+    // GATE 4 — the broken-read signature: everything left over, nothing in use.
+    const inUseEverywhere = report.groups.reduce((n, g) => n + (g.counts['in-use'] ?? 0), 0);
+    if (inUseEverywhere === 0) {
+      return {
+        ok: false,
+        error:
+          'Nothing was deleted. Not one file in the whole bucket reads as still in ' +
+          'use, which is far more likely to be a broken check than a tidy bucket — ' +
+          'the logo set and menu icons alone are always in use.',
+      };
+    }
+
+    const leftover = group.rows.filter((r) => isDeletableUsage(r.usage)).map((r) => r.key);
+
+    // GATE 5 — the admin confirmed a number; it must still be that number.
+    if (leftover.length !== args.expectedCount) {
+      return {
+        ok: false,
+        error:
+          `Nothing was deleted. You confirmed ${args.expectedCount} files, but this ` +
+          `folder now has ${leftover.length} left over. Reload and check again.`,
+      };
+    }
+    if (leftover.length === 0) {
+      return { ok: true, deleted: 0, failed: 0 };
+    }
+
+    let deleted = 0;
+    let failed = 0;
+    for (const key of leftover) {
+      try {
+        assertDeletableKey(key);
+        await r2Delete({ bucket: R2_BUCKETS.media, key });
+        deleted += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    revalidatePath('/admin/website-media');
+    return { ok: true, deleted, failed };
+  } catch (err) {
+    if (isFrameworkControlFlow(err)) throw err;
+    return { ok: false, error: err instanceof Error ? err.message : 'Could not clear that folder.' };
   }
 }

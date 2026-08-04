@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { humanBytes } from '@/lib/website-media';
 import { loadWebsiteMedia } from '@/lib/website-media-server';
 import { MediaTable } from './media-table';
+import { ClearFolderButton } from './clear-folder-button';
 
 /**
  * Admin · Website media — what is actually stored in the media bucket for the
@@ -138,6 +139,17 @@ export default async function AdminWebsiteMediaPage() {
                         removed: {g.lookupFailure}
                       </span>
                     </p>
+                  ) : null}
+
+                  {/* Folder-level clear. Renders only when this read proves
+                      files are removable AND the read itself completed — the
+                      server re-checks both regardless. */}
+                  {!g.lookupFailure && !g.listingError && !g.truncated ? (
+                    <ClearFolderButton
+                      prefix={g.prefix}
+                      label={g.label}
+                      count={g.counts['unreferenced'] ?? 0}
+                    />
                   ) : null}
 
                   <MediaTable rows={g.rows} unreadable={Boolean(g.listingError)} />

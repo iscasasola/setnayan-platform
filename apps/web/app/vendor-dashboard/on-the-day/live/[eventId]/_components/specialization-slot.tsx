@@ -78,10 +78,16 @@ function RunOfDay({
               {' '}
               Be on site by{' '}
               <strong className="text-ink">
+                {/* UTC, not Asia/Manila: `call_time` is derived from the
+                    schedule's WALL CLOCK, so it is already the venue's time.
+                    Translating it into Manila added eight hours on top — this
+                    line told an emcee to be on site by 9:00 PM for a 2:00 PM
+                    ceremony, and the run-of-day beneath it agreed with the
+                    error, so nothing on the screen contradicted it. */}
                 {new Date(run.callTime.call_time).toLocaleTimeString('en-PH', {
                   hour: 'numeric',
                   minute: '2-digit',
-                  timeZone: 'Asia/Manila',
+                  timeZone: 'UTC',
                 })}
               </strong>{' '}
               — {run.callTime.lead_minutes} min before {run.callTime.anchor_label}.

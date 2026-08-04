@@ -58,6 +58,7 @@ import {
   statusOfVendor,
   type PlanGroupId,
 } from './wedding-plan-groups';
+import { venueNowMs, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 // ----------------------------------------------------------------------------
 // Public types
@@ -351,7 +352,12 @@ async function fetchScheduleBlockItems(
     .from('event_schedule_blocks')
     .select('block_id, label, start_at, end_at, location, block_type')
     .eq('event_id', eventId)
-    .gte('start_at', now.toISOString())
+    // The VENUE'S clock, pushed into the query. `start_at` holds the venue's
+    // wall clock inside a UTC column, so filtering it against a real instant
+    // kept every moment of the day in "What's next" for eight hours after it
+    // had already happened — with the correct time printed beside it, which is
+    // what made it convincing.
+    .gte('start_at', new Date(venueNowMs(DEFAULT_EVENT_TZ, now)).toISOString())
     .order('start_at', { ascending: true })
     .limit(20);
 

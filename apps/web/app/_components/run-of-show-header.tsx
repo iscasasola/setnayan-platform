@@ -230,11 +230,25 @@ export function RunOfShowHeader({
   );
 }
 
+/**
+ * The moment's time, as the couple wrote it.
+ *
+ * `timeZone: 'UTC'` is deliberate: `start_at` holds the venue's WALL CLOCK, so
+ * these digits ARE the answer and UTC is what returns them unchanged. Without
+ * it this rendered in the READER's zone — so on the same screen, this panel
+ * said 10:00 PM while the programme list directly beneath it (which converts
+ * properly and labels itself "your time") said 2:00 PM for the identical
+ * moment. Two clocks disagreeing by eight hours, one above the other.
+ */
 function fmtTime(iso: string | null): string {
   if (!iso) return 'Time TBD';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return 'Time TBD';
-  return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString('en-PH', {
+    timeZone: 'UTC',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function trim(label: string): string {

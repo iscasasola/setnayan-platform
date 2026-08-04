@@ -14,6 +14,7 @@ import {
   serializeTempPasswordFlash,
   TEMP_PASSWORD_FLASH_COOKIE,
 } from '@/lib/account-erasure';
+import { datetimeLocalToIso } from '@/lib/schedule';
 
 // TTL of the temp-password flash cookie (see TEMP_PASSWORD_FLASH_COOKIE) — a
 // copy-it-now window, not a store.
@@ -550,20 +551,23 @@ export async function issueCompGrant(formData: FormData) {
     retailValueCentavos = pesos * 100;
   }
 
-  // Parse expiry (optional). Accept ISO from <input type="datetime-local">
-  // which omits timezone — the browser sends local time, we treat it as
-  // PH local and convert via Supabase's TIMESTAMPTZ inference (Postgres
-  // stores UTC). Passing as ISO string keeps round-trip safe.
+  // Parse expiry (optional), READ AT PH LOCAL.
+  //
+  // ⚠ The old comment here claimed the value was "treated as PH local" — it was
+  // not. `new Date(raw)` on an offset-less `datetime-local` value reads it in
+  // the runtime's zone, and a server action runs in UTC. So an admin who gifted
+  // a couple a service "until 6 PM today" left it unlocked until 2 AM the next
+  // morning, eight hours past the end typed into the audit row.
   let expiry: string | null = null;
   if (typeof expiryRaw === 'string' && expiryRaw.trim().length > 0) {
-    const parsed = new Date(expiryRaw);
-    if (Number.isNaN(parsed.getTime())) {
+    const iso = datetimeLocalToIso(expiryRaw);
+    if (iso === null) {
       throw new Error('Expiry is not a valid datetime.');
     }
-    if (parsed.getTime() < Date.now()) {
+    if (new Date(iso).getTime() < Date.now()) {
       throw new Error('Expiry cannot be in the past.');
     }
-    expiry = parsed.toISOString();
+    expiry = iso;
   }
 
   const admin = createAdminClient();

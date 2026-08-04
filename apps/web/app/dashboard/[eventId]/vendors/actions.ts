@@ -1986,6 +1986,12 @@ export async function finalizeVendor(
           event_date_precision: 'day',
           date_status: 'locked',
           auspicious_reasons: reasons,
+          // WHOSE DATE IS IT — stamped in the SAME statement as the date, so the
+          // stamp lands if and only if this lock genuinely created it. A separate
+          // write would leave a window where a stamp outlives a date it did not
+          // cause. NULL on every other writer means "the couple chose this", and
+          // no vendor exit may clear it.
+          date_forced_by_lock_of: vendorId,
         })
         .eq('event_id', eventId)
         .is('event_date', null)
@@ -2447,6 +2453,74 @@ export async function revertVendorToConsidering(
   const revertedVpid = (current as { marketplace_vendor_id?: string | null }).marketplace_vendor_id;
   if (revertedVpid) {
     after(() => triggerVendorActivityRecompute(revertedVpid));
+  }
+
+  // ── GIVE THE DATE BACK ──────────────────────────────────────────────────
+  // A date that exists ONLY because this lock forced it belongs to this lock.
+  // Undoing the lock without undoing the date left the couple married to a day
+  // derived from a supplier they no longer use — and permanently, because the
+  // date write is guarded `.is('event_date', null)`, so a later correct value
+  // could never replace it.
+  //
+  // Every condition below is a refusal to guess:
+  //   • the stamp must name THIS vendor — a NULL stamp means the couple chose
+  //     the date (onboarding, lockEventDate, the Save-the-Date backfill, the
+  //     Locked-QR claim) and no vendor exit may touch it;
+  //   • no other CONFIRMED vendor may remain — they are booked on that day, and
+  //     erasing it would strand them;
+  //   • it must not have gone OUTWARD — a launched Save-the-Date or a public
+  //     landing page means guests have already seen the date.
+  // The `.eq('date_forced_by_lock_of', vendorId)` in the UPDATE re-states the
+  // check atomically, so a concurrent re-lock cannot slip between read and write.
+  //
+  // `date_candidates` are deliberately untouched: finalizeVendor never cleared
+  // them, which is exactly what lands the couple back on their own shortlist.
+  // `date_status` needs no write either — sync_event_date_status() demotes a
+  // 'locked' status the moment event_date becomes NULL.
+  const { data: dateOwner } = await supabase
+    .from('events')
+    .select('date_forced_by_lock_of, std_launched_at, scheduled_launch_at, landing_page_visibility')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const stampedByThisVendor =
+    (dateOwner as { date_forced_by_lock_of?: string | null } | null)?.date_forced_by_lock_of ===
+    vendorId;
+  const wentOutward = Boolean(
+    (dateOwner as { std_launched_at?: string | null } | null)?.std_launched_at ??
+      (dateOwner as { scheduled_launch_at?: string | null } | null)?.scheduled_launch_at,
+  ) ||
+    (dateOwner as { landing_page_visibility?: string | null } | null)?.landing_page_visibility ===
+      'public';
+
+  if (stampedByThisVendor && !wentOutward) {
+    const { count: stillConfirmed } = await supabase
+      .from('event_vendors')
+      .select('vendor_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES)
+      .is('archived_at', null);
+
+    if ((stillConfirmed ?? 0) === 0) {
+      const { error: giveBackErr } = await supabase
+        .from('events')
+        .update({
+          event_date: null,
+          event_date_precision: 'year',
+          auspicious_reasons: [],
+          date_forced_by_lock_of: null,
+        })
+        .eq('event_id', eventId)
+        .eq('date_forced_by_lock_of', vendorId);
+      if (giveBackErr) {
+        // Best-effort, like every other side effect here: the revert itself has
+        // committed and must not roll back over a date write.
+        console.error(
+          `[revertVendorToConsidering] could not release the forced date for event_id=${eventId}:`,
+          giveBackErr,
+        );
+      }
+    }
   }
 
   return { status: 'ok', vendorId };

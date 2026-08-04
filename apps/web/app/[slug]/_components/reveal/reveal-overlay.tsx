@@ -36,6 +36,10 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+// Imported, never re-typed: a hand-copied event name drifts silently and the
+// veil simply stops standing down, with nothing failing.
+import { STD_FILM_EXIT_EVENT } from '../save-the-date-film';
+import { STD_FILM_RETURN_EVENT } from '../std-film-handoff';
 import { FourFlapEnvelope } from './four-flap';
 import { RigidReveal } from './rigid-reveal';
 import {
@@ -166,6 +170,41 @@ export function RevealOverlay({
   // for the lift instead of auto-starting under the veil (owner 2026-06-19
   // "content will play [only once] the veil is up"). The film reads this flag
   // after a short grace; if it's set, the content holds until 'std-reveal-done'.
+  /**
+   * THE VEIL RETIRES WITH THE FILM — and comes back with it.
+   *
+   * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+   * The veil is a PERSISTENT top layer by owner ruling (2026-06-18 "reveal stays
+   * on top, not under"; 2026-06-19 "I still want the veil accessible but also
+   * want to navigate the messages"). Both were exactly right WHEN THE FILM WAS
+   * THE WHOLE PAGE: a curtain permanently over a film is one experience, and the
+   * top valance is how you pull it back down.
+   *
+   * The film handoff then put the browsable SITE underneath that same z-60
+   * layer. So a decision about the Save-the-Date silently became a decision
+   * about the entire website — the veil's petals kept falling across the dress
+   * code, the schedule and everything else. The owner caught it on his phone
+   * (2026-08-04): "the save the date reveal only stays on the save the date and
+   * not the rest of the website."
+   *
+   * ── WHY RETIRE RATHER THAN UNMOUNT ON LIFT ─────────────────────────────────
+   * Unmounting when the veil is first lifted would reverse BOTH 2026-06 rulings
+   * and delete the re-cover gesture — and the veil is part of the PAID
+   * cinematic opening. So it stays exactly as it was for as long as the film is
+   * the experience, and stands down only when the visitor deliberately steps out
+   * to the site. "Watch our film again" brings both back together.
+   */
+  useEffect(() => {
+    const retire = () => setGone(true);
+    const restore = () => setGone(false);
+    window.addEventListener(STD_FILM_EXIT_EVENT, retire);
+    window.addEventListener(STD_FILM_RETURN_EVENT, restore);
+    return () => {
+      window.removeEventListener(STD_FILM_EXIT_EVENT, retire);
+      window.removeEventListener(STD_FILM_RETURN_EVENT, restore);
+    };
+  }, []);
+
   useEffect(() => {
     const showing = active && mounted && !gone;
     (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;

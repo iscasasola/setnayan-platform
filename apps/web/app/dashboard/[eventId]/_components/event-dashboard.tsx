@@ -34,6 +34,7 @@ import {
   DOCUMENT_META as PAPERWORK_DOCUMENT_META,
   type PaperworkRow,
 } from '@/lib/paperwork';
+import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import {
   fetchScheduleBlocks,
@@ -305,6 +306,9 @@ export async function EventDashboard({
           .from('orders')
           .select('order_id, service_key, requested_total_php, confirmed_total_php, status')
           .eq('event_id', eventId)
+          // Exclude the vendor-payer booking-fee order — the couple's committed
+          // number + Services card must never show what their vendor is charged.
+          .or(COUPLE_ORDERS_HIDE_VENDOR_FILTER)
           .in('status', ['paid', 'fulfilled']);
       } catch (caught) {
         logQueryError(

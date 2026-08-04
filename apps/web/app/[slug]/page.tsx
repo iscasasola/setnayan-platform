@@ -38,6 +38,8 @@ import {
   loadEventShell,
   loadGuestContext,
   loadHostMembership,
+  loadVendorBooking,
+  loadDayOfBroadcast,
   loadLiveLayer,
   loadMedia,
   loadWidgets,
@@ -46,6 +48,7 @@ import {
   anonymousIdentity,
   guestIdentity,
   resolveOwnerCapability,
+  resolveVendorCapability,
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
@@ -493,6 +496,19 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
   });
 
+  // The supplier doorway's grant. Same shape and same discipline as the owner
+  // capability above: one query, answered by the DB, bound to this event and
+  // this auth user. A cookie-only guest has no account, so no capability.
+  const vendorCapability = await resolveVendorCapability({
+    eventId: event.event_id,
+    viewerUserId: viewerAccount?.id ?? null,
+    checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
+  });
+  // The coordinator's announcement for the guests in the room. Live window
+  // only — the loader returns null outside it, so nothing stale survives the
+  // day. Guests only; see the render site in site-body.
+  const dayOfBroadcast = await loadDayOfBroadcast(admin, event.event_id, dayOfPhase === 'live');
+
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
@@ -504,6 +520,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     studioAnim,
     bespokeSvg,
     dayOfPhase,
+    dayOfBroadcast,
     phasesEnabled,
     lifecyclePhase,
     stdFilm,
@@ -527,6 +544,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     editorMode,
     // Declared-but-unconsumed foundation (see the owner-layer block above).
     ownerCapability,
+    vendorCapability,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

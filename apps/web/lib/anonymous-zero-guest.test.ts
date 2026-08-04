@@ -31,6 +31,8 @@ import {
   anonymousIdentity,
   guestIdentity,
   OWNER_CAPABILITY_KEYS,
+  VENDOR_CAPABILITY_KEYS,
+  resolveVendorCapability,
   type AnonymousSiteIdentity,
   type GuestSiteIdentity,
   type OwnerCapability,
@@ -321,4 +323,71 @@ test('guest-personal widget types never pass the anonymous filter in ANY phase',
       }
     }
   }
+});
+
+// ── The vendor capability obeys the same firewall as the owner one ───────────
+//
+// The doorway strip unlocks a link into a supplier's own workspace. It must be
+// impossible for a visitor's identity object to carry that grant — the DB is
+// the boundary, not the UI. These mirror the owner-capability assertions above.
+
+test('vendor capability · a key-poisoned input cannot smuggle a grant through the anonymous tier', () => {
+  const poisoned = {
+    reason: null,
+    publicCandidCameraActive: false,
+    publicAlbumHref: null,
+    capability: 'vendor',
+    vendorUserId: 'SMUGGLED',
+    vendorProfileId: 'SMUGGLED',
+    businessName: 'SMUGGLED',
+  } as never;
+  const identity = anonymousIdentity(poisoned);
+  assert.ok(
+    !JSON.stringify(identity).includes('SMUGGLED'),
+    'the anonymous key-pick let a vendor-capability field through',
+  );
+  for (const key of VENDOR_CAPABILITY_KEYS) {
+    assert.ok(
+      !(key in (identity as Record<string, unknown>)),
+      `anonymous identity carries "${key}" — the capability must travel BESIDE the identity`,
+    );
+  }
+});
+
+test('vendor capability · resolveVendorCapability denies without an account, and without a booking', async () => {
+  const never = async () => null;
+  assert.equal(
+    await resolveVendorCapability({
+      eventId: 'e1',
+      viewerUserId: null,
+      checkVendorBooking: async () => {
+        throw new Error('must not be asked — there is no account');
+      },
+    }),
+    null,
+    'a signed-out visitor must never reach the booking probe',
+  );
+  assert.equal(
+    await resolveVendorCapability({
+      eventId: 'e1',
+      viewerUserId: 'u1',
+      checkVendorBooking: never,
+    }),
+    null,
+    'signed in but not booked here must not get a capability',
+  );
+});
+
+test('vendor capability · the grant is bound to the event it was resolved against', async () => {
+  const cap = await resolveVendorCapability({
+    eventId: 'event-A',
+    viewerUserId: 'u1',
+    checkVendorBooking: async () => ({ vendorProfileId: 'vp1', businessName: 'San Marco' }),
+  });
+  assert.equal(cap?.vendorEventId, 'event-A');
+  assert.equal(cap?.vendorUserId, 'u1');
+  assert.equal(cap?.capability, 'vendor');
+  // A capability resolved for event A must be inert on event B — the strip
+  // links using vendorEventId, so this is what stops a cross-event link.
+  assert.notEqual(cap?.vendorEventId, 'event-B');
 });

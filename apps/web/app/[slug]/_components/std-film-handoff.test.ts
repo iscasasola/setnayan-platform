@@ -1,0 +1,101 @@
+/**
+ * The Save-the-Date handoff — the safety property, pinned as a source scan.
+ *
+ * ── WHAT THIS PROTECTS ──────────────────────────────────────────────────────
+ * The cinematic opening is a PAID product. The way out of the film must not
+ * exist until the film has actually finished, and "does not exist" has to mean
+ * NOT MOUNTED — not hidden, not disabled, not `pointer-events-none`.
+ *
+ * Every beat node in save-the-date-film.tsx is mounted for the whole film and
+ * merely faded, using `pointer-events-none` + `aria-hidden`. NEITHER removes an
+ * element from the tab order. So a button written into the closing beat without
+ * an `idx === closeIdx` guard is Tab-reachable from the first frame — under the
+ * veil, before the music, the couple's clip or the gallery have played. Two
+ * keystrokes would skip everything they bought. That flaw was caught in review
+ * before it shipped; this test is what stops it coming back.
+ *
+ * ── WHY A SOURCE SCAN ───────────────────────────────────────────────────────
+ * There is no DOM under `tsx --test` and the film needs WebGL, audio, timers
+ * and a reveal event to reach its closing beat. So this asserts the WIRING,
+ * which is the thing that regresses: someone edits the beat and drops the
+ * guard. A behavioural test belongs in the e2e suite.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const FILM = readFileSync(join(HERE, 'save-the-date-film.tsx'), 'utf8');
+const HANDOFF = readFileSync(join(HERE, 'std-film-handoff.tsx'), 'utf8');
+
+test('handoff · the way out is MOUNTED on the closing beat, never merely hidden', () => {
+  // The exact guard. Both halves matter: `canExit` keeps it out of the flag-off
+  // path entirely, and `idx === closeIdx` keeps it out of the DOM until the
+  // film is over.
+  assert.match(
+    FILM,
+    /\{canExit && idx === closeIdx \?/,
+    'the exit must be gated on BOTH canExit and the active closing beat',
+  );
+
+  // It must not have been "hidden" instead — the failure mode this file exists
+  // for. A hidden button is still focusable.
+  const exitBlock = FILM.slice(FILM.indexOf('{canExit && idx === closeIdx ?'));
+  const exitButton = exitBlock.slice(0, exitBlock.indexOf('</button>'));
+  // Only the BUTTON's own presentation matters. `aria-hidden` on a decorative
+  // child (the ↓ glyph) is correct and must not trip this.
+  const buttonTag = exitButton.slice(exitButton.indexOf('<button'));
+  const classNames = [...buttonTag.matchAll(/className=\{?`?([^`"}]*)/g)]
+    .map((m) => m[1] ?? '')
+    .join(' ');
+  for (const smell of ['pointer-events-none', 'opacity-0', 'invisible', 'sr-only', 'hidden']) {
+    assert.ok(
+      !classNames.includes(smell),
+      `the exit button's own classes include "${smell}" — hiding a button does not remove ` +
+        `it from the tab order. Gate it on the active beat instead.`,
+    );
+  }
+  assert.ok(
+    !/<button[^>]*\bhidden\b/.test(buttonTag) && !/<button[^>]*aria-hidden/.test(buttonTag),
+    'the exit button is itself hidden from assistive tech or the layout — gate it, do not hide it',
+  );
+});
+
+test('handoff · the dispatcher and the listener share one event name', () => {
+  // A hand-typed string on each side would drift silently and the button would
+  // simply stop working, with nothing failing.
+  assert.match(FILM, /export const STD_FILM_EXIT_EVENT = 'std:film-exit';/);
+  assert.match(HANDOFF, /import \{ STD_FILM_EXIT_EVENT \} from '\.\/save-the-date-film';/);
+  assert.ok(
+    !/'std:film-exit'/.test(HANDOFF),
+    'the handoff hard-codes the event name instead of importing it — it will drift',
+  );
+});
+
+test('handoff · leaving the film is reversible', () => {
+  // Nothing the couple paid for may be spendable once. The way back is what
+  // makes an in-place lift acceptable instead of a navigation.
+  assert.match(HANDOFF, /Watch our film again/);
+  assert.match(HANDOFF, /setShowFilm\(true\)/);
+});
+
+test('handoff · the site is always in the tree, so leaving costs no fetch', () => {
+  // `children` must render unconditionally; only the film's visibility changes.
+  // If someone makes the body conditional, going back and forth re-fetches.
+  const body = HANDOFF.slice(HANDOFF.indexOf('return ('));
+  assert.match(body, /\{children\}/);
+  assert.ok(
+    !/\{showFilm \? [^}]*children/.test(body),
+    'the browsable body must not be gated on showFilm',
+  );
+});
+
+test('handoff · the flag-off path cannot mount the wrapper', () => {
+  const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
+  // Open browse is the only branch that wraps; without it the film keeps its
+  // takeover byte-identically.
+  assert.match(SITE, /plan\.openBrowse \? \(\s*<StdFilmHandoff/);
+  assert.match(SITE, /canExit=\{plan\.openBrowse\}/);
+});

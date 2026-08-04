@@ -156,6 +156,111 @@ export const loadHostMembership = cache(
 );
 
 /**
+ * Booked-vendor probe for the vendor doorway.
+ *
+ * WHAT IT ANSWERS: "is the signed-in viewer a supplier this couple has booked
+ * on THIS event, and if so which of their businesses is it?" It is the vendor
+ * twin of `loadHostMembership`, and it is deliberately just as narrow — it
+ * returns an id and a trading name, never anything about the event.
+ *
+ * WHY THE ADMIN CLIENT. The couple's `/[slug]` page renders for anonymous
+ * visitors with no RLS session, exactly as `loadHostMembership` and the widget
+ * registry already do. The membership question is answered HERE, in one query,
+ * and the answer is the only thing that travels — so a stranger cannot reach a
+ * vendor control by asking for one.
+ *
+ * TWO JOINS, ONE ANSWER. `event_vendors` is the couple's own list of who they
+ * booked; `linked_vendor_profile_id` is set once a real Setnayan vendor claims
+ * that row. So an unclaimed hand-typed "Tita's Catering" resolves to nobody,
+ * which is correct — there is no account to send anywhere.
+ *
+ * React.cache'd: the page asks once even if several surfaces want it.
+ */
+export const loadVendorBooking = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    userId: string,
+  ): Promise<{ vendorProfileId: string; businessName: string } | null> => {
+    // The businesses this user owns or administers.
+    const { data: mine } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .eq('user_id', userId);
+    const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
+    if (owned.length === 0) return null;
+
+    // …narrowed to the one the couple actually booked on this event.
+    const { data: booked } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', eventId)
+      .in(
+        'linked_vendor_profile_id',
+        owned.map((v) => v.vendor_profile_id),
+      )
+      .limit(1)
+      .maybeSingle();
+
+    const id = (booked as { linked_vendor_profile_id: string | null } | null)
+      ?.linked_vendor_profile_id;
+    if (!id) return null;
+    const match = owned.find((v) => v.vendor_profile_id === id);
+    if (!match) return null;
+    return { vendorProfileId: match.vendor_profile_id, businessName: match.business_name };
+  },
+);
+
+/**
+ * Day-of announcements for the GUEST side.
+ *
+ * ── THE HALF THAT WAS MISSING ───────────────────────────────────────────────
+ * The composer has shipped for months: `coordinator-broadcast-card.tsx` on the
+ * couple's day-of screen writes `coordinator_broadcasts`, the Data Privacy
+ * control `coordinator_day_of_broadcast` is ACTIVE in production, and the table
+ * is live. But nothing on the guest site ever read it — every "broadcast" under
+ * app/[slug] is the Panood LIVESTREAM, not an announcement. So a coordinator
+ * could write "phones down, the ceremony is starting" and only the couple's own
+ * dashboard would show it. This is the receiver.
+ *
+ * LIVE WINDOW ONLY. An announcement is a thing shouted across a room; it has no
+ * meaning the week before or the month after. The caller passes the resolved
+ * day-of phase and this returns nothing outside it, so a stale "we are running
+ * late" cannot haunt the page forever.
+ *
+ * ONE, NOT A FEED. The guest gets the latest only. A scrollback of operational
+ * chatter is the coordinator's business, not a guest's — and a feed on the
+ * event page would compete with the couple's own words.
+ *
+ * Admin client for the same reason as the widget registry above: this page
+ * renders for visitors with no RLS session. The read is scoped to one event and
+ * returns nothing but the announcement text and when it was sent.
+ */
+export const loadDayOfBroadcast = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    isLive: boolean,
+  ): Promise<{ body: string; createdAt: string } | null> => {
+    if (!isLive) return null;
+    const { data, error } = await admin
+      .from('coordinator_broadcasts')
+      .select('body, created_at')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
+    // read error must never take the wedding page down on the day.
+    if (error || !data) return null;
+    const row = data as { body: string; created_at: string };
+    const body = row.body?.trim();
+    if (!body) return null;
+    return { body, createdAt: row.created_at };
+  },
+);
+
+/**
  * Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
  * Drives which widgets render on this page and in what order. Every event
  * has 12 rows after the backfill; pre-backfill events fall back to "render

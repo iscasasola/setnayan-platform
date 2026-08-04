@@ -18,14 +18,7 @@
  * the secondary CTA points there.
  */
 
-import Link from 'next/link';
-import { Reveal } from '@/app/_components/marketing/_motion';
-import {
-  LineRevealHeading,
-  RevealBand,
-  RevealList,
-  HowItWorksPanel,
-} from '@/app/_components/marketing/_pa-motion';
+import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -141,125 +134,23 @@ const VS = [
   ['A flat, static logo', 'A monogram that comes alive'],
   ['Different look on every piece', 'One signature across the day'],
   ['Stuck on the invite only', 'On screens, website, and videos too'],
-];
+
+] as const;
 
 export default function PalogoLandingPage() {
   return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
-      <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero */}
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">In your wedding · animated monogram</p>
-          <LineRevealHeading
-            as="h1"
-            trigger="mount"
-            className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
-          >
-            One mark, alive across your whole wedding.
-          </LineRevealHeading>
-          <RevealBand stagger={0.08} y={14}>
-            <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-              Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive.
-              It opens your save-the-date, signs your website, glows at the reception, and closes every video.
-            </p>
-            <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/onboarding/wedding?from=palogo"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
-              >
-                Start planning · free
-              </Link>
-              <Link
-                href="/monogram"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[var(--m-ink)]/20 px-7 py-3 text-sm font-semibold text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
-              >
-                Preview yours · free
-              </Link>
-            </div>
-          </RevealBand>
-        </header>
-
-        {/* How it works — the one PanelThread panel. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Palogo works">
-          <HowItWorksPanel>
-            <ol className="grid gap-6 sm:grid-cols-3">
-              {STEPS.map((s, i) => (
-                <li
-                  key={s.t}
-                  data-premium-item
-                  className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5"
-                >
-                  <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                  <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
-                  <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
-                </li>
-              ))}
-            </ol>
-          </HowItWorksPanel>
-        </section>
-
-        {/* The differentiator */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Palogo different">
-          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            Not a clip-art logo
-          </LineRevealHeading>
-          <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            A template looks like everyone else’s. Palogo looks like you — and it moves.
-          </p>
-          <RevealList
-            className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10"
-            stagger={0.06}
-            y={12}
-          >
-            {VS.map(([before, after], i) => (
-              <li
-                key={after}
-                data-reveal-item
-                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
-              >
-                <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">{before}</span>
-                <span className="text-sm font-medium text-[var(--m-ink)]">{after}</span>
-              </li>
-            ))}
-          </RevealList>
-        </section>
-
-        {/* FAQ */}
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="Palogo questions">
-          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            Questions, answered
-          </LineRevealHeading>
-          <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
-            {FAQ.map((f, i) => (
-              <Reveal key={f.q} delay={i * 40}>
-                <div className="py-5">
-                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
-                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-                </div>
-              </Reveal>
-            ))}
-          </dl>
-        </section>
-
-        {/* CTA */}
-        <Reveal>
-          <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-            <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Give your wedding its signature</h2>
-            <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-              Palogo lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start
-              planning free, and add your animated monogram when you’re ready.
-            </p>
-            <Link
-              href="/onboarding/wedding?from=palogo"
-              className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
-            >
-              Start planning · free
-            </Link>
-          </section>
-        </Reveal>
-      </main>
-    </>
+    <DoorwayPage
+      kicker="In your wedding · animated monogram"
+      title={'One mark, alive across your whole wedding.'}
+      lede={'Palogo gives your wedding a signature of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows at the reception, and closes every video.'}
+      primary={{ href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      secondary={{ href: '/monogram', label: 'Preview yours · free' }}
+      productName="Palogo"
+      steps={STEPS}
+      differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Palogo looks like you — and it moves.', rows: VS }}
+      faq={FAQ}
+      closing={{ heading: 'Give your wedding its signature', body: 'Palogo lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      structuredData={[APP_LD, FAQ_LD]}
+    />
   );
 }

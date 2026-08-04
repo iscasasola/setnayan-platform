@@ -59,6 +59,11 @@ export type DoorwayProps = {
    *  exception is VISIBLE as an exception instead of being smuggled into the
    *  shared markup as a new prop nobody else uses. */
   children?: React.ReactNode;
+  /** The same, but AFTER the FAQ — for text that must follow the questions.
+   *  `/panood` carries a YouTube-API-Services disclosure there, deliberately,
+   *  for an OAuth reviewer. Two named slots, not a general layout escape: a
+   *  page still cannot reorder the spine. */
+  epilogue?: React.ReactNode;
 };
 
 const MUTED = 'text-[#5F5E5A]';
@@ -89,6 +94,7 @@ export function DoorwayPage({
   closing,
   structuredData,
   children,
+  epilogue,
 }: DoorwayProps) {
   return (
     <>
@@ -197,6 +203,8 @@ export function DoorwayPage({
             ))}
           </dl>
         </section>
+
+        {epilogue}
 
         {/* Closing CTA */}
         <Reveal>

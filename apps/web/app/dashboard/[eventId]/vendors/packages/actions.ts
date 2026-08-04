@@ -546,18 +546,10 @@ export async function lockPackage(
       // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on. Fail-soft on purpose — the
       // couple's booking must never fail because a fee could not be opened;
       // the next lock re-attempts it.
-      if (isBookingFeeEnabled()) {
-        try {
-          await collectBookingFeeAtLock(createMoneyWriterClient(), {
-            eventVendorId: anchorRow.vendor_id,
-          });
-        } catch (e) {
-          console.error(
-            `[lockPackage] booking-fee collect failed for booking_id=${bookingId}:`,
-            e,
-          );
-        }
-      }
+      // THE BOOKING FEE NO LONGER FIRES HERE — moved 2026-08-03 to
+      // vendorAcknowledgeDeposit. See the note at the finalizeVendor site and
+      // Explore_Replan_BUILD_SPEC_2026-07-27 §7 PR-I. The anchor row this block
+      // resolved is still the fee's base; only the MOMENT changed.
     }
   }
 

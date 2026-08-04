@@ -2182,14 +2182,13 @@ export async function finalizeVendor(
   // the locked schedule — 5%, then 1% beyond ₱100,000 (lib/booking-fee.ts).
   // Fully fail-soft: the lock already committed — a fee hiccup never rolls it back.
   // ----------------------------------------------------------------------
-  if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
-    try {
-      await collectBookingFeeAtLock(createMoneyWriterClient(), { eventVendorId: vendorId });
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(`[finalizeVendor] booking-fee collect failed for vendor_id=${vendorId} event_id=${eventId}:`, e);
-    }
-  }
+  // THE BOOKING FEE NO LONGER FIRES HERE — moved 2026-08-03 to the vendor's
+  // payment-acknowledge step (vendor-dashboard/clients/[eventId]/actions.ts →
+  // vendorAcknowledgeDeposit). Owner ruling 2026-07-27: "locking applies only
+  // once the vendor accepts the payment" — the vendor is billed alongside
+  // ACCEPTING, not when the couple locks, so they never owe a fee on a booking
+  // that was never paid for. Spec: Explore_Replan_BUILD_SPEC_2026-07-27 §7 PR-I.
+  // Enforced as one-call-site-only by lint-booking-fee-single-trigger.mjs.
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
 }

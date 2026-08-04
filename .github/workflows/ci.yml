@@ -159,6 +159,26 @@ jobs:
         working-directory: apps/web
         run: node scripts/lint-page-masthead.mjs
 
+  lint-fee-trigger:
+    name: lint booking-fee single trigger
+    runs-on: ubuntu-latest
+    # The booking fee must fire from EXACTLY ONE call site — the vendor's
+    # payment-acknowledge step (owner ruling 2026-07-27; spec
+    # Explore_Replan_BUILD_SPEC_2026-07-27 §7 PR-I). Before 2026-08-03 it fired
+    # from three lock sites; leaving any one behind double-bills the vendor the
+    # day NEXT_PUBLIC_BOOKING_FEE_ENABLED flips. No test catches that, because
+    # the flag is off and every path is a silent no-op until it isn't.
+    # See apps/web/scripts/lint-booking-fee-single-trigger.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint booking-fee single trigger
+        run: node apps/web/scripts/lint-booking-fee-single-trigger.mjs
+
   lint-bottom-nav:
     name: lint bottom-nav template
     runs-on: ubuntu-latest

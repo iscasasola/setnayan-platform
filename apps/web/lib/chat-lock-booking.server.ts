@@ -116,13 +116,23 @@ export async function bookVendorAtChatLock(
   // ENABLED is on; free for the vendor's first 5 booked customers; 6th+ mints a
   // 5% vendor-payer order. Fail-soft: the lock committed — a fee hiccup here must
   // never roll it back.
-  let feeCharged = false;
-  try {
-    const res = await collectBookingFeeAtLock(admin, { eventVendorId });
-    feeCharged = res.status === 'ordered';
-  } catch {
-    // swallow — the lock stands; the next lock/re-lock re-attempts the fee.
-  }
+  // THE BOOKING FEE NO LONGER FIRES HERE — moved 2026-08-03 to
+  // vendorAcknowledgeDeposit (owner ruling 2026-07-27; spec
+  // Explore_Replan_BUILD_SPEC_2026-07-27 §7 PR-I). The vendor is billed when
+  // they accept the customer's payment, not when the couple locks.
+  //
+  // `feeCharged` is therefore ALWAYS false from this path now. It is kept in the
+  // return shape rather than deleted because the type is shared, and a caller
+  // reading `false` is correct — no fee was charged here.
+  //
+  // ⚠ FOLLOW-UP, DELIBERATELY NOT DONE HERE: the `refresh_fee_only` action
+  // (decided in chat-lock-booking.ts:57) existed ONLY to re-attempt the fee on
+  // an already-booked pair. With the trigger moved it can no longer charge
+  // anything, so it is now an inert branch that reports `already_booked`.
+  // Retiring it means changing the shared decision type and its callers — a
+  // separate change, surfaced rather than folded in silently, because widening
+  // this PR is how a money move gets rushed.
+  const feeCharged = false;
 
   return action === 'refresh_fee_only'
     ? { status: 'already_booked', feeCharged }

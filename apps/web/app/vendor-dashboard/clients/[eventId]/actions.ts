@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -146,6 +148,39 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
       }
     } catch (e) {
       console.error('[vendorAcknowledgeDeposit] couple notify failed:', e);
+    }
+
+    // ── THE BOOKING FEE FIRES HERE, AND NOWHERE ELSE ────────────────────────
+    // Owner ruling 2026-07-27 (DECISION_LOG "lock handshake" row; spec
+    // Explore_Replan_BUILD_SPEC_2026-07-27 §7 PR-I): "locking applies only once
+    // the vendor accepts the payment" — the vendor is billed ALONGSIDE
+    // ACCEPTING, not when the couple locks. This supersedes the 2026-07-24
+    // placement at finalizeVendor and is the FIFTH ruling in the lineage; the
+    // three lock-time call sites were removed in the same commit, because
+    // leaving any one of them behind double-charges the day the flag flips.
+    //
+    // WHY THIS EXACT SPOT: inside the `env.status === 'ok'` branch, so a
+    // re-clicked acknowledge ('already') bills nothing. That idempotency comes
+    // from the single-winner RPC, not from a check of our own.
+    //
+    // No marketplace pre-gate needed here (the lock sites had one as an
+    // optimisation): collectBookingFeeAtLock already returns
+    // skipped:'not_verified_vendor' for an off-platform vendor, and is a pure
+    // no-op while NEXT_PUBLIC_BOOKING_FEE_ENABLED is off.
+    //
+    // Fail-soft: the acknowledgement has already committed and the couple has
+    // been told their date is locked. A fee hiccup must never undo that.
+    if (isBookingFeeEnabled()) {
+      try {
+        await collectBookingFeeAtLock(createMoneyWriterClient(), {
+          eventVendorId,
+        });
+      } catch (e) {
+        console.error(
+          `[vendorAcknowledgeDeposit] booking-fee collect failed for vendor_id=${eventVendorId} event_id=${eventId}:`,
+          e,
+        );
+      }
     }
   }
 

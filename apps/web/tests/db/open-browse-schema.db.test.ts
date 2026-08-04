@@ -6,7 +6,12 @@
  * hold under auto-apply-on-merge. Proven against the FULL replayed prod schema
  * (every migration, in order, in an in-memory PGlite):
  *
- *   • events.website_open_browse defaults FALSE and rejects NULL on a NEW event;
+ *   • events.website_open_browse defaults TRUE and rejects NULL on a NEW event
+ *     — the go-live hold was RELEASED by 20271102765509; before that migration
+ *     this assertion read FALSE, and flipping it is what "launch" means here;
+ *   • LAUNCH SAFETY: the flip is a bare SET DEFAULT and does NOT backfill
+ *     events that already exist (the council's no-backfill rule — an in-flight
+ *     wedding must not reshape overnight);
  *   • the prod path: ADD COLUMN NOT NULL DEFAULT FALSE populates PRE-EXISTING
  *     events with FALSE (never NULL) — reproduced by drop-and-re-ALTER against
  *     a populated table, the exact scenario prod's ~4 events hit at apply time;
@@ -84,17 +89,56 @@ after(async () => {
   await db?.close();
 });
 
-test('events.website_open_browse defaults FALSE (the go-live hold) and rejects NULL', async () => {
+test('events.website_open_browse defaults TRUE (the launch) and rejects NULL', async () => {
+  // ⚠ This assertion was INVERTED at launch. It previously read "defaults FALSE
+  // (the go-live hold)" — the hold that migration 20271102765509 deliberately
+  // releases. A fresh event now ships the open-browse guest site.
   const r = await db.query<{ website_open_browse: boolean }>(
     `SELECT website_open_browse FROM public.events WHERE event_id = $1`,
     [eventId],
   );
-  assert.equal(r.rows[0]!.website_open_browse, false, 'a fresh event is NOT open-browse');
+  assert.equal(r.rows[0]!.website_open_browse, true, 'a fresh event IS open-browse (launched)');
 
   await assert.rejects(
     db.query(`UPDATE public.events SET website_open_browse = NULL WHERE event_id = $1`, [eventId]),
     /null|not-null/i,
     'the column is NOT NULL — no tri-state ambiguity on the switch',
+  );
+});
+
+test('LAUNCH SAFETY: the default flip does NOT backfill events that already exist', async () => {
+  // The council's "no backfill" rule is the whole reason this launch is safe to
+  // merge: a couple 60 days out must never have her guest site reshape
+  // overnight. The migration is a bare SET DEFAULT, which by definition cannot
+  // touch existing rows — but nothing asserted that, so a future "helpful"
+  // UPDATE added to the same migration would ship silently.
+  //
+  // Reproduce the real prod shape: an event that existed BEFORE the flip (its
+  // stored value is FALSE) must still read FALSE after the DEFAULT is TRUE.
+  // 'birthday' matches the existing fixture — a 'wedding' row trips
+  // events_wedding_fields_consistency, and the event TYPE is irrelevant here.
+  const pre = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, website_open_browse)
+     VALUES ('Pre-launch In-flight Event', 'birthday', FALSE) RETURNING event_id`,
+  );
+  const preId = pre.rows[0]!.event_id;
+
+  // Re-apply the launch migration verbatim — idempotent, and the exact thing
+  // that runs against prod.
+  const launchSql = fs.readFileSync(
+    path.join(MIGRATIONS_DIR, '20271102765509_open_browse_default_new_events_on.sql'),
+    'utf8',
+  );
+  await db.exec(launchSql);
+
+  const after = await db.query<{ website_open_browse: boolean }>(
+    `SELECT website_open_browse FROM public.events WHERE event_id = $1`,
+    [preId],
+  );
+  assert.equal(
+    after.rows[0]!.website_open_browse,
+    false,
+    'an in-flight wedding keeps FALSE — the launch must not reshape it overnight',
   );
 });
 

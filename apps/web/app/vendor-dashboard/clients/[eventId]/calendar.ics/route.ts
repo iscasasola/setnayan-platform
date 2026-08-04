@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { blockRelevance } from '@/lib/vendor-timeline';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 /**
  * Per-vendor .ics feed of the shared day-of timeline — feature-access
@@ -19,9 +20,43 @@ function icsEscape(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
 
+/** A real instant → an ICS UTC stamp (`…Z`). Only for values that genuinely
+ *  ARE instants, like DTSTAMP. */
 function icsStamp(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
+
+/**
+ * A schedule time → an ICS **local** stamp, no `Z`, paired with `TZID=` below.
+ *
+ * `event_schedule_blocks.start_at` holds the venue's WALL CLOCK in a UTC
+ * column. Emitting it as `…Z` told every calendar app the 2 PM ceremony was at
+ * 2 PM UTC — so the photographer's phone put the wedding in their diary at
+ * **10 PM**, eight hours after everyone else arrived.
+ */
+function icsLocalStamp(iso: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return `${y}${mo}${d}T${h}${mi}00`;
+}
+
+/**
+ * The venue's zone, declared once so a calendar app anchors the times to the
+ * WEDDING rather than to wherever the vendor happens to be standing. Philippine
+ * Standard Time has no DST, so one fixed offset is the whole truth.
+ */
+const VTIMEZONE = [
+  'BEGIN:VTIMEZONE',
+  `TZID:${DEFAULT_EVENT_TZ}`,
+  'BEGIN:STANDARD',
+  'DTSTART:19700101T000000',
+  'TZOFFSETFROM:+0800',
+  'TZOFFSETTO:+0800',
+  'TZNAME:PST',
+  'END:STANDARD',
+  'END:VTIMEZONE',
+];
 
 type Params = { params: Promise<{ eventId: string }> };
 
@@ -70,14 +105,18 @@ export async function GET(req: Request, { params }: Params) {
     'PRODID:-//Setnayan//Vendor Timeline//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    ...VTIMEZONE,
   ];
   for (const b of blocks) {
+    const dtstart = icsLocalStamp(b.start_at);
+    if (!dtstart) continue;
+    const dtend = b.end_at ? icsLocalStamp(b.end_at) : null;
     lines.push(
       'BEGIN:VEVENT',
       `UID:${b.block_id}@setnayan.com`,
       `DTSTAMP:${now}`,
-      `DTSTART:${icsStamp(b.start_at)}`,
-      ...(b.end_at ? [`DTEND:${icsStamp(b.end_at)}`] : []),
+      `DTSTART;TZID=${DEFAULT_EVENT_TZ}:${dtstart}`,
+      ...(dtend ? [`DTEND;TZID=${DEFAULT_EVENT_TZ}:${dtend}`] : []),
       `SUMMARY:${icsEscape(b.label)}`,
       ...(b.location ? [`LOCATION:${icsEscape(b.location)}`] : []),
       'END:VEVENT',

@@ -1,111 +1,40 @@
 /**
- * The round trip that stops a wedding walking eight hours at a time.
- *
- * These run with the process TZ forced to several zones, because the original
- * defect was invisible under UTC — which is exactly where CI runs. A test that
- * only ever sees UTC would have passed on the broken code.
+ * The venue-wall-clock converter, tested under several runtime timezones —
+ * because the defect it exists to kill is INVISIBLE under UTC, which is where
+ * CI and every server action run.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  fromDatetimeLocalValue,
-  toDatetimeLocalValue,
-  formatWallClock,
-} from './schedule-datetime-local';
+import { datetimeLocalToIso } from './schedule';
 
-const TYPED = [
-  '2026-12-12T15:30',
-  '2026-12-12T00:00',
-  '2026-12-12T23:59',
-  '2026-08-01T08:00',
-  '2027-01-01T12:00',
-];
-
-test('round trip · what the couple typed is what comes back, in every timezone', () => {
-  // THE property. If this breaks, pressing Save without changing anything moves
-  // the block — and no repair can tell a shifted row from a deliberate one.
-  const original = process.env.TZ;
-  try {
-    for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
-      process.env.TZ = tz;
-      for (const typed of TYPED) {
-        const stored = fromDatetimeLocalValue(typed);
-        assert.ok(stored, `${typed} did not store`);
-        assert.equal(
-          toDatetimeLocalValue(stored),
-          typed,
-          `in ${tz}, "${typed}" came back as "${toDatetimeLocalValue(stored)}" — ` +
-            `saving without editing would move the block`,
-        );
-      }
-    }
-  } finally {
-    process.env.TZ = original;
-  }
+test('a bare datetime-local value is read at the VENUE, not in UTC', () => {
+  // A 2 PM site visit. The old code stored 14:00Z and showed everyone 10 PM.
+  assert.equal(datetimeLocalToIso('2026-12-18T14:00'), '2026-12-18T06:00:00.000Z');
+  assert.equal(datetimeLocalToIso('2026-12-18T14:00:00'), '2026-12-18T06:00:00.000Z');
 });
 
-test('round trip · the stored value is the WALL CLOCK verbatim, not a conversion', () => {
-  // A 2 PM ceremony is stored as 14:00Z. Prod holds exactly this shape:
-  // Ceremony 14:00+00, Hair & make-up 08:00+00, Send-off 21:45+00.
-  assert.equal(fromDatetimeLocalValue('2026-12-12T14:00'), '2026-12-12T14:00:00.000Z');
-  assert.equal(toDatetimeLocalValue('2026-12-12T14:00:00.000Z'), '2026-12-12T14:00');
+test('a value that already carries an offset is NOT reinterpreted', () => {
+  // It is already a real instant. Converting it again would move it twice.
+  assert.equal(datetimeLocalToIso('2026-12-18T14:00:00+08:00'), '2026-12-18T06:00:00.000Z');
+  assert.equal(datetimeLocalToIso('2026-12-18T06:00:00.000Z'), '2026-12-18T06:00:00.000Z');
 });
 
-test('round trip · neither direction depends on the runtime timezone', () => {
-  // The original defect was precisely this dependence: the server was UTC, the
-  // browser was not, and the same helper gave two answers.
-  const original = process.env.TZ;
-  try {
-    process.env.TZ = 'UTC';
-    const utcOut = fromDatetimeLocalValue('2026-12-12T15:30');
-    const utcBack = toDatetimeLocalValue('2026-12-12T15:30:00.000Z');
-    process.env.TZ = 'Asia/Manila';
-    assert.equal(fromDatetimeLocalValue('2026-12-12T15:30'), utcOut);
-    assert.equal(toDatetimeLocalValue('2026-12-12T15:30:00.000Z'), utcBack);
-  } finally {
-    process.env.TZ = original;
-  }
+test('empty and unreadable values return null, so nothing garbage is stored', () => {
+  assert.equal(datetimeLocalToIso(''), null);
+  assert.equal(datetimeLocalToIso('   '), null);
+  assert.equal(datetimeLocalToIso('not a time'), null);
+  assert.equal(datetimeLocalToIso(null), null);
+  assert.equal(datetimeLocalToIso(undefined), null);
 });
 
-test('round trip · a real stored row prefills as the time a person meant', () => {
-  // Read as an instant these are absurd — a 10 PM ceremony, a 5:45 AM send-off.
-  // Read as wall clocks they are exactly right, which is how we know the
-  // storage intent.
-  assert.equal(toDatetimeLocalValue('2026-12-18T14:00:00+00:00'), '2026-12-18T14:00');
-  assert.equal(toDatetimeLocalValue('2026-08-01T08:00:00+00:00'), '2026-08-01T08:00');
-  assert.equal(toDatetimeLocalValue('2026-08-01T21:45:00+00:00'), '2026-08-01T21:45');
-});
-
-test('round trip · empty and malformed input clear, never store garbage', () => {
-  for (const bad of ['', '   ', 'not a date', null, undefined]) {
-    assert.equal(fromDatetimeLocalValue(bad as string), null);
-  }
-  for (const bad of ['', 'nope', null, undefined]) {
-    assert.equal(toDatetimeLocalValue(bad as string), '');
-  }
-});
-
-test('formatWallClock · shows the time a person meant, in every timezone', () => {
-  // The couple's home screen and their Schedule page render in different
-  // places — one server, one browser — and used to disagree by eight hours on
-  // the same stored value.
-  const original = process.env.TZ;
-  try {
-    for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
-      process.env.TZ = tz;
-      assert.equal(formatWallClock('2026-12-18T14:00:00+00:00'), '2:00 PM', `wrong in ${tz}`);
-      assert.equal(formatWallClock('2026-08-01T08:00:00+00:00'), '8:00 AM', `wrong in ${tz}`);
-      assert.equal(formatWallClock('2026-08-01T21:45:00+00:00'), '9:45 PM', `wrong in ${tz}`);
-      assert.equal(formatWallClock('2026-08-01T00:00:00+00:00'), '12:00 AM', `midnight in ${tz}`);
-      assert.equal(formatWallClock('2026-08-01T12:00:00+00:00'), '12:00 PM', `noon in ${tz}`);
-    }
-  } finally {
-    process.env.TZ = original;
-  }
-});
-
-test('formatWallClock · empty in, empty out', () => {
-  for (const bad of ['', 'nope', null, undefined]) {
-    assert.equal(formatWallClock(bad as string), '');
+test('the answer does not depend on where the code happens to be running', () => {
+  // The whole bug was a helper that gave different answers on the server and in
+  // the browser. Same input, same instant, every runtime.
+  const expected = '2026-12-18T06:00:00.000Z';
+  for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
+    const before = process.env.TZ;
+    process.env.TZ = tz;
+    assert.equal(datetimeLocalToIso('2026-12-18T14:00'), expected, `wrong under TZ=${tz}`);
+    process.env.TZ = before;
   }
 });

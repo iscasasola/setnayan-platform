@@ -64,7 +64,10 @@ export function ChatAppointmentCard({
   const [reviseTime, setReviseTime] = useState('');
   const minDate = todayIsoLocal();
   const maxDate = dayBeforeEventIso(eventDate);
-  const reviseWhen = reviseDate && reviseTime ? `${reviseDate}T${reviseTime}:00+08:00` : '';
+  // The bare wall clock the person typed. The offset is NOT appended here —
+  // `datetimeLocalToIso` on the receiving side reads it at the venue, so the
+  // rule lives in one place instead of being re-typed by every new form.
+  const reviseWhen = reviseDate && reviseTime ? `${reviseDate}T${reviseTime}:00` : '';
   const isProposer = data.initiated_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
   const st = STATUS[data.status];

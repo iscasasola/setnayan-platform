@@ -87,3 +87,21 @@ account that exercised erasure — the same shape as the waitlist find on 2026-0
 
 17/17 guardrail, 32/32 erasure suite. `UNDECIDED_BACKLOG` stays at **0** — the ratchet may be
 lowered, never raised, so this was classified rather than parked.
+
+### And its twin: the RA 10173 EXPORT duty
+
+Classifying the table for erasure immediately surfaced **T1** in
+`export-coverage-guardrail.test.ts` — the same table, the other duty. A person can ask what we
+hold about them, and a re-booking request they initiated is theirs.
+
+Taken the **preferred** route rather than an exclusion: `vendor_reuse_requests` is now read by
+`app/api/profile/export/route.ts`, **author-scoped on `requested_by_user_id`** — never
+event-scoped, since a co-host who did not make the request is not its data subject. This also
+honours the standing §7.4 rule that any new subject-bearing table lands in the export **in the
+same PR** as the table.
+
+`quoted_total_php` is included on purpose — it is the price quoted *to* the subject, so it is
+their own data, not the vendor's private figure. `scope_snapshot` is the sanitized, price-free,
+PII-free inclusions list the migration already guarantees carries no source-couple data.
+
+14/14 export guardrail · 55/55 across the erasure + export suites.

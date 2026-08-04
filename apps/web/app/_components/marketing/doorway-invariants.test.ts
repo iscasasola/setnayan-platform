@@ -261,3 +261,18 @@ test('a ported route mounts the kit exactly once', () => {
   }
   assert.deepEqual(wrong, [], wrong.join('\n'));
 });
+
+test('/panood keeps its YouTube API Services disclosure', () => {
+  // ⚠ THIS GUARD EXISTS BECAUSE THE PORT DROPPED IT. Moving /panood onto the
+  // shared kit silently deleted this paragraph from the render; the page still
+  // built, still typechecked, and every other test stayed green. A manual diff
+  // caught it.
+  //
+  // It is not decorative copy. `20260629`'s "never name YouTube" rule was
+  // REVERSED for exactly this paragraph so an OAuth reviewer can find it, and
+  // Live Studio's Google access depends on that review. Losing it is a
+  // compliance regression that looks like a tidier page.
+  const src = sourcesFor('panood').map(code).join('\n');
+  assert.match(src, /YouTube API Services/, 'the disclosure paragraph is gone from /panood');
+  assert.match(src, /href="\/privacy"/, 'the disclosure no longer links the privacy policy');
+});

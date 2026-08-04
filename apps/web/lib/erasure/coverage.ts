@@ -490,6 +490,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Same table, the revocation side. Also an actor stamp.',
   },
   {
+    table: 'event_vendors',
+    column: 'lock_requested_by_user_id',
+    why: 'Who ASKED the vendor to hold the date (lock handshake, 2026-08-04). SET NULL + nullable ⇒ an actor stamp. The row’s subject is the BOOKING between a couple and a vendor; deleting it because one member of the couple requested the lock would erase the vendor’s commercial record and the other partner’s booking.',
+  },
+  {
+    table: 'event_vendors',
+    column: 'lock_answered_by_user_id',
+    why: 'The vendor-side twin: whichever team member agreed or declined. Same actor-stamp test, and deleting on it would destroy the couple’s booking because a vendor’s staffer answered it.',
+  },
+  {
     table: 'person_stewardships',
     column: 'created_by_user_id',
     why: 'Who recorded the stewardship. Deleting on this column would destroy a THIRD PARTY’s stewardship because the subject happened to set it up.',

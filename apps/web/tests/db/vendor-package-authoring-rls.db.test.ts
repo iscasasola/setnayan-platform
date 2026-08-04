@@ -84,14 +84,17 @@ async function refused(sql: string, params: unknown[]): Promise<boolean> {
   }
 }
 
-const F = {
-  ownerA: '',
-  adminB: '',
-  agentC: '',
-  vendor1: '',
-  vendor2: '',
-  pkg2: '',
-} as Record<string, string>;
+// Concrete keys, not Record<string, string>: under `noUncheckedIndexedAccess`
+// (which CI's tsc enforces and a loose local run does not) an index signature
+// makes every read `string | undefined`, and asUser() takes a string.
+const F: {
+  ownerA: string;
+  adminB: string;
+  agentC: string;
+  vendor1: string;
+  vendor2: string;
+  pkg2: string;
+} = { ownerA: '', adminB: '', agentC: '', vendor1: '', vendor2: '', pkg2: '' };
 
 before(async () => {
   replay = await createReplayedDb();

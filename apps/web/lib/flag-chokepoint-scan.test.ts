@@ -101,6 +101,26 @@ const FLAGS: FlagSpec[] = [
     ],
     locals: ['replan'],
   },
+  {
+    // BUD-2 · §18.6. The budget page's move onto the shared money resolver.
+    // Registered on the day the first surface was wired, per this file's own
+    // promise that "the next flag-dark feature adds one entry".
+    env: 'NEXT_PUBLIC_BUDGET_TRUTH_ENABLED',
+    helper: 'lib/budget-truth-flag.ts',
+    fn: 'isBudgetTruthEnabled',
+    gates: [
+      // The strip's "Committed", the live card's "Total to pay", and which
+      // vendors get a card — the three row sets R1 is about.
+      'app/dashboard/[eventId]/budget/page.tsx',
+    ],
+    pureCores: [
+      // Takes `enabled` as a parameter, so its suite drives BOTH states in one
+      // process — including the assertion that flag OFF still reproduces the
+      // live prod contradiction verbatim.
+      'lib/budget-page-money.ts',
+    ],
+    locals: ['budgetTruth'],
+  },
 ];
 
 /** Strip comments — a docblock naming the helper must not read as a call. */

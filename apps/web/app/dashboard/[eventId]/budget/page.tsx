@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.server';
@@ -69,6 +70,9 @@ export default async function BudgetPage({ params }: Props) {
       .from('orders')
       .select('order_id, requested_total_php, confirmed_total_php, status')
       .eq('event_id', eventId)
+      // Exclude the vendor-payer booking-fee order — the couple's spent total
+      // must never include what their vendor is charged (belt over RLS).
+      .or(COUPLE_ORDERS_HIDE_VENDOR_FILTER)
       .in('status', ['paid', 'fulfilled']),
     // Suggested-split inputs (budget + per-leaf benchmarks/medians + engine
     // config) resolved server-side once; the planner client component re-runs

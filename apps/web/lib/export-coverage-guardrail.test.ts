@@ -177,6 +177,17 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // Became "user-identifying" on 2026-08-04 when the lock handshake added
+  // lock_requested_by_user_id / lock_answered_by_user_id. Both are ACTOR STAMPS
+  // (SET NULL + nullable — the same actor-or-subject test the erasure guardrail
+  // applies), recording WHICH person clicked ask/agree, not facts about them.
+  // The row's subject is the BOOKING between a couple and a vendor, and it is
+  // already reachable in an export through the EVENT, scoped to the account
+  // holder's own events — not through whoever happened to press the button. A
+  // vendor's staffer appearing in lock_answered_by_user_id must not pull a
+  // couple's whole booking into that staffer's personal export.
+  event_vendors:
+    'Booking row shared by a couple and a vendor. Its two *_user_id columns are actor stamps (who asked, who answered), not subject data — exporting by them would hand one party the other party’s commercial record.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',

@@ -490,25 +490,40 @@ const PROGRAMS: Record<string, Beat[]> = {
   travel: [],
 };
 
-/** Anchor a local clock time to the event date, else a placeholder the host
- *  re-times when they set the date. Mirrors schedule.ts's private anchorIso so
- *  the two seeds behave identically. */
+/**
+ * Anchor a wall-clock time to the event's date, as a stored schedule time.
+ *
+ * ── BUILT FROM COMPONENTS, DELIBERATELY ─────────────────────────────────────
+ * A stored schedule time is the VENUE'S WALL CLOCK written into a UTC column,
+ * so the digits must survive whatever timezone this code happens to run in.
+ * The old form — `new Date('2026-11-14')` then `.setHours(6, 30)` then
+ * `.toISOString()` — mixes a UTC parse with LOCAL setters. Under UTC it happens
+ * to give the right answer, which is why it looked fine for months; run it in
+ * New York and every seeded block lands at 11:30Z **on the previous day**.
+ *
+ * Output is byte-identical under UTC, so nothing about a seeded event changes.
+ * What changes is that it is now the same everywhere.
+ */
 function anchorIso(eventDate: string | null, hour: number, minute: number): string {
-  const base = eventDate ? new Date(eventDate) : null;
-  if (base && !Number.isNaN(base.getTime())) {
-    base.setHours(hour, minute, 0, 0);
-    return base.toISOString();
+  const m = eventDate ? /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate) : null;
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${y}-${mo}-${d}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00.000Z`;
   }
+  // No date yet — a placeholder the host re-times. Take the runtime's calendar
+  // day (the only date available) and stamp the wall clock onto it by hand.
   const fallback = new Date();
   fallback.setMonth(fallback.getMonth() + 3);
-  fallback.setHours(hour, minute, 0, 0);
-  return fallback.toISOString();
+  const y = fallback.getFullYear();
+  const mo = String(fallback.getMonth() + 1).padStart(2, '0');
+  const d = String(fallback.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${d}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00.000Z`;
 }
 
+/** Shift a stored schedule time by whole minutes. Pure epoch arithmetic — no
+ *  local getters, so it cannot drift with the runtime's zone. */
 function addMinutesIso(iso: string, minutes: number): string {
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() + minutes);
-  return d.toISOString();
+  return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
 }
 
 /**

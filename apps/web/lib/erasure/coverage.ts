@@ -403,6 +403,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'The couple’s shared playlist. Made nullable by 20271032282809, so it CAN be de-identified in place — the earlier pass excluded it believing it was still NOT NULL.',
   },
   {
+    table: 'vendor_reuse_requests',
+    column: 'requested_by_user_id',
+    why: 'A couple↔vendor re-booking request. Its subjects are the target event and the vendor profile (both CASCADE); this column is only the stamp of who pressed the button, so erasing that person must not delete the vendor’s pending request. Made nullable + ON DELETE SET NULL on 2026-08-04 — it shipped NOT NULL with no foreign key at all, which left a dangling uuid on deletion and stated no verdict for G6 to read. Both consumers use it solely to address a notification and now skip when it is NULL, so an erased person is never emailed.',
+  },
+  {
     table: 'event_walkthrough_zones',
     column: 'uploaded_by_user_id',
     why: 'Venue walkthrough notes belonging to the event. Deleting them would erase the co-partner’s record of the venue.',

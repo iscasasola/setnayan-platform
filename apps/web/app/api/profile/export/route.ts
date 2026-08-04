@@ -185,6 +185,7 @@ export async function GET() {
     communityMembershipsRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
+    vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
     dayRequestsRes,
@@ -385,6 +386,23 @@ export async function GET() {
       )
       .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
+    // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
+    // event-scoped: the row records a request THIS person made, and a co-host
+    // who did not make it is not its data subject.
+    // `quoted_total_php` is included deliberately — it is the price quoted TO
+    // the subject, so it is their own data, not the vendor's private figure.
+    // `scope_snapshot` is the sanitized, price-free, PII-free inclusions list
+    // the migration guarantees never carries the SOURCE couple's data.
+    supabase
+      .from('vendor_reuse_requests')
+      .select(
+        'request_id, target_event_id, vendor_profile_id, vendor_name, category, ' +
+          'status, scope_snapshot, quoted_total_php, quoted_at, decline_reason, ' +
+          'created_at, updated_at',
+      )
+      .eq('requested_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-07-21) — per-vendor WORKING NOTES the subject AUTHORED
     // (coordinator P4, migration 20270825279091). AUTHOR-scoped on purpose;
     // event-scoping would be both incomplete AND a third-party disclosure:
@@ -478,6 +496,7 @@ export async function GET() {
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
+  const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -623,6 +642,7 @@ export async function GET() {
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
     coordinator_access_consents: coordinatorConsents.rows,
     marketing_share_consents: marketingShareConsents.rows,
+    vendor_reuse_requests: vendorReuseRequests.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
     // Read privileged so a coordinator whose grant was later revoked still

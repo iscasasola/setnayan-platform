@@ -75,12 +75,17 @@ export function deriveDayOfClock(
 
     // Hours left in the whole program: the latest end_at, else the latest
     // start_at, minus now. Clamped at 0 (never negative).
+    // ⚠ THE OTHER HALF. `minutesToNext` above was lifted to real instants on
+    // 2026-08-04 and this loop, sixteen lines below it, was left subtracting a
+    // wall clock from a real timestamp — so the same phone showed a correct
+    // countdown beside "~14h left" on a program with four hours to run.
+    // A half-converted function is harder to spot than an unconverted one.
     let lastMs = Number.NEGATIVE_INFINITY;
     for (const b of blocks) {
-      const end = b.end_at ? ms(b.end_at) : NaN;
-      const start = ms(b.start_at);
-      if (!Number.isNaN(end)) lastMs = Math.max(lastMs, end);
-      else if (!Number.isNaN(start)) lastMs = Math.max(lastMs, start);
+      const end = b.end_at ? plannedInstant(b.end_at, DEFAULT_EVENT_TZ) : null;
+      const start = plannedInstant(b.start_at, DEFAULT_EVENT_TZ);
+      if (end !== null) lastMs = Math.max(lastMs, end);
+      else if (start !== null) lastMs = Math.max(lastMs, start);
     }
     const hoursLeftInProgram = Number.isFinite(lastMs)
       ? Math.max(0, Math.round(((lastMs - nowMs) / 3600000) * 10) / 10)

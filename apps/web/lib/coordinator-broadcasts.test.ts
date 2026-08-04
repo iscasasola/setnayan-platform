@@ -27,9 +27,14 @@ const VENDOR_CATER = 'vendor-cater';
 /** 08:00 / 14:00 / 18:00 UTC = 16:00 / 22:00 / 02:00(+1) in Asia/Manila. */
 function blocks(): CallTimeBlock[] {
   return [
-    { block_id: 'prep', label: 'Hair & makeup', start_at: '2026-12-12T00:00:00.000Z', location: 'Bridal suite' },
-    { block_id: 'ceremony', label: 'Ceremony', start_at: '2026-12-12T06:00:00.000Z', location: 'San Agustin Church' },
-    { block_id: 'reception', label: 'Reception', start_at: '2026-12-12T10:00:00.000Z', location: null },
+    // ⚠ WALL CLOCKS, as the app actually stores them: 8 AM, 2 PM, 6 PM AT THE
+    // VENUE. These fixtures previously used the instant convention (06:00Z
+    // commented as "2 PM Manila"), which is why a live eight-hour error in the
+    // call-time EMAIL sat under a green suite for months — the fixture and the
+    // bug cancelled each other out.
+    { block_id: 'prep', label: 'Hair & makeup', start_at: '2026-12-12T08:00:00.000Z', location: 'Bridal suite' },
+    { block_id: 'ceremony', label: 'Ceremony', start_at: '2026-12-12T14:00:00.000Z', location: 'San Agustin Church' },
+    { block_id: 'reception', label: 'Reception', start_at: '2026-12-12T18:00:00.000Z', location: null },
   ];
 }
 
@@ -81,7 +86,7 @@ test('call time = earliest tagged block, not the first in array order', () => {
   const first = result[0];
   assert.ok(first);
   assert.equal(first.vendorId, VENDOR_PHOTO);
-  assert.equal(first.callTimeAt, '2026-12-12T00:00:00.000Z');
+  assert.equal(first.callTimeAt, '2026-12-12T08:00:00.000Z'); // 8 AM at the venue
   assert.equal(first.blockLabel, 'Hair & makeup');
   assert.equal(first.location, 'Bridal suite');
 });
@@ -143,12 +148,41 @@ test('a dangling tagged vendor id (removed from registry) is harmless', () => {
 
 // ─────────────────────── email shaping ───────────────────────
 
-test('formatCallTimePh renders Asia/Manila wall-clock time', () => {
-  // 2026-12-12T00:00Z = 08:00 AM Saturday Dec 12 in Manila (UTC+8, no DST).
-  const formatted = formatCallTimePh('2026-12-12T00:00:00.000Z');
+test('formatCallTimePh renders the time AS WRITTEN on the schedule', () => {
+  // ⚠ THIS TEST ASSERTED THE BUG until 2026-08-04. It read `00:00Z` as an
+  // INSTANT and expected "8:00 AM" — the Manila translation of midnight UTC.
+  // But `start_at` holds the venue's WALL CLOCK, so `00:00Z` IS midnight at the
+  // venue, and the old code's `timeZone: 'Asia/Manila'` added eight hours to a
+  // value that was already Manila time.
+  const formatted = formatCallTimePh('2026-12-12T14:00:00.000Z');
   assert.match(formatted, /Saturday/);
   assert.match(formatted, /December 12/);
-  assert.match(formatted, /8:00/);
+  assert.match(formatted, /2:00/, 'a 2 PM ceremony must email as 2 PM');
+  assert.ok(!/10:00/.test(formatted), 'not 10 PM — that is the eight-hour shift');
+});
+
+test('formatCallTimePh · a late send-off does not roll into the next day', () => {
+  // The worst version of the old bug: 21:45 emailed as 5:45 AM the FOLLOWING
+  // morning — wrong day as well as wrong hour, in a message nobody can recall.
+  const formatted = formatCallTimePh('2026-12-12T21:45:00.000Z');
+  assert.match(formatted, /December 12/, 'must stay on the wedding day');
+  assert.match(formatted, /9:45/);
+});
+
+test('formatCallTimePh · the answer does not depend on where the code runs', () => {
+  // Emails are built on a server whose TZ is UTC; the tests run there too,
+  // which is precisely where this class of defect is invisible.
+  const expected = formatCallTimePh('2026-12-12T14:00:00.000Z');
+  for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
+    const before = process.env.TZ;
+    process.env.TZ = tz;
+    assert.equal(formatCallTimePh('2026-12-12T14:00:00.000Z'), expected, `differs under TZ=${tz}`);
+    process.env.TZ = before;
+  }
+});
+
+test('formatCallTimePh · an unreadable value yields nothing, never a wrong time', () => {
+  assert.equal(formatCallTimePh('not a time'), '');
 });
 
 test('buildCallTimeEmail — subject + body carry the when/what/where', () => {

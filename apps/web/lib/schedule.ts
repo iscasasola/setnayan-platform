@@ -680,9 +680,28 @@ export function selectSchedulePreviewBlocks(
   };
 }
 
+/**
+ * A schedule time rendered EXACTLY AS THE COUPLE WROTE IT — "Sat, Dec 12, 2:00 PM".
+ *
+ * ── WHY `timeZone: 'UTC'` IS THE CORRECT OPTION HERE, NOT A BUG ─────────────
+ * `start_at` holds the venue's WALL CLOCK inside a UTC column, so its digits
+ * ARE the answer. Forcing UTC is what makes them come back out unchanged.
+ *
+ * This used to omit the option, which meant "the reader's timezone". Everyone
+ * standing at the wedding — the couple, the coordinator, every guest with a
+ * Manila phone — was shown 10:00 PM for a 2 PM ceremony. It read correctly only
+ * to a reader sitting in UTC, which is nobody, except CI. That is why 27 call
+ * sites carried this for months without a complaint reaching a test.
+ *
+ * If you want "what time is that for ME", that is a different question with a
+ * different answer: `formatViewerTime`, which lifts the wall clock through the
+ * event's timezone first and labels itself "your time".
+ */
 export function formatBlockTime(iso: string): string {
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString(undefined, {
+    timeZone: 'UTC',
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -691,23 +710,25 @@ export function formatBlockTime(iso: string): string {
   });
 }
 
+/** The same wall-clock rule as `formatBlockTime`, for a start–end pair.
+ *  The same-day test reads UTC components too: local getters would roll a late
+ *  reception into "tomorrow" for a reader east of the venue. */
 export function formatBlockTimeRange(startIso: string, endIso: string | null): string {
   const start = new Date(startIso);
-  const startStr = start.toLocaleString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(start.getTime())) return '';
+  const timeOpts = { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' } as const;
+  const startStr = start.toLocaleString(undefined, timeOpts);
   if (!endIso) return startStr;
   const end = new Date(endIso);
+  if (Number.isNaN(end.getTime())) return startStr;
   const sameDay =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth() &&
-    start.getDate() === end.getDate();
-  const endStr = end.toLocaleString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-  return sameDay ? `${startStr} – ${endStr}` : `${startStr} → ${end.toLocaleString()}`;
+    start.getUTCFullYear() === end.getUTCFullYear() &&
+    start.getUTCMonth() === end.getUTCMonth() &&
+    start.getUTCDate() === end.getUTCDate();
+  const endStr = end.toLocaleString(undefined, timeOpts);
+  return sameDay
+    ? `${startStr} – ${endStr}`
+    : `${startStr} → ${end.toLocaleString(undefined, { timeZone: 'UTC' })}`;
 }
 
 // ── Viewer-local time (mirror of ~/Setnayan-Native/src/lib/timezone.ts) ────────

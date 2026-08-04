@@ -231,10 +231,20 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
   },
   {
     id: 'qr_scanner',
-    label: 'QR scanner',
-    blurb: 'Scan a guest’s QR to look them up or mark a hand-off.',
-    defaultOnFor: ['coordinate', 'serve'],
-    alwaysAvailable: true,
+    label: 'Find a guest’s seat',
+    // ⚠ THIS PILL USED TO LEAD NOWHERE. It was labelled "QR scanner" and
+    // promised "scan a guest's QR to look them up or mark a hand-off", was ON
+    // by default for coordinators AND caterers, and its link went to the
+    // generic client page — which has no scanner on it. Two halves were untrue:
+    //   · the hand-off scan does not exist for anyone; and
+    //   · the seat scanner that DOES exist (SeatScanner, inside FloorCommand)
+    //     is a coordinator-only panel, so a caterer switching this on reached
+    //     nothing at all.
+    // The label and blurb now describe the one thing it really does, and it is
+    // offered only to the family that can actually use it.
+    blurb: 'Scan a guest’s QR on the floor to see which table they’re on.',
+    defaultOnFor: ['coordinate'],
+    alwaysAvailable: false,
     requiresGrant: true,
   },
   {

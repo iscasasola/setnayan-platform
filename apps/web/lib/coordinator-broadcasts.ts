@@ -155,17 +155,41 @@ export function deriveVendorCallTimes(
   return out;
 }
 
-/** "Saturday, June 6 at 2:30 PM" in Asia/Manila (PH has no DST). */
+/**
+ * "Saturday, June 6 at 2:30 PM" — the time AS IT IS WRITTEN ON THE SCHEDULE.
+ *
+ * ── WHY THERE IS NO TIMEZONE CONVERSION HERE ────────────────────────────────
+ * `callTimeAt` comes from `event_schedule_blocks.start_at`, which holds the
+ * VENUE'S WALL CLOCK inside a UTC column — a 2 PM ceremony is stored as
+ * `14:00Z`. It is not an instant, so converting it into a zone is not a
+ * translation, it is a shift.
+ *
+ * This function used to force it through `timeZone: 'Asia/Manila'`, which added
+ * eight hours to a value that was already Manila time. A 2 PM ceremony emailed
+ * as **10:00 PM**, and a 9:45 PM send-off emailed as **5:45 AM the following
+ * morning** — the wrong day as well as the wrong hour. The couple's own
+ * schedule screen still read 2 PM, so nobody inside the app could see that the
+ * email had gone out wrong. And an email cannot be corrected after sending.
+ *
+ * So: read the components exactly as stored and render them. The result is
+ * timezone-independent by construction, which is also what makes it testable.
+ */
 export function formatCallTimePh(iso: string): string {
-  const d = new Date(iso);
-  const day = d.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return '';
+  const [, y, mo, d, hh, mi] = m;
+  // Built as a UTC instant purely so Intl can name the weekday and month for
+  // us; every field read back is forced to UTC, so the digits that come out are
+  // exactly the digits that went in.
+  const at = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mi)));
+  const day = at.toLocaleDateString('en-PH', {
+    timeZone: 'UTC',
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
-  const time = d.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const time = at.toLocaleTimeString('en-PH', {
+    timeZone: 'UTC',
     hour: 'numeric',
     minute: '2-digit',
   });

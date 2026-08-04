@@ -90,11 +90,15 @@ test('resolveModules only returns available modules (default-on OR always-availa
 });
 
 test('an override can switch a default-on module off and an available one on', () => {
-  const mods = resolveModules(['photo_video'], null, ['run_of_show', 'shot_list', 'qr_scanner']);
+  // `vendor_papic` is the available-but-off case now: offered to everyone,
+  // default-on for nobody. (This test used `qr_scanner` for that role until
+  // 2026-08-04, when that module became coordinator-only — a photo/video vendor
+  // can no longer switch it on, because the panel behind it never renders for
+  // them.)
+  const mods = resolveModules(['photo_video'], null, ['run_of_show', 'vendor_papic']);
   const byId = Object.fromEntries(mods.map((m) => [m.id, m]));
-  assert.equal(byId.shot_list?.enabled, true);
-  assert.equal(byId.qr_scanner?.enabled, true);
-  assert.equal(byId.vendor_papic?.enabled, false); // not named in override
+  assert.equal(byId.vendor_papic?.enabled, true, 'named in the override → on');
+  assert.equal(byId.shot_list?.enabled, false, 'default-on but omitted → off');
   assert.equal(byId.pax_headcount?.enabled, false); // omitted from override
 });
 
@@ -147,4 +151,38 @@ test('a vendor who switched Papic on keeps it on', () => {
     (m) => m.id === 'vendor_papic',
   );
   assert.equal(papic?.enabled, true);
+});
+
+// ── A tile must not promise something it cannot do (2026-08-04) ─────────────
+// This one was labelled "QR scanner", promised "scan a guest's QR to look them
+// up or mark a hand-off", was ON by default for coordinators AND caterers, and
+// linked to the generic client page — which has no scanner. Both halves of the
+// promise were false for a caterer, and half of it is false for everyone (there
+// is no hand-off scan anywhere).
+
+test('the seat scanner is offered only to coordinators — the panel exists for nobody else', () => {
+  const forCoordinator = resolveModules(['coordinator'], null, null).find((m) => m.id === 'qr_scanner');
+  assert.ok(forCoordinator, 'a coordinator must still be offered it');
+  assert.equal(forCoordinator.defaultOn, true);
+
+  for (const services of [['catering'], ['photo_video'], ['florist'], ['music']]) {
+    const m = resolveModules(services, null, null).find((x) => x.id === 'qr_scanner');
+    assert.equal(m, undefined, `${services[0]} must not be offered a scanner it cannot reach`);
+  }
+});
+
+test('an override cannot hand the scanner to a family whose panel never renders', () => {
+  // resolveModules already refuses to enable an unavailable module; pinned here
+  // because `alwaysAvailable: false` is the only thing enforcing it.
+  const m = resolveModules(['catering'], null, ['qr_scanner']).find((x) => x.id === 'qr_scanner');
+  assert.equal(m, undefined);
+});
+
+test('the scanner tile makes no promise the product cannot keep', () => {
+  const mod = DAY_OF_MODULES.find((m) => m.id === 'qr_scanner');
+  assert.ok(mod);
+  assert.ok(
+    !/hand-?off/i.test(mod.blurb),
+    'no hand-off scan exists for any vendor — do not advertise one',
+  );
 });

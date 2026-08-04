@@ -41,6 +41,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { datetimeLocalToIso } from '@/lib/schedule';
 
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
@@ -196,22 +197,30 @@ function parseDiscountValue(
 
 /**
  * Parse + validate expires_at. Required per owner directive.
- * Browser sends ISO from <input type="datetime-local"> as local time without
- * timezone — we treat as PH local + convert via JS Date (Postgres TIMESTAMPTZ
- * will store UTC).
+ *
+ * ⚠ THE OLD DOCBLOCK HERE DESCRIBED A CONVERSION THAT DID NOT EXIST. It said
+ * "we treat as PH local + convert via JS Date" — but `new Date(raw)` on an
+ * offset-less `datetime-local` value reads it in the RUNTIME's zone, and a
+ * server action runs in UTC. So an admin who typed 11:59 PM on the last day of
+ * a promo had 23:59Z stored, and the code kept working until 7:59 the next
+ * morning in Manila: eight extra hours of discounts, after close.
+ *
+ * `datetimeLocalToIso` is the conversion the old comment promised. The sibling
+ * admin form at `_surfaces/free-windows-actions.ts` already did this correctly;
+ * this one never got it.
  */
 function parseExpiresAt(raw: FormDataEntryValue | null): string {
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new Error('Expires-at is required — pick when this code stops working.');
   }
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
+  const iso = datetimeLocalToIso(raw);
+  if (iso === null) {
     throw new Error('Expires-at is not a valid datetime.');
   }
-  if (parsed.getTime() < Date.now()) {
+  if (new Date(iso).getTime() < Date.now()) {
     throw new Error('Expires-at cannot be in the past.');
   }
-  return parsed.toISOString();
+  return iso;
 }
 
 /**
@@ -224,14 +233,16 @@ function parseEffectiveFrom(
   expiresAtIso: string,
 ): string | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
+  // Read at PH local, same as expires-at — see the note there. Untreated, a
+  // gift card scheduled to open at 9 AM stayed dead until 5 PM.
+  const iso = datetimeLocalToIso(raw);
+  if (iso === null) {
     throw new Error('Effective-from is not a valid datetime.');
   }
-  if (parsed.getTime() >= new Date(expiresAtIso).getTime()) {
+  if (new Date(iso).getTime() >= new Date(expiresAtIso).getTime()) {
     throw new Error('Effective-from must be before expires-at.');
   }
-  return parsed.toISOString();
+  return iso;
 }
 
 /**

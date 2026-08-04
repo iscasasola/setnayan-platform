@@ -38,6 +38,41 @@ test('menu bar · both trees offer the camera, and both lock it rather than hide
   assert.equal(locks.length, 2, 'a tree hides the camera instead of locking it');
 });
 
+test('menu bar · the camera follows the HOST SWITCH, never the calendar', () => {
+  // Owner 2026-08-03: "the papic service will always run but the host of the
+  // event has the power to allow use and not allow use."
+  //
+  // ⚠ THE MISTAKE THIS PINS. The first mount gated the slot on `dayOfPhase ===
+  // 'live'` / `isLive`, so on a wedding months away the camera resolved to null
+  // and vanished — while the resolver in _lib/site-nav.ts had the rule RIGHT.
+  // The correct rule was written and then not used. Neither half failed.
+  const cameraBlocks = SITE.split('camera={').slice(1).map((b) => b.slice(0, 320));
+  assert.equal(cameraBlocks.length, 2, 'expected the camera slot in both trees');
+  for (const block of cameraBlocks) {
+    assert.ok(
+      !/\bisLive\b/.test(block) && !/dayOfPhase === 'live'/.test(block),
+      'the camera slot is gated on the calendar — the gate is the host switch',
+    );
+    assert.ok(/hostCameraOpen/.test(block), 'the camera slot does not consult the host switch');
+  }
+});
+
+test('menu bar · the switch is read on EVERY day, not only the wedding day', () => {
+  // If the loader only asks during the live window, the slot silently reverts to
+  // "closed" on every other day and the fix above is undone from underneath.
+  const L = readFileSync(join(HERE, '..', '_lib', 'loaders.ts'), 'utf8');
+  assert.match(
+    L,
+    /const hostCameraOpen = await eventPapicGuestActive\(admin, event\.event_id\);/,
+    'hostCameraOpen must be resolved unconditionally',
+  );
+  const line = L.slice(L.indexOf('const hostCameraOpen'));
+  assert.ok(
+    !line.slice(0, 200).includes("dayOfPhase === 'live'"),
+    'the switch read is wrapped in a live-window check again',
+  );
+});
+
 test('menu bar · Papic sits in the MIDDLE of the bar', () => {
   // The widest, easiest place for a thumb — on the day, shooting is what people
   // are actually doing.

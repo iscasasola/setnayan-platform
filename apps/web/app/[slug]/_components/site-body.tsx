@@ -247,6 +247,8 @@ type SiteBodyProps = {
    *  film's monogram beats. null → text initials. */
   bespokeSvg: string | null;
   dayOfPhase: DayOfPhase;
+  /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
+  hostCameraOpen?: boolean;
   /** The coordinator's latest announcement, live window only. Guests only. */
   dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -337,6 +339,7 @@ export function SiteBody({
   studioAnim,
   bespokeSvg,
   dayOfPhase,
+  hostCameraOpen = false,
   dayOfBroadcast = null,
   phasesEnabled,
   lifecyclePhase,
@@ -787,11 +790,9 @@ export function SiteBody({
             // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
             // absent — the camera is part of what the invitation promises.
             camera={
-              dayOfPhase === 'live'
-                ? publicCandidCameraActive
-                  ? { href: '/papic/guest' }
-                  : { locked: true, reason: 'The host has not opened the camera' }
-                : null
+              hostCameraOpen
+                ? { href: '/papic/guest' }
+                : { locked: true, reason: 'The host has not opened the camera' }
             }
           />
         ) : null}
@@ -1531,11 +1532,11 @@ export function SiteBody({
             // same order GuestHubBar already uses. Locked, not hidden, when the
             // host has opened neither.
             camera={
-              isLive
-                ? papicGuest
-                  ? { href: `/papic/me/${guest.qr_token}` }
+              papicGuest
+                ? { href: `/papic/me/${guest.qr_token}` }
+                : hostCameraOpen
+                  ? { href: '/papic/guest' }
                   : { locked: true, reason: 'The host has not opened the camera' }
-                : null
             }
           />
         ) : null}

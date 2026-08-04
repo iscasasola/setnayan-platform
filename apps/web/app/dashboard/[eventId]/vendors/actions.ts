@@ -30,6 +30,7 @@ import {
   HARD_SINGLE_PICK_GROUPS,
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
+import { releaseForcedDate } from '@/lib/release-forced-date';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -454,6 +455,12 @@ export async function deleteVendor(formData: FormData) {
   if (removing?.category === 'venue') {
     await recomputeReceptionAnchor(createAdminClient(), eventId);
   }
+
+  // Removing the vendor whose lock forced the date is the couple undoing that
+  // lock — give the date back. Same shared conditions as the revert path; the
+  // helper is a no-op unless the stamp names THIS vendor, nobody else is
+  // confirmed, and the date has not already gone out to guests.
+  await releaseForcedDate(supabase, { eventId, vendorId });
 
   // Revalidate both surfaces so an incompatible-pick Remove on the event
   // home (PR B 2026-05-22) clears the chip without a hard refresh, and
@@ -2455,73 +2462,11 @@ export async function revertVendorToConsidering(
     after(() => triggerVendorActivityRecompute(revertedVpid));
   }
 
-  // ── GIVE THE DATE BACK ──────────────────────────────────────────────────
-  // A date that exists ONLY because this lock forced it belongs to this lock.
-  // Undoing the lock without undoing the date left the couple married to a day
-  // derived from a supplier they no longer use — and permanently, because the
-  // date write is guarded `.is('event_date', null)`, so a later correct value
-  // could never replace it.
-  //
-  // Every condition below is a refusal to guess:
-  //   • the stamp must name THIS vendor — a NULL stamp means the couple chose
-  //     the date (onboarding, lockEventDate, the Save-the-Date backfill, the
-  //     Locked-QR claim) and no vendor exit may touch it;
-  //   • no other CONFIRMED vendor may remain — they are booked on that day, and
-  //     erasing it would strand them;
-  //   • it must not have gone OUTWARD — a launched Save-the-Date or a public
-  //     landing page means guests have already seen the date.
-  // The `.eq('date_forced_by_lock_of', vendorId)` in the UPDATE re-states the
-  // check atomically, so a concurrent re-lock cannot slip between read and write.
-  //
-  // `date_candidates` are deliberately untouched: finalizeVendor never cleared
-  // them, which is exactly what lands the couple back on their own shortlist.
-  // `date_status` needs no write either — sync_event_date_status() demotes a
-  // 'locked' status the moment event_date becomes NULL.
-  const { data: dateOwner } = await supabase
-    .from('events')
-    .select('date_forced_by_lock_of, std_launched_at, scheduled_launch_at, landing_page_visibility')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  const stampedByThisVendor =
-    (dateOwner as { date_forced_by_lock_of?: string | null } | null)?.date_forced_by_lock_of ===
-    vendorId;
-  const wentOutward = Boolean(
-    (dateOwner as { std_launched_at?: string | null } | null)?.std_launched_at ??
-      (dateOwner as { scheduled_launch_at?: string | null } | null)?.scheduled_launch_at,
-  ) ||
-    (dateOwner as { landing_page_visibility?: string | null } | null)?.landing_page_visibility ===
-      'public';
-
-  if (stampedByThisVendor && !wentOutward) {
-    const { count: stillConfirmed } = await supabase
-      .from('event_vendors')
-      .select('vendor_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .in('status', CONFIRMED_VENDOR_STATUSES)
-      .is('archived_at', null);
-
-    if ((stillConfirmed ?? 0) === 0) {
-      const { error: giveBackErr } = await supabase
-        .from('events')
-        .update({
-          event_date: null,
-          event_date_precision: 'year',
-          auspicious_reasons: [],
-          date_forced_by_lock_of: null,
-        })
-        .eq('event_id', eventId)
-        .eq('date_forced_by_lock_of', vendorId);
-      if (giveBackErr) {
-        // Best-effort, like every other side effect here: the revert itself has
-        // committed and must not roll back over a date write.
-        console.error(
-          `[revertVendorToConsidering] could not release the forced date for event_id=${eventId}:`,
-          giveBackErr,
-        );
-      }
-    }
-  }
+  // The couple undid the lock that forced the date — give the date back.
+  // Shared with deleteVendor + cancelBookingAsHost; every condition (stamp
+  // ownership, no other confirmed vendor, not already sent outward) lives in
+  // the helper so the three exits cannot drift apart.
+  await releaseForcedDate(supabase, { eventId, vendorId });
 
   return { status: 'ok', vendorId };
 }
@@ -3630,6 +3575,12 @@ export async function cancelBookingAsHost(
     });
     return { status: 'error', message: deleteErr.message };
   }
+
+  // The couple cancelled the booking whose lock forced the date — give the date
+  // back. Only reachable on the NON-downpaid branch: the downpaid case returned
+  // 'downpaid_use_dispute_flow' far above, and a dispute must never quietly
+  // erase a wedding date. Same shared conditions as the other two exits.
+  await releaseForcedDate(supabase, { eventId: eventIdRaw, vendorId: vendorIdRaw });
 
   // BEST-EFFORT NOTIFICATION — fire-and-forget. Any failure here (vendor
   // user missing, Resend rate-limited, etc.) MUST NOT roll back the cancel;

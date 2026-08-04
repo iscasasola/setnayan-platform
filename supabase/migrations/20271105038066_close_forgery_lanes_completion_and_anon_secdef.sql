@@ -1,6 +1,6 @@
 -- close_forgery_lanes_completion_and_anon_secdef
 -- ============================================================================
--- Close two forgery lanes on event_vendors, and two dead anon grants.
+-- Close two forgery lanes on event_vendors, and one dead anon grant.
 --
 -- ⛔ SCOPE NOTE — WHAT THIS DELIBERATELY DOES *NOT* DO.
 -- It does NOT guard `event_vendors.status`. That was scoped on 2026-08-04 and
@@ -115,22 +115,31 @@ CREATE TRIGGER event_vendors_guard_deposit_ack
   BEFORE INSERT OR UPDATE ON public.event_vendors
   FOR EACH ROW EXECUTE FUNCTION public.guard_event_vendor_deposit_ack();
 
--- ── 3 · Two dead `anon` EXECUTE grants on booking-writing SECDEF functions ──
--- Both are SECURITY DEFINER and both write a CONFIRMED booking status. Neither
--- is reachable by anon in practice — `acquire_service_time_slot` gates on
--- `current_couple_event_ids()` (empty when auth.uid() is NULL) and
--- `vendor_claim_locked_qr` refuses a NULL auth.uid() outright — so this removes
--- dead surface rather than closing an active breach.
+-- ── 3 · ONE dead `anon` EXECUTE grant on a booking-writing SECDEF function ──
+-- `acquire_service_time_slot` is SECURITY DEFINER and writes a CONFIRMED
+-- booking status. It is not reachable by anon in practice — it gates on
+-- `current_couple_event_ids()`, which is empty when auth.uid() is NULL — so
+-- this removes dead surface rather than closing an active breach. Worth doing
+-- because "the gate happens to save us" is a weaker guarantee than "anon cannot
+-- call it" on the one surface where a bug mints a booking.
 --
--- Worth doing regardless: both sit on the 190-strong unreviewed anon-callable
--- SECDEF register, and "the gate happens to save us" is a weaker guarantee than
--- "anon cannot call it at all" on the one surface where a bug mints a booking.
---
--- ⚠ Signatures read from prod via pg_get_function_identity_arguments — note
--- `vendor_claim_locked_qr` is (text, uuid), NOT (uuid, text). A wrong signature
--- here does not error; it silently REVOKEs nothing.
+-- ⚠ Signature read from prod via pg_get_function_identity_arguments. A REVOKE
+-- against a wrong signature does not error — it silently revokes nothing.
 REVOKE EXECUTE ON FUNCTION public.acquire_service_time_slot(UUID, UUID, UUID, UUID) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.vendor_claim_locked_qr(TEXT, UUID) FROM anon;
+
+-- ⛔ `vendor_claim_locked_qr` IS DELIBERATELY LEFT ANON-CALLABLE. Do not revoke
+-- it. `20271031571953_sec_close_final_anon_rpc_survivors.sql` classified it,
+-- flagged it, then REFUTED the flag and kept the grant on purpose:
+--
+--     "gated on 128-bit random tokens … A guest has no session; the token IS
+--      the credential. Revoking those would have broken the guest surface to
+--      fix nothing."
+--
+-- `locked-qr-date-precision.db.test.ts` pins that decision and fails with
+-- "anon lost EXECUTE — 20271031571953 kept it deliberately". An earlier draft
+-- of THIS migration revoked it and that test caught it — which is the guard
+-- working: a considered decision should not be reversible by a later sweep that
+-- did not read the reasoning.
 
 -- ── 4 · Post-conditions — fail loudly if any of the above silently no-opped ─
 -- Every statement here has a quiet failure mode: a trigger that does not
@@ -167,8 +176,10 @@ BEGIN
     RAISE EXCEPTION 'post-condition failed: anon can still execute acquire_service_time_slot';
   END IF;
 
-  IF has_function_privilege('anon', 'public.vendor_claim_locked_qr(text,uuid)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'post-condition failed: anon can still execute vendor_claim_locked_qr';
+  -- The INVERSE post-condition: vendor_claim_locked_qr must KEEP its anon grant.
+  -- Asserting what must NOT change is as load-bearing here as asserting what must.
+  IF NOT has_function_privilege('anon', 'public.vendor_claim_locked_qr(text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'post-condition failed: vendor_claim_locked_qr lost its DELIBERATE anon grant (the guest claim token is the credential)';
   END IF;
 END $$;
 

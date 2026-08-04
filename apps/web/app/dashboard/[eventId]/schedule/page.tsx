@@ -79,6 +79,7 @@ import {
   VendorMeetingsSection,
   type ScheduleMeeting,
 } from './_components/vendor-meetings-section';
+import { venueNowMs } from '@/lib/schedule';
 
 export const metadata = { title: 'Schedule' };
 
@@ -678,7 +679,7 @@ function EventDayView({
   // "Next up" (Glass PR-3 §3.1) — the imminent block: the first one that hasn't
   // started yet, else the first block. Real data; drives both the glass strip
   // and the gold accent on its row in the timeline below.
-  const now = Date.now();
+  const now = venueNowMs(); // the venue's clock — start_at is its wall clock
   const nextBlock =
     blocks.find((b) => new Date(b.start_at).getTime() >= now) ?? blocks[0] ?? null;
   return (

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { pickTriggerNowNext } from '@/lib/run-of-show';
+import { venueNowMs } from '@/lib/schedule';
 
 /** What the card's schedule tile renders. `happeningNow` = the pick is the
  *  host-set LIVE block (run-of-show trigger), so the tile labels it
@@ -167,7 +168,11 @@ export function pickNextScheduleBlock(
       return { label, start_at, location, happeningNow: chosen === picked.current };
     }
   }
-  const now = Date.now() - 15 * 60 * 1000; // 15 min grace
+  // The VENUE's clock, minus a 15-minute grace. `start_at` holds the venue's
+  // wall clock, so measuring it against the guest's own clock put this card a
+  // whole UTC offset out — eight hours in Manila, which on the day means a
+  // guest standing at the reception is told the ceremony is "coming up".
+  const now = venueNowMs() - 15 * 60 * 1000;
   const upcoming = topLevel
     .filter((b) => new Date(b.start_at).getTime() >= now)
     .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());

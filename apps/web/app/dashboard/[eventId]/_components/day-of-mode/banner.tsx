@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Radio, X } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
+import { venueNowMs } from '@/lib/schedule';
 
 type Block = {
   block_id: string;
@@ -70,13 +71,17 @@ export function DayOfModeBanner({ eventId, blocks }: Props) {
   }, [dismissed]);
 
   // tick triggers re-renders so the countdown copy stays fresh; we always
-  // pull a fresh Date.now() at render time below.
+  // pull a fresh venueNowMs() at render time below.
   const position = useMemo(
-    () => locatePosition(blocks, Date.now()),
+    () => locatePosition(blocks, venueNowMs()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [blocks, tick],
   );
-  const now = Date.now();
+  // The venue's clock. `start_at` holds the venue's wall clock, so comparing it
+  // against a real instant put this banner eight hours out on a Manila wedding
+  // day — announcing hair and make-up as "next" during the ceremony itself.
+  // (The dismissal TTL above stays on real time: that is about the reader.)
+  const now = venueNowMs();
 
   if (dismissed) return null;
 

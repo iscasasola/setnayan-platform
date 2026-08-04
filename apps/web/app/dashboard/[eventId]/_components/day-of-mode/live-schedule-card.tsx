@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarClock, ArrowRight } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
+import { venueNowMs } from '@/lib/schedule';
 
 type Block = {
   block_id: string;
@@ -35,7 +36,7 @@ export function LiveScheduleCard({ eventId, blocks }: Props) {
   }, []);
 
   const upcoming = useMemo(() => {
-    const now = Date.now();
+    const now = venueNowMs(); // the venue's clock — start_at is its wall clock
     return [...blocks]
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
       .filter((b) => new Date(b.start_at).getTime() > now)
@@ -79,7 +80,7 @@ export function LiveScheduleCard({ eventId, blocks }: Props) {
                   </p>
                 </div>
                 <span className="shrink-0 font-mono text-[11px] font-medium text-terracotta-700">
-                  {formatRelativeMs(startMs - Date.now())}
+                  {formatRelativeMs(startMs - venueNowMs())}
                 </span>
               </li>
             );

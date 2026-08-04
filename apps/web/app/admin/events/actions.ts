@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -46,5 +48,62 @@ export async function deleteEvent(formData: FormData) {
   const { error } = await admin.from('events').delete().eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  revalidatePath('/admin/events');
+}
+
+/**
+ * Turn face auto-tagging ON or OFF for ONE event (`events.papic_face_mode`).
+ *
+ * ── WHY THIS ACTION HAS TO EXIST ────────────────────────────────────────────
+ * `papic_face_mode` decides whether a guest's face descriptor is stored at all:
+ * `faceVectorForMode` HARD-NULLS the vector on anything but an explicit
+ * `mode_a`, at the DB boundary, so a crafted POST cannot slip one through.
+ *
+ * Until now NOTHING IN THE APP COULD WRITE THAT COLUMN. Every event in
+ * production sat in `mode_b`, the column is revoked from `authenticated` and
+ * `anon` (migration 20271005100000), and no server action, admin surface or
+ * script ever set it. So the face models the owner activated on 2026-06-19 ran
+ * and stored nothing — the feature was on at the app and off at the wall, with
+ * no switch in between. Owner decision 2026-08-04: "on".
+ *
+ * ── WHY IT IS ADMIN-ONLY, AND STAYS ADMIN-ONLY ──────────────────────────────
+ * The migration revoked this column from hosts deliberately: it is the
+ * biometric switch, and it is DPIA-relevant. `service_role` keeps UPDATE, so an
+ * admin action is the intended path — the DPO decides, per event, on the
+ * record. Do NOT add a host-facing control without a DPO ruling.
+ *
+ * ⚠ THE MIGRATION'S OWN NOTE ON THIS COLUMN IS STALE. It says mode_a "turns on
+ * 128-d face embedding for EVERY guest with no per-guest opt-in roster." There
+ * IS a per-guest opt-in, enforced server-side on BOTH enrolment writers:
+ * `biometric_consent` must be ticked, `age_affirmation` (18+) must be ticked,
+ * and the RSVP path additionally refuses any guest the host marked
+ * `face_recognition_excluded`. No tick, no vector — regardless of mode. What
+ * mode_a changes is whether a CONSENTING adult's descriptor is kept.
+ *
+ * Christening and debut events stay forced to mode_b by
+ * `FORCE_MODE_B_EVENT_TYPES` no matter what this writes — the guardian-consent
+ * workflow does not exist, and that gate is not this action's to open.
+ */
+export async function setEventFaceMode(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const eventId = String(formData.get('event_id') ?? '').trim();
+  const raw = String(formData.get('face_mode') ?? '').trim();
+  if (!eventId) return;
+  // Only the two real modes are writable, and anything unrecognised falls to
+  // mode_b — the safe side. Never trust a posted string into a biometric gate.
+  const mode: PapicFaceMode = raw === 'mode_a' ? 'mode_a' : 'mode_b';
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ papic_face_mode: mode })
+    .eq('event_id', eventId);
+  if (error) {
+    logQueryError('setEventFaceMode', error);
+    return;
+  }
+
+  revalidatePath('/admin/accounts');
   revalidatePath('/admin/events');
 }

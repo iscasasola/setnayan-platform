@@ -1,9 +1,9 @@
-import { Trash2 } from 'lucide-react';
+import { ScanFace, Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { deleteEvent } from '@/app/admin/events/actions';
+import { deleteEvent, setEventFaceMode } from '@/app/admin/events/actions';
 
 type EventRow = {
   event_id: string;
@@ -15,7 +15,17 @@ type EventRow = {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  /** The biometric gate. `mode_a` = a consenting adult guest's face descriptor
+   *  is stored; anything else = it is hard-nulled at the DB boundary. */
+  papic_face_mode: string | null;
+  event_type: string | null;
 };
+
+/** Event types that can never store face data, whatever the column says —
+ *  mirrors FORCE_MODE_B_EVENT_TYPES in lib/papic-face-mode.ts. Shown as
+ *  "locked" rather than hidden, so an admin sees the rule instead of wondering
+ *  why the switch is missing. */
+const FORCED_FACE_OFF = new Set(['christening', 'debut']);
 
 function formatUpdated(iso: string): string {
   // YYYY-MM-DD HH:mm in Manila time — admin's mental model. Falls back to
@@ -64,7 +74,7 @@ export async function EventsSurface({
   let query = admin
     .from('events')
     .select(
-      'event_id,public_id,display_name,event_date,slug,venue_name,archived,created_at,updated_at',
+      'event_id,public_id,display_name,event_date,slug,venue_name,archived,created_at,updated_at,papic_face_mode,event_type',
     )
     .order('event_date', { ascending: true, nullsFirst: false })
     .limit(200);
@@ -178,6 +188,7 @@ export async function EventsSurface({
               <th className="px-3 py-3 font-medium">STD&nbsp;views</th>
               <th className="hidden px-3 py-3 font-medium lg:table-cell">Updated</th>
               <th className="hidden px-3 py-3 font-medium lg:table-cell">ID</th>
+              <th className="px-3 py-3 font-medium text-right">Face&nbsp;tagging</th>
               <th className="px-3 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -234,6 +245,56 @@ export async function EventsSurface({
                     </td>
                     <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 lg:table-cell">
                       {e.public_id}
+                    </td>
+                    {/* FACE AUTO-TAGGING — the one switch that decides whether a
+                        consenting adult guest's face descriptor is KEPT.
+                        Admin-only by design: the column is revoked from hosts
+                        (migration 20271005100000) because it is the biometric
+                        gate. Until 2026-08-04 nothing in the app could write it
+                        at all, so every event sat off with no way to turn it on.
+                        Christening + debut are forced off regardless — the
+                        guardian-consent workflow does not exist yet. */}
+                    <td className="px-3 py-3 text-right">
+                      {FORCED_FACE_OFF.has(e.event_type ?? '') ? (
+                        <span
+                          className="font-mono text-[11px] text-ink/40"
+                          title="Christening and debut events cannot store face data — no guardian-consent workflow exists."
+                        >
+                          off · locked
+                        </span>
+                      ) : (
+                        <ConfirmForm
+                          action={setEventFaceMode}
+                          message={
+                            e.papic_face_mode === 'mode_a'
+                              ? `Turn face auto-tagging OFF for "${e.display_name}"? New photos stop being matched to faces. Descriptors already stored are not deleted by this.`
+                              : `Turn face auto-tagging ON for "${e.display_name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.`
+                          }
+                        >
+                          <input type="hidden" name="event_id" value={e.event_id} />
+                          <input
+                            type="hidden"
+                            name="face_mode"
+                            value={e.papic_face_mode === 'mode_a' ? 'mode_b' : 'mode_a'}
+                          />
+                          <SubmitButton
+                            title={
+                              e.papic_face_mode === 'mode_a'
+                                ? 'Face auto-tagging is ON for this event. Click to turn it off.'
+                                : 'Face auto-tagging is OFF. Click to turn it on for consenting adult guests.'
+                            }
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-60 ${
+                              e.papic_face_mode === 'mode_a'
+                                ? 'bg-success-100 text-success-900 hover:bg-ink/5'
+                                : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+                            }`}
+                            pendingLabel="Saving…"
+                          >
+                            <ScanFace className="h-3 w-3" strokeWidth={2} />
+                            {e.papic_face_mode === 'mode_a' ? 'On' : 'Off'}
+                          </SubmitButton>
+                        </ConfirmForm>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right">
                       <ConfirmForm

@@ -104,9 +104,22 @@ DECLARE
     'showcase_feature_rank',       -- with is_sample => self-service top billing.
 
     -- ▸ Privacy / consent / biometrics (RA 10173).
-    'papic_face_mode',             -- lib/papic-face-mode.ts — 'mode_a' turns on
-                                   -- 128-d face embedding for EVERY guest with
-                                   -- no per-guest opt-in roster. DPIA-relevant.
+    'papic_face_mode',             -- lib/papic-face-mode.ts — 'mode_a' keeps a
+                                   -- guest's 128-d face descriptor instead of
+                                   -- hard-nulling it. DPIA-relevant, hence
+                                   -- admin-only (service_role keeps UPDATE;
+                                   -- app/admin/events/actions.ts is the one
+                                   -- writer, added 2026-08-04).
+                                   -- ⚠ CORRECTED 2026-08-04: this note used to
+                                   -- read "for EVERY guest with no per-guest
+                                   -- opt-in roster". That is FALSE and it kept
+                                   -- the switch closed for weeks. Both enrolment
+                                   -- writers ([slug]/actions.ts:192-208 and
+                                   -- papic/face-enroll-actions.ts:36-44) require
+                                   -- biometric_consent AND age_affirmation
+                                   -- server-side, and the RSVP path also refuses
+                                   -- any guest flagged face_recognition_excluded.
+                                   -- No tick, no vector, in either mode.
     'bazi_birthdata_consent_at',   -- a consent RECORD for two partners' birth
                                    -- data; a subject's consent stamp must never
                                    -- be self-writable.

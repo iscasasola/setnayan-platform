@@ -292,10 +292,41 @@ export function sortEventsForSwitcher<T extends EventRow>(events: T[]): T[] {
   return [...active, ...expired];
 }
 
+/**
+ * The event's date, as a long form ("December 12, 2026").
+ *
+ * ── WHY THE PARTS ARE PARSED BY HAND ────────────────────────────────────────
+ * `events.event_date` is a **DATE** column — a calendar day, with no time and
+ * no timezone. `new Date('2026-12-12')` turns it into midnight UTC, which is
+ * the evening of **11 December** anywhere west of Greenwich. Rendered there,
+ * a 12 December wedding read as **11 December**.
+ *
+ * That is not a rounding error to a Filipino family: the relatives most likely
+ * to be reading a save-the-date on a US phone are exactly the ones flying in.
+ * It appeared on the save-the-date card, the invitation and the countdown, and
+ * it was invisible to everyone testing from the Philippines — and to CI, which
+ * runs in UTC.
+ *
+ * `formatEventDateWithPrecision` directly below has always done this correctly
+ * and says why in its own comment. This function, with 41 call sites to that
+ * one's 6, never got the same treatment.
+ */
 export function formatEventDate(iso: string | null, locale = 'en-US'): string {
   if (!iso) return '';
-  const date = new Date(iso);
-  return date.toLocaleDateString(locale, {
+  const [yearStr, monthStr, dayStr] = iso.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  // Fall back to the old parse for anything that is not a plain calendar day,
+  // so a caller passing a full timestamp is not silently mangled.
+  if (!year || !month || !day) {
+    const loose = new Date(iso);
+    if (Number.isNaN(loose.getTime())) return '';
+    return loose.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  // A LOCAL date built from the parts: the day the couple picked survives
+  // whatever timezone the reader happens to be in.
+  return new Date(year, month - 1, day).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

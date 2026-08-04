@@ -74,7 +74,9 @@ test('resolveModules turns on the capture defaults for a photographer with no ov
   const byId = Object.fromEntries(mods.map((m) => [m.id, m]));
   assert.equal(byId.shot_list?.enabled, true);
   assert.equal(byId.run_of_show?.enabled, true);
-  assert.equal(byId.vendor_papic?.enabled, true);
+  // NOT Papic — see the owner ruling pinned below. A photographer gets their
+  // shot list and the run of show, not a second camera.
+  assert.equal(byId.vendor_papic?.enabled ?? false, false);
   assert.equal(byId.production_sheet?.enabled ?? false, false);
 });
 
@@ -117,4 +119,32 @@ test('registry integrity: unique ids, counsel-gated set is exactly papic + guest
     .map((m) => m.id)
     .sort();
   assert.deepEqual(gated, ['guest_delivery', 'vendor_papic']);
+});
+
+// ── Papic is not a photographer's tool (owner, 2026-08-04) ──────────────────
+test('a photographer does NOT get Papic capture switched on for them', () => {
+  // Verbatim: "papic is not used by photographers… it is not a photographer's
+  // tool." It used to default ON for the capture family, so a photographer's
+  // console arrived with a second camera already running.
+  const mods = resolveModules(['photo_video'], null, null);
+  const papic = mods.find((m) => m.id === 'vendor_papic');
+  assert.ok(papic, 'the module must still be OFFERED — this is opt-in, not removed');
+  assert.equal(papic.defaultOn, false, 'it must not be on by default for a photographer');
+  assert.equal(papic.enabled, false, 'and it must not arrive enabled');
+});
+
+test('Papic capture stays available to any vendor who wants it', () => {
+  for (const services of [['photo_video'], ['documentary']]) {
+    const papic = resolveModules(services, null, null).find((m) => m.id === 'vendor_papic');
+    assert.ok(papic, `must remain offered for ${services[0]}`);
+    assert.equal(papic.available, true);
+  }
+});
+
+test('a vendor who switched Papic on keeps it on', () => {
+  // The opt-in has to survive. An override that names the module is authoritative.
+  const papic = resolveModules(['photo_video'], null, ['vendor_papic']).find(
+    (m) => m.id === 'vendor_papic',
+  );
+  assert.equal(papic?.enabled, true);
 });

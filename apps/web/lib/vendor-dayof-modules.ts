@@ -274,7 +274,19 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     label: 'Papic capture',
     blurb:
       'Shoot photos and clips of the event you’re working. Free Papic Lite (50 pts, photos + video); Papic Ltd (70 pts) when you accepted the booking with a token.',
-    defaultOnFor: ['capture'],
+    // ON FOR NOBODY BY DEFAULT — deliberately, and `alwaysAvailable` keeps it
+    // one tap away for any vendor who wants it.
+    //
+    // This used to default ON for the `capture` family, which meant a
+    // photographer's day-of console arrived with a capture tool already
+    // switched on. The owner was unambiguous (2026-08-04): "papic is not used
+    // by photographers… it is not a photographer's tool." A photographer
+    // shooting a wedding is working their own camera; handing them a second
+    // one, pre-enabled, on the day, is noise at the worst possible moment.
+    //
+    // It stays available because a vendor who DOES want it — a coordinator, a
+    // host, a stylist catching moments between setups — should not have to ask.
+    defaultOnFor: [],
     alwaysAvailable: true,
     requiresGrant: true,
     counselGated: true,

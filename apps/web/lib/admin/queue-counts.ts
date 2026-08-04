@@ -61,11 +61,17 @@ const QUEUE_DEFS: QueueDef[] = [
   // Verify — applications awaiting review (vendor_verification_applications ·
   // pending_review), NOT the secondary visibility surface (vendor_profiles
   // coming_soon). This is the filter the earlier drift got wrong.
-  // lane growth — a vendor is waiting for the badge.
+  // lane TRUST — owner, 2026-08-04: "go with verify". Reading a government ID
+  // and deciding whether a business is who it says it is is trust work, not
+  // growth. It sat in `growth` because a vendor is waiting for a badge — that is
+  // what the queue FEELS like to the vendor, not what the admin is actually
+  // doing. The practical cost was that filtering the work list by Trust hid
+  // every pending verification, which is the first thing you would expect to
+  // find there.
   {
     key: 'verify',
     table: 'vendor_verification_applications',
-    lane: 'growth',
+    lane: 'trust',
     slaHours: 48,
     filter: (q) => q.eq('status', 'pending_review'),
   },

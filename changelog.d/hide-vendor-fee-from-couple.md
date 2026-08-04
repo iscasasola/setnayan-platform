@@ -78,3 +78,22 @@ green (`# pass 10`). A guard nobody has seen fail is not a guard.
 middle branch admits any order carrying the event's id, and the booking fee is armed.
 
 SPEC IMPACT: None. No pricing, SKU or scope change — an RLS narrowing plus its regression test.
+
+### Follow-up the same day: the first narrowing was TOO strict
+
+CI's full db suite caught what my own suite could not: `papic-guest-orders.db.test.ts` —
+*"the HOST of the event does see their guests' orders — host visibility, unchanged"* — went red.
+
+An **account-less guest purchase** (Papic pool top-up / own-camera reload) is written with
+`user_id = NULL`. `is_event_member(event_id, NULL)` is FALSE, so a membership-only test removed
+the host's view of guest purchases — breaking the owner-locked *"the host is NOTIFIED, not
+asked"* (2026-07-29). The predicate is now
+`(user_id IS NULL OR is_event_member(event_id, user_id))`. The vendor fee order always carries
+a real vendor `user_id`, so the NULL arm never re-admits it.
+
+Pinned in this file too (test 4), so the exclusion reads as **"not the VENDOR"** and never
+hardens into **"members only"**. 11/11 here, 20/20 on the papic suite.
+
+🔑 The lesson is the shape, not the line: **that test existed precisely to catch a future
+narrowing of this arm, and it worked.** My suite passed 10/10 while the change was wrong,
+because I only seeded the payers I was thinking about.

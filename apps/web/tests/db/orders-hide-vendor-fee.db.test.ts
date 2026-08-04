@@ -52,7 +52,7 @@ async function reset(): Promise<void> {
 /** Insert an order as the RLS-bypassing service role (mirrors the fee lane). */
 async function insertOrder(args: {
   eventId: string | null;
-  userId: string;
+  userId: string | null;
   serviceKey: string | null;
   reference: string;
   description: string;
@@ -217,6 +217,26 @@ test('REGRESSION: a GUEST of the event reads NO orders at all — not even the c
   assert.ok(!ids.has(F.adhocOrderId), 'guest must NOT see the ad-hoc order');
   assert.ok(!ids.has(F.vendorFeeOrderId), 'guest must NOT see the vendor booking-fee order');
   assert.equal(ids.size, 0, 'a guest reads NOTHING from orders for their event');
+});
+
+test('the couple STILL sees an account-less guest purchase (user_id IS NULL)', async () => {
+  // The first version of this narrowing keyed purely on is_event_member(), which
+  // returns FALSE for a NULL payer — so it silently took away the host's view of
+  // guest Papic purchases ("the host is NOTIFIED, not asked", owner-locked
+  // 2026-07-29). papic-guest-orders.db.test.ts caught it in CI. Pinned here too,
+  // so the exclusion is understood as "not the VENDOR", never "members only".
+  const guestOrderId = await insertOrder({
+    eventId: F.eventId,
+    userId: null,
+    serviceKey: 'PAPIC_GUEST',
+    reference: 'SN-GUEST001',
+    description: 'Papic Pool — guest top-up',
+  });
+  await asAuthed(F.couple);
+  const ids = await selectEventOrderIds();
+  await reset();
+  assert.ok(ids.has(guestOrderId), 'the couple sees the account-less guest purchase on their event');
+  assert.ok(!ids.has(F.vendorFeeOrderId), 'and still does NOT see the vendor booking-fee order');
 });
 
 test('ADVERSARIAL: couple cannot reach the vendor fee order by direct order_id', async () => {

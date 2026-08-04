@@ -95,14 +95,21 @@ CREATE POLICY orders_owner_read
     user_id = auth.uid()
     -- Admins see everything.
     OR public.is_admin()
-    -- Couple / coordinator see the event's orders — but ONLY those whose payer
-    -- is a member of that event. Excludes the vendor-payer fee order (vendor is
-    -- not an event_member) while keeping every couple-side order.
+    -- Couple / coordinator see the event's orders — but not the vendor's.
+    --
+    -- ⚠ `user_id IS NULL` is LOAD-BEARING, not defensive. An ACCOUNT-LESS GUEST
+    -- purchase (Papic pool top-ups / own-camera reloads, owner-locked
+    -- 2026-07-29: "the host is NOTIFIED, not asked") is written with
+    -- user_id = NULL. A membership-only test returns FALSE for those and takes
+    -- host visibility away — papic-guest-orders.db.test.ts pins exactly that
+    -- and caught it. The vendor fee order always carries a real vendor
+    -- user_id, so NULL never re-admits it.
+    --
     -- NOTE: the narrow helper is deliberate. Do NOT widen this to
     -- current_event_ids() — that admits guests.
     OR (
       event_id IN (SELECT public.current_couple_or_coordinator_event_ids())
-      AND public.is_event_member(event_id, user_id)
+      AND (user_id IS NULL OR public.is_event_member(event_id, user_id))
     )
   );
 

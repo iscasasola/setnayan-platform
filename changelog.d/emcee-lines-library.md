@@ -115,3 +115,27 @@ Reachable from the Script tab in both states — the "drafted from your lines" b
 library is working, and a quiet line explaining the automatic save when it is still empty.
 
 **All six items of the locked spec are now built.**
+
+---
+
+## 2026-08-04 · unblocked — the migration would have created nothing
+
+Two things kept this PR red/dirty while it sat open since 2026-08-01.
+
+**1 · The migration prefix had fallen below the applied head.** It shipped as
+`20271029051678`; prod's head is `20271102113000` with **16 migrations already applied above
+it**, and this one was not among them. Migrations apply once, in prefix order — so it would
+have merged with green CI and created **nothing**: no `vendor_lines` table, and every screen
+in this PR reading a relation that does not exist. Re-allocated to `20271102810371` via the
+allocator; the SQL is unchanged.
+
+**2 · The exposure baseline conflicted with main.** Resolved the documented way — take main's
+version, then **regenerate** — never hand-merge a generated file. The resulting diff is exactly
+this PR's own surface and nothing else: `public.vendor_lines` with `anon=-` on every column
+(`REVOKE ALL … FROM anon, authenticated` then re-GRANT to `authenticated` only) and one policy
+scoped by the canonical `current_vendor_ids()` helper. Anon reaches nothing.
+
+⏭ **After merge, verify the OBJECT, not `schema_migrations`:** `SELECT
+to_regclass('public.vendor_lines');` must be non-NULL.
+
+SPEC IMPACT: None — no pricing, SKU or scope change.

@@ -1,6 +1,16 @@
 -- vendor_lines_library
 -- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
 -- existing migration. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied).
+--
+-- ⚠ RE-ALLOCATED 2026-08-04. This shipped originally as 20271029051678, whose
+--   prefix had fallen BELOW main's applied head (20271102113000) while the PR
+--   sat open — 16 migrations were already applied above it and this one was not
+--   among them. Migrations apply once, in prefix order, so the original would
+--   have merged with green CI and created NOTHING: no vendor_lines table, and
+--   every screen in this PR reading a relation that does not exist. The SQL
+--   below is unchanged.
+--   VERIFY THE OBJECT AFTER MERGE, not schema_migrations:
+--     SELECT to_regclass('public.vendor_lines');   -- must be non-NULL
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- MY LINES — the emcee's script library, and the half that TRAVELS.

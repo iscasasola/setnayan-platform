@@ -43,7 +43,7 @@ export type FileUploadBucket =
   | 'vendor-verification';
 
 export type FileUploadProps = {
-  /** R2 bucket to write to. Maps to one of the four PH-region buckets. */
+  /** R2 bucket to write to. Maps to one of the five APAC-region R2 buckets. */
   bucket: FileUploadBucket;
   /**
    * Prefix under the bucket — interpolate `{vendorId}` / `{orderId}` etc.

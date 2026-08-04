@@ -5,6 +5,13 @@ import { Play } from 'lucide-react';
 import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
 
 /**
+ * The return trip. Dispatched when the visitor asks for the film back, so the
+ * veil — which retires with the film — can return with it. Exported here
+ * because this component owns the round trip; the film only knows how to leave.
+ */
+export const STD_FILM_RETURN_EVENT = 'std:film-return';
+
+/**
  * StdFilmHandoff — the Save-the-Date film stops being a wall.
  *
  * ── THE PROBLEM ─────────────────────────────────────────────────────────────
@@ -65,7 +72,10 @@ export function StdFilmHandoff({
         <div className="mx-auto mt-2 flex w-full max-w-3xl justify-center px-4 pb-2">
           <button
             type="button"
-            onClick={() => setShowFilm(true)}
+            onClick={() => {
+              setShowFilm(true);
+              window.dispatchEvent(new CustomEvent(STD_FILM_RETURN_EVENT));
+            }}
             className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink/65 transition-colors hover:border-ink/30 hover:text-ink"
           >
             <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

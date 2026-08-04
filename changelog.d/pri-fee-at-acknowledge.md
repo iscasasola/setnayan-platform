@@ -31,3 +31,5 @@ Tests — new `lib/booking-fee-anchor.test.ts` (9 cases). Every one asserts a **
 ⚠ **Built in parallel with #4082, which implemented the same move.** The two were complementary rather than duplicate: #4082 had the single-trigger CI scan, this had the anchor resolution, the reservation and the migration. The other session was paused and its guard idea folded in here, so nothing from it is lost. #4082 can be closed.
 
 SPEC IMPACT: None — executes §7 + §12.2 as written.
+
+**Bonus, surfaced by CI:** the migration's `REVOKE ALL … FROM anon` on `acquire_schedule_pools` closed one of the **190 unreviewed anon-callable SECURITY DEFINER functions** in the anon-RPC debt register. The freeze test caught it as a NARROWING and demanded its baseline line be deleted — which is the guard working exactly as designed (a freeze that only fails on widenings would have let this drift). Debt register: **182 → 181**. The function was previously reachable with only the publishable key that ships in the public JS bundle; its couple-session gate short-circuited anon in practice, but the grant itself is now gone.

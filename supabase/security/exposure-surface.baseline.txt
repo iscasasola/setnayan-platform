@@ -6021,7 +6021,7 @@ func	public.acknowledge_handover(p_handover_id uuid)	secdef=yes exec=authenticat
 func	public.acknowledge_vendor_deposit(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.acquire_schedule_pools(p_event_id uuid, p_event_vendor_id uuid, p_pool_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.acquire_seating_editor_lock(p_event_id uuid, p_label text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.acquire_service_time_slot(p_event_id uuid, p_vendor_id uuid, p_service_id uuid, p_slot_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.acquire_service_time_slot(p_event_id uuid, p_vendor_id uuid, p_service_id uuid, p_slot_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.admin_churn_risk_events(p_stale_days integer, p_limit integer)	secdef=yes exec=authenticated search_path=public
 func	public.admin_inquiry_outcomes_overview()	secdef=yes exec=authenticated search_path=public
 func	public.admin_lead_scores(p_limit integer)	secdef=yes exec=authenticated search_path=public

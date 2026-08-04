@@ -1,7 +1,7 @@
 'use client';
 
 import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock } from 'lucide-react';
-import { siteMenuTabs, type SiteMenuSectionsPresent } from '../_lib/site-menu';
+import type { NavSlot } from '../_lib/site-nav';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -40,13 +40,17 @@ export type SiteMenuCamera = { href: string } | { locked: true; reason: string }
 /** The live broadcast, when one is running. Its own slot, never the gallery's. */
 export type SiteMenuWatch = { href: string } | null;
 
-const ICONS = {
+/** One icon per slot the resolver can emit. Exhaustive over NavSlotKey, so a
+ *  new slot in the rules engine is a TYPE ERROR here rather than a blank tab. */
+const ICONS: Record<NavSlot['key'], typeof Home> = {
   home: Home,
   details: Info,
   story: BookOpen,
+  camera: Camera,
+  watch: Radio,
   gallery: Images,
   me: User,
-} as const;
+};
 
 /** One slot's chrome. `min-w-0` + nowrap + ellipsis because a label that wraps
  *  grows its slot and tilts the whole bar. */
@@ -55,31 +59,71 @@ const SLOT =
   'text-xs font-semibold leading-none tracking-tight ' +
   'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
 
-export function SiteMenuBar({
-  sections,
-  camera = null,
-  watch = null,
-}: {
-  sections: SiteMenuSectionsPresent;
-  camera?: SiteMenuCamera;
-  watch?: SiteMenuWatch;
-}) {
-  const tabs = siteMenuTabs(sections);
-  const mid = Math.ceil(tabs.length / 2);
-  const before = tabs.slice(0, mid);
-  const after = tabs.slice(mid);
+export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
+  // The camera is pulled OUT and re-inserted at the centre. That is a LAYOUT
+  // decision — the one kind this component may still make. It never decides
+  // whether a slot exists, where it points, or whether it is locked; those come
+  // resolved. Owner design: the camera sits in the middle because on the day,
+  // taking pictures is what people are actually doing.
+  const camera = slots.find((s) => s.key === 'camera') ?? null;
+  const rest = slots.filter((s) => s.key !== 'camera');
+  const mid = Math.ceil(rest.length / 2);
+  const before = rest.slice(0, mid);
+  const after = rest.slice(mid);
 
-  const anchor = (tab: (typeof tabs)[number]) => {
-    const Icon = ICONS[tab.key];
+  /** A locked slot is DRAWN and unpressable, never absent: an absent tab says
+   *  the wedding has no such thing, a dead link says the app is broken, and a
+   *  padlock with its reason says the truth. */
+  const renderSlot = (slot: NavSlot) => {
+    const Icon = ICONS[slot.key];
     return (
-      <li key={tab.key} className="min-w-0 flex-1">
-        <a href={tab.anchor} className={`${SLOT} text-ink/65 hover:text-ink`}>
-          <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          {tab.label}
-        </a>
+      <li key={slot.key} className="min-w-0 flex-1">
+        {slot.state === 'locked' ? (
+          <span aria-disabled="true" title={slot.lockedReason} className={`${SLOT} text-ink/35`}>
+            <span className="relative inline-flex">
+              <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <Lock
+                aria-hidden
+                className="absolute -right-1.5 -top-1 h-3 w-3 text-terracotta-700"
+                strokeWidth={2.5}
+              />
+            </span>
+            {slot.label}
+          </span>
+        ) : (
+          <a href={slot.href} className={`${SLOT} text-ink/65 hover:text-ink`}>
+            <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            {slot.label}
+          </a>
+        )}
       </li>
     );
   };
+
+  /** The camera keeps its own chrome — the CTA colour and a slightly larger
+   *  glyph — because the design makes it the destination. */
+  const renderCamera = (slot: NavSlot) => (
+    <li key="camera" className="min-w-0 flex-1">
+      {slot.state === 'locked' ? (
+        <span aria-disabled="true" title={slot.lockedReason} className={`${SLOT} text-ink/35`}>
+          <span className="relative inline-flex">
+            <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
+            <Lock
+              aria-hidden
+              className="absolute -right-1.5 -top-1 h-3 w-3 text-terracotta-700"
+              strokeWidth={2.5}
+            />
+          </span>
+          {slot.label}
+        </span>
+      ) : (
+        <a href={slot.href} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
+          <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
+          {slot.label}
+        </a>
+      )}
+    </li>
+  );
 
   return (
     <nav
@@ -87,41 +131,9 @@ export function SiteMenuBar({
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur"
     >
       <ul className="mx-auto flex h-[3.5rem] max-w-md items-stretch justify-around px-1">
-        {before.map(anchor)}
-
-        {camera ? (
-          <li className="min-w-0 flex-1">
-            {'href' in camera ? (
-              <a href={camera.href} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
-                <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
-                Camera
-              </a>
-            ) : (
-              <span aria-disabled="true" title={camera.reason} className={`${SLOT} text-ink/35`}>
-                <span className="relative inline-flex">
-                  <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
-                  <Lock
-                    aria-hidden
-                    className="absolute -right-1.5 -top-1 h-3 w-3 text-terracotta-700"
-                    strokeWidth={2.5}
-                  />
-                </span>
-                Camera
-              </span>
-            )}
-          </li>
-        ) : null}
-
-        {watch ? (
-          <li className="min-w-0 flex-1">
-            <a href={watch.href} className={`${SLOT} text-ink/65 hover:text-ink`}>
-              <Radio aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              Watch
-            </a>
-          </li>
-        ) : null}
-
-        {after.map(anchor)}
+        {before.map(renderSlot)}
+        {camera ? renderCamera(camera) : null}
+        {after.map(renderSlot)}
       </ul>
       {/* The home-indicator strip — without it the labels sit under the home bar. */}
       <div className="min-h-[0.5rem] bg-cream [height:env(safe-area-inset-bottom)]" />

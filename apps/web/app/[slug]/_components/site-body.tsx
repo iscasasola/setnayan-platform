@@ -28,6 +28,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
+import { resolveSiteNav, type NavPhase } from '../_lib/site-nav';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { VendorDoorway } from './vendor-doorway';
 import { StdFilmHandoff } from './std-film-handoff';
@@ -42,6 +43,19 @@ import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './our-story';
+
+/**
+ * `dayOfPhase` is the site's own three-state clock; `NavPhase` is the resolver's.
+ * Same three moments, two vocabularies — mapped in ONE place so the bar and the
+ * rules can never disagree about which moment it is (they did, twice, in two
+ * days). 'live' is the wedding happening; 'post' is after it.
+ */
+function navPhaseOf(dayOfPhase: DayOfPhase | null | undefined): NavPhase {
+  if (dayOfPhase === 'live') return 'day';
+  if (dayOfPhase === 'post') return 'after';
+  return 'before';
+}
+
 import { GuestColumnCard } from './guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -782,23 +796,25 @@ export function SiteBody({
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires
             the old bars. */}
+        {/* The bar renders what the RULES resolved — it settles nothing itself.
+            Papic's gate is the host's switch (owner 2026-08-03: "the papic service
+            will always run but the host of the event has the power to allow use and
+            not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
+            camera is part of what the invitation promises. */}
         {menuOn ? (
           <SiteMenuBar
-            sections={menuSections}
-            // Papic. The host's switch is the gate (owner 2026-08-03: "the papic
-            // service will always run but the host of the event has the power to
-            // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
-            // absent — the camera is part of what the invitation promises.
-            watch={
-              dayOfPhase === 'live' && plan.liveMediaVisible && watchLive
-                ? { href: `/${event.slug}/hub` }
-                : null
-            }
-            camera={
-              hostCameraOpen
-                ? { href: '/papic/guest' }
-                : { locked: true, reason: 'The host has not opened the camera' }
-            }
+            slots={resolveSiteNav({
+              viewer: { kind: 'public' },
+              phase: navPhaseOf(dayOfPhase),
+              hostAllowsCamera: hostCameraOpen,
+              anyChapterPublic: menuSections.gallery,
+              hasStory: menuSections.story,
+              liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              destinations: {
+                camera: hostCameraOpen ? '/papic/guest' : null,
+                watch: `/${event.slug}/hub`,
+              },
+            })}
           />
         ) : null}
       </>
@@ -1530,24 +1546,30 @@ export function SiteBody({
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.
             Coexists with the GuestHubBar (page.tsx) until PR11 retires the old
             bars. */}
+        {/* Same resolver, guest viewer. The camera destination keeps the shipped
+            precedence — a guest's OWN roll first, then the couple's shared camera,
+            the same order GuestHubBar already uses; neither open ⇒ the resolver
+            LOCKS the slot rather than hiding it. */}
         {menuOn ? (
           <SiteMenuBar
-            sections={menuSections}
-            // A guest's own roll first, then the couple's shared camera — the
-            // same order GuestHubBar already uses. Locked, not hidden, when the
-            // host has opened neither.
-            watch={
-              dayOfPhase === 'live' && plan.liveMediaVisible && watchLive
-                ? { href: `/${event.slug}/hub` }
-                : null
-            }
-            camera={
-              papicGuest
-                ? { href: `/papic/me/${guest.qr_token}` }
-                : hostCameraOpen
-                  ? { href: '/papic/guest' }
-                  : { locked: true, reason: 'The host has not opened the camera' }
-            }
+            slots={resolveSiteNav({
+              viewer: { kind: 'guest' },
+              phase: navPhaseOf(dayOfPhase),
+              // `papicGuest` is the guest's own roll (an object), not a flag —
+              // coerce it, or the resolver receives a truthy non-boolean.
+              hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
+              anyChapterPublic: menuSections.gallery,
+              hasStory: menuSections.story,
+              liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              destinations: {
+                camera: papicGuest
+                  ? `/papic/me/${guest.qr_token}`
+                  : hostCameraOpen
+                    ? '/papic/guest'
+                    : null,
+                watch: `/${event.slug}/hub`,
+              },
+            })}
           />
         ) : null}
       </>

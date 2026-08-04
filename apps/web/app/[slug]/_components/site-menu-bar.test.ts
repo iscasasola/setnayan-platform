@@ -28,7 +28,7 @@ test('menu bar · icon AND label on every slot — never icons alone', () => {
     assert.ok(BAR.includes(icon), `the bar has no ${icon} icon`);
   }
   // …and the label still renders — icons alone would be a regression.
-  assert.match(BAR, /\{tab\.label\}/);
+  assert.match(BAR, /\{slot\.label\}/);
   // The old mono-uppercase treatment must be gone.
   assert.ok(!BAR.includes('uppercase tracking-[0.12em]'), 'the old text-only bar chrome survives');
 });
@@ -47,31 +47,43 @@ test('menu bar · a home-indicator strip keeps labels off the home bar', () => {
 test('menu bar · Watch has its OWN slot and never takes the gallery\'s', () => {
   // Owner: "papic button as well" — on the day a guest needs the camera AND the
   // gallery, so a broadcast may not displace either.
-  assert.match(BAR, /export type SiteMenuWatch/);
-  const watchBlock = BAR.slice(BAR.indexOf('{watch ?'));
-  assert.ok(watchBlock.includes('Radio'), 'the watch slot has no icon');
-  // It is rendered as its own <li>, not by replacing a tab.
-  assert.match(BAR, /\{watch \? \(\s*<li/);
+  // The slot now comes from the resolver, so the decision is pinned in TWO
+  // places: the resolver emits a distinct `watch` key (never reusing gallery's),
+  // and the bar has an icon for it.
+  const NAV = readFileSync(join(HERE, '..', '_lib', 'site-nav.ts'), 'utf8');
+  assert.match(NAV, /key: 'watch'/, 'the resolver no longer emits a watch slot');
+  assert.ok(
+    !/key: 'gallery'[^}]*Watch/.test(NAV),
+    'the watch label has been attached to the gallery slot — it must have its own',
+  );
+  assert.match(BAR, /watch: Radio/, 'the bar has no icon for the watch slot');
 });
 
 test('menu bar · a closed camera is DRAWN and locked, never absent', () => {
   // Owner 2026-08-03: the host holds the switch, but the camera is part of what
   // the invitation promises. An absent slot says the wedding has no camera; a
   // dead button says the app is broken. Locked says neither.
-  assert.match(BAR, /\{ locked: true; reason: string \}/);
+  assert.match(BAR, /slot\.state === 'locked'/, 'the bar no longer renders a locked state');
   assert.match(BAR, /aria-disabled="true"/);
   // The locked branch must not be a link — a link would navigate.
   const locked = BAR.slice(BAR.indexOf('aria-disabled'));
   assert.ok(!locked.slice(0, 400).includes('<a'), 'the locked camera is still a link');
   // And it must carry the reason.
-  assert.match(BAR, /title=\{camera\.reason\}/);
+  assert.match(BAR, /title=\{slot\.lockedReason\}/);
 });
 
 test('menu bar · both trees offer the camera, and both lock it rather than hide it', () => {
-  const uses = SITE.match(/camera=\{/g) ?? [];
-  assert.equal(uses.length, 2, 'expected the camera slot in BOTH the anonymous and guest trees');
-  const locks = SITE.match(/locked: true, reason: 'The host has not opened the camera'/g) ?? [];
-  assert.equal(locks.length, 2, 'a tree hides the camera instead of locking it');
+  // Both trees resolve the nav, and each passes a camera destination.
+  const resolves = SITE.match(/resolveSiteNav\(\{/g) ?? [];
+  assert.equal(resolves.length, 2, 'expected BOTH the anonymous and guest trees to resolve the nav');
+  const dests = SITE.match(/camera: /g) ?? [];
+  assert.equal(dests.length, 2, 'a tree does not pass a camera destination');
+  // The LOCK itself now lives in one place — the resolver — instead of being
+  // re-typed per tree. That is the point of the move: one rule, not two copies
+  // that can drift. A missing destination must LOCK, never hide.
+  const NAV2 = readFileSync(join(HERE, '..', '_lib', 'site-nav.ts'), 'utf8');
+  assert.match(NAV2, /key: 'camera'[\s\S]{0,200}state: 'locked'/,
+    'the resolver hides the camera instead of locking it');
 });
 
 test('menu bar · the camera follows the HOST SWITCH, never the calendar', () => {
@@ -82,8 +94,8 @@ test('menu bar · the camera follows the HOST SWITCH, never the calendar', () =>
   // 'live'` / `isLive`, so on a wedding months away the camera resolved to null
   // and vanished — while the resolver in _lib/site-nav.ts had the rule RIGHT.
   // The correct rule was written and then not used. Neither half failed.
-  const cameraBlocks = SITE.split('camera={').slice(1).map((b) => b.slice(0, 320));
-  assert.equal(cameraBlocks.length, 2, 'expected the camera slot in both trees');
+  const cameraBlocks = SITE.split('hostAllowsCamera:').slice(1).map((b) => b.slice(0, 320));
+  assert.equal(cameraBlocks.length, 2, 'expected the camera gate in both trees');
   for (const block of cameraBlocks) {
     assert.ok(
       !/\bisLive\b/.test(block) && !/dayOfPhase === 'live'/.test(block),
@@ -112,7 +124,7 @@ test('menu bar · the switch is read on EVERY day, not only the wedding day', ()
 test('menu bar · Papic sits in the MIDDLE of the bar', () => {
   // The widest, easiest place for a thumb — on the day, shooting is what people
   // are actually doing.
-  assert.match(BAR, /const mid = Math\.ceil\(tabs\.length \/ 2\);/);
+  assert.match(BAR, /const mid = Math\.ceil\(rest\.length \/ 2\);/);
   assert.ok(
     BAR.indexOf('{before.map') < BAR.indexOf('{camera ?'),
     'the camera is not between the two halves of the tab list',

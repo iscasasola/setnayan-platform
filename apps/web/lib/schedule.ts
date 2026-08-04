@@ -663,7 +663,11 @@ export function selectSchedulePreviewBlocks(
   now: Date,
 ): SchedulePreviewSelection {
   const topLevel = blocks.filter((b) => b.parent_block_id === null);
-  const nowMs = now.getTime();
+  // The VENUE's clock. `start_at` is the venue's wall clock stored in a UTC
+  // column, so `now.getTime()` — a real instant — is not comparable with it and
+  // was out by the venue's UTC offset. On a Manila wedding day that is eight
+  // hours: the preview kept offering moments that had already happened.
+  const nowMs = venueNowMs(DEFAULT_EVENT_TZ, now);
   const upcoming = topLevel.filter(
     (b) => new Date(b.start_at).getTime() >= nowMs,
   );
@@ -750,6 +754,38 @@ export function wallClockToInstant(
     return asUTC + (asUTC - partsAsUTC(asUTC, tz));
   } catch {
     return null;
+  }
+}
+
+/**
+ * The venue's CURRENT wall clock, expressed the same way schedule times are
+ * stored — so it can be compared against them directly.
+ *
+ * ── WHY A SECOND KIND OF "NOW" IS NEEDED ────────────────────────────────────
+ * `event_schedule_blocks.start_at` holds the venue's wall clock in a UTC
+ * column: a 2 PM ceremony is `14:00Z`. Every day-of surface then asked
+ * "which moment are we in?" by comparing those values against `Date.now()` —
+ * a real instant. The two are not the same kind of number, and the gap between
+ * them is the venue's UTC offset.
+ *
+ * On a Manila wedding day that is eight hours. At 2 PM, as the couple walked
+ * down the aisle, their own dashboard read the schedule as if it were 6 AM and
+ * cheerfully announced hair and make-up as the next thing happening.
+ *
+ * There are two honest ways to fix a comparison like that: lift every stored
+ * time into a real instant, or bring `now` down into the stored space. This is
+ * the second, and for the day-of surfaces it is the smaller and safer one —
+ * every existing comparison, sort and countdown keeps working unchanged, with
+ * one value swapped at the top.
+ *
+ * Falls back to the true instant if Intl cannot read the zone, which is the
+ * pre-existing behaviour rather than a crash.
+ */
+export function venueNowMs(tz: string = DEFAULT_EVENT_TZ, now: Date = new Date()): number {
+  try {
+    return partsAsUTC(now.getTime(), tz);
+  } catch {
+    return now.getTime();
   }
 }
 

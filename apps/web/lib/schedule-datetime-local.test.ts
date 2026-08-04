@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { datetimeLocalToIso } from './schedule';
+import { datetimeLocalToIso, venueNowMs } from './schedule';
 
 test('a bare datetime-local value is read at the VENUE, not in UTC', () => {
   // A 2 PM site visit. The old code stored 14:00Z and showed everyone 10 PM.
@@ -37,4 +37,29 @@ test('the answer does not depend on where the code happens to be running', () =>
     assert.equal(datetimeLocalToIso('2026-12-18T14:00'), expected, `wrong under TZ=${tz}`);
     process.env.TZ = before;
   }
+});
+
+// ── "Now" at the venue ──────────────────────────────────────────────────────
+
+test('venueNowMs is comparable with a stored schedule time', () => {
+  // 2 PM in Manila is 06:00Z. A ceremony stored as `14:00Z` (the venue's wall
+  // clock) must read as HAPPENING NOW, not as eight hours away.
+  const realInstant = new Date('2026-12-18T06:00:00.000Z');
+  const ceremony = new Date('2026-12-18T14:00:00.000Z').getTime();
+  assert.equal(venueNowMs('Asia/Manila', realInstant), ceremony);
+});
+
+test('the old comparison was out by exactly the venue offset', () => {
+  // Pins the size of the mistake, so a future change that reintroduces it is
+  // unambiguous rather than "a bit off".
+  const realInstant = new Date('2026-12-18T06:00:00.000Z');
+  const gapMinutes = (venueNowMs('Asia/Manila', realInstant) - realInstant.getTime()) / 60000;
+  assert.equal(gapMinutes, 480);
+});
+
+test('venueNowMs still answers when the zone is unreadable', () => {
+  // Falling back to the real instant is the pre-existing behaviour. A day-of
+  // banner that throws is worse than one that is briefly wrong.
+  const at = new Date('2026-12-18T06:00:00.000Z');
+  assert.equal(typeof venueNowMs('Not/AZone', at), 'number');
 });

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, MapPin, Clock } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { pickTriggerNowNext, type RunState } from '@/lib/run-of-show';
+import { venueNowMs } from '@/lib/schedule';
 
 type Block = {
   block_id: string;
@@ -103,7 +104,7 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false }: Props) {
   const state = useMemo(
     () =>
       deriveTriggerState(blocks, runStateTrigger) ??
-      deriveState(blocks, Date.now()),
+      deriveState(blocks, venueNowMs()),
     [blocks, runStateTrigger],
   );
 
@@ -158,7 +159,7 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false }: Props) {
             ) : null}
             {state.nextBlockStart !== null ? (
               <p className="pt-1 text-xs" style={{ color: 'var(--sn-gold-300)' }}>
-                Next block {formatRelativeMs(state.nextBlockStart - Date.now())}
+                Next block {formatRelativeMs(state.nextBlockStart - venueNowMs())}
               </p>
             ) : null}
           </div>
@@ -183,10 +184,10 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false }: Props) {
               {/* Host-set "between moments" can run past the planned start —
                   "5 min ago" would read broken, so soften to "any moment". */}
               {state.hostSet &&
-              new Date(state.nextBlock.start_at).getTime() - Date.now() <= 0
+              new Date(state.nextBlock.start_at).getTime() - venueNowMs() <= 0
                 ? 'any moment now'
                 : formatRelativeMs(
-                    new Date(state.nextBlock.start_at).getTime() - Date.now(),
+                    new Date(state.nextBlock.start_at).getTime() - venueNowMs(),
                   )}
             </span>
             {' · '}

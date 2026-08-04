@@ -7,6 +7,13 @@ import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
+import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
+import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
+import {
+  budgetStripMoney,
+  budgetLiveSummaryMoney,
+  vendorsToItemize,
+} from '@/lib/budget-page-money';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
@@ -18,6 +25,7 @@ import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
+import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
 export const metadata = { title: 'Budget' };
@@ -53,7 +61,12 @@ export default async function BudgetPage({ params }: Props) {
   // The events SELECT defensively reads estimated_budget_centavos —
   // safe even before the migration lands because Supabase tolerates
   // missing columns at runtime (returns undefined) for any caller.
-  const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
+  // BUD-2 · §18.6. The shared money resolver runs in the SAME round trip as
+  // everything else, and only when the flag is on — flag OFF issues not one
+  // extra query, so the page's cost profile is unchanged in production.
+  const budgetTruth = isBudgetTruthEnabled();
+
+  const [eventRes, snapshot, paidOrdersRes, allocInputs, money] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -78,6 +91,12 @@ export default async function BudgetPage({ params }: Props) {
     // config) resolved server-side once; the planner client component re-runs
     // the pure engine on every tilt. Reuses the same authed supabase client.
     resolveAllocationInputs(supabase, eventId),
+    // Degrade to the legacy figures on ANY resolver failure rather than
+    // printing a confident ₱0 — a budget page that silently zeroes is worse
+    // than one that is merely out of date.
+    budgetTruth
+      ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
+      : Promise.resolve<EventMoney | null>(null),
   ]);
 
   // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
@@ -195,16 +214,24 @@ export default async function BudgetPage({ params }: Props) {
   }, 0);
   const committedPhpTotal = paidOrdersTotalPhp + contractedVendorsTotalPhp;
 
-  // Filter to only finalized vendors for the per-vendor itemization
-  // section. Considering / shortlisted vendors are still being shopped
-  // — line-item + payment tracking unlocks once they're contracted.
-  // Topline metrics (Total budget / Paid so far / Remaining / Due in
-  // 30 days) still reflect all vendors via snapshot.totals — those
-  // numbers come from line items + payments which can pre-exist a
-  // contract (pencil-in deposits are valid).
-  const finalizedVendors = snapshot.vendors.filter((s) =>
-    CONFIRMED_STATUS_SET.has(s.vendor.status as string),
-  );
+  // BUD-2 · R1. Strip, live card and vendor list stop being three different
+  // row sets. Flag OFF every value below collapses back to the legacy inputs
+  // computed above, so production renders byte-identically.
+  const stripMoney = budgetStripMoney({
+    enabled: budgetTruth,
+    money,
+    legacyCommittedPhp: committedPhpTotal,
+    targetCentavos: initialBudgetCentavos,
+  });
+
+  // Which vendors get a card. Flag ON widens from "contracted+" to
+  // "contracted+ OR carrying money", so every peso in a headline above has a
+  // card the couple can actually open, edit and delete. Flag OFF: unchanged.
+  const finalizedVendors = vendorsToItemize({
+    enabled: budgetTruth,
+    vendors: snapshot.vendors,
+    isConfirmed: (status) => CONFIRMED_STATUS_SET.has(status),
+  });
   const hasAnyVendors = snapshot.vendors.length > 0;
   const hasFinalizedVendors = finalizedVendors.length > 0;
 
@@ -305,10 +332,7 @@ export default async function BudgetPage({ params }: Props) {
        *  the rest of the budget math has anchors. */}
       <BudgetSetter eventId={eventId} initialBudgetCentavos={initialBudgetCentavos} />
 
-      <BudgetSummaryStrip
-        targetCentavos={initialBudgetCentavos}
-        committedPhp={committedPhpTotal}
-      />
+      <BudgetSummaryStrip money={stripMoney} />
 
       {isMuslimCeremony ? (
         <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
@@ -374,7 +398,11 @@ export default async function BudgetPage({ params }: Props) {
 
         <BudgetLiveSummaryCard
           eventId={eventId}
-          initial={buildBudgetLiveSummary(snapshot)}
+          initial={budgetLiveSummaryMoney({
+            enabled: budgetTruth,
+            money,
+            legacy: buildBudgetLiveSummary(snapshot),
+          })}
         />
 
         {!hasAnyVendors ? (
@@ -408,15 +436,8 @@ export default async function BudgetPage({ params }: Props) {
  * vendors are confirmed yet so the host sees their target reflected
  * back to them as soon as they save.
  */
-function BudgetSummaryStrip({
-  targetCentavos,
-  committedPhp,
-}: {
-  targetCentavos: number | null;
-  committedPhp: number;
-}) {
-  const targetPhp = targetCentavos !== null ? targetCentavos / 100 : null;
-  const remainingPhp = targetPhp !== null ? targetPhp - committedPhp : null;
+function BudgetSummaryStrip({ money }: { money: BudgetStripMoney }) {
+  const { targetPhp, committedPhp, estimatedPhp, remainingPhp } = money;
 
   return (
     <section aria-labelledby="budget-summary-heading" className="sn-tile">
@@ -435,7 +456,17 @@ function BudgetSummaryStrip({
         <SummaryStat
           label="Committed"
           value={formatPhp(committedPhp)}
-          hint={committedPhp > 0 ? 'Paid + signed vendors' : 'Nothing committed yet'}
+          hint={
+            // BUD-2 · §18.5 rules 2/3. An estimate never enters "Committed",
+            // but it must not vanish either — a couple looking at ₱0 committed
+            // while a ₱80,000 vendor sits in their list is exactly the
+            // contradiction R1 is about. Name it here instead.
+            estimatedPhp !== null && estimatedPhp > 0
+              ? `${formatPhp(estimatedPhp)} more is still an estimate`
+              : committedPhp > 0
+                ? 'Paid + signed vendors'
+                : 'Nothing committed yet'
+          }
         />
         <SummaryStat
           label={remainingPhp !== null && remainingPhp < 0 ? 'Over target' : 'Budget left'}

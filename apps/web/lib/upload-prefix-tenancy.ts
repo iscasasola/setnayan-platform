@@ -1,0 +1,98 @@
+/**
+ * SEC-1 deferred lane #1 — tenancy for the `/api/upload` GENERIC branch.
+ *
+ * Pure, client-safe (no `server-only`, no SDK, no I/O) so it unit-tests under
+ * `tsx --test`, mirroring `lib/r2-client-ref.ts` and `lib/bucket-routing.ts`.
+ * The enforcement half lives in `app/api/upload/route.ts`.
+ *
+ * # The hole
+ *
+ * The generic branch takes a client-chosen `bucket` + `pathPrefix`. The bucket
+ * is whitelisted and the prefix is sanitised (plus SEC-6's structural refusals),
+ * and the final key gets a server-side `randomUUID()` — so this is **write
+ * pollution, not disclosure, and not overwrite**. But *any* signed-in user can
+ * presign a PUT under *any* prefix, including one naming **another couple's
+ * event** or **another pair's chat thread**: `deposit-proof/<their-event-id>`,
+ * `chat/<their-thread-id>`. The bytes land in a space the victim's own surfaces
+ * read from.
+ *
+ * # What this module does, and deliberately does not
+ *
+ * It closes the **cross-tenant** half, which is the half with a victim. When a
+ * prefix NAMES an id, the caller must be entitled to that id — verified at the
+ * route against the caller's own RLS-scoped client, which is the same "let RLS
+ * be the tenancy check" pattern `r2-client-ref.ts` documents.
+ *
+ * It does **not** try to allowlist every prefix in the app. `<FileUpload>` takes
+ * `pathPrefix` as a prop, so the caller set is open-ended; an allowlist built by
+ * grep would be a guess, and a wrong guess breaks uploads on a surface nobody
+ * tested. Flat prefixes (`locked-qr-proof`, admin video, editorial-vendor —
+ * itself separately tenanted by key layout in SEC-1 lane #3) keep today's
+ * behaviour: authenticated, sanitised, UUID-suffixed, non-overwriting.
+ *
+ * So the invariant is narrow and true: **you may not name an id you do not
+ * hold.** A caller passing their own ids is unaffected.
+ *
+ * # Why matching is shape-based, not name-based
+ *
+ * Rules key off *"a segment that is a UUID"*, not off a list of prefix names.
+ * A new surface inventing `receipts/<eventId>` is covered the day it ships,
+ * with no registry to update — the failure mode of an allowlist is silence,
+ * and silence is what created this lane.
+ */
+
+/** A UUID v1–v5 in canonical form. `events.event_id` and `chat_threads.thread_id`
+ *  are both `uuid`, which is what makes the shape rule safe. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isUuid(segment: string): boolean {
+  return UUID_RE.test(segment);
+}
+
+/**
+ * What the caller must be entitled to before this prefix may be presigned.
+ *
+ * `null` = the prefix names no id, so this module has nothing to assert and the
+ * route proceeds on the existing checks alone.
+ */
+export type UploadTenancy =
+  | { kind: 'event'; id: string }
+  | { kind: 'thread'; id: string }
+  | null;
+
+/**
+ * Prefix families whose FIRST segment means the UUID after it is a chat thread
+ * rather than an event. Everything else that carries a UUID is treated as an
+ * event id — the conservative direction, because an event check is the stricter
+ * one for every current caller and a wrong guess here fails CLOSED (refusal),
+ * never open.
+ */
+const THREAD_ROOTS = new Set(['chat']);
+
+/**
+ * Resolve the tenancy a sanitised `pathPrefix` implies.
+ *
+ * Takes the **first** UUID segment. A prefix carrying two ids
+ * (`a/<uuid>/b/<uuid>`) is not a shape any caller uses today; if one appears,
+ * asserting the first is still strictly better than asserting none, and the
+ * repo-scan test will surface it.
+ */
+export function tenancyForPathPrefix(sanitizedPrefix: string): UploadTenancy {
+  const segments = sanitizedPrefix.split('/').filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+
+  const idIndex = segments.findIndex((s) => isUuid(s));
+  if (idIndex === -1) return null;
+
+  const root = segments[0]?.toLowerCase() ?? '';
+  const id = segments[idIndex]!;
+  return THREAD_ROOTS.has(root) ? { kind: 'thread', id } : { kind: 'event', id };
+}
+
+/**
+ * The refusal message. Deliberately non-specific, in the house style of
+ * `lib/r2-client-ref.ts`: the caller learns the location was refused, never
+ * whether the id they named exists. A specific message ("no such event") would
+ * turn this guard into the existence oracle it was written to remove.
+ */
+export const UPLOAD_TENANCY_REFUSAL = 'That upload location isn’t allowed.';

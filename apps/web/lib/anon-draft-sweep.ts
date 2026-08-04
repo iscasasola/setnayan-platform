@@ -2,6 +2,8 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { ANON_EMAIL_DOMAIN } from '@/lib/anon-onboarding';
+import { describeUserDeleteBlocker } from '@/lib/user-delete-blockers';
+import { CLAIM_TOKEN_ROTATIONS, freshClaimToken } from '@/lib/erasure/coverage';
 
 /**
  * Abandoned anonymous-draft cleanup (RA 10173 data-minimization).
@@ -129,11 +131,75 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
         }
       }
 
+      // 🔴 ROTATE BEFORE DELETING. `paparazzi_seats.claimer_user_id` is
+      // `REFERENCES auth.users(id) ON DELETE SET NULL`, and `claim_qr_token` is
+      // NOT in that clause. So deleting the auth user below silently unclaims
+      // every seat this person holds while leaving their printed QR intact:
+      // seatClaimability() flips from 'taken' back to 'claimable', and
+      // papic_claim_seat's `AND claimer_user_id IS NULL` then passes. The QR
+      // they walked in with 30 days ago becomes a working claim credential for
+      // whoever is holding it.
+      //
+      // The sweep never noticed because its only guard looks for `event_members`
+      // rows with member_type='couple', and a seat claimer is never a couple
+      // member of the event — so eventIds is empty and the legal-hold block
+      // above is skipped in full.
+      //
+      // This is the same invariant the erasure path enforces: THE UNCLAIM AND
+      // THE ROTATION MUST NEVER BE SEPARATED. Here the unclaim is performed by
+      // the database, so the rotation has to happen first.
+      let rotateFailed = false;
+      for (const rot of CLAIM_TOKEN_ROTATIONS) {
+        const { data: held, error: selErr } = await admin
+          .from(rot.table)
+          .select(rot.idColumn)
+          .eq(rot.subjectColumn, uid);
+        if (selErr) {
+          console.error(`[anon-draft-sweep] seat lookup failed (${uid}):`, selErr.message);
+          rotateFailed = true;
+          break;
+        }
+        // One statement per row: both token columns are UNIQUE, so a single
+        // table-wide update would write one value to every seat they hold and
+        // be rejected by the index the moment they hold two.
+        for (const row of (held ?? []) as unknown as Array<Record<string, string | number>>) {
+          const { error: rotErr } = await admin
+            .from(rot.table)
+            .update({ [rot.tokenColumn]: freshClaimToken(), ...rot.clear })
+            .eq(rot.idColumn, row[rot.idColumn]);
+          if (rotErr) {
+            console.error(`[anon-draft-sweep] token rotate failed (${uid}):`, rotErr.message);
+            rotateFailed = true;
+            break;
+          }
+        }
+        if (rotateFailed) break;
+      }
+      // Fail CLOSED: if we could not revoke the printed QR, do NOT delete the
+      // user, because the FK would unclaim the seat and arm that QR.
+      if (rotateFailed) {
+        await markSkipped(uid);
+        continue;
+      }
+
       // Hard-delete the auth user → cascades public.users. Skip-on-throw so one
       // stubborn row never aborts the batch.
+      //
+      // This is the ONLY place in the app that issues a real user DELETE — the
+      // admin path erases (anonymize + tombstone) instead — so it is also the
+      // only place a foreign-key refusal can surface. Since the 2026-08-02 sweep
+      // exactly THREE foreign keys still refuse, all deliberately; anything else
+      // refusing is a regression, and the two cases must not read the same in the
+      // log. A recognised refusal gets its reason; an unrecognised one keeps the
+      // raw Postgres text, constraint name and all, because that is the thing
+      // somebody needs to go and decide.
       const { error: delUserErr } = await admin.auth.admin.deleteUser(uid);
       if (delUserErr) {
-        console.error(`[anon-draft-sweep] auth delete failed (${uid}):`, delUserErr.message);
+        const deliberate = describeUserDeleteBlocker(delUserErr.message);
+        console.error(
+          `[anon-draft-sweep] auth delete failed (${uid}):`,
+          deliberate ?? delUserErr.message,
+        );
         await markSkipped(uid);
         continue;
       }

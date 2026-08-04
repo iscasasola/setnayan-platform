@@ -176,6 +176,50 @@ export async function clearIntegrationSecretColumns(
   return { ok: true, columns: [...columns] };
 }
 
+/**
+ * Stamp `last_verified_at` after a Resend test email genuinely sent.
+ *
+ * THE INVERSE OF {@link COMPANION_NULL_ON_CLEAR}, and it belongs beside it: that
+ * rule says the stamp stops being true when the key is cleared, and this says
+ * when it becomes true in the first place. Until now only half of that pair
+ * existed — nothing in the app wrote this column. It was declared, documented,
+ * nulled on clear, and RENDERED on /admin/integrations as "Last verified", where
+ * it could never read as anything but "never". A field that can only ever show
+ * one value is not a status, it is decoration.
+ *
+ * ── ONLY WHEN THE DATABASE IS THE ONE THAT HOLDS THE KEY ───────────────────
+ *
+ * `resolveResendConfig()` is DB-first with an ENV fallback, so a successful test
+ * email proves only that SOME key works — not that the stored one does. If the
+ * key came from `RESEND_API_KEY` while the row is empty, stamping the row would
+ * claim a stored key was verified when there is no stored key at all, and the
+ * console would then show "Last verified" directly beneath "Not configured".
+ *
+ * So the update is guarded on `resend_api_key_enc IS NOT NULL` **in the WHERE
+ * clause**, not by reading the row first: the guard and the write are then one
+ * statement, and there is no window where a concurrent clear could slip between
+ * a check and a stamp.
+ *
+ * Returns whether a row was stamped. Never throws — a failed stamp must not turn
+ * a SUCCESSFUL smoke test into a reported failure. Losing the timestamp is a
+ * cosmetic loss; reporting "email is broken" when it just sent is a real one.
+ */
+export async function markResendKeyVerified(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const now = new Date().toISOString();
+    const { data, error } = await admin
+      .from('platform_integration_secrets')
+      .update({ last_verified_at: now, updated_at: now })
+      .eq('id', 1)
+      .not('resend_api_key_enc', 'is', null)
+      .select('id');
+    return !error && !!data && data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Rotation-log note for a save made on the Integration Activation Console. */
 export const CONSOLE_SAVE_NOTE = 'Saved from the Integrations console.';
 /** Rotation-log note for a save made on the Secrets & Rotation board. */

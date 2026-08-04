@@ -78,7 +78,6 @@ import {
   UserX,
   Users,
   UsersRound,
-  Video,
   Wallet,
   WifiOff,
 } from 'lucide-react';
@@ -419,15 +418,9 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Globe,
         matchPrefix: '/admin/website',
       },
-      {
-        // Repointed to the Studio Studio Hero video tab (slice 1). matchPrefix
-        // keeps this item lit on the legacy /admin/hero-video path (redirects in).
-        key: 'hero-video',
-        label: 'Hero video',
-        href: '/admin/studio?tab=hero-video',
-        icon: Video,
-        matchPrefix: '/admin/hero-video',
-      },
+      // 'hero-video' item REMOVED 2026-08-02 — the sign-in hero was retired
+      // (deleted, no tombstone) because it sliced every upload into stills for a
+      // screen nothing rendered. Guarded by lib/website-media-retired-hero.test.ts.
       // Live Studio channel pool (WAVE 9 · Live_Studio_Unified_Spec § 4h) — the
       // Setnayan-owned YouTube channels every event streams on, so couples never
       // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:
@@ -456,6 +449,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/background-videos',
         icon: Clapperboard,
         matchPrefix: '/admin/background-videos',
+      },
+      {
+        // Website media — the READ side of the media bucket, sitting next to the
+        // upload tools it audits. Those tools repoint a row without deleting the
+        // object they replaced, so left-over files are invisible everywhere else.
+        key: 'website-media',
+        label: 'Website media',
+        href: '/admin/website-media',
+        icon: Images,
+        matchPrefix: '/admin/website-media',
       },
       {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).

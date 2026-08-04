@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useCallback, useRef, useState, useId } from 'react';
 import { ShieldAlert, X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { initiateFraudWipeBan } from '../actions';
 
@@ -28,6 +29,14 @@ export function WipeBanDialog({
   const titleId = useId();
   const matches = typed.trim() === businessName.trim() && businessName.trim().length > 0;
 
+  // Escape-to-close, Tab trapped inside, focus restored to the trigger. The
+  // typed-confirmation guard already prevents a mis-click from submitting;
+  // this stops a keyboard admin from tabbing out of a destructive dialog and
+  // acting on the page behind it while it is still open.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
+
   return (
     <>
       <button
@@ -41,12 +50,13 @@ export function WipeBanDialog({
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 focus:outline-none"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
+            if (e.target === e.currentTarget) close();
           }}
         >
           <div className="m-card w-full max-w-lg overflow-hidden p-0">

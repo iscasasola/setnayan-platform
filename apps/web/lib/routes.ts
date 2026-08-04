@@ -57,7 +57,6 @@ export const routes = {
       export: () => `/admin/growth/export`,
     },
     help: () => `/admin/help`,
-    heroVideo: () => `/admin/hero-video`,
     insights: () => `/admin/insights`,
     intelligence: () => `/admin/app-performance?tab=intelligence`,
     money: () => `/admin/money`,

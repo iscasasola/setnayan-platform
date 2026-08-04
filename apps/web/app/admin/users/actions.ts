@@ -182,6 +182,19 @@ export async function forceSignOutUser(formData: FormData) {
  * freed for re-signup (the tombstone releases it); to also BLOCK re-use, call
  * `blacklistUser` instead.
  *
+ * ⚠ THE FOREIGN-KEY REASON FOR NOT DELETING IS GONE AS OF 2026-08-02, AND THIS
+ * FUNCTION STILL DOES NOT DELETE — on purpose. Two sweeps gave all 48 refusing
+ * FKs a written verdict, and exactly three still refuse (order_refunds,
+ * supplies_orders, vendor_contract_signatures — see
+ * tests/db/user-delete-refusing-fks.baseline.txt). So a hard delete would now
+ * succeed for most accounts. It is still the wrong operation: erasure's
+ * obligation is to destroy the PERSONAL data, not the business records, and
+ * anonymize-and-retain does exactly that while a DELETE would take the
+ * transactional history with it. Do not "fix" this to call auth.admin.deleteUser
+ * on the strength of the FKs now being clear — that is a different decision, and
+ * a DPO one. The only real DELETE in the app is the abandoned-anon-draft sweep
+ * (lib/anon-draft-sweep.ts), where the subject has no business records at all.
+ *
  * Safety guards:
  * - Cannot delete yourself
  * - Cannot delete is_internal accounts (owner / § 10a)

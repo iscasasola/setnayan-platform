@@ -9,6 +9,7 @@
  */
 import type { GenericOnboardingPayload } from './types';
 import { anchorForType, isAnchorOrigin } from '../event-anchor';
+import { initialLandingVisibility } from './initial-visibility';
 
 export type GenericInsertOpts = {
   slug: string;
@@ -86,6 +87,11 @@ export function buildGenericEventInsert(
     venue_name: null,
     venue_address: null,
     slug: opts.slug,
+    // Visible by link from the moment it exists — unless this is still an
+    // anonymous draft, which stays private until the account is secured.
+    // See initial-visibility.ts: the RLS anon-publish guard does NOT fire on
+    // this path, because the insert runs as service-role.
+    landing_page_visibility: initialLandingVisibility({ isAnonymous: opts.isAnonymous }),
     is_primary: true,
     // -- Wedding-only CHECK columns: NULL/false by construction for a non-wedding
     //    type. events_wedding_fields_consistency (migration 20260521080000)

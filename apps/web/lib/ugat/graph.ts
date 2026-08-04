@@ -47,7 +47,8 @@ export type UgatEntityType =
   | 'availability'
   | 'geography'
   | 'seatplan'
-  | 'runofshow';
+  | 'runofshow'
+  | 'livestudio';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -677,6 +678,67 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'cues', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * LIVE STUDIO — the control room. Cameras, cut points, the wall, the
+     * broadcast.
+     *
+     * ⚠ ONE NODE OVER TWO PREFIXES, AND THE PREFIXES ARE A RENAME ARTIFACT.
+     * The product was renamed Panood → Live Studio on 2026-06-29; the tables
+     * were not. `live_studio_roam_zones` carries a COMPOSITE foreign key
+     * `(camera_operator_id, event_id) → panood_camera_operators(id, event_id)`,
+     * and three `live-studio-*.ts` modules read `panood_*` tables directly.
+     * Drawing two nodes would map the rename instead of the system, and would
+     * hide the family's only inbound bond across a node boundary.
+     *
+     * This is the THIRD cluster where a name prefix under-captured a concept —
+     * after the calendar tables that do not match `vendor_schedule_%` and the
+     * emcee script that does not match `event_schedule_%`. A prefix is a naming
+     * convention, never a boundary.
+     *
+     * ⚠ THE BROADCAST LEDGER HAS NEVER RECORDED ANYTHING. `panood_broadcasts`
+     * has held zero rows for its entire existence while `panood_control_state`
+     * carries two rows with `first_live_at` stamped — the control room has been
+     * driven live twice and no broadcast was ever created. Its only writer sits
+     * behind three YouTube Data API calls that must all succeed, so zero rows is
+     * POSITIVE evidence the YouTube leg has never completed in production.
+     * (Whether the suspended Google Cloud Identity account is the cause was NOT
+     * verified and is not asserted here.)
+     *
+     * 🔴 RA 10173 GAP, ALREADY ASSERTED BY THE CODEBASE ITSELF.
+     * `panood_camera_operators.claimer_user_id` is a data-subject key with NO
+     * foreign key (verified across every schema), and the subject-rights
+     * plumbing does not cover this table: `export-coverage-guardrail.test.ts`
+     * classifies it verbatim as `TODO(RA10173-backlog)`, and the erasure
+     * guardrail lists it in `UNDECIDED_BACKLOG` — a ratchet whose own header
+     * reads "NOT A CLEAN BILL OF HEALTH — the opposite". A data-subject export
+     * or erasure today omits it, and the guardrails are what know.
+     *
+     * ⚠ DO NOT DROP THIS TABLE ON A NAME GREP. It is a live canary in two
+     * security suites — the same shape that broke ten assertions when
+     * `households` was dropped.
+     */
+    id: 'TYPE-LIVESTUDIO',
+    type: 'livestudio',
+    name: 'Live Studio',
+    blurb: 'the control room — cameras, cuts, the wall, the broadcast',
+    countKey: 'livestudio',
+    icon: 'camera',
+    color: 'var(--ug-e-studio)',
+    colorBg: 'var(--ug-e-studio-bg)',
+    table: 'panood_camera_operators',
+    x: 620,
+    y: 60,
+    fields: [
+      { key: 'pk', name: 'camera_index', note: 'the camera\u2019s identity — referenced everywhere as free text, not by id' },
+      { key: '', name: 'claimer_user_id', note: 'a data-subject key with NO FK (verified any schema) and no erasure coverage' },
+      { key: '', name: 'claim_qr_token', note: 'the operator\u2019s credential \u2014 survives erasure today, see the RA 10173 note' },
+    ],
+    edges: [
+      { verb: 'broadcasts', to: 'TYPE-EVENTS' },
+      { verb: 'cued by', to: 'TYPE-RUNOFSHOW' },
+    ],
+  },
 ];
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
@@ -756,6 +818,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'link',
     color: 'var(--ug-e-dayof)',
     colorBg: 'var(--ug-e-dayof-bg)',
+  },
+  livestudio: {
+    label: 'Live Studio',
+    icon: 'camera',
+    color: 'var(--ug-e-studio)',
+    colorBg: 'var(--ug-e-studio-bg)',
   },
 };
 
@@ -2073,6 +2141,77 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
     traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+  },
+  {
+    /**
+     * 🔑 THE BOND THAT PROVES PANOOD AND LIVE STUDIO ARE ONE SYSTEM.
+     * A COMPOSITE foreign key — unusual in this schema — pinning a roam zone to
+     * a camera operator AND the event together, so a zone can never point at an
+     * operator on a different event. It is also the family's only inbound bond,
+     * and it crosses the two name prefixes. Asserted because if the rename is
+     * ever finished, this claim is what tells whoever does it that the two
+     * halves are joined.
+     */
+    id: 'J38',
+    claims: [
+      { kind: 'table', table: 'panood_camera_operators' },
+      { kind: 'table', table: 'live_studio_roam_zones' },
+      { kind: 'fk', table: 'live_studio_roam_zones', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'panood_camera_operators', column: 'camera_index' },
+      { kind: 'no_fk', table: 'panood_camera_operators', column: 'claimer_user_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-LIVESTUDIO', 'TYPE-LIVESTUDIO'],
+    title: 'Camera operator ↔ roam zone (across the rename)',
+    joint: 'live_studio_roam_zones',
+    cardinality: 'Composite — (camera_operator_id, event_id), so a zone cannot borrow an operator from another event',
+    implementedBy: 'live_studio_roam_zones.(camera_operator_id, event_id) → panood_camera_operators.(id, event_id)',
+    writtenBy: 'the roam zone editor',
+    guardedBy: 'the composite FK itself — event scoping is enforced, not merely conventional',
+    traps: 'The panood_/live_studio_ split is a RENAME, not a boundary. claimer_user_id is a data-subject key with NO FK and no erasure coverage \u2014 it is named in export-coverage-guardrail.test.ts as TODO(RA10173-backlog). Do NOT drop this table on a name grep; it is a canary in two security suites.',
+  },
+  {
+    /**
+     * The control plane, and the two things it routes by that nothing enforces.
+     *
+     * ⚠ CAMERA IDENTITY IS FREE TEXT. `program_source` / `preview_source` hold
+     * `'cam' || camera_index` with no FK and no CHECK (verified), so nothing at
+     * the database level keeps a routed source pointing at a camera that
+     * exists. Latent, not live: every one of the 16 live moments was joined
+     * against the operators and all resolve on their own event. It stays latent
+     * only because both allocators ever APPEND — camera_index is never
+     * renumbered and never hard-deleted.
+     *
+     * ⚠ THE CHANNEL POOL IS SETNAYAN-OWNED (owner-locked 2026-07-26, reversing
+     * the couple-owns-the-channel model). `checked_out_event_id` SET NULLs on
+     * event delete, which returns the channel to the pool rather than orphaning
+     * it — the right behaviour for a shared resource.
+     */
+    id: 'J39',
+    claims: [
+      { kind: 'table', table: 'panood_control_state' },
+      { kind: 'fk', table: 'panood_control_state', column: 'active_moment_id', references: 'panood_moments' },
+      { kind: 'no_fk', table: 'panood_control_state', column: 'program_source' },
+      { kind: 'table', table: 'live_studio_roam_channel_pool' },
+      { kind: 'fk', table: 'live_studio_roam_channel_pool', column: 'checked_out_event_id', references: 'events' },
+      { kind: 'table', table: 'panood_broadcasts' },
+      { kind: 'table', table: 'panood_screens' },
+      { kind: 'table', table: 'panood_moments' },
+      { kind: 'table', table: 'live_studio_channel_grants' },
+      { kind: 'table', table: 'live_studio_highlights' },
+      { kind: 'table', table: 'live_studio_overlay_settings' },
+      { kind: 'table', table: 'live_studio_roam_streams' },
+      { kind: 'table', table: 'live_studio_channel_oauth_state' },
+    ],
+    chain: 2,
+    pair: ['TYPE-LIVESTUDIO', 'TYPE-EVENTS'],
+    title: 'Control room → cameras · moments · the channel pool',
+    joint: 'panood_control_state',
+    cardinality: 'One control state per event; one channel checked out of a shared Setnayan-owned pool',
+    implementedBy: 'panood_control_state routes program/preview; the pool lends a channel per event',
+    writtenBy: 'the control room (control-room.tsx) · the setup flow',
+    guardedBy: 'RLS per event; the routed source is guarded by NOTHING',
+    traps: 'panood_broadcasts has held ZERO rows for its entire existence while control_state shows the room driven live twice \u2014 the YouTube leg has never completed in prod. Its only writer sits behind three YouTube API calls that must all succeed. Downstream readers handle the empty table correctly and none mis-bills.',
   },
 ];
 

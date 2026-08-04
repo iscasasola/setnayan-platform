@@ -33,6 +33,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeAuspiciousReasonsDetailed,
+  isCeremonyType,
   type CeremonyType,
   type MeaningfulDate,
   type MeaningfulDateKind,
@@ -54,20 +55,11 @@ import { markDateUndecided } from './actions';
 
 export const metadata = { title: 'Pick your date · Setnayan' };
 
-const CEREMONY_TYPES: CeremonyType[] = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'mixed',
-];
-
-function isCeremonyType(value: unknown): value is CeremonyType {
-  return typeof value === 'string' && (CEREMONY_TYPES as readonly string[]).includes(value);
-}
+// `isCeremonyType` is imported from lib/auspicious-date.ts. This READ path used
+// to carry its OWN 8-member copy while the write path (./actions.ts) accepted
+// all 16 — so a locked `hindu`/`aglipayan`/`lds`/`sda`/`jw`/`sikh`/`buddhist`
+// event read back as `null` here, blanking the radio group and routing the host
+// into the Catholic seed-date branch. One guard, one list, no subsets.
 
 type Props = {
   params: Promise<{ eventId: string }>;

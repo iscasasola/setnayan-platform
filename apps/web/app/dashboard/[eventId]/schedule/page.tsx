@@ -357,7 +357,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   }
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <header className="sn-reveal space-y-3">
         <div>
           <p className="sn-eye">Timeline</p>

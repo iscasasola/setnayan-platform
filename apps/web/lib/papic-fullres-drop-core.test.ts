@@ -39,10 +39,26 @@ test('eligible: old photo, has web copy, not dropped, real key', () => {
   assert.equal(isEligibleForDrop(row(), OPTS), true);
 });
 
-test('NOT eligible: younger than the window', () => {
-  assert.equal(isEligibleForDrop(row({ captured_at: daysAgo(30) }), OPTS), false);
-  // exactly at the boundary is eligible (>=)
-  assert.equal(isEligibleForDrop(row({ captured_at: daysAgo(90) }), OPTS), true);
+test('🔑 a photo\u2019s OWN age no longer decides — the EVENT clock does', () => {
+  // ⚠ REWRITTEN 2026-08-02. This used to assert a per-photo 90-day fuse. That
+  // fuse was the bug: a photo taken five months before a wedding had its
+  // original deleted 90 days later — TWO MONTHS BEFORE THE WEDDING — so the
+  // longer a couple's journey, the more of its beginning was destroyed first.
+  //
+  // Owner: "the total time we keep their high resolution is 6 months from the
+  // first day they use the service." That sentence is about the EVENT, so the
+  // clock moved to papic_events_past_fullres_clock and the sweep only ever
+  // hands this function rows whose event has already expired.
+  //
+  // Re-testing age HERE would reinstate the defect, so a young capture from an
+  // expired event must pass.
+  assert.equal(isEligibleForDrop(row({ captured_at: daysAgo(1) }), OPTS), true);
+  assert.equal(isEligibleForDrop(row({ captured_at: daysAgo(400) }), OPTS), true);
+});
+
+test('but an UNREADABLE capture time still fails closed', () => {
+  // We never delete a row we do not understand.
+  assert.equal(isEligibleForDrop(row({ captured_at: 'not-a-date' }), OPTS), false);
 });
 
 test('NOT eligible: no web copy (would LOSE the photo)', () => {
@@ -207,10 +223,20 @@ test('clip NOT eligible: not a clip (photos never take this path)', () => {
   assert.equal(clipEligibleForDrop(clip({ media_type: null, photo_type: 'photo' }), OPTS), false);
 });
 
-test('clip NOT eligible: younger than the window / already dropped / sample seed', () => {
-  assert.equal(clipEligibleForDrop(clip({ captured_at: daysAgo(30) }), OPTS), false);
+test('clip NOT eligible: already dropped / sample seed', () => {
   assert.equal(clipEligibleForDrop(clip({ full_res_dropped_at: daysAgo(1) }), OPTS), false);
   assert.equal(clipEligibleForDrop(clip({ r2_object_key: 'sample/papic/demo/clip.mp4' }), OPTS), false);
+});
+
+test('🔑 a clip rides the same EVENT clock as the photos beside it', () => {
+  // ⚠ The per-clip age assertion that lived here moved out with the photo one.
+  // A clip shot during the ceremony and a photo shot five months earlier belong
+  // to ONE keepsake: two clocks would delete half of a couple's journey and keep
+  // the rest. The clip's own object-level guards (a distinct web copy, its byte
+  // floor, the fresh-grace on that object) are unchanged — those prove a playable
+  // copy exists, which is a different question from age.
+  assert.equal(clipEligibleForDrop(clip({ captured_at: daysAgo(1) }), OPTS), true);
+  assert.equal(clipEligibleForDrop(clip({ captured_at: 'not-a-date' }), OPTS), false);
 });
 
 // ── clip web-copy OBJECT custody (HEAD) + fresh-grace ────────────────────────

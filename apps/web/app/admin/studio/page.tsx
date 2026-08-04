@@ -16,7 +16,6 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { WebsiteSurface } from './_surfaces/website-surface';
-import { HeroVideoSurface } from './_surfaces/hero-video-surface';
 import { RevealStudioSurface } from './_surfaces/reveal-studio-surface';
 import { RecapsSurface } from './_surfaces/recaps-surface';
 import { RealStoriesSurface } from './_surfaces/real-stories-surface';
@@ -58,7 +57,6 @@ export const metadata = { title: 'Studio · Admin' };
 // The WIRED tabs this slice renders inline (grows in later slices).
 const TABS = [
   'website',
-  'hero-video',
   'reveal-studio',
   'recaps',
   'real-stories',
@@ -102,7 +100,6 @@ type RailItem = {
 const RAIL: RailItem[] = [
   // ── Content (9) ─────────────────────────────────────────────────────────
   { key: 'website', label: 'Website', icon: Globe, group: 'Content', wired: true, legacyHref: '/admin/website' },
-  { key: 'hero-video', label: 'Hero video', icon: Video, group: 'Content', wired: true, legacyHref: '/admin/hero-video' },
   { key: 'reveal-studio', label: 'Reveal Studio', icon: Sparkles, group: 'Content', wired: true, legacyHref: '/admin/reveal-studio' },
   { key: 'real-stories', label: 'Real Stories', icon: Newspaper, group: 'Content', wired: true, legacyHref: '/admin/real-stories' },
   // Storytellers (PR-D 2026-07-16) — chapter featuring for the /realstories
@@ -178,9 +175,7 @@ export default async function AdminStudioPage({ searchParams }: Props) {
 
       {/* Active surface body. */}
       <div className="min-w-0 flex-1">
-        {tab === 'hero-video' ? (
-          <HeroVideoSurface />
-        ) : tab === 'reveal-studio' ? (
+        {tab === 'reveal-studio' ? (
           <RevealStudioSurface />
         ) : tab === 'recaps' ? (
           <RecapsSurface ok={first(search.ok) ?? null} error={first(search.error) ?? null} />

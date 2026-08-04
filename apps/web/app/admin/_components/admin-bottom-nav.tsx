@@ -180,7 +180,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // create a doorway, and a stale string here is harmless where a MISSING one
       // would leave the surface unlit the day the flag flips.
       '/admin/live-studio-channels',
-      '/admin/hero-video',
       '/admin/reveal-studio',
       '/admin/real-stories',
       '/admin/recaps',

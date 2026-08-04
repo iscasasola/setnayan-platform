@@ -1,5 +1,7 @@
 'use server';
 
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { initialLandingVisibility } from '@/lib/onboarding/initial-visibility';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
@@ -462,6 +464,12 @@ export async function commitOnboardingWedding(
       venue_address: null,
       slug,
       is_primary: true,
+      // Visible by link from creation — unless still an anonymous draft. The
+      // rule lives in lib/onboarding/initial-visibility.ts because this insert
+      // runs as service-role and the RLS anon-publish guard cannot see it.
+      landing_page_visibility: initialLandingVisibility({
+        isAnonymous: Boolean(user.is_anonymous),
+      }),
       // Iteration 0043 wedding-type columns (CHECK-constraint-required for weddings)
       ceremony_type: ceremonyType,
       venue_setting: venueSetting,
@@ -943,7 +951,28 @@ export async function searchOnboardingReceptionVenues(input: {
         .slice(0, 6)
         .map((r) => toResult(r, 'travel'));
     }
-    return [...natives, ...travels];
+    // ⚠ RESOLVE THE PHOTO REF BEFORE IT LEAVES THE SERVER.
+    // `vendor_profiles.logo_url` (and `primary_photo_url`) STORE a raw `r2://`
+    // ref — that is the shipped contract, and `VendorAvatar`'s docblock states
+    // the other half: "a raw r2:// ref will not render, so pass the resolved URL
+    // or null." `toResult` handed the raw value to the client, where
+    // `onboarding-shell.tsx` drops it into `backgroundImage: url(...)` — so the
+    // vendor picker rendered a background that cannot load.
+    //
+    // This is the source of the live `img-src r2://setnayan-media` violations in
+    // the report-only CSP (2026-08-02): prod has a vendor whose logo_url is
+    // `r2://setnayan-media/vendors/.../logo/...png`, and walking onboarding fires
+    // one report per card.
+    //
+    // Resolved in ONE Promise.all — each call is a separate signing round trip —
+    // and idempotent, so a legacy plain URL passes through untouched. Failure
+    // degrades to null (the picker already renders an initials/placeholder tile),
+    // never to a broken image.
+    const all = [...natives, ...travels];
+    const photoUrls = await Promise.all(
+      all.map((v) => displayUrlForStoredAsset(v.photoUrl).catch(() => null)),
+    );
+    return all.map((v, i) => ({ ...v, photoUrl: photoUrls[i] ?? null }));
   } catch {
     return [];
   }

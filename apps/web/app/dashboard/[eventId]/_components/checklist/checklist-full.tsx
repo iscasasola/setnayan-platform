@@ -262,12 +262,16 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="sn-col space-y-6">
       <header className="sn-reveal space-y-3">
         <div className="space-y-1">
           <p className="sn-eye">{chrome.eyebrow}</p>
           <h1 className="sn-h1">{chrome.heading}</h1>
-          <p className="text-sm text-ink/65">{chrome.intro}</p>
+          {/* max-w-prose (65ch) matches the budget + schedule intros. Without
+              it this paragraph inherits the shell's uncapped content column and
+              ran ~160 characters per line on a 1440px desktop — roughly 2x the
+              comfortable measure. */}
+          <p className="max-w-prose text-sm text-ink/65">{chrome.intro}</p>
         </div>
 
         {totalCount > 0 ? (

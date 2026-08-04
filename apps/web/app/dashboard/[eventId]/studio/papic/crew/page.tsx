@@ -16,7 +16,6 @@ import {
   eventPapicSeatsActive,
   fetchPapicSeats,
   papicSeatJoinUrl,
-  PAPIC_SEAT_COUNT,
 } from '@/lib/papic-seats';
 import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -71,6 +70,13 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
   // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
   // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
+  const { data: eventRow } = await supabase
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventSlug = (eventRow as { slug?: string | null } | null)?.slug ?? null;
+
   const ownsPack = await eventPapicSeatsActive(supabase, eventId);
   const seats = await fetchPapicSeats(supabase, eventId);
 
@@ -122,6 +128,27 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   );
 
   const claimedCount = seats.filter((s) => s.claimer_user_id).length;
+
+  // ── THE POSTER QR — the EVENT SITE's own join link ─────────────────────────
+  //
+  // ⚠ REWRITTEN 2026-08-02. The first version of this minted a bespoke
+  // `papic_pool_token` and pointed at a standalone /papic/pool/[token] camera.
+  // That was a SECOND DOOR built beside one that already existed: `/{slug}/invite`
+  // is the shared join link the couple already hands out, already rotatable and
+  // revocable, already feeding the guest list's self-join reconcile queue. Both
+  // the bespoke route and its column are gone (zero were ever minted).
+  //
+  // Pointing the poster at the event site is also the BETTER experience, not
+  // just the cheaper one. A scanner lands on the guest site and gets all three
+  // things: a camera, their own QR so others can tag them, and a gallery of
+  // photos of them. The standalone camera gave only the first — so a poster
+  // scanner could shoot but could never receive.
+  //
+  // Requires a slug (the site's address). No slug ⇒ no poster, rather than a QR
+  // pointing nowhere.
+  const posterUrl = eventSlug ? `${appUrl}/${eventSlug}/invite` : null;
+  const poolJoinUrl = posterUrl;
+  const poolQrSvg = poolJoinUrl ? await renderUrlQrSvg(poolJoinUrl, 200) : null;
 
   return (
     <section className="space-y-8 pb-12">
@@ -189,11 +216,23 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       {seats.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
           <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Top up your {PAPIC_SEAT_COUNT} seats</h2>
+          {/* ⚠ NO SEAT COUNT HERE. This said "Top up your 5 seats" / "Your 5
+              photo-crew seats", from PAPIC_SEAT_COUNT — the count of the RETIRED
+              PAPIC_SEATS pass. What an event actually gets is
+              PAPIC_FREE_CAMERA_COUNT (3) shared-pool cameras plus the free Papic
+              One, and a paid event gets however many it bought. Five was true of
+              none of them.
+              🪤 The message 20 lines below was fixed for exactly this reason and
+              carries a comment saying so — but it is the branch that renders
+              when seats EXIST, and this is the branch that renders when they do
+              not. One arm got the fix; the other kept the stale number. So the
+              count is simply not spelled here: this is the ZERO state, and the
+              roster it would describe is the thing that does not exist yet. */}
+          <h2 className="mt-3 text-xl font-semibold tracking-tight">Set up your crew cameras</h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Your {PAPIC_SEAT_COUNT} photo-crew seats are set up automatically the moment your
+            Your photo-crew cameras are set up automatically the moment your
             order is approved. If any are missing, tap below to fill them in — each
-            gets its own claim link you can hand to a friend.
+            gets its own claim link and QR you can hand to a friend.
           </p>
           {/* Idempotent top-up: provisionPapicSeats only inserts the missing seat
               indexes (ON CONFLICT DO NOTHING), so this is now a SAFE fallback, not a
@@ -205,11 +244,51 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Fill in my {PAPIC_SEAT_COUNT} seats
+              Fill in my crew cameras
             </SubmitButton>
           </form>
         </div>
       ) : (
+        <>
+        {poolJoinUrl && poolQrSvg ? (
+          <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/[0.04] p-5 sm:p-6">
+            <div className="flex flex-wrap items-start gap-5">
+              <div
+                aria-hidden
+                className="shrink-0 rounded-xl bg-white p-2 [&>svg]:h-32 [&>svg]:w-32"
+                dangerouslySetInnerHTML={{ __html: poolQrSvg }}
+              />
+              <div className="min-w-0 flex-1 space-y-2">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  One code for everyone
+                </h2>
+                <p className="max-w-prose text-sm text-ink/70">
+                  Print this, put it on a table. Anyone who scans it gets their
+                  own camera and shoots into your shared pool — no app, no
+                  sign-up, and it never runs out of cameras. It stops when your
+                  shots do.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <CopyButton value={poolJoinUrl} />
+                  <Link
+                    href={`${backLink}/crew/poster`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
+                  >
+                    <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Print the poster
+                  </Link>
+                </div>
+                <p className="pt-1 text-xs text-ink/50">
+                  Anyone holding this code can shoot. Reprint from a fresh code
+                  if it ends up somewhere you didn&rsquo;t intend.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           {seatViews.map((s) => {
             const claimed = Boolean(s.claimer_user_id);
@@ -284,6 +363,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
             );
           })}
         </div>
+        </>
       )}
     </section>
   );

@@ -156,3 +156,25 @@ test('every baseline line carries a real reason, not a placeholder', async () =>
     .map(([fn]) => fn);
   assert.deepEqual(bad, [], `baseline lines with no real reason: ${bad.join(', ')}`);
 });
+
+test('the `unreviewed` escape hatch is closed — the backlog reached zero', async () => {
+  // Seeded 2026-08-01 with 190 lines reading `unreviewed — …`, an honest debt
+  // marker while 190 bodies genuinely had not been read. All 211 anon-callable
+  // SECURITY DEFINER functions have since been walked across three passes
+  // (33 + 178 + 52 examined; 22 closed), and the marker reached zero.
+  //
+  // From here it is forbidden. An escape hatch that was correct while real debt
+  // existed becomes, the moment the debt clears, a way to add new debt quietly —
+  // which is exactly how the map-backlog and the joint count both drifted.
+  // Anon-callable is still allowed; being anon-callable WITHOUT A REASON is not.
+  const lazy = [...readBaseline().entries()]
+    .filter(([, reason]) => /\bunreviewed\b/i.test(reason))
+    .map(([fn]) => fn);
+  assert.deepEqual(
+    lazy,
+    [],
+    `${lazy.length} baseline line(s) fall back on "unreviewed": ${lazy.join(', ')}.\n` +
+      `That marker is retired. Read the body and write what actually gates the function —\n` +
+      `a secret token, an ownership lookup, a trigger-depth check — or revoke the grant.`,
+  );
+});

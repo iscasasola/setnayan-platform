@@ -242,11 +242,22 @@ test('the HOST of the event does see their guests\' orders — host visibility, 
 });
 
 test('⭐ an account-less order is unreadable by `anon`', async () => {
+  // STRENGTHENED by 20271032407062 (stale-anon-grant revoke, batch 2). This used
+  // to assert `rows.length === 0` — anon reached the table and RLS returned
+  // nothing. anon now holds no privilege on `public.orders` at all, so the read
+  // is refused one layer earlier and never reaches RLS. An empty read and a
+  // denied read are the same VALUE but not the same guarantee: the denial is the
+  // stronger one, because it does not depend on the policy set staying correct.
   await asAnon();
-  const r = await db.query(`SELECT order_id FROM public.orders WHERE order_id = $1`, [
+  const err = await tryQuery(`SELECT order_id FROM public.orders WHERE order_id = $1`, [
     guestOrderId,
   ]);
-  assert.equal(r.rows.length, 0, 'a guest order leaked to an anonymous session');
+  assert.ok(err, 'anon can still reach public.orders — the batch-2 revoke did not land');
+  assert.match(
+    String(err),
+    /permission denied/i,
+    `anon was refused, but not by the privilege layer: ${err}`,
+  );
   await reset();
 });
 
@@ -481,7 +492,12 @@ test('⭐ an account-less payment is unreadable by every session role', async ()
   // payment is invisible even to the host, who sees the ORDER but not the
   // payer's uploaded proof. That asymmetry is deliberate and worth pinning: the
   // screenshot is a stranger's bank receipt, and the host has no business in it.
-  for (const impersonate of [asAuthenticated, asStranger, asAnon]) {
+  //
+  // The `anon` arm is split out since 20271032407062 (stale-anon-grant revoke,
+  // batch 2): anon no longer holds ANY privilege on `public.payments`, so its
+  // read is refused by the privilege layer before RLS is consulted. Same
+  // conclusion, one layer earlier, and it no longer rests on the policy set.
+  for (const impersonate of [asAuthenticated, asStranger]) {
     await impersonate();
     const r = await db.query(`SELECT payment_id FROM public.payments WHERE order_id = $1`, [
       guestOrderId,
@@ -489,6 +505,18 @@ test('⭐ an account-less payment is unreadable by every session role', async ()
     assert.equal(r.rows.length, 0, 'a guest payment leaked to a session role');
     await reset();
   }
+
+  await asAnon();
+  const err = await tryQuery(`SELECT payment_id FROM public.payments WHERE order_id = $1`, [
+    guestOrderId,
+  ]);
+  assert.ok(err, 'anon can still reach public.payments — the batch-2 revoke did not land');
+  assert.match(
+    String(err),
+    /permission denied/i,
+    `anon was refused, but not by the privilege layer: ${err}`,
+  );
+  await reset();
 });
 
 /* ── 6 · NEUTRALISATION — the closure is the REVOKE, not luck ──────────────── */

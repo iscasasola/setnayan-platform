@@ -1134,6 +1134,12 @@ export function PapicSeatCapture({
       }`
     : `${photos + clips} ${photos + clips === 1 ? 'shot' : 'shots'}`;
 
+  // What this guest would LOSE by closing the tab — their own shots, which the
+  // couple keeps either way. Drives the nudge above: nothing at stake reads
+  // calm, something at stake reads urgent. Same `photos`/`clips` the header
+  // counts, so the nudge and the count can never disagree.
+  const shotsTaken = photos + clips;
+
   // Countdown ring geometry (a 4.5rem button → r≈30 stroke ring around it).
   const RING_C = 2 * Math.PI * 32;
   const recFrac = Math.min(recElapsed / CLIP_MAX_MS, 1);
@@ -1164,19 +1170,59 @@ export function PapicSeatCapture({
       </header>
 
       {/* Opt-in account sync (anonymous claimers only). One-tap claim stays
-          frictionless; this is the calm "keep these" nudge — /signup attaches an
-          email to the SAME anon uid, so the seat + every capture carry over. */}
+          frictionless; /signup attaches an email to the SAME anon uid, so the
+          seat + every capture carry over.
+          
+          ⚠ THIS NUDGE NOW GROWS WITH WHAT THERE IS TO LOSE. It used to read the
+          same calm sentence whether the guest had taken 0 shots or 40 — so at
+          the only moment it mattered, it looked exactly like the moment it did
+          not, and a guest who closed the tab lost every photo they took. (The
+          couple's copy is safe either way; this is the guest's own.)
+          
+          The host's rule, owner 2026-08-02: a guest gets photos they were TAGGED
+          in, otherwise only what they took. "What they took" is precisely what
+          this nudge protects, so it has to land before the tab closes. */}
       {isAnon && (
         <Link
           href={`/signup?next=${encodeURIComponent(`/papic/seat/${token}`)}`}
-          className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15"
+          className={
+            shotsTaken > 0
+              ? 'mx-4 mb-1 flex items-center gap-2.5 rounded-lg border-2 border-champagne-gold bg-champagne-gold/20 px-3 py-2.5 text-xs text-cream transition hover:bg-champagne-gold/25'
+              : 'mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15'
+          }
         >
-          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-champagne-gold" strokeWidth={1.9} />
+          <ShieldCheck
+            aria-hidden
+            className={
+              shotsTaken > 0
+                ? 'h-5 w-5 shrink-0 text-champagne-gold'
+                : 'h-4 w-4 shrink-0 text-champagne-gold'
+            }
+            strokeWidth={1.9}
+          />
           <span className="min-w-0 flex-1">
-            <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
-            Save these to your Setnayan account to find them later.
+            {shotsTaken > 0 ? (
+              <>
+                <span className="font-semibold text-cream">
+                  {shotsTaken} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
+                  on this phone.
+                </span>{' '}
+                Save them to your account or they go when you close this tab.
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
+                Save these to your Setnayan account to find them later.
+              </>
+            )}
           </span>
-          <span className="shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream">
+          <span
+            className={
+              shotsTaken > 0
+                ? 'shrink-0 rounded-full bg-cream px-3 py-1 font-semibold text-ink'
+                : 'shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream'
+            }
+          >
             Save
           </span>
         </Link>

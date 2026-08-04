@@ -145,6 +145,89 @@ export type OwnerCapability = {
   ownerEventId: string;
 };
 
+/**
+ * The vendor layer's server-verified grant.
+ *
+ * SAME SHAPE CHOICE AS `OwnerCapability`, for the same three reasons — and one
+ * more that is specific to vendors:
+ *
+ *   4. A person can hold TWO roles at one event. The owner already ruled it
+ *      (2026-08-01, "there is a stylist and an emcee both in 1 service"), and
+ *      `familiesForServices()` already returns a Set. A `kind: 'vendor'` arm on
+ *      the identity union could not express a guest who is ALSO the booked
+ *      florist — the discriminant admits one answer. A capability composes; an
+ *      arm replaces. That alone rules out the union.
+ *
+ * ⚠ It is also why `site-body.tsx:1524` must stay a two-arm ternary: a third
+ * arm would fall into the guest branch rather than fail to compile.
+ *
+ * Bound to ONE event and ONE auth user, produced ONLY by
+ * `resolveVendorCapability` below. No client input reaches this path.
+ */
+export type VendorCapability = {
+  /** Literal discriminant — never `kind`, so it cannot be mistaken for an
+   *  identity arm. */
+  capability: 'vendor';
+  /** The auth user whose booking the server verified. */
+  vendorUserId: string;
+  /** The event that booking was verified AGAINST. A capability resolved for
+   *  event A must never be honoured on event B. */
+  vendorEventId: string;
+  /** The vendor profile that is booked here — used to build the link into
+   *  their own workspace for THIS event. */
+  vendorProfileId: string;
+  /** Their trading name, for the strip's copy. */
+  businessName: string;
+};
+
+/** Every key of `VendorCapability` — the forbidden set for both identity tiers.
+ *  Exported so the firewall test asserts against the real key list. */
+export const VENDOR_CAPABILITY_KEYS = [
+  'capability',
+  'vendorUserId',
+  'vendorEventId',
+  'vendorProfileId',
+  'businessName',
+] as const satisfies readonly (keyof VendorCapability)[];
+
+/**
+ * Booked-vendor probe, injected — same reason as `HostMembershipCheck`:
+ * loaders.ts pulls `server-only` transitively and would make this module
+ * unloadable outside a Next server runtime.
+ *
+ * Returns the booked vendor profile for this user on this event, or null.
+ */
+export type VendorBookingCheck = (
+  userId: string,
+) => Promise<{ vendorProfileId: string; businessName: string } | null>;
+
+/**
+ * THE vendor gate. Returns a capability ONLY for an auth user the database
+ * confirms is booked on THIS event.
+ *
+ * Denies, in order:
+ *   - no signed-in account (a guest cookie is not an account);
+ *   - signed in, but not booked here.
+ *
+ * Nothing about the request can shortcut the booking read.
+ */
+export async function resolveVendorCapability(input: {
+  eventId: string;
+  viewerUserId: string | null;
+  checkVendorBooking: VendorBookingCheck;
+}): Promise<VendorCapability | null> {
+  if (!input.viewerUserId) return null;
+  const booked = await input.checkVendorBooking(input.viewerUserId);
+  if (!booked) return null;
+  return {
+    capability: 'vendor',
+    vendorUserId: input.viewerUserId,
+    vendorEventId: input.eventId,
+    vendorProfileId: booked.vendorProfileId,
+    businessName: booked.businessName,
+  };
+}
+
 /** Every key of `OwnerCapability` — the forbidden set for both identity tiers.
  *  Exported so the firewall test asserts against the real key list rather than
  *  a hand-copied one that could drift. */
@@ -264,3 +347,16 @@ const _identityNeverCarriesOwnerCapability: OwnerLeak extends never
   ? true
   : false = true;
 void _identityNeverCarriesOwnerCapability;
+
+// --- The same proof for the vendor capability. A booked supplier's grant must
+// --- never ride on a visitor's identity object either: the strip that links
+// --- into their own workspace is unlocked by the DB, not by a field someone
+// --- could smuggle through the tree.
+type VendorLeak = Extract<
+  keyof AnonymousSiteIdentity | keyof GuestSiteIdentity,
+  keyof VendorCapability
+>;
+const _identityNeverCarriesVendorCapability: VendorLeak extends never
+  ? true
+  : false = true;
+void _identityNeverCarriesVendorCapability;

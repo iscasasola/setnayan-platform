@@ -99,3 +99,51 @@ test('handoff · the flag-off path cannot mount the wrapper', () => {
   assert.match(SITE, /plan\.openBrowse \? \(\s*<StdFilmHandoff/);
   assert.match(SITE, /canExit=\{plan\.openBrowse\}/);
 });
+
+// ── The way out must exist THROUGHOUT the film, not only at its end ──────────
+// The closing-beat button above is the natural conclusion. It is not a way OUT:
+// a visitor who lifted the veil and wanted the website had to sit through the
+// whole film to reach it. The owner hit precisely that (2026-08-04) — "petals
+// are still there… we have been pushing this edit for 3 days" — because the
+// veil's retirement had shipped and there was still nothing to press.
+
+test('handoff · a persistent exit is mounted once the film has STARTED', () => {
+  assert.match(
+    FILM,
+    /\{canExit && started && !preview \?/,
+    'the persistent exit must be gated on canExit AND started — `started` is what ' +
+      'keeps it out of the DOM (and out of the tab order) under the veil, before ' +
+      'the music, the clip and the gallery have played',
+  );
+});
+
+test('handoff · the persistent exit is not merely hidden, and fires the exit event', () => {
+  const block = FILM.slice(FILM.indexOf('{canExit && started && !preview ?'));
+  const upToClose = block.slice(0, block.indexOf('</button>'));
+  assert.ok(
+    upToClose.includes(`new CustomEvent(STD_FILM_EXIT_EVENT)`),
+    'the persistent exit must dispatch the shared exit event, not a re-typed string — ' +
+      'a re-typed name is a listener that silently never fires',
+  );
+  const buttonTag = upToClose.slice(upToClose.indexOf('<button'));
+  const classNames = [...buttonTag.matchAll(/className=\{?`?([^`"}]*)/g)]
+    .map((m) => m[1] ?? '')
+    .join(' ');
+  for (const smell of ['pointer-events-none', 'opacity-0', 'invisible', 'sr-only', 'hidden']) {
+    assert.ok(
+      !classNames.includes(smell),
+      `the persistent exit's own classes include "${smell}" — hiding a button does not ` +
+        `remove it from the tab order, and here it would also make the door invisible.`,
+    );
+  }
+});
+
+test('handoff · the veil retires on the SAME event the exit fires', () => {
+  // Two names typed by hand is how a door gets built that opens nothing.
+  const OVERLAY = readFileSync(join(HERE, 'reveal', 'reveal-overlay.tsx'), 'utf8');
+  assert.match(OVERLAY, /STD_FILM_EXIT_EVENT/, 'the veil must listen for the imported constant');
+  assert.ok(
+    !/addEventListener\(\s*'std:film-exit'/.test(OVERLAY),
+    'the listener must use the imported constant, never a re-typed string literal',
+  );
+});

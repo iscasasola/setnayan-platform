@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6197
+# facts: 6199
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     670
 #   col       4479
-#   policy    829
+#   policy    831
 #   view      10
 #   func      205
 #
@@ -5859,8 +5859,10 @@ policy	public.vendor_meetings|vendor_meetings_host_all	mode=PERMISSIVE cmd=ALL r
 policy	public.vendor_member_token_wallets|vmtw_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = auth.uid()) OR (vendor_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type))))) check=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_package_item_options|vendor_package_item_options_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.is_active = true))) check=NULL
+policy	public.vendor_package_item_options|vendor_package_item_options_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))
 policy	public.vendor_package_items|vendor_package_items_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((package_id IN ( SELECT vp.package_id FROM (vendor_packages vp JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type))))) check=((package_id IN ( SELECT vp.package_id FROM (vendor_packages vp JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_package_items|vendor_package_items_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(package_id IN ( SELECT vendor_packages.package_id FROM vendor_packages WHERE (vendor_packages.is_active = true))) check=NULL
+policy	public.vendor_package_items|vendor_package_items_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(package_id IN ( SELECT vp.package_id FROM vendor_packages vp WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=(package_id IN ( SELECT vp.package_id FROM vendor_packages vp WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))
 policy	public.vendor_packages|vendor_packages_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type))))) check=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = auth.uid()) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_packages|vendor_packages_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_active = true) check=NULL
 policy	public.vendor_packages|vendor_packages_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))

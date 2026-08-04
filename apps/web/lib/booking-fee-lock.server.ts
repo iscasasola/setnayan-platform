@@ -201,18 +201,45 @@ export async function collectBookingFeeAtLock(
  *
  * The acknowledge path can be handed EITHER. `fetchLockRequests`
  * (`lib/vendor-overview.ts`) queries with the service-role client filtered only
- * on `marketplace_vendor_id` + deposit markers — no `package_role` filter, no
- * `archived_at` filter — and posts that raw id straight into
- * `vendorAcknowledgeDeposit`. And the DB does not stop it: the "covered rows
- * carry no money" CHECK (`20271009160000:64-67`) constrains `total_cost_php`
- * and `deposit_paid_php` only, NOT the deposit timestamps.
+ * on `marketplace_vendor_id` + deposit markers — no `package_role` filter — and
+ * posts that raw id straight into `vendorAcknowledgeDeposit`. The "covered rows
+ * carry no money" CHECK (`20271009160000:64-67`) does not stop it either: it
+ * constrains `total_cost_php` and `deposit_paid_php`, NOT the deposit
+ * timestamps.
+ *
+ * ⚠ CORRECTED 2026-08-04 — WHAT THAT DOES **NOT** MEAN.
+ * A covered row reaching this path is NOT an over-billing risk. Verified
+ * against the LIVE prod function (`pg_get_functiondef`, not a migration file):
+ * `booking_fee_open_lock_charge` selects `ev.package_role` and refuses
+ * immediately, before any money logic —
+ *     IF v_ev.package_role = 'covered' THEN
+ *       RETURN jsonb_build_object('skipped', 'covered_row_no_fee');
+ * — and EVERY money path reaches the charge through that one RPC. The original
+ * version of this docblock claimed a covered row "gets billed". It does not.
+ * Three supporting facts were each true (no filter on the feed, the CHECK
+ * covers amounts only, this module has no anchor logic) and the CONCLUSION
+ * drawn from them was wrong: the guard sat one layer below where the trace
+ * stopped. Facts survive; consequences are what get invented.
+ *
+ * ─── What this function IS actually for ──────────────────────────────────
+ * Two real jobs, neither of them "stop an over-charge":
+ *
+ * 1 · UNDER-BILLING. Without it, a vendor acknowledging on a covered row
+ *     collects **nothing at all** — the RPC skips, and the anchor's fee is
+ *     never opened by that path. Resolving to the anchor turns a silent ₱0
+ *     into the correct single charge. This is a revenue fix.
+ * 2 · THE POOL DOUBLE-CONSUME, which has NO backstop. `acquire_schedule_pools`
+ *     does not read `package_role` at all (confirmed on the live function), and
+ *     occupancy counts every `event_vendor_id <> ours` — so an anchor-scoped
+ *     acquire plus an earlier covered-row acquire eats the vendor's daily
+ *     capacity twice for one booking and tells a real second couple the date is
+ *     full. Routing every acquire through this one identity is the only thing
+ *     preventing that.
  *
  * ─── The rule ────────────────────────────────────────────────────────────
- * Resolve to the anchor, or bill NOTHING. **Never** fall back to the covered
- * row's own id: skipping a fee is a recoverable mistake; charging the wrong row
- * freezes a ledger ordinal (`ON CONFLICT … DO UPDATE` never rewrites
- * `attribution`, `20271009180000:83-89`) and burns one of the vendor's five
- * free bookings — permanently, on a row that was never supposed to carry money.
+ * Resolve to the anchor, or return NULL. **Never** fall back to the covered
+ * row's own id — that remains right as defence-in-depth, and it is what makes
+ * the pool identity single.
  *
  * Fail-safe invariant #1 of the seam contract, verbatim: *any resolution error
  * or unknown state bills NOTHING. A vendor must never be charged by a bug.*

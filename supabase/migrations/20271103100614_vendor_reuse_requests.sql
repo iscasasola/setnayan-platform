@@ -1,4 +1,10 @@
 -- Reusable Locked Bookings — the couple re-books a past vendor, the vendor
+-- ⚠ RE-ALLOCATED 2026-08-04. Shipped originally as 20270929330649, whose prefix
+--   had fallen BELOW main's applied head (20271102113000) while this PR sat open.
+--   Migrations apply once, in prefix order, so the original would have merged
+--   green and created NOTHING — and the flag comment told the owner to flip the
+--   feature on AFTER pushing it. SQL unchanged. Verify the OBJECT after merge:
+--     SELECT to_regclass('public.vendor_reuse_requests');   -- must be non-NULL
 -- re-prices, and it becomes a NEW lock = a NEW fee (owner-locked 2026-07-24).
 --
 -- TWO LAYERS, kept strictly apart:
@@ -105,6 +111,19 @@ CREATE POLICY vendor_reuse_requests_couple_read
 CREATE POLICY vendor_reuse_requests_vendor_read
   ON public.vendor_reuse_requests FOR SELECT TO authenticated
   USING (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
+
+-- ⚠ MANDATORY, AND IT WAS MISSING (added 2026-08-04). Every new table in the
+-- `public` schema ships OPEN: the database's default ACL hands anon AND
+-- authenticated full SELECT/INSERT/UPDATE/DELETE at the TABLE level, and RLS
+-- does not undo a table-level GRANT. The exposure baseline caught it — this
+-- table was regenerating as:
+--     tpriv public.vendor_reuse_requests|anon           SIUD
+--     col   public.vendor_reuse_requests.quoted_total_php  anon=SIU …
+-- i.e. anon-reachable surface on a table holding vendors' quoted prices and
+-- decline reasons. Every policy above is TO authenticated, so anon has no
+-- business here at any level.
+REVOKE ALL ON public.vendor_reuse_requests FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vendor_reuse_requests TO authenticated;
 
 -- Keep updated_at honest.
 CREATE OR REPLACE FUNCTION public.tg_vendor_reuse_requests_touch()

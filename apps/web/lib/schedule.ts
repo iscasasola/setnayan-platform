@@ -468,16 +468,34 @@ export type ScheduleSeedChild = {
 /** Anchor date = events.event_date if set, else 6 months from today as a
  *  reasonable PH-wedding planning runway. The host re-edits these times
  *  as soon as they set their actual date. */
+/**
+ * Anchor a wall-clock time to the event's date, as a stored schedule time.
+ *
+ * ── BUILT FROM COMPONENTS, DELIBERATELY ─────────────────────────────────────
+ * A stored schedule time is the VENUE'S WALL CLOCK written into a UTC column,
+ * so the digits must survive whatever timezone this code happens to run in.
+ * The old form — `new Date('2026-11-14')` then `.setHours(6, 30)` then
+ * `.toISOString()` — mixes a UTC parse with LOCAL setters. Under UTC it happens
+ * to give the right answer, which is why it looked fine for months; run it in
+ * New York and every seeded block lands at 11:30Z **on the previous day**.
+ *
+ * Output is byte-identical under UTC, so nothing about a seeded event changes.
+ * What changes is that it is now the same everywhere.
+ */
 function anchorIso(eventDate: string | null, hour: number, minute = 0): string {
-  const base = eventDate ? new Date(eventDate) : null;
-  if (base && !Number.isNaN(base.getTime())) {
-    base.setHours(hour, minute, 0, 0);
-    return base.toISOString();
+  const m = eventDate ? /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate) : null;
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${y}-${mo}-${d}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00.000Z`;
   }
+  // No date yet — a placeholder the host re-times. Take the runtime's calendar
+  // day (the only date available) and stamp the wall clock onto it by hand.
   const fallback = new Date();
   fallback.setMonth(fallback.getMonth() + 6);
-  fallback.setHours(hour, minute, 0, 0);
-  return fallback.toISOString();
+  const y = fallback.getFullYear();
+  const mo = String(fallback.getMonth() + 1).padStart(2, '0');
+  const d = String(fallback.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${d}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00.000Z`;
 }
 
 /** Build the seed payload · returns top-level rows + a builder fn for

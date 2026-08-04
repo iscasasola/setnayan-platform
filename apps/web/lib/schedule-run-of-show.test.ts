@@ -125,16 +125,26 @@ test('tournament: setup is a private crew beat; the rest of the day is public', 
 });
 
 const p2 = (n: number) => String(n).padStart(2, '0');
-/** The LOCAL calendar date of an ISO instant (anchorIso sets LOCAL clock hours,
- *  so the UTC string's prefix is not the anchoring contract). */
+/**
+ * The VENUE'S calendar date of a stored schedule time.
+ *
+ * ⚠ These read UTC components, and that is the point. A stored schedule time is
+ * the venue's WALL CLOCK written into a UTC column, so the string's own digits
+ * ARE the answer — the same rule `formatBlockTime` follows.
+ *
+ * They used to use LOCAL getters, matching an `anchorIso` that built its output
+ * with local setters. The pair agreed with each other and drifted together, so
+ * the suite stayed green while a seeded event landed on the wrong DAY outside
+ * UTC. Two halves that are wrong in the same direction test nothing.
+ */
 const localDate = (iso: string): string => {
   const d = new Date(iso);
-  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
 };
-/** The LOCAL wall-clock time of an ISO instant, "HH:MM". */
+/** The venue's wall-clock time of a stored schedule time, "HH:MM". */
 const localTime = (iso: string): string => {
   const d = new Date(iso);
-  return `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  return `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
 };
 
 /**
@@ -145,11 +155,13 @@ const localTime = (iso: string): string => {
  * UTC) and then sets LOCAL hours on it, so in any timezone WEST of UTC the whole
  * seed lands on the day BEFORE the event. That is a PRE-EXISTING defect shared
  * by every authored program (and mirrored in schedule.ts's wedding seed) — the
- * sibling test 'blocks are anchored to the event date and time-ordered' already
- * fails under `TZ=America/New_York` on unmodified origin/main. Fixing it changes
- * every event type's seed, so it is out of scope for the tournament PR; pinning
- * the assertion to the event date here would just add a second timezone-fragile
- * test. The invariants below hold in every timezone.
+ * ✅ RESOLVED 2026-08-04 — this note used to say the sibling test 'blocks are
+ * anchored to the event date and time-ordered' failed under
+ * `TZ=America/New_York` on origin/main and that fixing it was out of scope.
+ * It is fixed: `anchorIso` now builds its output from the date's components
+ * instead of mixing a UTC parse with local setters, so the whole suite is green
+ * under UTC, Asia/Manila, America/New_York and Pacific/Kiritimati. The
+ * invariants below still hold in every timezone — that part was always true.
  */
 test('tournament: blocks share one local day, keep their clock times, and never overlap', () => {
   const b = buildRunOfShowSeed('tournament', { opening_parade: true }, DATE);
@@ -261,4 +273,38 @@ test('no-date seed still produces valid ISO placeholders', () => {
   const b = buildRunOfShowSeed('birthday', {}, null);
   assert.ok(b.length > 0);
   for (const blk of b) assert.ok(!Number.isNaN(new Date(blk.start_at).getTime()));
+});
+
+// ── The seed must land on the couple's date, wherever the code runs ─────────
+// This is the property the old `anchorIso` broke: it parsed the date as UTC and
+// then set LOCAL hours, so outside UTC every seeded block slid onto the
+// previous day. The suite did not catch it because the test helpers used local
+// getters too — two halves wrong in the same direction agree with each other.
+
+test('every seeded block lands on the event date itself, in any timezone', () => {
+  const before = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
+      process.env.TZ = tz;
+      for (const type of ['debut', 'birthday', 'christening', 'tournament'] as const) {
+        const blocks = buildRunOfShowSeed(type, {}, DATE);
+        for (const b of blocks) {
+          assert.ok(
+            b.start_at.startsWith(DATE),
+            `${type}/${b.label} drifted off ${DATE} under TZ=${tz}: ${b.start_at}`,
+          );
+        }
+      }
+    }
+  } finally {
+    process.env.TZ = before;
+  }
+});
+
+test('a seeded block keeps the exact wall-clock time it was authored with', () => {
+  // The digits are the contract: a 6:30 AM call time is stored as 06:30, not
+  // translated into anything.
+  const blocks = buildRunOfShowSeed('tournament', { opening_parade: true }, DATE);
+  assert.equal(localTime(blocks[0]!.start_at), '06:30');
+  assert.equal(localTime(blocks[blocks.length - 1]!.start_at), '17:45');
 });

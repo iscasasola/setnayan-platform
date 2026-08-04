@@ -30,6 +30,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { DEFAULT_EVENT_TZ } from './schedule';
 
 export type ChecklistCategory =
   | 'foundations'
@@ -529,10 +530,45 @@ export type ChecklistRunway = {
 function calendarDayEpoch(value: string): number {
   if (/\d{1,2}:\d{2}/.test(value)) {
     const instant = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
-    if (Number.isFinite(instant.getTime())) return startOfDay(instant);
+    if (Number.isFinite(instant.getTime())) return venueCalendarDayEpoch(instant);
   }
   return dateToLocalEpoch(value);
 }
+
+/**
+ * The VENUE'S calendar day for a real instant, as a local-midnight epoch so it
+ * is directly comparable with `dateToLocalEpoch(event_date)`.
+ *
+ * ── WHY THE VENUE AND NOT THE READER ────────────────────────────────────────
+ * `created_at` is an instant; `event_date` is a fixed calendar day that means
+ * the same thing everywhere. Reducing the instant with the READER's clock made
+ * the two incomparable: a plan created at 2 a.m. UTC is 10 a.m. in Manila but
+ * 9 p.m. the PREVIOUS day in New York, so the same plan gained a day of runway
+ * depending on who opened it — and a task could come out dated the day BEFORE
+ * the plan existed.
+ *
+ * Reading it at the venue keeps the original intent intact for the couple this
+ * was written for — a Filipino couple's "twenty minutes ago" still reads as
+ * TODAY, because their clock IS the venue's — while making the invariant hold
+ * for a relative opening the same plan from abroad.
+ */
+function venueCalendarDayEpoch(instant: Date): number {
+  try {
+    // en-CA gives YYYY-MM-DD, which `dateToLocalEpoch` already parses.
+    const ymd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: DEFAULT_EVENT_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(instant);
+    return dateToLocalEpoch(ymd);
+  } catch {
+    // Intl unavailable or the zone unreadable — the reader's day is a worse
+    // answer than the venue's, but far better than NaN.
+    return startOfDay(instant);
+  }
+}
+
 
 /**
  * The compression to apply to this event's checklist, or **null when none

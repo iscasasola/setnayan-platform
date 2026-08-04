@@ -3,7 +3,8 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
@@ -14,6 +15,16 @@ import {
   resolveVendor3dBoothPricePhp,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+  nonStackingFreeExpiry,
+} from '@/lib/vendor-addon-first5-free';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -44,6 +55,19 @@ import {
  * never a price. Booth branding is a Pro/Enterprise perk (boothCanBrand), so the
  * add-on that turns it on is Pro+ too — hence `isTierAtLeast(tier, 'pro')` (vs
  * the AI add-on's Solo+ gate).
+ *
+ * ── 2026-07-25 TIERED ADD-ON MODEL (owner-locked · flag-dark) ───────────────
+ * Behind `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` the Pro+ gate LIFTS and 3D
+ * Plan Ads becomes buyable on EVERY tier at the tier-banded price —
+ * `resolveVendorAddonPricePhp('ads_3d_plan', tier)` → ₱2,000 Free/Solo, ₱1,500
+ * Pro/Enterprise. The tier is re-read here from `vendor_profiles.tier_state`, so
+ * the band is server-authoritative and a tampered client can never buy at the
+ * cheaper Pro price. Everything else is untouched: verified-only, the one-time
+ * free first cycle, the atomic trial claim, and apply-then-pay. Flag OFF
+ * (default) = byte-identical to today (Pro+ gate, flat catalog price).
+ * The matching RENDER gate is `lib/booth-branding-tier-gate` — same flag, so
+ * access and price flip together and a Free vendor can never pay for a booth
+ * that would still render generic.
  */
 
 export type Vendor3dBoothActionState =
@@ -119,7 +143,10 @@ export async function activateVendor3dBooth(
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  if (!isTierAtLeast(tier, 'pro')) {
+  // Tiered add-on model ON → every tier may buy (at its own band's price); OFF →
+  // today's Pro+ gate, verbatim.
+  const tieredPricing = isVendorAddonTieredPricingEnabled();
+  if (!tieredPricing && !isTierAtLeast(tier, 'pro')) {
     return err('3D Booth is available on the Pro, Enterprise, and Custom plans. Upgrade to add it.');
   }
   if (verification !== 'verified') {
@@ -147,55 +174,127 @@ export async function activateVendor3dBooth(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('3D Booth is temporarily unavailable. Please try again later.');
   }
-  const cyclePricePhp =
+  const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const pricePhp = resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
+  // Under the tiered model the CYCLE price comes from the code SSOT band
+  // (₱2,000 entry / ₱1,500 growth) instead of the flat catalog row; the free
+  // first cycle and every other rule below are unchanged.
+  const cyclePricePhp = tieredPricing
+    ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
+    : catalogCyclePricePhp;
 
-  // ── FREE first cycle → atomic claim + direct activation ────────────────────
+  /** The standing renewal price for THIS vendor — what a cycle costs once any
+   *  free grant is spent. Used in copy so no message hardcodes ₱1,500. */
+  const renewalPricePhp = resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp });
+  const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+
+  // ── "Free until your 6th booking" (owner 2026-07-25) ───────────────────────
+  // When this policy is live it REPLACES the one-time free 28-day cycle: free is
+  // decided ONLY by the first-5 window, and it REPEATS while the vendor is inside
+  // it. The count is read from event_vendors (NOT booking_fee_ledger — that is
+  // empty while the booking-fee flag is off) and fails CLOSED, so a broken read
+  // charges rather than gives away. Flag off → `first5Free` is false and the
+  // trial path below runs byte-identically to today.
+  const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5Enabled
+    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    : Number.NaN;
+  const first5Free = addonIsFreeUnderFirst5({
+    sku: 'ads_3d_plan',
+    committedBookingCount: committedBookings,
+    enabled: first5Enabled,
+  });
+
+  const pricePhp = first5Enabled
+    ? first5Free
+      ? 0
+      : renewalPricePhp
+    : resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
+
+  // ── FREE cycle → direct activation ─────────────────────────────────────────
+  // Two shapes reach here. `first5Free` is the REPEATABLE grant (free while the
+  // vendor is inside their first 5 bookings); otherwise it is the legacy one-time
+  // trial, unchanged.
   if (pricePhp <= 0) {
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();
-    const newExpiry = nextVendor3dBoothExpiry(null, Date.now());
+    const oneCycleFromNow = nextVendor3dBoothExpiry(null, Date.now());
+    let newExpiry = oneCycleFromNow;
 
-    // Atomic one-time claim: only succeeds while the trial is still unused, so a
-    // double-click / two tabs can never grant two free cycles.
-    const { data: claimed, error: claimErr } = await admin
-      .from('vendor_profiles')
-      .update({ booth_addon_trial_used_at: nowIso, booth_addon_expires_at: newExpiry })
-      .eq('vendor_profile_id', vendorProfileId)
-      .is('booth_addon_trial_used_at', null)
-      .select('vendor_profile_id');
+    if (first5Free) {
+      // REPEATABLE grant — no trial to claim, so the atomic one-time claim that
+      // made the trial double-click-proof does not apply. Clamp the window to ONE
+      // cycle ahead instead (nonStackingFreeExpiry), so pressing the button ten
+      // times lands on the same ~28-days-from-now rather than stacking 280 free
+      // days that would outlive the vendor's 6th booking. Deliberately does NOT
+      // touch booth_addon_trial_used_at: the trial is a separate, dormant
+      // mechanic while this policy is live, and burning it here would silently
+      // cost the vendor their legacy free cycle if the policy is ever switched off.
+      const { data: curRow } = await admin
+        .from('vendor_profiles')
+        .select('booth_addon_expires_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const currentExpiry =
+        (curRow as { booth_addon_expires_at?: string | null } | null)?.booth_addon_expires_at ??
+        null;
+      newExpiry = nonStackingFreeExpiry(currentExpiry, oneCycleFromNow);
 
-    if (claimErr) {
-      return err('Could not activate 3D Booth right now. Please try again.');
-    }
-    if (!claimed || claimed.length === 0) {
-      // Lost the race (another request just claimed the trial) — the caller
-      // should re-submit and land on the paid path. Surface it plainly.
-      return err('Your free cycle was just used. Refresh to buy the next cycle (₱1,500 / 28 days).');
+      const { error: grantErr } = await admin
+        .from('vendor_profiles')
+        .update({ booth_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (grantErr) {
+        return err('Could not activate 3D Booth right now. Please try again.');
+      }
+    } else {
+      // Atomic one-time claim: only succeeds while the trial is still unused, so a
+      // double-click / two tabs can never grant two free cycles.
+      const { data: claimed, error: claimErr } = await admin
+        .from('vendor_profiles')
+        .update({ booth_addon_trial_used_at: nowIso, booth_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId)
+        .is('booth_addon_trial_used_at', null)
+        .select('vendor_profile_id');
+
+      if (claimErr) {
+        return err('Could not activate 3D Booth right now. Please try again.');
+      }
+      if (!claimed || claimed.length === 0) {
+        // Lost the race (another request just claimed the trial) — the caller
+        // should re-submit and land on the paid path. Surface it plainly.
+        return err(
+          `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+        );
+      }
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
     const referenceCode = generateReferenceCode();
-    const { data: orderRow } = await admin
+    const { data: orderRow } = await createMoneyWriterClient()
       .from('orders')
-      .insert({
-        event_id: null,
-        user_id: user.id,
-        vendor_profile_id: vendorProfileId,
-        service_key: VENDOR_3D_BOOTH_SKU_CODE,
-        description: '3D Booth — Branded Virtual Booth (first cycle · free)',
-        requested_total_php: 0,
-        confirmed_total_php: 0,
-        status: 'paid',
-        reference_code: referenceCode,
-        // Stamp the order's window so the renewal-reminder job nudges the vendor
-        // before the free cycle lapses (subscriptions_due_for_renewal_reminder
-        // reads orders.expires_at).
-        expires_at: newExpiry,
-      })
+      .insert(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
+          { userId: user.id, eventId: null, vendorProfileId },
+          {
+            service_key: VENDOR_3D_BOOTH_SKU_CODE,
+            description: first5Free
+            ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
+            : '3D Booth — Branded Virtual Booth (first cycle · free)',
+            reference_code: referenceCode,
+            // Stamp the order's window so the renewal-reminder job nudges the vendor
+            // before the free cycle lapses (subscriptions_due_for_renewal_reminder
+            // reads orders.expires_at).
+            expires_at: newExpiry,
+          },
+        ),
+      )
       .select('order_id')
       .maybeSingle();
     if (orderRow) {
@@ -208,8 +307,9 @@ export async function activateVendor3dBooth(
         metadata: {
           service_key: VENDOR_3D_BOOTH_SKU_CODE,
           vendor_profile_id: vendorProfileId,
-          kind: 'booth_addon_free_first_cycle',
+          kind: first5Free ? 'booth_addon_free_first5_bookings' : 'booth_addon_free_first_cycle',
           expires_at: newExpiry,
+          ...(first5Free ? { committed_bookings: committedBookings } : {}),
         },
       });
     }
@@ -218,8 +318,9 @@ export async function activateVendor3dBooth(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message:
-        'Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ₱1,500 / 28 days.',
+      message: first5Free
+        ? `Your 3D Booth is on — free while you're on your first ${FREE_BOOKING_LIMIT} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
+        : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 
@@ -227,18 +328,33 @@ export async function activateVendor3dBooth(
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())` — RLS's only check on this row.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate: authenticated →
+  // `fetchOwnVendorProfile` (server-resolved id) → `resolveVendorRoleForProfile`
+  // + canManageVendor (PROFILE-scoped) → `seating3dEnabled()` feature backstop →
+  // the Pro+ tier gate when tiered pricing is off → `verification_state ===
+  // 'verified'` → the SKU is_active reject → the first-5-free evaluation, which
+  // fails CLOSED to charging. Nothing is reordered around the price resolvers.
+  const moneyWriter = createMoneyWriterClient();
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_3D_BOOTH_SKU_CODE,
-      description: '3D Booth — Branded Virtual Booth (28-day)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId: null, vendorProfileId },
+        {
+          service_key: VENDOR_3D_BOOTH_SKU_CODE,
+          description: '3D Booth — Branded Virtual Booth (28-day)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -246,17 +362,22 @@ export async function activateVendor3dBooth(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return err('Could not start the 3D Booth payment. Please try again.');
   }
 

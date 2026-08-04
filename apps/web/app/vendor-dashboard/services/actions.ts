@@ -15,6 +15,11 @@ import {
   type VendorCategory,
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  parseDiscountRows,
+  type DiscountDraft,
+} from '@/lib/vendor-discount-rows';
 import { tilesForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -33,6 +38,18 @@ import {
   type DueAnchor,
 } from '@/lib/vendor-service-payment-schedules';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
+import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
+import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
+import {
+  CUSTOMIZATION_FIELD_NAME,
+  autoNameDraftItems,
+  canonicalServiceForVendorCategory,
+  countAutoNamed,
+  parseCustomizationDraft,
+  toPackageDraft,
+} from '@/lib/service-customization-draft';
+import { savePackage } from '../packages/actions';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -125,78 +142,22 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
   return n;
 }
 
-const DISCOUNT_TYPES = ['early_booking', 'off_peak', 'bundle', 'promo', 'returning'] as const;
-type DiscountType = (typeof DISCOUNT_TYPES)[number];
-
 // (The legacy single-discount parser — discount_type/discount_value scalar
 // fields — was removed 2026-07-03 with wizard parity: the wizard now submits
 // the same multi-discount arrays as the inline form, parsed by
-// parseDiscountRows below.)
+// parseDiscountRows.)
 
 // ── List editors (service-card redesign · Phase 3b) ─────────────────────────
 // Three repeatable child-table lists submitted as parallel, index-aligned
 // arrays of HIDDEN inputs (formData.getAll). Each parses into validated draft
 // rows; the caller replace-alls them into the matching child table. Fully-blank
 // rows are ignored so an empty repeater cleanly clears the list.
-
-type DiscountUnit = 'pct' | 'php';
-type DiscountDraft = {
-  discount_type: DiscountType;
-  rate: number;
-  unit: DiscountUnit;
-  expires_at: string | null;
-  conditions_md: string | null;
-};
-
-/**
- * Parse the multi-discount rows (Phase 3b). Field arrays (index-aligned):
- *   discount_type[] · discount_rate[] · discount_unit[] ·
- *   discount_expires_at[] · discount_conditions_md[]
- * A row with a blank type AND blank rate is skipped. Validates: rate>0, type in
- * the enum, unit in (pct,php), and promo requires an expiry.
- */
-function parseDiscountRows(formData: FormData): DiscountDraft[] {
-  const types = formData.getAll('discount_type');
-  const rates = formData.getAll('discount_rate');
-  const units = formData.getAll('discount_unit');
-  const expiries = formData.getAll('discount_expires_at');
-  const conditions = formData.getAll('discount_conditions_md');
-  const out: DiscountDraft[] = [];
-  const n = types.length;
-  for (let i = 0; i < n; i++) {
-    const typeRaw = typeof types[i] === 'string' ? (types[i] as string).trim() : '';
-    const rateRaw = typeof rates[i] === 'string' ? (rates[i] as string).trim() : '';
-    if (typeRaw.length === 0 && rateRaw.length === 0) continue; // blank row → skip
-    if (!(DISCOUNT_TYPES as readonly string[]).includes(typeRaw)) {
-      throw new Error('Pick a discount type for each discount you add.');
-    }
-    const discount_type = typeRaw as DiscountType;
-    const rate = Number(rateRaw);
-    if (rateRaw.length === 0 || !Number.isFinite(rate) || rate <= 0) {
-      throw new Error('Each discount needs a positive amount.');
-    }
-    const unitRaw = typeof units[i] === 'string' ? (units[i] as string) : 'pct';
-    const unit: DiscountUnit = unitRaw === 'php' ? 'php' : 'pct';
-
-    const expRaw = typeof expiries[i] === 'string' ? (expiries[i] as string).trim() : '';
-    let expires_at: string | null = null;
-    if (expRaw.length > 0) {
-      const d = new Date(expRaw);
-      if (isNaN(d.getTime())) throw new Error('Discount expiry must be a valid date.');
-      expires_at = d.toISOString();
-    }
-    if (discount_type === 'promo' && expires_at === null) {
-      throw new Error('Limited-Time Promo discounts require an expiry date.');
-    }
-
-    const condRaw =
-      typeof conditions[i] === 'string' ? (conditions[i] as string).trim() : '';
-    const conditions_md = condRaw.length > 0 ? condRaw.slice(0, 1000) : null;
-
-    out.push({ discount_type, rate, unit, expires_at, conditions_md });
-  }
-  return out;
-}
+//
+// The DISCOUNT parser now lives in `@/lib/vendor-discount-rows` (imported at the
+// top of this file) — this module is `'use server'`, so nothing inside it can be
+// unit-tested, and the early-booking LADDER rule (owner-locked 2026-07-27) is
+// exactly the kind of rule that must be. Behaviour, validation order and the
+// vendor-facing error strings are unchanged by the move.
 
 type InclusionDraft = { label: string; worth_php: number | null };
 
@@ -514,6 +475,8 @@ async function replaceServiceLists(
         discount_type: d.discount_type,
         rate: d.rate,
         unit: d.unit,
+        // The early-booking ladder rung (migration 20271017996549).
+        min_lead_months: d.min_lead_months,
         expires_at: d.expires_at,
         conditions_md: d.conditions_md,
         sort_order: i,
@@ -624,6 +587,33 @@ export async function createVendorService(formData: FormData) {
     typeof titleRaw === 'string' && titleRaw.trim().length > 0
       ? titleRaw.trim().slice(0, 80)
       : null;
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark): no off-platform contact
+  // info in anything that renders on the public card. Runs BEFORE the first
+  // write so a bounce never leaves a half-saved service.
+  //
+  // No auto-naming here, unlike savePackage: `parseInclusionRows` /
+  // `parseDiscountRows` already DROP a blank row (`if (label.length === 0)
+  // continue`), so a blank never reaches the write to be named — and the title
+  // has its own publish gate.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Title', value: title },
+      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+    ]);
+    if (viol) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(viol)}`);
+    }
+  }
+
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
@@ -884,6 +874,28 @@ export async function updateVendorService(formData: FormData) {
   const transport_included = formData.get('transport_included') === 'on';
   const crew_meal_required = !crew_meal_included;
   if (transport_included) transport_flat_fee_php = null;
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark), same gate as create.
+  // No Title entry: this legacy edit form does not submit or write `title`
+  // (the wizard's commitVendorService owns that field) — checking a value the
+  // action never reads would bounce on text it cannot save.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+    ]);
+    if (viol) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(viol)}`);
+    }
+  }
+
   const branch_id = await resolveBranchId(
     supabase,
     profile.vendor_profile_id,
@@ -1437,6 +1449,94 @@ export async function commitVendorService(formData: FormData) {
     return back((e as Error).message);
   }
 
+  // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
+  //
+  // The wizard is ONE <form>, so this step arrives as ONE hidden JSON field
+  // alongside everything else. PARSED HERE, WRITTEN LATER: every bounce below
+  // is a `redirect`, so the parse has to happen while a bounce is still free —
+  // but the write has to wait until the service row exists. Malformed JSON
+  // bounces with a readable sentence; it never throws, and it is never
+  // degraded into an empty structure that would then be saved as a real
+  // package (an empty package renders an empty configurator to the couple).
+  //
+  // With the flag OFF the field is not rendered and is not read, so this whole
+  // block is inert and the action behaves exactly as it does today.
+  let customizationItems: DraftItem[] = [];
+  let customizationAutoNamed = 0;
+  if (packageAuthoringEnabled()) {
+    const parsed = parseCustomizationDraft(formData.get(CUSTOMIZATION_FIELD_NAME));
+    if (!parsed.ok) return back(parsed.message);
+    // Counted BEFORE naming — afterwards there are no blanks left to count.
+    // Reported back to the vendor on the success redirect.
+    customizationAutoNamed = countAutoNamed(parsed.items);
+    // Blank names are FILLED IN, never refused (owner-locked 2026-07-27), and
+    // filled in BEFORE validation — `validatePackageDraft` refuses a blank
+    // `service_description`, and `savePackage`'s own auto-naming runs after it.
+    customizationItems = autoNameDraftItems(parsed.items);
+  }
+
+  // Card-text integrity (owner 2026-07-27 · flag-dark). The wizard writes the
+  // card text itself (title + perk go into the `fields` payload, the lists into
+  // the same atomic RPC), so it needs its own gate — it does not route through
+  // create/updateVendorService. Placed AFTER the parse try/catch on purpose:
+  // `back()` redirects, and a redirect thrown inside that try would be caught
+  // and re-reported as a parse error. Still ahead of the RPC, the first write.
+  {
+    const viol = findVendorTextViolation([
+      { field: 'Title', value: fields.title as string | null },
+      {
+        field: 'Setnayan Exclusive',
+        value: fields.exclusive_perk_text as string | null,
+      },
+      ...inclusionRows.map((n, i) => ({
+        field: `Inclusion ${i + 1}`,
+        value: n.label,
+      })),
+      ...discountRows.map((d, i) => ({
+        field: `Discount ${i + 1} conditions`,
+        value: d.conditions_md,
+      })),
+      // Customization lines are card text too — a couple reads them on the
+      // configurator exactly the way they read an inclusion label. Routed
+      // through the SAME gate (its 'card' profile), never a second one.
+      ...customizationItems.flatMap((item, i) => [
+        { field: `Customization line ${i + 1}`, value: item.service_description },
+        ...item.options.map((o, j) => ({
+          field: `Customization line ${i + 1} option ${j + 1}`,
+          value: o.label,
+        })),
+      ]),
+    ]);
+    if (viol) return back(viol);
+  }
+
+  // The customization draft becomes a ONE-SERVICE package anchored to this
+  // service's category. Built and validated HERE, before the service is
+  // written, so a bad draft costs the vendor a bounce rather than leaving a
+  // saved service whose customization silently vanished.
+  const customizationPriceCentavos =
+    typeof fields.starting_price_php === 'number' && fields.starting_price_php > 0
+      ? // The ONE peso→centavo conversion site on this path.
+        // `vendor_services.starting_price_php` is INTEGER PESOS;
+        // `vendor_packages.total_price_centavos` is BIGINT CENTAVOS.
+        fields.starting_price_php * 100
+      : 0;
+  if (customizationItems.length > 0) {
+    if (customizationPriceCentavos <= 0) {
+      return back(
+        'Customization options need one price to sit under. Add a starting price on the Pricing step, or remove the customization lines.',
+      );
+    }
+    const problems = validatePackageDraft(
+      toPackageDraft(customizationItems, {
+        packageName: (fields.title as string | null) ?? displayServiceLabel(category),
+        totalPriceCentavos: customizationPriceCentavos,
+      }),
+    );
+    const first = problems[0];
+    if (first) return back(first.message);
+  }
+
   // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
   // card must carry a real cover photo. Drafts can save without one. The perk
   // gate is re-checked inside the RPC; the photo gate lives here in TS.
@@ -1553,6 +1653,10 @@ export async function commitVendorService(formData: FormData) {
     discount_type: d.discount_type,
     rate: d.rate,
     unit: d.unit,
+    // The early-booking ladder rung — save_vendor_service reads
+    // e->>'min_lead_months' (migration 20271017996549). Without this key the
+    // WIZARD path would silently drop every tier the vendor just authored.
+    min_lead_months: d.min_lead_months,
     expires_at: d.expires_at,
     conditions_md: d.conditions_md,
     sort_order: i,
@@ -1570,7 +1674,16 @@ export async function commitVendorService(formData: FormData) {
   }));
 
   // ---- ONE atomic write ----
-  const { data: savedId, error } = await supabase.rpc('save_vendor_service', {
+  // ⚠ ADMIN CLIENT, DELIBERATELY (2026-08-01 security round two).
+  // `save_vendor_service` is SECURITY DEFINER and took `p_vendor_profile_id` as
+  // a TRUSTED PARAMETER with no ownership check in its body — so while this
+  // action resolved the vendor correctly from the session, ANY authenticated
+  // account could call the RPC directly and rewrite ANY vendor's published
+  // prices, discounts, payment schedules and inclusions. Migration
+  // 20271030569442 revokes it from `anon` and `authenticated`; the ownership
+  // answer now comes from `ensureProfile()` above — the session — instead of
+  // from an argument the database was willing to believe.
+  const { data: savedId, error } = await createAdminClient().rpc('save_vendor_service', {
     p_vendor_profile_id: profile.vendor_profile_id,
     p_service_id: serviceId,
     p_fields: fields,
@@ -1582,6 +1695,45 @@ export async function commitVendorService(formData: FormData) {
     p_publish: publish,
   });
   if (error) return back(error.message);
+
+  // ---- ★ Customization → the one-service package (write LATE) ----
+  //
+  // Only now, once the service row genuinely exists. Everything that could
+  // reject this draft — the JSON parse, the card-text gate, the cross-row
+  // validator, the missing-price check — already ran above, while a bounce was
+  // still free; `savePackage` re-runs the validator itself as the backstop.
+  //
+  // ⚠ HOW A SERVICE RESOLVES TO ITS PACKAGE ROW: it does not. `vendor_packages`
+  // has no service column (migration 20260604110000) — only
+  // `vendor_profile_id` + `primary_canonical_service`. So this CREATES a
+  // package anchored to the service's category. That is sound because the
+  // wizard is CREATE-ONLY (`/services/new/[category]` is its single mount), so
+  // one run mints one package and no path here can fork a second. Re-opening a
+  // service to EDIT its customization needs the link column proposed in
+  // lib/service-customization-draft.ts (one nullable
+  // `vendor_packages.vendor_service_id`); this slice adds no migration.
+  //
+  // A failure here does NOT bounce through `back()`: the service is already
+  // saved, and on the claim path `back()` re-renders the wizard, which would
+  // invite a re-submit and a duplicate service. Report it and move on.
+  let customizationError: string | null = null;
+  if (customizationItems.length > 0) {
+    const res = await savePackage({
+      ...toPackageDraft(customizationItems, {
+        packageName: (fields.title as string | null) ?? displayServiceLabel(category),
+        totalPriceCentavos: customizationPriceCentavos,
+      }),
+      primary_canonical_service: canonicalServiceForVendorCategory(category),
+    });
+    if (res.status !== 'ok') {
+      customizationError =
+        res.status === 'invalid'
+          ? (res.problems[0]?.message ?? 'Some customization options need fixing.')
+          : res.status === 'error'
+            ? res.message
+            : `Customization options could not be saved (${res.status}).`;
+    }
+  }
 
   // ---- PR-C — register the freshly-created service to the inviting couple ----
   // When this create came from a couple's claim QR (?claim=<token> threaded
@@ -1631,6 +1783,22 @@ export async function commitVendorService(formData: FormData) {
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
+  // (savePackage revalidates /vendor-dashboard/packages itself on success.)
+
+  // A LATE customization failure is reported as an ERROR even though the
+  // service saved — "Services updated" and nothing else would let the vendor
+  // believe their options went live. Checked BEFORE the claim redirect on
+  // purpose: `/vendor-dashboard` renders no `?error=`, so routing the failure
+  // there would swallow it. The couple registration above has already run, so
+  // the only thing given up in this rare branch is the `claimed=1` banner.
+  if (customizationError) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(
+        `Your service was saved, but its customization options were not: ${customizationError}`,
+      )}#service-${savedId ?? ''}`,
+    );
+  }
+
   // PR-C — after a claim-driven first service, send the vendor on to their
   // dashboard to "continue from there" (the new client is in their pipeline).
   // The normal flow stays on the Services page with the saved anchor.
@@ -1638,7 +1806,16 @@ export async function commitVendorService(formData: FormData) {
     revalidatePath('/vendor-dashboard');
     redirect('/vendor-dashboard?claimed=1&service=1');
   }
-  redirect(`${await servicesReturnBase()}?saved=1#service-${savedId ?? ''}`);
+  // Blank names are auto-named, never refused — so the save REPORTS how many
+  // it filled in (the placeholder showed the same names before the save).
+  const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';
+  // A CREATE gets its congratulations moment (owner 2026-07-28) — the landing
+  // banner teaches the card's value (care for it; substance over count; events
+  // document onto the card). The value says whether the new card went live, so
+  // the "you now have X active cards" line can be worded truthfully. On success
+  // `publish` IS the final is_active — a publish the RPC refuses errors above.
+  const made = isCreate ? `&created=${publish ? 'live' : 'draft'}` : '';
+  redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
 }
 
 /**
@@ -1888,6 +2065,38 @@ export async function deleteVendorService(formData: FormData) {
   const idRaw = formData.get('vendor_service_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
+  }
+
+  // A couple's booked row points here via `event_vendors.service_id`, and that
+  // FK is ON DELETE **SET NULL** — so a hard delete does not fail, it silently
+  // erases which service the couple booked, including on a `contracted` row.
+  // The same applies to `thread_service_interests` and `vendor_locked_qr_tokens`.
+  //
+  // So: a service anyone has ever picked is RETIRED (is_active = false), never
+  // deleted. It vanishes from the vendor's public page exactly as before, and
+  // the couple keeps the record of what they bought. Only a service nobody has
+  // touched is deleted outright.
+  const { count: pickedCount } = await supabase
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('service_id', idRaw);
+
+  if ((pickedCount ?? 0) > 0) {
+    const { error: retireErr } = await supabase
+      .from('vendor_services')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+
+    if (retireErr) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(retireErr.message)}`,
+      );
+    }
+
+    revalidatePath('/vendor-dashboard/services');
+    revalidatePath('/vendor-dashboard/shop');
+    return redirect(`${await servicesReturnBase()}?retired=1`);
   }
 
   const { error } = await supabase

@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { CardRecordSection } from '@/app/_components/card-record-section';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import {
   fetchVendorServices,
   fetchDiscountsByService,
@@ -80,6 +86,7 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
@@ -108,6 +115,20 @@ export type ServicesManagerSearch = {
   error?: string;
   add?: string;
   requested?: string;
+  /**
+   * Set by commitVendorService on a CREATE only — 'live' | 'draft', the new
+   * card's actual state. Triggers the congratulations banner (owner
+   * 2026-07-28): care for the card, substance over count, events document onto
+   * the card, "you now have X active cards". Absent on edits and other saves.
+   */
+  created?: string;
+  /**
+   * How many blank customization names the last save filled in for the vendor
+   * (★ Customization step · flag-dark). A blank name is auto-named, never
+   * refused (owner-locked 2026-07-27) — this is the "and here is what we
+   * called them" half of that promise. Absent on every other save.
+   */
+  autonamed?: string;
   /** Off-Season Promos nudge — when set to one of the vendor's own
    *  vendor_service_id values, that service's Discount section opens
    *  pre-filled with an `off_peak` discount keyed to the lean months. */
@@ -142,6 +163,21 @@ export async function VendorServicesManager({
 
   const serviceIdList = services.map((s) => s.vendor_service_id);
 
+  // CARD RECORD (owner-locked 2026-07-28) — the vendor's own view of what each
+  // card has compiled: booked count, event-type mix, anonymized ledger, and the
+  // medal case with the distance to the next medal. This is the "take care of
+  // your card" payoff, so it renders for DRAFT and PAUSED cards too.
+  //
+  // Same de-identified reader the public card uses — a vendor sees no more about
+  // their own couples here than a stranger does, because the aggregates are the
+  // only thing the RPC can return, and its minimum-N floor applies to the
+  // vendor's own view too. Read as the signed-in vendor (the RPC is granted to
+  // `authenticated`, never to anon). ONE batched call for every card on the
+  // page. Flag-gated: OFF costs not one extra query.
+  const cardRecordByService = cardRecordEnabled()
+    ? await fetchServiceCardRecords(supabase, serviceIdList)
+    : new Map<string, CompiledCardRecord>();
+
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
   // through with no deploy). Each read fails soft to empty so the page renders.
@@ -159,6 +195,15 @@ export async function VendorServicesManager({
     },
     {},
   );
+  // Leaf → its allowed event types, from the same live tree the browse drills.
+  // Feeds the serves EDIT sheet so its chips match what the server will keep
+  // (parseEventTypes enforces this set on save). Fail-soft: if the tree read
+  // failed (empty), every lookup misses → null → the sheet renders the full
+  // vocab, exactly the pre-fix behaviour — never a false restriction.
+  const allowedByLeaf = new Map<string, string[] | null>();
+  for (const p of coverageTree)
+    for (const b of p.branches)
+      for (const l of b.leaves) allowedByLeaf.set(l.canonicalService, l.allowedEventTypes);
   const coverageItems = vendorCoverages.map((c) => {
     const pathLabel = coverageLabels
       ? coverageLabels.pathLabel(c.canonical_service)
@@ -174,6 +219,7 @@ export async function VendorServicesManager({
       eventTypes: c.event_types,
       faiths: c.faiths ?? [],
       serviceCount: serviceCountByCoverage[c.id] ?? 0,
+      allowedEventTypes: allowedByLeaf.get(c.canonical_service) ?? null,
     };
   });
   const eventTypeOptions = eventVocab.map((e) => ({ key: e.key, label: e.label }));
@@ -454,13 +500,51 @@ export async function VendorServicesManager({
           {decodeURIComponent(search.error)}
         </p>
       ) : null}
-      {search.saved ? (
+      {search.created === 'live' || search.created === 'draft' ? (
+        (() => {
+          // The congratulations moment (owner 2026-07-28) — replaces the plain
+          // "Services updated." for a CREATE. The active count is the same
+          // services array this page renders, so the number can never drift.
+          const congrats = buildServiceCardCongrats({
+            activeCount: services.filter((s) => s.is_active).length,
+            isDraft: search.created === 'draft',
+          });
+          return (
+            <div
+              role="status"
+              className="space-y-1.5 rounded-md border px-4 py-3 text-sm"
+              style={{ borderColor: 'var(--m-sage)', background: 'var(--m-sage)', color: 'var(--m-ink)' }}
+            >
+              <p className="font-semibold">{congrats.headline}</p>
+              {congrats.care.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p className="font-medium">{congrats.count}</p>
+              {Number(search.autonamed) > 0 ? (
+                <p style={{ color: 'var(--m-slate)' }}>
+                  {search.autonamed} customization line
+                  {Number(search.autonamed) === 1 ? '' : 's'} had no name, so we
+                  named {Number(search.autonamed) === 1 ? 'it' : 'them'} for you —
+                  rename any time.
+                </p>
+              ) : null}
+            </div>
+          );
+        })()
+      ) : search.saved ? (
         <p
           role="status"
           className="rounded-md border px-4 py-3 text-sm"
           style={{ borderColor: 'var(--m-sage)', background: 'var(--m-sage)', color: 'var(--m-ink)' }}
         >
           Services updated.
+          {Number(search.autonamed) > 0
+            ? ` ${search.autonamed} customization line${
+                Number(search.autonamed) === 1 ? '' : 's'
+              } had no name, so we named ${
+                Number(search.autonamed) === 1 ? 'it' : 'them'
+              } for you — rename any time.`
+            : ''}
         </p>
       ) : null}
       {search.requested ? (
@@ -818,6 +902,7 @@ export async function VendorServicesManager({
                             maxSizeMB={5}
                             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                             watermark
+                            compressImage
                             variant="square"
                             currentValue={svc.primary_photo_r2_key}
                             initialDisplayUrls={showcaseDisplayUrls}
@@ -1063,6 +1148,23 @@ export async function VendorServicesManager({
                       />
                     </div>
                   </details>
+
+                  {/* Card record — outside <details> on purpose: the whole point
+                      is that the vendor SEES what the card has compiled without
+                      opening the editor. Renders only once the card has been
+                      booked at least once; a brand-new card stays clean. */}
+                  {(() => {
+                    const rec = cardRecordByService.get(svc.vendor_service_id);
+                    if (!rec || rec.bookedCount <= 0) return null;
+                    return (
+                      <div
+                        className="border-t px-4 pb-4 pt-3"
+                        style={{ borderColor: 'var(--m-line)' }}
+                      >
+                        <CardRecordSection record={rec} variant="vendor" />
+                      </div>
+                    );
+                  })()}
                 </li>
                 </Fragment>
               );
@@ -1267,6 +1369,7 @@ function AddServiceForm({
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           watermark
+          compressImage
           variant="square"
         />
       </Field>
@@ -1493,6 +1596,9 @@ function discountsToDrafts(
     discount_type: d.discount_type,
     rate: String(d.rate),
     unit: d.unit,
+    // Early-booking ladder rung (migration 20271017996549) — round-trips so a
+    // re-edit doesn't silently erase the tier the vendor already authored.
+    min_lead_months: d.min_lead_months != null ? String(d.min_lead_months) : '',
     expires_at: d.expires_at ? d.expires_at.slice(0, 10) : '',
     conditions_md: d.conditions_md ?? '',
   }));

@@ -26,12 +26,14 @@
  */
 
 import { notFound, redirect } from 'next/navigation';
+import * as Sentry from '@sentry/nextjs';
 import { ArrowLeft, Calendar, Heart, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeAuspiciousReasonsDetailed,
+  isCeremonyType,
   type CeremonyType,
   type MeaningfulDate,
   type MeaningfulDateKind,
@@ -41,6 +43,10 @@ import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates } from '@/lib/candidate-dates';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import {
+  VENDOR_BLOCK_SELECT,
+  VENDOR_POOL_SELECT,
+} from '@/lib/date-selection-vendor-pool';
 import { DatePicker } from './_components/date-picker';
 import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
@@ -49,20 +55,11 @@ import { markDateUndecided } from './actions';
 
 export const metadata = { title: 'Pick your date · Setnayan' };
 
-const CEREMONY_TYPES: CeremonyType[] = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'mixed',
-];
-
-function isCeremonyType(value: unknown): value is CeremonyType {
-  return typeof value === 'string' && (CEREMONY_TYPES as readonly string[]).includes(value);
-}
+// `isCeremonyType` is imported from lib/auspicious-date.ts. This READ path used
+// to carry its OWN 8-member copy while the write path (./actions.ts) accepted
+// all 16 — so a locked `hindu`/`aglipayan`/`lds`/`sda`/`jw`/`sikh`/`buddhist`
+// event read back as `null` here, blanking the radio group and routing the host
+// into the Catholic seed-date branch. One guard, one list, no subsets.
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -259,7 +256,12 @@ function shortlistBudgetRange(vendors: ShortVendor[]): { lo: number; hi: number 
 
 // ─── Marketplace coverage per candidate date ──────────────────────────────────
 
-type VpRow = { id: string; services: string[] | null };
+// ⚠ `vendor_profile_id`, NOT `id`. `public.vendor_profiles` has no `id` column —
+// its primary key is `vendor_profile_id`, and that is also what `blockRows`
+// carries, so these two are compared directly in marketplaceCoverage below.
+// The old `id` field made the fetch a hard PostgREST 42703 (see the query) AND
+// would have compared the wrong identifier had the column existed.
+type VpRow = { vendor_profile_id: string; services: string[] | null };
 type BlockRow = { vendor_profile_id: string; blocked_at: string; blocked_until: string };
 
 function marketplaceCoverage(
@@ -277,7 +279,7 @@ function marketplaceCoverage(
   for (const vp of vpRows) {
     for (const svc of vp.services ?? []) {
       allCategories.add(svc);
-      if (!blockedOnDate.has(vp.id)) availableCategories.add(svc);
+      if (!blockedOnDate.has(vp.vendor_profile_id)) availableCategories.add(svc);
     }
   }
   return { available: availableCategories.size, total: allCategories.size };
@@ -308,7 +310,11 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   // Pull event + meaningful dates in one round trip.
   const [eventRes, meaningfulRes] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_id, display_name, event_date, ceremony_type, secondary_ceremony_type, date_status, event_date_precision, date_candidates, estimated_budget_centavos',
       )
@@ -398,15 +404,50 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
     const [vendors, vpRes] = await Promise.all([
       fetchEventVendors(supabase, eventId),
+      // ⚠ THIS QUERY ALWAYS ERRORED UNTIL 2026-07-26, and did so silently.
+      // It named TWO columns that do not exist on `public.vendor_profiles`:
+      //   · `id`                  — the primary key is `vendor_profile_id`
+      //   · `is_setnayan_service` — a COMPUTED column of the
+      //     `public.vendor_market_stats` VIEW (an array-membership test over
+      //     `vendor_profiles.services`, migration 20260607020000)
+      // PostgREST fails the WHOLE query on an unknown column (42703), so
+      // `vpRes.data` was null, `vpRows` was always `[]`, and the marketplace
+      // coverage figure this feeds was permanently blank. `?? []` then made the
+      // failure indistinguishable from "no vendors match" — a read error and an
+      // empty result must never look the same.
+      //
+      // The `is_setnayan_service` predicate is DROPPED rather than re-pointed at
+      // the view: Setnayan's own services are no longer marketplace vendors at
+      // all (owner 2026-07-26 — they live on their studio page or in the suite),
+      // Explore removed its first-party float the same day, and #3769 deleted the
+      // concept from the vendor workspace. Prod has 0 profiles where it is true,
+      // so it filtered nothing even when it was intended to.
+      //
+      // The column names now live in `@/lib/date-selection-vendor-pool` and are
+      // checked against `supabase/migrations` by its `.columns.test.ts` — the
+      // repo's select-list scanner cannot see the `.or()` predicate below, which
+      // is where half of this bug lived.
       admin
         .from('vendor_profiles')
-        .select('id, services')
+        .select(VENDOR_POOL_SELECT)
         .eq('public_visibility', 'verified')
         .or('is_demo.is.null,is_demo.eq.false')
-        .or('is_setnayan_service.is.null,is_setnayan_service.eq.false')
         .not('services', 'is', null),
     ]);
 
+    // ⚠ A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME. The bare
+    // `?? []` here is precisely why the 42703 above went unnoticed: the page
+    // rendered a confident "0 of 0 categories available" instead of admitting it
+    // could not tell. Same fail-open shape SEC-2b's T9 auditor rejects on the
+    // export route. The coverage figure still degrades to blank rather than
+    // breaking the page — a date picker that renders is worth more than one that
+    // 500s — but the failure is now observable instead of silent.
+    if (vpRes.error) {
+      Sentry.captureException(new Error(`date-selection vendor pool read failed: ${vpRes.error.message}`), {
+        tags: { feature: 'date-selection', query: 'vendor_profiles_pool' },
+        extra: { eventId, code: vpRes.error.code },
+      });
+    }
     const vpRows: VpRow[] = (vpRes.data ?? []) as VpRow[];
 
     // Availability of shortlisted marketplace vendors across the FULL candidate
@@ -459,11 +500,26 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     const topCandidates = effectiveCandidates.slice(0, 3);
     const sorted = [...topCandidates].sort();
 
+    // The OTHER half of the coverage figure, and it had the identical fail-open
+    // `?? []`. A silent failure here is worse than the pool's: an empty block
+    // list does not blank the number, it inflates it — every vendor reads as
+    // free on every candidate date, so the page confidently recommends a date
+    // nobody is available for. Report it for the same reason, and degrade the
+    // same way rather than 500ing the picker.
     const blockRes = await admin
       .from('vendor_calendar_blocks')
-      .select('vendor_profile_id, blocked_at, blocked_until')
+      .select(VENDOR_BLOCK_SELECT)
       .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
       .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`);
+    if (blockRes.error) {
+      Sentry.captureException(
+        new Error(`date-selection vendor blocks read failed: ${blockRes.error.message}`),
+        {
+          tags: { feature: 'date-selection', query: 'vendor_calendar_blocks' },
+          extra: { eventId, code: blockRes.error.code },
+        },
+      );
+    }
     const blockRows: BlockRow[] = (blockRes.data ?? []) as BlockRow[];
 
     // Budget range from shortlist (date-independent shared context).
@@ -520,7 +576,13 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         seasonNote: SEASON_NOTES[m] ?? 'A lovely time of year',
         monthNote: monthNote(m),
         holiday: holidayNote(dateKey),
-        marketplace: { availableCategories: mkt.available, totalCategories: mkt.total },
+        marketplace: {
+          availableCategories: mkt.available,
+          totalCategories: mkt.total,
+          // Either read failing makes this figure a guess, not a fact. Say so
+          // rather than rendering "Marketplace available" over a 42703.
+          readFailed: Boolean(vpRes.error || blockRes.error),
+        },
         prep: prepStatus(dateKey),
       };
     });

@@ -16,8 +16,22 @@
  * .m-display-tight Saira Condensed headline. Per [[feedback_setnayan_no_dev_text_post_launch]]
  * all copy uses brand voice (polite + practical).
  *
- * Auth: RLS on events does the heavy lifting. Non-host gets maybeSingle
- * = null → redirect to /dashboard.
+ * Auth (SEC-2, 2026-07-26 — CHANGED): this page used to lean on events RLS
+ * ("non-host gets maybeSingle = null"). That was never true for the token:
+ * `event_member_can_read` is scoped on `current_event_ids()`, which has NO
+ * member_type filter, so a plain GUEST is admitted as a full event member and
+ * the row — master_qr_token included — was readable by anyone who had joined
+ * the event. Only the parent layout's `member_type !== 'couple'` check stood
+ * between a guest and this page.
+ *
+ * Migration 20271007100000 removes `master_qr_token` from the `authenticated`
+ * SELECT grant entirely, so the cookie-scoped client can no longer read it at
+ * all — by anyone, including the couple. The token is now read with the
+ * service-role client behind an EXPLICIT host gate (requireHostMembership —
+ * accepted moderator OR legacy couple, the same principals the parent layout
+ * admits), so authorization is stated here rather than inherited from a layout.
+ * Rotation is unchanged: event-qr/actions.ts UPDATEs the token and RETURNs only
+ * `master_qr_token_rotated_at`, so it never needed SELECT on the token.
  *
  * Per [[feedback_setnayan_orphan_prevention]] the page is reachable via a
  * secondary "Event QR for your crew" link on the guest Invite stage
@@ -29,7 +43,8 @@
 import { redirect } from 'next/navigation';
 import { RefreshCcw, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireHostMembership } from '@/lib/host-gate';
 import { regenerateEventMasterQR } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -39,13 +54,17 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function EventQrPage({ params }: Props) {
   const { eventId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  // Authorization FIRST, and stated here — the read below bypasses RLS.
+  // requireHostMembership redirects to /login with no session and to /dashboard
+  // for a non-host (guest, coordinator, stranger), which is the same outcome the
+  // old RLS-shaped `if (!event) redirect('/dashboard')` produced for them.
+  await requireHostMembership(eventId);
+
+  // service-role: `master_qr_token` is not in the `authenticated` SELECT grant
+  // (migration 20271007100000). Explicit column list — never `*`.
+  const admin = createAdminClient();
+  const { data: event } = await admin
     .from('events')
     .select('event_id, display_name, master_qr_token, master_qr_token_rotated_at')
     .eq('event_id', eventId)

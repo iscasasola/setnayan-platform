@@ -7,7 +7,11 @@ import {
   type CameraPublisher,
   type PeerConnectionState,
 } from '@/lib/panood-webrtc';
-import { getPanoodIceServers } from '@/app/panood/actions';
+import { getPanoodIceServers, heartbeatPanoodCamera } from '@/app/panood/actions';
+import { CHANNEL_HEARTBEAT_MS, cameraSlotForIndex } from '@/lib/live-studio-channel-cameras';
+import { publishGuestFanout, type GuestFanout } from '@/lib/panood-guest-webrtc';
+import { GUEST_PICK_MAX_VIEWERS_PER_CAMERA } from '@/lib/live-studio-guest-pick';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 // Live Studio · camera-operator local preview (PR5 — join + local preview only).
 //
@@ -28,6 +32,16 @@ type Props = {
   label: string | null;
   eventId: string;
   streamingEnabled: boolean;
+  /**
+   * This operator's OWN claim token — the one already in their address bar.
+   *
+   * Passing it into the client is safe here and ONLY here: it is their own
+   * capability, they are looking at it, and the heartbeat RPC additionally
+   * requires `claimer_user_id = auth.uid()` so it grants nothing they don't
+   * already hold. It must still never appear on a HOST surface, where it would be
+   * a hijack credential for somebody else's seat.
+   */
+  claimToken: string;
 };
 
 /**
@@ -75,18 +89,35 @@ async function getCameraStream(): Promise<MediaStream> {
   }
 }
 
-export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnabled }: Props) {
+export function PanoodCameraPublish({
+  cameraIndex,
+  label,
+  eventId,
+  streamingEnabled,
+  claimToken,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const publisherRef = useRef<CameraPublisher | null>(null);
+  const guestFanoutRef = useRef<GuestFanout | null>(null);
   const [state, setState] = useState<'starting' | 'live' | 'denied' | 'error'>(
     'starting',
   );
   const [link, setLink] = useState<PeerConnectionState | null>(null);
+  /** How many wedding guests are currently watching THIS camera (Wave 10). */
+  const [guestViewers, setGuestViewers] = useState(0);
 
   const stop = useCallback(() => {
     publisherRef.current?.close();
     publisherRef.current = null;
+    // Wave 10 — tear the guest fan-out down BEFORE the tracks stop, and never let a
+    // fault in it prevent the host publisher/tracks from being released.
+    try {
+      guestFanoutRef.current?.close();
+    } catch {
+      /* the guest path must never block teardown of the director's-cut path */
+    }
+    guestFanoutRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
@@ -118,11 +149,37 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
         publisherRef.current?.close();
         publisherRef.current = publishPanoodCamera({
           eventId,
-          slot: `cam${cameraIndex}`,
+          slot: cameraSlotForIndex(cameraIndex),
           stream,
           onState: setLink,
           iceServers,
         });
+
+        // ── WAVE 10 · GUEST-PICK FAN-OUT ──────────────────────────────────────
+        //
+        // Serve the SAME local stream to a capped number of wedding guests, over a
+        // SEPARATE Realtime topic (`panood-guest:{eventId}`) with its own peer
+        // connections. Guests never touch `panood-rtc:` — on that channel an answer
+        // would take the camera away from the couple's controller.
+        //
+        // ⚠ STRICTLY SECOND, AND STRICTLY OPTIONAL. It is started AFTER the host
+        // publisher above and wrapped in its own try/catch, so no failure in the
+        // guest path can prevent — or undo — the camera reaching the controller.
+        // The director's cut is the product; this is a bonus on top of it.
+        if (liveStudioRoamEnabled()) {
+          try {
+            guestFanoutRef.current?.close();
+            guestFanoutRef.current = publishGuestFanout({
+              eventId,
+              slot: cameraSlotForIndex(cameraIndex),
+              stream,
+              iceServers,
+              onViewers: setGuestViewers,
+            });
+          } catch {
+            guestFanoutRef.current = null; // silent: the operator's job is unaffected
+          }
+        }
       }
     } catch (err) {
       const name = (err as { name?: string } | null)?.name;
@@ -134,6 +191,50 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
     void start();
     return () => stop();
   }, [start, stop]);
+
+  // ── THE LIVENESS BEAT (Wave 4) ────────────────────────────────────────────
+  //
+  // This is what makes the host's controller tell the truth. Until it existed,
+  // `live_studio_roam_zones.status` never left 'planned', so every channel on the
+  // controller read "Waiting for a camera" forever — including the ones somebody
+  // was standing there holding.
+  //
+  // BEATS ONLY WHILE THE CAMERA IS GENUINELY OPEN (`state === 'live'`), which is
+  // the precise claim the host's caption makes. A phone whose camera was denied,
+  // failed, or is still starting does NOT beat, so the channel keeps saying
+  // "Waiting for a camera" — which is exactly what is happening.
+  //
+  // A HIDDEN TAB DOES NOT BEAT EITHER. On iOS Safari a backgrounded page stops
+  // delivering frames, so an operator who switches to Messages is, for the host's
+  // purposes, gone. Letting the beat continue would keep a green "Camera
+  // connected" over a black feed — the single worst lie this screen could tell.
+  // The 60s staleness window (3 beats) absorbs a quick app-switch without
+  // flapping.
+  useEffect(() => {
+    if (state !== 'live') return;
+    let cancelled = false;
+
+    const beat = () => {
+      if (cancelled) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void heartbeatPanoodCamera(claimToken);
+    };
+
+    beat(); // don't make the host wait 20s for the first one
+    const timer = setInterval(beat, CHANNEL_HEARTBEAT_MS);
+    // Coming back from a background tab should re-light the channel immediately
+    // rather than at the next tick.
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && !document.hidden) beat();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [state, claimToken]);
 
   const camLabel = label?.trim() || `Camera ${cameraIndex}`;
 
@@ -235,6 +336,16 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
             Keep this screen open and your camera pointed where you want.
           </p>
         </div>
+
+        {/* Wave 10 — honest feedback that guests are watching THIS phone, and that the
+            number has a ceiling. Shown only once somebody actually is: a permanent
+            "0 watching" would just be noise for an operator with a job to do. */}
+        {guestViewers > 0 ? (
+          <p className="mt-2 px-1 text-[11px] text-cream/55">
+            {guestViewers} of {GUEST_PICK_MAX_VIEWERS_PER_CAMERA} guests watching your
+            camera.
+          </p>
+        ) : null}
       </footer>
     </main>
   );

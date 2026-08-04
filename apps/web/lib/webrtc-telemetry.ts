@@ -10,7 +10,13 @@ import { reportWebrtcConnection } from '@/app/_actions/webrtc-telemetry-actions'
  * RTCPeerConnection; it self-detaches after the first `connected`.
  */
 
-export type WebrtcSurface = 'demo' | 'panood' | 'call';
+// 'panood'       — operator phone → the couple's control room (the director's cut path)
+// 'panood-guest' — operator phone → a wedding guest who picked that camera (Wave 10).
+//   Kept SEPARATE from 'panood' on purpose: guest-pick is the one surface whose cost
+//   depends on the relay share (Cloudflare TURN is billed per GB), so "how often did a
+//   guest connection have to relay?" has to be answerable without the host connections
+//   diluting the number.
+export type WebrtcSurface = 'demo' | 'panood' | 'call' | 'panood-guest';
 
 /** Inspect the winning ICE candidate pair: relayed? + a "localType/remoteType" tag. */
 async function inspect(

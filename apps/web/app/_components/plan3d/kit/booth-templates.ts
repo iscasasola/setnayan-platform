@@ -33,13 +33,13 @@ import {
 import type { BoothPropKind } from './booth-props';
 import {
   BOOTH_FOOTPRINT_M,
-  boothIsBranded,
   pctToWorld,
   boothFacingY,
   rotateLocalRad,
   type Lab3DBooth,
   type ObstacleDisc,
 } from '@/lib/seating-3d';
+import { boothRendersBranded } from '@/lib/booth-branding-tier-gate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -302,6 +302,19 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     props: [{ kind: 'maquette', position: [0, 0.79, 0.08] }],
     staff: { outfit: 'uniform', idle: 'present', count: 1 },
     signText: 'Reception Venue',
+    cardKind: 'inclusions',
+  },
+  // Travel vertical, 2026-08-01. Lodging split off `reception` onto its own
+  // tile, so it needs its own booth: a front-desk DESK with the property scale
+  // model plus the availability calendar a check-in counter actually shows.
+  accommodation: {
+    chassis: 'DESK',
+    props: [
+      { kind: 'maquette', position: [-0.35, 0.79, 0.05], scale: 0.85 },
+      { kind: 'calendar_board', position: [0.45, 0.79, 0.08], rotY: -0.15 },
+    ],
+    staff: { outfit: 'uniform', idle: 'wave', count: 1 },
+    signText: 'Accommodation',
     cardKind: 'inclusions',
   },
   ceremony_venue: {
@@ -678,6 +691,20 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Escort',
     cardKind: 'inclusions',
   },
+  // Travel vertical, 2026-08-01 — airport transfers, car/van charter, scooter
+  // and boat rental. A booking DESK rather than the VEHICLE chassis the three
+  // tiles above use: the tile sells the ARRANGEMENT, and its leaves span cars,
+  // vans, scooters and bancas, so no single vehicle silhouette is honest.
+  transfers_rentals: {
+    chassis: 'DESK',
+    props: [
+      { kind: 'calendar_board', position: [-0.35, 0.79, 0.05] },
+      { kind: 'clipboard_board', position: [0.45, 0.79, 0.08], rotY: -0.15 },
+    ],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Transfers & Rentals',
+    cardKind: 'inclusions',
+  },
   // ── NON-WEDDING EVENT-TYPE GAP LEAVES (2026-07-20 · §gap-leaves) ──────────
   // Simple DESK/RISER/STATION/BACKDROP compositions from existing chassis +
   // props only — no new geometry; surface heights per the header cheat-sheet.
@@ -1013,7 +1040,7 @@ export function templateBoothObstacles(
   /**
    * The per-event poster stand is solid too — without a disc walkers stroll
    * straight through the banner. Gated on exactly what the RENDERER draws
-   * (`boothIsBranded(vendor) && posterUrl`) and positioned by the same offset
+   * (`boothRendersBranded(vendor) && posterUrl`) and positioned by the same offset
    * helper, so artwork and obstacle cannot drift apart.
    *
    * Called from BOTH branches deliberately: `venue-objects.tsx` renders the
@@ -1029,7 +1056,7 @@ export function templateBoothObstacles(
     facingY: number,
     spec: ChassisSpec | null,
   ) => {
-    if (!boothIsBranded(b.vendor) || !b.vendor?.posterUrl) return;
+    if (!boothRendersBranded(b.vendor) || !b.vendor?.posterUrl) return;
     const r = rotateLocalRad(boothPosterLocalOffset(spec), facingY);
     out.push({
       c: { x: c.x + r.x, z: c.z + r.z },

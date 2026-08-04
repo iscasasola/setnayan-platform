@@ -155,11 +155,15 @@ export default async function OurStoryPage() {
               </li>
               <li>
                 <span className="font-medium">
-                  Livestream your day — on your own YouTube channel.
+                  Livestream your day — to YouTube, on your own event page.
                 </span>{' '}
                 <span className="text-[var(--m-slate)]">
                   With Live Studio, the loved ones who can&rsquo;t be there watch your
-                  wedding live, embedded right on your event page.
+                  wedding live, embedded right on your event page. The broadcast is
+                  created on your own YouTube channel when you connect one, or on a
+                  Setnayan channel where we supply it — and it is always unlisted, so
+                  it never turns up in YouTube search. Setnayan sets the broadcast up;
+                  your own streaming software sends the video.
                 </span>
               </li>
             </ul>

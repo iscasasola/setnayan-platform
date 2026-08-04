@@ -2,6 +2,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookingFeeEnabled, BOOKING_FEE_SCHEDULE_VERSION } from '@/lib/booking-fee-gate';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+// `booking-fee.ts` is a pure value → value module (no I/O, no `server-only`),
+// so importing it from this `.server.ts` file is fine in both directions.
+import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -52,8 +55,20 @@ export async function collectBookingFeeAtLock(
   admin: SupabaseClient,
   args: { eventVendorId: string },
 ): Promise<CollectBookingFeeResult> {
-  // Two-key belt: the flag alone gates the LOCK path (the manual QR rail is
-  // always live, so — unlike the PayMongo send-gate — it needs no RAIL_LIVE).
+  // ⚠ ONE KEY, NOT TWO. This path is gated by NEXT_PUBLIC_BOOKING_FEE_ENABLED
+  // ALONE. `isBookingFeeEnforced()` — the genuine two-key check (flag AND
+  // RAIL_LIVE) — belongs to the DORMANT PayMongo send-gate and is not consulted
+  // here, deliberately: the manual QR rail is always live, so this path needs no
+  // rail flag. Flipping that single env var therefore starts billing vendors on
+  // the next lock of a sourced booking — it writes a real `orders` row plus a
+  // `payments` row into /admin/payments (see below). Treat the flag as the whole
+  // safety margin.
+  //
+  // This comment used to OPEN with "Two-key belt:" and only then walk it back.
+  // A spec written from it inherited the wrong claim (corrected 2026-07-27,
+  // Integration_Contract_Booking_x_Explore §4). A comment that opens with a
+  // reassurance it then contradicts is worse than no comment — the reader stops
+  // at the reassurance.
   if (!isBookingFeeEnabled()) return { status: 'disabled' };
 
   const { data, error } = await admin.rpc('booking_fee_open_lock_charge', {
@@ -127,6 +142,12 @@ export async function collectBookingFeeAtLock(
   // Vendor-payer order on the manual QR rail. `vendor_`-prefixed service_key →
   // VAT-INCLUSIVE (isVatInclusiveServiceKey): the fee IS the gross the vendor
   // pays, no VAT built on top. Description carries the 24-hr verification SLA.
+  //
+  // ⚠ The parenthetical is DERIVED from the fee constants, never typed. It used
+  // to read a hard-coded "(5%)", which is only true at or below ₱100,000 — past
+  // the 2026-07-25 taper a ₱1M booking is billed ₱14,000 (1.40%), so the money
+  // document the vendor reads overstated its own rate. Keep it derived: a
+  // reprice must move the copy with the math, in one place.
   const { data: orderRow, error: oErr } = await admin
     .from('orders')
     .insert({
@@ -134,8 +155,7 @@ export async function collectBookingFeeAtLock(
       user_id: payerUserId,
       vendor_profile_id: vendorProfileId,
       service_key: serviceKey,
-      description:
-        'Setnayan booking fee (5%) — up for verification, confirmation within 24 hrs',
+      description: `Setnayan booking fee (${bookingFeeScheduleSummary()}) — up for verification, confirmation within 24 hrs`,
       requested_total_php: amountPhp,
       status: 'submitted',
       reference_code: referenceCode,

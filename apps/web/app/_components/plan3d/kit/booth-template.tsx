@@ -14,8 +14,8 @@
  *     a 10-booth phone room can carry ~16+ staff figures, which is exactly
  *     the crowd scale the figure kit's 'low' bake exists for.)
  *   + SIGNAGE (the shared BoothSign logo backdrop stays with BoothMesh for
- *     PRO/ENTERPRISE vendors — boothCanBrand unchanged; unbranded booths get
- *     the drawn BoothTextSign nameboard at the same hang height).
+ *     vendors holding the 3D Plan Ads add-on — boothRendersBranded; unbranded
+ *     booths get the drawn BoothTextSign nameboard at the same hang height).
  *
  * CONTRACTS (unchanged from the generic booth):
  *   · Pure visual — the scene's invisible per-booth tap target (BoothHitTarget
@@ -37,10 +37,10 @@ import { useMemo } from 'react';
 import {
   pctToWorld,
   boothFacingY,
-  boothIsBranded,
   type Lab3DBooth,
   type Lab3DPalette,
 } from '@/lib/seating-3d';
+import { boothRendersBranded } from '@/lib/booth-branding-tier-gate';
 import type { FigureSpec } from '@/lib/figure-rig';
 import { Figure, type FigureQuality } from './figure';
 import { BoothChassis, CHASSIS_SPECS } from './booth-chassis';
@@ -86,10 +86,11 @@ export function BoothTemplate({
     }));
   }, [booth.id, template.staff.count, template.staff.outfit, spec.staffAnchors.length]);
 
-  // Branded (pro/enterprise + active 3D Booth add-on + logo) booths get the
-  // shared BoothSign logo backdrop from BoothMesh; everyone else hangs the drawn
-  // nameboard here. boothIsBranded matches BoothMesh's gate exactly.
-  const branded = boothIsBranded(booth.vendor) && !!booth.vendor?.logoUrl;
+  // Branded (active 3D Plan Ads add-on + logo — plus a Pro/Enterprise tier
+  // while the tiered add-on flag is off) booths get the shared BoothSign logo
+  // backdrop from BoothMesh; everyone else hangs the drawn nameboard here.
+  // boothRendersBranded matches BoothMesh's gate exactly.
+  const branded = boothRendersBranded(booth.vendor) && !!booth.vendor?.logoUrl;
   const signText =
     booth.label.trim() || booth.vendor?.name.trim() || template.signText;
 

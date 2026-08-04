@@ -27,7 +27,7 @@ export function SiteMenuBar({ sections }: { sections: SiteMenuSectionsPresent })
           <li key={tab.key} className="flex-1">
             <a
               href={tab.anchor}
-              className="flex h-14 items-center justify-center px-1 text-center font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink/70 transition hover:text-terracotta"
+              className="flex h-14 items-center justify-center px-1 text-center font-mono text-[0.7rem] uppercase tracking-[0.12em] text-ink/70 transition hover:text-gild"
             >
               {tab.label}
             </a>

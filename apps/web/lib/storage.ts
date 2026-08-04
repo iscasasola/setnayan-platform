@@ -352,12 +352,47 @@ function parseSupabaseStorageUrl(
 }
 
 /**
+ * The outcome of a `deletePublicAsset` call.
+ *
+ * ── WHY THIS TYPE EXISTS (added 2026-07-26) ─────────────────────────────────
+ * `deletePublicAsset` used to return `Promise<void>` and `console.error` on
+ * EVERY failure path — it never threw and never reported. That is fine for the
+ * settings/logo callers it was written for (a leaked object costs storage), and
+ * WRONG for RA 10173 erasure, which routes chat attachments through it: the
+ * purge wraps the call in `try/catch` and audit-logs failures to
+ * `admin_audit_log`, so a function that cannot fail visibly made the
+ * `chat-attachment-r2-delete` audit stage UNREACHABLE. An erasure miss that
+ * leaves the object live was recorded nowhere a sweep could find it.
+ *
+ * Its sibling `r2Delete` (lib/r2.ts), used for `r2://` refs, THROWS — and the
+ * erasure adapter audits it correctly. This brings the URL-shaped path to
+ * parity without changing the throw-nothing contract the other callers rely on:
+ * the outcome is returned as data, and callers that ignore the return value
+ * behave exactly as before.
+ *
+ * `reason` is coarse on purpose — enough to triage from an audit row, never
+ * enough to leak the object's contents.
+ */
+export type PublicAssetDeleteResult =
+  | { ok: true; outcome: 'deleted' | 'already-absent' }
+  | {
+      ok: false;
+      reason:
+        | 'r2-not-configured'
+        | 'r2-delete-failed'
+        | 'supabase-delete-failed'
+        | 'unrecognized-url';
+      message: string;
+    };
+
+/**
  * Best-effort delete; we don't roll back the parent record if cleanup fails.
+ * NEVER throws — the outcome is RETURNED (see `PublicAssetDeleteResult`).
  *
  * Routes by URL shape:
  *   - R2 URL → `DeleteObjectCommand` against R2 (tolerates NoSuchKey).
  *   - Supabase Storage URL → `storage.remove()` against Supabase.
- *   - Anything else (external CDN, vendor's own host) → no-op.
+ *   - Anything else (external CDN, vendor's own host) → NOT deletable here.
  *
  * The Supabase branch is exercised when R2 is configured today but a row
  * still points at a legacy Supabase URL from the fallback window — the
@@ -366,7 +401,7 @@ function parseSupabaseStorageUrl(
  */
 export async function deletePublicAsset(args: {
   publicUrl: string;
-}): Promise<void> {
+}): Promise<PublicAssetDeleteResult> {
   const r2 = parseR2Url(args.publicUrl);
   if (r2) {
     try {
@@ -380,7 +415,11 @@ export async function deletePublicAsset(args: {
           '[storage] Skipping R2 delete — R2 not configured. Manual cleanup may be required.',
           r2,
         );
-        return;
+        return {
+          ok: false,
+          reason: 'r2-not-configured',
+          message: `R2 client unavailable; ${r2.bucket}/${r2.key} was NOT deleted`,
+        };
       }
       await client.send(
         new DeleteObjectCommand({ Bucket: r2.bucket, Key: r2.key }),
@@ -390,13 +429,14 @@ export async function deletePublicAsset(args: {
         err instanceof S3ServiceException &&
         (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)
       ) {
-        return;
+        return { ok: true, outcome: 'already-absent' };
       }
       const message =
         err instanceof Error ? err.message : 'Unknown delete error';
       console.error('[storage] R2 delete failed', { ...r2, error: message });
+      return { ok: false, reason: 'r2-delete-failed', message };
     }
-    return;
+    return { ok: true, outcome: 'deleted' };
   }
 
   const supa = parseSupabaseStorageUrl(args.publicUrl);
@@ -411,6 +451,11 @@ export async function deletePublicAsset(args: {
           ...supa,
           error: error.message,
         });
+        return {
+          ok: false,
+          reason: 'supabase-delete-failed',
+          message: error.message,
+        };
       }
     } catch (err) {
       const message =
@@ -419,9 +464,27 @@ export async function deletePublicAsset(args: {
         ...supa,
         error: message,
       });
+      return { ok: false, reason: 'supabase-delete-failed', message };
     }
-    return;
+    return { ok: true, outcome: 'deleted' };
   }
 
-  // Not an R2 or Supabase URL — external CDN / vendor-hosted. No-op.
+  // ── Neither an R2 nor a Supabase URL ────────────────────────────────────────
+  // Previously an unlogged, unreported `return` on the grounds that it must be
+  // an external CDN. It is NOT reliably that, and the difference matters:
+  // `parseR2Url` resolves the bucket-bound "shape 1" URL only when the host
+  // matches `R2_PUBLIC_URL`. If that env var is UNSET or has been ROTATED to a
+  // new domain, every one of our OWN public-bucket URLs falls through to here
+  // and the object survives — silently, with no log line, in a codepath whose
+  // only caller that cares (RA 10173 erasure) was told "done". A config change
+  // must not be able to turn a deletion into a no-op nobody can discover.
+  //
+  // So this is now a REPORTED non-deletion. Genuinely external URLs land here
+  // too, which is why callers that legitimately hold third-party URLs (the
+  // admin settings surfaces) ignore the result — but erasure audits it.
+  const message = `URL matched no known bucket — not deleted (R2_PUBLIC_URL ${
+    process.env.R2_PUBLIC_URL ? 'is set' : 'is UNSET'
+  }; if this is one of our objects, the public host was rotated)`;
+  console.warn('[storage] deletePublicAsset: ', message);
+  return { ok: false, reason: 'unrecognized-url', message };
 }

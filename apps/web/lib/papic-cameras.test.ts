@@ -168,9 +168,12 @@ test('uncapped does not override an unlock free tier (still ₱0)', () => {
 // return 409 camera_points_exhausted (presign refuses the URL — no orphan bytes;
 // record refuses the row — the capture never lands).
 
-test('points cost: 1 photo = 1 point · 1 ten-second clip = 7 points', () => {
+test('points cost: 1 photo = 1 point · 1 ten-second clip = 8 points', () => {
+  // Owner-locked 2026-07-29 with the two-type Pool/One model: the clip weight
+  // moved 7 -> 8. One currency, both balances — a clip costs 8 against the
+  // shared pool and against a Papic One camera's dedicated bucket alike.
   assert.equal(papicCaptureCost('photo'), 1);
-  assert.equal(papicCaptureCost('clip'), 7);
+  assert.equal(papicCaptureCost('clip'), 8);
 });
 
 test('exhausted budget → "exhausted" (the seams answer 409 camera_points_exhausted, no presign URL)', () => {

@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -231,6 +232,68 @@ export async function r2Upload(args: {
 }
 
 /**
+ * Lists objects under `prefix`, following pagination up to `maxKeys`.
+ *
+ * Read-only. Used by the admin website-media surface to see what is ACTUALLY
+ * stored, as opposed to what the database still points at — the two drift apart
+ * because several upload paths repoint a row without deleting the object they
+ * replaced.
+ *
+ * `maxKeys` is a hard stop, not a page size: callers pass a ceiling so a
+ * mistakenly broad prefix can't pull an unbounded listing into a page render.
+ *
+ * ⚠ RETURNS `truncated`, AND CALLERS MUST SURFACE IT. Hitting the ceiling means
+ * the result is a floor, not a measurement; a caller that renders a total from a
+ * truncated listing states a smaller number than the truth with full confidence.
+ */
+export async function r2List(args: {
+  bucket: R2BucketName;
+  prefix: string;
+  maxKeys?: number;
+}): Promise<{
+  objects: { key: string; size: number; lastModified: Date | null }[];
+  truncated: boolean;
+}> {
+  const client = requireR2Client();
+  const ceiling = args.maxKeys ?? 5000;
+  const objects: { key: string; size: number; lastModified: Date | null }[] = [];
+  let token: string | undefined;
+
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: args.bucket,
+        Prefix: args.prefix,
+        ContinuationToken: token,
+        MaxKeys: 1000,
+      }),
+    );
+    for (const o of page.Contents ?? []) {
+      if (!o.Key) continue;
+      objects.push({
+        key: o.Key,
+        size: o.Size ?? 0,
+        lastModified: o.LastModified ?? null,
+      });
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+
+    // Stop at the ceiling — but "we filled the ceiling" is NOT the same as
+    // "there is more". A folder holding exactly `maxKeys` objects has been read
+    // in full, and reporting it truncated would paint a "there is more you
+    // cannot see" warning over a complete listing. Truncated means: we dropped
+    // something, or R2 says another page exists.
+    if (objects.length >= ceiling) {
+      const dropped = objects.length > ceiling;
+      objects.length = Math.min(objects.length, ceiling);
+      return { objects, truncated: dropped || Boolean(token) };
+    }
+  } while (token);
+
+  return { objects, truncated: false };
+}
+
+/**
  * Deletes one object from R2 via a single DELETE. Best-effort by contract —
  * callers MUST wrap it: a failed delete leaves an orphaned object (cleaned later
  * by an R2 lifecycle rule), never lost data, and must not break the calling flow.
@@ -260,6 +323,16 @@ export type R2HeadResult = {
   contentType: string | null;
   /** When the object was last written to R2, or null if absent. */
   lastModified: Date | null;
+  /**
+   * The object's ETag with its surrounding quotes stripped, or null if absent.
+   * For a single (non-multipart) PUT — which is every upload `/api/upload`
+   * presigns — R2 sets this to the MD5 of the body, so it changes whenever the
+   * bytes change. That makes it a CONTENT identity for a key, which is what the
+   * Save-the-Date NSFW verdict binds to (lib/std-video-gate.ts): a key alone is
+   * not enough, because a host can re-PUT different bytes to the same key with
+   * a presigned URL they already hold.
+   */
+  etag: string | null;
 };
 
 /**
@@ -282,6 +355,7 @@ export async function r2Head(args: {
       size: typeof res.ContentLength === 'number' ? res.ContentLength : Number.NaN,
       contentType: res.ContentType ?? null,
       lastModified: res.LastModified ?? null,
+      etag: typeof res.ETag === 'string' ? res.ETag.replace(/^"|"$/g, '') || null : null,
     };
   } catch {
     // Missing object, 403, network blip — all resolve to "cannot prove custody".
@@ -294,11 +368,21 @@ export async function r2Head(args: {
  * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
  * special encoding. Throws if R2 isn't configured or the source is missing —
  * callers MUST treat a throw as "did not relocate" and leave the row untouched.
+ *
+ * `sourceIfMatch` sets `x-amz-copy-source-if-match`: the copy is REFUSED (412)
+ * unless the source still carries that ETag. Pass it whenever the copy is meant
+ * to capture bytes you already inspected — without it there is a window between
+ * "we checked these bytes" and "we copied them" in which the source can be
+ * re-PUT, and the copy would faithfully preserve the swap. Used by the SEC-6
+ * Save-the-Date seal (lib/std-video-gate.ts), which additionally HEADs the
+ * destination afterwards, so a backend that ignored the condition still fails
+ * closed rather than sealing unverified bytes.
  */
 export async function r2Copy(args: {
   bucket: R2BucketName;
   fromKey: string;
   toKey: string;
+  sourceIfMatch?: string;
 }): Promise<void> {
   const client = requireR2Client();
   await client.send(
@@ -306,6 +390,7 @@ export async function r2Copy(args: {
       Bucket: args.bucket,
       CopySource: `${args.bucket}/${args.fromKey}`,
       Key: args.toKey,
+      CopySourceIfMatch: args.sourceIfMatch,
     }),
   );
 }
@@ -326,6 +411,18 @@ export async function r2SignedGet(args: {
    * even on the presigned path — without touching how the object was uploaded.
    */
   responseCacheControl?: string;
+  /**
+   * Overrides the `Content-Disposition` header R2 returns (the S3
+   * `response-content-disposition` param, signed into the URL).
+   *
+   * WITHOUT THIS, A "DOWNLOAD" LINK DOES NOT DOWNLOAD. R2 stores these objects
+   * with their real media type, so a presigned GET for an `.mp4` or `.jpg`
+   * renders INLINE in the tab and the file never reaches the disk. Pass
+   * `attachment; filename="…"` (see `contentDispositionAttachment`) anywhere the
+   * point is to save a copy — /admin/website-media leans on it as the step that
+   * makes deleting safe.
+   */
+  responseContentDisposition?: string;
 }): Promise<string> {
   const client = requireR2Client();
   return await getSignedUrl(
@@ -334,10 +431,12 @@ export async function r2SignedGet(args: {
       Bucket: args.bucket,
       Key: args.key,
       ResponseCacheControl: args.responseCacheControl,
+      ResponseContentDisposition: args.responseContentDisposition,
     }),
     { expiresIn: args.expiresIn ?? 60 * 60 * 24 },
   );
 }
+
 
 /**
  * Returns the direct public URL for an R2 object. Alias for `publicUrlFor`

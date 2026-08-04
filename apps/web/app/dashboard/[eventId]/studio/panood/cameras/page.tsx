@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import {
   fetchPanoodCameras,
   panoodCameraClaimUrl,
@@ -91,8 +92,12 @@ export default async function PanoodCamerasPage({ params }: Props) {
 
   return (
     <section className="space-y-6 pb-12">
+      {/* ONE CONTROLLER (Wave 6): "back" has to land where the host actually came
+          from. With the flag on the legacy room redirects away, so a hardcoded
+          back-link here would bounce them through a redirect to the same place
+          this helper resolves to directly. */}
       <Link
-        href={`/dashboard/${eventId}/studio/panood/broadcast`}
+        href={liveStudioControllerHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

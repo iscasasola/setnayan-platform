@@ -35,14 +35,25 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
+import { ChevronDown, Info, Sparkles, X } from 'lucide-react';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
+  tabLabel,
+  tabBlurb,
   BB_TAB_EVENT,
   goToBuildTab,
   type BudgetBuildTab,
 } from '@/lib/budget-build';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  EXPLORE_INFO_BUTTON_LABEL,
+  EXPLORE_INFO_HANDSHAKE,
+  EXPLORE_INFO_STRIP,
+  EXPLORE_INFO_TITLE,
+  EXPLORE_INFO_WHAT,
+  EXPLORE_STATE_LEGEND,
+} from '@/lib/explore-info-copy';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META moved to
 // @/lib/budget-build 2026-06-16: the docked mobile section sub-nav is now
@@ -50,7 +61,7 @@ import {
 // paints and responds BEFORE this server-built panel resolves (owner: "the sub
 // nav should always respond first"). The dock shares the bus + meta from the lib
 // without importing across _components. Re-exported here so the existing
-// imperative consumers (build-compare.tsx, build-picks-list.tsx) keep importing
+// imperative consumer (build-compare.tsx) keeps importing
 // goToBuildTab from './services-takeover' unchanged.
 export { BB_TAB_EVENT, goToBuildTab };
 
@@ -58,12 +69,21 @@ export { BB_TAB_EVENT, goToBuildTab };
  *  dock dispatches over the bus, so `goToBuildTab('build')` resolves to `#svc-build`. */
 const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
 
-/** Per-section intro copy — the single-scroll headings the strip scrolls between. */
+/** Per-section intro copy — the single-scroll headings the strip scrolls between.
+ *  Behind the Explore-Replan flag (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+ *  §2 — one word, one concept): `compare` is reframed as "Your plans" (PR-F) and
+ *  `budget` as "Payments" — on this page the section is the payments lens, while
+ *  "budget" stays the money TARGET (the tile + `/budget`). The section KEYS /
+ *  anchors / bus events stay `compare` and `budget`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
   shortlist: 'Browse the bench',
-  build: 'Build your team',
-  budget: 'Your budget',
-  compare: 'Compare saved builds',
+  // "Build your team" → **"Your team"** (2026-07-29 §2). The section is the
+  // people you chose — locked, mid-handshake, and candidates — not a verb. The
+  // owner's complaint was literal: "why does the build your team has build your
+  // plan and your team?" It named itself twice and then named a THIRD thing.
+  build: isExploreReplanEnabled() ? 'Your team' : 'Build your team',
+  budget: isExploreReplanEnabled() ? 'Payments' : 'Your budget',
+  compare: isExploreReplanEnabled() ? 'Your plans' : 'Compare saved builds',
 };
 
 export function ServicesTakeover({
@@ -90,6 +110,9 @@ export function ServicesTakeover({
    *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
   premium?: boolean;
 }) {
+  // Read once so the whole surface agrees within a render (same contract as
+  // `build-compare.tsx` / `build-locked.tsx`).
+  const replan = isExploreReplanEnabled();
   // Compare is the least-used + longest section → collapsed by default,
   // expandable in place. Selecting/scrolling to Compare auto-expands it.
   const [compareOpen, setCompareOpen] = useState(false);
@@ -160,7 +183,7 @@ export function ServicesTakeover({
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
-          the Merkado as the couple's premium planning surface. Gold-accented,
+          the Marketplace as the couple's premium planning surface. Gold-accented,
           presentational; the AI features it names (smart matching, watch guard)
           are already live behind the same gate. */}
       {premium ? (
@@ -170,7 +193,7 @@ export function ServicesTakeover({
             Setnayan&nbsp;AI
           </span>
           <span className="text-xs text-ink/60">
-            Your Merkado is on the premium tier — smart matching, fit scoring, and the watch guard are on.
+            Your Marketplace is on the premium tier — smart matching, fit scoring, and the watch guard are on.
           </span>
         </div>
       ) : null}
@@ -188,7 +211,19 @@ export function ServicesTakeover({
           left, the build + compare in a STICKY right rail that stays in view while
           you browse categories. Same single DOM — the slots are never mounted
           twice (no duplicate client state) — only reflowed by grid + sticky. The
-          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched. */}
+          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched.
+
+          DO NOT ADD `.sn-col` HERE (asked twice — 2026-08-01). The 64rem reading
+          column that caps the 13 text-led event routes is WRONG for this one,
+          because the right rail is a FIXED 380px: every pixel the cap removes
+          comes out of the shortlist column, not the rail.
+            today   @1440px viewport → 1120px content → 1120-380-24 = 716px left
+            .sn-col @1440px viewport → 1024px content → 1024-380-24 = 620px left
+          That is a 13% narrowing of the browse surface. Worse, `.sn-col` only
+          binds ABOVE a ~1344px viewport — exactly where this two-column layout
+          finally has room — so it can only ever hurt. Same category as `suite`
+          (deliberate `2xl:grid-cols-4`): a real wide layout, not an unfixed one.
+          See globals.css `.sn-col`. */}
       <div className="grid min-w-0 gap-8 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6 lg:pb-0">
         <div className="min-w-0">
           <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>
@@ -201,29 +236,62 @@ export function ServicesTakeover({
             {buildSlot ?? <SectionStub tab="build" />}
           </ServiceSection>
 
-          {/* Budget — a compact lens of the full budget surface, right where the
-              spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
-          <ServiceSection
-            tab="budget"
-            heading={SECTION_HEADING.budget}
-            collapsible
-            open={budgetOpen}
-            onToggle={() => setBudgetOpen((v) => !v)}
-          >
-            {budgetSlot ?? <SectionStub tab="budget" />}
-          </ServiceSection>
+          {/* ORDER — Bench → Your team → Your plans → Payments
+              (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3, finally executing
+              the §2.2 ruling the code never caught up to). Plans sits next to the
+              team it branches from; Payments closes the journey rather than
+              interrupting it. Flag OFF keeps the shipped build → budget → compare.
+              Both are collapsed by default either way, and neither the `#svc-*`
+              anchors, the `?tab=` deep links nor the BB_TAB_EVENT bus care about
+              DOM order — they resolve by id. */}
+          {replan ? (
+            <>
+              <ServiceSection
+                tab="compare"
+                heading={SECTION_HEADING.compare}
+                collapsible
+                open={compareOpen}
+                onToggle={() => setCompareOpen((v) => !v)}
+              >
+                {compareSlot ?? <SectionStub tab="compare" />}
+              </ServiceSection>
+              <ServiceSection
+                tab="budget"
+                heading={SECTION_HEADING.budget}
+                collapsible
+                open={budgetOpen}
+                onToggle={() => setBudgetOpen((v) => !v)}
+              >
+                {budgetSlot ?? <SectionStub tab="budget" />}
+              </ServiceSection>
+            </>
+          ) : (
+            <>
+              {/* Budget — a compact lens of the full budget surface, right where the
+                  spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
+              <ServiceSection
+                tab="budget"
+                heading={SECTION_HEADING.budget}
+                collapsible
+                open={budgetOpen}
+                onToggle={() => setBudgetOpen((v) => !v)}
+              >
+                {budgetSlot ?? <SectionStub tab="budget" />}
+              </ServiceSection>
 
-          {/* Compare — collapsed by default (least-used + longest). Expands in
-              place; selecting/scrolling to it auto-opens (compareOpen). */}
-          <ServiceSection
-            tab="compare"
-            heading={SECTION_HEADING.compare}
-            collapsible
-            open={compareOpen}
-            onToggle={() => setCompareOpen((v) => !v)}
-          >
-            {compareSlot ?? <SectionStub tab="compare" />}
-          </ServiceSection>
+              {/* Compare — collapsed by default (least-used + longest). Expands in
+                  place; selecting/scrolling to it auto-opens (compareOpen). */}
+              <ServiceSection
+                tab="compare"
+                heading={SECTION_HEADING.compare}
+                collapsible
+                open={compareOpen}
+                onToggle={() => setCompareOpen((v) => !v)}
+              >
+                {compareSlot ?? <SectionStub tab="compare" />}
+              </ServiceSection>
+            </>
+          )}
         </div>
       </div>
     </section>
@@ -232,8 +300,12 @@ export function ServicesTakeover({
 
 /**
  * One stacked section of the single-scroll surface: an anchored `<section>` with
- * a serif heading. Compare passes `collapsible` → the body sits behind a
- * "Show comparison" disclosure (controlled by the parent so the nav can open it).
+ * a serif heading. Compare AND Budget/Payments pass `collapsible` → the body sits
+ * behind a plain "Show" / "Hide" disclosure (controlled by the parent so the nav
+ * can open it). The label was hardcoded `'Show comparison'` until 2026-07-29 —
+ * a live copy bug, since the SAME button opens the Payments section
+ * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §5). The heading already names
+ * the section, so the button only has to name the verb.
  */
 function ServiceSection({
   tab,
@@ -250,8 +322,12 @@ function ServiceSection({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const { blurb } = TAB_META[tab];
+  const blurb = tabBlurb(tab);
   const bodyId = `${sectionId(tab)}-body`;
+  // Page-level ⓘ (Explore Replan PR-B · spec §11.1) — the bench only, and only
+  // behind the flag. The heading keeps its exact pre-replan classes when the ⓘ
+  // is absent, so the flag-OFF render is byte-identical.
+  const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // scroll-mt clears the sticky desktop `.shell-topbar` when scrolled into view.
     <section id={sectionId(tab)} aria-labelledby={`${sectionId(tab)}-h`} className="scroll-mt-24">
@@ -259,9 +335,16 @@ function ServiceSection({
         <div className="min-w-0">
           <h2
             id={`${sectionId(tab)}-h`}
-            className="font-serif text-xl italic leading-tight text-ink sm:text-2xl"
+            className={`font-serif text-xl italic leading-tight text-ink sm:text-2xl${
+              showInfo ? ' flex items-center gap-2' : ''
+            }`}
           >
             {heading}
+            {/* The ONE explanatory affordance on the bench: what this page does,
+                the state-glyph legend, the lock handshake in a line, and what
+                the Coverage Strip means. Every string comes from
+                lib/explore-info-copy.ts; none is authored here. */}
+            {showInfo ? <ExploreInfoToggle /> : null}
           </h2>
           <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>
         </div>
@@ -273,7 +356,7 @@ function ServiceSection({
             aria-controls={bodyId}
             className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
           >
-            {open ? 'Hide' : 'Show comparison'}
+            {open ? 'Hide' : 'Show'}
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
               strokeWidth={2}
@@ -287,9 +370,83 @@ function ServiceSection({
   );
 }
 
+/**
+ * The page-level ⓘ (Explore Replan PR-B · spec §11).
+ *
+ * Rules encoded here: a REAL button with an aria-label + visible focus ring; a
+ * DISMISSIBLE panel (close button + Escape + click the toggle again); state is
+ * NEVER persisted — it is help, not a setting, so it always starts closed.
+ *
+ * Everything is `<span>`-based because the toggle is rendered inside the
+ * section's `<h2>`, which only admits phrasing content; `block`/`grid` classes
+ * do the layout. All copy is imported — none is authored in this file.
+ */
+function ExploreInfoToggle() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  return (
+    <span className="relative inline-flex not-italic">
+      <button
+        type="button"
+        aria-label={EXPLORE_INFO_BUTTON_LABEL}
+        aria-expanded={open}
+        aria-controls="explore-info-panel"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-ink/55 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      >
+        <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      </button>
+      {open ? (
+        <span
+          id="explore-info-panel"
+          className="absolute left-0 top-8 z-30 block w-[min(22rem,calc(100vw-3rem))] rounded-2xl border border-ink/10 bg-cream p-4 font-sans text-sm not-italic leading-relaxed text-ink/75 shadow-xl"
+        >
+          <span className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-ink">{EXPLORE_INFO_TITLE}</span>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink/45 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            </button>
+          </span>
+          <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
+          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_STRIP}</span>
+          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
+          <span className="mt-3 grid gap-1 border-t border-ink/10 pt-3">
+            {EXPLORE_STATE_LEGEND.map((row) => (
+              <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">
+                <span className="w-3 shrink-0 text-center font-mono text-ink" aria-hidden>
+                  {row.glyph}
+                </span>
+                <span>
+                  <span className="font-semibold text-ink">{row.label}</span> — {row.meaning}
+                </span>
+              </span>
+            ))}
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Fallback body when a slot isn't supplied (e.g. a slot still being built). */
 function SectionStub({ tab }: { tab: BudgetBuildTab }) {
-  const { label, icon: Icon, blurb } = TAB_META[tab];
+  const { icon: Icon } = TAB_META[tab];
+  const blurb = tabBlurb(tab);
+  const label = tabLabel(tab);
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-12 text-center">
       <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">

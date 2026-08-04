@@ -28,7 +28,9 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
-import { siteMenuEnabled, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { VendorDoorway } from './vendor-doorway';
+import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
@@ -62,9 +64,15 @@ import {
   type LifecyclePhase,
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
+import { buildOwnerRibbon } from '@/lib/owner-ribbon';
+import { buildAfterEventMemento } from '@/lib/pahina-memento';
+import { OwnerRibbon } from './owner-ribbon';
+import { DayOfAnnouncement } from './day-of-announcement';
 import type {
   AnonymousSiteIdentity,
   GuestSiteIdentity,
+  OwnerCapability,
+  VendorCapability,
   SiteIdentity,
 } from '../_lib/site-identity';
 import type {
@@ -80,6 +88,7 @@ import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
+import { PahinaKeepsake } from './pahina-keepsake';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
 import {
@@ -87,6 +96,9 @@ import {
   FindModeCard,
   PublicEventDetails,
 } from './empty-states';
+import { EditorBridge } from './editor-bridge';
+import { PahinaMasthead } from './pahina-masthead';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -166,15 +178,8 @@ function stdAccentColor(event: EventRow): string {
  * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
  */
 function revealMarkSvg(event: EventRow): string | null {
-  const uploaded =
-    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null;
-  const custom =
-    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null;
-  return uploaded ?? custom;
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  return resolveEventMonogramSvg(event);
 }
 
 /**
@@ -242,6 +247,8 @@ type SiteBodyProps = {
    *  film's monogram beats. null → text initials. */
   bespokeSvg: string | null;
   dayOfPhase: DayOfPhase;
+  /** The coordinator's latest announcement, live window only. Guests only. */
+  dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -252,7 +259,8 @@ type SiteBodyProps = {
   stdFilm: boolean;
   stdBackground?: StdBackground;
   stdBackgroundUrl?: string | null;
-  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
+  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoServeUrls
+   *  — the verdict must still bind this media, SEC-6),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
   /** Poster still of that video — fills the full-screen letterbox bars with a
@@ -297,6 +305,28 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
+   *  pre-gated --color-* overrides (null when inert). Layered over the Mood-Board
+   *  palette in InvitationShell; null → no override → renders as today. */
+  siteColorVars: Record<string, string> | null;
+  /** Unified Website Editor (PR-1) — TRUE only when the page resolved
+   *  `?editor=1` AND server-verified host membership. Mounts the click-to-edit
+   *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
+   *  visitor (and absent → false), so their HTML is unchanged byte-for-byte. */
+  editorMode?: boolean;
+  /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
+   *  server-verified this viewer's host membership of THIS event via
+   *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
+   *  BESIDE `identity`, never on it — neither identity tier may carry owner
+   *  keys (compile-time assertion in _lib/site-identity.ts).
+   *
+   *  DELIBERATELY NOT CONSUMED YET. This PR is the gate + its firewall only;
+   *  nothing here reads it, so the rendered tree is byte-identical for every
+   *  visitor including the owner. The PR that mounts owner controls consumes
+   *  it — and must keep the gate here on the server, never by hiding UI. */
+  ownerCapability?: OwnerCapability | null;
+  /** A booked supplier's server-verified grant; drives the doorway strip. */
+  vendorCapability?: VendorCapability | null;
 };
 
 export function SiteBody({
@@ -307,6 +337,7 @@ export function SiteBody({
   studioAnim,
   bespokeSvg,
   dayOfPhase,
+  dayOfBroadcast = null,
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
@@ -326,8 +357,26 @@ export function SiteBody({
   liveWall,
   watchLive,
   proWatermarkHidden,
+  siteColorVars,
+  editorMode = false,
+  ownerCapability = null,
+  vendorCapability = null,
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
+
+  // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
+  // anonymous visitor — `buildOwnerRibbon` returns a model ONLY for the
+  // server-verified capability, so `<OwnerRibbon>` renders nothing and their
+  // DOM is byte-identical to before this PR. Read-only: links only.
+  const ownerRibbon = buildOwnerRibbon({
+    ownerCapability,
+    eventId: event.event_id,
+    slug: event.slug ?? null,
+    phasesEnabled,
+    // The phase the body is ACTUALLY being built from on this render — the
+    // same value `plan` is computed with, so `?phase=` overrides are reflected.
+    lifecyclePhase,
+  });
 
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
@@ -370,8 +419,27 @@ export function SiteBody({
    * `normalBody` is a thunk so the identity-specific normal branch is only
    * built when the lifecycle actually renders it (the old ternaries were
    * equally lazy).
+   *
+   * AFTER-EVENT MEMENTO (design §11 · Pahina tail). The second parameter is
+   * the one guest-only node this shared helper accepts. It exists because the
+   * memento belongs INSIDE the editorial takeover — that is the whole point of
+   * it, the archive's object — and the takeover has exactly one computation
+   * site, here, serving both identity tiers.
+   *
+   * The anonymous tier is protected in TWO independent ways, not one:
+   *   1. `anonymousTree` calls this with one argument, so `memento` defaults to
+   *      `null` and the branch below falls to the SAME single `EditorialContent`
+   *      element it has always returned — the same expression, not a fragment
+   *      that happens to render the same. The anonymous editorial DOM is
+   *      byte-identical by construction, not by inspection.
+   *   2. The node the guest tree passes is itself gated by
+   *      `buildAfterEventMemento` (lib/pahina-memento.ts), which denies any
+   *      tier that is not `guest` before it looks at anything else.
    */
-  const phasedBody = (normalBody: () => React.ReactNode): React.ReactNode =>
+  const phasedBody = (
+    normalBody: () => React.ReactNode,
+    memento: React.ReactNode = null,
+  ): React.ReactNode =>
     plan.body === 'editorial' ? (
       plan.openBrowse ? (
         // Open-browse PR8 (council §5.1/§5.2 — "editorial leads an ARCHIVE"):
@@ -384,16 +452,44 @@ export function SiteBody({
         // takeover alone, exactly as today.
         <>
           <EditorialContent eventId={event.event_id} />
+          {memento}
           <div
             aria-hidden
             className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15"
           />
           {normalBody()}
         </>
+      ) : memento ? (
+        // Guest, After-Event, present at the wedding: the cover essay, then
+        // their own ticket back. Both are direct children of the fragment, so
+        // both land as direct children of `<article data-pahina-chapters>` and
+        // the §6 observer reveals the memento as its own chapter — it is
+        // content, not chrome.
+        <>
+          <EditorialContent eventId={event.event_id} />
+          {memento}
+        </>
       ) : (
         <EditorialContent eventId={event.event_id} />
       )
     ) : plan.body === 'save_the_date' ? (
+      // OPEN BROWSE: the film stops being a wall. It still plays first and in
+      // full — nothing bought is skipped — but once its closing beat is reached
+      // the visitor can step into the site, and step back to the film whenever
+      // they like. Flag-off keeps the takeover exactly as today: the wrapper is
+      // not mounted at all, so that path is byte-identical.
+      plan.openBrowse ? (
+        <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
+      ) : (
+        stdFilmView()
+      )
+    ) : (
+      normalBody()
+    );
+
+  /** The Save-the-Date view, factored so the open-browse and flag-off branches
+   *  above render the IDENTICAL film rather than two drifting copies. */
+  const stdFilmView = () => (
       <SaveTheDateView
         displayName={event.display_name}
         dateIso={event.event_date}
@@ -431,10 +527,9 @@ export function SiteBody({
         launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
         themeId={event.std_theme}
         accentHex={stdAccentColor(event)}
+        canExit={plan.openBrowse}
       />
-    ) : (
-      normalBody()
-    );
+  );
 
   /** The anonymous tree — verbatim the old PublicLanding body. */
   const anonymousTree = (anon: AnonymousSiteIdentity) => {
@@ -450,9 +545,15 @@ export function SiteBody({
     // whether Details/Story always render (they carry event-level facts + a
     // teaser plate under open-browse, so their menu tabs are never dead).
     const archiveTense = plan.body === 'editorial';
+    // Details and Story anchor INSIDE `normalBody()`, which `phasedBody` skips
+    // in the save-the-date phase — so both tabs must first ask whether that
+    // body renders at all. Without this, open browse forced them on and the
+    // taps went nowhere (the council's no-dead-anchors rule, broken by its own
+    // open-browse branch).
+    const bodyRenders = browsableBodyRenders(plan);
     const menuSections = {
-      details: plan.openBrowse || plan.publicSafeWidgets.length > 0,
-      story: plan.openBrowse || Boolean(event.love_story),
+      details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
+      story: bodyRenders && (plan.openBrowse || Boolean(event.love_story)),
       // "Gallery" = the live photo wall (the livestream is a separate concern).
       gallery: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(liveWall),
     };
@@ -476,8 +577,8 @@ export function SiteBody({
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
       dayOfPhase === 'live' ? (
-        <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
+        <p className="inline-flex items-center gap-2 rounded-full border border-terracotta px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           Happening now
         </p>
       ) : dayOfPhase === 'post' ? (
@@ -498,78 +599,46 @@ export function SiteBody({
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
         {plan.anonymousHeroBanner ? (
-          <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
-            <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/90"
-            />
-            <div className="relative space-y-3 px-6 py-12 sm:py-16">
-              {dayOfBadge}
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                You&rsquo;re invited
-              </p>
-              {/* The couple's mark — mirrors the guest hero so the anonymous
-                  shared-link open shows the SAME monogram (animated when the paid
-                  upgrade is owned), not just plain initials. */}
-              <div className="flex justify-center">
-                <HeroMonogram
-                  event={event}
-                  monogram={monogram}
-                  animatedMonogram={animatedMonogram}
-                  bespokeSvg={bespokeSvg}
-                  shadow
-                />
-              </div>
-              {/* Italic serif treatment for the couple's display name —
-                  structural typography enhancement from v2.1 guest-microsite
-                  template (CLAUDE.md 2026-05-28 row 11 guest-microsite port,
-                  couple-palette respected per globals.css guardrail). The
-                  italic emphasis carries the editorial, intimate feel of the
-                  template without touching color tokens. */}
-              <h1 className="font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
-                {event.display_name}
-              </h1>
-              <p className="text-base text-ink/70">
-                {[formatEventDate(event.event_date), event.venue_name]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            </div>
-          </div>
+          /* Pahina masthead (wave A PR-2) — typographic hero; the photo/video is
+             demoted to the cover plate below the type (STRUCTURAL: was a
+             text-over-scrim banner). Monogram mount + personalization unchanged. */
+          <PahinaMasthead
+            displayName={event.display_name}
+            eventDate={event.event_date}
+            venueName={event.venue_name}
+            badgeSlot={dayOfBadge}
+            monogramSlot={
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+                shadow
+              />
+            }
+            mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
+            mediaCaption={event.venue_name}
+          />
         ) : null}
         {phasedBody(() => (
           <>
             <div className="space-y-6 text-center">
-              {!hasHeroMedia ? dayOfBadge : null}
               {!hasHeroMedia ? (
-                <>
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    You&rsquo;re invited
-                  </p>
-                  {/* The couple's mark — mirrors the guest cream-on-cream hero so
-                      the anonymous shared-link open shows the SAME monogram (animated
-                      when the paid upgrade is owned), not just plain initials. */}
-                  <div className="flex justify-center">
+                /* Pahina masthead, text-only variant (wave A PR-2). */
+                <PahinaMasthead
+                  displayName={event.display_name}
+                  eventDate={event.event_date}
+                  venueName={event.venue_name}
+                  badgeSlot={dayOfBadge}
+                  monogramSlot={
                     <HeroMonogram
                       event={event}
                       monogram={monogram}
                       animatedMonogram={animatedMonogram}
                       bespokeSvg={bespokeSvg}
                     />
-                  </div>
-                  {/* Italic serif treatment — see comment on the heroPhotoUrl
-                      branch above. Same structural typography enhancement from
-                      v2.1 template; couple palette tokens unchanged. */}
-                  <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
-                    {event.display_name}
-                  </h1>
-                  <p className="text-base text-ink/60">
-                    {[formatEventDate(event.event_date), event.venue_name]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </>
+                  }
+                />
               ) : null}
               {reason === 'invalid_invite' ? (
                 <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
@@ -578,7 +647,7 @@ export function SiteBody({
                   an old one stops working the moment it&rsquo;s replaced.
                 </p>
               ) : reason === 'wrong_event' ? (
-                <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+                <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
                   You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
                   QR or invite link to switch.
                 </p>
@@ -762,16 +831,44 @@ export function SiteBody({
       flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
       isSample: Boolean(event.is_sample),
     });
+    // Same guard as the anonymous tree: the guest's Details/Story anchors are
+    // sr-only spans inside the normal body, so they are absent in the phases
+    // `phasedBody` does not reach.
+    const guestBodyRenders = browsableBodyRenders(plan);
     const menuSections = {
-      details: plan.hideableInOrder.length > 0,
-      story: Boolean(event.love_story),
+      details: guestBodyRenders && plan.hideableInOrder.length > 0,
+      story: guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall (mirrors the LiveWallBlock gate below).
       gallery: isLive && Boolean(liveWall),
     };
 
+    // AFTER-EVENT MEMENTO (design §11). The RSVPed keepsake returns as proof of
+    // presence — "YOU WERE THERE" — once the wedding is behind them. Null for
+    // every other body, and structurally unreachable for anonymous visitors
+    // (this is inside `guestTree`, and the helper denies a non-guest tier
+    // anyway). See lib/pahina-memento.ts for the two proof signals.
+    const memento = buildAfterEventMemento({
+      identityKind: identity.kind,
+      body: plan.body,
+      rsvpStatus: guest.rsvp_status,
+      arrived: guestHubData.arrived,
+    });
+
     return (
       <>
-        <article className="space-y-12">
+        {/* THE COORDINATOR'S ANNOUNCEMENT — first thing a guest sees during the
+            live window, above the couple's own page. Guests only: an
+            announcement is for the people in the room, and a stranger with the
+            link has no business knowing the ceremony is running late. Null
+            outside the live window, so nothing stale survives the day. */}
+        {dayOfBroadcast ? <DayOfAnnouncement body={dayOfBroadcast.body} /> : null}
+        {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
+            reveal. Deliberately an explicit marker rather than a bare
+            `article > *` selector — `article` is used liberally in this tree
+            (guest columns, the editorial takeover, the hub), and a broad
+            selector would hide THEIR children too, with no observer scoped to
+            reveal them. */}
+        <article data-pahina-chapters className="space-y-12">
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
           {menuOn ? (
@@ -850,80 +947,60 @@ export function SiteBody({
               (plan.body === 'normal' ≡ the old !showEditorialPlaceholder &&
               !showSaveTheDate pair.) */}
           {plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
-            <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
-              {/* Full-bleed video (Increment B) or photo. */}
-              <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
-              {/* Cream overlay for text contrast — gradient bottom is stronger so
-                  the date + monogram circle read cleanly on busy photo backgrounds. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/85"
-              />
-              <div className="relative px-6 py-12 sm:py-16">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                  You are invited
-                </p>
-                <div className="mt-6 flex justify-center">
-                  <HeroMonogram
-                    event={event}
-                    monogram={monogram}
-                    animatedMonogram={animatedMonogram}
-                    bespokeSvg={bespokeSvg}
-                    shadow
-                  />
-                </div>
-                {/* Italic serif display name — structural typography from v2.1
-                    guest-microsite template (CLAUDE.md 2026-05-28 row 11).
-                    Couple palette tokens (monogram.color · cream · ink ·
-                    terracotta) untouched per globals.css wedding-landing
-                    guardrail. */}
-                <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
-                  {event.display_name}
-                </h1>
-                <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/65">
-                  {formatEventDate(event.event_date)}
-                </p>
-                <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
-              </div>
-            </section>
+            /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
+               (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
+            <PahinaMasthead
+              displayName={event.display_name}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                  shadow
+                />
+              }
+              mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
+              mediaCaption={event.venue_name}
+            />
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
-            <section className="text-center">
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                You are invited
-              </p>
-              <div className="mt-6 flex justify-center">
+            <PahinaMasthead
+              displayName={event.display_name}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
                   animatedMonogram={animatedMonogram}
                   bespokeSvg={bespokeSvg}
                 />
-              </div>
-              {/* Italic serif treatment — see comment on the heroPhotoUrl
-                  branch above. Same structural enhancement from v2.1
-                  template; couple palette untouched. */}
-              <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
-                {event.display_name}
-              </h1>
-              <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
-                {formatEventDate(event.event_date)}
-              </p>
-              <hr className="mx-auto mt-6 w-24 border-t border-ink/20" />
-            </section>
+              }
+            />
           ) : null}
 
           {/* Increment C (flag-dark): after the wedding, the body below the
               hero is replaced by the editorial stand-in. The hero (above) +
-              footer sign-out (below) stay. Bypassed when the flag is off. */}
+              footer sign-out (below) stay. Bypassed when the flag is off.
+              The second argument is the After-Event memento — `null` on every
+              body but the editorial one, and never passed by `anonymousTree`. */}
           {phasedBody(() => (
             <>
               {/* Greeting — always-on per the editor contract; gated here so V1.1
                   can decouple if a host wants the wedding page to skip the
                   personalized welcome. */}
               {plan.greetingShouldRender ? (
-                <section className="space-y-4 text-center">
-                  <p className="font-serif text-3xl italic leading-tight text-ink">Hi, {guest.first_name}.</p>
-                  <p className="mx-auto max-w-prose text-base text-ink/70">
+                /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
+                   the display face with the guest's name in gild — the
+                   personalization (nobody else in the market has it) is
+                   unchanged, only its setting. */
+                <section className="space-y-3">
+                  <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
+                    Hi, <span className="text-gild">{guest.first_name}</span>.
+                  </p>
+                  <p className="max-w-prose text-base leading-relaxed text-ink/70">
                     We&rsquo;d love to celebrate with you on{' '}
                     <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
                     {event.venue_name ? (
@@ -948,11 +1025,13 @@ export function SiteBody({
                   Spec §7.5: remote guests first. */}
               {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} /> : null}
 
+              {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
+                  promotion used to wrap the whole widget in an app-green box.
+                  The emphasis now lives inside the programme rail — the live
+                  row carries an accent left rule + veil wash + "Happening now"
+                  tag. Same promotion, same gating, no green on a wedding page. */}
               {isLive && scheduleBlocks.length > 0 ? (
-                <section
-                  aria-label="Day-of schedule"
-                  className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
-                >
+                <section aria-label="Day-of schedule">
                   <ScheduleWidget
                     blocks={scheduleBlocks}
                     eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
@@ -1043,7 +1122,7 @@ export function SiteBody({
                   <div className="flex items-center justify-between gap-3">
                     <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                       {isLive ? (
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
                       ) : null}
                       Photos of you{isLive ? ' — so far' : ''}
                     </p>
@@ -1057,7 +1136,7 @@ export function SiteBody({
                       account keeps them forever. The claim-account box already sits near
                       the top of the page for accountless viewers. */}
                   {isPost && showClaimAccountCta ? (
-                    <p className="mt-3 rounded-lg border border-warn-900/15 bg-warn-100 px-3 py-2 text-sm text-warn-900">
+                    <p className="mt-3 rounded-lg border-l-2 border-gild bg-veil/60 px-3 py-2 text-sm text-ink/80">
                       These close about a day after the wedding. Save the ones you want now —
                       or make a free account (the box near the top) to keep them forever.
                     </p>
@@ -1266,15 +1345,74 @@ export function SiteBody({
 
               {/* RSVP — always-on per the editor contract. The wedding's
                   load-bearing form: the editor blocks hiding it, but the gate
-                  below is the runtime enforcement point. */}
+                  below is the runtime enforcement point.
+
+                  RSVPed FORK (design §11 · build plan §4): once THIS guest has
+                  replied "attending", the ask stops shouting and the keepsake
+                  ticket takes its place. This is a per-GUEST render fork inside
+                  the existing `rsvp` phase — NOT a new LifecyclePhase, and
+                  `plan.rsvpShouldRender` (the golden-locked plan) is untouched.
+                  Anonymous visitors have no guest identity, so the fork is
+                  structurally unreachable for them.
+
+                  ⚠ The design says the ask is "gone" once answered. Taken
+                  literally that would DROP the guest's ability to change their
+                  reply, meal preference or dietary notes — a functional
+                  regression the reskin-never-drop rule forbids. So the form
+                  stays, demoted into a quiet disclosure beneath the keepsake:
+                  the ask no longer competes with the reward, but nothing the
+                  guest could do before is lost. */}
               {plan.rsvpShouldRender ? (
-                <RsvpWidget
-                  guest={guest}
-                  eventId={event.event_id}
-                  eventPublicId={event.public_id}
-                  limited={isLimitedPlusOne}
-                  faceMode={faceMode}
-                />
+                guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined' ? (
+                  <>
+                    {guest.rsvp_status === 'attending' ? (
+                      <PahinaKeepsake
+                        variant="accepted"
+                        displayName={guestHubData.displayName}
+                        guestId={guest.guest_id}
+                        tableLabel={guestHubData.tableLabel}
+                        venueName={event.venue_name}
+                        eventDate={event.event_date}
+                      />
+                    ) : (
+                      /* Declined: a quiet line, never a keepsake — the ticket is
+                         for people who are coming (design §11). */
+                      <section className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+                        <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
+                          We&rsquo;ll miss you.
+                        </p>
+                        <p className="mt-1.5 text-sm leading-relaxed text-ink/60">
+                          Thank you for letting us know.
+                        </p>
+                      </section>
+                    )}
+                    <details className="group">
+                      <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
+                        Need to change your reply?
+                      </summary>
+                      <div className="mt-4">
+                        <RsvpWidget
+                          guest={guest}
+                          eventId={event.event_id}
+                          eventPublicId={event.public_id}
+                          limited={isLimitedPlusOne}
+                          faceMode={faceMode}
+                        />
+                      </div>
+                    </details>
+                  </>
+                ) : (
+                  /* pending + maybe: the ask stays exactly as it is. "Maybe"
+                     deliberately keeps the full card visible (design §11) — an
+                     undecided guest still has a question to answer. */
+                  <RsvpWidget
+                    guest={guest}
+                    eventId={event.event_id}
+                    eventPublicId={event.public_id}
+                    limited={isLimitedPlusOne}
+                    faceMode={faceMode}
+                  />
+                )
               ) : null}
 
               {guest.photo_source === 'selfie' ? (
@@ -1311,7 +1449,7 @@ export function SiteBody({
               ))}
 
               {isLimitedPlusOne ? (
-                <section className="rounded-xl border border-warn-200 bg-warn-50 p-5 text-sm text-warn-900">
+                <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
                   gallery — ask them to share. In-app features like Shutter
                   require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on
@@ -1334,7 +1472,21 @@ export function SiteBody({
                   Guest-session tree only (cookie holders); flag off → renders null. */}
               <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
             </>
-          ))}
+          ), memento ? (
+            /* Design §11, After Event column: the reply-card ticket returns as
+               the memento — the stamp reads "You were there", and its copy
+               points the guest at the gallery on this same page. Same component,
+               same stock, same Nº as the ticket they screenshotted while the
+               wedding was still ahead of them; only `variant` differs. */
+            <PahinaKeepsake
+              variant={memento.variant}
+              displayName={guestHubData.displayName}
+              guestId={guest.guest_id}
+              tableLabel={guestHubData.tableLabel}
+              venueName={event.venue_name}
+              eventDate={event.event_date}
+            />
+          ) : null)}
 
           {/* Menu-shell "Me" anchor (PR6) — the guest's account/sign-out area at
               the foot of the page. The guest's personal-QR affordance stays on
@@ -1364,12 +1516,24 @@ export function SiteBody({
 
   return (
     <InvitationShell
+      monogramText={event.monogram_text}
+      artDirection={event.site_art_direction ?? null}
       backdrop={backdrop}
       rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
+      customColorVars={siteColorVars}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
+          identity trees, for three reasons: (1) it is chrome, not a chapter,
+          so it must not be a direct child of `<article data-pahina-chapters>`
+          where the §6 scroll observer would keep it hidden until scrolled to;
+          (2) one mount point serves the guest tree, the anonymous tree and
+          every lifecycle phase (including the full-bleed Save-the-Date film);
+          (3) it renders `null` for a null model, so a guest's DOM is unchanged
+          byte-for-byte. */}
+      <OwnerRibbon model={ownerRibbon} />
       {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
           the event is effectively public (couple launched their Save-the-Date);
           the abuse-report entry (target_type='event') is present on any listed
@@ -1399,7 +1563,18 @@ export function SiteBody({
           phase: the STD film owns audio there, and this floating speaker control
           would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
       {plan.backgroundMusic && bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* THE SUPPLIER DOORWAY. Rendered here, above the tier fork, because a
+          booked supplier can arrive as EITHER tier — as a guest if the couple
+          also invited them, or anonymously with just the link. Gating it inside
+          one tree would hide it from the other half of real suppliers.
+          `vendorCapability` is null for everyone else, so nothing renders. */}
+      {vendorCapability ? <VendorDoorway capability={vendorCapability} /> : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
+      {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
+          editor's preview iframe. `editorMode` is TRUE only for a verified host
+          who passed `?editor=1`; for every guest/anonymous visitor this renders
+          nothing, so their HTML is byte-identical to before. */}
+      {editorMode ? <EditorBridge /> : null}
     </InvitationShell>
   );
 }

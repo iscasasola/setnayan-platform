@@ -118,27 +118,45 @@ export function PublicEventDetails({
   venueAddress: string | null;
 }) {
   if (!dateLabel && !venueName && !venueAddress) return null;
+  // Pahina (design 2026-07-25 §7): chapter № 03 over a recessed paper-deep plate
+  // with the printed inner hairline frame; WHEN / WHERE read as gild mono keys
+  // and the venue name is set in the display face. Facts and gating unchanged —
+  // still event-level only, no guest-derived data on the anonymous tier.
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream/50 px-6 py-6">
-      {dateLabel ? (
-        <div className="flex items-start gap-3">
-          <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
-          <div>
-            <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink/50">When</p>
-            <p className="text-ink">{dateLabel}</p>
+    <section className="space-y-4">
+      <p className="pahina-eyebrow">
+        <span aria-hidden>№ 03</span>
+        <span>The details</span>
+      </p>
+      <div className="pahina-plate space-y-5">
+        {dateLabel ? (
+          <div className="flex items-start gap-3">
+            <CalendarClock aria-hidden className="mt-1 h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
+            <div>
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">When</p>
+              <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+                {dateLabel}
+              </p>
+            </div>
           </div>
-        </div>
-      ) : null}
-      {venueName || venueAddress ? (
-        <div className="flex items-start gap-3">
-          <MapPin aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
-          <div>
-            <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink/50">Where</p>
-            {venueName ? <p className="text-ink">{venueName}</p> : null}
-            {venueAddress ? <p className="text-sm text-ink/60">{venueAddress}</p> : null}
+        ) : null}
+        {venueName || venueAddress ? (
+          <div className="flex items-start gap-3">
+            <MapPin aria-hidden className="mt-1 h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
+            <div>
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Where</p>
+              {venueName ? (
+                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+                  {venueName}
+                </p>
+              ) : null}
+              {venueAddress ? (
+                <p className="mt-1 text-sm leading-relaxed text-ink/60">{venueAddress}</p>
+              ) : null}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </section>
   );
 }

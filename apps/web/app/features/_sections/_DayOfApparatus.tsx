@@ -54,11 +54,11 @@ const COPY: Record<
     services: [
       {
         tagline: 'Livestream · free single-cam, paid multicam',
-        body: 'Go live on your own YouTube channel from a phone or laptop, free, embedded right on your event page, auto-archived. Family who can’t make it sees every moment in 1080p, on whatever device they’re on. Upgrade to the multicam control room when you want several cameras, one-tap moment switching, and overlays routed to every screen at the venue.',
+        body: 'Go live to YouTube, free, embedded right on your event page and auto-archived. Setnayan sets the broadcast up; you run the stream from a laptop using free streaming software like OBS. Family who can’t make it sees every moment in 1080p, on whatever device they’re on. Upgrade to the multicam control room when you want several cameras, one-tap moment switching, and your monogram and lower-third on the broadcast.',
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
+        body: 'Two shapes, both in the browser — no app to install. Papic Pool is one shared purse of shots any guest’s phone can spend from after scanning the event QR; Papic One is a camera of its own for someone you trust, with its own shots nobody else can spend. QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery, guests can flip through tagged photos before the reception is over.',
       },
       {
         tagline: 'TikTok-format booth at the venue',
@@ -97,11 +97,11 @@ const COPY: Record<
     services: [
       {
         tagline: 'Livestream · libre single-cam, bayad multicam',
-        body: 'Mag-live sa sarili mong YouTube channel mula sa phone o laptop, libre, naka-embed mismo sa event page mo, auto-archived. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila. Mag-upgrade sa multicam control room kapag gusto mo ng maraming camera, one-tap moment switching, at overlays na naka-route sa bawat screen sa venue.',
+        body: 'Mag-live sa YouTube, libre, naka-embed mismo sa event page mo, auto-archived. Ang Setnayan ang bahala sa pag-set up ng broadcast; ikaw ang magpapatakbo ng stream mula sa laptop gamit ang libreng streaming software tulad ng OBS. Ang pamilyang hindi makakapunta, makikita ang bawat sandali in 1080p, kahit anong device ang gamit nila. Mag-upgrade sa multicam control room kapag gusto mo ng maraming camera, one-tap moment switching, at ang monogram at lower-third mo sa broadcast.',
       },
       {
         tagline: 'Designated paparazzi',
-        body: 'Native iOS/Android app para sa mga kaibigan at pamilya. Gesture shutter, QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
+        body: 'Dalawang klase, pareho sa browser — walang app na i-install. Ang Papic Pool ay isang shared na shots na pwedeng gamitin ng kahit sinong guest pagka-scan ng event QR; ang Papic One ay sariling camera para sa pinagkakatiwalaan mo, may sariling shots na walang ibang makakagamit. QR-tag ang photos sa specific guests o buong tables, ang untagged photos ay lalapag pa rin sa gallery ng couple. Real-time delivery, pwede nang tingnan ng guests ang tagged photos nila bago pa matapos ang reception.',
       },
       {
         tagline: 'TikTok-format booth sa venue',

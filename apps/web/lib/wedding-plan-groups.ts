@@ -167,25 +167,13 @@ export type PlanGroup = {
   countsTowardLockable?: boolean;
 };
 
-/**
- * Ceremony types the religion-adaptive copy layer recognizes. Mirrors the
- * `events.ceremony_type` CHECK constraint from migration 20260521000000.
- * `null` covers events without a picked ceremony type (early planning) —
- * those get the default `PlanGroup.hint`.
- */
-export type CeremonyType =
-  | 'catholic'
-  | 'civil'
-  | 'inc'
-  | 'christian'
-  | 'muslim'
-  | 'cultural'
-  // Chinese (Tsinoy) is an active ceremony_type (migrations 20260804000000 +
-  // 20260806000000). Added here 2026-06-28 so a Chinese event's planning
-  // groups / Home-tile adaptivity resolve it instead of treating it as null —
-  // PR #2312 only fixed the matching union in lib/paperwork.ts.
-  | 'chinese'
-  | 'mixed';
+/* REMOVED 2026-07-27 (divergence fix): a local 8-member `CeremonyType` union
+ * and its `isCeremonyType` guard used to live here. Both had ZERO importers and
+ * zero uses inside this file — a dead "canonical-looking" 8-member list sitting
+ * next to three divergent live copies, so a future "let's dedupe onto the lib
+ * helper" would have locked in the SHORT list and broken the write path too.
+ * The one canonical union + runtime array + guard is `CeremonyType` /
+ * `CEREMONY_TYPES` / `isCeremonyType` in `lib/auspicious-date.ts`. */
 
 /**
  * MULTI-PICK folders (owner 2026-06-09): categories under these parents can hold
@@ -203,24 +191,6 @@ export const MULTI_PICK_FOLDERS: ReadonlySet<WeddingFolder> = new Set<WeddingFol
 export function isMultiPickGroup(groupId: string): boolean {
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   return g ? MULTI_PICK_FOLDERS.has(g.catalogFolder) : false;
-}
-
-/**
- * Type guard for `events.ceremony_type` string columns coming off the
- * Supabase client. Keeps the upstream `unknown` strings from leaking
- * into the typed copy resolver.
- */
-export function isCeremonyType(value: unknown): value is CeremonyType {
-  return (
-    value === 'catholic' ||
-    value === 'civil' ||
-    value === 'inc' ||
-    value === 'christian' ||
-    value === 'muslim' ||
-    value === 'cultural' ||
-    value === 'chinese' ||
-    value === 'mixed'
-  );
 }
 
 export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [

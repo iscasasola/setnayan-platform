@@ -70,11 +70,15 @@ export function Expandable({
         />
       </button>
       <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+        // grid-cols-[minmax(0,1fr)] pins the column track to the container: without it the
+        // implicit `auto` column sizes to the child's max-content, so any wide child (a
+        // horizontally-scrolling rail, a table) inflates the collapse past its container.
+        // The twin of the grid-rows trick, which only frees the vertical axis.
+        className={`grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-200 ease-out ${
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
       >
-        <div className="overflow-hidden">
+        <div className="min-w-0 overflow-hidden">
           <div
             id={panelId}
             role="region"

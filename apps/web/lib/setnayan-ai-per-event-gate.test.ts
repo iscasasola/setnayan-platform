@@ -16,8 +16,8 @@ import assert from 'node:assert/strict';
 
 import {
   eventOwnsSetnayanAi,
-  isSetnayanAiActiveForUser,
-  shouldOfferSetnayanAiPurchaseForUser,
+  isSetnayanAiActiveForEvent,
+  shouldOfferSetnayanAiPurchaseForEvent,
 } from './setnayan-ai';
 
 const NOW = new Date('2026-06-01T00:00:00.000Z');
@@ -77,34 +77,26 @@ test('eventOwnsSetnayanAi: flag ON → window enforced, NULL window grandfathere
   );
 });
 
-test('isSetnayanAiActiveForUser: BYTE-IDENTICAL for events without a stored window', () => {
+test('isSetnayanAiActiveForEvent: BYTE-IDENTICAL for events without a stored window', () => {
   // Paywall off → active unless manual, regardless of purchase (unchanged).
-  assert.equal(isSetnayanAiActiveForUser({ planning_mode: null }, { paywallEnabled: false }), true);
+  assert.equal(isSetnayanAiActiveForEvent({ planning_mode: null }, { paywallEnabled: false }), true);
   assert.equal(
-    isSetnayanAiActiveForUser({ planning_mode: 'manual' }, { paywallEnabled: false }),
+    isSetnayanAiActiveForEvent({ planning_mode: 'manual' }, { paywallEnabled: false }),
     false,
   );
   // Paywall on, per-user off → requires the per-event boolean (unchanged).
   assert.equal(
-    isSetnayanAiActiveForUser({ setnayan_ai_active: true }, { paywallEnabled: true }),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true }, { paywallEnabled: true }),
     true,
   );
   assert.equal(
-    isSetnayanAiActiveForUser({ setnayan_ai_active: false }, { paywallEnabled: true }),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: false }, { paywallEnabled: true }),
     false,
-  );
-  // Per-user on → boolean OR the subscription window (unchanged); paywall not required.
-  assert.equal(
-    isSetnayanAiActiveForUser(
-      { setnayan_ai_active: false },
-      { perUserEnabled: true, subscription: { active_until: FUTURE }, now: NOW },
-    ),
-    true,
   );
   // 2026-07-09 fix: a lapsed per-event window locks even when the caller never
   // threads perEventPricingEnabled (the untouched read gates).
   assert.equal(
-    isSetnayanAiActiveForUser(
+    isSetnayanAiActiveForEvent(
       { setnayan_ai_active: true, setnayan_ai_active_until: PAST },
       { paywallEnabled: true, now: NOW },
     ),
@@ -112,23 +104,23 @@ test('isSetnayanAiActiveForUser: BYTE-IDENTICAL for events without a stored wind
   );
 });
 
-test('isSetnayanAiActiveForUser: per-event ON → the window lapses AI', () => {
+test('isSetnayanAiActiveForEvent: per-event ON → the window lapses AI', () => {
   const base = { paywallEnabled: true, perEventPricingEnabled: true, now: NOW };
   assert.equal(
-    isSetnayanAiActiveForUser({ setnayan_ai_active: true, setnayan_ai_active_until: FUTURE }, base),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: FUTURE }, base),
     true,
   );
   assert.equal(
-    isSetnayanAiActiveForUser({ setnayan_ai_active: true, setnayan_ai_active_until: PAST }, base),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: PAST }, base),
     false, // lapsed → off until renewed
   );
   assert.equal(
-    isSetnayanAiActiveForUser({ setnayan_ai_active: true, setnayan_ai_active_until: null }, base),
+    isSetnayanAiActiveForEvent({ setnayan_ai_active: true, setnayan_ai_active_until: null }, base),
     true, // grandfathered
   );
   // Manual override still wins.
   assert.equal(
-    isSetnayanAiActiveForUser(
+    isSetnayanAiActiveForEvent(
       { planning_mode: 'manual', setnayan_ai_active: true, setnayan_ai_active_until: FUTURE },
       base,
     ),
@@ -136,11 +128,11 @@ test('isSetnayanAiActiveForUser: per-event ON → the window lapses AI', () => {
   );
 });
 
-test('shouldOfferSetnayanAiPurchaseForUser: re-offers once the window lapses', () => {
+test('shouldOfferSetnayanAiPurchaseForEvent: re-offers once the window lapses', () => {
   const on = { paywallEnabled: true, perEventPricingEnabled: true, now: NOW };
   // Live window → owns → do NOT re-offer (double-charge guard).
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(
+    shouldOfferSetnayanAiPurchaseForEvent(
       { setnayan_ai_active: true, setnayan_ai_active_until: FUTURE },
       on,
     ),
@@ -148,7 +140,7 @@ test('shouldOfferSetnayanAiPurchaseForUser: re-offers once the window lapses', (
   );
   // Lapsed window → offer the ₱799 renewal.
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(
+    shouldOfferSetnayanAiPurchaseForEvent(
       { setnayan_ai_active: true, setnayan_ai_active_until: PAST },
       on,
     ),
@@ -158,7 +150,7 @@ test('shouldOfferSetnayanAiPurchaseForUser: re-offers once the window lapses', (
   // never threads perEventPricingEnabled (window-authoritative, matching the
   // read gate — no "locked out but never re-offered" dead end).
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser(
+    shouldOfferSetnayanAiPurchaseForEvent(
       { setnayan_ai_active: true, setnayan_ai_active_until: PAST },
       { paywallEnabled: true, now: NOW },
     ),
@@ -166,7 +158,7 @@ test('shouldOfferSetnayanAiPurchaseForUser: re-offers once the window lapses', (
   );
   // No stored window → byte-identical to the old boolean check (owns → no offer).
   assert.equal(
-    shouldOfferSetnayanAiPurchaseForUser({ setnayan_ai_active: true }, { paywallEnabled: true }),
+    shouldOfferSetnayanAiPurchaseForEvent({ setnayan_ai_active: true }, { paywallEnabled: true }),
     false,
   );
 });

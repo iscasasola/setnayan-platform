@@ -62,40 +62,34 @@ export type SkuRecord = {
 };
 
 /**
- * Launch promo end date — 2027-01-30 23:59:59 +08:00 (PH local time).
- * Re-locked 2026-05-20 from the original 2027-03-31 to align the sunset
- * with the end of peak Filipino wedding-search season (Jan-Mar), giving
- * conversion the strongest motivation window. The original migration
- * 20260518100000_launch_promo_until_mar_2027.sql still seeds the DB
- * column to Mar 31 — a follow-up migration is pending to flip
- * `service_catalog.launch_promo_until` to match.
+ * ── FREE PRICING DOES NOT LIVE IN THIS FILE (retired 2026-07-27) ───────────
+ *
+ * `LAUNCH_PROMO_UNTIL` / `LAUNCH_PROMO_SKU_CODES` (16 "free through
+ * 2027-01-30" SKUs) and the pilot-mode helpers were REMOVED here. They had
+ * zero callers and had silently stopped meaning anything:
+ *
+ *   · They keyed on the LEGACY lowercase codes below (`vendor_pro_weekly`,
+ *     `panood_daily_broadcast`). The live catalog is
+ *     `platform_retail_catalog_v2`, keyed on UPPERCASE service_codes
+ *     (`SEATING_3D`, `COUPLE_WEBSITE_PRO`). The two sets never intersected,
+ *     so nothing was ever discounted by them.
+ *   · The live charge path — `lib/order-charge-math.ts` +
+ *     `resolveRetailChargeCentavos` in `lib/v2-catalog.ts` — never read them.
+ *
+ * The one thing they DID still drive was a site-wide banner promising
+ * "every add-on and subscription is free", which checkout then ignored and
+ * charged in full. That banner is deleted.
+ *
+ * THE SINGLE FREE-PRICING MECHANISM IS NOW `public.promo_free_windows`:
+ * admin CRUD at /admin/pricing?tab=free-windows, read by
+ * `lib/promo-free-windows.ts`, ORed into the real entitlement gate at
+ * `lib/entitlements.ts` (`eventSkuActive`) alongside comp_grants and
+ * founder_seats, and surfaced by `promo-free-window-banner.tsx`. One source,
+ * and the banner and the gate read it together — so they cannot disagree.
+ *
+ * Do NOT reintroduce a pricing override here. This module is a legacy
+ * reference catalog; it is not on the money path.
  */
-export const LAUNCH_PROMO_UNTIL = new Date('2027-01-30T23:59:59+08:00');
-
-/**
- * SKUs that are FREE during the launch promo (2026-05-18 owner lock).
- * 16 zero-marginal-cost SKUs across couple- and vendor-side. Concierge, AI
- * Highlights, Custom Monogram, Contract Intelligence, and Vendor
- * Verification are EXCLUDED — those have real labor/API cost.
- */
-export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
-  // Couple-side (6 active — panood_camera_sync + panood_annual_streaming_plus
-  // were retired 2026-05-17 when Panood pivoted to always-multicam baseline;
-  // save_the_date_video retired 2026-06-16 → the Save-the-Date surface is now
-  // the FREE page-opening reveal, no SKU).
-  'pro_widget_schedule',
-  'panood_daily_broadcast',
-  'panood_annual_streaming',
-
-  // Vendor-side (7)
-  'vendor_pro_weekly',
-  'all_tools_unlock_annual',
-  'tool_mood_board_weekly',
-  'tool_seat_arrangement_weekly',
-  'tool_palette_weekly',
-  'tool_qr_reader_weekly',
-  'tool_advanced_pricing_weekly',
-]);
 
 export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   // ---- Couple add-ons ----
@@ -454,91 +448,8 @@ export function findSku(skuCode: string): SkuRecord | undefined {
   return SKU_CATALOG.find((s) => s.skuCode === skuCode && s.isActive);
 }
 
-/**
- * Optional pilot-mode override.
- *
- * Setting `NEXT_PUBLIC_PILOT_MODE_FREE_UNTIL` (ISO 8601 timestamp, e.g.
- * `"2026-08-31T23:59:59+08:00"`) makes EVERY paid SKU resolve to ₱0 until
- * that timestamp passes. Used for closed pilot testing — couples and
- * vendors can exercise the full checkout → activation → expiry → cancel
- * cycle without money actually moving. Unsets itself automatically after
- * the cutoff. Empty/missing/invalid env value = pilot mode OFF.
- *
- * Orthogonal to the launch promo: launch promo applies to a fixed list
- * of 16 zero-marginal-cost SKUs through 2027-03-31 regardless of pilot
- * mode. Pilot mode is a wider "everything is free during testing"
- * override that supplements (not replaces) the launch promo.
- */
-export function getPilotFreeUntil(): Date | null {
-  const raw = process.env.NEXT_PUBLIC_PILOT_MODE_FREE_UNTIL;
-  if (!raw) return null;
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-}
-
-export function isPilotFreeMode(now: Date = new Date()): boolean {
-  const until = getPilotFreeUntil();
-  return until !== null && now < until;
-}
-
-/**
- * True if this SKU is currently FREE — either because it's in the launch
- * promo window, or because pilot mode is active and it's a paid SKU.
- * Pass an explicit `now` for deterministic tests.
- */
-export function isFreeNow(sku: SkuRecord | string, now: Date = new Date()): boolean {
-  const code = typeof sku === 'string' ? sku : sku.skuCode;
-  if (LAUNCH_PROMO_SKU_CODES.has(code) && now < LAUNCH_PROMO_UNTIL) return true;
-  if (isPilotFreeMode(now)) {
-    const record = typeof sku === 'string' ? findSku(sku) : sku;
-    if (record && record.priceCentavos > 0) return true;
-  }
-  return false;
-}
-
-/**
- * The price a checkout flow should charge today. Returns 0 if the SKU is
- * in the launch promo window OR pilot mode is active for a paid SKU.
- */
-export function getEffectivePriceCentavos(
-  sku: SkuRecord,
-  now: Date = new Date(),
-): number {
-  return isFreeNow(sku, now) ? 0 : sku.priceCentavos;
-}
-
-/**
- * End date of whichever promo is currently making this SKU free, or null
- * if the SKU is not currently free. Launch promo takes precedence when a
- * SKU is in both (already-fixed end date vs admin-controlled pilot
- * window).
- */
-export function getPromoEndDate(
-  sku: SkuRecord | string,
-  now: Date = new Date(),
-): Date | null {
-  const code = typeof sku === 'string' ? sku : sku.skuCode;
-  if (LAUNCH_PROMO_SKU_CODES.has(code)) return LAUNCH_PROMO_UNTIL;
-  if (isPilotFreeMode(now)) {
-    const record = typeof sku === 'string' ? findSku(sku) : sku;
-    if (record && record.priceCentavos > 0) return getPilotFreeUntil();
-  }
-  return null;
-}
-
-/** Format a Date as "Mar 31, 2027" (en-PH short month + numeric day + year). */
-export function formatPromoEndDateShort(d: Date = LAUNCH_PROMO_UNTIL): string {
-  return d.toLocaleDateString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'Asia/Manila',
-  });
-}
-
 /** Convert centavos to whole pesos (rounds for display). */
-export function priceCentavosToPeso(centavos: number): number {
+function priceCentavosToPeso(centavos: number): number {
   return Math.round(centavos / 100);
 }
 

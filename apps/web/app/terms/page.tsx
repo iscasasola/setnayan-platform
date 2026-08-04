@@ -140,6 +140,67 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
+      <LegalSection title="Live Studio, YouTube & your broadcast">
+        <p>
+          Live Studio uses YouTube API Services. By using Live Studio you agree
+          to be bound by the{' '}
+          <a
+            href="https://www.youtube.com/t/terms"
+            className="text-terracotta hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            YouTube Terms of Service
+          </a>
+          , and Google&rsquo;s handling of your data is governed by the{' '}
+          <a
+            href="https://policies.google.com/privacy"
+            className="text-terracotta hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google Privacy Policy
+          </a>
+          .
+        </p>
+        <ul className="ml-5 list-disc space-y-1">
+          <li>
+            Whose YouTube channel your broadcast runs on depends on how your
+            event is set up. Where you connect your own YouTube channel, the
+            broadcast and its recording are <strong>yours</strong> — Setnayan
+            does not edit or delete them, and you manage them in YouTube Studio
+            like any other video on your channel.
+          </li>
+          <li>
+            Where <strong>Setnayan supplies the channel</strong> for an event,
+            the broadcast is created on a YouTube channel Setnayan owns and
+            operates. Setnayan controls that broadcast and its recording and may
+            end or remove it. We give you its watch link, and we will delete it
+            if you ask.
+          </li>
+          <li>
+            Setnayan does not transmit your video to YouTube. We create the
+            broadcast and give you a streaming address and key; your own
+            streaming software sends the video. You are responsible for having
+            the rights to everything you broadcast, including any music played
+            at your event.
+          </li>
+          <li>
+            Broadcasts are created <strong>unlisted</strong>: they do not appear
+            in YouTube search, but anyone with the link or your event page can
+            watch. Live Studio depends on YouTube, which we do not control — see{' '}
+            <em>Service availability</em> below.
+          </li>
+          <li>
+            How we handle the Google data involved is set out in our{' '}
+            <Link href="/privacy" className="text-terracotta hover:underline">
+              privacy policy
+            </Link>
+            .
+          </li>
+        </ul>
+      </LegalSection>
+
       <LegalSection title="Your information & the content you share">
         <p>
           Setnayan is a self-service platform. The information you put in — your

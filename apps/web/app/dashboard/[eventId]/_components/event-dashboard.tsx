@@ -8,6 +8,7 @@ import {
   Store,
   MessageSquare,
   ListChecks,
+  Camera,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -16,6 +17,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import {
+  fetchPlanGroupScope,
+  planGroupsForEventType,
+} from '@/lib/plan-groups-by-event-type';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
 import {
@@ -36,12 +42,10 @@ import {
   SCHEDULE_BLOCK_LABEL,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import {
   runTriggers,
@@ -59,6 +63,7 @@ import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -173,6 +178,7 @@ export async function EventDashboard({
   inspectId,
   slotAfterBento,
   dayOfActive = false,
+  canViewPapicCounts = false,
 }: {
   eventId: string;
   suriPreviewParam?: string;
@@ -187,6 +193,17 @@ export async function EventDashboard({
    * — the one-obsidian-per-view rule (rollout plan § 1.3) stays satisfied.
    */
   dayOfActive?: boolean;
+  /**
+   * Is the viewer a COUPLE member of this event? Resolved once by the Home page.
+   *
+   * Gates the Papic mini-tile, and it is a correctness gate rather than a
+   * permission nicety: the three Papic capture tables are couple-only in RLS while
+   * this surface also renders for coordinators / multi-host moderators, and an RLS
+   * denial returns `count: 0` with no error — so without this a coordinator is
+   * shown "0 cameras out" on an event mid-shoot. Defaults FALSE: a caller that
+   * forgets it gets no tile, never a wrong one.
+   */
+  canViewPapicCounts?: boolean;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -207,6 +224,7 @@ export async function EventDashboard({
     seatAssignmentsRes,
     scheduleBlocks,
     hostAccounts,
+    papicHome,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -214,7 +232,11 @@ export async function EventDashboard({
       const leanSelect =
         'event_id, display_name, event_date, event_date_precision, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active';
       const leanRes = await supabase
-        .from('events')
+        // SEC-2b: public.events_host, not public.events — this select names a column
+        // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+        // on the base table by 20271008731642. The view is the couple/moderator-scoped
+        // read path; same columns, same row shape, guests get zero rows.
+        .from('events_host')
         .select(leanSelect)
         .eq('event_id', eventId)
         .maybeSingle();
@@ -506,6 +528,12 @@ export async function EventDashboard({
         return [] as HostAccountView[];
       }
     })(),
+    // Papic on home (PR-G · owner picked options A + B on 2026-07-30). ONE
+    // resolver feeds BOTH the mini-tile below and the "your free camera is ready"
+    // nudge the Home mounts in slotAfterBento, so the two can never disagree —
+    // and it rides this existing batch rather than adding a round-trip. Returns
+    // null (⇒ neither surface renders) when the event has no Papic signal at all.
+    resolvePapicHomeTile(adminClient, eventId, canViewPapicCounts),
   ]);
 
   const event = eventRes.data;
@@ -514,6 +542,35 @@ export async function EventDashboard({
   const base = `/dashboard/${eventId}`;
   const eventType = (event.event_type as string | null) ?? 'wedding';
   const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
+
+  // ── VENDOR-FREE EVENT TYPES (0053 · `marketplace_enabled`) ─────────────────
+  //
+  // The 2026-06-27 Simple Event build gated the NAV — `hideKeys` on
+  // buildCustomerMenuTree + buildCustomerNavGroups drop Explore / Vendors /
+  // Budget — but nothing gated THIS surface's body. So a vendor-free event's
+  // Overview opened on: "Lock your reception venue → Browse reception venues"
+  // as its ONE open decision, "Book a vendor · 21 categories still open", a
+  // Setnayan AI card offering to build a venue shortlist, and "start with the
+  // ones that book out first: your venue and catering" — every one of them a
+  // door to a marketplace this event type does not have.
+  //
+  // It also produced the tell that something was wrong: "overdue by 315 days"
+  // on an event created minutes earlier. That is not a date bug — the wizard's
+  // lead-time model says book a venue ~a year out, so a 50-day-out event is
+  // "overdue" by the difference. The arithmetic was right; asking the question
+  // at all was the error.
+  //
+  // DERIVED, never named by type: `marketplaceEnabled` is the existing column
+  // that encodes vendor-free (SIMPLE_PROFILE sets it false), so a FUTURE
+  // vendor-free type is covered without touching this file. Same house rule as
+  // lib/papic-event-access.ts and the onboarding services step's AI gate.
+  const [profile, planGroupScope] = await Promise.all([
+    resolveProfileByEvent(eventId),
+    // One extra read, in the same await — the tier-2 allow-lists that say which
+    // bookable categories this event type actually has.
+    fetchPlanGroupScope(supabase),
+  ]);
+  const marketplaceEnabled = profile.marketplaceEnabled === true;
   const displayName =
     (event as { display_name?: string | null }).display_name ??
     (eventType === 'wedding' ? 'Your wedding' : 'Your event');
@@ -585,15 +642,45 @@ export async function EventDashboard({
       : null;
 
   // ---- Lock counts + the resolver's #1 task (same libs as the Overview). ---
-  const vendorRowInputs = eventVendors as ReadonlyArray<EventVendorRowInput>;
-  const remainingTaskCount = countUnlockedCategories(vendorRowInputs);
-  const totalLockableCategories = PLAN_GROUPS.filter(
-    (g) => g.countsTowardLockable !== false,
-  ).length;
+  //
+  // Gated at the SOURCE rather than at each render site. The vendor booking
+  // model is a lead-time ladder over PLAN_GROUPS — "book the venue ~a year
+  // out", "caterer by N days" — and on a vendor-free type every one of those
+  // categories is permanently unbookable. Feeding zeros in here means the
+  // cockpit derives no vendor decisions, the board grows no vendor groups, the
+  // digest counts none, and "overdue by N days" cannot be computed for a
+  // category that will never be booked. One gate, instead of one per surface
+  // and a new one every time a surface is added.
+  const vendorRowInputs = marketplaceEnabled
+    ? (eventVendors as ReadonlyArray<EventVendorRowInput>)
+    : ([] as ReadonlyArray<EventVendorRowInput>);
+  // THIS EVENT TYPE'S ladder, not the wedding one. `PLAN_GROUPS` is a hardcoded
+  // wedding list (ceremony_venue · bridal_car · rings · officiant), and every
+  // counter here iterated it for all 16 types — so a BIRTHDAY was told "21
+  // categories still open" with "Lock your reception venue" on top.
+  //
+  // The per-type map already exists, is fully populated and is owner-editable:
+  // `service_categories.applicable_event_types`, maintained from
+  // /admin/event-types/<type>/categories. 72 of 73 tier-2 rows are scoped
+  // (`bridal_car → [wedding]`, `ceremony_venue → [wedding, christening]`).
+  // The marketplace and Shortlist have read it for a while; this surface never
+  // did. So this is WIRING, not new taxonomy — joined on the key the two
+  // already share (`PlanGroup.catalogTile` is a `service_categories.id`).
+  //
+  // Fail-OPEN throughout (see the module header): unknown ⇒ applies. Wrongly
+  // including a category costs a slightly long checklist; wrongly excluding one
+  // means a couple is never reminded to book their venue.
+  const eventPlanGroups = planGroupsForEventType(eventType, planGroupScope);
+  const remainingTaskCount = marketplaceEnabled
+    ? countUnlockedCategories(vendorRowInputs, eventPlanGroups)
+    : 0;
+  const totalLockableCategories = marketplaceEnabled
+    ? eventPlanGroups.filter((g) => g.countsTowardLockable !== false).length
+    : 0;
   const lockedVendorCount = Math.max(0, totalLockableCategories - remainingTaskCount);
   const topPriorityTask =
-    event.event_date && eventDatePrecision === 'day'
-      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now)
+    marketplaceEnabled && event.event_date && eventDatePrecision === 'day'
+      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
       : null;
 
   const paperworkRows = (paperworkRes.data ?? []) as PaperworkRow[];
@@ -617,17 +704,9 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?suri=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(adminClient, eventId)
-    : null;
-  const aiEntitled = isSetnayanAiActiveForUser(
+  const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   const viewerIsInternal =
     (viewerRes.data as { is_internal?: boolean | null } | null)?.is_internal === true;
@@ -780,8 +859,18 @@ export async function EventDashboard({
   // it; the shortlist state itself records consumption. When the venue
   // decision item renders (the resolver's 'start'/'pick' on reception_venue),
   // the offer embeds under it; otherwise it stands alone atop the board. ----
+  //
+  // ⚠ `marketplaceEnabled` FIRST. This offer is Setnayan AI's free introduction
+  // ("let Suri build your first venue shortlist"), and the owner's 2026-07-27
+  // lock is explicit that Setnayan AI is *not offered at all* on a vendor-free
+  // type — not free, not paid — because all nine of its capabilities are
+  // vendor-centric, which makes the card a fake door. The onboarding services
+  // step already derives this correctly (`readServicesStepView` returns
+  // `ai: null` on marketplaceEnabled=false); this surface did not, so a Simple
+  // Event was quoted a venue shortlist AND a subscription price the type can
+  // never buy.
   const venueOfferAvailable =
-    !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSuriAssistFreeDecisionId(i.id)));
@@ -1131,6 +1220,49 @@ export async function EventDashboard({
       </Link>,
     );
   }
+  // ── Papic (PR-G · option A) ──────────────────────────────────────────────
+  // Pre-capture it leads with shots ready (the honest thing to say when nothing
+  // has been shot); from the first photo it flips to photos gathered, which is
+  // the number a couple actually wants on their home page during the run-up
+  // (owner default, PR-G question 2). Both figures derive from
+  // lib/papic-home-tile.ts — the pool figure is the same `papic_event_pool_status`
+  // the capture path meters against, so the tile and the fence cannot disagree.
+  const papicMini = papicHome ? (
+    <Link
+      key="papic"
+      href={`${base}/studio/papic`}
+      className="sn-tile sn-press flex flex-col text-left"
+    >
+      <span className="sn-eye">
+        <Camera aria-hidden strokeWidth={1.75} />
+        Papic
+      </span>
+      <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
+        <CountUp
+          value={papicHome.preCapture ? papicHome.shotsLeft : papicHome.photosGathered}
+          delayMs={700}
+        />
+      </span>
+      <span className="mt-0.5 block text-[11.5px] text-ink/55">
+        {papicHome.preCapture
+          ? papicHome.cameras === 1
+            ? 'shots ready · 1 camera out'
+            : `shots ready · ${papicHome.cameras} cameras out`
+          : papicHome.shotsLeft > 0
+            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} shots left`
+            : 'photos gathered'}
+      </span>
+      {miniFoot('Open Papic')}
+    </Link>
+  ) : null;
+
+  // Pushed HERE, ahead of Messages, so the priority order is structural rather
+  // than index arithmetic: Guests → Budget → Schedule → PAPIC → Messages, in
+  // every combination of which minis have data. (An earlier cut spliced at a
+  // fixed index, which silently put Papic *after* Messages whenever Schedule had
+  // nothing to show.) The cap below is what makes the order bite.
+  if (papicMini) miniTiles.push(papicMini);
+
   if (unreadCount > 0) {
     miniTiles.push(
       <Link
@@ -1152,6 +1284,31 @@ export async function EventDashboard({
       </Link>,
     );
   }
+
+  // ── PAPIC ALWAYS HOLDS A SLOT (owner 2026-07-30: "always hold a slot. since
+  //    that is the foundation of the app.") ─────────────────────────────────
+  //
+  // The first cut of this (PR #3895) let Papic take a slot only when one was
+  // free, so a couple with a full dashboard who had not shot yet saw no Papic at
+  // all once they dismissed the nudge. The owner reversed that: Papic is the
+  // product's foundation, so it is GUARANTEED a slot, always.
+  //
+  // ⚠ WHY THE CAP STAYS 4 RATHER THAN GROWING TO 5. § 1.6 of the rollout plan
+  // (quoted at the top of this bento block) budgets "focal(1) + digest(1) + ≤4
+  // minis + chrome(2) ≤ 8" glass layers above the fold, and `backdrop-filter` is
+  // the expensive part of every one of them. "Always hold a slot" is a statement
+  // about Papic's PRIORITY, not a licence to put a ninth blur layer on the
+  // couple's first screen — so Papic is ranked instead of appended, and the
+  // budget is untouched.
+  //
+  // Push order IS the priority — Papic is pushed above, ahead of Messages — so on
+  // a fully-populated dashboard it is MESSAGES that yields its tile: the least
+  // structural of the five (unread vendor threads are transient, they carry their
+  // own nav badge, and the open count also renders in the decisions digest
+  // directly above this grid). Guests, Budget and Schedule are never displaced,
+  // and Papic is never dropped.
+  const MAX_MINIS = 4;
+  if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
 
   const inspectorMaster = (
     <div className="relative">
@@ -1772,7 +1929,12 @@ export async function EventDashboard({
                 : null}
             </ExpandCard>
 
-            {/* Your team */}
+            {/* Your team — vendor-bearing types only. On a vendor-free type the
+             *  whole card is a doorway to a marketplace that does not exist:
+             *  its empty state read "start with the ones that book out first:
+             *  your venue and catering" and its CTA linked to /vendors, which
+             *  the nav already hides for exactly this reason. */}
+            {marketplaceEnabled ? (
             <ExpandCard
               cardClassName="sn-tile"
               title="Your team"
@@ -1826,6 +1988,7 @@ export async function EventDashboard({
                   ))
                 : null}
             </ExpandCard>
+            ) : null}
 
             {/* Conversations — unread count is THIS event's vendor threads
              *  (see fetchEventUnreadCounts above), so the copy never claims

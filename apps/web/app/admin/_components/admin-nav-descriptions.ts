@@ -73,10 +73,12 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Studio group (key 'media') — Content lane then Marketing lane ──────
   website:
     'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
+  'live-studio-channels':
+    'The Setnayan-owned YouTube channels every Live Studio event streams on. Connect, verify, and release pool channels — couples never connect a Google account.',
   'background-videos':
     'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
-  'hero-video':
-    'The /login left-panel hero still — upload a video; its first frame becomes the sign-in page image. (The public homepage hero runs on Background videos, not this.)',
+  'website-media':
+    'Everything stored for the site’s own pictures and videos, and which files nothing points at any more. Download a copy, then free the space. Guest photos and documents are not shown here.',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',
   'real-stories':
     'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
@@ -144,6 +146,10 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Pilot demo-mode toggle. Surfaces seeded showcase data and hides retired SKU surfaces.',
   'my-account':
     'Your personal account — display name, change password, and sign out other devices.',
+  integrations:
+    'Turn external services on — email, AI, social publishing, payments — without a redeploy.',
+  secrets:
+    'Every API key and password: how old it is, when to replace it, and a paste box to do it here.',
 };
 
 /** Map a single NavItem → the LandingItem card shape (attach its description). */

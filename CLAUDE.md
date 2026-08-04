@@ -2,6 +2,46 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
+## 🛑 RULE 0 — FIND IT BEFORE YOU BUILD IT (owner-locked 2026-07-27)
+
+**This project is ~2 years of design and code. Almost nothing you are asked for is new.**
+The owner has paid, more than once, to have a page recreated that already existed. Assume what
+you are about to build **already exists** and your job is to *locate it and extend it*.
+
+**Before writing ANY code, prototype, migration, or design, run this and paste the results into
+your reply:**
+
+```bash
+# 1. THE SHIPPED COMPONENT — what does the app already do?
+grep -rln "<the feature noun>" apps/web/app apps/web/lib --include="*.tsx" --include="*.ts" | head
+# 2. THE DESIGN — open the file whose NAME matches the task, not the ones near it
+ls ~/Documents/Claude/Projects/Setnayan/Design_*/ ; ls ~/Documents/Claude/Projects/Setnayan/*.md
+# 3. THE DECISION — is it already settled?
+grep -n "<the feature noun>" ~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md | tail -20
+```
+
+Then state, in one line each, **what exists · what is missing · the delta you will build.**
+If you cannot name the existing component and the existing design, **you have not searched enough
+— do not start.**
+
+### The rules that follow from it
+
+1. **Extend, never re-draw.** Open the shipped component and reproduce its real copy and
+   structure. Your output shows only the DELTA. Recreating a working screen is a defect, not a
+   deliverable.
+2. **Read the owner's phrasing as an instruction about an existing thing.** "their package will
+   show completely… *then* at the bottom a line… *then* a checkbox" = **append one section.**
+   Words like *then · at the bottom · also · as well* signal an addition, never a new screen.
+3. **A flag/filter flip beats new schema.** Before adding a column, ask which existing column
+   already encodes it (`is_default_included`, `is_required`, `pricing_basis`, `is_active`).
+   Worked example: "catalogue picker" turned out to be `vendor_package_items` rows with
+   `is_default_included = false`, which vendors already author and `lock-modal.tsx` deliberately
+   hides.
+4. **A dated `*_LOCKED_*.md` / `*_BUILD_SPEC_*.md` outranks any handoff.** Handoffs go stale;
+   locked docs are the decision. Check both before asking the owner anything.
+5. **If it already exists, say where — do not build a demo to prove the point.**
+6. **Never ask the owner a question the corpus answers.** Grep first; cite what you checked.
+
 ## What this repo is
 
 The Setnayan V1 implementation. **All product specs and decision logs live OUTSIDE this repo** at `~/Documents/Claude/Projects/Setnayan/`. Read that folder's `CLAUDE.md` for the canonical decision log before any iteration work.
@@ -23,6 +63,7 @@ The Setnayan V1 implementation. **All product specs and decision logs live OUTSI
 1. Add a changelog **fragment** — a NEW file `changelog.d/<branch-slug>.md` containing a dated `## YYYY-MM-DD · type(scope): summary` block with a `SPEC IMPACT:` line (even if "None"). **Do NOT edit `CHANGELOG.md` or `STATUS.md` directly in a feature PR** — a unique fragment file can never conflict, so the PR goes `BEHIND` (auto-mergeable, since branch protection is non-strict) instead of `CONFLICTING`. (`node scripts/changelog-collect.mjs` folds fragments into `CHANGELOG.md` at release; see `changelog.d/README.md`.)
 2. If `SPEC IMPACT` is **not** "None", apply the spec edit **directly** in the corpus at `~/Documents/Claude/Projects/Setnayan/` (per the 2026-06-04 direct-edit authorization — see "Cowork — the spec-update boundary" below), following the `COWORK.md` sequence. No longer append `[PENDING]` to `COWORK_INBOX.md`.
 3. `STATUS.md` is a refreshed snapshot, not a per-PR log — update it in place only when the project's current state genuinely changes, in its own commit/PR, NOT appended in every feature PR (that was the other half of the merge-conflict treadmill).
+4. **If your PR touches `supabase/migrations/`, the Ugat map must keep up.** Two required db-tests enforce it, so you will be told rather than expected to remember: `ugat-schema-claims.db.test.ts` fails if the map *states* anything untrue about the schema, and `ugat-concept-coverage.db.test.ts` fails if a new *subsystem* appears with no home. When the latter fires you have exactly two honest answers — add a node to `UGAT_TYPES` in `apps/web/lib/ugat/graph.ts` (with joints and their REQUIRED `claims`), or add one reasoned line to `apps/web/tests/db/ugat-concept.baseline.txt`. Never weaken or delete the check to go green; if it is too noisy, raise its thresholds. Why this rule exists: the Samahan subsystem shipped **invisible to the map for three weeks**, and 6 of 9 health findings went stale in 25 days — both silently.
 4. Commit the fragment + any spec/corpus notes in the same commit as the code change.
 
 ## Cowork — the spec-update boundary

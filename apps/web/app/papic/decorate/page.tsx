@@ -34,7 +34,7 @@ export default async function PapicDecoratePage() {
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
         <p className="mt-2 text-sm text-ink/65">
           Scan your personal QR or open your invite link, then come back here to
-          decorate a photo for the couple.
+          decorate a photo for the host.
         </p>
       </Shell>
     );
@@ -47,7 +47,7 @@ export default async function PapicDecoratePage() {
       <Shell>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Not on yet</h1>
         <p className="mt-2 text-sm text-ink/65">
-          The couple hasn&rsquo;t turned on guest cameras for this wedding yet.
+          The host hasn&rsquo;t turned on guest cameras for this event yet.
         </p>
       </Shell>
     );
@@ -63,7 +63,7 @@ export default async function PapicDecoratePage() {
     // caption composer only appears when POST /api/papic/kwento would accept it.
     eventKwentoEnabled(admin, session.event_id),
   ]);
-  const eventName = (ev?.display_name as string | null) || 'the wedding';
+  const eventName = (ev?.display_name as string | null) || 'the event';
 
   // The couple's mood-board colours → offered as text swatches in the decorator
   // (reception dominant/supporting/accent + bride + groom, deduped, capped).

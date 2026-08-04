@@ -74,6 +74,15 @@ export async function signUp(formData: FormData) {
   const publicSummaryConsent =
     accountType === 'customer' && String(formData.get('public_summary_consent') ?? '') === 'yes';
 
+  // First/last name from the signup screen (both optional). Persisted to
+  // users.display_name so the dashboard can greet the couple by name and they
+  // don't re-type it in create-event. (Mobile/wedding-date on the signup screen
+  // are visual-template decoration only — no real inputs — so nothing else to
+  // carry through here.)
+  const firstName = String(formData.get('first_name') ?? '').trim();
+  const lastName = String(formData.get('last_name') ?? '').trim();
+  const displayName = [firstName, lastName].filter(Boolean).join(' ').slice(0, 200) || null;
+
   if (!email || !password) {
     return redirect(`/signup?error=missing&next=${encodeURIComponent(next)}`);
   }
@@ -133,6 +142,7 @@ export async function signUp(formData: FormData) {
         .update({
           email,
           account_type: 'customer',
+          ...(displayName ? { display_name: displayName } : {}),
           ...(publicSummaryConsent
             ? { public_summary_consent_at: new Date().toISOString() }
             : {}),
@@ -272,38 +282,45 @@ export async function signUp(formData: FormData) {
       // is named (owner 2026-07-03).
       const landingPath = accountType === 'vendor' ? '/open-shop' : '/dashboard';
 
-      const consentPromise = publicSummaryConsent
-        ? (async () => {
-            // The DB trigger that creates public.users runs on a
-            // separate connection from this admin write. If we race
-            // the trigger the UPDATE hits zero rows and the consent
-            // timestamp is silently dropped — bad for RA 10173 audit
-            // trail. Poll briefly for the row to exist, then update.
-            for (let attempt = 0; attempt < 5; attempt++) {
-              const { data: row } = await admin
+      const profilePromise =
+        displayName || publicSummaryConsent
+          ? (async () => {
+              // The DB trigger that creates public.users runs on a
+              // separate connection from this admin write. If we race
+              // the trigger the UPDATE hits zero rows and the write is
+              // silently dropped (losing the name and, for opted-in
+              // couples, the RA 10173 consent timestamp). Poll briefly
+              // for the row to exist, then write name + consent together.
+              for (let attempt = 0; attempt < 5; attempt++) {
+                const { data: row } = await admin
+                  .from('users')
+                  .select('user_id')
+                  .eq('user_id', userId)
+                  .maybeSingle();
+                if (row) break;
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+              const { error: profileErr } = await admin
                 .from('users')
-                .select('user_id')
-                .eq('user_id', userId)
-                .maybeSingle();
-              if (row) break;
-              await new Promise((resolve) => setTimeout(resolve, 100));
-            }
-            const { error: consentErr } = await admin
-              .from('users')
-              .update({ public_summary_consent_at: new Date().toISOString() })
-              .eq('user_id', userId);
-            if (consentErr) {
-              console.warn(
-                '[signup] public_summary_consent update failed:',
-                consentErr.message,
-              );
-            }
-          })()
-        : Promise.resolve();
+                .update({
+                  ...(displayName ? { display_name: displayName } : {}),
+                  ...(publicSummaryConsent
+                    ? { public_summary_consent_at: new Date().toISOString() }
+                    : {}),
+                })
+                .eq('user_id', userId);
+              if (profileErr) {
+                console.warn(
+                  '[signup] profile (name/consent) update failed:',
+                  profileErr.message,
+                );
+              }
+            })()
+          : Promise.resolve();
 
-      const [updateResult, consentResult, emailResult] = await Promise.allSettled([
+      const [updateResult, profileResult, emailResult] = await Promise.allSettled([
         admin.auth.admin.updateUserById(userId, { email_confirm: true }),
-        consentPromise,
+        profilePromise,
         sendEmail({
           to: email,
           subject: 'Welcome to Setnayan',
@@ -331,8 +348,8 @@ export async function signUp(formData: FormData) {
       if (updateResult.status === 'rejected') {
         console.warn('[signup] updateUserById failed:', updateResult.reason);
       }
-      if (consentResult.status === 'rejected') {
-        console.warn('[signup] consent IIFE threw:', consentResult.reason);
+      if (profileResult.status === 'rejected') {
+        console.warn('[signup] profile (name/consent) IIFE threw:', profileResult.reason);
       }
       if (emailResult.status === 'rejected') {
         console.warn('[signup] welcome email failed:', emailResult.reason);

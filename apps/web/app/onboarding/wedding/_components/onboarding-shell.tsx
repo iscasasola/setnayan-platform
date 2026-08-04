@@ -58,6 +58,9 @@ import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
+import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -133,7 +136,13 @@ import { SDLoader } from '@/components/sd-loader';
    persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
    screens are filtered out and the flow is byte-identical to today. Order: the couple
    designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
+/* `services_step` (the Papic + Setnayan AI cards, flag-gated · 2026-07-29) sits
+   immediately BEFORE `congrats`. It is NOT a paywall screen and is deliberately
+   not added to PAYWALL_SCREENS: it takes no money and adds nothing to a cart —
+   it is the first time this funnel tells a couple that Papic exists at all. The
+   2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
+   `summary` stay filtered out exactly as before. */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -174,6 +183,11 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
 const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary']);
+// The services step (Papic + Setnayan AI cards). Module-level so every
+// buildSequence call site reads the same value, exactly like the flags above.
+// OFF (default) → the id is filtered out of FLOW_IDS and the wedding flow is
+// byte-identical to today: same screens, same indices, same progress fractions.
+const SERVICES_STEP_ENABLED = onboardingServicesStepEnabled();
 // Screens filtered OUT of the flow. REVERSIBLE — empty this set to restore every screen.
 //   • Owner 2026-06-22: pure no-input interstitials removed to run question→question —
 //     welcome · alaala_promise · team_intro · team_payoff · exp_reveal.
@@ -196,6 +210,7 @@ function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipp
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
     !(EXPERIENCE_QUIZ_ENABLED && PAYWALL_SCREENS.has(id)) &&       // flag ON drops the in-onboarding paywall tail (moves to the dashboard)
+    !(id === 'services_step' && !SERVICES_STEP_ENABLED) &&         // the Papic + Setnayan AI cards, dark until the owner flips the flag
     !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
@@ -218,6 +233,9 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // states the guardrail); chrome Continue advances, canContinue defaults true.
   alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
+  // The services step informs; it never asks for money — so its CTA is a plain
+  // acknowledgement, not "Add" or "Continue to checkout".
+  services_step:'Continue — Papic is on',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -1097,15 +1115,15 @@ function DateCalendar({
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic Pool — add shots', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic One — dedicated camera', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
-  papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
+  papic_guest: "One shared pool of shots that every guest's phone can spend from — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
-  papic_seats: "Five trusted friends, five cameras roaming the venue — the candid angles a single photographer can't catch from the front of the aisle.",
+  papic_seats: "A camera of its own for the friend who always sees the moment first — its own QR, its own shots that nobody else can spend. Add as many as you like, reload any of them whenever one runs low.",
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
   thank_you: "A personalised thank-you video to send after the wedding — beats handwriting 200 cards, feels more like you.",
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
@@ -1124,8 +1142,9 @@ const BUNDLE_BENEFIT: Record<string, string> = {
    arrives as `pricing.svc[inappKey]` (built in page.tsx by buildOnboardingPricing from
    platform_retail_catalog_v2 + platform_package_catalog — the SAME source /pricing reads).
    `pricing.svc[k].set` = Setnayan price (pesos · catalog), `.label` = display string
-   (pax-correct "from ₱X"), `.out` = illustrative "if hired elsewhere" market anchor (NOT a
-   Setnayan price · lives in onboarding-pricing.ts OUT_ANCHORS, no DB column exists for it). */
+   ("₱X"; "from ₱X" only if a pax curve is ever switched back on — none is live), `.out` =
+   illustrative "if hired elsewhere" market anchor (NOT a Setnayan price · lives in
+   onboarding-pricing.ts OUT_ANCHORS, no DB column exists for it; 0 = no anchor). */
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
 /* Comma thousands-separators for the numeric text boxes (guest count + budget).
    Strips non-digits then groups, so the box shows "1,355,000" live while typing
@@ -1156,8 +1175,14 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
   custom_qr: 'custom-qr-guest',
   indoor_blueprint: 'indoor-blueprint',
 };
+/* "You save ₱X vs <this>" — only rendered when the service HAS a market anchor
+   (onboarding-pricing.ts OUT_ANCHORS) worth more than the Setnayan price.
+   Both Papic keys are deliberately absent: their anchors were removed with the
+   2026-07-29 two-type reprice ("5 hired photographers" / "20+ disposable cams"
+   were sized against a ₱2,999 five-seat pack and a pax-priced guest pass,
+   neither of which exists any more), so no savings line renders for them. */
 const INAPP_VS: Record<string, string> = {
-  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
+  advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
 /* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
@@ -1429,6 +1454,8 @@ export function OnboardingShell({
   dynamicTiles = [],
   budgetBands = BUDGET_BANDS_FALLBACK,
   nextPath = null,
+  servicesStepView = null,
+  servicesStepAiValue = null,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1488,6 +1515,19 @@ export function OnboardingShell({
    * keep precedence. Already safeNext()-validated in page.tsx.
    */
   nextPath?: string | null;
+  /**
+   * Services-step view-model (Papic + Setnayan AI), resolved server-side in
+   * page.tsx. NULL = the flag is off; the screen is already filtered out of the
+   * sequence by SERVICES_STEP_ENABLED, so this is the belt to that braces.
+   */
+  servicesStepView?: ServicesStepView | null;
+  /**
+   * The already-rendered <SetnayanAiValue mode="preview" …/> Server Component
+   * node. Forwarded verbatim to the step so its type-aware capability copy
+   * (#3865) is never re-authored — and so its server-only transitive imports
+   * never enter this client bundle.
+   */
+  servicesStepAiValue?: ReactNode;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -2662,10 +2702,11 @@ export function OnboardingShell({
   /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
   const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
-  // Live SELLING price from the admin catalog (pricing.svc[k].set). For the
-  // pax SKU (PAPIC_GUEST) this aggregate uses the floor — onboarding has no
-  // committed pax; the authoritative charge is recomputed at order time. The
-  // `out` market anchors are illustrative (not Setnayan prices).
+  // Live SELLING price from the admin catalog (pricing.svc[k].set). Every live
+  // SKU is flat-priced since the 2026-07-29 Papic reprice (PAPIC_GUEST was the
+  // last pax-curve row); the authoritative charge is still recomputed at order
+  // time. The `out` market anchors are illustrative (not Setnayan prices) and
+  // are 0 for both Papic keys, so neither contributes to this "saved" figure.
   const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
   const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
   const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
@@ -4380,6 +4421,30 @@ export function OnboardingShell({
             </div>
           </section>
 
+          {/* 12b YOUR SERVICES — the Papic + Setnayan AI cards (flag-gated 2026-07-29).
+              Informational: Papic is already on and free, the assistant is introduced and
+              routed. No checkout, no cart — the paywall tail (plan/services/summary) stays
+              filtered out exactly as before. The screen is absent from the sequence unless
+              SERVICES_STEP_ENABLED, so the flag-off flow is byte-identical. */}
+          {/* Guarded on the VIEW, not just on the sequence: the other filtered-out
+              screens keep an inert <section> in the tree, but this one is new, so
+              rendering nothing at all is what makes flag-off emit byte-identical DOM
+              rather than one extra hidden node. */}
+          {servicesStepView ? (
+            <section className={`screen${activeId === 'services_step' ? ' active' : ''}`} id="screen-services_step">
+              <div className="eyebrow">Your services</div>
+              <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Your memories are already being kept.</h1>
+              <ServicesStep
+                className="mt-5"
+                view={servicesStepView}
+                /* interested_services' first reader (spec § 1.3) — the persona's derived
+                   service list orders the two Papic products, and nothing more. */
+                interestedServices={state.interestedServices}
+                aiValue={servicesStepAiValue}
+              />
+            </section>
+          ) : null}
+
           {/* 13 THE DASHBOARD BLOOM — congrats reveal: the couple's wedding website, already built.
               Hero masthead (MonoLockup + names + identity headline) → countdown → covert "Our Love
               Story" → the full recap → share footer. The viewzone scrolls internally; chrome's
@@ -4524,7 +4589,13 @@ export function OnboardingShell({
                   <div className="svc-dpad">
                     <div className="svc-dnm">{BUNDLE_ITEMS[fk] ?? fk}</div>
                     <div className="svc-ddesc">{BUNDLE_BENEFIT[fk] ?? ''}</div>
-                    <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span><span className="svc-dwas">{pesoB(p.out)}</span></div>
+                    {/* The struck-through compare-at renders ONLY when there is a real
+                        anchor above our price. It used to render unconditionally, so any
+                        service without an OUT_ANCHOR — the two Papic cards since the
+                        2026-07-29 reprice, and every SKU taking the missing-row degrade
+                        path — showed a crossed-out "₱0" beside its price, which reads as
+                        "this used to be free". Same condition as the savings line below. */}
+                    <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span>{save > 0 && <span className="svc-dwas">{pesoB(p.out)}</span>}</div>
                     {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
                     <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
                       {added ? '♥ Saved to your wedding' : '♡ Save to my wedding'}
@@ -4577,10 +4648,10 @@ export function OnboardingShell({
                   })}
                 </div>
                 {(() => {
-                  // Live catalog SELLING prices. For the pax SKU (PAPIC_GUEST) this
-                  // aggregate uses the floor `set` (onboarding has no committed pax);
-                  // the authoritative charge is recomputed at order time. This is an
-                  // onboarding estimate — do NOT "fix" it into a hardcode.
+                  // Live catalog SELLING prices. Every live SKU is flat-priced since
+                  // the 2026-07-29 Papic reprice; the authoritative charge is still
+                  // recomputed at order time. This is an onboarding estimate — do NOT
+                  // "fix" it into a hardcode.
                   const setTotal = state.interestedServices.reduce((s, k) => s + (pricing.svc[k]?.set ?? 0), 0);
                   const promo = Math.round(setTotal * ONBOARDING_PROMO);
                   const due = setTotal - promo;

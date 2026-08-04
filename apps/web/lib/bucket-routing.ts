@@ -38,5 +38,12 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // Plural first — this is the prefix both payment-proof writers actually use.
   if (normalized.startsWith('payment-screenshots/')) return 'threadFiles';
   if (normalized.startsWith('payment-screenshot/')) return 'threadFiles';
+  // Off-platform vendor-payment receipts (2026-07-30). Same PII class as the
+  // checkout proofs above: bank-transfer screenshots with reference numbers and
+  // partial account numbers. The client passes bucket="thread-files" explicitly,
+  // so this rule is defence-in-depth — it makes the PREFIX alone sufficient, so
+  // a future server-side writer that routes by prefix cannot land these in the
+  // public bucket by omission. That omission is exactly how they got there.
+  if (normalized.startsWith('payment-proof/')) return 'threadFiles';
   return 'media';
 }

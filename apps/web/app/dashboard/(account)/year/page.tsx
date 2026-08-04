@@ -89,7 +89,10 @@ export default async function YearPage() {
   if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
     const { data: deps } = await supabase
       .from('dependents')
-      .select('dependent_id, name, birth_date, sex, religion, claimed_user_id');
+      // `dependent_kind` is selected because the milestone ladder below is the
+      // HUMAN one — without it a business's founding date would surface as its
+      // "debut". buildDependentMoments skips every non-person kind.
+      .select('dependent_id, name, birth_date, sex, religion, claimed_user_id, dependent_kind');
     // Exclude the row I CLAIMED as my own profile (post hand-over, owner =
     // claimant) — my own debut isn't an "alaga moment". A former guardian's
     // read-only history rows still nudge (their kid's birthday is still theirs

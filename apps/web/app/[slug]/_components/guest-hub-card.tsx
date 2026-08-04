@@ -71,30 +71,34 @@ function rsvpMeta(status: RsvpStatus): {
   dot: string;
   badge: string;
 } {
+  // Functional-color exile (design 2026-07-25 §4): app green / red / amber are
+  // gone from the guest tree. The four states now read as mono stamps —
+  // "Going" is gild-ruled, the rest are ink — so they stay distinguishable by
+  // rule and label rather than by hue. Labels themselves are unchanged.
   switch (status) {
     case 'attending':
       return {
         label: 'Going',
-        dot: 'bg-success-500',
-        badge: 'bg-success-50 text-success-800 border border-success-200',
+        dot: 'bg-gild',
+        badge: 'text-gild border border-gild',
       };
     case 'declined':
       return {
         label: 'Declined',
-        dot: 'bg-danger-400',
-        badge: 'bg-danger-50 text-danger-800 border border-danger-200',
+        dot: 'bg-ink/40',
+        badge: 'text-ink/60 border border-ink/25',
       };
     case 'maybe':
       return {
         label: 'Maybe',
-        dot: 'bg-warn-400',
-        badge: 'bg-warn-50 text-warn-800 border border-warn-200',
+        dot: 'bg-ink/30',
+        badge: 'text-ink/60 border border-ink/20',
       };
     default:
       return {
         label: 'RSVP pending',
         dot: 'bg-ink/30',
-        badge: 'bg-ink/5 text-ink/70 border border-ink/15',
+        badge: 'text-ink/55 border border-ink/15',
       };
   }
 }
@@ -221,22 +225,30 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
       <details
         id="guest-hub-card"
         open
-        className="group rounded-2xl border border-champagne-gold/30 bg-gradient-to-br from-cream to-champagne-gold/5 shadow-sm"
+        /* Pahina hub plate (design §11a): the guest-personal layer is STARRED,
+           not numbered — the gild ✦ marks "this belongs to you" while editorial
+           chapters carry a №. Palette-derived gild replaces the fixed Atelier
+           champagne-gold so the plate re-skins with the couple's colours. The
+           <details> disclosure, the localStorage script, and every id/gate are
+           untouched. */
+        className="group border border-gild/30 bg-gradient-to-br from-paper-deep to-gild/5 shadow-sm"
       >
         {/* Summary row — always visible, acts as the toggle handle */}
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 hover:bg-ink/[0.02]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-ink/[0.02]">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex flex-col">
-              <span className="font-serif text-base italic leading-snug text-ink">
+              <span className="font-pahina text-lg font-light italic leading-snug text-ink">
                 Hi again, {firstName}.
               </span>
-              <span className="mt-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
-                Your invitation summary
+              <span className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-gild">
+                <span aria-hidden>✦ </span>Your invitation summary
               </span>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${rsvp.badge}`}>
+            <span
+              className={`px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-[0.18em] ${rsvp.badge}`}
+            >
               <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle ${rsvp.dot}`} />
               {rsvp.label}
             </span>
@@ -264,11 +276,9 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {rsvp.label}
               </span>
               {rsvpStatus === 'attending' ? (
-                <span className="mt-0.5 text-xs text-success-700">
-                  Your place is reserved.
-                </span>
+                <span className="mt-0.5 text-xs text-ink/70">Your place is reserved.</span>
               ) : rsvpStatus === 'pending' ? (
-                <span className="mt-0.5 text-xs text-warn-700">
+                <span className="mt-0.5 text-xs text-ink/70">
                   Please confirm you&apos;re coming.
                 </span>
               ) : null}
@@ -280,7 +290,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
             <div
               className={`flex flex-col gap-1 rounded-xl border p-3.5 ${
                 showArrival
-                  ? 'sn-arrival-bloom border-champagne-gold/40 bg-gradient-to-br from-cream to-champagne-gold/10'
+                  ? 'sn-arrival-bloom border-gild/40 bg-gradient-to-br from-paper-deep to-gild/10'
                   : 'border-ink/8 bg-cream'
               }`}
             >
@@ -300,7 +310,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 )}
               </span>
               {showArrival ? (
-                <span className="mt-0.5 text-xs text-emerald-700">
+                <span className="mt-0.5 text-xs text-ink/70">
                   Welcome, {firstName} — you&rsquo;re checked in.
                 </span>
               ) : null}
@@ -337,7 +347,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
 
           {/* Next upcoming schedule item */}
           {nextScheduleBlock ? (
-            <div className="flex items-start gap-3 rounded-xl border border-champagne-gold/25 bg-champagne-gold/10 px-4 py-3">
+            <div className="flex items-start gap-3 border border-gild/25 bg-gild/10 px-4 py-3">
               <CalendarClock
                 aria-hidden
                 className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"

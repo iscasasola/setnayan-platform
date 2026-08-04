@@ -13,7 +13,10 @@ import {
 } from './service-list-editors';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
+import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
+import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
+import { serviceWizardSteps } from '@/lib/service-customization-draft';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
@@ -62,19 +65,23 @@ export function ServiceWizard({
   const [linkCount, setLinkCount] = useState(0);
   const [photoKey, setPhotoKey] = useState('');
 
+  // ★ Customization ships FLAG-DARK behind the existing package-authoring flag
+  // (NEXT_PUBLIC_*, so it inlines into this client bundle). Off ⇒ the step is
+  // absent from the sequence AND unmounted below, so the wizard posts exactly
+  // the fields it posts today. `serviceWizardSteps` is pure and lives in
+  // lib/service-customization-draft.ts so that guarantee is unit-testable.
+  const customizationEnabled = packageAuthoringEnabled();
+
   // Step sequence — the links step prunes out when the vendor has no other
   // categories to bundle.
-  const steps = useMemo(() => {
-    const s: { id: string; label: string }[] = [
-      { id: 'what', label: 'What you offer' },
-      { id: 'price', label: 'Pricing' },
-      { id: 'perk', label: 'Setnayan Exclusive' },
-      { id: 'extras', label: 'Value & media' },
-    ];
-    if (otherCategories.length > 0) s.push({ id: 'links', label: 'Comes with' });
-    s.push({ id: 'review', label: 'Review & publish' });
-    return s;
-  }, [otherCategories.length]);
+  const steps = useMemo(
+    () =>
+      serviceWizardSteps({
+        hasOtherCategories: otherCategories.length > 0,
+        customizationEnabled,
+      }),
+    [otherCategories.length, customizationEnabled],
+  );
 
   const clamped = Math.min(step, steps.length - 1);
   const activeId = steps[clamped]?.id ?? 'what';
@@ -142,6 +149,7 @@ export function ServiceWizard({
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             watermark
+            compressImage
             variant="square"
             qrGuard
           />
@@ -270,7 +278,16 @@ export function ServiceWizard({
         <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
       </section>
 
-      {/* 5 · Comes with (links) — only when the vendor offers other categories */}
+      {/* 5 · ★ Customization — what a couple may change about this service.
+          Flag-dark: unmounted entirely when the flag is off, so it contributes
+          no field to the submitted FormData. */}
+      {customizationEnabled ? (
+        <section {...show('custom')} className="space-y-3">
+          <CustomizationStep categoryValue={categoryValue} categoryLabel={categoryLabel} />
+        </section>
+      ) : null}
+
+      {/* 6 · Comes with (links) — only when the vendor offers other categories */}
       {otherCategories.length > 0 ? (
         <section {...show('links')} className="space-y-2">
           <p className="text-sm font-medium text-ink">What&rsquo;s included with this service?</p>

@@ -54,6 +54,15 @@ export type RoamZoneManifestEntry = {
   venueLabel: string | null;
   videoId: string;
   featured: boolean;
+  /**
+   * Unified Live Studio (2026-07-25): this zone is the one currently CUT to the
+   * directed **Main Stage** output (at most one true per event). The viewer plays
+   * the main-stage zone on the "Main Stage" channel; a later provisioning mirror
+   * stamps this from live_studio_roam_zones.is_main_stage. Defaults false, so a
+   * pre-unified manifest simply has no cut and the Main Stage falls back to the
+   * featured zone (selectMainStageZone).
+   */
+  mainStage: boolean;
   status: RoamZoneStatus;
 };
 
@@ -89,6 +98,7 @@ export function parseRoamManifest(raw: unknown): RoamManifest {
       venueLabel,
       videoId,
       featured: r.featured === true,
+      mainStage: r.mainStage === true,
       status,
     });
   }
@@ -97,18 +107,78 @@ export function parseRoamManifest(raw: unknown): RoamManifest {
 }
 
 /**
+ * The DEFAULT-CHANNEL rule, over anything that carries the two fields it reads.
+ *
+ * "The host's ★ default, else the first one that is actually live, else the first
+ * one at all." Generic because the same rule has to run over two different shapes:
+ * the public manifest (RoamZoneManifestEntry, below) and the host's raw channel
+ * rows (lib/live-studio-publish.ts → decideProgramAir, which picks the ONE channel
+ * a free host may put to air). Two spellings of "which channel is the default" is
+ * exactly how a paywall and a viewer end up disagreeing about which camera is the
+ * free one.
+ *
+ * Deliberately CUT-BLIND: it never looks at `mainStage`. Callers that want the cut
+ * to win layer it on top (selectMainStageZone), and callers that must NOT let the
+ * cut move the answer — the free tier's pinned channel — use this directly.
+ */
+export function selectDefaultChannel<T extends { featured: boolean; status: string }>(
+  channels: readonly T[],
+): T | null {
+  if (channels.length === 0) return null;
+  return (
+    channels.find((z) => z.featured) ??
+    channels.find((z) => z.status === 'live') ??
+    channels[0] ??
+    null
+  );
+}
+
+/**
  * Pick the zone the picker should land on by default: the featured zone, else the
  * first live one, else the first entry, else null (empty manifest). Pure +
  * exported so it is unit-tested and shared with the picker's initial state.
  */
 export function selectFeaturedZone(manifest: RoamManifest): RoamZoneManifestEntry | null {
+  return selectDefaultChannel(manifest);
+}
+
+/**
+ * Pick the zone whose feed the directed **Main Stage** (channel 1 of the unified
+ * Live Studio) should currently carry: the zone explicitly cut to Main Stage
+ * (mainStage), else the featured/default zone, else the first live one, else the
+ * first entry, else null (empty manifest). Switching only — Main Stage always
+ * mirrors exactly ONE camera's feed (no compositing). Pure + exported so the
+ * viewer's Main-Stage channel and the unit tests share one source of truth.
+ */
+export function selectMainStageZone(manifest: RoamManifest): RoamZoneManifestEntry | null {
   if (manifest.length === 0) return null;
-  return (
-    manifest.find((z) => z.featured) ??
-    manifest.find((z) => z.status === 'live') ??
-    manifest[0] ??
-    null
-  );
+  return manifest.find((z) => z.mainStage) ?? selectFeaturedZone(manifest);
+}
+
+/**
+ * GUEST-PICK — the host's real, optional switch (owner-locked 2026-07-25 "make it
+ * optional"; Live_Studio_Unified_Spec § 4b Wave 2). ON = guests may leave Channel 1
+ * for any camera channel; OFF = everyone watches the host's cut.
+ *
+ * ENFORCED BY OMISSION, and this is the whole point of doing it here rather than in
+ * the picker component. Hiding the picker buttons while still serialising every
+ * channel's `videoId` into the page would be theatre: the ids ship inside the client
+ * component's props, so anyone who opens the page source could watch the channels
+ * their host chose not to publish. So when guest-pick is OFF the server reduces the
+ * manifest to the ONE entry Channel 1 is carrying — the other ids never leave the
+ * server, and the picker's existing `manifest.length > 1` guard then hides itself
+ * for free.
+ *
+ * (Honest limit: the underlying YouTube broadcasts are still public URLs, so a guest
+ * who finds the channel another way can watch it. Not shipping the ids is the part
+ * we control; making the broadcasts unlisted is a provisioning-side concern.)
+ *
+ * Pure + exported so the loader and the unit tests share one source of truth.
+ */
+export function applyGuestPick(manifest: RoamManifest, guestPickEnabled: boolean): RoamManifest {
+  if (guestPickEnabled) return manifest;
+  const onAir = selectMainStageZone(manifest);
+  return onAir ? [onAir] : [];
 }
 
 /**
@@ -130,23 +200,36 @@ export function groupZonesByVenue(manifest: RoamManifest): { venue: string | nul
 }
 
 /**
- * Read + parse the public ROAM manifest for an event from
- * events.live_studio_roam_manifest. Graceful-degrade to [] on a missing/legacy column
- * (42703) or table (42P01) so a pre-migration database shows the CAST single
- * embed rather than crashing — matches the panood-seats.ts / panood-watch posture.
+ * Read the public viewer state for an event: the parsed ROAM manifest
+ * (events.live_studio_roam_manifest) AND the host's guest-pick switch
+ * (events.live_studio_guest_pick_enabled) in ONE row read — they are both columns on
+ * `events` precisely so the wedding page pays for one query, not two, inside the
+ * live window.
+ *
+ * Graceful-degrade on a missing/legacy column (42703) or table (42P01): empty
+ * manifest + guest-pick TRUE (the default), so a pre-migration database shows the
+ * CAST single embed rather than crashing — matches the panood-watch posture.
+ *
+ * NOTE the caller still has to apply `applyGuestPick` — this returns the raw pair so
+ * the reduction happens in one obvious, tested place.
  */
-export async function fetchRoamManifest(
+export async function fetchRoamViewerState(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<RoamManifest> {
+): Promise<{ manifest: RoamManifest; guestPickEnabled: boolean }> {
   const { data, error } = await supabase
     .from('events')
-    .select('live_studio_roam_manifest')
+    .select('live_studio_roam_manifest, live_studio_guest_pick_enabled')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return [];
-    return [];
-  }
-  return parseRoamManifest((data as { live_studio_roam_manifest?: unknown } | null)?.live_studio_roam_manifest);
+  if (error) return { manifest: [], guestPickEnabled: true };
+  const row = data as
+    | { live_studio_roam_manifest?: unknown; live_studio_guest_pick_enabled?: unknown }
+    | null;
+  return {
+    manifest: parseRoamManifest(row?.live_studio_roam_manifest),
+    // Only an explicit `false` turns it off — an absent column (pre-migration) or a
+    // null must not silently strip a paid host's guest-pick.
+    guestPickEnabled: row?.live_studio_guest_pick_enabled !== false,
+  };
 }

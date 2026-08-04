@@ -5,7 +5,7 @@
  * data is needed to help them" — on a DISCRETE 5-point ladder, not a range:
  *
  *   Tier A  ₱1,499  Wedding
- *   Tier B  ₱999    Debut · Corporate
+ *   Tier B  ₱899    Debut · Corporate
  *   Tier C  ₱499    Christening · Birthday · Celebration · Travel · Tournament
  *                   · Anniversary · Graduation · Reunion
  *   Tier D  ₱99     Gender reveal · Dinner Date
@@ -31,7 +31,7 @@ export type AiPriceTier = 'A' | 'B' | 'C' | 'D' | 'E';
  * event_type → tier (2026-07-22 reach study + owner locks). Anniversary /
  * graduation / reunion sit at C. Tournament dropped C → D (₱99 — ~25% reach, a
  * few specialist vendors; Travel stays C for the itinerary engine). gala_night =
- * B (₱999 — its 84% reach is Debut-level). date / hangout = D (₱99 — short
+ * B (₱899 — its 84% reach is Debut-level). date / hangout = D (₱99 — short
  * casual outings). simple_event = E (no vendors). Unknown types default to C.
  * See DECISION_LOG 2026-07-22 + the reach-matrix study.
  */
@@ -48,7 +48,7 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   graduation: 'C',
   reunion: 'C',
   gender_reveal: 'D',
-  gala_night: 'B', // ₱999 — its 84% reach is Debut-level (owner-locked 2026-07-22).
+  gala_night: 'B', // ₱899 — its 84% reach is Debut-level (owner-locked 2026-07-22).
   date: 'D', // casual romantic outing (dinner/lunch/movie date) — ₱99, Tier D.
   hangout: 'D', // casual barkada get-together (coffee, movie night) — ₱99, Tier D.
   simple_event: 'E',
@@ -79,7 +79,7 @@ export const AI_TIER_SKU: Readonly<Record<AiPriceTier, string | null>> = {
 /** Last-resort price per tier (catalog wins). Matches the locked ladder. */
 export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
   A: 1499,
-  B: 999,
+  B: 899,
   C: 499,
   D: 99,
   E: 0,

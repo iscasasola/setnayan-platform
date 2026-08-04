@@ -33,6 +33,9 @@ import {
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
 import { LockDateConfirmModal, LockMilestoneToast } from './lock-milestone';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
+import { markCategoryComplete } from '../category-decision-actions';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -122,7 +125,14 @@ type LockState =
 
 type ToastState =
   | { kind: 'hidden' }
-  | { kind: 'locked'; undoUntil: number; milestone: LockMilestone };
+  | {
+      kind: 'locked';
+      undoUntil: number;
+      milestone: LockMilestone;
+      /** Explore Replan slice A: multi-pick lock → the toast asks "done with
+       *  this service, or add another?" (flag-gated at the set site). */
+      askDone?: boolean;
+    };
 
 /** What the downpayment modal hands back to performLock to commit the lock. */
 type DownpaymentSubmission = {
@@ -185,6 +195,7 @@ export function AccordionLockButton({
   useEffect(() => {
     if (toast.kind !== 'locked') return;
     if (toast.milestone.finalizeReady || toast.milestone.dateLocked) return;
+    if (toast.askDone) return; // the done-or-add-more question stays until answered
     const remaining = toast.undoUntil - Date.now();
     if (remaining <= 0) {
       setToast({ kind: 'hidden' });
@@ -282,6 +293,9 @@ export function AccordionLockButton({
             kind: 'locked',
             undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
             milestone: lockedMilestone,
+            // Multi-pick categories: one lock is the floor, not the ceiling —
+            // ask "done with this service, or add another?" (owner 2026-07-27).
+            askDone: isExploreReplanEnabled() && !isHardSinglePickGroup(groupId),
           });
           try {
             const mod = await import('posthog-js');
@@ -547,6 +561,17 @@ export function AccordionLockButton({
           milestone={toast.milestone}
           onUndo={performUndo}
           onDismiss={() => setToast({ kind: 'hidden' })}
+          askDone={toast.askDone ?? false}
+          groupLabel={groupLabel}
+          onDone={() => {
+            // "✓ I'm done" → persist decision='complete'; the bench collapses
+            // this category to "✓ Covered — reopen" on the revalidated render.
+            setToast({ kind: 'hidden' });
+            startTransition(async () => {
+              await markCategoryComplete({ eventId, planGroupId: groupId });
+            });
+          }}
+          onAddAnother={() => setToast({ kind: 'hidden' })}
         />
       ) : null}
     </div>

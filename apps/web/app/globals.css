@@ -114,33 +114,92 @@
    * retired (light/dark/auto trio survives).
    */
   :root {
-    /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 255 255 255;        /* page bg → white (owner 2026-07-13; was Atelier paper #FBFAF7) */
-    --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
-    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
+    /*
+     * Light mode — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
+     *
+     * Supersedes BOTH the 2026-07-13 pure-white page AND the 2026-07-31
+     * "Facebook grey #F0F2F5 page + white cards" direction. Owner chose warm
+     * over cool the same week; page and card are deliberately the SAME cream,
+     * so the `paper`→`cream` alias in tailwind.config.ts stays intact and the
+     * 337 hardcoded `bg-white` files need no audit. Card separation is carried
+     * by border + shadow, not by a second surface value.
+     *
+     * Gold is UNCHANGED and keeps every decorative role (active tabs, rules,
+     * pills, eyebrows, selected states) — the accent budget stays at two.
+     *
+     * Contrast, measured (not estimated), all against #FDFBF7:
+     *   ink   #2C2A29  13.82:1  AAA
+     *   link  #3B4E67   8.22:1  AAA   · white on it 8.50:1 AAA
+     *   CTA   #C24E25            · CREAM label on it 4.61:1 AA ✓
+     *   gold  #A9834B   3.37:1  UI + large text ONLY — never body copy
+     *                           (escalate to --color-terracotta-700 #8A6B39,
+     *                            4.79:1 AA, when gold must carry real text)
+     */
+    --color-cream: 253 251 247;        /* page + card → soft cream #FDFBF7 (was pure white 2026-07-13; ≈ the Atelier paper #FBFAF7 that preceded it) */
+    --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
+    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 169 131 75;        /* CTA → Atelier gold #A9834B (design finalization 2026-07-12: gold supersedes the 2026-07-09 wine; token NAME kept to avoid component churn) */
-    --color-mulberry-600: 149 113 61;   /* CTA hover → gold-600 #95713D */
-    --color-mulberry-700: 138 107 57;    /* CTA deepest → gold-700 #8A6B39 */
+    /* CTA → terracotta #C24E25 (86% of the owner's #E05A2B, along its own hue).
+     *
+     * WHY DARKENED: #E05A2B fails AA with EVERY possible label — white 3.71:1,
+     * ink 3.85:1 — both under the 4.5:1 floor for normal-size button text.
+     *
+     * WHY 86% AND NOT 89%: the target is not white. `.button-primary` labels
+     * with `text-cream`, and cream is #FDFBF7, not #FFFFFF. Against cream the
+     * ratio is ~0.15 lower than against white, so the first value that clears
+     * AA on white (#C75026, 4.56:1 white / 4.41:1 cream) still FAILS the label
+     * this app actually renders. #C24E25 gives 4.61:1 with cream, 4.76:1 with
+     * white — passing either way, with headroom.
+     *
+     * ⚠ Do not lighten toward #E05A2B "to match the brand": it re-breaks AA.
+     * Token NAME `mulberry` kept to avoid churning 239 CTA call sites — the
+     * same reason gold kept it in 2026-07-12 and obsidian before that. */
+    --color-mulberry: 194 78 37;         /* CTA → #C24E25 · cream label 4.61:1 AA ✓ */
+    --color-mulberry-600: 176 71 34;    /* CTA hover → #B04722 (5.39:1) */
+    --color-mulberry-700: 157 63 30;     /* CTA deepest → #9D3F1E (6.42:1) */
+    /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
+     * token; anchors inherited ink. Scope is deliberately NARROW (owner):
+     * inline links and secondary/ghost buttons only. It is NOT a decorative
+     * colour — gold keeps that role, so the "one decorative family" rule holds. */
+    --color-link: 59 78 103;           /* slate indigo #3B4E67 · 8.22:1 AAA */
+    --color-link-600: 48 64 85;        /* link hover → #304055 */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: #ffffff;
+    --surface: #fdfbf7;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
   }
 
   html.dark {
-    /* Dark mode — Clean Editorial coherent variant */
+    /*
+     * Dark mode — INERT. Kept coherent, not live.
+     *
+     * ⚠ The app is LIGHT-LOCKED (owner 2026-06-04, "just always keep it light
+     * theme"). ThemeProvider forces `resolvedTheme: 'light'`, `setMode` is a
+     * no-op, and the bootstrap in layout.tsx strips `.dark` before first paint.
+     * With `darkMode: 'class'` and no `prefers-color-scheme` rule in this file,
+     * NOTHING here is reachable today.
+     *
+     * It is updated anyway so a future re-enable is a one-file revert rather
+     * than a re-derivation — the same reason `users.theme_preference` is left
+     * dormant. Values below are measured against the dark page #17160F:
+     *   CTA  #E5794E  6.20:1 AA   · ink label on it 4.88:1 AA
+     *   link #9DB2CE  8.37:1 AAA
+     * (The light values #C75026 / #3B4E67 score 3.98:1 / 2.13:1 here — the
+     * link one FAILS outright — which is why both are lightened, not reused.)
+     */
     --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
     --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
     --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 203 167 102;       /* CTA → gold-300 #CBA766 (reads on the dark bg) */
-    --color-mulberry-600: 216 185 121;  /* CTA hover lighter → #D8B979 */
-    --color-mulberry-700: 169 131 75;    /* CTA deepest → gold-500 #A9834B */
+    --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
+    --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
+    --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
+    --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -505,7 +564,9 @@
  * Bottom-clearance for a docked <SubNav>. When a section shelf is on screen it
  * flags <html> — <GuestsSectionSubnav> uses `guests-subnav-docked`,
  * <VendorsSectionSubnav> (Explore/Services takeover) uses the shared
- * `subnav-docked` — and the floating pill sits ~76px–132px above the viewport
+ * `subnav-docked`, and <TeamSummaryChip> (the Marketplace's mobile team chip,
+ * which replaced that takeover dock) uses its own `teamchip-docked` so two
+ * components can never fight over one class — and the floating pill sits ~76px–132px above the viewport
  * bottom, above the layout's own pb-20 (80px) for the bottom nav. Without extra
  * room the last ~50px of scrolling content would hide behind the pill, so give
  * the shell-main column enough bottom padding to clear it. Mobile-only — the
@@ -513,11 +574,45 @@
  * dead space.
  */
 html.guests-subnav-docked [data-shell-main],
+html.teamchip-docked [data-shell-main],
 html.subnav-docked [data-shell-main] {
   padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
 }
+
+/*
+ * ⭐ LIVE STUDIO CONTROLLER · WAVE 8 (§ 4g) — THE MONITOR YIELDS TO A WARNING.
+ *
+ * The controller is a fixed, scroll-free viewport: every row is `shrink-0` except
+ * the camera grid, so anything that appears has to come out of the grid's height.
+ * The Wave 7 broadcast-window strip is exactly that — it materialises mid-show on
+ * a time crossing, and two of them can be up at once (day ending + 12-hour archive
+ * cap). MEASURED at 360×640 with both up, the grid fell to 27px: still scrolling,
+ * still not overflowing, but too small to be a camera grid.
+ *
+ * So the CH 1 monitor gives the space back for as long as a warning is showing. It
+ * is the right thing to shrink: the picture is `object-cover` and every overlay is
+ * positioned against the box, so a shorter monitor crops rather than breaks, while
+ * a squeezed grid costs the operator the ability to cut.
+ *
+ * Written here rather than as a utility because it needs `:has()` on a PREVIOUS
+ * sibling's ancestor — the warning renders after the monitor, and CSS has no
+ * previous-sibling combinator. Degrades safely: a browser without `:has()` simply
+ * keeps the 34dvh cap (the pre-Wave-8 measured behaviour), and nothing overflows
+ * either way. Scoped to `[data-lsc-*]`, which only the controller emits.
+ */
+[data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+  max-height: 20dvh;
+}
+@media (min-width: 1024px) {
+  /* Desktop has the height to spare — the two-column layout puts the grid in its
+     own column, so a warning does not compete with it. */
+  [data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+    max-height: 40dvh;
+  }
+}
 @media (min-width: 1024px) {
   html.guests-subnav-docked [data-shell-main],
+  html.teamchip-docked [data-shell-main],
   html.subnav-docked [data-shell-main] {
     padding-bottom: 0;
   }
@@ -525,20 +620,38 @@ html.subnav-docked [data-shell-main] {
 
 @layer components {
   /*
-   * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.
+   * .button-primary — TERRACOTTA CTA (Warm Editorial Archive, owner 2026-08-01;
+   * was the gold CTA of 2026-07-12, and the Rich Mulberry of 2026-05-29).
    *
-   * WHY: Owner directive 2026-05-30 verbatim — visible inconsistency between
-   * Today page (mulberry CTAs) and rest of app (Facebook-blue CTAs via
-   * bg-terracotta). Token swap above remaps terracotta → champagne gold for
-   * accents/active states/eyebrows; this class swaps to bg-mulberry so
-   * primary actions visually distinct from active-pill highlights.
+   * The label stays `text-cream`, and that is now load-bearing rather than
+   * incidental: cream #FDFBF7 on terracotta #C24E25 measures 4.61:1, which is
+   * the ONLY reason this CTA clears WCAG AA at normal text size. The owner's
+   * originally-specified #E05A2B failed with every possible label (white
+   * 3.71:1, ink 3.85:1), so the fill was darkened along its own hue instead of
+   * the label being changed.
+   *
+   * ⚠ The fill is sized against CREAM, not white. #C75026 would pass on white
+   * (4.56:1) and FAIL on the cream this class actually renders (4.41:1) — a
+   * near-miss that a white-background contrast check would have waved through.
+   *
+   * ⚠ Do not switch this label to `text-ink`. Ink on terracotta is 3.85:1 —
+   * it FAILS AA for button text. The inverse is true of the 2026-07-31
+   * mandarin #F37A1F direction (ink passed, white failed); that palette is
+   * superseded, so do not carry its label rule over.
    */
   .button-primary {
     @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
+  /*
+   * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
+   * One of the two sanctioned homes for the new `link` token (the other being
+   * inline anchors). Border and label carry the indigo; the fill stays cream so
+   * it reads as clearly subordinate to the terracotta primary.
+   * Label #3B4E67 on cream = 8.22:1 (AAA).
+   */
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition hover:border-ink/40 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex h-11 items-center justify-center rounded-md border border-link/30 bg-cream px-6 text-sm font-medium text-link transition hover:border-link/60 hover:text-link-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .input-field {
@@ -743,43 +856,55 @@ html.subnav-docked [data-shell-main] {
 }
 
 /*
- * Clean Editorial palette — Setnayan brand 2026-05-29 lock.
+ * Marketing palette — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
  *
- * WHY: CLAUDE.md 2026-05-29 row "🎨 CLEAN EDITORIAL PALETTE LOCK" — owner-
- * directed pivot from v2.1 burnt sienna register (Filipino-warm artisan) to
- * Premium Event SaaS editorial register. The 4 canonical colors:
- *   #FBFBFA Warm Alabaster      → --m-paper (60% background)
- *   #1E2229 Deep Obsidian       → --m-ink (30% text/structure)
- *   #C5A059 Royal Champagne Gold → --m-orange (10% accent · token name kept)
- *   #1E2229 Deep Obsidian       → --m-mulberry (CTA buttons · token name kept; = ink)
+ * Supersedes the Clean Editorial lock of 2026-05-29 (alabaster · obsidian ·
+ * champagne · obsidian CTA), which itself superseded the v2.1 burnt-sienna
+ * register. The register moves back toward warm — an editorial, magazine
+ * canvas for a Filipino-first event platform — while keeping gold.
+ * The 4 canonical colours:
+ *   #FDFBF7 Soft Cream        → --m-paper     (60% background)
+ *   #2C2A29 Espresso          → --m-ink       (30% text/structure)
+ *   #A9834B Champagne Gold    → --m-orange    (10% accent · token name kept)
+ *   #C24E25 Terracotta        → --m-mulberry  (CTA buttons · token name kept)
  *
- * SUPERSEDES v2.1 § 8 palette (burnt sienna #C96B3A · cream paper #FBF8F2 ·
- * ink #2D3038) per project_setnayan_palette memory rule. Token names retained
- * (esp. --m-orange) to avoid 200+ file churn — value-only swap auto-propagates
- * through every component that consumes `var(--m-*)`. The 2026-05-22 Facebook
- * pivot above stays in force for app chrome (dashboard / admin / vendor
- * dashboard / marketplace internal) via the separate --color-* tokens.
+ * Token names retained (esp. --m-orange, --m-mulberry) to avoid 200+ file
+ * churn — a value-only swap auto-propagates through every component that
+ * consumes `var(--m-*)`. The app-chrome family (--color-*) is kept in step
+ * at the top of this file; the two must not drift.
  *
  * USAGE: in a marketing component, reference these via
  *   style={{ background: 'var(--m-mulberry)' }}
  * or via Tailwind arbitrary syntax
  *   className="bg-[var(--m-mulberry)]"
  *
- * WCAG verified: obsidian on alabaster 16.42:1 AAA · white on obsidian CTA
- * 16.42:1 AAA (the CTA is now the ink colour, so it's the strongest possible
- * button contrast) · champagne on alabaster 2.71:1 (use for non-text UI per
- * WCAG 1.4.11 · escalate --m-orange-2 for text).
+ * WCAG measured against #FDFBF7 (not estimated — recomputed 2026-08-01):
+ *   espresso on cream        13.82:1  AAA
+ *   white on terracotta CTA   4.76:1  AA   ← .m-btn-primary labels with #fff
+ *   slate indigo on cream     8.22:1  AAA  ← links + secondary buttons
+ *   champagne on cream        3.37:1  NON-TEXT UI + LARGE TEXT ONLY
+ *                                     (WCAG 1.4.11; escalate --m-orange-2
+ *                                      #8A6B39 → 4.79:1 AA when gold must
+ *                                      carry real text)
+ *
+ * ⚠ The obsidian CTA this replaces measured 16.42:1. The drop to 4.76:1 is a
+ * deliberate exchange — the CTA now reads as a brand accent rather than as
+ * text. It is still AA. Do not lighten it toward the originally-requested
+ * #E05A2B (3.71:1); that fails with every possible label.
  */
 :root {
-  /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
-  --m-paper:      #FBFAF7;
+  /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
+   * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
+   * --color-cream above; the two families must not drift. */
+  --m-paper:      #FDFBF7;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
   --m-line:       #E1DCD1;
   --m-line-soft:  #EDE8DE;
 
-  /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
-  --m-ink:        #1B1A17;
+  /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
+   * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
+  --m-ink:        #2C2A29;
   --m-slate:      #3A382F;
   --m-slate-2:    #6E6A62;
   --m-slate-3:    #8A857B;
@@ -810,11 +935,29 @@ html.subnav-docked [data-shell-main] {
    * The vendor identity is carried by the ShieldCheck + shop label, not a colour
    * fork (kit rule: gold is the only decorative colour). */
 
-  /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
-  --m-mulberry:    #1E2229;
-  --m-mulberry-2:  #343A44;
-  --m-mulberry-3:  #C9CBCE;
-  --m-mulberry-4:  #ECEDEE;
+  /* CTA — TERRACOTTA (Warm Editorial Archive 2026-08-01; token name `mulberry`
+   * kept, as it has been through obsidian and gold, to avoid call-site churn).
+   * This is the family behind the marketing "Start planning · free" button via
+   * .m-btn-primary below, which labels with literal `#fff` → 4.76:1, AA.
+   * (Kept in step with --color-mulberry above; the two families must not drift.)
+   *
+   * ⚠ TRADE-OFF, stated so nobody "fixes" it later: the obsidian CTA this
+   * replaces measured 16.42:1 — the strongest a button could be, because the
+   * CTA WAS the ink colour. Terracotta is a deliberate drop to 4.76:1 in
+   * exchange for the CTA reading as a brand accent rather than as text.
+   * Still AA; do not lighten it further (the owner's original #E05A2B was
+   * 3.71:1 and failed).
+   *
+   * ⚠ -3 and -4 are NOT terracotta and must NOT be "corrected" to match.
+   * They stopped being CTA tints long ago: --m-mulberry-3 is consumed as
+   * MUTED LIGHT TEXT ON DARK (vendor-grow-sections.tsx sets it as `color`
+   * over `background: var(--m-ink)`; vendor-tier-matrix.tsx does the same),
+   * plus the disabled-button fill. Making them orange would put terracotta
+   * body copy on the vendor pages. Left neutral on purpose. */
+  --m-mulberry:    #C24E25;
+  --m-mulberry-2:  #B04722;
+  --m-mulberry-3:  #C9CBCE;  /* neutral — light text on dark + disabled fill (see above) */
+  --m-mulberry-4:  #ECEDEE;  /* neutral — pairs with -3 */
 
   /* Supporting (retained from v2.1 pending owner future call) */
   --m-blush:      #F4D7C9;
@@ -873,7 +1016,14 @@ html.subnav-docked [data-shell-main] {
   --m-sidebar-fg:        #1B1A17;  /* warm ink — active label · wordmark · primary text */
   --m-sidebar-fg-soft:   #3A382F;  /* inactive nav labels · icons */
   --m-sidebar-fg-muted:  #6E6A62;  /* section labels · chevrons · sub-text */
-  --m-sidebar-line:      rgba(30,26,18,.08);  /* hairline dividers on glass */
+  /* 2026-07-28 — .08 → .12. This is the sidebar's OUTER edge as well as its
+     internal dividers (sidebar-shell.tsx borderColor), and the sidebar is a
+     45%-white frosted panel: on the warm-white ground its FILL computes 1.03:1
+     against the page, i.e. the rail has no body of its own and the hairline is
+     the only thing separating it from the content area. At .08 that hairline
+     was 1.14:1; .12 takes it to 1.22:1. Kept deliberately subtle — this token
+     also draws every divider inside the rail, and heavier reads as a cage. */
+  --m-sidebar-line:      rgba(30,26,18,.12);  /* hairline dividers on glass */
   --m-sidebar-hover:     rgba(255,255,255,.6);  /* hover-row wash */
 
   /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
@@ -2401,15 +2551,32 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
   --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
   --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
-  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows */
-  --sn-sh-tile: 0 18px 40px -26px rgba(30,26,18,.4);
-  --sn-sh-hi:   0 28px 54px -30px rgba(30,26,18,.5);
+  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows.
+     2026-07-28 — each gained a 1px CONTACT layer. The big soft ambient alone
+     reads as a smudge on the flat warm-white ground; the contact layer is what
+     makes a tile sit ON the page rather than float over it. Warm, per kit
+     rule 4. The ambient layers are unchanged. */
+  --sn-sh-tile: 0 1px 2px rgba(40,34,24,.05), 0 18px 40px -26px rgba(30,26,18,.4);
+  --sn-sh-hi:   0 1px 2px rgba(40,34,24,.06), 0 28px 54px -30px rgba(30,26,18,.5);
 
   /* glass (macOS vibrancy) — canon values (Glass PR-1, 2026-07-15): the
      fidelity-spec tuning the frosted home tiles ship at, promoted here so
      .sn-glass / .sn-card / .sn-tile all share one source of truth. */
   --sn-glass-bg:   rgba(255,255,255,.5);
-  --sn-glass-line: rgba(255,255,255,.72);
+  /* 2026-07-28 — WAS rgba(255,255,255,.72), a WHITE hairline. That worked only
+     because the champagne ground was dark enough to frame it; on the warm-white
+     ground it is a white line on a near-white page and the panel dissolves.
+     This is the lever that lets the ground stay as light as the owner asked
+     for: the glass now defines ITSELF instead of depending on ground contrast
+     (the exact failure that sank the 2026-07-13 white-flatten).
+     Warm, never grey/blue — rule 4 of the Atelier kit still holds for edges and
+     shadows; only the PAGE GROUND moved.
+     Measured on #F7F5F0: edge|ground 1.37:1, edge|glass-fill 1.43:1 — in the
+     same band as the bench card edge (1.40 / 1.52) so surfaces read alike.
+     NOTE: this token is for LIGHT glass on the page ground (.sn-glass, .sn-tile,
+     .sn-tile-glass, .sn-row). Glass over dark imagery uses the separate
+     --sn-glass-dark-line, which is still a light hairline and is untouched. */
+  --sn-glass-line: rgba(40,34,24,.16);
   --sn-glass-blur: blur(22px) saturate(1.5);
   --sn-glass-dark-bg:   rgba(23,22,15,.82);
   --sn-glass-dark-line: rgba(255,255,255,.18);
@@ -2429,6 +2596,258 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * couples' guest-facing pages keep the wedding-editorial register (Cormorant
  * display · Manrope body · DM Mono labels) exactly as before the Atelier
  * chrome flip. Do NOT apply to chrome surfaces. */
+:root {
+  /* Pahina material tokens — fallbacks for palette-less events; palette events
+     get these overridden by buildSitePaletteVars (lib/site-palette.ts §Pahina). */
+  --color-gild: 169 131 75;        /* #A9834B Atelier gold */
+  --color-paper-deep: 241 241 240; /* alabaster darkened ~4% */
+  --color-veil: 243 236 225;       /* #f3ece1 veil ivory */
+}
+
+/* ── Pahina foundation (guest-site design 2026-07-25) — INERT until the wave-A
+   restyle PRs swap classNames. All scoped under .sn-editorial per ground rule 4:
+   never leaks to dashboards/marketing.
+
+   In @layer components (wave A PR-3) for the same reason the launcher fidelity
+   surfaces below are: these carry a `.sn-editorial X` descendant selector, and
+   UNLAYERED css beats every @layer including utilities (see the note at the
+   `.sn-*` block above). Unlayered, a plate could never be tuned with a Tailwind
+   `bg-*`/`border-*`/`p-*` on the same element — which is exactly what the
+   chapter components need. Layered, the utility wins as authors expect. ────── */
+@layer components {
+  .sn-editorial .pahina-eyebrow {
+    font-family: var(--font-editorial-mono), ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgb(var(--color-gild));
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6em;
+  }
+  .sn-editorial .pahina-eyebrow::after {
+    content: '';
+    flex: 0 0 3.5rem;
+    height: 1px;
+    align-self: center;
+    background: rgb(var(--color-gild) / 0.55);
+  }
+  .sn-editorial .pahina-plate {
+    background: rgb(var(--color-paper-deep));
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    padding: 1.25rem;
+    position: relative;
+  }
+  .sn-editorial .pahina-plate::after {
+    /* printed inner hairline frame */
+    content: '';
+    position: absolute;
+    inset: 0.5rem;
+    border: 1px solid rgb(var(--color-ink) / 0.08);
+    pointer-events: none;
+  }
+  .sn-editorial .pahina-rule {
+    border: 0;
+    height: 1px;
+    background: rgb(var(--color-ink) / 0.12);
+  }
+  .sn-editorial .pahina-grain {
+    position: relative;
+  }
+  .sn-editorial .pahina-grain::before {
+    /* paper grain — tiny inline SVG feTurbulence tile (~500B), multiply blend */
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  /* ── Pahina chapter grammar (wave A PR-3) — the three moves Tailwind cannot
+     express as utilities: a ::first-letter drop cap, the gild-ruled pull quote,
+     and the silk swatch's inner shading + gild pin. ────────────────────────── */
+  .sn-editorial .pahina-dropcap::first-letter {
+    font-family: var(--font-pahina-display), Georgia, serif;
+    float: left;
+    font-size: 3.4em;
+    line-height: 0.82;
+    font-weight: 300;
+    padding-right: 0.09em;
+    padding-top: 0.04em;
+    color: rgb(var(--color-gild));
+  }
+  .sn-editorial .pahina-quote {
+    font-family: var(--font-pahina-display), Georgia, serif;
+    font-style: italic;
+    border-left: 2px solid rgb(var(--color-gild));
+    padding-left: 1.15rem;
+    line-height: 1.42;
+  }
+  .sn-editorial .pahina-swatch {
+    /* fabric sample, not a color square: tall chip, rounded only at the bottom,
+       inner shading down the fold, gild pin at the head */
+    position: relative;
+    display: block;
+    width: 3.25rem;
+    height: 4.5rem;
+    border-radius: 0 0 1.6rem 1.6rem;
+    box-shadow:
+      inset -0.55rem 0 0.7rem -0.5rem rgb(0 0 0 / 0.28),
+      inset 0.4rem 0 0.6rem -0.5rem rgb(255 255 255 / 0.35);
+  }
+  .sn-editorial .pahina-swatch::after {
+    content: '';
+    position: absolute;
+    top: 0.4rem;
+    left: 50%;
+    width: 0.3rem;
+    height: 0.3rem;
+    margin-left: -0.15rem;
+    border-radius: 9999px;
+    background: rgb(var(--color-gild));
+    box-shadow: 0 0 0 1px rgb(var(--color-paper) / 0.75);
+  }
+
+  /* ── Reply-card materials (wave A PR-4, spec §5/§7) ─────────────────────── */
+  .sn-editorial .pahina-letterpress {
+    /* pressed-into-the-stock: a light lip below, an ink shadow above */
+    text-shadow:
+      0 1px 0 rgb(var(--color-paper) / 0.9),
+      0 -1px 1px rgb(var(--color-ink) / 0.25);
+  }
+  .sn-editorial .pahina-deckle {
+    /* the one thing on the page that IS a card in real life — heavier stock:
+       paper-deep, a lifted drop shadow, and the printed inner hairline */
+    position: relative;
+    background: rgb(var(--color-paper-deep));
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    padding: 1.5rem;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 10px 24px -12px rgb(0 0 0 / 0.18);
+  }
+  .sn-editorial .pahina-deckle::after {
+    content: '';
+    position: absolute;
+    inset: 0.55rem;
+    border: 1px solid rgb(var(--color-ink) / 0.12);
+    pointer-events: none;
+  }
+  .sn-editorial .pahina-perforation {
+    /* the stub rule — a dashed tear line across the reply card */
+    border: 0;
+    border-top: 1px dashed rgb(var(--color-ink) / 0.25);
+    height: 0;
+  }
+} /* @layer components — Pahina foundation */
+
+/* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
+   The deliberate variation axis: ONE switch, two genuinely different-feeling
+   sites. Daylight is the default and is byte-identical to today — this block
+   only matches when the couple has opted in and the shell stamps
+   `data-art="candlelight"`, so every existing event is untouched.
+
+   These are the SAME `--color-*` vars `buildSitePaletteVars` emits, overridden
+   at the shell. That matters: everything downstream (plates, gild, veil, the
+   couple's own accent, Pro custom colours layered last) keeps working through
+   the one pipe rather than needing a second set of dark-only rules.
+
+   Set as a var block, NOT as component overrides, and placed BEFORE the motion
+   rules so specificity games are unnecessary. */
+[data-art='candlelight'] {
+  --color-paper: 24 22 20; /* warm near-black stock */
+  --color-paper-deep: 33 30 27; /* recessed plates lift, not sink, in the dark */
+  --color-ink: 240 234 224; /* warm cream type */
+  --color-cream: 24 22 20; /* legacy slot follows paper */
+  --color-veil: 44 39 34; /* the wash reads as candle-glow, not fog */
+  --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
+}
+[data-art='candlelight'] .pahina-grain::before {
+  /* grain has to work HARDER on dark stock and must not multiply to mud */
+  opacity: 0.09;
+  mix-blend-mode: screen;
+}
+[data-art='candlelight'] .pahina-letterpress {
+  /* letterpress inverts in the dark: the lip goes above, the shadow below */
+  text-shadow:
+    0 -1px 0 rgb(var(--color-paper) / 0.9),
+    0 1px 1px rgb(0 0 0 / 0.5);
+}
+
+/* ── Pahina scroll choreography (wave A PR-5, design §6) ─────────────────────
+   FAIL-VISIBLE BY CONSTRUCTION: the hidden state is scoped to `.pahina-js`,
+   which only `PahinaMotionRootFlag` sets and which three separate failure paths
+   remove (see pahina-motion.tsx). With no JS, a broken script, a missing
+   IntersectionObserver, or reduced motion, none of these rules match and the
+   page renders exactly as it does today — fully visible.
+
+   UNLAYERED on purpose, unlike the component classes above: this must beat the
+   `opacity-*`/`translate-*` utilities a future chapter might carry, or a single
+   `opacity-100` on a section would pin it visible and break its reveal. */
+.pahina-js .sn-editorial [data-pahina-chapters] > * {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces — RootFlag already withholds the flag for these guests */
+  .pahina-js .sn-editorial [data-pahina-chapters] > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Pahina hero cover parallax (design §6: "±6%, rAF-throttled transform on
+   the media wrapper") ───────────────────────────────────────────────────────
+
+   Gated on the SAME `.pahina-js` flag as the reveal above, for the same
+   fail-visible reason — and one step stronger: `PahinaCoverParallax` writes
+   ONLY `--pahina-parallax`, never `transform`. So the effect exists only while
+   this rule matches. Reduced motion, a missing IntersectionObserver, the 2s
+   self-heal, or a script that never runs each leave a plain, centred,
+   static `object-cover` photo. There is no half-state.
+
+   THE GEOMETRY — why 1.16 and why ±6% are a matched pair. The layer is
+   `absolute inset-0`, so its height IS the plate height H, and it sits inside
+   an `overflow-hidden` box. scale(1.16) about the centre makes it 1.16H tall,
+   overhanging 0.08H above and 0.08H below. The script clamps the offset to
+   ±0.06H. At either extreme the near edge lands 0.02H OUTSIDE the plate — so
+   ~2% of plate height (≈9px on a 375px phone) of scaled overhang stays hidden
+   under the clip at all times and no gap, letterbox or bare corner can appear,
+   with margin left over for sub-pixel rounding and the 1px border. Raising MAX
+   in pahina-motion.tsx without raising this scale would spend that margin.
+
+   ORDER MATTERS: translate FIRST, scale SECOND. Transform functions apply
+   right-to-left, so written this way the scale is the inner operation and the
+   translate's percentage still resolves against the layer's own UNSCALED
+   height. Written `scale(1.16) translate3d(…)` the 6% would be magnified to
+   6.96% and eat the safety margin above.
+
+   UNLAYERED, like the reveal — it must beat any `transform`/`scale` utility a
+   future pass might put on the media wrapper. */
+.pahina-js .sn-editorial [data-pahina-parallax] {
+  transform: translate3d(0, var(--pahina-parallax, 0%), 0) scale(1.16);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces again — RootFlag already withheld the flag, so this only
+     matters if some future path sets it another way. No scale either: an
+     unmoving image should not be needlessly cropped. */
+  .pahina-js .sn-editorial [data-pahina-parallax] {
+    transform: none;
+    will-change: auto;
+  }
+}
+
 .sn-editorial {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);
@@ -2443,13 +2862,69 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * (owner-directed 2026-07-15 via the glass-rollout go-ahead — see the rollout
  * plan § 6 R1 + DECISION_LOG). Verbatim fidelity-spec canon: warm paper base +
  * gold / green / slate radial glows, fixed attachment (no drift animation). */
+/* LIGHTENED 2026-07-28 (owner: "we want it to be global") — the wash was
+ * draining contrast out of every card in the app, worst on the Explore bench:
+ * its base ramp midpoint (#E3DDCF) was within (2,1,2) RGB of the card border
+ * token --m-line (#E1DCD1), so a card outline drawn over the wash literally
+ * disappeared. White cards on it measured ~1.15:1 — a faint lift, not a plane.
+ *
+ * This is a LIGHTENING, deliberately NOT a re-flatten: the base stays a warm
+ * TINT (now centred on #F4F2EC — the approved Explore prototype's own page
+ * colour, and the existing --m-paper-2 token value) and all three radial glows
+ * are kept at roughly half alpha. That preserves the precondition the note
+ * above records — glass rgba(255,255,255,.5) panels still read against it, and
+ * still refract colour — so this does NOT redo the 2026-07-13 white-flatten
+ * that the owner reversed on 2026-07-15. Same recipe, lighter values.
+ *
+ * SCOPE: this is every logged-in surface — SidebarShell (customer event
+ * dashboard, /vendor-dashboard, /admin), the home launcher, and the account
+ * spokes. Intentional per the owner's "make it global" ruling. */
+/* ── 2026-07-28 · FLAT WARM WHITE. Read the whole sequence before changing it ──
+ *
+ *   2026-07-13  page flattened to white.
+ *   2026-07-15  owner REVERSED that to the champagne wash, because glass
+ *               rgba(255,255,255,.5) panels are invisible on white.
+ *   2026-07-28  owner: "we want a lighter feel for the background than the
+ *               champagne. keep it modern digital color. like facebook. that
+ *               keeps white to make it look clean." then, refining:
+ *               "then make it a bit of warm white just enough to show the
+ *               glass effect."
+ *
+ * So this is NOT someone re-breaking the 07-15 reversal. It is the owner's
+ * third and current direction, and it comes with the fix the 07-13 flatten
+ * lacked: THE GLASS NOW CARRIES ITS OWN EDGE (see --sn-glass-line below).
+ * That is the whole trick — 07-13 failed because it made glass depend on
+ * ground contrast alone. Do not lighten this further without checking the
+ * glass still reads; do not re-darken it to "fix" glass, fix the border.
+ *
+ * WHY #F7F5F0 SPECIFICALLY (measured, not taste):
+ *   • glass fill (white @ .5) over ANY warm white computes ~1.03–1.05:1
+ *     against its ground — imperceptible. Confirmed across the whole
+ *     #F6F3EC–#FAF8F3 band. The fill can NOT carry the panel; the border must.
+ *   • so the ground was chosen for the WHITE CARDS instead, which do have to
+ *     read: #F7F5F0 gives card|ground 1.09:1, against Facebook's own
+ *     #F0F2F5 → 1.12:1. Close to the reference the owner named, while staying
+ *     warm and in the light band they asked for (darker end of #F7F5F0–#FAF8F3,
+ *     because the lighter end drops white cards to 1.06:1 and they vanish).
+ *   • FLAT, and the three radial glows are GONE: "clean/modern digital" means
+ *     an even ground. Warmth comes from the base tone only. (Bonus: on a flat
+ *     ground `backdrop-filter: blur()` has nothing to blur, so the glass look
+ *     now comes from fill + border + shadow. The blur still earns its keep on
+ *     the sticky sidebar/topbar, where real content scrolls underneath.)
+ *
+ * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
+ * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
 .sn-ambient {
-  background:
-    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.32), transparent 60%),
-    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.10),  transparent 62%),
-    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.20), transparent 60%),
-    linear-gradient(135deg, #EFEAE0, #E3DDCF 55%, #DDD6C6);
+  background: #F7F5F0;
   background-attachment: fixed;
+}
+/* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
+   values, so a dark-mode shell would have painted a LIGHT page. (Dormant in
+   practice: nothing adds `html.dark` today. Correct anyway, so the pairing is
+   not left as a trap for whoever turns dark mode on.) Matches the dark
+   `--color-cream` (#17160F) the body already uses. */
+html.dark .sn-ambient {
+  background: #17160F;
 }
 
 /* ---------- glass surfaces ---------- */
@@ -2458,7 +2933,16 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   border: 1px solid var(--sn-glass-line);
   backdrop-filter: var(--sn-glass-blur);
   -webkit-backdrop-filter: var(--sn-glass-blur);
-  box-shadow: 0 8px 32px rgba(30,26,18,.07);
+  /* 2026-07-28 — gained a contact layer. The lone 32px ambient at .07 is
+     nearly invisible on the flat warm-white ground; the 1px contact is what
+     seats the panel. Warm, per kit rule 4. */
+  box-shadow: 0 1px 2px rgba(40,34,24,.05), 0 8px 28px -10px rgba(40,34,24,.16);
+}
+/* Dark mode: the warm hairline is a DARK line, invisible on a dark ground —
+   hand the light-glass recipes back a light edge so they still read. (Same
+   dormancy caveat as .sn-ambient above: correct now so it is not a trap.) */
+html.dark {
+  --sn-glass-line: rgba(255,255,255,.18);
 }
 .sn-glass-dark {
   background: var(--sn-glass-dark-bg);
@@ -2479,12 +2963,16 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
    * truth; the launcher layout now consumes `.sn-ambient` directly.) */
 
   /* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
-   * 1.5 saturation + white .72 hairline + the warm tile shadow. */
+   * 1.5 saturation + the shared glass hairline + the warm tile shadow.
+   * 2026-07-28 — the fill and hairline were hardcoded copies of the
+   * --sn-glass-* tokens, so the warm-white-ground edge fix would have skipped
+   * this recipe and the launcher tiles alone would have stayed invisible.
+   * Now referenced, not duplicated: one source of truth, same as .sn-tile. */
   .sn-tile-glass {
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(22px) saturate(1.5);
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    background: var(--sn-glass-bg);
+    border: 1px solid var(--sn-glass-line);
+    backdrop-filter: var(--sn-glass-blur);
+    -webkit-backdrop-filter: var(--sn-glass-blur);
     box-shadow: var(--sn-sh-tile);
   }
 
@@ -2517,6 +3005,32 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * cascade. Blur budget (§ 1.6): .sn-tile / .sn-card / .sn-tile-dark are the
  * ONLY page-level blurred surfaces — repeated rows use the flat .sn-row. */
 @layer components {
+  /* The reading column for text-led event surfaces (2026-08-01).
+   *
+   * WHY THIS EXISTS. `SidebarShell` delegates width to its caller ("Main scroll
+   * area. Caller controls inner max-width / padding"), and the `[eventId]`
+   * layout wraps children in `mx-auto w-full …` with NO `max-w-*` — so
+   * `mx-auto` centers nothing and every page inherits the full viewport minus
+   * the 16rem sidebar. On a 1440px desktop that is a ~1120px column; the
+   * checklist intro was running ~160 characters per line against a comfortable
+   * measure of 45–75.
+   *
+   * 64rem (1024px) is a compromise, not a reading measure: these surfaces mix
+   * prose with rows that carry a right-aligned count or due date, so `prose`
+   * (65ch) is too tight for the row and too wide for nothing. Cap the column
+   * here; keep `max-w-prose` on the intro `<p>` itself.
+   *
+   * OPT-IN, deliberately. It is applied per page rather than on the layout
+   * because several of the 111 `[eventId]` routes genuinely want the width
+   * (`seating`, `studio/led`, `studio/live-studio-control`, the `/print`
+   * routes) and several already cap themselves tighter (`clearance` 2xl,
+   * `access-requests` 3xl, `manpower` 4xl). A blanket layout cap would have
+   * silently reflowed all of them. */
+  .sn-col {
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+
   /* Non-navigating glass panel — Watch/Spaces/stat panels/form sections. */
   .sn-tile {
     background: var(--sn-glass-bg);
@@ -2550,10 +3064,23 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 
   /* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
    * tint, NO blur, so hundreds of rows stay cheap. */
+  /* 2026-07-28 — this was the worst case of the white-on-white problem: a
+   * white .72 fill with a white .6 border and NO shadow, which on the
+   * warm-white ground is an invisible row on an invisible row. Fill pushed to
+   * opaque white (it is the blur-budget fallback — it has no blur to lose) and
+   * the border given the warm hairline at a LIGHTER weight than .sn-tile:
+   * these repeat hundreds of times, and full-strength edges would read as a
+   * cage. rgba(40,34,24,.10) → 1.21:1 against the ground. */
   .sn-row {
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: #FFFFFF;
+    border: 1px solid rgba(40, 34, 24, 0.1);
     border-radius: 14px;
+  }
+  /* The opaque fill above is a light-mode value, so it needs its dark pair or
+     dark mode gets white rows on a black page. */
+  html.dark .sn-row {
+    background: #2A2E36;
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
@@ -2602,8 +3129,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   }
 
   /* Shared modal chrome all useModalA11y consumers migrate to. */
+  /* 2026-07-28 — this rule declared NO border at all; its one consumer supplied
+     `border-white/60` by hand, which on the warm-white ground is a white line
+     on a near-white panel over a near-white page — an unbounded white blob.
+     Given the shared glass hairline so the panel is bounded by default. */
   .sn-modal-panel {
     background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--sn-glass-line);
     backdrop-filter: blur(30px) saturate(1.5);
     -webkit-backdrop-filter: blur(30px) saturate(1.5);
     border-radius: 18px;
@@ -2867,9 +3399,17 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 @keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
 
 /* ---------- expand / collapse (no height measuring) ---------- */
-.sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
 .sn-acc.open { grid-template-rows:1fr; }
-.sn-acc > * { overflow:hidden; min-height:0; }
+.sn-acc > * { overflow:hidden; min-height:0; min-width:0; }
+/* HORIZONTAL CONTAINMENT (the twin of min-height:0, which only frees the vertical axis).
+ * Without an explicit column track the implicit column is `auto`, so it sizes to the
+ * child's max-content: a wide child — a horizontally-scrolling rail, a table, a long
+ * unbroken string — inflates the collapse past its container. `minmax(0,1fr)` pins the
+ * track to the container in every engine; min-width:0 on the child is belt-and-braces
+ * (a child with overflow:hidden already resolves its automatic minimum to 0, so the
+ * TRACK, not the child, is what must be constrained). Any collapse built on this
+ * template inherits the fix — copy BOTH lines if you duplicate the pattern. */
 
 /* ---------- overlays ---------- */
 .sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
@@ -2956,4 +3496,52 @@ html:active-view-transition .sn-page-enter { animation: none; }
  * the prototype's own RM rule). */
 @media (prefers-reduced-motion: reduce) {
   .sn-veil, .sn-capiz { display:none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ZERO-STEP SERVICE CARD MAKER — motion (canvas-maker.tsx, flag-dark behind
+ * NEXT_PUBLIC_CANVAS_MAKER_ENABLED). Transcribed from artifact 15007a4d, which
+ * is the design spec for this surface.
+ *
+ * Three signals, and nothing else moves:
+ *   • a SHEET rises from the bottom edge when a card region is tapped,
+ *   • newly-revealed content (the coach chip, a sheet's body) RISES in, so the
+ *     eye is told something changed rather than having to notice,
+ *   • the health METER slides to its new width instead of jumping, so a
+ *     blocker being cleared is felt.
+ *
+ * The global `prefers-reduced-motion` freeze near the top of this file already
+ * neutralises all of it; the explicit guards below are belt-and-braces (same
+ * idiom as .subnav-lift / .sn-veil) because these three carry a from-state that
+ * must never be the resting state.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes sn-canvas-sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes sn-canvas-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.sn-canvas-sheet { animation: sn-canvas-sheet-up 280ms ease both; }
+.sn-canvas-rise  { animation: sn-canvas-rise 250ms ease both; }
+/* The meter is a width transition, not a keyframe — it animates from wherever
+ * it already was, so an edit that lifts the score reads as a climb. */
+.sn-canvas-meter { transition: width 450ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .sn-canvas-sheet,
+  .sn-canvas-rise { animation: none; opacity: 1; transform: none; }
+  .sn-canvas-meter { transition: none; }
+}
+/* Phone ergonomics for the whole canvas, including the SHIPPED editors it
+ * mounts (customization / inclusions / discounts / pricing). iOS zooms the
+ * viewport on focus for any control under 16px, which on a bottom sheet throws
+ * the vendor out of the sheet they just opened. Scoped to `.sn-canvas` so the
+ * editors render byte-identically everywhere else — this is the cheapest way to
+ * fix the zoom without forking a single component. (Artifact 15007a4d ships the
+ * same rule as its `@media(max-width:700px){.fld,.stsel{font-size:16px}}`.) */
+@media (max-width: 700px) {
+  .sn-canvas input:not([type='checkbox']):not([type='radio']),
+  .sn-canvas select,
+  .sn-canvas textarea { font-size: 16px; }
 }

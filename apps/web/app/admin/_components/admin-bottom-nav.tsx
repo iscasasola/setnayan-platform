@@ -175,7 +175,11 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Studio group — the consolidation hub landing + Content lane
       '/admin/studio',
       '/admin/website',
-      '/admin/hero-video',
+      // Live Studio channel pool (Wave 9). Listed unconditionally even though the
+      // ROUTE is flag-gated: an activeMatch entry only lights a tab, it does not
+      // create a doorway, and a stale string here is harmless where a MISSING one
+      // would leave the surface unlit the day the flag flips.
+      '/admin/live-studio-channels',
       '/admin/reveal-studio',
       '/admin/real-stories',
       '/admin/recaps',

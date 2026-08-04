@@ -106,6 +106,9 @@ function goodHead(over: Partial<R2HeadResult> = {}): R2HeadResult {
     size: 512_000, // == clip_web_bytes on guestClipRow
     contentType: 'video/mp4',
     lastModified: new Date(NOW - (CLIP_WEB_DROP_GRACE_DAYS + 30) * 86_400_000),
+    // Content identity (SEC-6 added it to R2HeadResult); the custody check
+    // does not read it, so a fixed stub keeps these cases unchanged.
+    etag: 'stub-etag',
     ...over,
   };
 }
@@ -173,8 +176,11 @@ test('PRODUCTION PATH attacks (column guard): each fails closed on a real sweep 
   // clip_web_bytes below the floor / absent.
   assert.equal(drops({ clip_web_bytes: CLIP_WEB_MIN_BYTES - 1 }), false);
   assert.equal(drops({ clip_web_bytes: null }), false);
-  // not past the 90-day fuse.
-  assert.equal(drops({ captured_at: daysAgo(30) }), false);
+  // ⚠ NO age assertion here any more (2026-08-02). Age is decided per EVENT
+  // upstream, not per clip — a per-file fuse deleted a couple's earliest journey
+  // photos before the wedding they led up to. An unreadable timestamp still
+  // fails closed, which is the guard this line is actually for.
+  assert.equal(drops({ captured_at: 'not-a-date' }), false);
   // already dropped (idempotent).
   assert.equal(drops({ full_res_dropped_at: daysAgo(1) }), false);
   // a sample/ seed key is never touched.

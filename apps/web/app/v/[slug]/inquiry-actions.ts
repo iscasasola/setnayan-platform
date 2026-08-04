@@ -24,11 +24,11 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
-import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
 import { setEventPreference } from '@/lib/event-preferences';
@@ -36,6 +36,13 @@ import {
   buildRequirementsBlock,
   isPersistableCanonicalService,
 } from '@/lib/requirements-capture';
+import { sendChatMessageCore } from '@/lib/chat-send';
+import {
+  buildNotSentReasonFor,
+  formatPackagePicksBlock,
+  sanitizePackagePicks,
+  type BuildNotSentReason,
+} from '@/lib/package-picks-summary';
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
 import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
 import {
@@ -49,12 +56,93 @@ const INQUIRY_BODY =
   'availability and packages for our date. Could you share your rates and ' +
   "what's included?";
 
+/**
+ * Lead-in for a package build appended to a thread that ALREADY has messages.
+ * A brand-new thread opens with INQUIRY_BODY and carries the build inside that
+ * first message; a resumed one gets this instead, because "Hi! We're planning
+ * our wedding" reads as a stranger on a conversation already in progress.
+ */
+const PACKAGE_ASK_BODY =
+  'We put together a version of your package — could you take a look and let ' +
+  'us know if this works?';
+
 export type StartServiceInquiryResult =
   | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
+  /**
+   * The thread opened (or resumed) and the interests were recorded, but the
+   * message carrying the couple's PACKAGE BUILD did not post.
+   *
+   * 🚨 THE BUILD IS THE DELIVERABLE on that path — nothing else in the thread
+   * carries it — so "the thread exists" is NOT success, and this must never be
+   * collapsed into `'ok'`. `reason` says why (`followup_used` = the pre-accept
+   * one-follow-up gate, which is deliberate and is NOT bypassed here;
+   * `declined` = closed conversation; `contact_blocked` = the off-platform
+   * contact filter; `failed` = anything else) and `message` is the couple-
+   * facing explanation, already the server's own teaching copy for a block.
+   *
+   * ONLY reachable when `requirements.packagePicks` was supplied, i.e. from the
+   * lock modal's "ask instead" action. Every other caller passes no build, so
+   * no shipped call site can observe this status.
+   */
+  | {
+      status: 'ok_build_not_sent';
+      threadId: string;
+      eventId: string;
+      isExisting: boolean;
+      reason: BuildNotSentReason;
+      message: string;
+    }
   | { status: 'not_signed_in' }
   | { status: 'not_secured' }
   | { status: 'no_event' }
   | { status: 'error'; message: string };
+
+/** Outcome of posting one message into an already-resolved thread. */
+type MessageDelivery =
+  | { ok: true }
+  | { ok: false; reason: BuildNotSentReason; message: string };
+
+/**
+ * Post one couple-authored message into a thread and REPORT WHAT HAPPENED.
+ *
+ * Calls `sendChatMessageCore` — the shared gating+insert+notify core — directly
+ * rather than the `sendChatMessage` server action, because the action maps its
+ * result onto a FORM surface: it throws for `followup_used` / `declined` /
+ * `insert_failed` and returns silently for `contact_blocked`. Both shapes are
+ * unusable to a caller that needs to know whether the message landed, and the
+ * throw-and-swallow is exactly how this action came to claim a delivery that
+ * never happened. `chat-send.ts` documents this as its intended reuse: "Returns
+ * a discriminated result instead of throwing/redirecting, so each caller maps
+ * it to its own surface."
+ *
+ * Behaviour is otherwise identical to the old call — the action only added
+ * `revalidatePath`/`redirect`, and only when a `return_to` was set, which this
+ * path never sets.
+ */
+async function postThreadMessage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  threadId: string,
+  body: string,
+): Promise<MessageDelivery> {
+  try {
+    const result = await sendChatMessageCore(supabase, { threadId, body });
+    if (result.ok) return { ok: true };
+    return {
+      ok: false,
+      reason: buildNotSentReasonFor(result.code),
+      message: result.message,
+    };
+  } catch (caught) {
+    // The core is written to return rather than throw; a throw here is a
+    // genuine surprise (transient network / a bug), so it is reported as a
+    // failure instead of being swallowed into a false success.
+    return {
+      ok: false,
+      reason: 'failed',
+      message: caught instanceof Error ? caught.message : 'Could not send the message.',
+    };
+  }
+}
 
 export async function startServiceInquiry(input: {
   vendorProfileId: string;
@@ -100,6 +188,25 @@ export async function startServiceInquiry(input: {
     specialRequest?: string | null;
     /** "Auto-send to my next inquiries" → event_vendor_preferences.auto_send. */
     autoSend?: boolean;
+    /**
+     * "Ask the vendor about this build instead" (flag:
+     * NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) — the package the couple configured
+     * in the lock modal but is not ready to pay for, serialized DISPLAY-ONLY by
+     * `buildPackagePicksSummary`.
+     *
+     * 🚨 STRINGS, NOT MONEY. Every peso figure inside is the string the
+     * couple's own screen printed (the modal's `choiceTotals` footer and each
+     * option row's `+₱X`). This action does NOT re-price it, does not store it
+     * as a quote, and nothing on this path charges anything — it is appended to
+     * a chat message and nowhere else. It is sanitized (`sanitizePackagePicks`)
+     * exactly like the freeform special-request note, because it arrives from a
+     * browser; the rendered block always says the total is an estimate the
+     * vendor confirms.
+     *
+     * Typed `unknown` on purpose: the shape crosses the client→server boundary,
+     * so it is validated at the door rather than trusted by its declaration.
+     */
+    packagePicks?: unknown;
   };
   /**
    * Creator Economy PR-C — CTA-click attribution. The chapter public_id
@@ -248,6 +355,12 @@ export async function startServiceInquiry(input: {
     requirementPayload,
     requirementSpecialRequest || null,
   );
+  // The configured package, if the couple came from the lock modal's "ask
+  // instead" action. '' when absent or unusable, so every concatenation below
+  // is unconditional.
+  const packagePicksBlock = formatPackagePicksBlock(
+    sanitizePackagePicks(input.requirements?.packagePicks),
+  );
 
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
@@ -336,25 +449,51 @@ export async function startServiceInquiry(input: {
     .from('chat_messages')
     .select('message_id', { count: 'exact', head: true })
     .eq('thread_id', threadId);
+  //
+  // 🚨 DELIVERY IS OBSERVED, NOT ASSUMED, whenever a package build rides along.
+  // The canned inquiry note stays best-effort (the thread + interests are the
+  // point, and the couple is taken to the conversation either way), but a build
+  // is the ONLY carrier of what the couple just configured — so its outcome is
+  // captured and returned. `null` = no build was sent, nothing to report.
+  let buildDelivery: MessageDelivery | null = null;
   if ((msgCount ?? 0) === 0) {
-    try {
-      const msg = new FormData();
-      msg.set('thread_id', threadId);
-      // Append the couple's captured requirements so the vendor sees what
-      // they're looking for on first contact (a dedicated vendor "Their
-      // requirements" panel is a later slice — body-append suffices here).
-      // Bundle nudge: when the couple opted into a single bundle price AND
-      // added ≥1 extra service, say so explicitly so the vendor prices the set
-      // as one deal (the thread interests already list which services).
-      const bundleAsk =
-        input.requestBundleQuote && input.alsoServiceIds.length > 0
-          ? '\n\nWe’d love to book a few of your services together — could you send us one bundle price?'
-          : '';
-      msg.set('body', `${INQUIRY_BODY}${requirementsBlock}${bundleAsk}`);
-      await sendChatMessage(msg);
-    } catch {
-      /* best-effort — the thread + interests stand even if the note fails */
-    }
+    // Append the couple's captured requirements so the vendor sees what
+    // they're looking for on first contact (a dedicated vendor "Their
+    // requirements" panel is a later slice — body-append suffices here).
+    // Bundle nudge: when the couple opted into a single bundle price AND
+    // added ≥1 extra service, say so explicitly so the vendor prices the set
+    // as one deal (the thread interests already list which services).
+    const bundleAsk =
+      input.requestBundleQuote && input.alsoServiceIds.length > 0
+        ? '\n\nWe’d love to book a few of your services together — could you send us one bundle price?'
+        : '';
+    const delivery = await postThreadMessage(
+      supabase,
+      threadId,
+      `${INQUIRY_BODY}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+    );
+    // Reported only when the build was inside that message; otherwise the note
+    // stays best-effort exactly as it has always been.
+    if (packagePicksBlock) buildDelivery = delivery;
+  } else if (packagePicksBlock) {
+    // ── The build, on a thread that already has messages ──────────────────
+    // The rule above ("only post the inquiry note on a brand-new thread") is
+    // what stops a couple re-inquiring from double-posting the SAME canned
+    // note, and it stays. But a package build is not that note: it is new
+    // information the couple just authored, and dropping it silently would
+    // leave them believing they had sent their picks. So it appends to the
+    // SAME deduped thread — the one this action already upserted — through the
+    // same core the first message uses. No second thread, no second threading
+    // model, and nothing is posted when there is no build.
+    //
+    // This is also where the pre-accept ONE-FOLLOW-UP gate bites: a couple who
+    // already nudged a vendor that has not accepted cannot post again, and that
+    // gate is NOT bypassed here. It is REPORTED — see `ok_build_not_sent`.
+    buildDelivery = await postThreadMessage(
+      supabase,
+      threadId,
+      `${PACKAGE_ASK_BODY}${packagePicksBlock}`,
+    );
   }
 
   // Build the interest seeds: initial → its linked services → couple_added.
@@ -395,13 +534,61 @@ export async function startServiceInquiry(input: {
     seeds,
   });
 
+  /**
+   * Report an `event_vendors` write fault WITHOUT failing the inquiry.
+   *
+   * ⚠ WHY THIS EXISTS — the write below can fail for a reason that is invisible
+   * today and will stay invisible until a real vendor service row exists.
+   *
+   * `event_vendors.category` is the strict Postgres enum `vendor_category`
+   * (`band_dj`, `host_emcee`, `planner_coordinator`, … 51 values). The value we
+   * put in it comes from `vendor_services.category`, which is plain **TEXT** and
+   * is treated as a CANONICAL TILE key elsewhere in the app (`live_band`,
+   * `host_mc`, `coordinator` — see `lib/vendor-category-taxonomy.ts`). Those two
+   * vocabularies do not overlap: `live_band` ∉ `vendor_category`. If a real row
+   * carries the tile vocabulary, this insert fails with
+   * `invalid input value for enum vendor_category` — the exact shape of the
+   * 2026-05-22 `guest_role: "bride"` incident.
+   *
+   * We deliberately do NOT translate between the vocabularies here. `vendor_services`
+   * has **0 rows in production**, so any mapping would be a guess about data that
+   * does not exist yet, and the Song Desk build order explicitly defers it
+   * ("needs one real vendor service row to settle" — never another hand-kept enum
+   * list). What we fix is that the failure was UNOBSERVABLE: the attempted
+   * `category` value is reported, so the FIRST real occurrence settles which
+   * vocabulary actually lands and the deferred decision becomes evidence-based.
+   *
+   * Non-fatal by design: the thread, the message and the service interests have
+   * already been written. Failing the couple's inquiry over a bookkeeping row
+   * would be a worse outcome than a missing row we can reconstruct from
+   * `thread_service_interests`.
+   *
+   * No PII: internal IDs and a taxonomy key only — never the vendor's name or
+   * anything the couple typed (0035 · no PII in logs).
+   */
+  const reportEventVendorFault = (
+    stage: 'insert' | 'update' | 'threw',
+    err: unknown,
+    attemptedCategory: string | null,
+  ): void => {
+    Sentry.captureException(err, {
+      tags: {
+        feature: 'inquiry-event-vendor-write',
+        stage,
+        // The signal that settles the vocabulary question when it first fires.
+        attempted_category: attemptedCategory ?? 'n/a',
+      },
+      extra: { eventId, vendorProfileId, initialServiceId },
+    });
+  };
+
   // Persist requested_service_ids onto the event_vendors row that links this
   // couple's event to this marketplace vendor. The upsert on chat_threads above
   // guarantees the thread exists; the event_vendors row may have been created
   // by a prior save-to-picks or auto-add. We use array_cat to merge (not
   // overwrite) so a resumed inquiry adds new services to the existing set.
   // Best-effort: a missing row or missing column (migration not yet applied)
-  // must never block the inquiry.
+  // must never block the inquiry — but it is now REPORTED, not discarded.
   try {
     // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
@@ -421,10 +608,11 @@ export async function startServiceInquiry(input: {
         ? ((evRow as unknown as { requested_service_ids: string[] }).requested_service_ids)
         : [];
       const merged = Array.from(new Set([...existing, ...confirmedServiceIds]));
-      await supabase
+      const { error: updateError } = await supabase
         .from('event_vendors')
         .update({ requested_service_ids: merged } as Record<string, unknown>)
         .eq('vendor_id', evRow.vendor_id as string);
+      if (updateError) reportEventVendorFault('update', updateError, null);
     } else if (confirmedServiceIds.length > 0) {
       // No event_vendors row yet — create a minimal one so the service list is
       // persisted. This mirrors the auto-add path in unlock-category.ts.
@@ -439,7 +627,7 @@ export async function startServiceInquiry(input: {
           .maybeSingle();
         const vendorNameForRow =
           (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Vendor';
-        await supabase.from('event_vendors').insert({
+        const { error: insertError } = await supabase.from('event_vendors').insert({
           event_id: eventId,
           category: categoryForRow,
           vendor_name: vendorNameForRow,
@@ -448,11 +636,14 @@ export async function startServiceInquiry(input: {
           service_id: initialServiceId,
           requested_service_ids: confirmedServiceIds,
         } as Record<string, unknown>);
+        if (insertError) reportEventVendorFault('insert', insertError, categoryForRow);
       }
     }
-  } catch {
-    /* best-effort — thread + interests already landed; service-id list can
-       be reconstructed from thread_service_interests if the column is missing */
+  } catch (caught) {
+    // Kept for genuine throws. NOTE: the supabase-js calls above do NOT throw on
+    // a database error — they RETURN `{ error }` — so this block was never the
+    // thing catching them. The `if (error)` checks above are.
+    reportEventVendorFault('threw', caught, null);
   }
 
   // Persist the couple's saved requirements template for this category so it
@@ -484,5 +675,18 @@ export async function startServiceInquiry(input: {
   }
 
   revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);
+  // The thread + interests landed either way; what differs is whether the
+  // couple's BUILD reached the vendor. Say which — never claim a delivery that
+  // did not happen.
+  if (buildDelivery && !buildDelivery.ok) {
+    return {
+      status: 'ok_build_not_sent',
+      threadId,
+      eventId,
+      isExisting,
+      reason: buildDelivery.reason,
+      message: buildDelivery.message,
+    };
+  }
   return { status: 'ok', threadId, eventId, isExisting };
 }

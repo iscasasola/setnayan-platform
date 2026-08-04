@@ -6,6 +6,7 @@ import { PostGigDrawer } from './_components/post-gig-drawer';
 import type { ManpowerGigRow, ManpowerGigStatus } from '@/app/vendor-dashboard/manpower/actions';
 import { cancelGigFromHost } from './host-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -92,7 +93,13 @@ export default async function HostManpowerPage({
   // Read gigs for this event. The host-reads-own-event RLS policy gates
   // SELECT visibility; the join to vendor_profiles for accepted gigs lets
   // us show the accepting vendor's business name to the host.
-  const { data: gigsRaw } = await supabase
+  // ⚠ `posted_by_user_id` was DECLARED NOT NULL by 20260704020000 but never
+  // landed in prod (that migration's CREATE TABLE IF NOT EXISTS no-op'd against
+  // a pre-existing table). Reconciled by 20271011120000. Until then this SELECT
+  // 42703'd and the host's gig list was permanently empty — as was the vendor
+  // surface, and postManpowerGig()'s INSERT of the same column, which is why
+  // prod has 0 gigs.
+  const { data: gigsRaw, error: gigsError } = await supabase
     .from('manpower_gigs')
     .select(
       'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
@@ -100,6 +107,9 @@ export default async function HostManpowerPage({
     .eq('event_id', eventId)
     .order('posted_at', { ascending: false });
 
+  if (gigsError) {
+    logQueryError('manpower:hostGigList', gigsError, { eventId });
+  }
   const gigs = (gigsRaw ?? []) as ManpowerGigRow[];
 
   // Look up accepted vendors' business names (single batch read).

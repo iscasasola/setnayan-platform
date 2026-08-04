@@ -157,7 +157,8 @@ type ApplicationRow = {
  *     SLA badge turns amber at 3 BD, red at 5 BD per 0006 § "Setnayan SLA".
  *
  *   • visibility — Vendor marketplace listing visibility queue from PR #56.
- *     Tabs: coming_soon / verified / hidden / archived / all.
+ *     Tabs: hidden / verified / archived / all. (`coming_soon` retired
+ *     2026-07-27 — reachable only via `all`, for historical rows.)
  *     Per-row actions: Approve → Verified · Reject → Hidden · Archive.
  *
  * Per 0023 § 3.2 + 0006 § Vendor Verification flow + decision log 2026-05-16.
@@ -181,8 +182,9 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
           Vendors submit a 12-document checklist; Setnayan reviews within 72
           hours and flips them to <span className="font-medium">Verified</span>.
           The companion <span className="font-medium">Visibility</span> surface
-          governs marketplace listing state (coming_soon · verified · hidden ·
-          archived) independent of the verification workflow.
+          governs marketplace listing state (hidden · verified · archived)
+          independent of the verification workflow. Only{' '}
+          <span className="font-medium">Verified</span> is publicly visible.
         </p>
       </header>
 
@@ -1426,7 +1428,7 @@ async function VisibilitySurface({
 
   return (
     <>
-      <VisibilityTabs current={statusParam ?? 'coming_soon'} />
+      <VisibilityTabs current={statusParam ?? 'hidden'} />
 
       {queryError ? (
         <FormFlash tone="error">
@@ -1453,27 +1455,29 @@ async function VisibilitySurface({
   );
 }
 
+// 🔒 Owner 2026-07-27 — `coming_soon` is retired. The default tab is now
+// `hidden`, which is where every unapproved, rejected, demoted and un-frozen
+// shop rests, so the queue still opens on "things awaiting a decision".
+// `coming_soon` survives ONLY inside the `all` tab, so historical rows written
+// before the retirement remain findable rather than vanishing from the console.
 function parseVisibilityTab(raw: string | undefined): VendorPublicVisibility[] {
   switch (raw) {
     case 'all':
       return ['hidden', 'coming_soon', 'verified', 'archived'];
     case 'verified':
       return ['verified'];
-    case 'hidden':
-      return ['hidden'];
     case 'archived':
       return ['archived'];
-    case 'coming_soon':
+    case 'hidden':
     default:
-      return ['coming_soon'];
+      return ['hidden'];
   }
 }
 
 function VisibilityTabs({ current }: { current: string }) {
   const tabs: ReadonlyArray<{ key: string; label: string }> = [
-    { key: 'coming_soon', label: 'Coming soon' },
+    { key: 'hidden', label: 'Not listed' },
     { key: 'verified', label: 'Verified' },
-    { key: 'hidden', label: 'Hidden' },
     { key: 'archived', label: 'Archived' },
     { key: 'all', label: 'All' },
   ];

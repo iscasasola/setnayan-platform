@@ -30,6 +30,18 @@ feature PR** — that reintroduces the conflict. Any "where we are" note goes in
 the fragment too; `STATUS.md` is a refreshed snapshot, updated on its own, not
 appended once per PR.
 
+> ⚠ **`changelog.d/<branch-slug>.md` is relative to the REPO ROOT — this
+> directory is the only one that works.** `scripts/changelog-collect.mjs` reads
+> *only* `<repoRoot>/changelog.d`, so a fragment dropped into
+> `apps/web/changelog.d/` (or any other `changelog.d/`) is ignored forever:
+> never folded into `CHANGELOG.md`, never deleted, and indistinguishable from a
+> healthy pending fragment. Because the only symptom is silence, that mistake
+> stranded **172 fragments** in `apps/web/changelog.d/` and `apps/changelog.d/`
+> before 2026-07-25, when they were migrated back here. The `lint-changelog-dir`
+> CI guard (`apps/web/scripts/lint-changelog-dir.mjs`, also `pnpm --filter web
+> lint:changelog-dir`) now fails the build if a `changelog.d/` directory appears
+> anywhere but the root.
+
 ## Folding fragments into CHANGELOG.md
 
 Run it anytime (typically at release):

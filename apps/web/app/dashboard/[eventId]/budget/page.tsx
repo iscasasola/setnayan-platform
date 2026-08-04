@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
 import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -35,6 +36,16 @@ export default async function BudgetPage({ params }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Event-type backstop (0053): Budget is a SURFACE, and `simple_event` — the
+  // vendor-free type — does not enable it. The nav has hidden Budget there
+  // since 2026-06-27 and the Suite strip since 2026-07-31, but a hidden link is
+  // not a closed URL: this page opened in full from a bookmark or a typed
+  // address, offering to track vendor payments on an event that can have no
+  // vendors. Mirrors the monogram guard exactly. Every type that enables
+  // `budget` is byte-identical.
+  const profile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
   const supabase = await createClient();
 
   // Pull the budget target + paid-orders aggregate in parallel with
@@ -44,7 +55,11 @@ export default async function BudgetPage({ params }: Props) {
   // missing columns at runtime (returns undefined) for any caller.
   const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description, share_budget_band',
       )
@@ -244,7 +259,7 @@ export default async function BudgetPage({ params }: Props) {
   const installmentsByVendor = new Map<string, PlanInstance[] | null>(planEntries);
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}
@@ -277,7 +292,7 @@ export default async function BudgetPage({ params }: Props) {
         </div>
         <Link
           href={`/api/budget/${eventId}/ics`}
-          className="inline-flex items-center gap-2 rounded-md border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
         >
           <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Export upcoming dates (.ics)

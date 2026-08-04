@@ -46,7 +46,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
+import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
+import { isExploreReplanEnabled } from './explore-replan-flag';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -128,9 +129,10 @@ export type CustomerMenuCtx = {
    *  "Launch" route child. Resolved from the profile in
    *  layout.tsx. Undefined/false → the child is omitted. */
   websiteEnabled?: boolean;
-  /** The event's public slug. When present, the "Launch" child opens the
-   *  couple's live personal website (`/[slug]`); when absent it falls back to
-   *  the go-live/setup surface. Resolved from the event row in layout.tsx. */
+  /** The event's public slug, resolved from the event row in layout.tsx.
+   *  NOTE: the "Launch" child no longer routes on it (2026-07-25 — Launch opens
+   *  the unified website editor, which carries its own "View live" link); the
+   *  field stays because callers pass it and future children may use it. */
   slug?: string | null;
 };
 
@@ -215,26 +217,50 @@ export function buildCustomerMenuTree(
       // design prototype + the desktop sidebar). Key + route (/vendors) + match
       // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
       // carries the same rename.
-      label: 'Merkado',
+      label: 'Marketplace',
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,
+      // THE MOBILE DOCK IS GONE under the Explore replan
+      // (Explore_Integration_BUILD_SPEC_2026-07-29 §5; owner complaint #1 —
+      // *"why is the subnav still present?"*). The Coverage Strip is the
+      // navigator now, and the four chips each had a replacement: Shortlist was
+      // a no-op (the page opens there), Build is the mobile team summary chip,
+      // Budget lives in the sidebar's "Also in this event" + the Overview
+      // checklist, Plans is reachable by scroll + its own disclosure.
+      //
+      // Emitting `children`/`sectionMatch` ONLY while the flag is OFF is what
+      // keeps the flag an honest kill-switch: with no children,
+      // `customer-section-subnav.tsx` returns null on /vendors (`inSection`
+      // is `children.length > 0`), while Studio's anchor dock and the Guests
+      // journey dock are untouched. Side benefit: the global bottom nav
+      // un-collapses back to icons+labels here, because it shrinks only while
+      // `html.subnav-docked` is set. The `?tab=` deep link and the
+      // `BB_TAB_EVENT` bus are NOT part of this — `ServicesTakeover` owns both
+      // and still honours them.
+      //
       // The takeover sub-nav shows on the ROOT only (matches the old isTakeoverRoot
       // exact check) — /vendors/categories, /packages, vendor detail are their own
       // pages and must NOT dock the takeover tabs.
-      sectionMatch: `${base}/vendors`,
-      sectionMatchExact: true,
-      subnavLabel: 'Services sections',
-      children: BUDGET_BUILD_TABS.map((t) => ({
-        key: t,
-        label: TAB_META[t].label,
-        icon: TAB_META[t].icon,
-        kind: 'tab' as const,
-        tab: t,
-        // Legacy area name `budget-subnav` = the Explore takeover tabs (the
-        // feature shipped as "Budget Build"); the slots already exist.
-        slotKey: `customer.budget-subnav.${t}`,
-      })),
+      ...(isExploreReplanEnabled()
+        ? {}
+        : {
+            sectionMatch: `${base}/vendors`,
+            sectionMatchExact: true,
+            subnavLabel: 'Services sections',
+            children: BUDGET_BUILD_TABS.map((t) => ({
+              key: t,
+              // Label via tabLabel() so the Explore-Replan "Plans" rename (PR-F)
+              // reaches the docked sub-nav; the KEY/tab/slotKey below stay 'compare'.
+              label: tabLabel(t),
+              icon: TAB_META[t].icon,
+              kind: 'tab' as const,
+              tab: t,
+              // Legacy area name `budget-subnav` = the Explore takeover tabs (the
+              // feature shipped as "Budget Build"); the slots already exist.
+              slotKey: `customer.budget-subnav.${t}`,
+            })),
+          }),
     },
     {
       // SUITE SWAP (owner 2026-07-19: name locked = "Suite"; nav doorway
@@ -259,7 +285,6 @@ export function buildCustomerMenuTree(
         ...(SUITE_NAV_ON ? [`${base}/suite`] : []),
         `${base}/studio`,
         `${base}/design`,
-        `/site-editor/${eventId}`,
         `${base}/monogram`,
       ],
       // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
@@ -289,13 +314,14 @@ export function buildCustomerMenuTree(
         ...(ctx.websiteEnabled
           ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
           : []),
-        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a ROUTE child
-        // that OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly
-        // (owner: "launch on customer event is their personal website"). A
-        // signed-in host always sees their own page even while it's private, so
-        // this is safe pre-publish; before a slug exists we fall back to the
-        // go-live/setup surface (`/website/launch`). Only when the event type
-        // enables the 'website' surface.
+        // "Launch" (owner 2026-06-28; repointed 2026-07-02 → live site; repointed
+        // AGAIN 2026-07-25 → the UNIFIED WEBSITE EDITOR). Owner: opening Launch
+        // should start at the settings, editing the site while SEEING it — not
+        // jump into the page (or the retired /site-editor). The editor carries
+        // go-live + "View live" itself, so the live page is one tap away. This is
+        // the mobile twin of the sidebar item in customer-nav-config.ts — the two
+        // must stay pointed at the same place. Only when the event type enables
+        // the 'website' surface.
         ...(ctx.websiteEnabled
           ? [
               {
@@ -303,8 +329,8 @@ export function buildCustomerMenuTree(
                 label: 'Launch',
                 icon: Rocket,
                 kind: 'route' as const,
-                href: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
-                match: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
+                href: `${base}/website/editor`,
+                match: `${base}/website/editor`,
                 slotKey: 'customer.studio-subnav.launch',
               },
             ]

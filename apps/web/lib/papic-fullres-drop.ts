@@ -5,6 +5,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import {
   CLIP_WEB_DROP_GRACE_DAYS,
   DEFAULT_FULL_RES_RETENTION_DAYS,
+  FULL_RES_POST_EVENT_GRACE_DAYS,
   clipEligibleForDrop,
   clipWebCopyCustodyOk,
   confirmedDriveKeys,
@@ -28,7 +29,8 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 // ============================================================================
 // 3-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
 //
-// After the free full-res window (default 90d), delete OUR R2 copy of the
+// After the event's full-res clock runs out (6 months from its FIRST capture —
+// owner-locked 2026-08-02, NOT each photo's own age), delete OUR R2 copy of the
 // full-res ORIGINAL and stamp full_res_dropped_at. NEVER touches the couple's
 // Google Drive copy (core invariant); the forever web copy (display/thumb AVIF)
 // is kept, so the gallery — which serves the web copy — is unaffected.
@@ -49,7 +51,8 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 //     droppable once its high-res Drive copy is CONFIRMED. Queued / retrying /
 //     failed / missing → defer. Drive state unreadable → defer. (A read failure
 //     must never authorize a deletion.)
-//   • only after captured_at < now - retentionDays.
+//   • only for an event whose 6-month clock has run out AND which is at least
+//     30 days past its event date (papic_events_past_fullres_clock).
 //   • the R2 delete resolves a known bucket or declines.
 // ============================================================================
 
@@ -237,6 +240,63 @@ export type FullResDropSummary = {
   bytesReclaimed: number;
 };
 
+/**
+ * Events whose 6-month full-res clock has run out (owner-locked 2026-08-02).
+ *
+ * Thin wrapper over `papic_events_past_fullres_clock`, which owns the rule:
+ * 6 months from the event's FIRST capture, and never sooner than
+ * FULL_RES_POST_EVENT_GRACE_DAYS after the event date so the couple always gets
+ * their download grace.
+ *
+ * ⚠ FAIL-CLOSED, and this is the important part. On any error — a missing
+ * function, an unreadable row, a transport hiccup — this returns an EMPTY list,
+ * which drops NOTHING this pass. The alternative posture (assume everything is
+ * expired) would turn a database blip into irreversible deletion of originals.
+ * A sweep that does nothing is recoverable on the next run; a sweep that deletes
+ * on bad information is not.
+ */
+async function eventsPastTheirClock(
+  admin: ReturnType<typeof createAdminClient>,
+  retentionDaysInForce: number,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin.rpc('papic_events_past_fullres_clock', {
+      p_retention_days: retentionDaysInForce,
+      p_post_event_days: FULL_RES_POST_EVENT_GRACE_DAYS,
+    });
+    if (error || !Array.isArray(data)) return [];
+    return data
+      .map((r) => String((r as { event_id?: unknown }).event_id ?? ''))
+      .filter((id) => id.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Nothing was eligible — reported honestly rather than as a silent no-op. */
+function emptySummary(
+  dryRun: boolean,
+  retention: number,
+  clipsEnabled: boolean,
+): FullResDropSummary {
+  return {
+    dryRun,
+    retentionDays: retention,
+    clipDropEnabled: clipsEnabled,
+    scanned: 0,
+    eligible: 0,
+    dropped: 0,
+    clipsDropped: 0,
+    skippedKeepFullRes: 0,
+    deferredDriveCopy: 0,
+    driveStateUnknownEvents: 0,
+    heldNoDriveUnwarned: 0,
+    clipWebUnverified: 0,
+    failed: 0,
+    bytesReclaimed: 0,
+  };
+}
+
 // The candidate shape + its row→Item builders live in the pure core module so the
 // sweep and its regression test materialise Items through the SAME code (a
 // hand-built fixture masked the clip-wiring bug). `photo_type`/`media_type` are
@@ -252,8 +312,26 @@ export async function runFullResDropSweep(
   const clipsEnabled = clipDropEnabled();
   const graceMs = CLIP_WEB_DROP_GRACE_DAYS * 86_400_000;
   const nowMs = Date.now();
-  const cutoffIso = new Date(nowMs - days * 86_400_000).toISOString();
   const admin = createAdminClient();
+
+  // ── WHOSE CLOCK HAS RUN OUT (owner-locked 2026-08-02) ────────────────────
+  // "the total time we keep their high resolution is 6 months from the first day
+  // they use the service."
+  //
+  // ⚠ This replaced a PER-PHOTO age fuse, and the difference is not cosmetic. A
+  // photo taken five months before a wedding had its original deleted 90 days
+  // later — TWO MONTHS BEFORE THE WEDDING. The longer a couple's journey, the
+  // more of its beginning was destroyed first. One clock per EVENT is the only
+  // shape that can express the owner's sentence, because the sentence is about
+  // the event and not about any one file.
+  //
+  // Fail-CLOSED: an unreadable clock drops NOTHING this pass. Deleting an
+  // original is irreversible, so "we could not work out whose time is up" must
+  // mean nobody's.
+  const expiredEventIds = await eventsPastTheirClock(admin, days);
+  if (expiredEventIds.length === 0) {
+    return emptySummary(dryRun, days, clipsEnabled);
+  }
 
   // PHOTOS. Guest media_type NULL = photo (include null + 'photo', drop 'clip').
   const [seat, guest] = await Promise.all([
@@ -263,7 +341,7 @@ export async function runFullResDropSweep(
       .eq('photo_type', 'photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
-      .lt('captured_at', cutoffIso)
+      .in('event_id', expiredEventIds)
       // Cursor (gap audit · anti-starvation): least-recently-deferred first (NULL
       // = never deferred → sorts first), THEN oldest capture. A Drive-deferred row
       // is re-stamped each pass (below) so it rotates to the back of the window
@@ -277,7 +355,7 @@ export async function runFullResDropSweep(
       .or('media_type.is.null,media_type.eq.photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
-      .lt('captured_at', cutoffIso)
+      .in('event_id', expiredEventIds)
       // Cursor (gap audit · anti-starvation): least-recently-deferred first (NULL
       // = never deferred → sorts first), THEN oldest capture. A Drive-deferred row
       // is re-stamped each pass (below) so it rotates to the back of the window
@@ -301,7 +379,7 @@ export async function runFullResDropSweep(
           .eq('photo_type', 'clip')
           .is('full_res_dropped_at', null)
           .not('clip_web_r2_key', 'is', null)
-          .lt('captured_at', cutoffIso)
+          .in('event_id', expiredEventIds)
           // Cursor (gap audit · anti-starvation) — see the photo query above.
           .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
           .order('captured_at', { ascending: true })
@@ -314,7 +392,7 @@ export async function runFullResDropSweep(
           .eq('media_type', 'clip')
           .is('full_res_dropped_at', null)
           .not('clip_web_r2_key', 'is', null)
-          .lt('captured_at', cutoffIso)
+          .in('event_id', expiredEventIds)
           // Cursor (gap audit · anti-starvation) — see the photo query above.
           .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
           .order('captured_at', { ascending: true })

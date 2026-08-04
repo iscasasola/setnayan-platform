@@ -29,7 +29,10 @@ export type CategoryDecisionState =
   | 'done'               // at least 1 vendor delivered or complete
 
 export type CategoryDecision = {
-  decision: 'excluded' | 'deferred'
+  // 'complete' (Explore Replan slice A): the couple's explicit "I'm done with
+  // this category" — from the post-lock toast (multi-pick) or the automatic
+  // hard-single fill. Reversible ("Reopen" deletes the row).
+  decision: 'excluded' | 'deferred' | 'complete'
 } | null
 
 // vendor_status enum values (source of truth: 20260513100000_iteration_0006_vendors.sql)
@@ -50,6 +53,9 @@ export function resolveCategoryState(
 ): CategoryDecisionState {
   if (decision?.decision === 'excluded') return 'excluded'
   if (decision?.decision === 'deferred') return 'deferred'
+  // An explicit "I'm done" outranks the vendor-status derivation: the couple
+  // has declared the category covered even if no vendor row is 'delivered'.
+  if (decision?.decision === 'complete') return 'done'
 
   const done = vendors.filter(v => (DONE_STATUSES as readonly string[]).includes(v.status))
   if (done.length > 0) return 'done'

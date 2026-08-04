@@ -3,8 +3,9 @@
  *
  * ⚠⚠ PHASE 3 IS COUNSEL-FIRST and touches MINORS + POST-MORTEM / SUCCESSION law.
  * `stewardedAccountsEnabled()` defaults OFF and stays off until PH counsel + the
- * DPO (Claire E. Buanhog) clear the flow AND the minors + post-mortem DPIAs are
- * done. This module only RESERVES the flag + shapes; there is no flow, no action,
+ * DPO (Indalecio Sacdalan Casasola II — the proprietor) clear the flow AND the
+ * minors + post-mortem DPIAs are done. This module only RESERVES the flag +
+ * shapes; there is no flow, no action,
  * and no data processing here — the inert schema is
  * `supabase/migrations/…_phase3_stewardship_scaffolding.sql`.
  *

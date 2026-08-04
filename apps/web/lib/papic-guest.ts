@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
+import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -75,16 +76,28 @@ export async function eventPapicGuestActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  // ALL FOUR Papic One rungs, not just the entry SKU.
+  // ── A LIVE POOL OPENS THE CAMERA, PAID OR FREE (owner-locked 2026-08-02) ──
   //
-  // Migration 20270828140000 turned the flat pass into three purchased buckets
-  // plus a top-up. This gate still checked only PAPIC_GUEST, so a couple who
-  // bought the 6,000- or 10,000-shot rung was granted their points and got NO
-  // CAMERAS. That is the bug this fixes.
-  const owned = await Promise.all(
-    PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key)),
-  );
-  return owned.some(Boolean);
+  // This used to require a PURCHASE. The free 50-point pool did not count, so on
+  // a free event the guest site showed "Show my QR" and "Photos of you" and NO
+  // camera — the only people who could shoot were whoever was handed one of the
+  // three claim links. The free tier therefore had shots nobody could spend.
+  //
+  // Owner's call: "free guests can shoot." Paying buys MORE SHOTS, not more
+  // PEOPLE. That costs nothing to give away, because the bound was never the
+  // number of cameras — it is the purse, and the purse is already fenced:
+  // papic_reserve_event_points_for_seat fails CLOSED at zero.
+  //
+  // ⚠ `applies`, deliberately NOT `remaining > 0`. An empty pool must still open
+  // the camera: the capture screen explains "out of shots" far better than a
+  // missing button does, and closing the door at zero would strand a guest who
+  // scanned seconds earlier. Same reasoning as the poster join action.
+  const [owned, pool] = await Promise.all([
+    Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
+    fetchEventPoolStatus(supabase, eventId).catch(() => null),
+  ]);
+  if (owned.some(Boolean)) return true;
+  return pool?.applies === true;
 }
 
 /**

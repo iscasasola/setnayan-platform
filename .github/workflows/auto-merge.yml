@@ -45,6 +45,18 @@ jobs:
           # unset — but until it IS set, merges it arms fire no main workflows
           # and migrations must be dispatched manually:
           #   gh workflow run supabase-migrations.yml --ref main
+          # ✅ AUTOMERGE_PAT SET 2026-07-30 (fine-grained, repo-scoped:
+          # Contents RW + Pull requests RW + Metadata R, no expiration). Merges
+          # armed from here are now attributed to a real identity, so the push to
+          # main TRIGGERS workflows again — deploy-prod applies migrations and
+          # fires the Vercel hook without anyone dispatching by hand.
+          #
+          # What it cost while unset (2026-07-30, measured): THREE security
+          # migrations sat unapplied — the community/person-spine ACL hygiene
+          # (anon held TRUNCATE on four tables), SEC-4b, and the audit-trail
+          # append-only trigger. Each landed only because a session happened to
+          # check. If merges ever start showing `github-actions[bot]` as author
+          # again, this secret is gone or expired — that is the tell.
           GH_TOKEN: ${{ secrets.AUTOMERGE_PAT || github.token }}
         run: |
           gh pr merge "${{ github.event.pull_request.number }}" \

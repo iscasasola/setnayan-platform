@@ -38,11 +38,24 @@ import {
   loadEventShell,
   loadGuestContext,
   loadHostMembership,
+  loadVendorBooking,
+  loadDayOfBroadcast,
   loadLiveLayer,
   loadMedia,
   loadWidgets,
 } from './_lib/loaders';
-import { anonymousIdentity, type AnonymousReason } from './_lib/site-identity';
+import {
+  anonymousIdentity,
+  guestIdentity,
+  resolveOwnerCapability,
+  resolveVendorCapability,
+  type AnonymousReason,
+  type OwnerCapability,
+} from './_lib/site-identity';
+import {
+  buildSimulatedGuestIdentity,
+  shouldSimulateRepliedGuest,
+} from '@/lib/simulated-guest-preview';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -66,10 +79,19 @@ type Props = {
     invite?: string;
     invite_error?: string;
     phase?: string;
+    // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit
+    // bridge INSIDE the editor's preview iframe. Host-gated exactly like
+    // `?phase=` below; ignored for guests/anonymous so their bytes never change.
+    editor?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
+    // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
+    // as a guest who already answered "attending". Honoured ONLY for a viewer
+    // holding a server-verified OwnerCapability; inert for everyone else, so a
+    // guest's bytes are unchanged. See lib/simulated-guest-preview.ts.
+    as?: string;
   }>;
 };
 
@@ -238,6 +260,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    siteColorVars,
     bespokeSvg,
     studioAnim,
     heroPhotoUrl,
@@ -326,6 +349,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
           proWatermarkHidden={proWatermarkHidden}
+          siteColorVars={siteColorVars}
         />
       );
     }
@@ -380,6 +404,25 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? (phaseParam as LifecyclePhase)
       : null;
 
+  // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit bridge
+  // for the couple's own preview iframe. STRICTER than the phase override: real
+  // host membership only (no demo-event shortcut), because the bridge posts
+  // edit intents to a parent editor window. The lookup fires only when the param
+  // is present, so the normal guest path pays zero extra queries — and with the
+  // param absent (every guest, always) `editorMode` is false and the bridge is
+  // never rendered, so guest HTML is unchanged byte-for-byte.
+  let editorMode = false;
+  if (search.editor === '1') {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      // React.cache'd — shares the lookup with the private gate / phase preview.
+      editorMode = await loadHostMembership(admin, event.event_id, user.id);
+    }
+  }
+
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
   // unless the demo override forces a phase (event→live so the day-of UI shows).
   const dayOfPhase: DayOfPhase = phaseOverride
@@ -424,6 +467,48 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     <SpatialBackdrop config={backdropConfig} />
   ) : null;
 
+  // ONE viewer-account read for the whole request. Previously the only auth
+  // read on the render path lived down in the guest branch (the claim-account
+  // CTA); the owner gate below needs the same answer, so it is hoisted here
+  // and the guest branch reuses `viewerAccount` instead of re-reading. Auth /
+  // cookie reads stay OUT of the React.cache'd loaders (loaders.ts hard rule).
+  const cookieScopedClient = await createClient();
+  const {
+    data: { user: viewerAccount },
+  } = await cookieScopedClient.auth.getUser();
+
+  // ── OWNER LAYER · FOUNDATION ONLY (owner-locked 2026-07-26) ──────────────
+  // The event owner opens `/[slug]` like a guest and gets owner controls
+  // unlocked on top of it. This resolves WHETHER this viewer holds that
+  // capability; NOTHING consumes it yet, so this render is byte-identical to
+  // the pre-PR page for every visitor including the owner. A later PR mounts
+  // the controls on it.
+  //
+  // The gate is the DATABASE, not the UI: `loadHostMembership` — the same
+  // React.cache'd event_members + event_moderators pair that already gates the
+  // private-event view, `?phase=` preview and `?editor=1` above, so a host who
+  // hits any of those pays ONE query pair for all of them. No query param,
+  // header or cookie can shortcut it, and a guest-session cookie is not an
+  // account (viewerAccount is null for a cookie-only guest → no capability).
+  const ownerCapability: OwnerCapability | null = await resolveOwnerCapability({
+    eventId: event.event_id,
+    viewerUserId: viewerAccount?.id ?? null,
+    checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
+  });
+
+  // The supplier doorway's grant. Same shape and same discipline as the owner
+  // capability above: one query, answered by the DB, bound to this event and
+  // this auth user. A cookie-only guest has no account, so no capability.
+  const vendorCapability = await resolveVendorCapability({
+    eventId: event.event_id,
+    viewerUserId: viewerAccount?.id ?? null,
+    checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
+  });
+  // The coordinator's announcement for the guests in the room. Live window
+  // only — the loader returns null outside it, so nothing stale survives the
+  // day. Guests only; see the render site in site-body.
+  const dayOfBroadcast = await loadDayOfBroadcast(admin, event.event_id, dayOfPhase === 'live');
+
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
@@ -435,6 +520,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     studioAnim,
     bespokeSvg,
     dayOfPhase,
+    dayOfBroadcast,
     phasesEnabled,
     lifecyclePhase,
     stdFilm,
@@ -454,6 +540,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     liveWall,
     watchLive,
     proWatermarkHidden,
+    siteColorVars,
+    editorMode,
+    // Declared-but-unconsumed foundation (see the owner-layer block above).
+    ownerCapability,
+    vendorCapability,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody
@@ -465,6 +556,37 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       })}
     />
   );
+
+  // ── EDITOR "RSVP'd" PREVIEW TAB (2026-07-26) ─────────────────────────────
+  // The RSVPed fork (keepsake ticket instead of the ask) is keyed on a GUEST's
+  // own rsvp_status, so a host previewing `?phase=rsvp` can never see it — they
+  // have no guest row. `?as=replied` substitutes a FABRICATED guest so they can.
+  //
+  // Gated on `ownerCapability` and nothing else — the same server-verified host
+  // membership that gates `?phase=` and `?editor=1`. For a guest or an anonymous
+  // visitor the param is ignored outright and the branches below run unchanged.
+  //
+  // The substituted identity is built from constants in
+  // lib/simulated-guest-preview.ts — no `guests` read happens here or there, so
+  // no real guest's name, meal preference or dietary notes can surface in a
+  // host's preview. Placed above the session branches so it also wins for a host
+  // who happens to hold a guest cookie for their own event: they asked for the
+  // simulated view explicitly. Preview only — nothing is written or persisted.
+  if (
+    shouldSimulateRepliedGuest({
+      ownerCapability,
+      asParam: search.as,
+      lifecyclePhase,
+      eventId: event.event_id,
+    })
+  ) {
+    return (
+      <SiteBody
+        {...siteProps}
+        identity={buildSimulatedGuestIdentity({ slug: event.slug ?? slug })}
+      />
+    );
+  }
 
   if (!session) {
     return renderAnonymous(inviteError === 'invalid_token' ? 'invalid_invite' : null);
@@ -527,10 +649,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
-  const cookieScopedClient = await createClient();
-  const {
-    data: { user: viewerAccount },
-  } = await cookieScopedClient.auth.getUser();
+  // (`viewerAccount` is read once, above the siteProps block — same request,
+  // same cookies, same answer; the owner gate shares it.)
 
   // Invite/Join v2 — a no-login guest's photo access closes once the post-event
   // grace ends (dayOfPhase leaves live/post, ~24h after the wedding). Past that,
@@ -561,8 +681,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     <>
       <SiteBody
         {...siteProps}
-        identity={{
-          kind: 'guest',
+        identity={guestIdentity({
           guest,
           qrSvg,
           invitationUrl,
@@ -578,7 +697,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           eventVendorCredits,
           saveFlash,
           faceMode: rsvpFaceMode,
-        }}
+        })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
           (My QR · Camera · Photos) + top-right account affordance. Replaces the

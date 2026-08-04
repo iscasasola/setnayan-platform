@@ -11,6 +11,7 @@ import {
   type CardContext,
   type CardFormat,
 } from '@/lib/social/card';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * GET /api/social/card/[postId] — the branded social card for a social_posts
@@ -173,7 +174,8 @@ async function coupleCreationContext(
       .maybeSingle();
     if (ev) {
       coupleName = ev.display_name ?? null;
-      monogramCustomSvg = ev.monogram_custom_svg ?? null;
+      // SEC-3: gated on read — host-writable column feeding a shareable card.
+      monogramCustomSvg = safeMonogramSvg(ev.monogram_custom_svg);
       monogramStyle = ev.monogram_style ?? null;
       monogramFontKey = ev.monogram_font_key ?? null;
       const mono = resolveMonogram({

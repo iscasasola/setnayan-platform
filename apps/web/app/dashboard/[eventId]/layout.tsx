@@ -31,6 +31,7 @@ import { EventMonogram } from '@/app/_components/event-monogram';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 type Props = {
   children: React.ReactNode;
@@ -322,13 +323,10 @@ export default async function EventLayout({ children, params }: Props) {
   // The couple's EFFECTIVE mark for the plaque chip — same `uploaded ?? custom`
   // precedence every other surface resolves (hero, QR centre, save-the-date).
   // Both columns are already in this layout's select; only the chip ignored them.
-  const plaqueMarkSvg =
-    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? (event.monogram_uploaded_svg as string)
-      : null) ??
-    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? (event.monogram_custom_svg as string)
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const plaqueMarkSvg = resolveEventMonogramSvg(
+    event as { monogram_uploaded_svg?: string | null; monogram_custom_svg?: string | null },
+  );
   const homeLabel = 'Home · all your events';
 
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
@@ -344,7 +342,7 @@ export default async function EventLayout({ children, params }: Props) {
       {phase === 'dayof' ? (
         <Link
           href={`/dashboard/${eventId}/more`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
         >
           <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Planning

@@ -3,7 +3,7 @@
  *
  * CURRENT MODEL — per-EVENT-TYPE pricing (owner-locked 2026-07-22 "go"): the
  * price is set by the event's TYPE on a discrete load-based ladder (₱1,499
- * Wedding · ₱999 Debut/Corporate · ₱499 standard · ₱99 light · ₱0 no-vendors).
+ * Wedding · ₱899 Debut/Corporate · ₱499 standard · ₱99 light · ₱0 no-vendors).
  * The pure classification (type → tier → catalog SKU) lives in
  * lib/setnayan-ai-type-pricing.ts; `resolveSetnayanAiType*` below read the tier
  * SKU's catalog price. Gated by `setnayan_ai_per_event_pricing_enabled` at the

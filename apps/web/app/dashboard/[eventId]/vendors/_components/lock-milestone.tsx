@@ -123,11 +123,22 @@ export function LockMilestoneToast({
   milestone,
   onUndo,
   onDismiss,
+  askDone = false,
+  groupLabel,
+  onDone,
+  onAddAnother,
 }: {
   milestone: LockMilestone;
   /** When provided, renders an "Undo · revert to considering" affordance. */
   onUndo?: () => void;
   onDismiss: () => void;
+  /** Explore Replan slice A: multi-pick lock → ask "done with this service, or
+   *  add another?" ("✓ I'm done" persists decision='complete'; "＋ Add another"
+   *  just dismisses — the rail stays open for the next candidate). */
+  askDone?: boolean;
+  groupLabel?: string;
+  onDone?: () => void;
+  onAddAnother?: () => void;
 }) {
   return portal(
     <div
@@ -161,6 +172,29 @@ export function LockMilestoneToast({
                   strokeWidth={2}
                 />
               </Link>
+            </div>
+          ) : null}
+          {askDone && onDone && onAddAnother ? (
+            <div className="pt-1.5">
+              <p className="text-[11px] font-medium text-ink/70">
+                Done with {groupLabel ?? 'this service'}, or add another?
+              </p>
+              <div className="mt-1.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={onDone}
+                  className="flex-1 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream hover:bg-ink/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  ✓ I&apos;m done
+                </button>
+                <button
+                  type="button"
+                  onClick={onAddAnother}
+                  className="flex-1 rounded-lg border border-terracotta px-3 py-1.5 text-xs font-semibold text-terracotta hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  ＋ Add another
+                </button>
+              </div>
             </div>
           ) : null}
           {onUndo ? (

@@ -283,9 +283,9 @@ export function KwentoDecorator({
       if (resp.ok && data.status === 'ok') {
         setDone(true);
         setSavedCaptureId(data.captureId ?? null);
-        setStatus('Saved to the couple’s gallery ✨');
+        setStatus('Saved to the host’s gallery ✨');
       } else if (data.status === 'quota_exhausted') {
-        setStatus('You’ve used all your photos for this wedding.');
+        setStatus('You’ve used all your photos for this event.');
       } else if (data.status === 'terms_required') {
         setStatus('Please accept the photo terms on the camera page first.');
       } else {
@@ -325,7 +325,7 @@ export function KwentoDecorator({
       } else if (data.error === 'keep_it_sweet') {
         setCaptionStatus('Let’s keep it kind — try rephrasing.');
       } else if (data.error === 'limit_reached') {
-        setCaptionStatus('You’ve reached the caption limit for this wedding.');
+        setCaptionStatus('You’ve reached the caption limit for this event.');
       } else {
         setCaptionStatus('Couldn’t add the caption — please try again.');
       }
@@ -552,7 +552,7 @@ export function KwentoDecorator({
               <div className="mt-5 rounded-xl border border-ink/10 bg-surface p-4">
                 <p className="text-sm font-medium text-ink">Add a caption</p>
                 <p className="mt-0.5 text-xs text-ink/55">
-                  Tell the couple the story behind this photo.
+                  Tell the host the story behind this photo.
                 </p>
                 <textarea
                   value={caption}
@@ -569,7 +569,7 @@ export function KwentoDecorator({
                     onChange={(e) => setCaptionConsent(e.target.checked)}
                     className="mt-0.5"
                   />
-                  <span>I&rsquo;m okay with the couple sharing my caption with this photo.</span>
+                  <span>I&rsquo;m okay with the host sharing my caption with this photo.</span>
                 </label>
                 <button
                   type="button"

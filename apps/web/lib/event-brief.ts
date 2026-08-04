@@ -22,7 +22,11 @@
  * simple event a thin one. Every field admits-unknown (null / empty), never
  * throws on missing data — exactly mirroring the scorer's neutral baseline.
  * Pure in, pure out → trivially unit-testable, and free to run anywhere.
+ *
+ * The ONE import is `lib/event-dates`, which is itself import-free by contract
+ * (asserted by `event-dates.test.ts`), so "free to run anywhere" is intact.
  */
+import { earliestKnownEventDate } from '@/lib/event-dates';
 
 /** The raw event row (a loose subset of `events` columns + parsed JSONB).
  *  Every field optional so a thin simple-event row is as valid as a wedding. */
@@ -81,7 +85,8 @@ export type EventBrief = {
       candidates: string[];
       windowStart: string | null;
       windowEnd: string | null;
-      /** Best single date to anchor deadlines on: first candidate → window start → event_date. */
+      /** Best single date to anchor deadlines on, via the shared `lib/event-dates`
+       *  ladder: committed `event_date` → EARLIEST candidate → window start. */
       primary: string | null;
     };
     location: {
@@ -237,7 +242,43 @@ export function buildEventBrief(source: EventBriefSource | null | undefined): Ev
   const candidates = strArr(src.date_candidates);
   const windowStart = str(src.date_window_start);
   const eventDate = str(src.event_date);
-  const primaryDate = candidates[0] ?? windowStart ?? eventDate;
+  // The COMMITTED date wins, then the EARLIEST shortlisted candidate, then the
+  // window start — via the one shared ladder (`lib/event-dates`), so this is not
+  // a fourth hand-rolled reading of the same three columns.
+  //
+  // This reverses the previous order (`candidates[0] ?? windowStart ?? eventDate`),
+  // which ranked the committed date LAST and took candidates in STORED order.
+  // Locking a date does not clear `date_candidates` — the date-selection action
+  // writes only `event_date` / `event_date_precision` / `date_status` — so a
+  // locked event keeps its stale shortlist, and the Brief was answering with a
+  // date the host had already moved off. `date.primary` is VENDOR-FACING (the
+  // auto-reply keys its availability answer to it), so that was a vendor being
+  // told about the wrong day.
+  //
+  // Deliberately NOT gated on `date_status === 'locked'`, even though the lock
+  // writes it. The original reason was that every prod row read `'undecided'`,
+  // including the ones carrying a real `event_date` — migration 20271033121603
+  // has since fixed that drift at the table (trigger `sync_event_date_status_trg`),
+  // so that specific evidence is now stale. The CONCLUSION still stands, for two
+  // reasons that the fix does not touch:
+  //   · `date_status = 'undecided'` is deliberately reachable WITH a non-null
+  //     `event_date` — that is exactly what `markDateUndecided` writes — so a
+  //     gate here would drop a real date the couple is simply unsure about,
+  //     which is the wrong answer to give a VENDOR asking about availability.
+  //   · `date_status` is absent from `category-search.ts`'s narrow column list,
+  //     so a gate would resolve differently per consumer.
+  // `event_date` being non-null IS the commitment for this reader.
+  //
+  // The values handed over are already normalised by `str`/`strArr` above
+  // (trimmed, empties dropped, non-array guarded), so the shared helper's own
+  // `.filter(Boolean).sort()` operates on clean input.
+  const primaryDate = earliestKnownEventDate({
+    event_date: eventDate,
+    date_candidates: candidates,
+    date_window_start: windowStart,
+  });
+  // NOTE: `mode` below is SEPARATE logic and is deliberately unchanged — it
+  // answers "specific vs window vs unset", not "which day".
   const mode: 'specific' | 'window' | 'unset' =
     src.date_mode === 'window'
       ? 'window'
@@ -273,7 +314,7 @@ export function buildEventBrief(source: EventBriefSource | null | undefined): Ev
       partnerB: fullName(null, src.groom_name ?? null),
     },
     constraints: {
-      date: { mode, candidates, windowStart, windowEnd: str(src.date_window_end), primary: primaryDate ?? null },
+      date: { mode, candidates, windowStart, windowEnd: str(src.date_window_end), primary: primaryDate },
       location: {
         region: str(src.region),
         lat,

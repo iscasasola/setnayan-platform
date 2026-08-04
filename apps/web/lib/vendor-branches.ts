@@ -45,8 +45,17 @@ export const BRANCH_PERIOD_DAYS = 28;
 /**
  * Order service_key convention: `vendor_additional_branch__{branch_id}`.
  * The suffix lets the admin approval hook map the paid order back to the exact
- * branch to activate. Mirrors the established `setnayan_service__{category}`
- * keying — a non-catalog service_key whose price is passed explicitly.
+ * branch to activate.
+ *
+ * ⚠ This used to say it "mirrors the established `setnayan_service__{category}`
+ * keying". That convention was REMOVED 2026-07-26 (owner ruling) and the two
+ * were never really alike in the way that matters: the branch fee is read from
+ * `vendor_billing_catalog` via `fetchBranchFeePhp()` — an ADMIN-set table —
+ * whereas the Setnayan-service key ultimately priced off
+ * `event_vendors.total_cost_php`, a column the paying customer writes. A
+ * suffixed non-catalog service_key is fine; a suffixed key whose price comes
+ * from a customer-writable column is the bug. Do not cite the removed one as
+ * precedent.
  */
 export const BRANCH_SERVICE_KEY_PREFIX = 'vendor_additional_branch__';
 

@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
 import { gscConfigured, pullSearchConsole } from '@/lib/seo/search-console';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
+// Single source of truth for both — see lib/seo/org-same-as.ts for why the
+// audit used to read sources nothing else consumed.
+import { orgSameAs, siteVerification } from '@/lib/seo/org-same-as';
 
 /**
  * CRON-FREE SEO jobs — the daily SEO health audit + Google Search Console pull,
@@ -13,12 +17,7 @@ import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
  */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
 
-function orgSameAs(): string[] {
-  return (process.env.SETNAYAN_ORG_SAMEAS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+
 
 /** Daily SEO/GEO health audit → one seo_health_snapshots row. */
 export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number }> {
@@ -33,21 +32,35 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
 
   const admin = createAdminClient();
   const [retailRes, vendorRes] = await Promise.all([
-    admin
-      .from('platform_retail_catalog_v2')
-      .select('service_code, retail_price_php')
-      .eq('is_active', true),
+    // NOT filtered on is_active in SQL — the Setnayan AI tier ladder prices live
+    // on B/C/D rows that are is_active=FALSE BY DESIGN (price-source only, see
+    // lib/setnayan-ai-type-pricing.ts). llms.txt legitimately quotes them, so an
+    // is_active-only catalog would report ₱899 / ₱499 / ₱99 as orphan figures —
+    // a permanent false warn. Filter in JS instead, keeping active rows PLUS the
+    // price-source tiers.
+    admin.from('platform_retail_catalog_v2').select('service_code, retail_price_php, is_active'),
     admin
       .from('vendor_billing_catalog')
       .select('sku_code, price_php')
       .eq('is_active', true),
   ]);
+  const AI_PRICE_SOURCE_SKUS = new Set(
+    Object.values(AI_TIER_SKU).filter((s): s is string => s !== null),
+  );
   const catalog: CatalogRow[] = [
-    ...((retailRes.data ?? []) as { service_code: string; retail_price_php: number }[]).map((r) => ({
-      sku_code: r.service_code,
-      price_php: Number(r.retail_price_php),
-      source: 'retail' as const,
-    })),
+    ...(
+      (retailRes.data ?? []) as {
+        service_code: string;
+        retail_price_php: number;
+        is_active: boolean;
+      }[]
+    )
+      .filter((r) => r.is_active || AI_PRICE_SOURCE_SKUS.has(r.service_code))
+      .map((r) => ({
+        sku_code: r.service_code,
+        price_php: Number(r.retail_price_php),
+        source: 'retail' as const,
+      })),
     ...((vendorRes.data ?? []) as { sku_code: string; price_php: number }[]).map((r) => ({
       sku_code: r.sku_code,
       price_php: Number(r.price_php),
@@ -59,8 +72,8 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
     llmsText,
     catalog,
     env: {
-      googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION,
-      bingSiteVerification: process.env.BING_SITE_VERIFICATION,
+      googleSiteVerification: siteVerification().google,
+      bingSiteVerification: siteVerification().bing,
       orgSameAs: orgSameAs(),
     },
   });

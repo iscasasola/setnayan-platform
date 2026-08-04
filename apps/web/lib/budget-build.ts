@@ -24,6 +24,7 @@
  */
 
 import { Bookmark, Hammer, Wallet, Scale, type LucideIcon } from 'lucide-react';
+import { isExploreReplanEnabled } from './explore-replan-flag';
 
 /**
  * The four section tabs of the Services takeover, in order.
@@ -31,8 +32,10 @@ import { Bookmark, Hammer, Wallet, Scale, type LucideIcon } from 'lucide-react';
  * The standalone "Lock" tab was REMOVED 2026-06-20 ("Build absorbs Lock" —
  * Vendor_Transaction_Lifecycle_2026-06-20.md Phase 1 PR2): the lock action +
  * the locked-service display now live inside the Build tab, so the couple's
- * whole assemble→lock loop happens in one place. `BuildLocked` renders below
- * `Build3StateControl` in the Build slot.
+ * whole assemble→lock loop happens in one place. `BuildLocked` is now the ONLY
+ * card in the Build slot — the tri-state Lock/Auto/Hidden grid that used to sit
+ * above it was deleted (Explore Replan spec §3, "Your team" is a MERGE), and
+ * its one real capability moved into the quote-fill row inside the team.
  */
 export const BUDGET_BUILD_TABS = ['shortlist', 'build', 'budget', 'compare'] as const;
 export type BudgetBuildTab = (typeof BUDGET_BUILD_TABS)[number];
@@ -74,18 +77,84 @@ export const TAB_META: Record<
 };
 
 /**
+ * The Explore-Replan display label for a tab (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+ * §2, executing `Explore_Replan_BUILD_SPEC_2026-07-27.md` §3 PR-F).
+ *
+ * Two renames, one word per concept:
+ *   - `compare` → **"Plans"** — the couple saves NAMED plans, loads one back,
+ *     and compares them side by side; "Compare" named the view, not the thing.
+ *   - `budget` → **"Payments"** — on THIS page the section is the payments lens
+ *     ("what's paid, what's due"). "Budget" is the money TARGET and belongs to
+ *     the tile + `/budget`, the canonical editor. One word, one concept.
+ *
+ * LABEL ONLY: the tab KEYS stay `'compare'` / `'budget'`, so `?tab=` deep links,
+ * the `BB_TAB_EVENT` bus, the `#svc-*` anchors and the
+ * `customer.budget-subnav.*` nav slots are all untouched. Every label consumer
+ * (the mobile section sub-nav via `customer-menu.ts`, the takeover's own
+ * `SectionStub`) reads through here so the two can't drift.
+ *
+ * Flag-gated: with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED` off this returns exactly
+ * `TAB_META[tab].label`, i.e. today's production strings.
+ */
+export function tabLabel(tab: BudgetBuildTab): string {
+  if (isExploreReplanEnabled()) {
+    if (tab === 'compare') return 'Plans';
+    if (tab === 'budget') return 'Payments';
+  }
+  return TAB_META[tab].label;
+}
+
+/**
+ * The Explore-Replan sub-heading for a tab — the `tabLabel` counterpart for
+ * `TAB_META[tab].blurb`, so a renamed section can't keep the old section's
+ * sentence. Only `budget` moves: the section is the payments lens, and the
+ * budget TARGET is set at `/dashboard/[eventId]/budget` (the canonical editor),
+ * which is exactly where the lens's own link points.
+ *
+ * Flag-gated the same way — OFF returns `TAB_META[tab].blurb` verbatim.
+ */
+export function tabBlurb(tab: BudgetBuildTab): string {
+  if (tab === 'budget' && isExploreReplanEnabled()) {
+    return 'What’s paid, what’s due — and the doorway to your full budget.';
+  }
+  return TAB_META[tab].blurb;
+}
+
+/**
  * Cross-surface tab bus. Any slot OR the docked section sub-nav can request a
  * tab switch without a server round-trip by dispatching this event; the
  * `ServicesTakeover` listens and switches its panel, and the docked sub-nav
  * listens to stay lit. Lives here (next to `BUDGET_BUILD_TABS`) so the takeover
  * (page subtree) and the dock (layout subtree) share one channel without a
  * cross-`_components` import. `services-takeover.tsx` re-exports both for its
- * existing consumers (`build-compare.tsx`, `build-picks-list.tsx`).
+ * existing consumer (`build-compare.tsx`).
  */
 export const BB_TAB_EVENT = 'bb:tab';
 export function goToBuildTab(tab: BudgetBuildTab) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(BB_TAB_EVENT, { detail: tab }));
+  }
+}
+
+/**
+ * Rename bus — the SAME pattern as `BB_TAB_EVENT`, for the same reason.
+ *
+ * "Save current as a plan" moved from the Plans panel to "Your team" on
+ * 2026-07-29 (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §3 item 6). The
+ * Plans panel's shipped **Rename** control worked by loading the plan's name
+ * into that Save-As bar with itself pre-selected as the overwrite target — pure
+ * `setState`, which stops working the moment the bar lives in a sibling
+ * component. The spec doesn't mention the coupling; this is what keeps Rename
+ * working rather than quietly losing it.
+ *
+ * Deliberately NOT new machinery: one CustomEvent, declared beside the tab bus
+ * that `build-compare.tsx` and `team-controls.tsx` already jump over.
+ */
+export const BB_RENAME_PLAN_EVENT = 'bb:rename-plan';
+export type RenamePlanRequest = { buildId: string; name: string };
+export function requestPlanRename(req: RenamePlanRequest) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(BB_RENAME_PLAN_EVENT, { detail: req }));
   }
 }
 

@@ -55,6 +55,16 @@ export type ChoosePlanSheetProps = {
   // useful for refund policy or capacity hints.
   footnote?: string;
   /**
+   * Optional PROMINENT notice, rendered above the plan list in a bordered block —
+   * for a fact the buyer must read BEFORE paying, as opposed to `footnote`, which is
+   * 11px muted fine print suited to policy detail.
+   *
+   * Added for Live Studio's lead-time warning (an unlock bought the night before a
+   * wedding may not clear manual payment reconciliation in time). Additive and
+   * optional, so every existing caller renders byte-for-byte as before.
+   */
+  notice?: string;
+  /**
    * Pre-fetched platform settings (BDO + GCash) that every plan's
    * checkout drawer renders. Optional — when omitted the drawer falls
    * back to a "Bank account details will follow" message so the
@@ -79,6 +89,7 @@ export function ChoosePlanSheet({
   plans,
   introCopy,
   footnote,
+  notice,
   settings,
 }: ChoosePlanSheetProps) {
   const [open, setOpen] = useState(false);
@@ -140,6 +151,20 @@ export function ChoosePlanSheet({
                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
             </header>
+
+            {/* PROMINENT, above the plans: a fact that changes whether the buyer
+                should pay TODAY belongs before the price, not in the fine print
+                under it. `role="note"` rather than `alert` — it is important, not
+                an error, and it is present on first render for everyone. */}
+            {notice ? (
+              <p
+                role="note"
+                className="mx-5 mt-4 rounded-xl border border-terracotta/30 bg-terracotta/[0.06] px-3.5 py-3 text-xs leading-relaxed text-ink/80"
+              >
+                {notice}
+              </p>
+            ) : null}
+
 
             <ul className="flex-1 divide-y divide-ink/10 overflow-y-auto pb-[max(0px,env(safe-area-inset-bottom))]">
               {plans.map((plan) => (

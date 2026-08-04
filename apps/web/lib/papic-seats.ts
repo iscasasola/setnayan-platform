@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { envFlagEnabled } from '@/lib/env-flag';
 import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
@@ -38,7 +39,15 @@ import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlement
  */
 
 export const PAPIC_SEATS_SERVICE_KEY = 'PAPIC_SEATS';
-export const PAPIC_SEATS_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
+
+// PAPIC_SEATS_PRICE_PHP (₱2,999) DELETED 2026-07-30 — a loaded gun with nothing
+// holding it. Nothing referenced it, and the price it carried is retired twice
+// over: the two-type lock (owner 2026-07-29) replaced the 5-seat pass with Papic
+// Pool top-ups and per-camera Papic One reloads, and the PAPIC_SEATS catalog row
+// itself is inactive. A hardcoded peso constant sitting next to a live service key
+// is how a stale price gets reintroduced by a well-meaning autocomplete — prices
+// come from platform_retail_catalog_v2, and a code with no active row must refuse
+// rather than fall back (see api/v1/billing/initialize-maya/route.ts readSkuPrice).
 
 /**
  * Login-free seat claim flag (owner-gated · 2026-06-21).
@@ -63,7 +72,15 @@ export const PAPIC_SEATS_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
  * component) and the claim action read the SAME flag — one source of truth.
  */
 export function papicSeatAnonEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED === 'true';
+  // Reads through the shared lenient parser (lib/env-flag.ts). This flag used
+  // strict `=== 'true'`, so `TRUE` / `1` / a trailing space silently did
+  // nothing — indistinguishable from OFF, with no error anywhere. That cost a
+  // deploy cycle on 2026-08-01.
+  //
+  // Passing the value (not the name) is required: NEXT_PUBLIC_* is inlined at
+  // build time by static analysis of this exact expression, so a dynamic
+  // `process.env[key]` lookup would read undefined in the browser.
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED);
 }
 
 /**

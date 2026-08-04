@@ -3,19 +3,19 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { loadAiActivity } from '@/lib/setnayan-ai-activity';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
+import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
@@ -32,10 +32,13 @@ export const metadata = { title: 'Setnayan AI · Setnayan' };
  *
  * One-time model: a single up-front charge (manual apply-then-pay) unlocks
  * Setnayan AI for the WHOLE wedding — activation stamps events.setnayan_ai_active
- * permanently, with no renewal, no 28-day cycle and no lapsing window. The
- * dormant SETNAYAN_AI_SUB (a ₱499/mo per-user recurring door) stays is_active=
- * false; recurring auto-renew is deferred until a provider-run subscription
- * (PayMongo / GCash) lands.
+ * permanently, with no renewal, no 28-day cycle and no lapsing window.
+ *
+ * 🔒 PER EVENT, FULL STOP (owner 2026-08-01: "it is per event"). The dormant
+ * SETNAYAN_AI_SUB — a ₱499/28d per-USER recurring door that would have unlocked
+ * every event its buyer hosted — was DELETED, along with its table, flag and
+ * activation writer. Buying here unlocks THIS event and no other. Recurring
+ * auto-renew, if it ever returns, is a per-event renewal.
  *
  * Three states, all driven by lib/setnayan-ai.ts (the single governing gate) so
  * this stays in lockstep with every match/ranking surface:
@@ -75,20 +78,26 @@ export default async function SetnayanAiPage({ params }: Props) {
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const eventType = (event as { event_type?: string | null }).event_type ?? 'wedding';
-  const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
+
+  // Capability copy is per event type (2026-07-28). Previously this page derived
+  // ONE word from a `=== 'wedding'` ternary while every capability body stayed
+  // frozen wedding prose — so a birthday was promised PH marriage paperwork
+  // tracking, and a corporate event was told "another COUPLE is eyeing your
+  // date". Now the profile supplies the terminology, and statutoryPackKey
+  // ('ph_marriage' on wedding, NULL on all 12 other seeded types) gates the
+  // license/Pre-Cana/PSA clause — derived, never named by type.
+  const profile = await resolveProfile(eventType);
+  const aiValueTerms: AiValueTerms = {
+    eventWord: profile.terminology.eventWord,
+    organizerNoun: profile.terminology.organizerNoun,
+    hasStatutoryPaperwork: profile.statutoryPackKey != null,
+  };
+  const eventWord = profile.terminology.eventWord;
 
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const perUserOn = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = perUserOn
-    ? await getEventHostAiSubscription(createAdminClient(), eventId)
-    : null;
-  const active = isSetnayanAiActiveForUser(event, {
-    paywallEnabled: paywallOn,
-    perUserEnabled: perUserOn,
-    subscription: aiSubscription,
-  });
+  const active = isSetnayanAiActiveForEvent(event, { paywallEnabled: paywallOn });
 
   // ACTIVE-only: the live per-event activity snapshot the "keeping for you"
   // surface renders (cockpit briefing + tracked-deadline + payment-due figures).
@@ -116,13 +125,23 @@ export default async function SetnayanAiPage({ params }: Props) {
     (await eventOwnsSku(supabase, eventId, SKU_CODE));
 
   // Per-EVENT-TYPE pricing (owner-locked 2026-07-22): the price is this event
-  // type's tier on the load ladder — ₱1,499 Wedding · ₱999 Debut/Corporate ·
+  // type's tier on the load ladder — ₱1,499 Wedding · ₱899 Debut/Corporate ·
   // ₱499 standard · ₱99 light · ₱0 no-vendors — resolved from the catalog (never
   // hardcoded; last-resort fallback in lib/setnayan-ai-type-pricing.ts). The
-  // order still charges SETNAYAN_AI (the entitlement); checkout re-resolves this
-  // same per-type amount server-side. Tier E (no vendors) → 0 → no buy shown;
-  // any unreadable read → 0 → the buy block degrades to its graceful fallback.
-  const typePricePhp = await resolveSetnayanAiTypePricePhp(supabase, eventType).catch(() => 0);
+  // order still charges SETNAYAN_AI (the entitlement). Tier E (no vendors) → 0 →
+  // no buy shown; any unreadable read → 0 → the buy block degrades gracefully.
+  //
+  // ⚠ RESOLVED THROUGH THE SHARED SWITCH (2026-07-30). This used to call
+  // `resolveSetnayanAiTypePricePhp` directly and UNGATED, while the charge path
+  // takes the per-type branch only when `setnayan_ai_per_event_pricing_enabled` is
+  // on. With the flag OFF that showed a `date` host ₱99 and charged ₱1,499 — a
+  // mismatch in the customer's disfavour. `resolveSetnayanAiDisplayPricePhp` makes
+  // one switch decide both, so the shown and charged prices cannot disagree in
+  // either flag state. (The comment previously here claimed checkout re-resolves
+  // this amount unconditionally. It did not.)
+  const typePricePhp = await resolveSetnayanAiDisplayPricePhp(supabase, eventType).catch(
+    () => 0,
+  );
   const pricePhp = typePricePhp > 0 ? typePricePhp : null;
   const priceLabel =
     pricePhp != null ? `₱${Math.round(pricePhp).toLocaleString('en-PH')}` : null;
@@ -176,7 +195,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </Link>
           </div>
 
-          <SetnayanAiValue mode="live" activity={activity} eventWord={eventWord} />
+          <SetnayanAiValue mode="live" activity={activity} terms={aiValueTerms} />
         </>
       ) : owns || !paywallOn ? (
         <>
@@ -206,7 +225,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </Link>
           </div>
 
-          <SetnayanAiValue mode="preview" eventWord={eventWord} />
+          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
         </>
       ) : (
         <>
@@ -225,7 +244,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <SetnayanAiValue mode="preview" eventWord={eventWord} />
+          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
 
           <div className="sn-tile p-5">
             {pricePhp != null && settings ? (

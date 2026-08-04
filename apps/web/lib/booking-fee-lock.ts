@@ -5,9 +5,10 @@
  *
  * The owner moved the fee TRIGGER from proposal SEND to the vendor LOCK
  * (event_vendors → contracted). Fee base = the COUPLE-CONFIRMED agreed total
- * (event_vendors.total_cost_php). Rate = flat 5% / no cap (lib/booking-fee.ts).
+ * (event_vendors.total_cost_php). Rate = 5%, then 1% beyond ₱100,000 · ₱50 floor
+ * · no cap (lib/booking-fee.ts — owner-ruled 2026-07-27; there is no flat rate).
  * A verified vendor's first 5 booked customers pay NOTHING (free-5); booking 6+
- * pays 5%, collected on the manual GCash/BDO QR `orders` rail.
+ * pays that schedule, collected on the manual GCash/BDO QR `orders` rail.
  *
  * The DB-touching wrapper (open the charge + issue the vendor order + notify)
  * lives in lib/booking-fee-lock.server.ts and composes these.

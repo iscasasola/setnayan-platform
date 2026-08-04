@@ -33,6 +33,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMayaConfig } from '@/lib/integration-config';
+import { catalogLineFromRow, type CatalogLine } from '@/lib/maya-catalog-line';
 
 const DEMO_MODE = process.env.SETNAYAN_DEMO_MODE === '1';
 const MAYA_APPROVED = process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
@@ -41,7 +42,7 @@ const MAYA_APPROVED = process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
 // platform_retail_catalog_v2 — and a REAL charge must NEVER fall back to a
 // hardcoded number). Used solely when DEMO_MODE=1 (walkthrough-video recording,
 // no real charge). Non-demo charges read the admin catalog and fail closed if
-// it's unavailable — see readSkuPrice/readBundlePrice. Values here are stale on
+// it's unavailable — see readSkuLine/readBundleLine. Values here are stale on
 // purpose-of-record (parked for the holistic pricing pass); they never bill.
 const PRICING_BOOK: Record<string, number> = {
   ANIMATED_MONOGRAM:   2499.0,
@@ -67,6 +68,14 @@ const BUNDLE_BOOK: Record<string, number> = {
   MEDIA_PACK:  16999.0,
 };
 
+// DEMO-ONLY title book — the exact sibling of PRICING_BOOK above, and fenced
+// the same way. A REAL charge takes its line-item title from the admin catalog
+// (`platform_retail_catalog_v2.title` / `platform_package_catalog.title`), the
+// same row the price comes from, so the name and the price can never disagree
+// about what is being sold — see lib/maya-catalog-line.ts. Until 2026-07-30
+// this map WAS read on the live charge path, which billed `PAPIC_SEATS` as the
+// retired "Papic Professional 5 Seats Pass". Read only via demoLine() below;
+// values here are stale on purpose-of-record and never bill.
 const TITLE_BOOK: Record<string, string> = {
   ANIMATED_MONOGRAM:   'Animated Monogram Maker',
   PRO_WEBSITE:         'Pro Wedding Website Subdomain',
@@ -154,38 +163,42 @@ export async function POST(request: Request) {
     let primaryItemDescriptor: string;
 
     if (includeMediaPack) {
-      finalCalculatedTotal = await readBundlePrice('MEDIA_PACK');
+      const bundle = await readBundleLine('MEDIA_PACK');
+      finalCalculatedTotal = bundle.price;
       primaryItemDescriptor = 'MEDIA_PACK';
       checkoutLineItems.push({
-        name: TITLE_BOOK.MEDIA_PACK ?? 'Media Pack Bundle',
+        name: bundle.title,
         amount:      { value: finalCalculatedTotal.toFixed(2) },
         totalAmount: { value: finalCalculatedTotal.toFixed(2) },
         quantity: '1',
       });
     } else if (includeGuidedPack) {
-      finalCalculatedTotal = await readBundlePrice('GUIDED_PACK');
+      const bundle = await readBundleLine('GUIDED_PACK');
+      finalCalculatedTotal = bundle.price;
       primaryItemDescriptor = 'GUIDED_PACK';
       checkoutLineItems.push({
-        name: TITLE_BOOK.GUIDED_PACK ?? 'Guided Pack Bundle',
+        name: bundle.title,
         amount:      { value: finalCalculatedTotal.toFixed(2) },
         totalAmount: { value: finalCalculatedTotal.toFixed(2) },
         quantity: '1',
       });
     } else {
       for (const code of selectedServices) {
-        const price = await readSkuPrice(code);
-        if (price === null) {
+        // Title AND price come from the same catalog row — a code with no
+        // billable row (retired, inactive, titleless) is refused outright
+        // rather than sold under a hardcoded or prettified name.
+        const line = await readSkuLine(code);
+        if (line === null) {
           return NextResponse.json(
             { success: false, message: `Unknown service code: ${code}` },
             { status: 400 },
           );
         }
-        const title = TITLE_BOOK[code] ?? code.replace(/_/g, ' ');
-        finalCalculatedTotal += price;
+        finalCalculatedTotal += line.price;
         checkoutLineItems.push({
-          name: title,
-          amount:      { value: price.toFixed(2) },
-          totalAmount: { value: price.toFixed(2) },
+          name: line.title,
+          amount:      { value: line.price.toFixed(2) },
+          totalAmount: { value: line.price.toFixed(2) },
           quantity: '1',
         });
       }
@@ -348,34 +361,49 @@ export async function POST(request: Request) {
 
 // ---------- helpers ----------
 
-async function readSkuPrice(serviceCode: string): Promise<number | null> {
-  // DEMO_MODE → the demo book (no real charge). Otherwise the admin catalog is
-  // the ONLY source for a real charge: null on miss/failure (caller 400s) — we
-  // never bill a hardcoded fallback (owner rule 2026-06-14).
-  if (DEMO_MODE) return PRICING_BOOK[serviceCode] ?? null;
+/**
+ * The demo (walkthrough-video) line for a code — the ONLY reader of the two
+ * hardcoded books. Never reachable on a real charge: both call sites are
+ * `if (DEMO_MODE)`.
+ */
+function demoLine(code: string, book: Record<string, number>): CatalogLine | null {
+  const price = book[code];
+  if (price == null) return null;
+  return { title: TITLE_BOOK[code] ?? code.replace(/_/g, ' '), price };
+}
+
+async function readSkuLine(serviceCode: string): Promise<CatalogLine | null> {
+  // DEMO_MODE → the demo books (no real charge). Otherwise the admin catalog is
+  // the ONLY source for a real charge — for the TITLE exactly as much as for the
+  // price: null on miss/failure (caller 400s), never a hardcoded fallback
+  // (owner rule 2026-06-14).
+  if (DEMO_MODE) return demoLine(serviceCode, PRICING_BOOK);
   const admin = createAdminClient();
   const { data } = await admin
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php')
+    .select('title, retail_price_php')
     .eq('service_code', serviceCode)
-    // Honor is_active, same as readBundlePrice below. Without this a RETIRED
+    // Honor is_active, same as readBundleLine below. Without this a RETIRED
     // service_code still resolved to a real price and could be charged through
     // the gateway — the catalog's own "is this sellable?" switch was ignored on
     // the à-la-carte path while the bundle path respected it (fixed 2026-07-21,
     // admin-pricing council audit). Retired code → no row → null → caller 400s.
     .eq('is_active', true)
     .maybeSingle();
-  return data?.retail_price_php ? Number(data.retail_price_php) : null;
+  return catalogLineFromRow(data);
 }
 
-async function readBundlePrice(bundleCode: string): Promise<number> {
-  // DEMO_MODE → the demo book. Otherwise read the admin catalog and FAIL CLOSED
-  // (throw → caller 500s) if it's unavailable — never bill a hardcoded fallback.
-  if (DEMO_MODE) return BUNDLE_BOOK[bundleCode] ?? 0;
+async function readBundleLine(bundleCode: string): Promise<CatalogLine> {
+  // DEMO_MODE → the demo books. Otherwise read the admin catalog and FAIL CLOSED
+  // (throw → caller 500s) if it's unavailable — never bill a hardcoded fallback,
+  // and never print one either.
+  // The `?? { price: 0 }` preserves the old `?? 0` miss semantic: a ₱0 total
+  // trips the "order matrix cannot be empty" 400 in the caller.
+  if (DEMO_MODE) return demoLine(bundleCode, BUNDLE_BOOK) ?? { title: bundleCode, price: 0 };
   const admin = createAdminClient();
   const { data } = await admin
     .from('platform_package_catalog')
-    .select('retail_price_php')
+    .select('title, retail_price_php')
     .eq('package_code', bundleCode)
     // Honor is_active (owner 2026-06-29 "no more essentials and complete"):
     // GUIDED_PACK + MEDIA_PACK are deactivated, so this read returns no row and
@@ -384,7 +412,8 @@ async function readBundlePrice(bundleCode: string): Promise<number> {
     // as fetchV2BundleCatalog + resolveBundleChargeCentavos.
     .eq('is_active', true)
     .maybeSingle();
-  if (data?.retail_price_php) return Number(data.retail_price_php);
+  const line = catalogLineFromRow(data);
+  if (line) return line;
   throw new Error(`No active admin price for bundle ${bundleCode} (platform_package_catalog)`);
 }
 

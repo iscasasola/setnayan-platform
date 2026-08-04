@@ -23,6 +23,12 @@
  * Host tier note: hosts render the anonymous body (as they always have) —
  * what makes a host a host is the orchestrator-side `?phase=` preview
  * permission, not a body variant. See lib/site-body-plan.ts.
+ *
+ * OWNER LAYER (2026-07-26, owner-locked role-surface model): the event owner
+ * opens `/[slug]` like anyone else and gets owner controls unlocked ON TOP of
+ * whatever body their identity tier renders. That capability is modelled here
+ * as `OwnerCapability` — see its doc block for why it is a SEPARATE, additive
+ * field and not a third arm of `SiteIdentity`.
  */
 import type {
   GuestRow,
@@ -101,6 +107,179 @@ export type GuestSiteIdentity = {
 export type SiteIdentity = AnonymousSiteIdentity | GuestSiteIdentity;
 
 /**
+ * The owner layer's server-verified grant.
+ *
+ * SHAPE CHOICE — a separate additive value, NOT a third `SiteIdentity` arm.
+ * Three reasons, in the order they mattered:
+ *
+ *   1. Owner-ness is ORTHOGONAL to identity tier, not a replacement for it.
+ *      A host can open their own site with a guest cookie (they RSVP'd) or
+ *      without one; the body they render is still the guest / anonymous body.
+ *      The role-surface model is "the guest site WITH an owner layer on top",
+ *      so the owner layer is a second axis, not a third value on the first.
+ *   2. Blast radius. A third arm would force every `identity.kind` switch and
+ *      every `SiteIdentityKind` consumer (lib/site-body-plan.ts, its two
+ *      golden-test suites, both SiteBody trees) to grow a branch — in a PR
+ *      whose whole point is to be inert.
+ *   3. The firewall gets STRONGER, not weaker. Because the capability lives
+ *      off the union, "the anonymous tier can never carry owner capability"
+ *      and "the guest tier can never carry owner capability" are both
+ *      provable — as a key-disjointness assertion below (compile time) and as
+ *      key-pick assertions in lib/anonymous-zero-guest.test.ts (runtime). Had
+ *      it been a union arm, the honest statement would only have been "the
+ *      other arms happen not to set it".
+ *
+ * A capability is bound to ONE event and ONE auth user: it is never portable.
+ * It is produced ONLY by `resolveOwnerCapability` below, which requires a real
+ * `event_members` / `event_moderators` row. There is no client input on this
+ * path — the UI is not the boundary, the DB is (2026-07-26 security review).
+ */
+export type OwnerCapability = {
+  /** Literal discriminant, so a capability object can never be mistaken for
+   *  an identity arm (whose discriminant key is `kind`). */
+  capability: 'owner';
+  /** The auth user whose host membership the server verified. */
+  ownerUserId: string;
+  /** The event that membership was verified AGAINST. A capability resolved
+   *  for event A must never be honoured on event B. */
+  ownerEventId: string;
+};
+
+/**
+ * The vendor layer's server-verified grant.
+ *
+ * SAME SHAPE CHOICE AS `OwnerCapability`, for the same three reasons — and one
+ * more that is specific to vendors:
+ *
+ *   4. A person can hold TWO roles at one event. The owner already ruled it
+ *      (2026-08-01, "there is a stylist and an emcee both in 1 service"), and
+ *      `familiesForServices()` already returns a Set. A `kind: 'vendor'` arm on
+ *      the identity union could not express a guest who is ALSO the booked
+ *      florist — the discriminant admits one answer. A capability composes; an
+ *      arm replaces. That alone rules out the union.
+ *
+ * ⚠ It is also why `site-body.tsx:1524` must stay a two-arm ternary: a third
+ * arm would fall into the guest branch rather than fail to compile.
+ *
+ * Bound to ONE event and ONE auth user, produced ONLY by
+ * `resolveVendorCapability` below. No client input reaches this path.
+ */
+export type VendorCapability = {
+  /** Literal discriminant — never `kind`, so it cannot be mistaken for an
+   *  identity arm. */
+  capability: 'vendor';
+  /** The auth user whose booking the server verified. */
+  vendorUserId: string;
+  /** The event that booking was verified AGAINST. A capability resolved for
+   *  event A must never be honoured on event B. */
+  vendorEventId: string;
+  /** The vendor profile that is booked here — used to build the link into
+   *  their own workspace for THIS event. */
+  vendorProfileId: string;
+  /** Their trading name, for the strip's copy. */
+  businessName: string;
+};
+
+/** Every key of `VendorCapability` — the forbidden set for both identity tiers.
+ *  Exported so the firewall test asserts against the real key list. */
+export const VENDOR_CAPABILITY_KEYS = [
+  'capability',
+  'vendorUserId',
+  'vendorEventId',
+  'vendorProfileId',
+  'businessName',
+] as const satisfies readonly (keyof VendorCapability)[];
+
+/**
+ * Booked-vendor probe, injected — same reason as `HostMembershipCheck`:
+ * loaders.ts pulls `server-only` transitively and would make this module
+ * unloadable outside a Next server runtime.
+ *
+ * Returns the booked vendor profile for this user on this event, or null.
+ */
+export type VendorBookingCheck = (
+  userId: string,
+) => Promise<{ vendorProfileId: string; businessName: string } | null>;
+
+/**
+ * THE vendor gate. Returns a capability ONLY for an auth user the database
+ * confirms is booked on THIS event.
+ *
+ * Denies, in order:
+ *   - no signed-in account (a guest cookie is not an account);
+ *   - signed in, but not booked here.
+ *
+ * Nothing about the request can shortcut the booking read.
+ */
+export async function resolveVendorCapability(input: {
+  eventId: string;
+  viewerUserId: string | null;
+  checkVendorBooking: VendorBookingCheck;
+}): Promise<VendorCapability | null> {
+  if (!input.viewerUserId) return null;
+  const booked = await input.checkVendorBooking(input.viewerUserId);
+  if (!booked) return null;
+  return {
+    capability: 'vendor',
+    vendorUserId: input.viewerUserId,
+    vendorEventId: input.eventId,
+    vendorProfileId: booked.vendorProfileId,
+    businessName: booked.businessName,
+  };
+}
+
+/** Every key of `OwnerCapability` — the forbidden set for both identity tiers.
+ *  Exported so the firewall test asserts against the real key list rather than
+ *  a hand-copied one that could drift. */
+export const OWNER_CAPABILITY_KEYS = [
+  'capability',
+  'ownerUserId',
+  'ownerEventId',
+] as const satisfies readonly (keyof OwnerCapability)[];
+
+/**
+ * Host-membership probe, injected. The real implementation is
+ * `loadHostMembership` (_lib/loaders.ts) — the SAME React.cache'd
+ * `event_members` + `event_moderators` query pair that already gates the
+ * private-event view, the `?phase=` preview and `?editor=1`. It is passed in
+ * rather than imported because loaders.ts pulls `server-only` transitively,
+ * which would make this module (and the firewall suite that imports it)
+ * unloadable outside a Next server runtime.
+ */
+export type HostMembershipCheck = (userId: string) => Promise<boolean>;
+
+/**
+ * THE owner gate. Returns a capability ONLY for an auth user whose host
+ * membership of THIS event the database confirmed.
+ *
+ * Denies, in order:
+ *   - no signed-in account (plain visitor, or a guest holding only the
+ *     guest-session cookie — a guest cookie is not an account and can never
+ *     stand in for one);
+ *   - signed in, but not a member/moderator of this event.
+ *
+ * Nothing about the request — no query param, no header, no cookie, no prop —
+ * can shortcut the membership read.
+ */
+export async function resolveOwnerCapability(input: {
+  eventId: string;
+  /** The viewer's Supabase auth user id, or null when there is no account
+   *  session. Read by the orchestrator from the cookie-scoped client; auth
+   *  reads never happen inside cached loaders. */
+  viewerUserId: string | null;
+  checkHostMembership: HostMembershipCheck;
+}): Promise<OwnerCapability | null> {
+  if (!input.viewerUserId) return null;
+  const isHost = await input.checkHostMembership(input.viewerUserId);
+  if (!isHost) return null;
+  return {
+    capability: 'owner',
+    ownerUserId: input.viewerUserId,
+    ownerEventId: input.eventId,
+  };
+}
+
+/**
  * Build the anonymous identity by explicit key-pick — the runtime half of the
  * zero-guest-bytes firewall. Whatever object a caller hands in, the value the
  * anonymous branch receives has exactly these four keys.
@@ -118,6 +297,33 @@ export function anonymousIdentity(input: {
   };
 }
 
+/**
+ * Build the guest identity by explicit key-pick — the same runtime firewall
+ * the anonymous tier has had, now mirrored on the guest tier so the owner
+ * layer cannot ride in on a guest object either. The orchestrator used to
+ * spread an inline literal here; the field list and values are unchanged.
+ */
+export function guestIdentity(input: Omit<GuestSiteIdentity, 'kind'>): GuestSiteIdentity {
+  return {
+    kind: 'guest',
+    guest: input.guest,
+    qrSvg: input.qrSvg,
+    invitationUrl: input.invitationUrl,
+    guestLiveGallery: input.guestLiveGallery,
+    seatPassActive: input.seatPassActive,
+    needsFaceEnroll: input.needsFaceEnroll,
+    guestHubData: input.guestHubData,
+    seatMap: input.seatMap,
+    papicGuest: input.papicGuest,
+    pabati: input.pabati,
+    showClaimAccountCta: input.showClaimAccountCta,
+    accountlessPhotosClosed: input.accountlessPhotosClosed,
+    eventVendorCredits: input.eventVendorCredits,
+    saveFlash: input.saveFlash,
+    faceMode: input.faceMode,
+  };
+}
+
 // --- Compile-time proof: the anonymous identity can never carry a
 // --- guest-derived field. If a guest-only key is ever added to
 // --- AnonymousSiteIdentity, `Leak` stops being `never` and this line
@@ -127,3 +333,30 @@ type Leak = Extract<keyof AnonymousSiteIdentity, GuestOnlyKeys>;
 const _anonymousNeverCarriesGuestFields: Leak extends never ? true : false =
   true;
 void _anonymousNeverCarriesGuestFields;
+
+// --- Compile-time proof: NEITHER identity tier can carry the owner
+// --- capability. The capability travels beside the identity, never on it, so
+// --- "unlocked owner controls" can never be smuggled into the body tree by a
+// --- field on a visitor's identity object. If an owner key is ever added to
+// --- either arm, `OwnerLeak` stops being `never` and this line fails `tsc`.
+type OwnerLeak = Extract<
+  keyof AnonymousSiteIdentity | keyof GuestSiteIdentity,
+  keyof OwnerCapability
+>;
+const _identityNeverCarriesOwnerCapability: OwnerLeak extends never
+  ? true
+  : false = true;
+void _identityNeverCarriesOwnerCapability;
+
+// --- The same proof for the vendor capability. A booked supplier's grant must
+// --- never ride on a visitor's identity object either: the strip that links
+// --- into their own workspace is unlocked by the DB, not by a field someone
+// --- could smuggle through the tree.
+type VendorLeak = Extract<
+  keyof AnonymousSiteIdentity | keyof GuestSiteIdentity,
+  keyof VendorCapability
+>;
+const _identityNeverCarriesVendorCapability: VendorLeak extends never
+  ? true
+  : false = true;
+void _identityNeverCarriesVendorCapability;

@@ -12,11 +12,14 @@ import assert from 'node:assert/strict';
 import {
   canUseCalls,
   canSeeMarketIntel,
+  canUseEditorialFeatures,
+  isTierAtLeast,
   isTrueNameTier,
   TIER_CAPS,
   VENDOR_TIERS,
   type VendorTier,
 } from './vendor-tier-caps';
+import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 
 const PAID_TIERS: VendorTier[] = ['solo', 'pro', 'enterprise', 'custom'];
 const UNPAID_TIERS: VendorTier[] = ['free', 'verified'];
@@ -154,4 +157,76 @@ test('every PAID tier reveals the real name day-1 (Solo/Pro/Enterprise/Custom)',
 test('free tier stays hidden by tier (conservative default; reveal comes from verification)', () => {
   assert.equal(TIER_CAPS.free.nameMode, 'hidden');
   assert.equal(isTrueNameTier('free'), false);
+});
+
+// ── Locked monetization matrix reconciliation ────────────────────────────────
+// Vendor_Monetization_Model_LOCKED_2026-07-25 § 1, GROW block. These pin the
+// growth capabilities to the owner-locked grid so a future edit to TIER_CAPS
+// that quietly moves one of them fails CI instead of shipping.
+
+test('locked matrix · GROW row — market intel is Pro+ for every tier', () => {
+  const WANT: Record<VendorTier, boolean> = {
+    free: false,
+    verified: false,
+    solo: false,
+    pro: true,
+    enterprise: true,
+    custom: true,
+  };
+  for (const tier of VENDOR_TIERS) {
+    assert.equal(
+      TIER_CAPS[tier].marketIntel,
+      WANT[tier],
+      `${tier} marketIntel must match the locked § 1 GROW row`,
+    );
+    assert.equal(canSeeMarketIntel(tier), WANT[tier]);
+    // Rank-derived cross-check: Pro-and-up == marketIntel, no exceptions.
+    assert.equal(canSeeMarketIntel(tier), isTierAtLeast(tier, 'pro'));
+  }
+});
+
+test('locked matrix · GROW row — vendor favorites unlock at Solo+', () => {
+  // The favorites gate is the authority; assert it agrees with the ladder so
+  // "favorites" can never drift to a different tier than the matrix says.
+  for (const tier of VENDOR_TIERS) {
+    assert.equal(
+      vendorHoldsActivePaidSub({ tier_state: tier, tier_expires_at: null }),
+      isTierAtLeast(tier, 'solo'),
+      `${tier} favoritability must equal Solo-and-up`,
+    );
+  }
+  assert.equal(
+    vendorHoldsActivePaidSub({ tier_state: 'verified', tier_expires_at: null }),
+    false,
+    'the legacy Verified tier is FREE — never favoritable',
+  );
+});
+
+test('locked matrix · GROW row — editorial FEATURES are Pro+', () => {
+  const WANT: Record<VendorTier, boolean> = {
+    free: false,
+    verified: false,
+    solo: false,
+    pro: true,
+    enterprise: true,
+    custom: true,
+  };
+  for (const tier of VENDOR_TIERS) {
+    assert.equal(TIER_CAPS[tier].editorialFeatures, WANT[tier], `${tier} editorialFeatures`);
+    assert.equal(canUseEditorialFeatures(tier), WANT[tier]);
+  }
+  assert.equal(canUseEditorialFeatures(null), false, 'unknown tier ⇒ no featuring');
+});
+
+test('editorial CREDIT stays free at every tier (Simplicity Canon rule 2)', () => {
+  // Guard against the obvious mis-implementation of "Editorial features → Pro+":
+  // gating editorialTagged would resurrect the retired credit paywall and break
+  // the owner-ratified 2026-07-16 rule "You never pay to be named in a story."
+  for (const tier of VENDOR_TIERS) {
+    assert.equal(
+      TIER_CAPS[tier].editorialTagged,
+      true,
+      `${tier} must keep FREE editorial credit — editorialFeatures is the paid axis`,
+    );
+  }
 });

@@ -57,7 +57,7 @@ export function SaveStoryCardButton({
         {state === 'saving' ? (
           <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
         ) : state === 'done' ? (
-          <Check aria-hidden className="h-3 w-3 text-success-600" strokeWidth={2} />
+          <Check aria-hidden className="h-3 w-3 text-gild" strokeWidth={2} />
         ) : (
           <Share2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         )}

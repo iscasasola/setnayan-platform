@@ -1,0 +1,38 @@
+# Foreign keys onto auth.users / public.users that REFUSE a user delete, and why.
+#
+# FORMAT   <table>.<column> | <what must survive the user, and why>
+# READ BY  tests/db/user-delete-fk-surface.db.test.ts (inside a REQUIRED check)
+#
+# Refusing is a legitimate choice. Refusing BY DEFAULT — because nobody wrote an
+# ON DELETE clause and Postgres fell back to NO ACTION — is not. That default is
+# what made admin "Delete user" fail, in 48 places across two sweeps, one of
+# which blocked the owner's own account behind three abandoned Instagram
+# handshakes.
+#
+# ⚠ EVERY LINE BELOW IS A DECISION, NOT AN OVERSIGHT. That is now the whole
+# point of this file: the 2026-08-01 + 2026-08-02 sweeps gave all 48 blockers a written
+# verdict, so anything still refusing is here because somebody argued for it. If
+# you add a line you are claiming a row must not exist without a LIVE author —
+# and that claim needs the reason spelled out, not a shrug.
+#
+# Before adding a line, pick the behaviour first:
+#   SET NULL — an AUTHORSHIP STAMP. The row records something that happened and
+#              survives its author without them. Most cases. If the column is
+#              NOT NULL, DROP NOT NULL in the SAME migration — a SET NULL
+#              constraint against a NOT NULL column does not fail at migration
+#              time, it fails at DELETE time, as a 500.
+#   CASCADE  — the user is the row's SUBJECT, not its author: the row is
+#              meaningless without them, and retaining it is itself the RA 10173
+#              problem (a dossier on somebody who asked to be forgotten).
+#   refuse   — an anonymous actor would FALSIFY the record rather than merely
+#              de-identify it. Rare. Write the reason here.
+#
+# For the three below the honest product answer is NOT "the delete fails with a
+# foreign-key error" — it is ANONYMIZE-AND-RETAIN, which is exactly what
+# lib/erasure/purge.ts already does: scrub the person's PII in place, keep the
+# transactional row and its FK intact, mark the account erased. None of these
+# should be converted just to make a hard delete pass.
+
+order_refunds.refunded_by_admin_id | A refund is money leaving the business. SET NULL would not de-identify the record, it would FALSIFY it — leaving a payout nobody authorised, which is unauditable. (Structural note: order_refunds.order_id -> orders is ALSO RESTRICT, so a user with a refund is blocked twice over; converting this column alone would not unblock the delete anyway.)
+supplies_orders.buyer_user_id | NOT NULL, and the row's SUBJECT rather than an actor stamp — a completed commercial transaction with a delivery address, retail/wholesale/markup amounts and payment status. There is a counterparty and a BIR record-keeping duty (iteration 0026), so the purchase must survive erasure with the buyer identity intact. Deleting it destroys the tax trail; nulling it is impossible and would orphan a paid order.
+vendor_contract_signatures.signer_user_id | NOT NULL, and under RA 8792 the signer identity IS the legally operative act — the row exists to prove a specific named person signed a specific document at a specific time (signed_at, ip_address, user_agent corroborate it). Anonymising the signer does not protect the person, it VOIDS the instrument and destroys the COUNTERPARTY's enforceable rights in a contract they also signed. The strongest refusal in the schema; if a data subject insists, the answer is counsel on contract-retention obligations, not a schema change.

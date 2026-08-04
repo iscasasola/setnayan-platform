@@ -61,6 +61,54 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
 };
 
 /**
+ * Resolve the `?reveal=` preview override — SEC-3 (2026-07-26).
+ *
+ * ── THE BUG ────────────────────────────────────────────────────────────────
+ * `?reveal=` used to be read straight off `window.location.search` and then
+ * OR'd into the activation test in RevealOverlay:
+ *
+ *     (configEnabled || FLAG_ON || override !== null || premiumUnlocked)
+ *
+ * `override !== null` short-circuited `premiumUnlocked`, so ANY visitor — no
+ * auth, no session, no relationship to the event — could append
+ * `?reveal=veil-sheer` to a public couple page and get the ₱999 premium
+ * cinematic opening on an event that never bought it. It was three bypasses in
+ * one: it defeated the paywall, it resurrected openings the ADMIN had
+ * deactivated (`allowedMap[template] === false`), and it overrode the COUPLE's
+ * explicit "No Reveal" choice.
+ *
+ * ── WHY IT IS SCOPED RATHER THAN DELETED ───────────────────────────────────
+ * The override is a real affordance, not an accident: "how we demo on Vercel
+ * previews" (RevealOverlay's own header). But the preview environment already
+ * has an env-scoped switch for exactly this — NEXT_PUBLIC_STD_REVEAL=1, which
+ * is a build-time variable no visitor can set, and which turns the reveal on
+ * for everyone anyway (so a preview deploy demoing openings has it on by
+ * definition). Gating the override on that flag keeps every legitimate preview
+ * working unchanged and makes the param inert in production, where the flag is
+ * off.
+ *
+ * Host-side previewing is unaffected: the dashboard chooser
+ * (dashboard/[eventId]/_components/reveal-preview.tsx) and the admin Reveal
+ * Studio both render the templates directly from props and never read this
+ * param.
+ */
+export function resolveRevealOverride(
+  rawParam: string | null | undefined,
+  previewAuthority: boolean,
+): RevealTemplate | null {
+  if (!previewAuthority) return null;
+  if (!rawParam) return null;
+  // hasOwnProperty, NOT a bare index: `REVEAL_ALIASES['constructor']` and
+  // `['__proto__']` resolve off Object.prototype and come back TRUTHY, so the
+  // old `REVEAL_ALIASES[reveal] ?? null` returned a non-null "override" for
+  // `?reveal=constructor`. Since the activation test only asked
+  // `override !== null`, that was a second, alias-free way to switch the
+  // opening on — found while writing reveal-override.test.ts.
+  if (!Object.prototype.hasOwnProperty.call(REVEAL_ALIASES, rawParam)) return null;
+  return REVEAL_ALIASES[rawParam] ?? null;
+}
+
+/**
  * Ordered library for the dashboard chooser. `blurb` is a one-line plain-English
  * description of HOW the opening moves — the previews are intentionally small +
  * un-recordable (owner-locked 2026-06-18), so the blurb is what lets a couple

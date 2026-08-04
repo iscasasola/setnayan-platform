@@ -26,10 +26,11 @@ import {
  * gates anything, and deliberately carries NO purchase copy or doorway — the
  * top-up path is a later, separately-supervised PR.
  *
- * NOTE (owner 2026-07-23): Papic One camera points are conceptually DEDICATED
- * per camera, but the shipped ledger pools them event-wide (no seat scoping on
- * grants or usage) — so this meter truthfully shows the one shared pool the
- * reserve RPC actually enforces. See lib/papic-pool-meter.ts header.
+ * NOTE (owner-locked 2026-07-29): this card is the SHARED Papic Pool, and only
+ * that. Papic One camera points are now genuinely dedicated (grants carry a
+ * seat_id and the pool status sums only the unscoped rows, migration
+ * 20271019231590), so they are correctly absent here — a One camera's own
+ * remaining shows on the Papic One card. See lib/papic-pool-meter.ts header.
  */
 export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
   if (!papicPoolBarEnabled()) return null;

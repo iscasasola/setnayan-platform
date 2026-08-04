@@ -633,8 +633,13 @@ export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> 
   if (existingErr) throw new Error(existingErr.message);
   if (existing && existing.length > 0) return 0; // already has a schedule · skip
 
+  // events_host, not events — signature_details is SELECT-denied to
+  // `authenticated` on the base table by 20271025120000, and this seed reads it
+  // to shape the Run-of-Show. On the base table the error would be swallowed by
+  // the `const { data }` shape, eventType would fall back to 'wedding', and the
+  // free non-wedding Run-of-Show seed would simply stop firing — silently.
   const { data: ev } = await supabase
-    .from('events')
+    .from('events_host')
     .select('event_type, event_date, signature_details')
     .eq('event_id', eventId)
     .maybeSingle();

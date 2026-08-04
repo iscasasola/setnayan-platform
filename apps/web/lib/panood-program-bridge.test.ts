@@ -97,6 +97,28 @@ test('carries split-cam state so the pop-out composites what the operator sees',
   bridge.dispose();
 });
 
+test('carries the host’s CUT separately from what is being sent (Wave 5)', () => {
+  // On the free tier the program output is pinned to the one channel the event may
+  // broadcast, so `source` (what is going out) and `requestedSource` (what the host
+  // cut) genuinely differ. The pop-out needs both to NAME the difference on the
+  // picture instead of silently airing a camera the controller says is off.
+  const stream = { id: 'pinned' } as unknown as MediaStream;
+  const bridge = installProgramBridge();
+  win.opener = win;
+
+  bridge.publish(frameWith({ source: 'cam1', requestedSource: 'cam3', stream }));
+  const frame = resolveOk().get();
+  assert.equal(frame.source, 'cam1', 'what actually goes out');
+  assert.equal(frame.requestedSource, 'cam3', 'what the host cut');
+  bridge.dispose();
+});
+
+test('EMPTY_FRAME reports no cut — a pop-out that has heard nothing claims nothing', () => {
+  assert.equal(EMPTY_FRAME.requestedSource, null);
+  // And it still fails closed on the legacy paywall, unchanged.
+  assert.equal(EMPTY_FRAME.overlay, true);
+});
+
 test('pushes every update to subscribers and stops after unsubscribe', () => {
   const bridge = installProgramBridge();
   win.opener = win;

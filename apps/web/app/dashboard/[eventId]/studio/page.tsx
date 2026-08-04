@@ -148,23 +148,40 @@ export default async function StudioPage({ params, searchParams }: Props) {
   //   1. The generic SURFACE gate (0053 · 2026-06-28) — an add-on tagged with a
   //      `surface` shows only when this event type's profile enables it.
   //   2. The Papic guest-pass PREDICATE. `papic-guest` is tagged
-  //      `surface: 'rsvp'`, but travel's profile DOES enable rsvp in prod
+  //      `surface: 'rsvp'`, but EVERY non-wedding profile enables rsvp in prod
   //      (migration 20270804110223) — so the surface check alone would offer the
-  //      pass on a roaming, multi-day trip where "per event-day" is structurally
-  //      the wrong unit. That is a fake door. papicGuestPassAccess() carries the
-  //      permanent travel deny, the anniversary community split and the phase
-  //      ladder, and it FAILS CLOSED: a new event type does not inherit the pass
-  //      merely by having an RSVP surface.
+  //      pass on types nobody has scoped. That is a fake door.
+  //      papicGuestPassAccess() carries the anniversary community split and the
+  //      phase ladder, and it FAILS CLOSED: a new event type does not inherit
+  //      the pass merely by having an RSVP surface.
   //
   // Until now the predicate had ZERO production callers — it shipped in PR #3423
   // and nothing consulted it. This is that wiring.
   //
-  // ⚠ This does NOT make anything purchasable. `papic-guest` is still
-  //   `status: 'coming_soon'`, and all four PAPIC_GUEST* catalog rows are
-  //   `is_active = false`, blocked on DPO gates 0d/0e (the guest-media ROPA row +
-  //   confirmation that the RSVP consent text names guest-phone capture and
-  //   face-sorted delivery). This only narrows WHO would ever see the card.
-  //   Flipping it live stays a separate, DPO-gated change.
+  // ⚠ THIS IS AN ELIGIBILITY GATE, NOT A DARKNESS SWITCH — and as of 2026-07-30
+  //   the card behind it IS purchasable. The previous note here said "this does
+  //   NOT make anything purchasable… all four PAPIC_GUEST* catalog rows are
+  //   is_active = false"; both halves are now false. `papic-guest` is
+  //   `status: 'web_v1'`, and prod carries `PAPIC_GUEST` ₱1,000 / `_6K` ₱2,000 /
+  //   `_10K` ₱3,000 all active (only the superseded pax-priced `_TOPUP` row is
+  //   off) under the owner's 2026-07-29 two-type lock.
+  //
+  //   The predicate still runs, and still matters, for the reason above it: it
+  //   decides WHICH EVENT TYPES may be offered the pool at all, and it fails
+  //   closed for a new type. Narrowing or widening it is an owner decision —
+  //   never a drive-by edit here.
+  //
+  //   ⚠ IT DENIES NO LIVE TYPE TODAY. Owner, 2026-08-01: "Drop the travel
+  //   exclusion — offer Papic everywhere." All 16 types are Phase 1 and the
+  //   anniversary controller split is gone. `communityId` is still threaded
+  //   below because the predicate's signature keeps it for a future re-tiering.
+  //
+  //   ⚠ Verdict gates 0d/0e (guest-media ROPA row + DPO sign-off that the RSVP
+  //   consent text names guest-phone capture and face-sorted delivery) are STILL
+  //   OPEN and are tracked as a live compliance item, NOT as a blocker on this
+  //   card: the sale they were written to gate went live on 2026-07-29 through the
+  //   studio and the guest buy sheet, so darkening one doorway would hide the
+  //   inconsistency without closing the gap.
   const papicPassAllowed = papicGuestPassAccess({
     profile,
     communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,

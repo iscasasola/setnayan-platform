@@ -3,7 +3,10 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -143,10 +146,23 @@ export async function runVendorDeepSearch(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Deep Search is temporarily unavailable. Please try again later.');
   }
-  const cyclePricePhp =
+  const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
+  // 2026-07-25 tiered add-on model: the per-search price comes from the code SSOT
+  // band for the About-You variant (₱1,000 Free/Solo · ₱500 Pro/Ent) instead of
+  // the flat catalog row. Today's Deep Search IS "About You" — it researches the
+  // vendor's own business — so it keeps the `vendor_deep_search` SKU; Market Scan
+  // will be a separate, new SKU.
+  //
+  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveDeepSearchPricePhp
+  // returns ₱0 for a Pro+ vendor's first run of the cycle BEFORE it reads this
+  // value — overwriting `pricePhp` afterwards would silently DELETE the Pro+ free
+  // search. Same shape as booth-addon-actions.ts.
+  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('deep_search_about_you', tier)
+    : catalogCyclePricePhp;
   let pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
 
   const inputs = buildVendorDeepSearchInputs({
@@ -228,18 +244,34 @@ export async function runVendorDeepSearch(
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())`, which was RLS's only contribution here
+  // — it never validated vendorProfileId, tier, verification or the allowance.
+  //
+  // AUTHORIZATION IS UNCHANGED and is the strongest of the converted set:
+  // authenticated → `isDataPrivacyControlActive('vendor_deep_search')` (DPO
+  // gate, fail-closed) → `fetchOwnVendorProfile` (server-resolved id) →
+  // `resolveVendorRoleForProfile` + canManageVendor (PROFILE-scoped, so a role
+  // held on another shop does not count) → `deepSearchEligibility` on a fresh
+  // tier/verification read → the SKU is_active reject → `deepSearchAiConfigured`.
+  // Reuses the `admin` client already created above for the allowance count —
+  // one service-role client per request, not two.
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_DEEP_SEARCH_SKU_CODE,
-      description: 'Deep Search (per search)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId: null, vendorProfileId },
+        {
+          service_key: VENDOR_DEEP_SEARCH_SKU_CODE,
+          description: 'Deep Search (per search)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -247,17 +279,22 @@ export async function runVendorDeepSearch(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Deep Search payment. Please try again.');
   }
 

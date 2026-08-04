@@ -13,6 +13,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 const MESSAGE_MAX = 600;
 
@@ -44,5 +45,7 @@ export async function updateSpecialMessage(
 
   revalidatePath(`/dashboard/${eventId}/website`);
   if (event?.slug) revalidatePath(`/${event.slug}`);
-  redirect(`/dashboard/${eventId}/website/special-message?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/special-message?saved=1`, '?saved=1'),
+  );
 }

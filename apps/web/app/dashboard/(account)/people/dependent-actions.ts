@@ -16,6 +16,7 @@ import {
   isDependentSex,
   isDependentRelationship,
   isDependentKind,
+  isPersonDependent,
   isReligion,
 } from '@/lib/dependent-people';
 
@@ -25,8 +26,11 @@ import {
  *  - kind = 'person': birthdate optional; when given it is fence-checked (18–50
  *    refused — invite, never register) since a DB CHECK can't reference now();
  *    sex/religion + guardian-consent stamps apply.
- *  - kind = 'pet' | 'other': no fence, any/no birthday, no sex/religion — a pet
- *    has none. Sensitive human fields are dropped even if posted.
+ *  - kind = 'pet' | 'business' | 'item' | 'other': no fence, any/no anchor date
+ *    (a founding date, the day a car became yours), no sex/religion — a pet has
+ *    none and a company has none. Sensitive human fields are dropped even if
+ *    posted, and NO birth_date_consent_at is stamped: a founding date is not
+ *    sensitive PI, and stamping it would dilute the stamp that guards a child's.
  * Writes under the user's own session → RLS (dependents_owner_all) scopes it to
  * this owner.
  */
@@ -46,18 +50,24 @@ export async function addDependent(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // An unrecognised kind falls back to 'person' — the strictest reading (fence +
+  // consent stamp + majority lock all apply), never the most permissive one.
   const kind = isDependentKind(formData.get('dependent_kind'))
     ? String(formData.get('dependent_kind'))
     : 'person';
-  const isPerson = kind === 'person';
+  const isPerson = isPersonDependent(kind);
 
   const name = String(formData.get('name') ?? '').trim().slice(0, 128);
   const birthRaw = String(formData.get('birth_date') ?? '').trim();
   const hasBirth = /^\d{4}-\d{2}-\d{2}$/.test(birthRaw);
   const birth = hasBirth ? birthRaw : null;
-  const relationship = isDependentRelationship(formData.get('relationship'))
-    ? String(formData.get('relationship'))
-    : null;
+  // Family relation is a PERSON idea. A sari-sari store is not anyone's sibling,
+  // and the form's default ('child') would otherwise be stored — and exported in
+  // the RA 10173 data export — as a fact about a business.
+  const relationship =
+    isPerson && isDependentRelationship(formData.get('relationship'))
+      ? String(formData.get('relationship'))
+      : null;
   // Sensitive human-only fields — kept for a person, dropped for a pet/other.
   const sex = isPerson && isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
   const religion = isPerson && isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
@@ -222,7 +232,9 @@ export async function deleteGodparent(formData: FormData): Promise<void> {
  *  - kind = 'person'  → 'claim': the person takes ownership of their own
  *    profile. Gate: stored birth_date proves age ≥ 18 (isClaimEligible) — the
  *    RA 6809 majority lock. No birthday on file → no link.
- *  - kind = 'pet'|'other' → 'rehome': care transfers to another guardian.
+ *  - every other kind (pet · business · item · other) → 'rehome': care transfers
+ *    to another guardian. Derived as "not a person", so a widened vocabulary
+ *    keeps working; the redeeming half matches NON_PERSON_DEPENDENT_KINDS.
  * One active link per alaga (re-minting replaces it), 7-day expiry. Writes
  * under the owner's session → RLS dependents_owner_update blocks non-owners
  * AND already-handed-over rows.
@@ -246,7 +258,7 @@ export async function createHandoverLink(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!row || row.handed_over_at) redirect('/dashboard/people');
 
-  const isPerson = (row.dependent_kind ?? 'person') === 'person';
+  const isPerson = isPersonDependent(row.dependent_kind);
   if (isPerson && !isClaimEligible(row.birth_date, manilaToday())) {
     // Not 18 yet (or no birthday on file) — the majority lock, server-side.
     redirect('/dashboard/people?error=not_of_age');

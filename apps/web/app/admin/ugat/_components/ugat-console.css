@@ -39,6 +39,22 @@
   --ug-e-thread: #2f6fb0; --ug-e-thread-bg: #eaf1f8;
   --ug-e-billing: #b5852a; --ug-e-billing-bg: #f8f0dd;
   --ug-e-tax: #c98a2b; --ug-e-tax-bg: #f9efdb;
+  /* Samahan — teal, the one hue-family gap left in the warm-to-cool ladder, so
+     the tenth node reads as its own thing rather than a shade of Guests. */
+  --ug-e-community: #2f8f8a; --ug-e-community-bg: #e6f2f1;
+  /* Papic — rose. The capture cluster reads as its own thing rather than a
+     shade of guests (green) or services (orange-red). */
+  --ug-e-papic: #b0517a; --ug-e-papic-bg: #f7e9ef;
+  /* Person spine — the durable identity behind a guest (2026-08-01). */
+  --ug-e-person: #5a6fb0; --ug-e-person-bg: #e9ecf7;
+  /* The deal chain — package -> proposal -> contract share a hue on purpose:
+     they are three stages of one thing, and the map should read them as a run. */
+  --ug-e-deal: #8a6d3b; --ug-e-deal-bg: #f4ecdd;
+  --ug-e-avail: #3f7f8f; --ug-e-avail-bg: #e4f0f2;
+  --ug-e-geo: #6b8f4a; --ug-e-geo-bg: #ecf3e4;
+  /* Day-of: the WHERE and the WHEN share a hue — one day, two axes. */
+  --ug-e-dayof: #8a4f6d; --ug-e-dayof-bg: #f4e6ee;
+  --ug-e-studio: #4a6fa5; --ug-e-studio-bg: #e6edf6;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;
@@ -1373,6 +1389,36 @@
   background: var(--ug-report-bg);
   color: var(--ug-report);
 }
+.ug-fix-chip.done {
+  background: var(--ug-ok-bg);
+  color: var(--ug-ok);
+}
+
+/* A CLOSED finding is kept in the registry as history — it must read as
+   resolved, never as an alarm. Before 2026-07-30 six fixed findings still
+   wore "Confirmed broken". */
+.ug-badge.fixed {
+  background: var(--ug-ok-bg);
+  color: var(--ug-ok);
+}
+
+/* Staleness chip: an unresolved finding nobody has re-checked inside the
+   window. It is deliberately loud — an un-reviewed finding still looks
+   authoritative, and that is exactly how this registry rotted. */
+.ug-stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: var(--m-r-full);
+  padding: 2px 8px;
+  margin-left: 6px;
+  background: var(--ug-wait-bg);
+  color: var(--ug-wait);
+  border: 1px dashed currentColor;
+}
 
 /* ── responsive ── */
 @media (max-width: 900px) {
@@ -1410,4 +1456,23 @@
   .ug-node:hover {
     transform: none;
   }
+}
+
+/* ── Live interconnection telemetry (2026-07-31) ─────────────────────────────
+   Colour that comes from the probe ledger rather than the frozen 2026-07-05
+   findings registry.
+
+   `lit` is the only class here that means GOOD, and it exists so the map can
+   stay honest about every UNPROBED joint (most of them): so if a
+   healthy joint looked like every other edge there would be no way to tell
+   "verified working" from "never checked". Green is EARNED on this canvas —
+   an unprobed edge keeps its ordinary unlit stroke and claims nothing.
+   red / amber reuse the existing finding tokens deliberately: a broken joint
+   should read the same whether an auditor found it or a probe did. */
+.ug-edge.ug-h-lit {
+  stroke: var(--ug-ok);
+  stroke-width: 2.2;
+}
+.ug-jointmark.ug-h-lit rect {
+  stroke: var(--ug-ok);
 }

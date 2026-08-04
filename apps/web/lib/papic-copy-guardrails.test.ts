@@ -11,7 +11,8 @@
  *   • the homepage price rows: "First 5 cameras · 10 photos + 3 videos each"
  *     and `cap: 9000`.
  * Meanwhile enforcement runs on capture POINTS resolved from the admin-editable
- * `papic_tier_config` (1 photo = 1 pt · one 10-second clip = 7 pts).
+ * `papic_tier_config` (1 photo = 1 pt · one 10-second clip = 8 pts —
+ * owner-locked 2026-07-29, up from 7).
  *
  * Fixing the strings once would only buy a few weeks. THIS test is the fix: it
  * fails CI the moment a Papic display surface re-grows a literal photo count, a
@@ -29,13 +30,10 @@ import { dirname, join } from 'node:path';
 
 import {
   PAPIC_TIER_CONFIG_FALLBACK,
-  papicCapLadderPhrase,
   papicCapPhrase,
   papicCapacityPhrase,
-  papicCapacityShort,
   papicFreeCameraCount,
   papicFreeGrantPoints,
-  publicPapicLadder,
   type PapicTierCode,
 } from './papic-tier-copy';
 import { PAPIC_FREE_CAMERA_COUNT, PAPIC_POINTS_PER_CLIP } from './papic-cameras';
@@ -52,6 +50,15 @@ const PAPIC_COPY_FILES = [
   'app/pricing/_papic-estimator.tsx',
   'app/_components/home/pricing-data.ts',
   'app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx',
+  // The onboarding services step (2026-07-29) — the FIRST place most couples
+  // ever read a Papic number, and the one with the least room to be wrong.
+  'app/onboarding/_shared/services-step.tsx',
+  // The extra-cameras picker (added 2026-07-31). It has rendered a capacity
+  // claim since it shipped and was never listed — so nothing here was watching
+  // when it printed "70 points a day — 70 photos, or 23 clips" off a hardcoded
+  // `/ 3` while enforcement metered a clip at 8. Listing it is half the fix;
+  // COMPUTED_POINTS_DIVISOR below is the other half.
+  'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx',
 ];
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -70,6 +77,22 @@ const SPELLED_CAP = /(?:₱\s*(?:6,000|9,000|10,000|15,000)\b|(?<![\d.])(?:6000|
 // A spelled points budget ("20 points a day", "70 points").
 const SPELLED_POINTS = /\b\d+\s*(?:capture\s*)?points?\b(?!\s*=)/i;
 
+// A points value divided by a LITERAL — `pointsPerDay / 3`, `points / 8`.
+//
+// ⚠ THIS IS THE ONE THE OTHER FOUR STRUCTURALLY CANNOT CATCH, and it is why
+// the extra-cameras picker shipped a ~2.9× overstatement past a green suite for
+// months. Every regex above scans for literal DIGITS IN THE COPY. But the copy
+// was a template literal — `${pointsPerDay} photos, or ${clips} clips` — so the
+// source carried no digits at all, and the wrong number was manufactured one
+// line earlier by `Math.floor(rung.pointsPerDay / 3)`.
+//
+// A guardrail that only reads the sentence cannot see a lie that is computed.
+// The clip weight has ALREADY moved once (7 → 8, owner-locked 2026-07-29), so a
+// hand-written divisor is not merely wrong today, it is guaranteed to rot.
+// Divide by PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or better, render
+// papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic at all.
+const COMPUTED_POINTS_DIVISOR = /\bpoints?[A-Za-z]*\s*\/\s*\d/i;
+
 for (const rel of PAPIC_COPY_FILES) {
   test(`${rel} never spells a photo/clip split promise`, () => {
     const m = read(rel).match(SPLIT_PROMISE);
@@ -79,7 +102,21 @@ for (const rel of PAPIC_COPY_FILES) {
       `${rel} carries "${m?.[0]}". Photos and clips share ONE daily points ` +
         `purse (1 photo = 1 pt · 1 clip = ${PAPIC_POINTS_PER_CLIP} pts), so an exact ` +
         `"N photos + M clips" promise is false by construction. Render ` +
-        `papicCapacityPhrase() / papicCapacityShort() from lib/papic-tier-copy.ts.`,
+        `papicCapacityPhrase() / papicBucketPhrase() from lib/papic-tier-copy.ts.`,
+    );
+  });
+
+  test(`${rel} never divides a points value by a literal`, () => {
+    const m = read(rel).match(COMPUTED_POINTS_DIVISOR);
+    assert.equal(
+      m,
+      null,
+      `${rel} carries "${m?.[0]}". A hand-written divisor on a points value ` +
+        `manufactures a capacity claim the copy regexes cannot see, and it rots ` +
+        `the next time the currency moves (the clip weight is already on its ` +
+        `second value — now ${PAPIC_POINTS_PER_CLIP}). Divide by ` +
+        `PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or render ` +
+        `papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic.`,
     );
   });
 
@@ -100,7 +137,7 @@ for (const rel of PAPIC_COPY_FILES) {
       null,
       `${rel} carries the literal "${m?.[0]}". Papic caps are per-tier, ` +
         `WEDDINGS-ONLY, and admin-editable — read them from ` +
-        `papic_tier_config.wedding_day_cap_php (papicCapPhrase / papicCapLadderPhrase).`,
+        `papic_tier_config.wedding_day_cap_php (papicCapPhrase).`,
     );
   });
 
@@ -132,14 +169,6 @@ test('papicCapacityPhrase is derived — it tracks the budget, whatever it is', 
   assert.match(papicCapacityPhrase(null), /unlimited/i);
   // Never an exact split promise — the very thing the guard above forbids.
   assert.equal(SPLIT_PROMISE.test(papicCapacityPhrase(20)), false);
-  assert.equal(SPLIT_PROMISE.test(papicCapacityShort(20)), false);
-});
-
-test('papicCapacityShort states the honest clip equivalent', () => {
-  // 20 points = 20 photos OR 2 clips (7 pts each · §0), not "20 photos + 2 clips".
-  assert.match(papicCapacityShort(20), /~20 photos\/day/);
-  assert.match(papicCapacityShort(20), /~2 ten-second clips/);
-  assert.match(papicCapacityShort(null), /unlimited/i);
 });
 
 test('free-camera count comes from config, not a literal', () => {
@@ -159,37 +188,51 @@ test('free-pool points come from config, not a literal', () => {
   assert.equal(papicFreeGrantPoints(retuned as never), 90);
 });
 
-test('the public ladder drops retired rungs — Papic One is the live camera', () => {
-  const ladder = publicPapicLadder(PAPIC_TIER_CONFIG_FALLBACK);
-  // free is not purchasable; roll is the LEGACY alias of mini; unlimited
-  // ("Papic Max") was RETIRED by the 2026-07-22 naming lock (migration
-  // 20270830568357 · isActive=false in the fallback). Papic One (mini) + Ltd
-  // are the rungs that survive.
-  assert.deepEqual(
-    ladder.map((r) => r.tierCode),
-    ['mini', 'ltd'],
-  );
-  // Deactivating a tier removes it from every surface at once.
-  const off = {
-    ...PAPIC_TIER_CONFIG_FALLBACK,
-    ltd: { ...PAPIC_TIER_CONFIG_FALLBACK.ltd, isActive: false },
-  };
-  assert.deepEqual(
-    publicPapicLadder(off).map((r) => r.tierCode),
-    ['mini'],
-  );
+/**
+ * THE HOMEPAGE PRICING PAYLOAD CARRIES NO PAPIC CLAIM AT ALL (2026-07-30).
+ *
+ * `pricing-data.ts` used to build a full price ladder — including two Papic rows
+ * — that NOTHING has rendered since the 2026-07-04 overlay redesign made the
+ * Prices popup a summary plus a link out to /pricing. Unrendered and unwatched,
+ * those rows sailed straight through the two-type lock (owner 2026-07-29) still
+ * advertising "First 3 cameras · unlimited shots per day — Free" and "Papic One ·
+ * unlimited shots per day — ₱50/guest·day", and `/api/home-pricing` published
+ * them. The rows are deleted; this pins them deleted.
+ *
+ * A ladder here again is not forbidden — a ladder derived from `papic_tier_config`
+ * is. Build it from the RUNG tables (`papic_pass_tiers` / `papic_one_tiers` +
+ * `papic_event_pool_config`) priced off the live catalog, the way
+ * `app/pricing/page.tsx` does, and phrase it through `papicPoolRungPhrase` /
+ * `papicOneRungPhrase` — then move this assertion to whatever the new surface is.
+ */
+test('the homepage pricing payload makes no Papic claim', () => {
+  const src = read('app/_components/home/pricing-data.ts');
+  // Only the doc comment may NAME Papic (it explains this very deletion), so the
+  // match runs over code with line + block comments stripped.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  for (const pattern of [
+    /papic/i,
+    /guest·day/i,
+    /unlimited shots/i,
+    /papic_tier_config/i,
+  ]) {
+    const m = code.match(pattern);
+    assert.equal(
+      m,
+      null,
+      `app/_components/home/pricing-data.ts carries "${m?.[0]}". This payload is ` +
+        `consumed for the Setnayan AI price + the vendor tiers ONLY — a Papic ` +
+        `figure here renders nowhere, so nothing catches it when it goes stale. ` +
+        `/pricing owns the Papic ladder; derive from papic_pass_tiers / ` +
+        `papic_one_tiers if the homepage genuinely needs one.`,
+    );
+  }
 });
 
 test('cap copy says weddings, and follows the config', () => {
   assert.match(papicCapPhrase(6000), /₱6,000 max for a wedding/);
   assert.match(papicCapPhrase(12345), /₱12,345 max for a wedding/);
   assert.equal(papicCapPhrase(null), 'no cap');
-  // 'Papic Unli' (unlimited) is retired → dropped from the live ladder; 'Papic
-  // Mini' is now 'Papic One' (2026-07-22 rename).
-  assert.equal(
-    papicCapLadderPhrase(PAPIC_TIER_CONFIG_FALLBACK),
-    'Papic One ₱6,000 · Papic Ltd ₱10,000',
-  );
 });
 
 test('the fallback tier table mirrors the migration seed exactly', () => {

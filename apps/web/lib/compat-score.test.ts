@@ -10,10 +10,18 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COMPAT_WEIGHTS, computeCompatScore, explainCompatScore } from './compat-score';
+import {
+  COMPAT_NEUTRAL,
+  COMPAT_WEIGHTS,
+  MIN_DEMAND_COUPLE_COUNT,
+  compatSubScores,
+  computeCompatScore,
+  explainCompatScore,
+  topCompatDimension,
+} from './compat-score';
 
 test('the per-dimension weights sum to 1', () => {
-  const sum = Object.values(COMPAT_WEIGHTS).reduce((a, b) => a + b, 0);
+  const sum = Object.values(COMPAT_WEIGHTS).reduce<number>((a, b) => a + b, 0);
   assert.ok(Math.abs(sum - 1) < 1e-9, `weights sum to ${sum}`);
 });
 
@@ -177,4 +185,65 @@ test('First-Look: the boost is bounded — weight is clamped to 0.5 and the scor
     boostWeight: 0.5,
   });
   assert.ok(maxed.score >= 99 && maxed.score <= 100, `maxed score was ${maxed.score}`);
+});
+
+// ── demandPressure (Explore_Replan §15.3 · "In demand right now") ───────────
+
+test('demandPressure carries ZERO weight in the global vector — no existing caller moves', () => {
+  const base = computeCompatScore({ verified: true, avgRating: 4.5, reviewCount: 20 });
+  const loud = computeCompatScore({
+    verified: true,
+    avgRating: 4.5,
+    reviewCount: 20,
+    demandCoupleCount: 50,
+  });
+  assert.equal(loud.score, base.score, 'demand must be inert outside its own lens');
+});
+
+test('demand below the min-N floor is NEUTRAL — the sub cannot lift, so no pill can render', () => {
+  for (const n of [0, 1, 2]) {
+    assert.equal(
+      compatSubScores({ demandCoupleCount: n }).demandPressure,
+      COMPAT_NEUTRAL,
+      `n=${n} must sit at neutral`,
+    );
+    assert.deepEqual(explainCompatScore({ demandCoupleCount: n }), []);
+  }
+});
+
+test('demand at the floor lifts above neutral, and more demand never scores lower', () => {
+  const at = compatSubScores({ demandCoupleCount: MIN_DEMAND_COUPLE_COUNT }).demandPressure;
+  const more = compatSubScores({ demandCoupleCount: 6 }).demandPressure;
+  const saturated = compatSubScores({ demandCoupleCount: 10 }).demandPressure;
+  const absurd = compatSubScores({ demandCoupleCount: 10_000 }).demandPressure;
+  assert.ok(at > COMPAT_NEUTRAL, `floor sub ${at} did not lift`);
+  assert.ok(more > at && saturated > more, 'the ramp must be monotonic');
+  assert.equal(absurd, saturated, 'the lift saturates — a runaway count cannot dominate');
+  assert.ok(saturated <= 1);
+});
+
+test('absent demand is NEUTRAL, never 0 — "nobody inquired" is unknown, not bad', () => {
+  assert.equal(compatSubScores({}).demandPressure, COMPAT_NEUTRAL);
+  assert.equal(compatSubScores({ demandCoupleCount: null }).demandPressure, COMPAT_NEUTRAL);
+  // A vendor with no demand signal must not rank below one with a below-floor
+  // signal — both are "no signal".
+  assert.equal(
+    computeCompatScore({ verified: true, demandCoupleCount: null }).score,
+    computeCompatScore({ verified: true, demandCoupleCount: 2 }).score,
+  );
+});
+
+test('the demand reason phrase states the measurement — never a scarcity claim', () => {
+  const reasons = explainCompatScore({ demandCoupleCount: 4 });
+  assert.deepEqual(reasons, ['4 couples inquired for your date']);
+  const banned = /only \d+ left|booking fast|almost gone|lock it in|selling out|hurry/i;
+  for (const n of [3, 5, 12, 99]) {
+    for (const r of explainCompatScore({ demandCoupleCount: n })) {
+      assert.ok(!banned.test(r), `forbidden scarcity copy: "${r}"`);
+    }
+  }
+});
+
+test('topCompatDimension never picks demandPressure under the GLOBAL weights (weight 0)', () => {
+  assert.equal(topCompatDimension({ demandCoupleCount: 25 }), null);
 });

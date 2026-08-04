@@ -147,7 +147,7 @@ export function VendorGrowThesis() {
   const items = [
     { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
     { b: '0% now', s: 'commission while we launch — you keep every peso you earn' },
-    { b: 'First 5 free', s: 'the bookings we bring you are on us — then a flat 5%, only on couples we source' },
+    { b: 'First 5 free', s: 'the bookings we bring you are on us — after that, 5%, then 1% beyond ₱100,000, only on couples we source' },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -227,7 +227,19 @@ export function VendorGrowHub() {
 export function VendorGrowAI() {
   const steps = [
     { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other vendors they’re choosing.' },
-    { n: '2', t: 'Sales Nudge', p: 'When a new couple eyes a date you’re already shortlisted for, we tell your client that schedule is in demand — so they move.' },
+    // ⚠ THIS STEP USED TO PROMISE VENDORS A DARK PATTERN, and one we don't build.
+    // It read: "When a new couple EYES a date you're already shortlisted for, we
+    // tell your client that schedule is in demand — SO THEY MOVE." Two lies in one
+    // sentence. (1) Merely saving a vendor writes `event_vendors.status =
+    // 'considering'`, and the owner ruled on 2026-06-02 that demand "starts at the
+    // inquiry (Stage 2), NEVER at search (Stage 1) … counting it as competition =
+    // manufactured scarcity (a fineable dark pattern)" — so the shipped signal is
+    // inquiry-only (`lib/same-date-demand.ts` discriminates on `chat_threads`
+    // existence) and floored at MIN_DEMAND_COUPLE_COUNT = 3, because "don't show a
+    // '1'". (2) "So they move" sells engineered urgency; the product states a
+    // measured fact and stops — no "only N left", no "booking fast", because there
+    // is no capacity counter behind any of it. Copy now describes what ships.
+    { n: '2', t: 'Real demand, stated plainly', p: 'When other couples actually inquire with you for the same date, your client sees that count — the measured fact, nothing dressed up. It takes at least three, so one enquiry never becomes pressure.' },
     { n: '3', t: 'Compatibility lock-in', p: 'When you’re the best fit alongside their other services, we nudge them to lock you in too.' },
   ];
   return (
@@ -359,7 +371,7 @@ export function VendorGrowFairPay() {
         <Eyebrow center>Fair by design</Eyebrow>
         <H2>Never spend a peso that doesn&rsquo;t grow your business.</H2>
         <Lede>
-          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then a <b style={{ color: 'var(--m-ink)' }}>flat 5%</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
+          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then <b style={{ color: 'var(--m-ink)' }}>5%, then 1% beyond ₱100,000</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>

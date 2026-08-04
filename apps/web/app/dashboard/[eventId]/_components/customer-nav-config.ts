@@ -4,15 +4,15 @@
  *
  * The desktop sidebar is organised into two labelled sections matching the
  * couple energy prototype:
- *   PLAN    → Overview · Guests · Merkado · Studio
+ *   PLAN    → Overview · Guests · Marketplace · Studio
  *   GO LIVE → Launch (the couple's live personal website)
  * EVERY top-level item is a PLAIN LEAF (owner 2026-07-15: "solid menu with no
  * submenus" — extends the vendor 5-page IA + the 2026-07-10 Overview/Guests
  * plain-leaf decision to the whole couple rail). No item expands children in the
- * rail; sub-navigation lives INSIDE each page (the Merkado tab strip, the Studio
+ * rail; sub-navigation lives INSIDE each page (the Marketplace tab strip, the Studio
  * hub body). The PLAN / GO LIVE strings are flat SECTION HEADINGS, not
  * expandable parents. The mobile bottom nav (lib/customer-menu.ts) carries the
- * same top-level destinations + labels (Overview · Guests · Merkado · Studio).
+ * same top-level destinations + labels (Overview · Guests · Marketplace · Studio).
  *
  * PLAN items (all plain leaves):
  *   1. Overview → /dashboard/[id]         (its old checklist/schedule/messages/
@@ -21,14 +21,15 @@
  *      sentinel unchanged.
  *   2. Guests   → /dashboard/[id]/guests  (the guest-journey stages are
  *      integrated into the single Guests page) · guest-count badge.
- *   3. Merkado  → /dashboard/[id]/vendors (the Build/Budget/Compare tabs live in
- *      the page's own tab strip) — renamed from "Explore"; key + route unchanged.
+ *   3. Marketplace → /dashboard/[id]/vendors (the Build/Budget/Compare tabs
+ *      live in the page's own tab strip). Label lineage: Explore → Merkado →
+ *      Marketplace; key + route unchanged throughout.
  *   4. Studio   → /dashboard/[id]/studio  (Event page · Website · Mood Board ·
  *      Monogram · Live Wall · E-Gifts all live in the Studio hub body — the App
  *      Store catalog rows + the hub's "Set up & manage" doorway block, NOT the
  *      rail — owner 2026-07-15 "no submenus")
  * GO LIVE items:
- *   5. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *   5. Launch   → /website/editor (the unified editor) — gated on websiteEnabled.
  *
  * BUDGET removed 2026-07-10 (owner) — the standalone top-level Budget menu (and
  * its Activity + Disputes children) is GONE, matching the mobile SSOT
@@ -105,9 +106,10 @@ export function buildCustomerNavGroups(
     hideKeys?: string[];
     websiteEnabled?: boolean;
     monogramEnabled?: boolean;
-    /** The event's public slug. When present, the top-level "Launch" entry
-     *  points AT the couple's live personal website (`/[slug]`); when absent
-     *  (no slug yet) it falls back to the go-live/setup surface. */
+    /** The event's public slug. Retained for callers/other consumers; the
+     *  "Launch" entry no longer routes on it (owner 2026-07-24 — Launch opens
+     *  the unified website editor, which links to the live
+     *  `/[slug]` via "View my site"). */
     slug?: string | null;
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
@@ -116,25 +118,25 @@ export function buildCustomerNavGroups(
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
-  // Launch = the couple's live personal website. It lives in its OWN "Go live"
+  // Launch = the couple's website control surface. It lives in its OWN "Go live"
   // section (design: setnayan-overview-energy.html), not among the Plan items.
-  // OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly (owner
-  // 2026-07-02 "launch on customer event is their personal website"). A
-  // signed-in host always sees their own page even while it's private
-  // (app/[slug]/page.tsx host-gate), so this is safe pre-publish; before a slug
-  // exists we fall back to the go-live/setup surface (`/website/launch`) so they
-  // can publish. Gated on the 'website' surface (websiteEnabled).
+  // OPENS THE UNIFIED WEBSITE EDITOR (`/website/editor`) — owner
+  // 2026-07-24 "when we open Launch, instead of the website, we start by the
+  // settings (free) and the settings when Website Pro is unlocked". (Supersedes
+  // the 2026-07-02 "open the live `/[slug]` directly" ruling; the live site is
+  // now one click away via "View my site" on that surface.) Gated on the
+  // 'website' surface (websiteEnabled). Design: Design_Launch_Settings_2026-07-24/.
   const launchItem: NavItem | null = opts?.websiteEnabled
     ? {
         key: 'launch',
         label: 'Launch',
-        href: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+        href: `${base}/website/editor`,
         icon: Rocket,
-        matchPrefix: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+        matchPrefix: `${base}/website`,
       }
     : null;
 
-  // PLAN section items — Overview · Guests · Merkado · Studio · Budget. (Was the
+  // PLAN section items — Overview · Guests · Marketplace · Studio · Budget. (Was the
   // single header-less 'root' group; split into labelled sections below.)
   const planItems: NavItem[] = [
         {
@@ -185,9 +187,10 @@ export function buildCustomerNavGroups(
           // the tabs. The single matchPrefix (${base}/vendors) keeps the item lit
           // on every ?tab= state (query-less prefix match).
           key: 'explore',
-          // Renamed Explore → Merkado (owner-approved product naming; matches
-          // the design prototype). Key + route (/vendors) + match unchanged.
-          label: 'Merkado',
+          // Label lineage: Explore → Merkado (2026-07) → Marketplace
+          // (2026-07-27, owner: easier to understand). Key ('explore') + route
+          // (/vendors) + matchPrefix unchanged throughout — links never break.
+          label: 'Marketplace',
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
@@ -226,7 +229,7 @@ export function buildCustomerNavGroups(
   ];
 
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
-  //   PLAN    → Overview · Guests · Merkado · Studio
+  //   PLAN    → Overview · Guests · Marketplace · Studio
   //   GO LIVE → Launch (the couple's live personal website)
   // Replaces the single header-less 'root' group. The Go-live section only
   // exists when Launch does (websiteEnabled) — an empty section would render a
@@ -264,7 +267,7 @@ export function buildCustomerNavGroups(
   ];
 
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
-  //   PLAN    → Overview · Guests · Merkado · Studio
+  //   PLAN    → Overview · Guests · Marketplace · Studio
   //   GO LIVE → Launch (the couple's live personal website)
   //   ALSO IN THIS EVENT → Schedule · Seat plan · Budget (flat off-nav links)
   const groups: NavGroup[] = [

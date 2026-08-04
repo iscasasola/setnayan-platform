@@ -75,8 +75,18 @@ test('every buyable service declares free-or-paid (serviceKey or tier:"free")', 
   // any service that can be listed/opened must declare WHAT IT IS so the Studio
   // badge (pillFor) is never a bare money-style "Get" for a real SKU, and free
   // tools never look paid. coming_soon rows are exempt (not buyable yet).
+  //
+  // `freeTrial` counts as a declaration too (added 2026-07-30) — this guard
+  // protects `pillFor()` in studio/page.tsx, and that function resolves in the
+  // order owned → pending → tier:'free' → freeTrial → price ?? 'View'. A card
+  // with a freeTrial chip therefore CANNOT fall through to the bare "View" this
+  // invariant exists to prevent. The case that forced it: Papic is two products
+  // across five active SKUs (Pool 3k/6k/10k + One 50/100) with no single
+  // representative row, so naming one in `serviceKey` would advertise one rung as
+  // "the" Papic price — the exact class of claim the two-type lock retired.
   const offenders = ADD_ONS.filter(
-    (a) => a.status !== 'coming_soon' && !a.serviceKey && a.tier !== 'free',
+    (a) =>
+      a.status !== 'coming_soon' && !a.serviceKey && a.tier !== 'free' && !a.freeTrial,
   ).map((a) => a.key);
   assert.deepEqual(
     offenders,

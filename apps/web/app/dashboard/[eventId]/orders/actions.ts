@@ -3,18 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { activateOrderSku } from '@/lib/sku-activation';
-import { uploadPublicAsset } from '@/lib/storage';
-import { sendEmail } from '@/lib/email';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
-import {
-  decideSelfCompAuthority,
-  type VendorTeamRole,
-} from '@/lib/self-comp-authority';
+import { paymentRowFor } from '@/lib/order-mint-identity';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -23,417 +16,47 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
 }
 
 /**
- * Generate a short, easy-to-read reference code couples paste into bank
- * transfer notes. 6 hex chars from gen_random_bytes equivalent (we don't
- * have access to crypto.randomBytes on the edge so use crypto.getRandomValues).
+ * ⛔ `createOrder` — DELETED 2026-07-26 (SEC-4).
+ *
+ * It read the charge straight off the submitted form:
+ *
+ *     const requestedRaw = formData.get('requested_total_php');
+ *     …
+ *     requested_total_php: Math.round(Number(requestedRaw) * 100) / 100
+ *
+ * No catalog resolve, no `resolveServiceSellability` gate, no floor — so an
+ * authenticated member of any event could mint an order for ANY `service_key`
+ * at ANY amount (₱1 against a ₱2,999 SKU), pay that amount for real, and hand
+ * the admin reconciliation queue a receipt that matches. The correct path,
+ * `submitOrderAction` (../checkout/actions.ts), re-resolves the amount
+ * server-side from `platform_retail_catalog_v2` and REJECTS a retired SKU
+ * BEFORE any charge resolver runs. That order matters: a null resolve falls
+ * back to the client price, so filtering inside the resolver would downgrade
+ * "charged its real price" into "charged whatever the browser sent".
+ *
+ * WHY DELETED RATHER THAN REPAIRED — it had zero callers. Its UI entry point
+ * `/orders/new` has been a bare `redirect()` since 2026-05-29, the
+ * `SelfPurchaseConfirm` component that fed it `self_purchase_action` was
+ * orphaned by the same change (deleted here too), and nothing in app / lib /
+ * api / tests / scripts imported it. But a `'use server'` export stays
+ * POST-able by its action id whether or not any UI references it — this module
+ * reaches the client graph through `cancelOrder` + `logPayment` — so "no UI"
+ * was never "no attack surface". Deleting the export deletes the surface.
+ *
+ * IF SELF-COMP COMES BACK (spec § 3.1a · vendor "comp for myself"), re-add it
+ * on the `submitOrderAction` path, never here. The authority rule survives —
+ * pure and tested — in `lib/self-comp-authority.ts` (`decideSelfCompAuthority`:
+ * vendor owner/admin AND couple member of the target event), as does the
+ * per-quarter `enforce_vendor_self_comp_quota` trigger on `comp_grants`. What
+ * must not come back is a SECOND pricing rule.
+ *
+ * NOT AFFECTED — `app/admin/custom-plans/actions.ts` mints bespoke-amount
+ * orders on purpose: it is `assertAdmin()`-gated and writes through
+ * service-role. "An admin sets a negotiated price" is a different thing from
+ * "the browser sets its own price"; only the second one is this bug.
+ *
+ * Enforced by `lib/order-price-authority.test.ts`.
  */
-function generateReferenceCode(): string {
-  const arr = new Uint8Array(4);
-  crypto.getRandomValues(arr);
-  return (
-    'SN' +
-    Array.from(arr)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase()
-  );
-}
-
-export async function createOrder(formData: FormData) {
-  const eventId = formData.get('event_id');
-  const description = formData.get('description');
-  const requestedRaw = formData.get('requested_total_php');
-  const serviceKey = formData.get('service_key');
-
-  if (typeof eventId !== 'string' || typeof description !== 'string') {
-    throw new Error('Invalid input');
-  }
-  const trimmedDesc = description.trim();
-  if (trimmedDesc.length === 0 || trimmedDesc.length > 2000) {
-    throw new Error('Description must be 1–2000 chars');
-  }
-  if (typeof requestedRaw !== 'string') throw new Error('Amount required');
-  const amount = Number(requestedRaw);
-  if (!Number.isFinite(amount) || amount < 0) {
-    throw new Error('Amount must be a non-negative number');
-  }
-  const requestedTotalPhp = Math.round(amount * 100) / 100;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  // Anon-draft money floor: an order can't be owned by a placeholder identity
-  // (charge, BIR receipt, refund contactability). Route anonymous buyers to
-  // /signup (convert-in-place) and bring them back to this event afterwards.
-  if (user.is_anonymous) {
-    redirect(`/signup?next=${encodeURIComponent(`/dashboard/${eventId}`)}`);
-  }
-
-  // Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm.
-  // The new-order page injects `self_purchase_action` when the user is a
-  // vendor and picked a path in the modal. Empty / undefined = standard
-  // flow (default for non-vendor users).
-  const selfPurchaseAction = formData.get('self_purchase_action');
-  const isSelfComp = selfPurchaseAction === 'comp_for_myself';
-  const selfPurchaseVendorRaw = formData.get('self_purchase_vendor_profile_id');
-  const selfPurchaseVendorProfileId =
-    isSelfComp && typeof selfPurchaseVendorRaw === 'string' && selfPurchaseVendorRaw.length > 0
-      ? selfPurchaseVendorRaw
-      : null;
-
-  if (isSelfComp) {
-    if (!selfPurchaseVendorProfileId) {
-      throw new Error('Self-comp requires a vendor profile target.');
-    }
-    // The user must actually own / sit on the team of this vendor at the
-    // owner or admin tier. Re-verify server-side (the modal lies are
-    // cheap to fake on the client).
-    const { data: member } = await supabase
-      .from('vendor_team_members')
-      .select('role')
-      .eq('vendor_profile_id', selfPurchaseVendorProfileId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // MONEY FIX (b): this branch mints an order at status='paid' and runs SKU
-    // activation on the caller-supplied `eventId`. The vendor-team check above
-    // only proves "I own a vendor" — a self-registered vendor gets an auto
-    // owner row on their own profile, so it is trivially satisfiable and says
-    // NOTHING about the target event. Without an event-authority check a vendor
-    // could provision a paid SKU (flip events.setnayan_ai_active, materialise
-    // Papic seats, …) onto a STRANGER'S event. Self-comp is "comp for MYSELF" —
-    // so the caller must ALSO be a couple member of the target event. That
-    // scopes it to the vendor's own weddings (still bounded by the per-quarter
-    // enforce_vendor_self_comp_quota trigger on comp_grants).
-    const { data: coupleMembership } = await supabase
-      .from('event_members')
-      .select('event_id')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .eq('member_type', 'couple')
-      .maybeSingle();
-
-    const decision = decideSelfCompAuthority({
-      vendorRole: (member?.role as VendorTeamRole | undefined) ?? null,
-      isCoupleMemberOfEvent: Boolean(coupleMembership),
-    });
-    if (!decision.allowed) {
-      throw new Error(
-        decision.reason === 'not_event_couple'
-          ? 'You can only self-comp a service for your own event.'
-          : 'Not authorised to self-comp this vendor.',
-      );
-    }
-
-    const orderResult = await createSelfCompOrder({
-      eventId,
-      userId: user.id,
-      description: trimmedDesc,
-      serviceKey: nullIfBlank(serviceKey),
-      requestedTotalPhp,
-      vendorProfileId: selfPurchaseVendorProfileId,
-    });
-
-    revalidatePath(`/dashboard/${eventId}/orders`);
-    redirect(`/dashboard/${eventId}/orders/${orderResult.orderId}?self_comp=1`);
-  }
-
-  // #13 (money bug-hunt): a standard customer order must be for an event the
-  // buyer belongs to. The orders RLS only checks `user_id = auth.uid()`, so a
-  // forged `event_id` would otherwise bind the order to a stranger's event. The
-  // self-comp branch redirects above (and, after money fix (b), is itself scoped
-  // to a couple member of the target event), so it never falls through to here.
-  const { data: membership } = await supabase
-    .from('event_members')
-    .select('event_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!membership) {
-    throw new Error('You can only create an order for your own event.');
-  }
-
-  // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
-  // check above admits ANY event member — including coordinators. Behind
-  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
-  // create an order only when the couple granted the 'checkout' scope at
-  // invite time (coordinator_access_consents.scopes). Flag OFF = exact
-  // current behavior (helper returns true without reading).
-  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
-    createAdminClient(),
-    eventId,
-    user.id,
-    'checkout',
-  );
-  if (!checkoutAllowed) {
-    throw new Error(
-      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
-    );
-  }
-
-  // Mint the reference code locally so we can both store it AND pass it to
-  // the payment-instructions email below — we'd otherwise have to round-trip
-  // back to the row to read it. Same 'SN<8-hex>' shape used by the legacy
-  // generator above.
-  const referenceCode = generateReferenceCode();
-
-  const { data, error } = await supabase
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: nullIfBlank(serviceKey),
-      description: trimmedDesc,
-      requested_total_php: requestedTotalPhp,
-      reference_code: referenceCode,
-      status: 'submitted',
-    })
-    .select('order_id')
-    .single();
-
-  if (error || !data) {
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Create order (customer apply-then-pay)',
-      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
-      error_message: error?.message ?? 'Could not create order',
-      payload_snapshot: { eventId, userId: user.id, requestedTotalPhp },
-    });
-    throw new Error(error?.message ?? 'Could not create order');
-  }
-
-  // Admin confirmation (best-effort · Notification Foundation Phase B) — fan
-  // out to every admin/internal/team user that a new order is in the
-  // /admin/payments reconciliation queue so the 24-hr SLA starts on submit,
-  // not on the next time someone opens the queue. The self-comp branch above
-  // returns before reaching here, so comp grants (which skip payment-pending)
-  // correctly never fire this. Fail-soft: never blocks the order.
-  await notifyAdminsOrderAwaitingReconciliation({
-    orderId: data.order_id as string,
-    description: trimmedDesc,
-    amountPhp: requestedTotalPhp,
-    referenceCode,
-  });
-
-  // Wire payment instructions email · iteration 0034 apply-then-pay manual
-  // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2
-  // pre-pilot fix 2026-05-28). Pilot couples submitting a Setnayan AI
-  // ₱1,499 or any cart SKU need the reference code delivered to email so
-  // they can paste it into the BDO/GCash transfer note AND retrieve it
-  // anytime via the dashboard deep-link if they close the success tab.
-  //
-  // BDO + GCash bank account details + business identity come from
-  // public.platform_settings (singleton row · id=1 · migration
-  // 20260513230000_platform_settings.sql). The owner manages these via
-  // /admin/settings — same canonical source the BIR receipt generator
-  // already consumes (lib/bir/generator.ts:259). Public-read RLS on the
-  // table so the user's auth session can fetch it directly · no admin
-  // client needed. When the row is empty (fresh env), email renders a
-  // polite fallback line so dev/preview env doesn't break and pilot can
-  // still launch even before owner pastes the real values.
-  //
-  // 2026-05-28 follow-up to RED #2 (PR #591): original fix pulled from
-  // env vars (SETNAYAN_BDO_*/SETNAYAN_GCASH_*) which duplicated values
-  // already in platform_settings. Owner flagged that BDO + GCash are
-  // managed via /admin/settings — this refactor reads the canonical DB
-  // source instead. The 4 env stubs in .env.example get dropped here too.
-  //
-  // Best-effort send: sendEmail returns a SendEmailResult discriminated union
-  // (no throws on the happy path), but we still wrap in try/catch as a belt-
-  // and-suspenders guard. Email failure NEVER rolls back the order — the
-  // orders row is the source of truth + the success page surfaces the
-  // reference code visually too, so a missed email degrades but doesn't
-  // strand the couple. Self-comp branch above never reaches here so we don't
-  // email payment instructions for already-paid grants.
-  try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-    const orderUrl = `${appUrl}/dashboard/${eventId}/orders/${data.order_id}`;
-    const settings = await fetchPlatformSettings(supabase);
-    const hasBdo = Boolean(settings.bdo_account_number?.trim());
-    const hasGcash = Boolean(settings.gcash_number?.trim());
-
-    const amountFormatted = requestedTotalPhp.toLocaleString('en-PH', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    // Brand-voice editorial register · no exclamation marks · no engineering
-    // jargon · selective Filipino touch · per feedback_setnayan_no_dev_text_
-    // post_launch.
-    const lines: string[] = [
-      `Salamat — your order is in.`,
-      ``,
-      `Here are the details so you can settle the payment whenever you're ready.`,
-      ``,
-      `Order: ${trimmedDesc}`,
-      `Amount: ₱${amountFormatted}`,
-      `Reference code: ${referenceCode}`,
-      ``,
-      `Please include the reference code ${referenceCode} in the bank-transfer note so we can match your payment to this order.`,
-      ``,
-    ];
-
-    if (hasBdo || hasGcash) {
-      lines.push(`Where to send the payment:`);
-      lines.push(``);
-      if (hasBdo) {
-        lines.push(`  BDO`);
-        if (settings.bdo_account_name) {
-          lines.push(`  Account name: ${settings.bdo_account_name}`);
-        }
-        lines.push(`  Account number: ${settings.bdo_account_number}`);
-        // QR URL surfaces when admin uploaded one — couple on mobile can
-        // scan it directly from the email instead of typing the number.
-        if (settings.bdo_qr_url) {
-          lines.push(`  QR: ${settings.bdo_qr_url}`);
-        }
-        lines.push(``);
-      }
-      if (hasGcash) {
-        lines.push(`  GCash`);
-        if (settings.gcash_account_name) {
-          lines.push(`  Name: ${settings.gcash_account_name}`);
-        }
-        lines.push(`  Number: ${settings.gcash_number}`);
-        if (settings.gcash_qr_url) {
-          lines.push(`  QR: ${settings.gcash_qr_url}`);
-        }
-        lines.push(``);
-      }
-    } else {
-      lines.push(`Bank account details will follow via separate email.`);
-      lines.push(``);
-    }
-
-    lines.push(`Once payment lands, our team reconciles within 24 hours and your order moves to paid. We'll email again at that point.`);
-    lines.push(``);
-    // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
-    // row · sprint brief at VOUCHER_SPRINT_BRIEF.md): mention the voucher
-    // flow in payment-instructions emails so couples with a code don't pay
-    // full price and then realize too late. Voucher application happens
-    // BEFORE order creation in the new inline-checkout drawer (PR #596 ·
-    // apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx),
-    // so for these legacy /orders/new couples the hint is forward-looking —
-    // if they have a code they should restart via the add-on page where the
-    // drawer surfaces the "Have a code?" toggle.
-    lines.push(`If you have a special code, type it in the "Have a code?" field on the order page before paying.`);
-    lines.push(``);
-    lines.push(`Need to retrieve this reference code later? Open your order anytime:`);
-    lines.push(orderUrl);
-    lines.push(``);
-    lines.push(`—`);
-    lines.push(`Set na 'yan.`);
-
-    await sendEmail({
-      to: user.email ?? '',
-      subject: `Setnayan order ${referenceCode} — payment instructions`,
-      text: lines.join('\n'),
-    });
-  } catch (emailErr) {
-    // sendEmail already swallows + logs internally; this catch is defensive
-    // against import-time / env-read throws. Never block the order.
-    console.warn('[orders] payment instructions email send threw:', emailErr);
-  }
-
-  revalidatePath(`/dashboard/${eventId}/orders`);
-  redirect(`/dashboard/${eventId}/orders/${data.order_id}?created=1`);
-}
-
-/**
- * Self-comp branch of § 3.1a. Creates a `comp_grants` row with
- * source='vendor_self_comp' (self-approved per § 5.4, gated by the 12 / quarter
- * trigger), then inserts an `orders` row marked `paid` with comp_grant_id
- * pointing at the new grant. Two-step via service-role so the trigger fires.
- */
-async function createSelfCompOrder(args: {
-  eventId: string;
-  userId: string;
-  description: string;
-  serviceKey: string | null;
-  requestedTotalPhp: number;
-  vendorProfileId: string;
-}): Promise<{ orderId: string }> {
-  const admin = createAdminClient();
-  const retailValueCentavos = Math.round(args.requestedTotalPhp * 100);
-
-  const grantInsert = await admin
-    .from('comp_grants')
-    .insert({
-      user_id: args.userId,
-      scope: 'single_order',
-      retail_value_centavos: retailValueCentavos,
-      rationale: 'Vendor self-comp at checkout',
-      granted_by: args.userId,
-      approved_by: args.userId,
-      source: 'vendor_self_comp',
-      vendor_profile_id: args.vendorProfileId,
-    })
-    .select('grant_id')
-    .single();
-
-  if (grantInsert.error || !grantInsert.data) {
-    // The enforce_vendor_self_comp_quota trigger raises check_violation
-    // with VENDOR_SELF_COMP_QUOTA_EXCEEDED when the per-quarter cap is hit;
-    // surface that to the caller verbatim so the UI can render the right
-    // hint. createAdminClient bypasses RLS so any error here is a true
-    // schema-level rejection.
-    throw new Error(
-      grantInsert.error?.message ?? 'Could not create self-comp grant.',
-    );
-  }
-
-  const grantId = grantInsert.data.grant_id as string;
-
-  const orderInsert = await admin
-    .from('orders')
-    .insert({
-      event_id: args.eventId,
-      user_id: args.userId,
-      service_key: args.serviceKey,
-      description: args.description,
-      requested_total_php: args.requestedTotalPhp,
-      confirmed_total_php: 0,
-      reference_code: generateReferenceCode(),
-      status: 'paid',
-      comp_grant_id: grantId,
-    })
-    .select('order_id')
-    .single();
-
-  if (orderInsert.error || !orderInsert.data) {
-    // The grant has already been written; we don't roll it back since the
-    // trigger uses it for rate-limit accounting. Surface the error.
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Create self-comp order (vendor self-purchase)',
-      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
-      error_message: orderInsert.error?.message ?? 'Could not create comp order.',
-      payload_snapshot: { eventId: args.eventId, userId: args.userId, grantId, vendorProfileId: args.vendorProfileId },
-    });
-    throw new Error(orderInsert.error?.message ?? 'Could not create comp order.');
-  }
-
-  const orderId = orderInsert.data.order_id as string;
-
-  // Run the SKU's activation hook so a self-comped flag-backed SKU (e.g.
-  // SETNAYAN_AI's events.setnayan_ai_active boolean) is actually PROVISIONED,
-  // not merely owned. This path flips an order straight to 'paid', so without
-  // it ownership checks suppress the buy CTA while the feature gate stays dark.
-  // Mirrors admin approvePayment — the only other path that pays an order.
-  // Non-fatal + idempotent by contract (activateOrderSku never throws); a null
-  // serviceKey (ad-hoc self-comp) resolves to '' → no registered hook → no-op.
-  await activateOrderSku({
-    admin,
-    orderId,
-    eventId: args.eventId,
-    serviceKey: args.serviceKey ?? '',
-    actorUserId: args.userId,
-  });
-
-  return { orderId };
-}
 
 export async function cancelOrder(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -515,8 +138,9 @@ export async function logPayment(formData: FormData) {
   // a payment only when the couple granted the 'checkout' scope at invite
   // time (coordinator_access_consents.scopes). Flag OFF = exact current
   // behavior (helper returns true without reading).
+  const moneyWriter = createMoneyWriterClient();
   const checkoutAllowed = await coordinatorMoneyScopeAllowed(
-    createAdminClient(),
+    moneyWriter,
     eventId,
     user.id,
     'checkout',
@@ -527,39 +151,31 @@ export async function logPayment(formData: FormData) {
     );
   }
 
-  // Optional screenshot — TWO supported shapes:
+  // Optional screenshot — ONE supported shape: `<FileUpload name="screenshot_ref">`
+  // uploads direct-to-R2 client-side (PRIVATE thread-files bucket) and emits an
+  // `r2://bucket/key` hidden input, which we store verbatim in `screenshot_url`.
   //
-  //   (1) New flow (preferred): `<FileUpload name="screenshot_ref">` uploads
-  //       direct-to-R2 client-side and emits an `r2://bucket/key` hidden
-  //       input. We store that ref verbatim in `screenshot_url`.
-  //
-  //   (2) Legacy flow: a `<input type="file" name="screenshot">` for forms
-  //       that haven't been migrated yet (or admin tooling that pre-dates
-  //       the new component). We pipe the file through `uploadPublicAsset`
-  //       the same way the old code did and store the resulting public URL.
-  //
-  // (1) takes precedence — if both are present we trust the explicit ref.
+  // ⛔ The legacy `<input type="file" name="screenshot">` fallback was DELETED
+  // 2026-07-30. It piped the file through `uploadPublicAsset` — the PUBLIC
+  // `setnayan-media` bucket — three lines under the comment promising payment
+  // proofs never go there. A payment proof is a bank / GCash transfer
+  // screenshot: account numbers and names, served unsigned to anyone with the
+  // key. It had no live producer (the app's only `name="screenshot"` input,
+  // `papic/order/[token]/page.tsx`, posts to `submitPapicGuestPayment`, which
+  // uploads server-side to the private bucket and mints its own ref), so this
+  // was a loaded gun rather than a live leak — the next page to render that
+  // field name would have published proofs to the open internet with no code
+  // change. `payment-proof-public-bucket.test.ts` keeps it deleted.
   let screenshotUrl: string | null = null;
   const screenshotRefRaw = formData.get('screenshot_ref');
+  // SEC-1: bind the client-supplied ref to THIS order's private-bucket prefix.
+  // A bare `startsWith('r2://')` let the buyer pin any key in any bucket onto
+  // their own order, which an admin then renders presigned while reconciling.
   if (
     typeof screenshotRefRaw === 'string' &&
-    screenshotRefRaw.trim().startsWith('r2://')
+    parseClientRef(screenshotRefRaw.trim(), orderPaymentProofPolicy(orderId))
   ) {
     screenshotUrl = screenshotRefRaw.trim();
-  } else {
-    const screenshotFile = formData.get('screenshot');
-    if (screenshotFile instanceof File && screenshotFile.size > 0) {
-      const result = await uploadPublicAsset({
-        pathPrefix: `payment-screenshots/${orderId}`,
-        file: screenshotFile,
-      });
-      if (!result.ok) {
-        return redirect(
-          `/dashboard/${eventId}/orders/${orderId}?error=${encodeURIComponent(result.error)}`,
-        );
-      }
-      screenshotUrl = result.publicUrl;
-    }
   }
 
   // Task 8 pilot hardening (2026-06-01): client-supplied idempotency key
@@ -574,16 +190,31 @@ export async function logPayment(formData: FormData) {
       ? idempotencyKeyRaw.trim().slice(0, 64)
       : null;
 
-  const { error } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: Math.round(amount * 100) / 100,
-    channel: trimmedChannel,
-    reference_number: nullIfBlank(formData.get('reference_number')),
-    screenshot_url: screenshotUrl,
-    paid_at: paidAt,
-    client_idempotency_key: idempotencyKey,
-  });
+  // ── SEC-4b · service-role write, ownership already proven above ────────────
+  // `payments` INSERT is revoked from `authenticated` (migration
+  // 20271008178212), so this goes through service_role — which bypasses
+  // `payments_owner_insert`'s `WITH CHECK (user_id = auth.uid())`.
+  //
+  // Nothing about the AUTHORIZATION changes: the guards that matter are the two
+  // above, and both stay on the SESSION client precisely so RLS keeps scoping
+  // them — the `orders` SELECT (RLS `orders_owner_read` limits it to the
+  // caller's own orders / their events' orders, and a foreign order_id comes
+  // back null → reject) plus the event_id match and the coordinator 'checkout'
+  // consent scope. `paymentRowFor` then re-binds the row to that proven order
+  // and to the server's user id, replacing what RLS used to enforce.
+  const { error } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: ownedOrder.order_id as string },
+      {
+        amount_php: Math.round(amount * 100) / 100,
+        channel: trimmedChannel,
+        reference_number: nullIfBlank(formData.get('reference_number')),
+        screenshot_url: screenshotUrl,
+        paid_at: paidAt,
+        client_idempotency_key: idempotencyKey,
+      },
+    ),
+  );
   if (error) {
     // 23505 = unique_violation. With a non-null idempotency key this means
     // the customer's previous submit succeeded and they retried; treat as

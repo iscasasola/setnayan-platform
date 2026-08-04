@@ -14,6 +14,7 @@
 
 import {
   Clapperboard,
+  RadioTower,
   Activity,
   AlertOctagon,
   BadgeCheck,
@@ -40,6 +41,7 @@ import {
   Handshake,
   Home,
   Images,
+  KeyRound,
   Landmark,
   LifeBuoy,
   Lightbulb,
@@ -76,7 +78,6 @@ import {
   UserX,
   Users,
   UsersRound,
-  Video,
   Wallet,
   WifiOff,
 } from 'lucide-react';
@@ -417,15 +418,27 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Globe,
         matchPrefix: '/admin/website',
       },
-      {
-        // Repointed to the Studio Studio Hero video tab (slice 1). matchPrefix
-        // keeps this item lit on the legacy /admin/hero-video path (redirects in).
-        key: 'hero-video',
-        label: 'Hero video',
-        href: '/admin/studio?tab=hero-video',
-        icon: Video,
-        matchPrefix: '/admin/hero-video',
-      },
+      // 'hero-video' item REMOVED 2026-08-02 — the sign-in hero was retired
+      // (deleted, no tombstone) because it sliced every upload into stills for a
+      // screen nothing rendered. Guarded by lib/website-media-retired-hero.test.ts.
+      // Live Studio channel pool (WAVE 9 · Live_Studio_Unified_Spec § 4h) — the
+      // Setnayan-owned YouTube channels every event streams on, so couples never
+      // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:
+      // the route itself notFound()s when the flag is off, and a nav row pointing at
+      // a 404 is worse than no row. Flag off ⇒ this surface does not exist at all.
+      // Uses the inlined NEXT_PUBLIC_ literal rather than lib/live-studio-roam's
+      // helper because this module is imported by the 'use client' sidebar.
+      ...(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true'
+        ? [
+            {
+              key: 'live-studio-channels',
+              label: 'Live Studio channels',
+              href: '/admin/live-studio-channels',
+              icon: RadioTower,
+              matchPrefix: '/admin/live-studio-channels',
+            },
+          ]
+        : []),
       {
         // Background videos — the LIVE upload tool feeding the production
         // homepage hero + pillar loop videos (lib/background-videos.ts →
@@ -436,6 +449,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/background-videos',
         icon: Clapperboard,
         matchPrefix: '/admin/background-videos',
+      },
+      {
+        // Website media — the READ side of the media bucket, sitting next to the
+        // upload tools it audits. Those tools repoint a row without deleting the
+        // object they replaced, so left-over files are invisible everywhere else.
+        key: 'website-media',
+        label: 'Website media',
+        href: '/admin/website-media',
+        icon: Images,
+        matchPrefix: '/admin/website-media',
       },
       {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).
@@ -732,15 +755,24 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // MONEY (key 'settings-group' kept for localStorage continuity · label
-    // "System Settings" → "Money" 2026-07-04) — the money-config lane FIRST
-    // (act-now money QUEUES stay in Overview; the Work Money-lane filter
-    // reunites them per the 2026-06-08 sign-off condition), then the small
-    // settings tail at the bottom. The Data Structure lane carved out to the
-    // Ugat Console. The visit-least bucket, one collapsible; ordered money
-    // config → settings tail.
+    // MONEY & SETTINGS (key 'settings-group' kept for localStorage continuity ·
+    // label "System Settings" → "Money" 2026-07-04 → "Money & Settings"
+    // 2026-07-25) — the money-config lane FIRST (act-now money QUEUES stay in
+    // Overview; the Work Money-lane filter reunites them per the 2026-06-08
+    // sign-off condition), then the settings tail at the bottom. The Data
+    // Structure lane carved out to the Ugat Console. The visit-least bucket,
+    // one collapsible; ordered money config → settings tail.
+    //
+    // The label carries "& Settings" again because the tail is now 6 items long
+    // (Compliance · Notifications · Demo mode · Integrations · Secrets &
+    // Rotation · Account security) and NONE of them are money. The owner went
+    // looking for Secrets & Rotation and could not find it — a group labelled
+    // "Money" is not somewhere anyone hunts for a credential. Renaming beats
+    // moving: these are genuinely the visit-least settings, and splitting the
+    // tail into a seventh top-level group would trade one wayfinding problem
+    // for a longer sidebar.
     key: 'settings-group',
-    label: 'Money',
+    label: 'Money & Settings',
     defaultOpen: false,
     items: [
       {
@@ -877,6 +909,19 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/integrations',
         icon: Plug,
         matchPrefix: '/admin/integrations',
+      },
+      {
+        // Secrets & Rotation — every platform key in one place with an age
+        // alarm, a per-key runbook, in-app writes to the Vercel env, and the
+        // dual-key ENCRYPTION_KEY procedure. Sits directly beside Integrations
+        // (the two are halves of the same job: Integrations turns a service ON,
+        // this one keeps its credential fresh) and cross-links to it for the
+        // DB-stored secrets. A page ships with its doorway — 2026-07-25.
+        key: 'secrets',
+        label: 'Secrets & Rotation',
+        href: '/admin/secrets',
+        icon: KeyRound,
+        matchPrefix: '/admin/secrets',
       },
       {
         // Personal account security — admins use the shared /dashboard/profile

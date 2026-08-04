@@ -29,6 +29,7 @@ import {
   ageShort,
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
+  type AdminQueueLane,
 } from '@/lib/admin/queue-counts';
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -45,7 +46,22 @@ const DUE_RANK: Record<string, number> = {
   clear: 4,
 };
 
-export default async function AdminWorkLanding() {
+const LANES = ['money', 'trust', 'growth', 'support'] as const;
+
+/** `?lane=` → a known lane, or undefined. An unknown value shows everything
+ *  rather than 404-ing: a stale bookmark should degrade to the full list. */
+function coerceLane(v: string | string[] | undefined): AdminQueueLane | undefined {
+  const s = Array.isArray(v) ? v[0] : v;
+  return (LANES as readonly string[]).includes(s ?? '')
+    ? (s as AdminQueueLane)
+    : undefined;
+}
+
+export default async function AdminWorkLanding({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // Page-level gate (council fix #1 2026-07-09) — the admin layout alone is not
   // a safe auth boundary in front of the RLS-bypassing service-role client
   // getAdminQueueDigest() reaches below (layouts don't re-run on soft
@@ -100,5 +116,15 @@ export default async function AdminWorkLanding() {
     0,
   );
 
-  return <QueuesTriageFeed title="Work" items={ordered} totalOpen={totalOpen} />;
+  // `totalOpen` stays the FULL total even when a lane is chosen — the subtitle
+  // and the triage strip describe the whole day; only the rows below narrow.
+  return (
+    <QueuesTriageFeed
+      title="Work"
+      items={ordered}
+      totalOpen={totalOpen}
+      lane={coerceLane((await searchParams)?.lane)}
+      basePath="/admin/work"
+    />
+  );
 }

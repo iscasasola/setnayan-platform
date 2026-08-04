@@ -29,6 +29,8 @@ import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 
 type Props = {
+  /** Open browse: let the film offer a way into the site once it has finished. */
+  canExit?: boolean;
   displayName: string;
   dateIso: string | null;
   venueName: string | null;
@@ -62,7 +64,8 @@ type Props = {
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
-   *  Set only when stdVideoIsLive; plays as the locked video island beat. */
+   *  Set only when stdVideoServeUrls (SEC-6 — an `approved` NSFW verdict still
+   *  bound to this exact media); plays as the locked video island beat. */
   videoUrl?: string | null;
   /** Poster still of that video — the film uses it for the iOS-safe blurred
    *  letterbox fill behind the contained clip (a 2nd <video> won't play on iOS). */
@@ -88,6 +91,7 @@ type Props = {
 };
 
 export function SaveTheDateView({
+  canExit = false,
   displayName,
   dateIso,
   venueName,
@@ -151,6 +155,7 @@ export function SaveTheDateView({
           <StdBackgroundLayer background={background} imageUrl={backgroundImageUrl ?? null} fixed />
         ) : null}
         <SaveTheDateFilm
+          canExit={canExit}
           content={content}
           themeId={resolveStdTheme(themeId)}
           transparent={Boolean(background)}

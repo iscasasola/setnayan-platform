@@ -19,13 +19,15 @@
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
 import { cache } from 'react';
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -44,19 +46,25 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
-import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
+import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { getWallSnapshot } from '@/lib/live-wall';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
-import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { youTubeEmbedUrl } from '@/lib/panood-watch';
+import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
 import {
-  fetchRoamManifest,
+  applyGuestPick,
+  fetchRoamViewerState,
   liveStudioRoamEnabled,
   selectFeaturedZone,
 } from '@/lib/live-studio-roam';
+import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
+import { fetchGuestPickCameras, shouldOfferGuestPick } from '@/lib/live-studio-guest-pick';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -76,6 +84,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -99,7 +108,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -143,6 +152,111 @@ export const loadHostMembership = cache(
         .maybeSingle(),
     ]);
     return Boolean(memberRow) || Boolean(moderatorRow);
+  },
+);
+
+/**
+ * Booked-vendor probe for the vendor doorway.
+ *
+ * WHAT IT ANSWERS: "is the signed-in viewer a supplier this couple has booked
+ * on THIS event, and if so which of their businesses is it?" It is the vendor
+ * twin of `loadHostMembership`, and it is deliberately just as narrow — it
+ * returns an id and a trading name, never anything about the event.
+ *
+ * WHY THE ADMIN CLIENT. The couple's `/[slug]` page renders for anonymous
+ * visitors with no RLS session, exactly as `loadHostMembership` and the widget
+ * registry already do. The membership question is answered HERE, in one query,
+ * and the answer is the only thing that travels — so a stranger cannot reach a
+ * vendor control by asking for one.
+ *
+ * TWO JOINS, ONE ANSWER. `event_vendors` is the couple's own list of who they
+ * booked; `linked_vendor_profile_id` is set once a real Setnayan vendor claims
+ * that row. So an unclaimed hand-typed "Tita's Catering" resolves to nobody,
+ * which is correct — there is no account to send anywhere.
+ *
+ * React.cache'd: the page asks once even if several surfaces want it.
+ */
+export const loadVendorBooking = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    userId: string,
+  ): Promise<{ vendorProfileId: string; businessName: string } | null> => {
+    // The businesses this user owns or administers.
+    const { data: mine } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .eq('user_id', userId);
+    const owned = (mine ?? []) as { vendor_profile_id: string; business_name: string }[];
+    if (owned.length === 0) return null;
+
+    // …narrowed to the one the couple actually booked on this event.
+    const { data: booked } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', eventId)
+      .in(
+        'linked_vendor_profile_id',
+        owned.map((v) => v.vendor_profile_id),
+      )
+      .limit(1)
+      .maybeSingle();
+
+    const id = (booked as { linked_vendor_profile_id: string | null } | null)
+      ?.linked_vendor_profile_id;
+    if (!id) return null;
+    const match = owned.find((v) => v.vendor_profile_id === id);
+    if (!match) return null;
+    return { vendorProfileId: match.vendor_profile_id, businessName: match.business_name };
+  },
+);
+
+/**
+ * Day-of announcements for the GUEST side.
+ *
+ * ── THE HALF THAT WAS MISSING ───────────────────────────────────────────────
+ * The composer has shipped for months: `coordinator-broadcast-card.tsx` on the
+ * couple's day-of screen writes `coordinator_broadcasts`, the Data Privacy
+ * control `coordinator_day_of_broadcast` is ACTIVE in production, and the table
+ * is live. But nothing on the guest site ever read it — every "broadcast" under
+ * app/[slug] is the Panood LIVESTREAM, not an announcement. So a coordinator
+ * could write "phones down, the ceremony is starting" and only the couple's own
+ * dashboard would show it. This is the receiver.
+ *
+ * LIVE WINDOW ONLY. An announcement is a thing shouted across a room; it has no
+ * meaning the week before or the month after. The caller passes the resolved
+ * day-of phase and this returns nothing outside it, so a stale "we are running
+ * late" cannot haunt the page forever.
+ *
+ * ONE, NOT A FEED. The guest gets the latest only. A scrollback of operational
+ * chatter is the coordinator's business, not a guest's — and a feed on the
+ * event page would compete with the couple's own words.
+ *
+ * Admin client for the same reason as the widget registry above: this page
+ * renders for visitors with no RLS session. The read is scoped to one event and
+ * returns nothing but the announcement text and when it was sent.
+ */
+export const loadDayOfBroadcast = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+    isLive: boolean,
+  ): Promise<{ body: string; createdAt: string } | null> => {
+    if (!isLive) return null;
+    const { data, error } = await admin
+      .from('coordinator_broadcasts')
+      .select('body, created_at')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
+    // read error must never take the wedding page down on the day.
+    if (error || !data) return null;
+    const row = data as { body: string; created_at: string };
+    const body = row.body?.trim();
+    if (!body) return null;
+    return { body, createdAt: row.created_at };
   },
 );
 
@@ -216,6 +330,21 @@ export const loadMedia = cache(
     // lib/couple-website-pro.ts. The free baseline website keeps the watermark.
     const proWatermarkHidden = await eventCoupleWebsiteProActive(admin, event.event_id);
 
+    // Website Pro net-new manual site colours (Launch settings §4.4 · PR-C).
+    // The couple's chosen background + button colours (events.site_bg_color /
+    // site_button_color) override the Mood-Board palette tokens on the guest
+    // site — but ONLY when the event owns ACTIVE Website Pro (same gate as the
+    // watermark). Reuses the boolean already resolved above (no extra roundtrip).
+    // buildCustomSiteColorVars returns null when both columns are NULL, so a
+    // non-Pro OR unset event yields `siteColorVars = null` → InvitationShell adds
+    // no override → the page renders byte-identically to today (inert contract).
+    const siteColorVars = proWatermarkHidden
+      ? buildCustomSiteColorVars(
+          event.site_bg_color as string | null,
+          event.site_button_color as string | null,
+        )
+      : null;
+
     // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
     // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
     // generation time, lib/bespoke-monogram-engine.ts), it REPLACES the
@@ -224,13 +353,8 @@ export const loadMedia = cache(
     // strokes, so the bespoke mark uses the container-level entrance instead).
     // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
     // which outranks the lettered lockup — one effective mark feeds the hero.
-    const bespokeSvg =
-      (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-        ? event.monogram_uploaded_svg
-        : null) ??
-      (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
-        ? event.monogram_custom_svg
-        : null);
+    // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+    const bespokeSvg = resolveEventMonogramSvg(event);
 
     // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
     // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on
@@ -257,8 +381,13 @@ export const loadMedia = cache(
     // (the photo becomes its poster). Music resolves only when the couple has
     // both enabled it AND set a track. Both resolve to presigned 24h URLs here
     // and thread into the render paths like heroPhotoUrl.
+    //
+    // SEC-6 (D16): the hero video is a couple-uploaded clip that NOTHING screens
+    // — no poster, no verdict, no gate — so it does not reach a guest until it
+    // goes through the same screen-and-seal spine as std_media. The still photo
+    // (already its poster) shows instead. See lib/guest-hero-video.ts.
     const heroVideoUrl = await displayUrlForStoredAsset(
-      event.landing_page_hero_video_r2_key,
+      heroVideoRefForGuests(event.landing_page_hero_video_r2_key),
     );
     // The couple's song plays whenever they've ENABLED it + set a track
     // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
@@ -285,24 +414,69 @@ export const loadMedia = cache(
           : null;
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
-    // either their photo gallery (default) or an uploaded video. The video plays
-    // on this PUBLIC page ONLY when NSFW-approved (stdVideoIsLive — the platform
-    // lock); otherwise the gallery beat shows. PR-B (0024 · 2026-06-19).
-    const stdMedia = resolveStdMedia(event.std_media);
-    const stdVideoUrl =
-      stdVideoIsLive(stdMedia) && stdMedia.videoKey
-        ? await displayUrlForStoredAsset(stdMedia.videoKey)
+    // either their photo gallery (default) or an uploaded video.
+    //
+    // SEC-6 — ONE function decides AND emits. `stdVideoServeUrls` resolves the
+    // row strictly (a ref that is not this event's own r2:// upload is not a
+    // video), requires an `approved` verdict from the host-unwritable
+    // events.std_media_nsfw column, and then presigns the SEALED copies the
+    // screen made of the bytes it classified — never `std_media.videoKey`.
+    //
+    // That last part is the round-two fix. `displayUrlForStoredAsset` returns any
+    // non-`r2://` value VERBATIM as a URL, so calling it with a host-writable ref
+    // let a URL-shaped R2 key ("http:/evil.example/…") be fingerprinted as an
+    // object here and resolved as a foreign origin by the browser. Nothing on
+    // this path may pass std_media through that helper again.
+    //
+    // The verdict is read in its OWN query (loadStdNsfwVerdict) so a deploy that
+    // lands ahead of the migration degrades to "gallery beat", not a 404.
+    const stdMedia = resolveStdMedia(event.std_media, event.event_id);
+    const stdVerdict =
+      stdMedia.type === 'video' ? await loadStdNsfwVerdict(admin, event.event_id) : null;
+    const stdServe =
+      stdMedia.type === 'video' && stdVerdict
+        ? await stdVideoServeUrls(stdMedia, stdVerdict, event.event_id)
         : null;
-    // The video's poster frame (client-extracted on upload). Resolved ONLY in
-    // "fit to screen" mode (std_media.fit === 'fit'), where the full-screen video
-    // beat fills the letterbox bars with a BLURRED STILL of it — a 2nd <video> for
-    // that backdrop won't play on iOS (one-video-at-a-time), so a static image is
-    // the iOS-safe fill (owner 2026-06-21 "still black screens on top and bottom").
-    // "fill" (the default) needs no poster: the clip plays object-cover, edge-to-edge.
-    const stdVideoPosterUrl =
-      stdVideoUrl && stdMedia.fit === 'fit' && stdMedia.posterKey
-        ? await displayUrlForStoredAsset(stdMedia.posterKey)
-        : null;
+    /**
+     * CUTOVER HEAL — the narrowest possible public-path trigger, and a decaying
+     * one.
+     *
+     * The SEC-6 migration carries the one already-serving production video
+     * across as approved, but SQL cannot HEAD an R2 object, so it cannot know a
+     * fingerprint and cannot write the sealed refs the serve path requires. The
+     * marker row therefore lands NOT serving (fail-closed by construction) and
+     * needs one pass of the screen to fingerprint, classify the poster and seal.
+     *
+     * Every other heal in this feature fires from a dashboard, which would mean
+     * a real couple's live page sits on their photo gallery until somebody logs
+     * in. `stdVideoNeedsGrandfatherHeal` is true ONLY for a row carrying the
+     * service-role marker that is not yet serving, so this fires for exactly one
+     * row in the world, at most once per throttle window, and never again once
+     * that row is sealed. It runs in after(), so it costs this response nothing.
+     */
+    if (
+      stdMedia.type === 'video' &&
+      stdVerdict &&
+      stdVideoNeedsGrandfatherHeal(stdMedia, stdVerdict, event.event_id) &&
+      stdMedia.videoKey &&
+      stdMedia.posterKey
+    ) {
+      const healEventId = event.event_id as string;
+      const videoKey = stdMedia.videoKey;
+      const posterR2Key = stdMedia.posterKey;
+      after(async () => {
+        const { screenStdVideo } = await import('@/lib/nsfw-screen');
+        await screenStdVideo({ eventId: healEventId, videoKey, posterR2Key }).catch(() => {});
+      });
+    }
+    const stdVideoUrl = stdServe?.videoUrl ?? null;
+    // The video's poster frame (client-extracted on upload, then sealed with it).
+    // Resolved ONLY in "fit to screen" mode (std_media.fit === 'fit'), where the
+    // full-screen video beat fills the letterbox bars with a BLURRED STILL of it
+    // — a 2nd <video> for that backdrop won't play on iOS (one-video-at-a-time),
+    // so a static image is the iOS-safe fill (owner 2026-06-21 "still black
+    // screens on top and bottom"). "fill" (the default) needs no poster.
+    const stdVideoPosterUrl = stdServe && stdMedia.fit === 'fit' ? stdServe.posterUrl : null;
 
     // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
     // from the couple's FINALIZED vendor bookings (event_vendors); the reception
@@ -350,6 +524,7 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
+      siteColorVars,
       bespokeSvg,
       studioAnim,
       heroPhotoUrl,
@@ -441,13 +616,9 @@ export const loadLiveLayer = cache(
         // day-of page surfaces the wall mirror. The old
         // event_software_activations_v2 reads had no payment-path writer (their
         // only writer, verify_and_activate_manual_payment, has zero callers).
-        const [ownsWall, watchRowRes] = await Promise.all([
+        const [ownsWall, watchUrls] = await Promise.all([
           eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
-          admin
-            .from('events')
-            .select('panood_watch_url')
-            .eq('event_id', event.event_id)
-            .maybeSingle(),
+          readEventWatchUrls(admin, event.event_id),
         ]);
         if (ownsWall) {
           const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
@@ -459,16 +630,12 @@ export const loadLiveLayer = cache(
               : null,
           };
         }
-        const watchUrl = watchRowRes.error
-          ? null
-          : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
-              ?.panood_watch_url ?? null);
-        if (watchUrl) {
-          const videoId = parseYouTubeVideoId(watchUrl);
-          if (videoId) {
-            watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
-          }
-        }
+        // DUAL-STREAM (owner-approved 2026-07-26). resolveWatchLinks re-validates
+        // BOTH stored URLs on every render — `events` UPDATE RLS is ROW-level and
+        // the anon key is public, so a forged value must degrade to "no link"
+        // rather than reach an iframe src or an href. Returns null when neither
+        // side is usable, which is byte-for-byte the old behaviour.
+        watchLive = resolveWatchLinks(watchUrls);
         // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
         // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
         // mirrored non-secret) turns the single embed into a camera/zone picker. The
@@ -477,7 +644,71 @@ export const loadLiveLayer = cache(
         // flag is off (prod default), this whole block is skipped and CAST behavior
         // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
         if (liveStudioRoamEnabled()) {
-          const roam = await fetchRoamManifest(admin, event.event_id);
+          // GUEST-PICK (Wave 2, owner-locked): the host's switch is honored HERE, by
+          // omission. Off → applyGuestPick reduces the manifest to the single channel
+          // Channel 1 is carrying, so the other channels' video ids are never sent to
+          // the browser and the picker's `length > 1` guard hides itself. Hiding the
+          // buttons while shipping the ids would only look like enforcement.
+          const { manifest, guestPickEnabled } = await fetchRoamViewerState(admin, event.event_id);
+
+          // ⭐ THE PAYWALL, SECOND INDEPENDENT ENFORCEMENT (owner-locked 2026-07-25
+          // · § 4d "rehearse free, pay to broadcast"). The write gate lives in
+          // mirrorRoamManifest; this is the READ gate, and it exists because
+          // SETTINGS PERSIST WHILE PERMISSION DOES NOT. An entitlement that lapses,
+          // is refunded or is revoked after the mirror ran would otherwise leave a
+          // fully published multi-cam stream up until something happened to rewrite
+          // the column. Re-asking here means a free event is reduced to one channel
+          // on EVERY render — same posture as resolveOverlays re-asking on every
+          // frame of the program surface.
+          //
+          // ⚠ DO NOT DELETE THIS AS "REDUNDANT WITH THE WRITE GATE". `events` UPDATE
+          // RLS is ROW-level (couple_can_update_event), so a host can PATCH
+          // live_studio_roam_manifest straight through PostgREST with the public anon
+          // key, bypassing every server action. This read is what makes that
+          // pointless. See lib/live-studio-publish.ts for the full threat note.
+          //
+          // ADMIN client on purpose: `orders` RLS is purchaser-scoped, so the
+          // anon/session client would read "not owned" for a couple who genuinely
+          // paid and strip their multi-cam mid-wedding. Fail-closed inside
+          // canPublishMultiCam; the lookup is skipped entirely for a
+          // zero-or-one-channel (free single-cam) manifest, so the free path pays
+          // nothing for the gate.
+          // ⭐ ONE ANSWER, TWO CONSUMERS. Resolve the entitlement ONCE and let both the
+          // YouTube manifest and the Wave 10 side-camera roster read the same boolean.
+          // The zero-or-one-channel shortcut is preserved for the free single-cam path
+          // — but a free event with side cameras must still be asked, or guest-pick
+          // would be the one paid capability you could get without paying.
+          const needsEntitlement = manifest.length > 1 || guestPickEnabled;
+          const multiCamOwned = needsEntitlement
+            ? await canPublishMultiCam(admin, event.event_id)
+            : true;
+
+          const publishable = limitPublishedManifest(manifest, multiCamOwned);
+          const roam = applyGuestPick(publishable, guestPickEnabled);
+
+          // WAVE 10 · GUEST-PICK AT ₱0 — side cameras served peer-to-peer from the
+          // operator's phone. Deliberately NOT part of the manifest: they have no
+          // YouTube id (they are never broadcast), and parseRoamManifest drops
+          // idless entries by design.
+          //
+          // Three gates, all of which must pass, and all of which already exist:
+          //   • guestPickEnabled — the host's own switch (Wave 2)
+          //   • multiCamOwned    — THE paywall, the same helper that reduced the
+          //                        manifest one line above (§ 4d). Not a second rule.
+          //   • a live, claimed camera on the zone (inside fetchGuestPickCameras)
+          // Enforced by OMISSION, matching the manifest: a guest whose event fails any
+          // gate is never told a side camera exists, so nothing on their page can open
+          // a connection to one.
+          const guestCameras = shouldOfferGuestPick({
+            // Already inside `if (liveStudioRoamEnabled())`; passed explicitly so the
+            // gate reads as the complete rule rather than a partial one.
+            flagEnabled: true,
+            guestPickEnabled,
+            multiCamOwned,
+          })
+            ? await fetchGuestPickCameras(admin, event.event_id)
+            : [];
+
           const featured = selectFeaturedZone(roam);
           if (featured) {
             try {
@@ -485,10 +716,23 @@ export const loadLiveLayer = cache(
                 embedUrl: youTubeEmbedUrl(featured.videoId),
                 watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
                 roam,
+                // Carried through deliberately: a couple who published a Facebook
+                // link AND owns Roam must not lose the Facebook door just because
+                // the picker replaced the single embed.
+                facebookUrl: watchLive?.facebookUrl ?? null,
               };
             } catch {
               // invalid featured id — keep any CAST watchLive as-is
             }
+          }
+
+          // Attach the side cameras to whatever director's cut we ended up with —
+          // the Roam featured zone above, or the plain CAST embed resolved earlier.
+          // ⚠ ONLY when one exists: guest-pick's entire failure story is "fall back to
+          // the director's cut", so offering side cameras with nothing to fall back to
+          // would build the one broken state this wave is meant to avoid.
+          if (watchLive && guestCameras.length > 0) {
+            watchLive = { ...watchLive, guestCameras, eventId: event.event_id };
           }
         }
       } catch {
@@ -647,11 +891,41 @@ export const loadGuestContext = cache(
     // "Register your face if you haven't yet" — day-of catch for a guest who
     // skipped the optional RSVP selfie. Shown across the WHOLE pre-event window
     // (not just the day) so guests enroll early — but only when this event has
-    // candid capture (Papic guest camera or crew seats), the guest hasn't
-    // declined, and they have NO active enrollment. Self-hides the moment they
-    // add a selfie. Two cheap targeted reads, gated to skip work when irrelevant.
+    // candid capture ON as a purchase, the guest hasn't declined, and they have NO
+    // active enrollment. Self-hides the moment they add a selfie.
+    //
+    // ⚠ THE `eventOwnsPapicSeats()` HALF WAS DEAD AND IS REMOVED (2026-07-30) —
+    // `PAPIC_SEATS` is `is_active = false` in prod, zero orders ever, retired by the
+    // 2026-07-29 two-type lock. It could never be true, so it was buying every
+    // guest page-load an extra orders read for a guaranteed `false`.
+    //
+    // ── WIDENED 2026-07-30 (owner: "widen it") — and gated on the control that
+    //    actually governs the capability, not on a purchase. ───────────────────
+    //
+    // It used to require an ACTIVE `PAPIC_GUEST` pack, so a guest at an event on
+    // the free pool — every event, since the grant is armed at creation — was
+    // never offered enrollment even though their photos were being taken.
+    //
+    // ⚠ TWO CORRECTIONS TO THE PRIOR NOTE HERE, both verified in code rather than
+    // taken from the register:
+    //   • Auto face-matching is NOT dormant. `lib/face-match.ts` is a working
+    //     matcher, and it needs no hosted model because the DESCRIPTORS ARE
+    //     EXTRACTED CLIENT-SIDE and posted with the capture
+    //     (api/papic/guest-capture/route.ts:244,540). So an enrollment does buy
+    //     the guest something today.
+    //   • The `face_enrollment` data-privacy control is ACTIVE in prod (approved
+    //     2026-07-16), i.e. the DPO already signed the capability off.
+    //
+    // So the honest gate is the capability's OWN control — the very one
+    // `face-match.ts:52` checks before it will match or persist a descriptor. Ask
+    // for a selfie only where a selfie can actually be used, and if the DPO ever
+    // revokes the control the prompt disappears on its own. That is
+    // disclose-then-enable mechanised instead of hand-held.
+    //
+    // `faceMode` still decides the ASK's shape downstream (christening/debut are
+    // forced mode_b), and RA 10173 consent is captured by the enroll UI itself.
     let needsFaceEnroll = false;
-    if (papicGuestActive || (await eventOwnsPapicSeats(admin, event.event_id))) {
+    if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment } = await admin
           .from('guest_face_enrollments')

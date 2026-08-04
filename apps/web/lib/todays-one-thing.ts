@@ -318,6 +318,8 @@ export function pickTodaysOneThing(
   vendors: ReadonlyArray<EventVendorRowInput>,
   weddingDateIso: string | null,
   now: Date = new Date(),
+  /** See countUnlockedCategories — same contract, same default. */
+  groups: ReadonlyArray<PlanGroup> = PLAN_GROUPS,
 ): ResolvedTask | null {
   // No wedding date → caller's hero card shifts to the date-prompt
   // variant. Returning null signals that semantic.
@@ -331,7 +333,7 @@ export function pickTodaysOneThing(
   // Build candidate list — one entry per UNLOCKED group with status
   // assigned per algorithm.
   const candidates: Candidate[] = [];
-  for (const group of PLAN_GROUPS) {
+  for (const group of groups) {
     // 22-card grid expansion (2026-05-22): skip entry-point cards
     // (countsTowardLockable: false). They share their underlying
     // VendorCategory with another card, so showing "Lock your live
@@ -405,10 +407,17 @@ export function pickTodaysOneThing(
  */
 export function countUnlockedCategories(
   vendors: ReadonlyArray<EventVendorRowInput>,
+  /**
+   * The ladder to count against. Defaults to the full wedding PLAN_GROUPS so
+   * every existing caller is byte-identical; pass the event type's own ladder
+   * (lib/plan-groups-by-event-type.ts) to stop counting a birthday against
+   * `ceremony_venue` and `bridal_car`.
+   */
+  groups: ReadonlyArray<PlanGroup> = PLAN_GROUPS,
 ): number {
   const bucketed = bucketVendorsByGroup(vendors, null, null);
   let unlocked = 0;
-  for (const group of PLAN_GROUPS) {
+  for (const group of groups) {
     if (group.countsTowardLockable === false) continue;
     const picks = bucketed.get(group.id) ?? [];
     if (!hasLockedPick(picks)) unlocked += 1;

@@ -10,20 +10,28 @@ export function VenueWidget({ event }: { event: EventRow }) {
   // when the event has a geocoded venue. Falls back to a text-search
   // Google Maps link when only venue_address is set. Hidden entirely if
   // both are missing.
+  // Pahina (design 2026-07-25 §7): the venue reads as a recessed paper-deep
+  // PLATE with a printed inner hairline frame, not another cream card. The old
+  // decorative band mixed warn-/success- app tones into a wedding page — it is
+  // now a palette-derived veil→gild wash (functional-color exile, §4).
+  // Eyebrow is intentionally unnumbered: `PublicEventDetails` owns № 03 and both
+  // can appear on one page.
   return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Venue</p>
-      <div className="overflow-hidden rounded-lg border border-ink/10">
-        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-warn-100 to-success-100" />
-        <div className="space-y-3 bg-cream p-4">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
+    <section className="space-y-4">
+      <p className="pahina-eyebrow">
+        <span>The venue</span>
+      </p>
+      <div>
+        <div className="h-32 border border-b-0 border-ink/10 bg-gradient-to-br from-veil via-paper-deep to-gild/25" />
+        <div className="pahina-plate space-y-3">
+          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
             Ceremony &amp; Reception
           </p>
-          <h3 className="text-xl font-semibold tracking-tight">
+          <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
             {event.venue_name ?? 'Venue to be confirmed'}
           </h3>
           {event.venue_address ? (
-            <p className="text-sm text-ink/65">{event.venue_address}</p>
+            <p className="text-sm leading-relaxed text-ink/65">{event.venue_address}</p>
           ) : null}
           <NavLinksRow
             latitude={event.venue_latitude ?? null}

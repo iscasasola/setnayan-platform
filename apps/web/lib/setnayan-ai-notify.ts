@@ -7,11 +7,9 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
   resolveSetnayanAiPerEventPricingEnabled,
 } from '@/lib/integration-config';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { buildPlanningSnapshot } from '@/lib/setnayan-ai-snapshot';
 import { runTriggers } from '@/lib/setnayan-ai-triggers';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -41,10 +39,11 @@ import {
  * first sees the payment window — no cron anywhere.
  *
  * GATING: guard notifications go ONLY to events where Setnayan AI is active —
- * the Overview's exact resolution (isSetnayanAiActiveForUser with the DB-first
- * paywall + per-user flags + host-subscription fan-out), PLUS the per-event
- * pricing flag threaded in (this path resolves it properly — see the
- * 2026-07-09 eventOwnsSetnayanAi fix). No AI → no guard notifications, ever.
+ * the Overview's exact resolution (isSetnayanAiActiveForEvent with the DB-first
+ * paywall flag), PLUS the per-event pricing flag threaded in (this path resolves
+ * it properly — see the 2026-07-09 eventOwnsSetnayanAi fix). Entitlement is read
+ * off THIS event only — the per-USER host-subscription fan-out was retired
+ * 2026-08-01. No AI → no guard notifications, ever.
  *
  * Everything is fail-soft: this runs behind after() on the couple's own page
  * loads, so no error may ever surface — swallowed + logged via logQueryError.
@@ -126,21 +125,17 @@ export async function sweepGuardNotifications(eventId: string): Promise<void> {
       .maybeSingle();
     if (!eventRow) return;
 
-    const [paywallEnabled, perUserEnabled, perEventPricingEnabled] = await Promise.all([
+    const [paywallEnabled, perEventPricingEnabled] = await Promise.all([
       resolveSetnayanAiPaywallEnabled(),
-      resolveSetnayanAiPerUserEnabled(),
       resolveSetnayanAiPerEventPricingEnabled(),
     ]);
-    const subscription = perUserEnabled
-      ? await getEventHostAiSubscription(admin, eventId)
-      : null;
-    const aiActive = isSetnayanAiActiveForUser(
+    const aiActive = isSetnayanAiActiveForEvent(
       eventRow as {
         planning_mode?: string | null;
         setnayan_ai_active?: boolean | null;
         setnayan_ai_active_until?: string | null;
       },
-      { paywallEnabled, perUserEnabled, perEventPricingEnabled, subscription, now },
+      { paywallEnabled, perEventPricingEnabled, now },
     );
     if (!aiActive) return; // No AI → no guard notifications. The locked boundary.
 

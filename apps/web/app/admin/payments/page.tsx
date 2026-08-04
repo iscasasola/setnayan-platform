@@ -27,6 +27,7 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -41,7 +42,11 @@ type Filter = 'pending' | 'all' | 'orders_needing_quote';
 type PaymentJoined = {
   payment_id: string;
   order_id: string;
-  user_id: string;
+  // NULL for a GUEST order — one minted from a Papic capture surface by
+  // somebody with no Setnayan account (owner-locked 2026-07-29). The buyer
+  // column renders `buyerLabel()` rather than a bare dash so the blank reads as
+  // intent, not as a broken join.
+  user_id: string | null;
   amount_php: number;
   channel: string;
   reference_number: string | null;
@@ -58,6 +63,8 @@ type PaymentJoined = {
   created_at: string;
   order: {
     public_id: string;
+    /** Drives the SAME-DAY jump below. Nullable — not every order is event-scoped. */
+    event_id: string | null;
     reference_code: string;
     description: string;
     service_key: string | null;
@@ -77,6 +84,8 @@ type PaymentJoined = {
 
 type OrderJoined = {
   order_id: string;
+  // NULL for a GUEST order — see the note on PaymentJoined.user_id.
+  user_id: string | null;
   public_id: string;
   reference_code: string;
   description: string;
@@ -87,6 +96,20 @@ type OrderJoined = {
   created_at: string;
   user: { email: string | null; public_id: string } | null;
 };
+
+/**
+ * Who to show in the buyer column.
+ *
+ * A GUEST order has no account and therefore no email — deliberately, not
+ * because a join failed. Saying so out loud matters at the reconciliation desk:
+ * an admin looking at a ₱1,000 transfer with a dash where the buyer should be
+ * has no way to tell "guest purchase" from "something is wrong with this row",
+ * and the safe reaction to the second is to not approve it.
+ */
+function buyerLabel(email: string | null | undefined, userId: string | null | undefined): string {
+  if (email) return email;
+  return userId ? '—' : 'Guest · no account';
+}
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
   await requireAdmin();
@@ -115,7 +138,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     const { data } = await admin
       .from('orders')
       .select(
-        'order_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
+        'order_id,user_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
       )
       .eq('status', 'submitted')
       .order('created_at', { ascending: true })
@@ -127,8 +150,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     // embed would keep them with a null order). Every payment has an order, so
     // !inner drops nothing else.
     const orderEmbed = platformFilter
-      ? 'order:orders!inner(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)'
-      : 'order:orders(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)';
+      ? 'order:orders!inner(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)'
+      : 'order:orders(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)';
     let paymentsQuery = admin
       .from('payments')
       .select(
@@ -156,6 +179,17 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       if (url) screenshotUrlMap[p.payment_id] = url;
     }),
   );
+
+  // ── SAME-DAY FIRST (owner 2026-08-02) ─────────────────────────────────────
+  // "have an emergency purchase part if the event day is the day itself. these
+  // will be priority." A 24-hour SLA is a fine promise on an ordinary order and
+  // a broken product on a same-day one — the party ends before anyone looks. So
+  // an order for an event happening TODAY jumps the whole queue, above even a
+  // clean match: a clean match on next month's wedding can wait and this cannot.
+  //
+  // Same function the guest-facing buy panel uses to PROMISE the priority, so
+  // the promise and the queue position cannot drift apart.
+  const sameDayOrderIds = await fetchSameDayOrderIds(admin, payments);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
@@ -208,7 +242,11 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       {filter === 'orders_needing_quote' ? (
         <OrdersNeedingQuote orders={unquotedOrders} />
       ) : (
-        <PaymentsList payments={payments} screenshotUrlMap={screenshotUrlMap} />
+        <PaymentsList
+          payments={payments}
+          screenshotUrlMap={screenshotUrlMap}
+          sameDayOrderIds={sameDayOrderIds}
+        />
       )}
     </div>
   );
@@ -274,7 +312,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
                 {o.public_id} · ref <span className="text-terracotta-700">{o.reference_code}</span>
               </p>
-              <p className="text-sm font-semibold text-ink">{o.user?.email ?? '—'}</p>
+              <p className="text-sm font-semibold text-ink">{buyerLabel(o.user?.email, o.user_id)}</p>
             </div>
             <span
               className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
@@ -343,8 +381,16 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
 function PaymentsList({
   payments,
   screenshotUrlMap,
+  sameDayOrderIds,
 }: {
   payments: PaymentJoined[];
+  /**
+   * order_ids whose event is TODAY in Manila. Resolved in the page (async) and
+   * passed down because this component is synchronous — and passed as a SET of
+   * ids rather than a boolean per row so the list and the count in the banner
+   * above it cannot disagree.
+   */
+  sameDayOrderIds: Set<string>;
   /**
    * Map of payment_id → presigned display URL for the payment-proof screenshot.
    * Resolved server-side in the page component because proofs live in the
@@ -365,6 +411,9 @@ function PaymentsList({
   const matcherRows: MatcherPayment[] = payments.map((p) => ({
     payment_id: p.payment_id,
     reference_code: p.order?.reference_code ?? null,
+    // The WALLET reference the couple submitted — the matcher's strongest tier
+    // compares it against whatever the admin pastes from their own bank app.
+    reference_number: p.reference_number,
     amount_php: p.amount_php,
     label: p.user?.email ?? p.order?.public_id ?? '—',
     orderPublicId: p.order?.public_id ?? null,
@@ -375,8 +424,17 @@ function PaymentsList({
   // computed by the same pure predicate the server re-checks on approve). Only
   // PENDING rows can be clean matches. Surface clean matches first so the admin
   // clears the safe ones fastest, then batch-approve or one-click them.
+  //
+  // ── SAME-DAY FIRST (owner 2026-08-02) ─────────────────────────────────────
+  // "have an emergency purchase part if the event day is the day itself. these
+  // will be priority." A 24-hour SLA is a fine promise on an ordinary order and
+  // a broken product on a same-day one — the party ends before anyone looks. So
+  // an order for an event happening TODAY jumps the whole queue, above even a
+  // clean match, because a clean match on next month's wedding can wait and this
+  // cannot. Read here rather than joined so a failure costs the ORDERING only.
   const decorated = payments.map((p) => ({
     p,
+    sameDay: sameDayOrderIds.has(p.order_id),
     decisive:
       p.status === 'pending' &&
       isDecisivePaymentMatch({
@@ -392,18 +450,45 @@ function PaymentsList({
         serviceKey: p.order?.service_key ?? null,
       }),
   }));
-  // Stable sort: clean matches to the top, everything else keeps its order.
-  const ordered = [...decorated].sort((a, b) => Number(b.decisive) - Number(a.decisive));
+  // Stable sort, two keys in priority order: TODAY's events first (the clock is
+  // the constraint), then clean matches (speed of clearing). Stable, so anything
+  // tied keeps the created_at order the query already applied.
+  const ordered = [...decorated].sort(
+    (a, b) => Number(b.sameDay) - Number(a.sameDay) || Number(b.decisive) - Number(a.decisive),
+  );
   const totalCleanMatches = decorated.filter((d) => d.decisive).length;
+  const totalSameDay = decorated.filter((d) => d.sameDay && d.p.status === 'pending').length;
 
   return (
     <>
       <InboxMatcher payments={matcherRows} />
+      {/* The clock, before the list. An admin scanning this page needs to know a
+          party is happening RIGHT NOW before they start working top-down — the
+          ordering already put these first, but a count says why. */}
+      {totalSameDay > 0 ? (
+        <p className="mb-3 rounded-xl border-2 border-terracotta bg-terracotta/5 px-3 py-2 text-sm font-medium text-ink">
+          {totalSameDay === 1
+            ? '1 pending payment is for an event happening TODAY — confirm it first.'
+            : `${totalSameDay} pending payments are for events happening TODAY — confirm those first.`}
+        </p>
+      ) : null}
       <BatchApproveBar action={batchApprovePayments} totalCleanMatches={totalCleanMatches} />
       <div className="sn-tile">
       <ul className="space-y-3">
-      {ordered.map(({ p, decisive }) => {
-        const matchesRef =
+      {ordered.map(({ p, decisive, sameDay }) => {
+        // Did the couple put OUR order code in their transfer note?
+        //
+        // ⚠ Since the per-order payment QR shipped (2026-07-31) this is rarely
+        // true and its absence is NOT a red flag. A scanned-QR payment goes out
+        // through GCash Express Send with no note we can see, and the code
+        // cannot ride inside the QR either — GCash rejects the EMVCo tag 62
+        // template outright. So a QR payer has no way to carry it.
+        //
+        // It still fires for MANUAL transfers, where the payer types a note.
+        // The label below therefore reports what this actually is — a bonus
+        // signal when present — instead of implying something is wrong when
+        // it is absent, which would train the admin to ignore the badge.
+        const noteCarriesOrderCode =
           !!p.reference_number &&
           !!p.order?.reference_code &&
           p.reference_number.toUpperCase().includes(p.order.reference_code.toUpperCase());
@@ -412,7 +497,7 @@ function PaymentsList({
             key={p.payment_id}
             id={`payment-${p.payment_id}`}
             className={`sn-row scroll-mt-20 space-y-3 p-4${
-              decisive ? ' ring-1 ring-success-300/70' : ''
+              sameDay ? ' ring-2 ring-terracotta' : decisive ? ' ring-1 ring-success-300/70' : ''
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -421,7 +506,7 @@ function PaymentsList({
                   Order {p.order?.public_id ?? '—'} · ref{' '}
                   <span className="text-terracotta-700">{p.order?.reference_code ?? '—'}</span>
                 </p>
-                <p className="text-sm font-semibold text-ink">{p.user?.email ?? '—'}</p>
+                <p className="text-sm font-semibold text-ink">{buyerLabel(p.user?.email, p.user_id)}</p>
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <span
@@ -431,6 +516,11 @@ function PaymentsList({
                 >
                   {PAYMENT_STATUS_LABEL[p.status]}
                 </span>
+                {sameDay ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-cream">
+                    Event today
+                  </span>
+                ) : null}
                 {decisive ? (
                   <>
                     <span className="inline-flex items-center gap-1 rounded-full bg-success-700 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-cream">
@@ -478,13 +568,17 @@ function PaymentsList({
                 </span>
                 {' · status '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
-                {matchesRef ? (
+                {noteCarriesOrderCode ? (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-success)]">
-                    Reference matches
+                    Order code in note
+                  </span>
+                ) : p.reference_number ? (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-neutral-soft,var(--sn-warning-soft))] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink/60">
+                    Check their ref in your app
                   </span>
                 ) : (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-warning)]">
-                    Verify reference manually
+                    No reference given
                   </span>
                 )}
               </p>
@@ -775,4 +869,49 @@ function Stat({ label, value, mono = false }: { label: string; value: string; mo
       </dd>
     </div>
   );
+}
+
+
+/**
+ * Which of these payments belong to an event happening TODAY (Manila)?
+ *
+ * One batched read keyed on the orders already on screen — never a per-row
+ * query, and never a join that could drop rows if it failed. Returns order_ids
+ * rather than event_ids so the caller matches on what it already holds.
+ *
+ * Degrades to an EMPTY set on any failure: losing the same-day jump costs the
+ * queue its ordering, which an admin can still work around by reading the event
+ * date on the row. Throwing here would take down the payments console itself.
+ */
+async function fetchSameDayOrderIds(
+  admin: ReturnType<typeof createAdminClient>,
+  payments: readonly PaymentJoined[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const byEvent = new Map<string, string[]>();
+  for (const p of payments) {
+    const eid = p.order?.event_id ?? null;
+    if (!eid) continue;
+    const list = byEvent.get(eid);
+    if (list) list.push(p.order_id);
+    else byEvent.set(eid, [p.order_id]);
+  }
+  if (byEvent.size === 0) return out;
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select('event_id, event_date')
+      .in('event_id', [...byEvent.keys()]);
+    if (error || !Array.isArray(data)) return out;
+    for (const row of data) {
+      const date = (row as { event_date?: string | null }).event_date ?? null;
+      if (!isSameDayInManila(date)) continue;
+      for (const oid of byEvent.get(String((row as { event_id?: unknown }).event_id ?? '')) ?? []) {
+        out.add(oid);
+      }
+    }
+    return out;
+  } catch {
+    return out;
+  }
 }

@@ -25,6 +25,7 @@ import {
 import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { captureEvent } from '@/lib/analytics';
+import { guestReceiptName } from '@/lib/papic-guest-buy';
 import {
   computePayoutBreakdown,
   dispatchVendorPayouts,
@@ -60,6 +61,27 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
   return t.length > 0 ? t : null;
+}
+
+/**
+ * Notify the buyer — UNLESS the order has no account behind it.
+ *
+ * A GUEST order (owner-locked 2026-07-29) is minted from a Papic capture
+ * surface by someone with no Setnayan account, so `payments.user_id` is NULL and
+ * there is nobody to notify: `notifications.user_id` is NOT NULL, and the
+ * FK would reject the insert anyway. Their status lives on the bearer-token
+ * order page they were handed at checkout (/papic/order/[token]).
+ *
+ * Silent by design, and safe by contract: every notification on this path is
+ * already best-effort — a missing one must never make a fully-successful
+ * approval look like a failure to the admin.
+ */
+async function notifyBuyerIfAny(
+  userId: string | null | undefined,
+  args: Omit<Parameters<typeof emitNotification>[0], 'userId'>,
+): Promise<void> {
+  if (!userId) return;
+  await emitNotification({ userId, ...args });
 }
 
 export async function approvePayment(formData: FormData) {
@@ -185,8 +207,7 @@ async function approvePaymentCore(args: {
   // notifying the buyer throws, the admin should still see a clean success
   // rather than a 500 that makes them re-click an already-done approval.
   try {
-    await emitNotification({
-      userId: payment.user_id,
+    await notifyBuyerIfAny(payment.user_id, {
       type: 'payment_matched',
       title: `Payment of ${formatPhp(payment.amount_php)} matched`,
       body: adminNotes ?? 'The Setnayan team confirmed your payment.',
@@ -289,8 +310,7 @@ async function approvePaymentCore(args: {
     // already promoted to 'paid'; a notification failure must not surface a
     // 500 that makes the admin think the fully-successful approval failed.
     try {
-      await emitNotification({
-        userId: payment.user_id,
+      await notifyBuyerIfAny(payment.user_id, {
         type: 'order_paid',
         title: `Order ${order?.public_id ?? ''} marked paid`,
         body: "Your order is fully paid. We'll start work right away.",
@@ -309,7 +329,12 @@ async function approvePaymentCore(args: {
     // delays the admin's reconciliation click; the helper is best-effort and
     // never throws. Idempotent — the redemption lookup only matches an `open`
     // row, so re-approvals / partial-then-full flows can't double-mint.
-    after(() => qualifyReferralOnFirstPaidOrder(payment.user_id));
+    // A GUEST order has no account, so there is no referral to qualify and no
+    // person to attribute the funnel event to — skip both rather than passing a
+    // null id down two helpers that reasonably assume a buyer exists.
+    if (payment.user_id) {
+      after(() => qualifyReferralOnFirstPaidOrder(payment.user_id as string));
+    }
 
     // Funnel event — fires the moment an order's status flips to paid.
     // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
@@ -317,7 +342,7 @@ async function approvePaymentCore(args: {
     // `sku_key` maps to the order's `service_key` column (closest existing
     // analog; no schema change per the wiring scope).
     try {
-      await captureEvent({
+      if (payment.user_id) await captureEvent({
         distinctId: payment.user_id,
         event: 'order_paid',
         properties: {
@@ -693,11 +718,41 @@ async function issueReceiptForOrder(args: {
       : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
   if (storedTotal <= 0) return;
 
-  const { data: buyer } = await admin
-    .from('users')
-    .select('email, display_name')
-    .eq('user_id', order.user_id)
-    .maybeSingle();
+  // The buyer, when there is one. A GUEST order (owner-locked 2026-07-29) has
+  // `user_id` NULL — nobody to look up — so the receipt is issued to whatever
+  // name the payer typed on the payment form, falling back to
+  // "Guest of <event>".
+  //
+  // ⚠ BIR: an anonymous Official Receipt is FLAGGED FOR THE ACCOUNTANT, not
+  // blocked. The transaction happened, the money is real, and a receipt that
+  // refuses to exist because the payer had no account is worse for the audit
+  // trail than one that says who we honestly know them to be. (Standing
+  // interim-payments default: document, don't block.)
+  const { data: buyer } = order.user_id
+    ? await admin
+        .from('users')
+        .select('email, display_name')
+        .eq('user_id', order.user_id)
+        .maybeSingle()
+    : { data: null };
+
+  let guestReceiptFallback: string | null = null;
+  if (!order.user_id) {
+    // `events.display_name`, NOT `event_name` — the latter does not exist on the
+    // table, and a query naming a phantom column returns an error that a
+    // `?? null` would quietly render as "no event". (Phantom-column class: 26
+    // live bugs, same shape.)
+    const { data: guestRow } = await admin
+      .from('papic_guest_orders')
+      .select('payer_name, event:events(display_name)')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    guestReceiptFallback = guestReceiptName(
+      (guestRow as { payer_name?: string | null } | null)?.payer_name ?? null,
+      ((guestRow as { event?: { display_name?: string | null } | null } | null)?.event
+        ?.display_name as string | null) ?? null,
+    );
+  }
 
   // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
   // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
@@ -710,9 +765,9 @@ async function issueReceiptForOrder(args: {
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().
   await admin.from('receipts').insert({
     order_id: orderId,
-    user_id: order.user_id,
+    user_id: order.user_id ?? null,
     issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
-    issued_to_name: buyer?.display_name ?? null,
+    issued_to_name: buyer?.display_name ?? guestReceiptFallback,
     pre_vat_php: preVat,
     vat_amount_php: vat,
     gross_total_php: gross,
@@ -832,8 +887,7 @@ export async function rejectPayment(formData: FormData) {
     },
   });
 
-  await emitNotification({
-    userId: payment.user_id,
+  await notifyBuyerIfAny(payment.user_id, {
     type: 'payment_rejected',
     title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
     body: adminNotes ?? 'Please review and try again, or reach out to support.',
@@ -979,8 +1033,7 @@ export async function requestPaymentResubmit(formData: FormData) {
   // RESEND_API_KEY is configured (lib/notification-emit.ts:46). The email
   // body is composed from the title + body + relatedUrl — brand-voice copy
   // here surfaces verbatim to the couple's inbox.
-  await emitNotification({
-    userId: payment.user_id,
+  await notifyBuyerIfAny(payment.user_id, {
     type: 'payment_resubmit_requested',
     title: `Please re-upload your payment for order ${order?.public_id ?? ''}`.trim(),
     // The admin's notice IS the body — they know what the couple needs to
@@ -1181,8 +1234,7 @@ export async function refundOrder(formData: FormData) {
 
   // Step 5: notify the couple. Polite brand voice per [[feedback_setnayan_no_dev_text_post_launch]] —
   // we tell them what landed, not what the database did.
-  await emitNotification({
-    userId: orderBefore.user_id,
+  await notifyBuyerIfAny(orderBefore.user_id, {
     type: 'payment_refunded',
     title: `Refund recorded for order ${orderBefore.public_id}`,
     body:
@@ -1247,8 +1299,7 @@ export async function confirmOrderTotal(formData: FormData) {
     throw new Error(error?.message ?? 'Could not update order');
   }
 
-  await emitNotification({
-    userId: order.user_id,
+  await notifyBuyerIfAny(order.user_id, {
     type: 'order_quoted',
     title: `Order ${order.public_id} quoted at ${formatPhp(order.confirmed_total_php)}`,
     body: adminNotes ?? 'Open the order to view payment instructions.',

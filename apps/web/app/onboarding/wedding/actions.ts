@@ -1,5 +1,7 @@
 'use server';
 
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { initialLandingVisibility } from '@/lib/onboarding/initial-visibility';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
@@ -14,6 +16,8 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
@@ -460,6 +464,12 @@ export async function commitOnboardingWedding(
       venue_address: null,
       slug,
       is_primary: true,
+      // Visible by link from creation — unless still an anonymous draft. The
+      // rule lives in lib/onboarding/initial-visibility.ts because this insert
+      // runs as service-role and the RLS anon-publish guard cannot see it.
+      landing_page_visibility: initialLandingVisibility({
+        isAnonymous: Boolean(user.is_anonymous),
+      }),
       // Iteration 0043 wedding-type columns (CHECK-constraint-required for weddings)
       ceremony_type: ceremonyType,
       venue_setting: venueSetting,
@@ -545,6 +555,20 @@ export async function commitOnboardingWedding(
       error: insertError?.message ?? 'event_insert_failed',
     };
   }
+
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
+  // ON free for every new event, so the metering fence must exist from the moment
+  // the event does — an event with no grant takes papic_event_pool_status()'s
+  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
+  // a miss here is self-healed on the first Papic-studio render.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,
@@ -927,7 +951,28 @@ export async function searchOnboardingReceptionVenues(input: {
         .slice(0, 6)
         .map((r) => toResult(r, 'travel'));
     }
-    return [...natives, ...travels];
+    // ⚠ RESOLVE THE PHOTO REF BEFORE IT LEAVES THE SERVER.
+    // `vendor_profiles.logo_url` (and `primary_photo_url`) STORE a raw `r2://`
+    // ref — that is the shipped contract, and `VendorAvatar`'s docblock states
+    // the other half: "a raw r2:// ref will not render, so pass the resolved URL
+    // or null." `toResult` handed the raw value to the client, where
+    // `onboarding-shell.tsx` drops it into `backgroundImage: url(...)` — so the
+    // vendor picker rendered a background that cannot load.
+    //
+    // This is the source of the live `img-src r2://setnayan-media` violations in
+    // the report-only CSP (2026-08-02): prod has a vendor whose logo_url is
+    // `r2://setnayan-media/vendors/.../logo/...png`, and walking onboarding fires
+    // one report per card.
+    //
+    // Resolved in ONE Promise.all — each call is a separate signing round trip —
+    // and idempotent, so a legacy plain URL passes through untouched. Failure
+    // degrades to null (the picker already renders an initials/placeholder tile),
+    // never to a broken image.
+    const all = [...natives, ...travels];
+    const photoUrls = await Promise.all(
+      all.map((v) => displayUrlForStoredAsset(v.photoUrl).catch(() => null)),
+    );
+    return all.map((v, i) => ({ ...v, photoUrl: photoUrls[i] ?? null }));
   } catch {
     return [];
   }

@@ -179,6 +179,12 @@ export function addOnHref(key: string, eventId: string): string {
   // as the "301 to Pakanta" so any lingering deep link still resolves.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
+  // Live Studio — the internal data key stays `live-studio-roam` (reviews/stats/
+  // detail/recommendations key off it, unchanged by the route rename), but the
+  // customer-facing ROUTE moved to /studio/live-studio-control (owner 2026-07-25 —
+  // one unified controller, not Cast-vs-Roam). The old path 301s to the new one in
+  // next.config, so a stale deep link still resolves.
+  if (key === 'live-studio-roam') return `/dashboard/${eventId}/studio/live-studio-control`;
   // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
   // is the kill-switch that falls back to the 2D editor (kept in lockstep with
   // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
@@ -192,12 +198,13 @@ export function addOnHref(key: string, eventId: string): string {
       : `/dashboard/${eventId}/seating/lab`;
   }
   // The three website "parts" (RSVP · Event · Editorial) open the full-screen
-  // editor jumped straight to that phase — its own top-level route so it escapes
-  // the dashboard chrome, exactly like the combined editor. Save the Date keeps
-  // its own builder (/studio/save-the-date via the default below). See the
-  // matching `appStoreDetailHref` branches + /site-editor/[eventId]/<phase>.
+  // editor jumped straight to that phase. Unified Website Editor (2026-07-25):
+  // all three now open the ONE editor, whose preview carries the phase tabs —
+  // so "edit the RSVP page" and "edit the After page" land in the same place the
+  // couple edits everything else. Save the Date keeps its own builder
+  // (/studio/save-the-date via the default below).
   if (key === 'rsvp' || key === 'event' || key === 'editorial') {
-    return `/site-editor/${eventId}/${key}`;
+    return `/dashboard/${eventId}/website/editor`;
   }
   return `/dashboard/${eventId}/studio/${key}`;
 }
@@ -220,10 +227,10 @@ export function addOnHref(key: string, eventId: string): string {
  *     destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  // landing-page: the "Whole website" card opens the editor OVERVIEW
-  // (/site-editor root), which differs from addOnHref('landing-page') (the
-  // /website hub) — kept explicit pending the website-parts consolidation.
-  if (key === 'landing-page') return `/site-editor/${eventId}`;
+  // landing-page: the "Whole website" card opens the unified editor (the
+  // website-parts consolidation this comment used to await — 2026-07-25), which
+  // differs from addOnHref('landing-page') (the /website hub).
+  if (key === 'landing-page') return `/dashboard/${eventId}/website/editor`;
   // Everything else is data-driven by the `opensDirect` catalog flag — no
   // per-feature hardcoding. opensDirect → open the service's own surface
   // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.
@@ -365,7 +372,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb: 'After the day — your wedding told as a story, with the gallery and a thank-you note.',
+    blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
     cta: 'Edit your editorial',
     studioGroup: 'website',
     tier: 'free',
@@ -546,8 +553,18 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your guests become the photographers — every candid and clip in your gallery by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
-    freeTrial: 'Free to try',
-    serviceKey: 'PAPIC_SEATS',
+    freeTrial: 'Free to start',
+    // NO serviceKey, deliberately (2026-07-30). It used to be 'PAPIC_SEATS' —
+    // the ₱2,999 five-seat pass, `is_active = false` in prod and retired by the
+    // two-type lock (owner 2026-07-29), with zero orders ever placed against it.
+    // A dead key here was not cosmetic: `isRecommendable()` on the Studio hub
+    // requires only `Boolean(entry.serviceKey)`, so a coordinator could
+    // "Recommend" a SKU no couple can buy, and `isOwned()` could never be true
+    // so the owner deep-link never fired. Papic has no single SKU to point at
+    // any more — it is two products across five active rows (Pool 3k/6k/10k +
+    // One 50/100), which is what `variablePricing` already declares. Its own
+    // surface fetches the live rungs and owns the buy. Do NOT repoint this at a
+    // Pool or One SKU: that would name one rung as "the" Papic price.
     variablePricing: true,
     poster: {
       motion: 'pulse',
@@ -569,33 +586,67 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // was what kept it unsold.
     //
     // `surface: 'rsvp'` is HALF the gate — it hides the card wherever the event
-    // type has no RSVP surface (simple_event). It does NOT hide travel, whose
-    // profile row DOES enable rsvp (migration 20270804110223 added it to every
-    // non-wedding row). The authoritative predicate is
+    // type has no RSVP surface. It does NOT scope by type on its own — every
+    // non-wedding profile row enables rsvp (migration 20270804110223 added it).
+    // The authoritative predicate is
     // lib/papic-event-access.ts · papicGuestPassAccess(); a surface that
-    // renders this row as buyable MUST call it (it carries the permanent
-    // travel deny + the anniversary controller split + the phase ladder).
+    // renders this row as buyable MUST call it (it carries the phase ladder +
+    // the fail-closed default for an untiered type).
     //
-    // Deliberately `coming_soon` — pill "Soon", not clickable, no price shown.
-    // Flipping it to 'live' is blocked on the verdict's own Phase-0 gates that
-    // are NOT in this PR: 0b (the owner DB action repricing PAPIC_GUEST off the
-    // pax curve — the live catalog row still says ₱2,999, so a live card would
-    // advertise the wrong price), 0c (the event-scoped points pool), 0d/0e
-    // (ROPA row + DPO sign-off on the RSVP consent text). addOnHref already
-    // routes this key at the real Papic set-up surface, so the flip is a
-    // one-word change with no 404.
+    // ── LIVE since 2026-07-30. It was `coming_soon` ("Soon" pill, not clickable),
+    // and the flip is the owner's 2026-07-29 two-type lock catching up with the
+    // doorway: Pool is deliberately on sale. Verified against prod, not assumed —
+    // `PAPIC_GUEST` ₱1,000 · `PAPIC_GUEST_6K` ₱2,000 · `PAPIC_GUEST_10K` ₱3,000 are
+    // all `is_active = true` (the pax-priced ₱2,999 row is `PAPIC_GUEST_TOPUP`,
+    // now inactive), so the two gates this comment named as blockers are closed:
+    // 0b (the repricing off the pax curve — done) and 0c (the event-scoped points
+    // pool — shipped in `20271019231590` + #3847/#3848, and every event in prod
+    // holds a `free_grant` row). The card was the LAST "Soon" pill on a product
+    // already selling through the studio and the guest buy sheet (#3874).
+    //
+    // ⚠ 0d/0e (the guest-media ROPA row + DPO sign-off on the RSVP consent text)
+    // are STILL OPEN — see `Papic_Access_Scope_Council_Verdict_2026-07-20.md` §0.5
+    // + `Papic_Compliance_Delta_2026-07-20.md` §2.2 (`[PENDING DPO]`). They are not
+    // a blocker for THIS card and never were, because the sale they gate went live
+    // on 2026-07-29 without them: guests are already shooting and already buying
+    // top-ups. Escalated to the owner as a live compliance item in its own right
+    // (spec §5) rather than being silently absorbed by a card flip. A doorway to
+    // an already-open door is not the thing to hold hostage.
+    //
+    // Still gated by `papicGuestPassAccess()` — that predicate is event-type
+    // ELIGIBILITY, not a darkness switch. Owner 2026-08-01 ("offer Papic
+    // everywhere") put ALL 16 live types in Phase 1 and removed the anniversary
+    // controller split, so it denies nothing today; it still fails closed for a
+    // type created after that ruling.
     key: 'papic-guest',
-    tags: ['Photos', 'Capture', 'Day-of', 'Soon'],
+    // ⚠ THE KEY IS NOT THE NAME. `papic-guest` / `PAPIC_GUEST` are frozen
+    // technical ids (never-rename-technical-ids lock) from before the products
+    // were named. The owner's 2026-07-30 correction: **there are exactly two
+    // Papic products — Papic Pool and Papic One. "Papic Guest" is not one of
+    // them and must never appear in user-facing copy.** Label, blurb, CTA and
+    // tags below say Pool; only the id says guest. 'Shared' is the browse tag —
+    // it is the one word that distinguishes Pool from One.
+    tags: ['Photos', 'Capture', 'Day-of', 'Shared'],
     surface: 'rsvp',
     opensDirect: true,
     label: 'Papic Pool',
     Icon: Camera,
     iteration: '0012',
-    status: 'coming_soon',
+    status: 'web_v1',
     category: 'photography',
-    blurb: 'One pass for the whole celebration — every guest on the list gets a camera, all day.',
-    cta: 'See the pass',
+    // The old blurb sold the RETIRED pax pass: "every guest on the list gets a
+    // camera, all day" was a per-guest promise on a product that now meters SHOTS,
+    // not people — and "on the list" was the roster framing the pool doesn't use
+    // (any phone that scans the event QR shoots from it). No number here: the
+    // rungs and the free allowance are derived on the surface this card opens.
+    blurb: 'One shared pool of shots for the whole celebration — start free, add more any time.',
+    cta: 'Open the pool',
     studioGroup: 'capture',
+    // Every event is auto-armed with a free shared pool (`ensureFreePapicPoolGrantAdmin`),
+    // so the honest pill is the free-entry chip, not the ₱1,000 cheapest top-up —
+    // which as a headline would misprice a product whose entry cost is zero. The
+    // real ladder is one tap away, fully derived, on the Papic surface.
+    freeTrial: 'Free to start',
     serviceKey: 'PAPIC_GUEST',
     poster: {
       motion: 'pulse',
@@ -619,7 +670,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your wedding streamed live so everyone who can’t be there is — free with a single camera.',
+    blurb: 'Your day streamed live so everyone who can’t be there is — free with a single camera.',
     cta: 'Set up',
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
@@ -703,7 +754,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // present as live. Flip to 'web_v1'/'live' when real checkout ships.
     status: 'coming_soon',
     category: 'tool',
-    blurb: 'Wedding-day print pack and favors from vetted PH suppliers, shipped to your venue.',
+    blurb: 'Day-of print pack and favors from vetted PH suppliers, shipped to your venue.',
     cta: 'Browse Paprint',
     studioGroup: 'utility',
     poster: {
@@ -783,7 +834,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0010',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Pick your wedding palette — and it flows into every Setnayan piece you make.',
+    blurb: 'Pick your palette — and it flows into every Setnayan piece you make.',
     cta: 'Open board',
     studioGroup: 'branding',
     tier: 'free',
@@ -825,30 +876,37 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
 ];
 
 /**
- * Live Studio ROAM — the multi-camera "guests pick which camera / wander the
- * venue" variant (owner 2026-07-23: Live Studio has two variants, Cast + Roam).
- * Paid ₱3,500/day (serviceKey LIVE_STUDIO_ROAM; price is admin-managed via the
- * catalog, never hardcoded here). No dedicated /studio page yet → opensDirect is
- * omitted so the tile opens the generic App Store detail (/studio/[addon]).
+ * Live Studio — the UNIFIED customer-facing SKU (owner 2026-07-25) that merges
+ * Cast (directed single feed) + Roam (guests pick their view) into ONE switching
+ * product: a directed Main Stage plus switchable guest cameras. Paid ₱2,999 per
+ * event (serviceKey LIVE_STUDIO; price is admin-managed via the catalog, never
+ * hardcoded here). Built on the Roam substrate — the tile keeps the internal key
+ * `live-studio-roam` (like "Live Studio Cast" keeps the internal `panood` name),
+ * so its route/detail/state/stats wiring is untouched.
+ *
+ * opensDirect → routes to the bespoke /studio/live-studio-control App Store detail
+ * page, which mounts the buy drawer and, once owned, opens the switching controller.
  *
  * FLAG-GATED: appended to ADD_ONS only when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED
- * is on. Until launch the flag is off AND the catalog row is is_active=false
- * (migration 20270919479280), so Roam is fully dark — no Suite/Studio tile, not
- * on /pricing, not buyable. At launch the owner flips the flag + is_active.
+ * is on (reusing the existing Roam flag as the launch switch). Until launch the flag
+ * is off, LIVE_STUDIO is excluded from /pricing by name, and the old LIVE_STUDIO_ROAM
+ * row is is_active=false — so Live Studio is fully dark. At launch the owner flips
+ * the flag (and runs the Cast/PANOOD_SYSTEM retirement cutover).
  */
-const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
+const LIVE_STUDIO_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
-  label: 'Live Studio Roam',
+  opensDirect: true,
+  label: 'Live Studio',
   Icon: Video,
   iteration: '0011',
   status: 'web_v1',
   category: 'photography',
   blurb:
-    'Guests choose which camera to watch and wander your event — multiple angles and venues, live on your page, with the directed feed as the default.',
+    'Stream your celebration live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
   cta: 'Set up',
   studioGroup: 'capture',
-  serviceKey: 'LIVE_STUDIO_ROAM',
+  serviceKey: 'LIVE_STUDIO',
   poster: {
     motion: 'scan',
     baseBackground:
@@ -860,12 +918,12 @@ const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
 };
 
 /**
- * The Studio/Suite catalog. Live Studio Roam is appended only behind its flag so
- * the tile stays dark until launch (see LIVE_STUDIO_ROAM_ENTRY). Every other
+ * The Studio/Suite catalog. The unified Live Studio tile is appended only behind
+ * its flag so it stays dark until launch (see LIVE_STUDIO_ENTRY). Every other
  * consumer imports ADD_ONS unchanged.
  */
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = liveStudioRoamEnabled()
-  ? [...BASE_ADD_ONS, LIVE_STUDIO_ROAM_ENTRY]
+  ? [...BASE_ADD_ONS, LIVE_STUDIO_ENTRY]
   : BASE_ADD_ONS;
 
 // `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported

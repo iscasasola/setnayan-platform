@@ -3,9 +3,21 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
+import { appendLedger } from '@/lib/ledger';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  COMMITTED_BOOKING_STATUSES,
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+} from '@/lib/vendor-addon-first5-free';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
@@ -44,7 +56,9 @@ export type PhotoChallengeActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   /** Apply-then-pay order created — pay by reference, activates on admin approval. */
-  | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string };
+  | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string }
+  /** Granted at ₱0 under "free until your 6th booking" — live immediately. */
+  | { status: 'activated'; message: string };
 
 function err(message: string): PhotoChallengeActionState {
   return { status: 'error', message };
@@ -67,8 +81,10 @@ function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
   return String(raw ?? '').trim() === 'gcash' ? 'gcash' : 'bdo';
 }
 
-/** Booked = a contracted-or-further event_vendors row (mirrors the challenge RPC). */
-const BOOKED_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'] as const;
+/** Booked = a contracted-or-further event_vendors row (mirrors the challenge RPC).
+ *  Shared with the first-5-free counter so the two can never drift — a pinned
+ *  drift test in vendor-addon-first5-free.test.ts guards the list. */
+const BOOKED_STATUSES = COMMITTED_BOOKING_STATUSES;
 
 export async function sponsorPhotoChallenge(
   _prev: PhotoChallengeActionState,
@@ -139,12 +155,17 @@ export async function sponsorPhotoChallenge(
   // Already sponsored? (admin-read for authority.)
   const alreadySponsored = await fetchPhotoChallengeSponsored(admin, eventId, vendorProfileId);
 
+  // 2026-07-25 tiered add-on model: when enabled, Papic Challenge opens to every
+  // tier (Free/Solo pay the entry price) and the tier-based price applies. Mirrors
+  // the SQL gate (papic_create_vendor_challenge reads the DB twin of this flag).
+  const tieredPricing = isVendorAddonTieredPricingEnabled();
   const eligibility = photoChallengeEligibility({
     tier,
     verification,
     booked,
     papicActive,
     alreadySponsored,
+    allTiersAllowed: tieredPricing,
   });
   if (!eligibility.ok) {
     return err(PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]);
@@ -186,24 +207,133 @@ export async function sponsorPhotoChallenge(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const pricePhp = resolveVendorPhotoChallengePricePhp(cyclePricePhp);
+  const listPricePhp = tieredPricing
+    ? resolveVendorAddonPricePhp('papic_challenge', tier)
+    : resolveVendorPhotoChallengePricePhp(cyclePricePhp);
+
+  // ── "Free until your 6th booking" (owner 2026-07-25, flag-dark) ────────────
+  // While the vendor is inside their first 5 bookings — the same window in which
+  // Setnayan charges them no booking fee — sponsoring costs ₱0. The count comes
+  // from event_vendors (NOT booking_fee_ledger, which is empty while the
+  // booking-fee flag is off) and fails CLOSED, so a bad read charges rather than
+  // gives away. Flag off → `first5Free` is false and everything below is
+  // byte-identical to today.
+  const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5Enabled
+    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    : Number.NaN;
+  const first5Free = addonIsFreeUnderFirst5({
+    sku: 'papic_challenge',
+    committedBookingCount: committedBookings,
+    enabled: first5Enabled,
+  });
+  const pricePhp = first5Free ? 0 : listPricePhp;
+
+  // ── FREE sponsorship → direct activation (no payment, no admin step) ────────
+  // Mirrors the 3D booth's free path: an audit-only ₱0 'paid' order (no payments
+  // row — payments.amount_php has a > 0 CHECK) plus the entitlement written HERE
+  // rather than by the sku-activation hook, which only ever runs on admin
+  // approval of a real payment. `alreadySponsored` (checked above) is the dedupe;
+  // the upsert's (event_id, vendor_profile_id) UNIQUE is the backstop, so a
+  // double-click can never mint two sponsorships.
+  if (pricePhp <= 0) {
+    const referenceCode = generateReferenceCode();
+    const { data: freeOrder, error: foErr } = await createMoneyWriterClient()
+      .from('orders')
+      .insert(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
+          { userId: user.id, eventId: eventId, vendorProfileId },
+          {
+            service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+            description: 'Papic Challenges (per event · free · first 5 bookings)',
+            reference_code: referenceCode,
+          },
+        ),
+      )
+      .select('order_id')
+      .maybeSingle();
+    if (foErr || !freeOrder) {
+      return err('Could not turn on Papic Challenges right now. Please try again.');
+    }
+    const freeOrderId = (freeOrder as { order_id: string }).order_id;
+
+    const { error: grantErr } = await admin.from('papic_photo_challenge_sponsorships').upsert(
+      { event_id: eventId, vendor_profile_id: vendorProfileId, order_id: freeOrderId },
+      { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
+    );
+    if (grantErr) {
+      // Roll the audit order back so a retry re-mints cleanly and no 'paid' order
+      // is left claiming an entitlement that was never written.
+      await createMoneyWriterClient().from('orders').delete().eq('order_id', freeOrderId);
+      return err('Could not turn on Papic Challenges right now. Please try again.');
+    }
+
+    await appendLedger(admin, {
+      order_id: freeOrderId,
+      event_type: 'service_activated',
+      actor_user_id: user.id,
+      actor_role: 'system',
+      amount_centavos: 0,
+      metadata: {
+        service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+        vendor_profile_id: vendorProfileId,
+        event_id: eventId,
+        kind: 'papic_challenge_free_first5_bookings',
+        committed_bookings: committedBookings,
+      },
+    });
+
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    const remaining = first5BookingsRemaining(committedBookings);
+    return {
+      status: 'activated',
+      message:
+        `Papic Challenges is on for this event — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
+        (remaining > 0 ? ` (${remaining} to go)` : '') +
+        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} per event.`,
+    };
+  }
 
   // ── Apply-then-pay: a submitted order + a pending payment row ───────────────
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())`, which was RLS's only contribution — it
+  // checked neither event_id nor vendor_profile_id.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate — and this is the one
+  // converted vendor site whose event_id ORIGINATES IN THE FORM, so the binding
+  // check matters most here. It is the admin-client `event_vendors` read above,
+  // filtered `.eq('event_id', eventId).eq('marketplace_vendor_id',
+  // vendorProfileId).in('status', COMMITTED_BOOKING_STATUSES)`: the caller's own
+  // vendor must hold a committed booking on exactly this event, so a forged
+  // eventId matches nothing and `photoChallengeEligibility` denies. Around it:
+  // authenticated → `fetchOwnVendorProfile` → `resolveVendorRoleForProfile` +
+  // canManageVendor (PROFILE-scoped) → `papicGamesEnabled()` → eventPapicActive
+  // → the sponsored dedupe → the pending-order double-charge guard → the SKU
+  // is_active reject. Every gate stays BEFORE pricing, as the file header
+  // requires. Reuses the `admin` client created above.
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-      description: 'Papic Challenges (per event)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId, vendorProfileId },
+        {
+          service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+          description: 'Papic Challenges (per event)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -211,17 +341,22 @@ export async function sponsorPhotoChallenge(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Papic Challenges payment. Please try again.');
   }
 

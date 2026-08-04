@@ -3,6 +3,7 @@ import {
   isSkuFreeForCouplesNow,
   promoFreeSkusForCouples,
 } from '@/lib/promo-free-windows';
+import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
 
 /**
  * apps/web/lib/entitlements.ts
@@ -191,12 +192,61 @@ export async function eventCompActiveSkus(
  * ₱1,000). An order under ANIMATED_MONOGRAM confers LIVE_BACKGROUND ownership;
  * existing direct LIVE_BACKGROUND owners keep access. One-directional — owning
  * LIVE_BACKGROUND does NOT confer ANIMATED_MONOGRAM.
+ *
+ * ⭐ LIVE_STUDIO ← PANOOD_SYSTEM · PANOOD_SYSTEM_MOBILE (2026-07-25 · the Live
+ * Studio "one controller" consolidation) — THE GRANDFATHER CLAUSE, and the reason
+ * it is not optional:
+ *
+ * Cast (PANOOD_SYSTEM, plus the never-purchasable legacy Mobile tier
+ * PANOOD_SYSTEM_MOBILE) is LIVE AND SELLING today, and its paid deliverable is the
+ * multi-camera control room at
+ * /studio/panood/broadcast. The unified Live Studio consolidation RETIRES that room
+ * — the moment NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED flips, it redirects to
+ * /studio/live-studio-control/setup, whose every paid decision (multi-cam publish,
+ * paid overlays, highlight moments) reads LIVE_STUDIO. Without this alias, the flip
+ * would silently downgrade every couple who ALREADY PAID for Cast to the free
+ * rehearsal tier — and for most of them the thing they bought happens exactly once,
+ * on a day that cannot be redone.
+ *
+ * Same shape as the LIVE_BACKGROUND fold-in: a purchase key conferring the SKU its
+ * capability now lives under. No migration and no backfill — ownership still IS
+ * orders.status, read one extra way, so it applies to past AND in-flight Cast
+ * orders and reverses cleanly if the consolidation is rolled back.
+ *
+ * One-directional: a LIVE_STUDIO buyer does NOT own PANOOD_SYSTEM. Deliberate —
+ * the legacy Cast surfaces stay keyed to the SKU they actually sell, and the
+ * retired room is unreachable behind the same flag anyway.
+ *
+ * KNOWN EDGE, not closed here: aliasing resolves at the ORDER-QUERY level
+ * (ownershipKeysFor), while the bundle pass keys off the canonical code only. So a
+ * holder of the retired MEDIA_PACK bundle — which lists PANOOD_SYSTEM as a child —
+ * owns Cast but not LIVE_STUDIO. This is the SAME pre-existing shape as
+ * EDITORIAL_PRO ← COUPLE_WEBSITE_PRO (itself a bundle child), and teaching the
+ * bundle pass to walk aliases would change bundle behavior for SKUs that have
+ * nothing to do with this flag. Both bundles were retired 2026-06-29, so the
+ * population is historical; the remedy for any such event is an admin comp grant.
+ *
+ * INERT WHILE THE FLAG IS OFF: every reader of LIVE_STUDIO ownership sits behind
+ * NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED (the controller notFound()s, its actions
+ * redirect, /panood/program reads it only inside the flag branch, the public
+ * loader's roam block is flag-wrapped, and the LIVE_STUDIO tile is only appended
+ * to ADD_ONS behind the flag). So this entry changes nothing anyone can see until
+ * the owner flips it, and then it changes exactly one thing: a Cast buyer keeps
+ * what they bought.
+ *
+ * The pair is not re-typed here: it REUSES PANOOD_PAID_SKUS (lib/panood-watermark.ts),
+ * the existing canonical "both Cast device tiers unlock the paid broadcast" list —
+ * the same set resolvePanoodTier() (lib/panood-camera-seats.ts) resolves the legacy
+ * room's own paid gate from. One list, so "who paid for Cast" and "who keeps it after
+ * the consolidation" cannot drift apart. (panood-watermark.ts is import-free and
+ * pure, so this adds no cycle to a module everything imports.)
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
   Object.freeze({
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
     LIVE_BACKGROUND: Object.freeze(['ANIMATED_MONOGRAM']),
+    LIVE_STUDIO: Object.freeze([...PANOOD_PAID_SKUS]),
   });
 
 /**

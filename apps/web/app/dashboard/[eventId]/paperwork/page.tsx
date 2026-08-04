@@ -98,7 +98,7 @@ export default async function PaperworkPage({ params }: Props) {
   // and skip the wedding render entirely (wedding path byte-identical).
   if (((event.event_type as string | null) ?? 'wedding') !== 'wedding') {
     return (
-      <section className="space-y-6">
+      <section className="sn-col space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <BackLink eventId={eventId} />
         </div>
@@ -189,7 +189,7 @@ export default async function PaperworkPage({ params }: Props) {
   const summary = summarize(rows, event.event_date);
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <BackLink eventId={eventId} />
         {/* YOUR PLAN consolidation 2026-05-22 — every paper artifact also

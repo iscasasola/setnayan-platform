@@ -35,6 +35,7 @@ import {
 } from '@/lib/events';
 import {
   computeAuspiciousReasons,
+  isCeremonyType,
   type CeremonyType,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
@@ -48,28 +49,10 @@ const ALLOWED_KINDS: MeaningfulDateKind[] = [
   'other',
 ];
 
-const CEREMONY_TYPES: CeremonyType[] = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'aglipayan',
-  'lds',
-  'sda',
-  'jw',
-  'hindu',
-  'sikh',
-  'buddhist',
-  'orthodox',
-  'mixed',
-];
-
-function isCeremonyType(value: unknown): value is CeremonyType {
-  return typeof value === 'string' && (CEREMONY_TYPES as readonly string[]).includes(value);
-}
+// `isCeremonyType` is imported from lib/auspicious-date.ts — the ONE guard,
+// derived from the canonical union. It used to be a local 16-member copy here
+// while both READ paths carried 8-member copies, which is exactly how a
+// persisted `hindu` read back as `null`.
 
 function isKind(value: unknown): value is MeaningfulDateKind {
   return typeof value === 'string' && (ALLOWED_KINDS as readonly string[]).includes(value);

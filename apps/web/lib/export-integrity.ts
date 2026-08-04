@@ -92,10 +92,22 @@ export function listOutcome<T>(
   return { rows: (res.data as T[] | null) ?? [], incomplete: null };
 }
 
-/** Same contract for a `.maybeSingle()` read. */
+/**
+ * Same contract for a `.maybeSingle()` read.
+ *
+ * `data` is `unknown` rather than `T`, for the same reason it is on
+ * `listOutcome` above and now for a second case: supabase-js resolves
+ * `.select(someString)` — a projection held in a constant rather than written
+ * inline — to `GenericStringError` against an untyped schema, exactly as it
+ * does for an embedded select. A `T`-typed parameter would reject the vendor
+ * profile read on `app/api/profile/export/route.ts`, whose projection is a
+ * shared constant precisely so a guardrail can check it for completeness. The
+ * row is cast at the boundary, as before; the error/absence handling this
+ * helper exists for is unaffected.
+ */
 export function singleOutcome<T>(
   section: string,
-  res: QueryResultLike<T> | null,
+  res: { data: unknown; error: { message?: string | null } | null } | null,
   notAttemptedReason?: string,
 ): SingleOutcome<T> {
   const asList = listOutcome<T>(
@@ -104,7 +116,7 @@ export function singleOutcome<T>(
     notAttemptedReason,
   );
   if (asList.incomplete) return { row: null, incomplete: asList.incomplete };
-  return { row: res?.data ?? null, incomplete: null };
+  return { row: (res?.data as T | null) ?? null, incomplete: null };
 }
 
 /**

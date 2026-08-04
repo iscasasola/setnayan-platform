@@ -1,0 +1,778 @@
+/**
+ * Booking-fee RE-DERIVE on a post-lock price change — END-TO-END DB verification
+ * (migrations replayed). Covers 20270930120000_booking_fee_rederive_on_amendment:
+ * the AFTER-UPDATE trigger on event_vendors.total_cost_php re-derives the 5% fee
+ * to the NEW agreed total, honestly by settlement state.
+ *
+ * This is LIVE money code — the adversarial cases (double-charge on repeated
+ * updates, rewriting a SETTLED charge, free-5 drift, the ₱50 floor, flag-off
+ * no-op) are all asserted against real SQL, driven through actual UPDATEs so the
+ * trigger wiring itself is exercised.
+ *
+ * Run: pnpm --filter @setnayan/web test:db
+ */
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { bookingFeeScheduleSummary } from '../../lib/booking-fee';
+import { BOOKING_FEE_SCHEDULE_VERSION } from '../../lib/booking-fee-gate';
+
+/**
+ * The SUPERSEDED schedule string that `booking_fee_rederive_lock_fee` carried as
+ * its parameter DEFAULT from 20270930120000 until 20271013541380. Named here —
+ * and, after the fix, nowhere else outside that migration's own explanation —
+ * so the guards at the bottom of this file can prove it never reaches a charge
+ * row again. The owner-locked taper replaced it on 2026-07-25.
+ */
+const STALE_SCHEDULE_VERSION = '2026-07-24-flat5-nocap';
+import { createReplayedDb, type ReplayResult } from './replay-migrations';
+
+let replay: ReplayResult;
+let db: ReplayResult['db'];
+
+const SVC_PREFIX = 'vendor_booking_fee__';
+
+async function newVendor(email: string): Promise<{ vendorProfileId: string; userId: string }> {
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [email],
+  );
+  const userId = u.rows[0]!.id;
+  const v = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1, 'Rederive Test Vendor', 'Manila', ARRAY['photography']::text[], 'verified', NOW())
+     RETURNING vendor_profile_id`,
+    [userId],
+  );
+  return { vendorProfileId: v.rows[0]!.vendor_profile_id, userId };
+}
+
+async function newEvent(name: string): Promise<string> {
+  const r = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id`,
+    [name],
+  );
+  return r.rows[0]!.event_id;
+}
+
+async function newContractedBooking(
+  eventId: string,
+  vendorProfileId: string | null,
+  totalCostPhp: number | null,
+): Promise<string> {
+  const r = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
+     VALUES ($1, 'photographer', 'Rederive Test Vendor', 'contracted', $2, $3)
+     RETURNING vendor_id`,
+    [eventId, totalCostPhp, vendorProfileId],
+  );
+  // Since 20271009140000 the fee charges ONLY Setnayan-sourced clients, and
+  // "no thread" correctly reads as a client the vendor brought (free). An
+  // amendment fixture is about re-pricing a BILLABLE booking, so say so.
+  if (vendorProfileId) {
+    await db.query(
+      `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source)
+       VALUES ($1, $2, 'explore')`,
+      [eventId, vendorProfileId],
+    );
+  }
+  return r.rows[0]!.vendor_id;
+}
+
+type LockChargeResult = {
+  skipped?: string;
+  charge_id?: string;
+  status?: string;
+  amount_charged_centavos?: number;
+  computed_fee_centavos?: number;
+  booking_ordinal?: number;
+  is_free?: boolean;
+};
+
+async function openLockCharge(eventVendorId: string): Promise<LockChargeResult> {
+  const r = await db.query<{ result: LockChargeResult }>(
+    `SELECT public.booking_fee_open_lock_charge($1) AS result`,
+    [eventVendorId],
+  );
+  return r.rows[0]!.result;
+}
+
+/** Push a vendor past the free-5 courtesy with 5 throwaway bookings. */
+async function warmPastFree5(vendorProfileId: string, label: string): Promise<void> {
+  for (let i = 1; i <= 5; i++) {
+    const eventId = await newEvent(`${label}-warm-${i}`);
+    const evId = await newContractedBooking(eventId, vendorProfileId, 10_000);
+    await openLockCharge(evId);
+  }
+}
+
+/** Change the couple-confirmed total (drives the re-derive trigger). */
+async function setTotal(eventVendorId: string, totalPhp: number): Promise<void> {
+  await db.query(`UPDATE public.event_vendors SET total_cost_php = $1 WHERE vendor_id = $2`, [
+    totalPhp,
+    eventVendorId,
+  ]);
+}
+
+async function charges(eventVendorId: string): Promise<
+  Array<{ kind: string; status: string; amount: number; fee: number; credit: number | null }>
+> {
+  const r = await db.query<{
+    kind: string;
+    status: string;
+    amount_charged_centavos: number;
+    computed_fee_centavos: number;
+    credit_centavos: number | null;
+  }>(
+    `SELECT kind, status, amount_charged_centavos, computed_fee_centavos, credit_centavos
+       FROM public.booking_fee_charges WHERE event_vendor_id = $1 ORDER BY created_at`,
+    [eventVendorId],
+  );
+  return r.rows.map((x) => ({
+    kind: x.kind,
+    status: x.status,
+    amount: Number(x.amount_charged_centavos),
+    fee: Number(x.computed_fee_centavos),
+    credit: x.credit_centavos === null ? null : Number(x.credit_centavos),
+  }));
+}
+
+async function ledgerPaid(vendorProfileId: string, eventId: string): Promise<number> {
+  const r = await db.query<{ p: number }>(
+    `SELECT COALESCE(fee_paid_total_centavos,0)::int p FROM public.booking_fee_ledger
+       WHERE vendor_profile_id = $1 AND event_id = $2`,
+    [vendorProfileId, eventId],
+  );
+  return r.rows[0]?.p ?? 0;
+}
+
+/** Mint the vendor QR order the TS collectBookingFeeAtLock would (for order-sync tests). */
+async function seedOrder(
+  eventId: string,
+  vendorProfileId: string,
+  payerUserId: string,
+  chargeId: string,
+  amountPhp: number,
+): Promise<string> {
+  const r = await db.query<{ order_id: string }>(
+    `INSERT INTO public.orders
+       (event_id, user_id, vendor_profile_id, service_key, description,
+        requested_total_php, status, reference_code)
+     -- Rate-agnostic on purpose: nothing here asserts the description, and the
+     -- real one is DERIVED from BOOKING_FEE (bookingFeeScheduleSummary). The old
+     -- '(5%)' literal was the wrong claim above ₱100,000 — no copy of it lives
+     -- in the repo any more.
+     VALUES ($1,$2,$3,$4,'Setnayan booking fee',$5,'submitted',$6)
+     RETURNING order_id`,
+    [eventId, payerUserId, vendorProfileId, `${SVC_PREFIX}${chargeId}`, amountPhp, `SN${chargeId.slice(0, 8)}`],
+  );
+  const orderId = r.rows[0]!.order_id;
+  await db.query(
+    `INSERT INTO public.payments (order_id, user_id, amount_php, channel, paid_at)
+     VALUES ($1,$2,$3,'manual',CURRENT_DATE)`,
+    [orderId, payerUserId, amountPhp],
+  );
+  return orderId;
+}
+
+async function orderFor(chargeId: string): Promise<{ status: string; total: number } | null> {
+  const r = await db.query<{ status: string; requested_total_php: string }>(
+    `SELECT status, requested_total_php FROM public.orders WHERE service_key = $1 LIMIT 1`,
+    [`${SVC_PREFIX}${chargeId}`],
+  );
+  if (r.rows.length === 0) return null;
+  return { status: r.rows[0]!.status, total: Number(r.rows[0]!.requested_total_php) };
+}
+
+/** The vendor-facing copy on the money document the SQL minter wrote. */
+async function orderDescriptionFor(chargeId: string): Promise<string | null> {
+  const r = await db.query<{ description: string | null }>(
+    `SELECT description FROM public.orders WHERE service_key = $1 LIMIT 1`,
+    [`${SVC_PREFIX}${chargeId}`],
+  );
+  return r.rows[0]?.description ?? null;
+}
+
+before(async () => {
+  replay = await createReplayedDb();
+  db = replay.db;
+});
+
+after(async () => {
+  await db?.close();
+});
+
+test('PENDING fee raised → charge + its QR order updated to the new 5%', async () => {
+  const { vendorProfileId, userId } = await newVendor('pend-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'pend-raise');
+  const eventId = await newEvent('pend-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  assert.equal(charge.status, 'pending');
+  assert.equal(charge.amount_charged_centavos, 500_000); // 5% of ₱100k
+  // Seed the vendor order the TS lock path would mint, so we test order-SYNC.
+  await seedOrder(eventId, vendorProfileId, userId, charge.charge_id!, 5_000);
+
+  await setTotal(evId, 200_000); // amendment raises the agreed total
+
+  const c = await charges(evId);
+  assert.equal(c.length, 1, 'still one charge — updated in place, not stacked');
+  assert.equal(c[0]!.status, 'pending');
+  assert.equal(c[0]!.amount, 600_000, 'charge → taper on ₱200k = ₱6k (5% of 100k + 1% of 100k)');
+  const ord = await orderFor(charge.charge_id!);
+  assert.equal(ord?.status, 'submitted');
+  assert.equal(ord?.total, 6_000, 'QR order synced to the tapered ₱6k');
+});
+
+test('PENDING fee lowered (still positive) → charge lowered', async () => {
+  const { vendorProfileId } = await newVendor('pend-lower@fee.test');
+  await warmPastFree5(vendorProfileId, 'pend-lower');
+  const eventId = await newEvent('pend-lower-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  await openLockCharge(evId);
+
+  await setTotal(evId, 60_000); // lowered but still well above the ₱1k floor
+
+  const c = await charges(evId);
+  assert.equal(c[0]!.amount, 300_000, '5% of ₱60k = ₱3k');
+});
+
+test('PENDING amended to ₱0 → charge cleared, QR order cancelled', async () => {
+  const { vendorProfileId, userId } = await newVendor('pend-zero@fee.test');
+  await warmPastFree5(vendorProfileId, 'pend-zero');
+  const eventId = await newEvent('pend-zero-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await seedOrder(eventId, vendorProfileId, userId, charge.charge_id!, 5_000);
+
+  await setTotal(evId, 0); // barter / no consideration
+
+  const c = await charges(evId);
+  assert.equal(c[0]!.amount, 0, 'nothing to collect');
+  assert.equal(c[0]!.status, 'paid', '₱0 → cleared (RPC ₱0 convention)');
+  const ord = await orderFor(charge.charge_id!);
+  assert.equal(ord?.status, 'cancelled', 'order cancelled, not left open');
+});
+
+test('PAID fee raised → supplementary delta charge + delta order, primary UNTOUCHED', async () => {
+  const { vendorProfileId, userId } = await newVendor('paid-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'paid-raise');
+  const eventId = await newEvent('paid-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  // Settle the primary (admin approved the vendor's ₱5k payment).
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000);
+
+  await setTotal(evId, 200_000); // amendment raises to ₱200k → fee ₱6k (tapered)
+
+  const c = await charges(evId);
+  const primary = c.find((x) => x.kind === 'primary')!;
+  const delta = c.find((x) => x.kind === 'amendment_delta')!;
+  assert.equal(primary.status, 'paid', 'settled primary never rewritten');
+  assert.equal(primary.amount, 500_000, 'primary stays at the ₱5k already paid');
+  assert.ok(delta, 'a supplementary delta was opened');
+  assert.equal(delta.status, 'pending');
+  assert.equal(delta.amount, 100_000, 'delta = ₱6k new − ₱5k paid = ₱1k');
+  // The delta mints its OWN vendor order.
+  const deltaChargeId = (
+    await db.query<{ charge_id: string }>(
+      `SELECT charge_id FROM public.booking_fee_charges WHERE event_vendor_id=$1 AND kind='amendment_delta'`,
+      [evId],
+    )
+  ).rows[0]!.charge_id;
+  const ord = await orderFor(deltaChargeId);
+  assert.equal(ord?.total, 1_000, 'delta order for ₱1k (₱6k due − ₱5k paid)');
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000, 'ledger unchanged until delta settles');
+
+  // Settle the delta → ledger rolls to the full ₱10k.
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-D')`, [deltaChargeId]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000, 'now ₱6k total collected');
+  assert.ok(userId);
+});
+
+test('PAID fee lowered → audit credit recorded, NO refund, primary + ledger UNTOUCHED', async () => {
+  const { vendorProfileId } = await newVendor('paid-lower@fee.test');
+  await warmPastFree5(vendorProfileId, 'paid-lower');
+  const eventId = await newEvent('paid-lower-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000); // ₱6k paid (tapered)
+
+  await setTotal(evId, 100_000); // amendment DROPS to ₱100k → fee would be ₱5k
+
+  const c = await charges(evId);
+  const primary = c.find((x) => x.kind === 'primary')!;
+  const credit = c.find((x) => x.kind === 'amendment_credit')!;
+  assert.equal(primary.amount, 600_000, 'settled primary untouched');
+  assert.ok(credit, 'a credit note was recorded');
+  assert.equal(credit.credit, 100_000, 'overpaid ₱1k recorded (₱6k paid − ₱5k now due)');
+  assert.equal(credit.amount, 0, 'credit moves no money');
+  // No refund order exists for the credit row.
+  const creditChargeId = (
+    await db.query<{ charge_id: string }>(
+      `SELECT charge_id FROM public.booking_fee_charges WHERE event_vendor_id=$1 AND kind='amendment_credit'`,
+      [evId],
+    )
+  ).rows[0]!.charge_id;
+  assert.equal(await orderFor(creditChargeId), null, 'no order / no refund for a credit');
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000, 'ledger unchanged — no clawback');
+});
+
+test('FREE-5 booking stays free at ANY amended total', async () => {
+  const { vendorProfileId } = await newVendor('free-stays@fee.test');
+  const eventId = await newEvent('free-stays-1');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  assert.equal(charge.is_free, true);
+  assert.equal(charge.status, 'waived_free5');
+
+  await setTotal(evId, 5_000_000); // amend way up
+
+  const c = await charges(evId);
+  assert.equal(c.length, 1, 'no new charge');
+  assert.equal(c[0]!.status, 'waived_free5', 'still free');
+  assert.equal(c[0]!.amount, 0, 'still ₱0 — free-5 courtesy never billed');
+});
+
+test('flag-off / no charge at lock → amendment is a pure no-op', async () => {
+  // No lock charge was ever opened (models the fee flag being OFF at lock).
+  const { vendorProfileId } = await newVendor('noflag@fee.test');
+  const eventId = await newEvent('noflag');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+
+  await setTotal(evId, 300_000);
+
+  const c = await charges(evId);
+  assert.equal(c.length, 0, 'no charge minted by an amendment — first fee is lock-only');
+  const orders = await db.query<{ n: number }>(
+    `SELECT count(*)::int n FROM public.orders WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(orders.rows[0]!.n, 0, 'no order minted');
+});
+
+test('off-platform (no marketplace link) → never billed on amendment', async () => {
+  const eventId = await newEvent('offplat');
+  const evId = await newContractedBooking(eventId, null, 100_000); // marketplace_vendor_id NULL
+  await openLockCharge(evId); // skips: not_verified_vendor
+
+  await setTotal(evId, 500_000);
+
+  const c = await charges(evId);
+  assert.equal(c.length, 0, 'off-platform booking never accrues a fee');
+});
+
+test('idempotent: re-updating to the SAME total never double-charges', async () => {
+  // (a) pending path
+  const { vendorProfileId } = await newVendor('idem@fee.test');
+  await warmPastFree5(vendorProfileId, 'idem');
+  const eventId = await newEvent('idem-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  await openLockCharge(evId);
+  await setTotal(evId, 200_000);
+  await setTotal(evId, 200_000); // same total again
+  await db.query(`UPDATE public.event_vendors SET total_cost_php = 200000, updated_at = NOW() WHERE vendor_id=$1`, [evId]);
+  let c = await charges(evId);
+  assert.equal(c.length, 1, 'still exactly one charge across repeated identical updates');
+  assert.equal(c[0]!.amount, 600_000);
+
+  // (b) paid path — repeated identical raise keeps ONE delta
+  const eventId2 = await newEvent('idem-paid');
+  const evId2 = await newContractedBooking(eventId2, vendorProfileId, 100_000);
+  const ch2 = await openLockCharge(evId2);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','X')`, [ch2.charge_id!]);
+  await setTotal(evId2, 300_000);
+  await setTotal(evId2, 300_000); // same again
+  c = await charges(evId2);
+  const deltas = c.filter((x) => x.kind === 'amendment_delta');
+  assert.equal(deltas.length, 1, 'exactly one delta despite repeated identical updates');
+  assert.equal(deltas[0]!.amount, 200_000, 'taper on ₱300k (₱7k) − ₱5k paid = ₱2k'); // 7000 - 5000
+});
+
+test('₱50 floor holds after an amendment down to a tiny total', async () => {
+  const { vendorProfileId } = await newVendor('floor@fee.test');
+  await warmPastFree5(vendorProfileId, 'floor');
+  const eventId = await newEvent('floor-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  await openLockCharge(evId);
+
+  await setTotal(evId, 500); // ₱500 → 5% = ₱25 → floored to ₱50
+
+  const c = await charges(evId);
+  assert.equal(c[0]!.amount, 5_000, 'floored at ₱50 (5000c), not ₱25');
+});
+
+test('paid → raise (delta) → then drop back to exactly paid → delta cancelled, no credit owed', async () => {
+  const { vendorProfileId } = await newVendor('roundtrip@fee.test');
+  await warmPastFree5(vendorProfileId, 'roundtrip');
+  const eventId = await newEvent('roundtrip-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','P')`, [charge.charge_id!]);
+
+  await setTotal(evId, 200_000); // opens a ₱5k delta
+  let c = await charges(evId);
+  assert.ok(c.some((x) => x.kind === 'amendment_delta' && x.status === 'pending'));
+
+  await setTotal(evId, 100_000); // back to the originally-paid total exactly
+  c = await charges(evId);
+  const liveDelta = c.find((x) => x.kind === 'amendment_delta' && x.status === 'pending');
+  assert.equal(liveDelta, undefined, 'pending delta cancelled when the raise is reversed');
+  const credit = c.find((x) => x.kind === 'amendment_credit');
+  assert.ok(!credit || credit.credit === 0, 'no credit owed — new fee equals what was paid');
+});
+
+test('the SQL booking_fee_schedule_summary() and the TS bookingFeeScheduleSummary() agree exactly', async () => {
+  // Anti-drift, same shape as the sourced-set guard in booking-fee-lock.db.test.ts.
+  // SQL cannot import BOOKING_FEE, so the sentence on the amendment-path money
+  // document is duplicated by necessity. TS DERIVES its copy from the constants;
+  // the SQL literal does not move on its own. If anyone reprices the taper, this
+  // is what fails — instead of a vendor being billed 1.4% on a bill saying 5%.
+  const r = await db.query<{ s: string }>(`SELECT public.booking_fee_schedule_summary() AS s`);
+  assert.equal(
+    r.rows[0]!.s,
+    bookingFeeScheduleSummary(),
+    'SQL and TS state the fee schedule differently — reprice the SQL mirror ' +
+      '(supabase/migrations/*_booking_fee_schedule_summary_in_sql_order_description.sql)',
+  );
+});
+
+test('the amendment-path money document states the taper, never a bare (5%)', async () => {
+  // Drive the MINT branch: no seedOrder, so the trigger's SQL minter writes the
+  // order — and therefore the description — with no TypeScript in the loop.
+  const { vendorProfileId } = await newVendor('descr@fee.test');
+  await warmPastFree5(vendorProfileId, 'descr');
+  const eventId = await newEvent('descr-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  assert.equal(await orderDescriptionFor(charge.charge_id!), null, 'no order yet — SQL must mint it');
+
+  await setTotal(evId, 1_000_000); // ₱1M → ₱14,000 = 1.40%, nowhere near 5%
+
+  const ord = await orderFor(charge.charge_id!);
+  assert.equal(ord?.total, 14_000, 'taper on ₱1M: 5% of ₱100k + 1% of ₱900k');
+  const descr = await orderDescriptionFor(charge.charge_id!);
+  assert.ok(descr, 'the amendment path must mint the vendor money document');
+  assert.ok(
+    !/\(5%\)/.test(descr!),
+    `the bill claims a flat rate the vendor is not paying: ${descr}`,
+  );
+  assert.ok(
+    descr!.includes(bookingFeeScheduleSummary()),
+    `the bill must state the real schedule: ${descr}`,
+  );
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * THE SCHEDULE-VERSION STAMP
+ *
+ * Every booking_fee_charges row records the schedule under which its amount was
+ * computed. The stamp exists so a future reprice cannot silently rewrite
+ * history: it is the ONLY thing that lets an audit (or a recompute) know which
+ * rate table produced a given number.
+ *
+ * The defect these tests close: `booking_fee_rederive_lock_fee` kept
+ * `p_schedule_version TEXT DEFAULT '2026-07-24-flat5-nocap'` — the superseded
+ * FLAT-5% schedule — while the math had moved to the 2026-07-25 taper. The
+ * amendment trigger calls the function with ONE argument, so every
+ * amendment-minted delta / credit row was stamped flat-5% while its amount came
+ * from the taper. The AMOUNT was right; the row lied about how it was derived.
+ * Migration 20271013541380 replaces the literal with a call to
+ * public.booking_fee_schedule_version(), so the stamp is DERIVED and a reprice
+ * moves it in one place instead of leaving a third copy behind.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** The schedule_version stamped on every charge row for a booking, in age order. */
+async function stamps(eventVendorId: string): Promise<Array<{ kind: string; version: string }>> {
+  const r = await db.query<{ kind: string; schedule_version: string }>(
+    `SELECT kind, schedule_version FROM public.booking_fee_charges
+       WHERE event_vendor_id = $1 ORDER BY created_at`,
+    [eventVendorId],
+  );
+  return r.rows.map((x) => ({ kind: x.kind, version: x.schedule_version }));
+}
+
+test('PARITY: SQL booking_fee_schedule_version() equals the TS constant byte-for-byte', async () => {
+  // Anti-drift, same idiom as the sourced-set parity test in
+  // booking-fee-lock.db.test.ts. SQL stamps what the DB actually wrote; the TS
+  // constant is what the app passes explicitly on the lock path. If they
+  // disagree, two charges for the same schedule carry two different names and
+  // the audit trail is worthless.
+  const r = await db.query<{ v: string }>(`SELECT public.booking_fee_schedule_version() AS v`);
+  assert.equal(
+    r.rows[0]!.v,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    'public.booking_fee_schedule_version() must mirror BOOKING_FEE_SCHEDULE_VERSION exactly',
+  );
+  // And it is not accidentally the string it replaced.
+  assert.notEqual(r.rows[0]!.v, STALE_SCHEDULE_VERSION);
+});
+
+test('THE DEFECT: a delta minted BY THE TRIGGER stamps the CURRENT schedule, not flat-5%', async () => {
+  // Driven end-to-end through the real one-argument path: an UPDATE on
+  // event_vendors.total_cost_php fires booking_fee_on_event_vendor_price_change,
+  // which does `PERFORM booking_fee_rederive_lock_fee(NEW.vendor_id)` with NO
+  // schedule argument — so the PARAMETER DEFAULT is what lands on the row. This
+  // is the test that would have caught the defect.
+  const { vendorProfileId } = await newVendor('stamp-delta@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-delta');
+  const eventId = await newEvent('stamp-delta-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  await setTotal(evId, 200_000); // amendment raises → the trigger opens a delta
+
+  const s = await stamps(evId);
+  const delta = s.find((x) => x.kind === 'amendment_delta');
+  assert.ok(delta, 'the amendment must have opened a supplementary delta');
+  assert.equal(
+    delta.version,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    `the trigger-minted delta is stamped "${delta.version}" but its amount was computed ` +
+      `by booking_fee_centavos under "${BOOKING_FEE_SCHEDULE_VERSION}"`,
+  );
+  // The amount itself is unchanged by this fix — the taper, not flat 5%.
+  const c = await charges(evId);
+  assert.equal(
+    c.find((x) => x.kind === 'amendment_delta')!.amount,
+    100_000,
+    'taper on ₱200k = ₱6k, minus the ₱5k already paid',
+  );
+});
+
+test('THE DEFECT: a credit minted BY THE TRIGGER stamps the CURRENT schedule too', async () => {
+  // The other row the re-derive INSERTs with p_schedule_version. Same one-argument
+  // trigger path, opposite direction (a post-paid price DROP).
+  const { vendorProfileId } = await newVendor('stamp-credit@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-credit');
+  const eventId = await newEvent('stamp-credit-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  await setTotal(evId, 100_000); // amendment drops → audit credit recorded
+
+  const credit = (await stamps(evId)).find((x) => x.kind === 'amendment_credit');
+  assert.ok(credit, 'the amendment must have recorded a credit note');
+  assert.equal(
+    credit.version,
+    BOOKING_FEE_SCHEDULE_VERSION,
+    `the trigger-minted credit is stamped "${credit.version}" but was computed under ` +
+      `"${BOOKING_FEE_SCHEDULE_VERSION}"`,
+  );
+});
+
+test('an EXPLICIT schedule argument still wins (the fix changed only the default)', async () => {
+  // The signature must keep working for callers that pass a version — the app's
+  // lock path does exactly that. Nothing about the parameter changed except what
+  // happens when it is omitted.
+  //
+  // The stamp is only ever written by an INSERT (the delta_updated branch does
+  // not rewrite schedule_version — an existing charge keeps the schedule it was
+  // priced under, which is the whole point of the column). So this test has to
+  // make the EXPLICIT call be the one that MINTS the delta. It gets there with
+  // real product state rather than by muting the trigger: the trigger's WHEN
+  // clause only fires for status IN (contracted, deposit_paid, delivered,
+  // complete), so a price moved while the booking is 'shortlisted' does not fire
+  // it. No DISABLE TRIGGER anywhere.
+  const { vendorProfileId } = await newVendor('stamp-explicit@fee.test');
+  await warmPastFree5(vendorProfileId, 'stamp-explicit');
+  const eventId = await newEvent('stamp-explicit-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+
+  // status-only UPDATE: does not mention total_cost_php, so `AFTER UPDATE OF
+  // total_cost_php` cannot fire on it.
+  await db.query(`UPDATE public.event_vendors SET status = 'shortlisted' WHERE vendor_id = $1`, [evId]);
+  await db.query(`UPDATE public.event_vendors SET total_cost_php = 200000 WHERE vendor_id = $1`, [evId]);
+  assert.equal(
+    (await charges(evId)).filter((x) => x.kind === 'amendment_delta').length,
+    0,
+    'precondition: the trigger did NOT fire for a non-contracted booking',
+  );
+
+  const res = await db.query<{ r: { action: string } }>(
+    `SELECT public.booking_fee_rederive_lock_fee($1, $2) AS r`,
+    [evId, 'test-explicit-version'],
+  );
+  assert.equal(res.rows[0]!.r.action, 'delta_opened');
+
+  const delta = (await stamps(evId)).find((x) => x.kind === 'amendment_delta');
+  assert.equal(
+    delta?.version,
+    'test-explicit-version',
+    'an explicitly-passed schedule version must be stamped as given, not overridden by the default',
+  );
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * THE UNDER-BILLING BUG — a clobbered `FOUND`
+ *
+ * 20270930120000 guarded the update-the-existing-delta branch with
+ *   IF FOUND AND v_existing_delta.charge_id IS NOT NULL THEN
+ * but `FOUND` is reset by EVERY statement, and the statement immediately before
+ * it is the credit-zeroing UPDATE — not the `SELECT … INTO v_existing_delta` the
+ * line appears to be guarding. With no credit note on file (the common case)
+ * that UPDATE matches 0 rows, so FOUND is false, the branch is skipped despite a
+ * pending delta existing, and control falls through to the INSERT — which
+ * violates booking_fee_charges_one_pending_delta_per_event_vendor. The trigger
+ * is fail-soft, so the 23505 became a WARNING, the amendment committed, and the
+ * stale delta survived at its OLD amount. Setnayan silently under-billed.
+ *
+ * These tests are the reproduction, promoted. They are about MONEY, not control
+ * flow: each asserts the peso figure the vendor is actually billed.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** The single pending supplementary delta for a booking, or null. */
+async function pendingDelta(
+  eventVendorId: string,
+): Promise<{ chargeId: string; amount: number } | null> {
+  const r = await db.query<{ charge_id: string; amount_charged_centavos: number }>(
+    `SELECT charge_id, amount_charged_centavos FROM public.booking_fee_charges
+       WHERE event_vendor_id = $1 AND kind = 'amendment_delta' AND status = 'pending'`,
+    [eventVendorId],
+  );
+  assert.ok(r.rows.length <= 1, `${r.rows.length} pending deltas — the one-live index is broken`);
+  if (r.rows.length === 0) return null;
+  return { chargeId: r.rows[0]!.charge_id, amount: Number(r.rows[0]!.amount_charged_centavos) };
+}
+
+test('THE DEFECT: a SECOND amendment must RAISE the pending delta, not silently keep the stale one', async () => {
+  const { vendorProfileId } = await newVendor('second-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'second-raise');
+  const eventId = await newEvent('second-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 100_000);
+  const charge = await openLockCharge(evId);
+  // Primary ₱5,000 SETTLED — the paid branch is the one that opens deltas.
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 500_000);
+
+  // First amendment: ₱100k → ₱200k. Fee ₱6,000, minus ₱5,000 paid = ₱1,000 delta.
+  await setTotal(evId, 200_000);
+  const first = await pendingDelta(evId);
+  assert.equal(first?.amount, 100_000, 'first amendment opens a ₱1,000 delta');
+
+  // SECOND amendment, higher: ₱200k → ₱1,000,000. Taper = ₱14,000, minus the
+  // ₱5,000 already paid = ₱9,000 owed. The bug left this at ₱1,000.
+  await setTotal(evId, 1_000_000);
+
+  const second = await pendingDelta(evId);
+  assert.ok(second, 'the pending delta must still exist after the second amendment');
+  assert.equal(
+    second.amount,
+    900_000,
+    `the vendor owes ₱9,000 (taper ₱14,000 − ₱5,000 paid) but is being billed ₱${second.amount / 100}`,
+  );
+  assert.equal(second.chargeId, first!.chargeId, 'updated in place — not a second delta row');
+
+  // Nothing was swallowed: exactly one delta row of any status, no 23505.
+  const all = await charges(evId);
+  assert.equal(
+    all.filter((x) => x.kind === 'amendment_delta').length,
+    1,
+    'exactly one amendment_delta row — no failed INSERT was swallowed by the fail-soft trigger',
+  );
+
+  // THE BILL THE VENDOR ACTUALLY RECEIVES must move too, not just the charge row.
+  const ord = await orderFor(second.chargeId);
+  assert.equal(ord?.total, 9_000, 'the vendor QR order must be re-upserted to ₱9,000');
+  assert.equal(ord?.status, 'submitted', 'and left open for the vendor to pay');
+});
+
+test('THE DEFECT: the second raise also works WITH a credit note on file', async () => {
+  // The fix must not depend on the credit-zeroing UPDATE having matched rows.
+  // This drives the booking through a DROP first, so an amendment_credit row
+  // exists for the rest of the sequence — covering both worlds: the UPDATE
+  // matching (credit non-zero) and not matching (credit already zeroed).
+  const { vendorProfileId } = await newVendor('credit-then-raise@fee.test');
+  await warmPastFree5(vendorProfileId, 'credit-then-raise');
+  const eventId = await newEvent('credit-then-raise-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  const charge = await openLockCharge(evId);
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-P')`, [charge.charge_id!]);
+  assert.equal(await ledgerPaid(vendorProfileId, eventId), 600_000); // ₱6,000 paid
+
+  // Drop → an amendment_credit row now exists with a NON-ZERO credit.
+  await setTotal(evId, 100_000);
+  const credit = (await charges(evId)).find((x) => x.kind === 'amendment_credit');
+  assert.equal(credit?.credit, 100_000, 'precondition: a ₱1,000 credit note is on file');
+
+  // Raise past what was paid → delta opened, credit zeroed by the same statement.
+  await setTotal(evId, 300_000); // taper ₱7,000 − ₱6,000 paid = ₱1,000
+  assert.equal((await pendingDelta(evId))?.amount, 100_000);
+
+  // (a) credit row present but ZEROED → the credit-zeroing UPDATE matches nothing.
+  await setTotal(evId, 1_000_000); // taper ₱14,000 − ₱6,000 paid = ₱8,000
+  assert.equal(
+    (await pendingDelta(evId))?.amount,
+    800_000,
+    'delta must reach ₱8,000 even though the credit-zeroing UPDATE matched no rows',
+  );
+
+  // (b) credit row present and NON-ZERO → the UPDATE matches, FOUND would be true.
+  //     Forced directly so both sides of that UPDATE's match state are covered.
+  await db.query(
+    `UPDATE public.booking_fee_charges SET credit_centavos = 12345
+       WHERE event_vendor_id = $1 AND kind = 'amendment_credit'`,
+    [evId],
+  );
+  await setTotal(evId, 2_000_000); // taper ₱24,000 − ₱6,000 paid = ₱18,000
+  assert.equal(
+    (await pendingDelta(evId))?.amount,
+    1_800_000,
+    'delta must reach ₱18,000 with a non-zero credit note on file too',
+  );
+
+  const all = await charges(evId);
+  assert.equal(all.filter((x) => x.kind === 'amendment_delta').length, 1, 'still exactly one delta');
+  assert.equal(all.filter((x) => x.kind === 'amendment_credit').length, 1, 'still exactly one credit');
+});
+
+test('the DEFAULT is derived, not a second copy of the literal', async () => {
+  // Introspect the stored parameter default. A literal here — of ANY value,
+  // including today's correct one — is the bug class: it is a second place a
+  // reprice has to remember. The default must be the function CALL.
+  const r = await db.query<{ args: string }>(
+    `SELECT pg_get_function_arguments(p.oid) AS args
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = 'booking_fee_rederive_lock_fee'`,
+  );
+  assert.equal(r.rows.length, 1, 'exactly one booking_fee_rederive_lock_fee overload');
+  const args = r.rows[0]!.args;
+  assert.match(
+    args,
+    /p_schedule_version text DEFAULT booking_fee_schedule_version\(\)/,
+    `the default must call the version function, got: ${args}`,
+  );
+  assert.doesNotMatch(
+    args,
+    /DEFAULT '/,
+    `no string literal may be typed into this default again, got: ${args}`,
+  );
+  // Signature is otherwise untouched — the trigger and every other caller depend on it.
+  assert.match(args, /^p_event_vendor_id uuid, p_schedule_version text /, args);
+});
+
+test('SWEEP: no charge row anywhere carries the superseded flat-5% schedule', async () => {
+  // Covers every row this whole suite minted — lock charges, trigger-minted
+  // deltas and credits alike. The re-derive path can no longer produce one.
+  const r = await db.query<{ n: number; versions: string[] }>(
+    `SELECT count(*) FILTER (WHERE schedule_version = $1)::int AS n,
+            array_agg(DISTINCT schedule_version) AS versions
+       FROM public.booking_fee_charges`,
+    [STALE_SCHEDULE_VERSION],
+  );
+  const { n, versions } = r.rows[0]!;
+  assert.ok(versions.length > 0, 'the suite must actually have minted charges to sweep');
+  assert.equal(
+    n,
+    0,
+    `${n} charge row(s) stamped "${STALE_SCHEDULE_VERSION}"; distinct stamps seen: ${JSON.stringify(versions)}`,
+  );
+});

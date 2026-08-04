@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
+import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -99,10 +100,15 @@ export async function saveEgiftMethod(
   const handle = optional(formData, 'handle', MAX_HANDLE);
   const note = optional(formData, 'note', MAX_NOTE);
 
-  // The QR ref comes from <FileUpload> as an `r2://bucket/key` string. Accept
-  // only that shape (or empty) so a stray value can't be persisted as a handle.
+  // The QR ref comes from <FileUpload> as an `r2://bucket/key` string.
+  //
+  // SEC-1: the old check was `startsWith('r2://')` only, which accepted ANY
+  // bucket and ANY key. The stored ref is presigned later by lib/egift.ts for
+  // the couple's guests, so a foreign key parked here would be signed for third
+  // parties. Pin it to this event's own `events/{eventId}/pabuya/` upload
+  // prefix in the public media bucket.
   const qrRaw = str(formData, 'qr_r2_key');
-  const qrR2Key = qrRaw.startsWith('r2://') ? qrRaw : null;
+  let qrR2Key = parseClientRef(qrRaw, pabuyaQrPolicy(eventId)) ? qrRaw : null;
 
   // Require at least one actionable detail — a bare label helps no guest.
   if (!handle && !qrR2Key) {
@@ -119,6 +125,31 @@ export async function saveEgiftMethod(
   if (!user) redirect('/login');
 
   const editingId = str(formData, 'egift_method_id');
+
+  // Grandfather clause: the edit form echoes the method's CURRENT qr ref back,
+  // so a row written before this policy existed must still be re-savable.
+  // Echoing a ref we already serve introduces nothing new; a ref that is
+  // neither policy-conforming nor the stored one is refused.
+  if (qrRaw.length > 0 && !qrR2Key) {
+    let grandfathered = false;
+    if (editingId.length > 0) {
+      const { data: existing } = await supabase
+        .from('event_egift_methods')
+        .select('qr_r2_key')
+        .eq('egift_method_id', editingId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      grandfathered =
+        (existing as { qr_r2_key?: string | null } | null)?.qr_r2_key === qrRaw;
+    }
+    if (!grandfathered) {
+      return {
+        ok: false,
+        error: 'That QR image reference isn’t valid — re-upload and try again.',
+      };
+    }
+    qrR2Key = qrRaw;
+  }
 
   if (editingId.length > 0) {
     const { error } = await supabase

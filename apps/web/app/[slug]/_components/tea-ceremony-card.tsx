@@ -28,20 +28,28 @@ const TEA_NOTE: string =
 export function TeaCeremonyCard({ event }: { event: CeremonyOverlayInput }) {
   if (!isChineseWedding(event)) return null;
 
+  // Pahina (design 2026-07-25 §7): plate grammar, gild mono key, display-face
+  // rite name. Unnumbered — it is a conditional companion to the details
+  // chapter, not a chapter of its own. Copy is untouched (single source of
+  // truth stays WEDDING_TRADITIONS_GUIDE).
   return (
     <section className="space-y-4">
-      <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
-        Chinese tradition
+      <h2 className="pahina-eyebrow">
+        <span>Chinese tradition</span>
       </h2>
-      <div className="rounded-xl border border-ink/10 bg-cream p-4">
-        <div className="flex items-start gap-2">
-          <Leaf aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-          <div className="min-w-0 space-y-0.5">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Ceremony</p>
-            <p className="text-base font-semibold text-ink">Tea ceremony (敬茶)</p>
+      <div className="pahina-plate">
+        <div className="flex items-start gap-2.5">
+          <Leaf aria-hidden className="mt-1 h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
+          <div className="min-w-0">
+            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+              Ceremony
+            </p>
+            <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+              Tea ceremony (敬茶)
+            </p>
           </div>
         </div>
-        <p className="mt-2 text-sm leading-relaxed text-ink/70">{TEA_NOTE}</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink/70">{TEA_NOTE}</p>
       </div>
     </section>
   );

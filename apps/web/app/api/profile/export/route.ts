@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
+import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
 
 /**
  * RA 10173 data-export endpoint (V1 slice).
@@ -39,7 +40,7 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  * making that assertion when we simply failed to look is a false statement of
  * fact to a data subject under the very law this endpoint serves.
  *
- * ── WHY TWO SECTIONS USE THE SERVICE-ROLE CLIENT ─────────────────────────────
+ * ── WHY THREE SECTIONS USE THE SERVICE-ROLE CLIENT ───────────────────────────
  * Every other read on this route uses the RLS-enforced session client, and
  * that is right: for those tables a policy the subject already satisfies also
  * returns exactly the subject's own rows, so RLS and completeness agree.
@@ -68,17 +69,42 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  * from a true zero. Completeness therefore has to come from a read RLS cannot
  * narrow.
  *
+ * The THIRD table, `vendor_profiles` (added 2026-07-27), is here for a related
+ * but distinct reason — not RLS, but COLUMN privileges. Its subject-facing
+ * columns include the vendor's BIR tax identity (tin_number, tin_type,
+ * registered_*) and DTI/SEC registration numbers, which a logged-in NON-OWNER
+ * can currently read off any verified vendor because `authenticated` holds
+ * table-level SELECT on all 93 columns. The fix for that is a column-level
+ * REVOKE — and column privileges are ROLE-level, not row-level, so the moment
+ * they land the VENDOR CANNOT READ THEIR OWN tin_number either. PostgREST
+ * fails the whole statement (42501), not the one column, so the subject's
+ * entire `vendor_profile` section would vanish from their own RA 10173 export.
+ * Reading it service-role, filtered to `user_id = auth.uid()`, is what keeps
+ * the subject's own record whole while the role loses access to everyone
+ * else's. (The cleaner shape is a `security_definer` self-view, exactly as
+ * SEC-2b did with `public.events_host` — see the closing note below on why a
+ * migration is not bundled into this route's change.)
+ *
  * WHAT BOUNDS THE BYPASS — four properties, all of which must keep holding:
  *   1. The filter value is `user.id` from `supabase.auth.getUser()`, a
  *      server-verified session identity. It is NEVER taken from the request
  *      body, query string, or a header — this route accepts no input at all,
  *      so there is no parameter for a caller to tamper with.
- *   2. The filter column is the AUTHOR column (author_user_id / sender_user_id),
- *      i.e. the identity itself. The widest possible result set is "rows this
- *      exact authenticated uid wrote" — definitionally the subject's own
+ *   2. The filter column is the AUTHOR column (author_user_id / sender_user_id)
+ *      — or, for vendor_profiles, the OWNER column `user_id` — i.e. the
+ *      identity itself. The widest possible result set is "rows this exact
+ *      authenticated uid wrote or owns" — definitionally the subject's own
  *      personal data, and exactly what the export exists to return.
- *   3. Scope is two tables and a fixed column projection. No `select('*')`, no
- *      joins that could pull a third party's row in behind the bypass.
+ *   3. Scope is three tables and a fixed column projection. No `select('*')`,
+ *      no joins that could pull a third party's row in behind the bypass.
+ *      ⚠ THIS PROPERTY WAS NOT ACTUALLY TRUE UNTIL 2026-07-27. The rule was
+ *      stated here from the start, but `vendor_profiles` was read `select('*')`
+ *      one screen below — on the session client at the time, so the stated rule
+ *      and the code did not visibly collide. Moving that read behind the bypass
+ *      forced the collision, and it was resolved in the rule's favour: the
+ *      wildcard is gone, replaced by the named projection in
+ *      `lib/export-vendor-profile-columns`. There is now no `select('*')`
+ *      anywhere on this route, privileged or not.
  *   4. Read-only. No write ever uses this client on this route.
  * If a future edit loosens (1) or (2) — an event_id filter, a caller-supplied
  * id, a widened select — the bypass stops being bounded and this pattern must
@@ -88,11 +114,16 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  *   • T6 (lib/export-coverage-guardrail) is a TEXT-PROXIMITY match asserting the
  *     author/sender column name appears near each table name. It catches a flip
  *     to .eq('event_id', …). It does NOT see which client issues the read.
- *   • T11 (same file) is the one that pins the client: it asserts both reads are
- *     issued from `admin`, never from the RLS session client. Without it the
- *     whole fix could be reverted by a drive-by refactor with a green build —
- *     mutation-tested, it was.
- * Properties 3 and 4 above are reviewed by humans, not asserted by any test.
+ *   • T11 (same file) is the one that pins the client: it asserts all three
+ *     reads are issued from `admin`, never from the RLS session client. Without
+ *     it the whole fix could be reverted by a drive-by refactor with a green
+ *     build — mutation-tested, it was.
+ *   • T12 (same file) pins the HALF of property 3 that a human reviewer is
+ *     worst at: that the vendor_profiles projection is COMPLETE. It asserts the
+ *     named columns are exactly the table's column set minus an explicit,
+ *     reasoned deny-list, so a column added by a future migration cannot
+ *     silently drop out of a data subject's export. The "no joins" half of
+ *     property 3, and property 4, are still reviewed by humans only.
  *
  * The cleaner long-term shape is author SELECT policies added by migration,
  * which would let the session client do this. It is not bundled here because a
@@ -156,34 +187,98 @@ export async function GET() {
     marketingShareConsentsRes,
     workingNotesRes,
     broadcastsSentRes,
+    dayRequestsRes,
+    accessRequestsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('event_members')
-      .select('event_id, member_type, joined_via, created_at, events(public_id, display_name, event_date, slug)')
+      // ⚠ `joined_at`, NOT `created_at` — public.event_members has no
+      // `created_at`. PostgREST 42703s the whole query, so `event_memberships`
+      // was ALWAYS an empty section in the RA 10173 subject-access export: the
+      // data subject was told, in writing, that they belong to no events. The
+      // route's own listOutcome() machinery did flag it in `not_included`, but
+      // the wrong column meant the section could never populate at all.
+      .select('event_id, member_type, joined_via, joined_at, events(public_id, display_name, event_date, slug)')
       .eq('user_id', user.id),
     // RA 10173 completeness (PR-G) — events the user OWNS (member_type='couple')
     // carry sensitive per-partner birth date/time + consent for the BaZi
     // date-check. The membership join above under-exports events (public_id /
     // display_name / event_date / slug only), so the opt-in birth fields would
-    // be invisible without this owner-scoped select. RLS-enforced reads via the
-    // user-session client (couple_can read their own event), so a user only ever
-    // exports their OWN event birth data. Kept to the couple grain: a
+    // be invisible without this owner-scoped select. Kept to the couple grain: a
     // coordinator on someone else's event must NOT export the couple's birth data.
-    supabase
-      .from('event_members')
-      .select(
-        'event_id, events(public_id, display_name, event_date, ceremony_type, secondary_ceremony_type, ' +
-          'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
-          'partner_b_birth_time, bazi_birthdata_consent_at)',
-      )
-      .eq('user_id', user.id)
-      .eq('member_type', 'couple'),
-    supabase
-      .from('vendor_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    //
+    // SEC-2b (20271008731642): the birth columns are SELECT-denied to
+    // `authenticated` on public.events, so the old
+    // `event_members → events(…birth…)` EMBED now 42501s for EVERYONE — it was
+    // also the one embed in the codebase through which a plain GUEST could pull
+    // the couple's birth data. Split in two: the membership query resolves the
+    // caller's OWN couple event ids, then public.events_host (host-scoped
+    // definer view) returns the private columns for exactly those. The
+    // member_type='couple' filter is what keeps this at the couple grain —
+    // events_host by itself would also admit an accepted moderator.
+    (async () => {
+      const owned = await supabase
+        .from('event_members')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .eq('member_type', 'couple');
+      // ERROR FIRST, before a single row is touched. The rejected shape here
+      // was `const ids = (owned.data ?? []) …` with the error checked two
+      // lines later: harmless as written, but it is the exact silhouette this
+      // route was hardened against, and it puts the unwrap of a possibly-null
+      // `data` UPSTREAM of the only thing that distinguishes "the read failed"
+      // from "you own no events". One reordered edit and a 42501 on
+      // event_members becomes a subject-access file that silently asserts the
+      // couple has no birth data on record. Checking the error first is also
+      // what removes the need for `?? []` at all — supabase-js settles to a
+      // discriminated union, so past this guard `owned.data` is an array.
+      //
+      // The error is handed straight through: listOutcome() names
+      // `owned_event_birth_data` in `not_included` and flips export_complete.
+      if (owned.error) {
+        return { data: [] as unknown[], error: owned.error };
+      }
+      const ids = owned.data
+        .map((r) => (r as { event_id?: string }).event_id)
+        .filter((id): id is string => typeof id === 'string');
+      // A genuine empty: the subject holds no member_type='couple' row, so
+      // there is no host-scoped birth data to fetch. Not a failure — the only
+      // branch on this route entitled to return an empty with error null.
+      if (ids.length === 0) {
+        return { data: [] as unknown[], error: null };
+      }
+      return supabase
+        .from('events_host')
+        .select(
+          'event_id, public_id, display_name, event_date, ceremony_type, secondary_ceremony_type, ' +
+            'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+            'partner_b_birth_time, bazi_birthdata_consent_at',
+        )
+        .in('event_id', ids);
+    })(),
+    // RA 10173 — the subject's OWN vendor business record. Read PRIVILEGED and
+    // with an EXPLICIT projection; both halves are load-bearing and neither is
+    // cosmetic. See lib/export-vendor-profile-columns for the full argument:
+    //   • the wildcard had to go because `select('*')` demands SELECT on every
+    //     one of the 93 columns, which pinned the whole table open to
+    //     `authenticated` and made a column-level revoke unexpressible;
+    //   • the client had to change because once that revoke lands, column
+    //     privileges being role-level means the vendor loses their own
+    //     tin_number too, and PostgREST 42501s the entire row rather than
+    //     omitting one field.
+    // Bounded exactly as the two coordinator reads below are: .eq on the OWNER
+    // column with a server-verified session identity, fixed projection, no
+    // joins, read-only. When the service key is absent the read is NOT taken at
+    // all and `not_included` says so — an empty vendor_profile must never be
+    // mistaken for "you have no vendor record".
+    admin
+      ? admin
+          .from('vendor_profiles')
+          .select(VENDOR_PROFILE_EXPORT_SELECT)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve(null),
     supabase
       .from('chat_messages')
       .select('message_id, thread_id, sender_role, body, created_at')
@@ -335,6 +430,27 @@ export async function GET() {
           .eq('sender_user_id', user.id)
           .order('created_at', { ascending: true })
       : Promise.resolve(null),
+    // RA 10173 (2026-07-27) — the day-of requests stream (§10 #2/#6).
+    // Scoped to author_user_id for the same reason chat_messages is scoped to
+    // sender_user_id: the subject's data is what they WROTE. An event-scoped
+    // read would hand a supplier the couple's private issue log and every other
+    // supplier's reports on their own subject-access request. `resolved_by_
+    // user_id` is deliberately not a second lane — clearing someone else's item
+    // is an action ON their record, not personal data OF the person who cleared
+    // it. Mirrors the erasure decision in lib/erasure/coverage.ts.
+    supabase
+      .from('event_day_requests')
+      .select('request_id, event_id, origin, kind, status, body, preset_key, created_at')
+      .eq('author_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-27) — the subject's own asks for event access, scoped
+    // to requester_user_id. `decided_by_user_id` is deliberately not a second
+    // lane: answering someone else's request is an action ON their record.
+    supabase
+      .from('event_access_requests')
+      .select('request_id, event_id, requested_areas, note, status, decisions, created_at')
+      .eq('requester_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -343,11 +459,16 @@ export async function GET() {
   const profile = singleOutcome('profile (users)', profileRes);
   const events = listOutcome('event_memberships', eventsRes);
   const ownedEvents = listOutcome<Record<string, unknown>>('owned_event_birth_data', ownedEventsRes);
+  // `adminUnavailable` is passed for the same reason it is passed to the two
+  // coordinator sections: without it, a run with no service key would ship
+  // `vendor_profile: null` with `export_complete: true` — i.e. tell a vendor in
+  // writing that Setnayan holds no business record for them, when in fact we
+  // simply did not look.
   const vendorProfile = singleOutcome<{
     vendor_profile_id?: string;
     logo_url?: string | null;
     portfolio_r2_keys?: string[] | null;
-  }>('vendor_profile', vendorProfileRes);
+  }>('vendor_profile', vendorProfileRes, adminUnavailable);
   const messages = listOutcome('chat_messages_authored', messagesRes);
   const orders = listOutcome('orders', ordersRes);
   const payments = listOutcome('payments', paymentsRes);
@@ -367,6 +488,8 @@ export async function GET() {
     broadcastsSentRes,
     adminUnavailable,
   );
+  const dayRequests = listOutcome('day_requests_authored', dayRequestsRes);
+  const accessRequests = listOutcome('event_access_requests_made', accessRequestsRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -376,6 +499,18 @@ export async function GET() {
   let vendorPortfolioMedia: string[] = [];
   let vendorSubmittedMedia: unknown[] = [];
   let vendorMediaIncomplete: string | null = null;
+  // Both media sections hang off `vp`, so when the profile read did not happen
+  // they resolve to `[]` with nothing said — the silent empty, one level down.
+  // A vendor whose portfolio is 40 photos would be handed two empty arrays and
+  // `export_complete: true`. Named here through the same helper so the wording
+  // matches every other NOT READ notice on this route.
+  if (!vp && vendorProfile.incomplete) {
+    vendorMediaIncomplete = listOutcome(
+      'vendor_portfolio_media + vendor_submitted_media',
+      null,
+      adminUnavailable,
+    ).incomplete;
+  }
   if (vp) {
     vendorPortfolioMedia = await displayUrlsForStoredAssets([
       vp.logo_url ?? null,
@@ -421,6 +556,8 @@ export async function GET() {
     marketingShareConsents,
     workingNotes,
     broadcastsSent,
+    dayRequests,
+    accessRequests,
   ]);
 
   const exported = {
@@ -441,14 +578,16 @@ export async function GET() {
     profile: profile.row,
     event_memberships: events.rows,
     // RA 10173 (PR-G) — the sensitive birth fields the user opted in to (BaZi
-    // date-check), for events they own. The `events` join shape is the owner's
-    // own row; flatten to the birth-relevant fields so the export is explicit
-    // about what sensitive data Setnayan holds.
+    // date-check), for events they own. Flattened to the birth-relevant fields
+    // so the export is explicit about what sensitive data Setnayan holds.
+    // SEC-2b: rows now come FLAT off public.events_host (the host-scoped view)
+    // rather than as an `events` embed under an event_members row — see the
+    // query above. Kept tolerant of either shape so the mapping is not the
+    // thing that breaks if the query is ever restructured again.
     owned_event_birth_data: ownedEvents.rows.map((row) => {
-      // Supabase types a to-one embed as an object, but can surface it as a
-      // single-element array depending on the relationship hint — normalize both.
       const rawEv = (row as { events?: unknown }).events;
-      const ev = (Array.isArray(rawEv) ? rawEv[0] : rawEv) as Record<string, unknown> | null;
+      const embedded = (Array.isArray(rawEv) ? rawEv[0] : rawEv) as Record<string, unknown> | null;
+      const ev = embedded ?? (row as Record<string, unknown>);
       return {
         event_id: (row as { event_id?: string }).event_id ?? null,
         public_id: (ev?.public_id as string | null) ?? null,
@@ -490,6 +629,11 @@ export async function GET() {
     // receives the words they wrote (see the bounded-bypass block above).
     vendor_working_notes_authored: workingNotes.rows,
     coordinator_broadcasts_sent: broadcastsSent.rows,
+    // The day-of notes the subject wrote (§10 #2/#6), author-scoped.
+    day_requests_authored: dayRequests.rows,
+    // Access the subject ASKED for (not what they were granted — that lives on
+    // the moderator record).
+    event_access_requests_made: accessRequests.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

@@ -68,7 +68,7 @@ export function Tile({
       <p className="text-sm text-[color:var(--sn-ink-400)]">{body}</p>
     </div>
   ) : (
-    <div className="sn-press sn-lift-3 group flex h-full flex-col gap-3 rounded-card border border-white/60 bg-white/72 p-5 shadow-[var(--sn-sh-tile)]">
+    <div className="sn-press sn-lift-3 group flex h-full flex-col gap-3 rounded-card border border-ink/15 bg-white/72 p-5 shadow-[var(--sn-sh-tile)]">
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--sn-gold-100)] text-[color:var(--sn-gold-700)]">
         <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>

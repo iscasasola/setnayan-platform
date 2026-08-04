@@ -18,6 +18,12 @@ import {
   claimBirthdateCutoff,
   isDependentSex,
   isDependentRelationship,
+  isDependentKind,
+  isPersonDependent,
+  DEPENDENT_KINDS,
+  DEPENDENT_KIND_LABELS,
+  DEPENDENT_DATE_LABELS,
+  NON_PERSON_DEPENDENT_KINDS,
 } from './dependent-people';
 
 const TODAY = '2026-07-12';
@@ -78,4 +84,71 @@ test('validators reject unknown values', () => {
   assert.equal(isDependentSex('other'), false);
   assert.equal(isDependentRelationship('child'), true);
   assert.equal(isDependentRelationship('pet'), false);
+});
+
+// ── the kind vocabulary (owner 2026-07-30: children · business · items · pets) ─
+
+test('the kind vocabulary WIDENED — it did not replace anything', () => {
+  // 'other' must keep working: rows may hold it and code branches on it.
+  for (const k of ['person', 'pet', 'other']) {
+    assert.ok(isDependentKind(k), `${k} must stay valid — this is a widening`);
+    assert.ok((DEPENDENT_KINDS as readonly string[]).includes(k));
+  }
+  // …and the two the owner named that used to collapse into 'other'.
+  assert.ok(isDependentKind('business'));
+  assert.ok(isDependentKind('item'));
+  assert.equal(isDependentKind('corporation'), false);
+  assert.equal(isDependentKind(''), false);
+  assert.equal(isDependentKind(null), false);
+});
+
+test('every kind has a label AND a date label — no unlabeled option can ship', () => {
+  for (const k of DEPENDENT_KINDS) {
+    assert.ok(DEPENDENT_KIND_LABELS[k]?.length, `${k} has no picker label`);
+    assert.ok(DEPENDENT_DATE_LABELS[k]?.length, `${k} has no date label`);
+  }
+  // The split is the whole point: a business is not born, a car has no birthday.
+  assert.notEqual(DEPENDENT_DATE_LABELS.business, DEPENDENT_DATE_LABELS.person);
+  assert.notEqual(DEPENDENT_DATE_LABELS.item, DEPENDENT_DATE_LABELS.person);
+});
+
+test('NON_PERSON_DEPENDENT_KINDS is DERIVED — it can never drift from the vocabulary', () => {
+  // The rehome/transfer-of-care query matches on this list. While it was typed by
+  // hand as ['pet','other'], widening the vocabulary would have silently broken
+  // transfers for every new kind. Asserting the derivation is what stops that.
+  assert.deepEqual(
+    [...NON_PERSON_DEPENDENT_KINDS].sort(),
+    DEPENDENT_KINDS.filter((k) => k !== 'person')
+      .slice()
+      .sort(),
+  );
+  assert.ok(NON_PERSON_DEPENDENT_KINDS.includes('business'));
+  assert.ok(NON_PERSON_DEPENDENT_KINDS.includes('item'));
+  assert.ok(!(NON_PERSON_DEPENDENT_KINDS as readonly string[]).includes('person'));
+});
+
+test('isPersonDependent: unknown and missing read as PERSON — the stricter side', () => {
+  // person is the column default and the legacy pre-discriminator value. Reading
+  // an unrecognised row as a person APPLIES the fence/consent/majority rules
+  // rather than waiving them, which is the only safe direction to fail in.
+  assert.equal(isPersonDependent('person'), true);
+  assert.equal(isPersonDependent(null), true);
+  assert.equal(isPersonDependent(undefined), true);
+  assert.equal(isPersonDependent('who knows'), false);
+  for (const k of NON_PERSON_DEPENDENT_KINDS) {
+    assert.equal(isPersonDependent(k), false, `${k} must not be treated as a person`);
+  }
+});
+
+test('the age fence is a PERSON rule — it never runs on a business or a pet', () => {
+  // A 12-year-old sari-sari store and a 3-year-old dog both land in the 'child'
+  // band arithmetically. That is exactly why the fence is not applied by kind
+  // here but by the CALLER (dependent-actions gates it on isPerson): the maths
+  // is human maths, and a business must never be refused as "an adult who should
+  // be invited instead", nor accepted as "a minor".
+  assert.equal(fenceBand('2014-01-01', TODAY), 'child'); // a 12-year-old shop
+  assert.equal(fenceBand('2000-01-01', TODAY), 'blocked'); // a 26-year-old car
+  // The guard that matters: non-person kinds are not persons, so the caller skips.
+  assert.equal(isPersonDependent('business'), false);
+  assert.equal(isPersonDependent('item'), false);
 });

@@ -1,4 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  liveStudioPoolOnly,
+  POOL_ONLY_CONNECT_NOTICE,
+} from '@/lib/live-studio-pool-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -26,6 +30,25 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  // ⭐ POOL-ONLY — THE DOOR THE VERIFICATION EXEMPTION DEPENDS ON.
+  //
+  // FIRST, ahead of auth and ahead of every Google call, because the property being
+  // protected is "no user outside Setnayan's Google organisation ever reaches the
+  // consent screen". A refusal that ran after the auth check would still be correct
+  // here, but the ordering states the rule: this is not an authorization decision
+  // about WHO may connect, it is that the BYO door itself is closed. With an
+  // Internal-audience OAuth client, Google would refuse these users anyway with
+  // `org_internal` — this turns that dead end into a plain sentence.
+  //
+  // See lib/live-studio-pool-only.ts for the sequencing: do NOT enable this before a
+  // verified Setnayan channel is connected, or Live Studio has no route to air.
+  if (liveStudioPoolOnly()) {
+    return NextResponse.json(
+      { error: 'pool_only', message: POOL_ONLY_CONNECT_NOTICE },
+      { status: 409 },
+    );
+  }
+
   const eventId = req.nextUrl.searchParams.get('event_id');
   if (!eventId) {
     return NextResponse.json({ error: 'event_id required' }, { status: 400 });

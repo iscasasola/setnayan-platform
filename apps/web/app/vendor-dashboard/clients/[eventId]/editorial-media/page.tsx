@@ -93,7 +93,11 @@ export default async function VendorEditorialMediaPage({
       </header>
 
       {eventVendorId ? (
-        <EditorialMediaStudio eventId={eventId} existing={existing} />
+        <EditorialMediaStudio
+          eventId={eventId}
+          vendorProfileId={profile.vendor_profile_id}
+          existing={existing}
+        />
       ) : eligibility.isRecommendedPick ? (
         // Recommended pick, but the service isn't confirmed complete yet —
         // Stage-10 gate. Show a clear pending/locked state, not "unavailable".

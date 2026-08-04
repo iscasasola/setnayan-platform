@@ -70,9 +70,20 @@ fi
 
 ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
-# Comma-separated origins. Defaults cover prod (apex + www, .com + .ph), the
-# Vercel production alias, all Vercel preview deploys, and local dev.
-DEFAULT_ORIGINS="https://www.setnayan.com,https://setnayan.com,https://www.setnayan.ph,https://setnayan.ph,https://setnayan-platform-web.vercel.app,https://*.vercel.app,http://localhost:3000"
+# Comma-separated origins. Defaults cover prod (apex + www), the Vercel
+# production alias, all Vercel preview deploys, and local dev.
+#
+# NOT LISTED: setnayan.ph / www.setnayan.ph — DROPPED 2026-08-02.
+# Audit finding: setnayan.ph is NOT REGISTERED. Every unregistered .ph name
+# resolves to the registry's wildcard parking lander (45.79.222.138 →
+# k8s-svc-lander-dotph-NXD-*.parklogic.net), which is why the domain "resolves"
+# but has no NS delegation and no MX. Allowlisting an origin on a domain that
+# anyone can buy hands the buyer a browser origin our buckets accept GET/PUT/HEAD
+# from, with AllowedHeaders "*". Nothing legitimate can ever be served from it
+# today, so the entry was pure downside.
+# If the owner registers setnayan.ph and points it at Vercel, re-add it then —
+# either here or, without editing this file, via R2_CORS_ORIGINS below.
+DEFAULT_ORIGINS="https://www.setnayan.com,https://setnayan.com,https://setnayan-platform-web.vercel.app,https://*.vercel.app,http://localhost:3000"
 ORIGINS="${R2_CORS_ORIGINS:-$DEFAULT_ORIGINS}"
 
 # Turn the comma list into a JSON array fragment: a,b → "a","b"

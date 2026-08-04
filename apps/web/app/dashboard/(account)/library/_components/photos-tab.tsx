@@ -11,6 +11,18 @@ import { getPhotosAlbums, type Album } from '../_data/photos-albums';
 // getSwitcherData (event list + monograms + role), EventMonogram, and the
 // rounded-2xl border-ink/10 card shell from
 // app/dashboard/[eventId]/galleries/page.tsx.
+//
+// ── LENSES (2026-07-31) ─────────────────────────────────────────────────────
+// The Alaala tile on the home names five lenses (Recent · Owned · Attended ·
+// People · With me — see (launcher)/_components/alaala-lenses.tsx). Three of
+// them are exactly this list, sliced: `Album.role` is already 'couple' | 'guest',
+// which IS Owned vs Attended. So the lens is a FILTER over albums we already
+// fetched, not a new read and not a new vocabulary. `lens` is optional and
+// defaults to 'recent', so the launcher's `<PhotosTab userId={…} />` keeps
+// working byte-for-byte.
+
+/** The three lenses this grid can answer. People / With me are not albums. */
+export type PhotosLens = 'recent' | 'owned' | 'attended';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/+$/,
@@ -25,25 +37,56 @@ function parseEventYear(dateStr: string | null): number | null {
   return new Date(t).getUTCFullYear();
 }
 
-export async function PhotosTab({ userId }: { userId: string }) {
-  const { albums, shareEvent } = await getPhotosAlbums(userId);
+export async function PhotosTab({
+  userId,
+  lens = 'recent',
+}: {
+  userId: string;
+  lens?: PhotosLens;
+}) {
+  const { albums: allAlbums, shareEvent } = await getPhotosAlbums(userId);
+
+  const albums =
+    lens === 'owned'
+      ? allAlbums.filter((a) => a.role === 'couple')
+      : lens === 'attended'
+        ? allAlbums.filter((a) => a.role === 'guest')
+        : allAlbums;
 
   if (albums.length === 0) {
+    // Per-lens empty copy — an empty ATTENDED lens is not "no albums yet", and
+    // saying so on an account that hosts three weddings would be a lie. The
+    // Attended line is the Alaala tile's own words, kept identical.
+    const empty =
+      lens === 'owned'
+        ? {
+            title: 'You’re not hosting an event yet',
+            body: 'The events you host become albums here once their day passes.',
+          }
+        : lens === 'attended'
+          ? {
+              title: 'No events attended yet',
+              body: 'The ones you’re invited to gather here too — their photos land in this lens.',
+            }
+          : {
+              title: 'No albums yet',
+              body: 'Photos & videos from the events you host or attend land here. Create your first event to get started.',
+            };
+
     return (
       <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
         <Camera aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
-        <p className="mt-3 text-sm font-medium text-ink">No albums yet</p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-          Photos &amp; videos from the events you host or attend land here. Create
-          your first event to get started.
-        </p>
-        <Link
-          href="/dashboard/create-event"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta-600"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Create an event
-        </Link>
+        <p className="mt-3 text-sm font-medium text-ink">{empty.title}</p>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">{empty.body}</p>
+        {lens === 'attended' ? null : (
+          <Link
+            href="/dashboard/create-event"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta-600"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Create an event
+          </Link>
+        )}
       </div>
     );
   }
@@ -59,8 +102,10 @@ export async function PhotosTab({ userId }: { userId: string }) {
 
   // "On this day" — owned events whose anniversary is TODAY (exact month/day).
   // The memory home reaching out: no extra query, just event_date vs today.
+  // Computed from the UNFILTERED set: an anniversary is news whichever lens is
+  // open, but it is only SHOWN on Recent (the lens that means "what's new").
   const now = new Date();
-  const anniversaries = albums
+  const anniversaries = allAlbums
     .filter((a) => a.role === 'couple' && a.event.event_date)
     .map((a) => {
       const d = new Date(a.event.event_date as string);
@@ -93,7 +138,7 @@ export async function PhotosTab({ userId }: { userId: string }) {
   return (
     <div className="space-y-6">
       {/* "On this day" — anniversary nostalgia hook (the memory home reaching out) */}
-      {anniversaries.length > 0 ? (
+      {lens === 'recent' && anniversaries.length > 0 ? (
         <div className="space-y-2">
           {anniversaries.map(({ album, yearsAgo }) => (
             <Link
@@ -118,34 +163,37 @@ export async function PhotosTab({ userId }: { userId: string }) {
         </div>
       ) : null}
 
-      {/* Facebook helper card */}
-      <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
-              <FacebookGlyph className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-ink">Share to Facebook</h2>
-              <p className="mt-0.5 text-xs text-ink/55">
-                To make a Facebook album: open an event below, Download all, then use
-                Facebook&rsquo;s Create Album to upload.
-              </p>
+      {/* Facebook helper card — Recent only. On a narrowed lens the albums are
+          the answer; a sharing utility on top of them is noise. */}
+      {lens === 'recent' ? (
+        <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
+                <FacebookGlyph className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-ink">Share to Facebook</h2>
+                <p className="mt-0.5 text-xs text-ink/55">
+                  To make a Facebook album: open an event below, Download all, then use
+                  Facebook&rsquo;s Create Album to upload.
+                </p>
+              </div>
             </div>
+            {fbShareUrl ? (
+              <a
+                href={fbShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1666d4]"
+              >
+                <FacebookGlyph className="h-4 w-4" />
+                Share the gallery link
+              </a>
+            ) : null}
           </div>
-          {fbShareUrl ? (
-            <a
-              href={fbShareUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1666d4]"
-            >
-              <FacebookGlyph className="h-4 w-4" />
-              Share the gallery link
-            </a>
-          ) : null}
         </div>
-      </div>
+      ) : null}
 
       {/* Albums — grouped by year (a timeline) once events span multiple years */}
       {groupByYear ? (

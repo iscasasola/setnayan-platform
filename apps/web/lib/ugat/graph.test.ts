@@ -4,24 +4,83 @@ import assert from 'node:assert/strict';
 import {
   UGAT_TYPES,
   UGAT_TYPE_BY_ID,
+  UGAT_TYPE_VOCAB,
   UGAT_FINDINGS,
   UGAT_JOINTS,
+  UGAT_FINDING_STALE_AFTER_DAYS,
   platformEdges,
   findingsForType,
   findingForEdge,
+  openUgatFindings,
+  findingAgeDays,
+  isFindingStale,
   jointsForEdge,
 } from './graph';
 import { scoreUgatMatch } from './data-pure';
 
-/* ── the nine platform type nodes are complete + consistent ── */
+/* ── the platform type nodes are complete + consistent ── */
 
-test('there are exactly nine type nodes, one per entity type', () => {
-  assert.equal(UGAT_TYPES.length, 9);
+test('type nodes are one-per-entity-type with unique ids', () => {
+  // The real invariant is the 1:1 correspondence, NOT a magic number. The old
+  // assertion pinned "exactly nine" three separate ways, so adding the tenth
+  // node (Samahan, 2026-07-30) failed CI three times for no defect — a count
+  // that must be hand-edited to add a node is a speed bump, not a guard.
+  assert.ok(UGAT_TYPES.length >= 10, 'type nodes should not be lost');
   const types = new Set(UGAT_TYPES.map((t) => t.type));
-  assert.equal(types.size, 9);
-  // every node id is unique
+  assert.equal(types.size, UGAT_TYPES.length, 'each node must have a distinct entity type');
   const ids = new Set(UGAT_TYPES.map((t) => t.id));
-  assert.equal(ids.size, 9);
+  assert.equal(ids.size, UGAT_TYPES.length, 'each node must have a distinct id');
+});
+
+test('every entity type in the union has both a node and a vocab entry', () => {
+  // This is what "exactly nine" was really protecting: a type added to the
+  // union but never given a node (or a vocab row) renders as a blank chip.
+  for (const t of UGAT_TYPES) {
+    assert.ok(UGAT_TYPE_VOCAB[t.type], `${t.type} has a node but no vocab entry`);
+  }
+  const vocabTypes = Object.keys(UGAT_TYPE_VOCAB).sort();
+  const nodeTypes = UGAT_TYPES.map((t) => t.type).sort();
+  assert.deepEqual(vocabTypes, nodeTypes, 'vocab and node type sets must match exactly');
+});
+
+test('the Papic node is anchored on the SEAT, not the photo', () => {
+  const papic = UGAT_TYPE_BY_ID['TYPE-PAPIC'];
+  assert.ok(papic, 'TYPE-PAPIC missing');
+  // paparazzi_seats is the hub (6 inbound FKs); a seat is the unit of
+  // entitlement and captures hang off it. Anchoring on papic_photos would put
+  // the node on the volume table rather than the concept.
+  assert.equal(papic.table, 'paparazzi_seats');
+  assert.equal(papic.countKey, 'papic');
+  // all five bonds resolve to real nodes
+  for (const eg of papic.edges) assert.ok(UGAT_TYPE_BY_ID[eg.to], `dangling edge → ${eg.to}`);
+  assert.equal(papic.edges.length, 5);
+});
+
+test('the Papic↔Vendor joint records the booking-vs-org grain trap', () => {
+  // papic_missions.vendor_id points at event_vendors (a BOOKING), not at a
+  // vendor org — the same misleading name as J7. If this prose ever loses that
+  // warning, a join written against the wrong grain silently returns nothing.
+  const j = jointsForEdge('TYPE-PAPIC', 'TYPE-VENDORS')[0];
+  assert.ok(j, 'Papic↔Vendors joint missing');
+  assert.match(j.traps, /event_vendors/);
+  assert.ok(
+    j.claims.some(
+      (c) => c.kind === 'fk' && c.table === 'papic_missions' && c.references === 'event_vendors',
+    ),
+    'the booking-grain FK must be claimed, not just described',
+  );
+});
+
+test('the Samahan node is wired to communities and its two joints', () => {
+  const samahan = UGAT_TYPE_BY_ID['TYPE-SAMAHAN'];
+  assert.ok(samahan, 'TYPE-SAMAHAN missing');
+  assert.equal(samahan.table, 'communities');
+  assert.equal(samahan.countKey, 'community');
+  // J14 (membership, via community_members) and J15 (ownership, a direct FK)
+  assert.equal(jointsForEdge('TYPE-SAMAHAN', 'TYPE-USERS')[0]?.joint, 'community_members');
+  const ownership = jointsForEdge('TYPE-SAMAHAN', 'TYPE-EVENTS')[0];
+  assert.ok(ownership, 'Samahan→Events joint missing');
+  assert.equal(ownership.joint, null, 'events.community_id is a direct FK, not a joint table');
 });
 
 test('every type-node edge points at a real type node', () => {
@@ -64,12 +123,23 @@ test('platformEdges only references present nodes', () => {
 
 /* ── health findings registry ── */
 
-test('all nine findings have a valid severity, fix state and 5-step trace', () => {
-  assert.equal(UGAT_FINDINGS.length, 9);
+test('every finding has a valid severity, fix state and 5-step trace', () => {
+  // Deliberately NOT a hardcoded count. The old assertion pinned 9 and had to be
+  // edited every time the registry moved, which made "the count changed" look
+  // like a test failure rather than what it is — the audit doing its job.
+  assert.ok(UGAT_FINDINGS.length >= 9, 'registry should not lose findings');
   for (const f of UGAT_FINDINGS) {
     assert.ok(f.sev === 'red' || f.sev === 'amber');
-    assert.ok(f.fix === 'queued' || f.fix === 'needsowner');
-    assert.equal(f.trace.length, 5, `${f.id} trace should have 5 steps`);
+    assert.ok(f.fix === 'queued' || f.fix === 'needsowner' || f.fix === 'done');
+    // A trace must be a full walk, but no longer EXACTLY five. The re-audit
+    // added a sixth row to several findings recording that the original cited a
+    // column which never existed — pinning 5 would force deleting exactly the
+    // evidence that makes the correction auditable. FindingCard numbers rows
+    // dynamically, so the length was never load-bearing for rendering.
+    assert.ok(
+      f.trace.length >= 5 && f.trace.length <= 7,
+      `${f.id} trace should be a 5-7 step walk, got ${f.trace.length}`,
+    );
     // every finding binds a real entity type
     assert.ok(
       UGAT_TYPES.some((t) => t.type === f.bindType),
@@ -78,13 +148,82 @@ test('all nine findings have a valid severity, fix state and 5-step trace', () =
   }
 });
 
+test('finding ids are unique', () => {
+  const ids = UGAT_FINDINGS.map((f) => f.id);
+  assert.equal(new Set(ids).size, ids.length, 'duplicate finding id');
+});
+
+/* ── the anti-staleness contract (added 2026-07-30) ──
+   Six of nine findings silently went stale inside 25 days, and three cited
+   columns that never existed. These assertions make an undated or unevidenced
+   finding a BUILD failure rather than a slow rot. */
+
+test('every finding carries an ISO verifiedAt that is not in the future', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const f of UGAT_FINDINGS) {
+    assert.match(f.verifiedAt, /^\d{4}-\d{2}-\d{2}$/, `${f.id} verifiedAt must be ISO yyyy-mm-dd`);
+    assert.ok(f.verifiedAt <= today, `${f.id} verifiedAt is in the future`);
+  }
+});
+
+test('every finding carries non-empty evidence and a valid status', () => {
+  for (const f of UGAT_FINDINGS) {
+    assert.ok(
+      f.verifiedEvidence && f.verifiedEvidence.trim().length > 20,
+      `${f.id} needs real evidence (a ref + file:line or migration), not a stub`,
+    );
+    assert.ok(
+      f.status === 'open' || f.status === 'mitigated' || f.status === 'fixed',
+      `${f.id} has invalid status`,
+    );
+  }
+});
+
+test('openUgatFindings excludes exactly the fixed rows', () => {
+  const open = openUgatFindings();
+  assert.ok(open.every((f) => f.status !== 'fixed'));
+  assert.equal(open.length, UGAT_FINDINGS.filter((f) => f.status !== 'fixed').length);
+  // fixed findings are KEPT in the registry as history, never deleted
+  assert.ok(
+    UGAT_FINDINGS.some((f) => f.status === 'fixed'),
+    'fixed findings must remain as history',
+  );
+});
+
+test('a fixed finding is never stale, and staleness turns over at the boundary', () => {
+  const open = openUgatFindings()[0];
+  assert.ok(open, 'expected at least one open finding');
+  const base = Date.parse(`${open.verifiedAt}T00:00:00Z`);
+  const day = 86_400_000;
+  assert.equal(findingAgeDays(open, base), 0);
+  assert.equal(isFindingStale(open, base + UGAT_FINDING_STALE_AFTER_DAYS * day), false);
+  assert.equal(isFindingStale(open, base + (UGAT_FINDING_STALE_AFTER_DAYS + 1) * day), true);
+  const fixed = UGAT_FINDINGS.find((f) => f.status === 'fixed')!;
+  const fixedBase = Date.parse(`${fixed.verifiedAt}T00:00:00Z`);
+  assert.equal(isFindingStale(fixed, fixedBase + 9999 * day), false);
+});
+
+test('the map overlay never surfaces a fixed finding on an edge', () => {
+  // findingForEdge feeds the canvas. A closed finding painting a red edge is
+  // the exact regression this refresh existed to end.
+  for (const f of UGAT_FINDINGS) {
+    if (f.status === 'fixed' && f.bindEdge) {
+      assert.notEqual(
+        findingForEdge(f.bindEdge[0], f.bindEdge[1])?.id,
+        f.id,
+        `${f.id} is fixed but still marks its edge`,
+      );
+    }
+  }
+});
+
 test('findingsForType rolls findings onto their bound type node', () => {
   // F2 (verification fee) binds vendor; F9 binds service.
   assert.ok(findingsForType('vendor').some((f) => f.id === 'F2'));
   assert.ok(findingsForType('service').some((f) => f.id === 'F9'));
-  // orders own F1 + F8
+  // orders own F1 + F8 + F10 (the new public-receipt exposure)
   const orderIds = findingsForType('order').map((f) => f.id).sort();
-  assert.deepEqual(orderIds, ['F1', 'F8']);
+  assert.deepEqual(orderIds, ['F1', 'F10', 'F8']);
 });
 
 test('findingForEdge matches a bound edge in either direction', () => {

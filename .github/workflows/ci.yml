@@ -38,8 +38,32 @@ jobs:
       # not the old 2-test curated list (which silently let migration/schema
       # regressions through: PR4/PR5 db tests were never CI-run until now).
       # Gap audit 2026-07-23 · Batch B7.
+      #
+      # This glob ALSO carries the exposure-surface freeze
+      # (tests/db/exposure-freeze.db.test.ts), which fails the build when anon /
+      # authenticated gain reach they did not have in
+      # supabase/security/exposure-surface.baseline.txt. Do not narrow this glob
+      # to a curated list again — that is how the last set of db tests stopped
+      # running.
       - name: Data-layer guards (DB replay)
         run: pnpm --filter @setnayan/web test:db:ci
+
+      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
+      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
+      # hand-typed select that drops a column the canonical *_SELECT constant
+      # includes). Fails when a NEW instance appears beyond the committed
+      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
+      # narrowing and passes silently, so paying debt down never turns the build
+      # red.
+      #
+      # It rides THIS job rather than getting its own, because it needs the TS
+      # scanners (and therefore tsx) and this job has already installed. A
+      # dedicated job would buy nothing but a second `pnpm install` per PR. The
+      # structural half — is the baseline canonical, is the guard still wired —
+      # is pure node and DOES get its own install-free job below.
+      # See apps/web/scripts/lint-dup-rule.ts.
+      - name: Duplicated-rule guards
+        run: pnpm --filter @setnayan/web lint:dup-rule
 
   build:
     name: production build
@@ -113,24 +137,6 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  lint-retired-strings:
-    name: lint retired strings
-    runs-on: ubuntu-latest
-    # Fails when retired product strings re-appear in apps/web/app/**.
-    # 2026-05-22 10-sweep audit Sweep 5 found 5 new drifts in 4 days, including
-    # Pareto + Custom Monogram Pack listed on /features 8 days after their
-    # retirement. This guard stops drift treadmill at PR-merge time.
-    # Config: apps/web/.retired-strings.json — add entries here, no code change.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint retired strings
-        run: node apps/web/scripts/lint-retired-strings.mjs
 
   lint-page-masthead:
     name: lint page masthead
@@ -370,6 +376,63 @@ jobs:
       - name: Unit-test the migration doctor classifier
         run: node --test scripts/migration-doctor.test.mjs
 
+  lint-exposure-baseline:
+    name: lint exposure baseline
+    runs-on: ubuntu-latest
+    # Structural half of THE FREEZE (supabase/security/README.md). The real
+    # comparison — live schema vs committed baseline — runs inside the
+    # "typecheck + lint" job via test:db:ci, because it needs the migration
+    # replay. THIS job needs nothing but the files, so it runs everywhere and
+    # closes the two ways a file-based guard dies quietly:
+    #   1. the baseline gets truncated/emptied, so the differ compares nothing
+    #      against nothing and reports "no widenings";
+    #   2. the guard gets unwired — test file deleted, renamed out of the
+    #      tests/db/*.db.test.ts glob, or the CI step dropped — and the suite
+    #      still goes green. That is the worst failure mode available, because
+    #      it manufactures confidence.
+    # So it asserts: header fact-count matches the body, per-kind floors are
+    # met, ordering is canonical, keys are unique, the mirrored constants have
+    # not drifted from exposure-surface.ts, and the freeze test is still wired
+    # into both package.json and this workflow.
+    # Pure node, no install. See scripts/lint-exposure-baseline.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint exposure baseline
+        run: node scripts/lint-exposure-baseline.mjs
+
+  lint-dup-rule-baseline:
+    name: lint duplicated-rule baseline
+    runs-on: ubuntu-latest
+    # Structural half of the duplicated-rule ratchet. The real comparison —
+    # scan vs committed baseline — runs inside the "typecheck + lint" job,
+    # because it needs the TypeScript scanners. THIS job needs nothing but the
+    # files, so it runs install-free and closes the two ways a file-based guard
+    # dies quietly:
+    #   1. the baseline gets truncated, emptied or hand-sorted, so the differ
+    #      compares nothing against nothing and reports "no widenings";
+    #   2. the guard gets unwired — runner deleted, package.json script dropped,
+    #      CI step removed — and the build still goes green. That is the worst
+    #      failure mode available, because it manufactures confidence.
+    # So it asserts: header fact-counts match the body, per-kind floors are met,
+    # ordering is canonical, keys are unique and correctly shaped, the mirrored
+    # DUP_RULE_KINDS constant has not drifted, the "adding a line is a widening"
+    # sentence is still in the header, and both the runner and its CI steps are
+    # still in place. Pure node, no install. See scripts/lint-dup-rule-baseline.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint duplicated-rule baseline
+        run: node scripts/lint-dup-rule-baseline.mjs
+
   lint-vendor-layout-revalidate:
     name: lint vendor layout revalidate
     runs-on: ubuntu-latest
@@ -390,3 +453,27 @@ jobs:
 
       - name: Lint vendor layout revalidate
         run: node apps/web/scripts/lint-vendor-layout-revalidate.mjs
+
+  lint-changelog-dir:
+    name: lint changelog fragment dir
+    runs-on: ubuntu-latest
+    # Fails when a `changelog.d/` directory exists anywhere but the repo root.
+    # scripts/changelog-collect.mjs reads ONLY <repoRoot>/changelog.d, so a
+    # fragment written to any other one is never folded into CHANGELOG.md and
+    # never deleted — it just sits there looking like a healthy pending
+    # fragment. The failure mode is pure silence, which is why it ran unnoticed
+    # for months: by 2026-07-25 two orphan dirs held 172 stranded fragments
+    # (167 in apps/web/changelog.d, 5 in apps/changelog.d) whose content never
+    # reached the changelog. Both were migrated with `git mv`; this guard stops
+    # a third from forming. Docs alone can't — changelog.d/README.md and
+    # CLAUDE.md already said "put it in the root dir" the entire time the 172
+    # piled up. Pure node, no install. See apps/web/scripts/lint-changelog-dir.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint changelog fragment dir
+        run: node apps/web/scripts/lint-changelog-dir.mjs

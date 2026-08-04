@@ -17,6 +17,12 @@ import {
  * booth renders BRANDED (logo + poster) inside their couples' published 3D
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
+ * Under the 2026-07-25 tiered add-on model (flag-dark) the page opens `eligible`
+ * to EVERY verified tier and passes the banded `pricePhp` (₱2,000 Free/Solo ·
+ * ₱1,500 Pro/Ent). This card needs no branch for that: every price it prints
+ * comes from the `pricePhp` prop, and with the tier gate lifted the only way to
+ * be ineligible is "not verified yet" — which already has its own copy below.
+ *
  * Honest states (mirror the Vendor AI add-on card):
  *   • 3D Plan switched off (NEXT_PUBLIC_SEATING_3D='false') → "Coming soon", NO
  *     buy CTA — the booth has nowhere to render, so we never take money for it.
@@ -57,11 +63,31 @@ export type BoothAddonCardProps = {
   expiresAt: string | null;
   /** Standing renewal price (₱1,500) from the admin-managed catalog. */
   pricePhp: number;
+  /** "Free until your 6th booking" is ACTIVE for this vendor right now (owner
+   *  2026-07-25) — the add-on grants at ₱0 and REPEATS while they stay inside the
+   *  window. Takes precedence over `trialAvailable` for copy: it is the reason
+   *  this cycle is free, and it needs no pay channel. Absent/false → unchanged. */
+  first5Free?: boolean;
+  /** How many of the first 5 bookings are still to come — powers the honest
+   *  "2 to go" line so the perk never reads as permanently free. */
+  first5Remaining?: number;
 };
 
 export function BoothAddonCard(props: BoothAddonCardProps) {
-  const { available, eligible, paidButUnverified, trialAvailable, active, expiresAt, pricePhp } =
-    props;
+  const {
+    available,
+    eligible,
+    paidButUnverified,
+    trialAvailable,
+    active,
+    expiresAt,
+    pricePhp,
+  } = props;
+  const first5Free = props.first5Free === true;
+  const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
+  /** A free cycle is granted with no money changing hands — from the first-5
+   *  perk (repeatable) or the legacy one-time trial. Both skip the pay channel. */
+  const freeCycle = first5Free || trialAvailable;
 
   const toast = useToast();
   const router = useRouter();
@@ -105,7 +131,13 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
             generic.
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
-            {trialAvailable ? (
+            {first5Free ? (
+              <>
+                Free while you&rsquo;re on your first 5 bookings
+                {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
+                {peso(pricePhp)} / 28 days.
+              </>
+            ) : trialAvailable ? (
               <>Free first 28-day cycle, then {peso(pricePhp)} / 28 days.</>
             ) : (
               <>{peso(pricePhp)} / 28 days.</>
@@ -146,7 +178,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
       ) : (
         <form action={formAction} className="mt-4">
           {/* The paid path needs a pay channel; the free first cycle ignores it. */}
-          {!trialAvailable ? (
+          {!freeCycle ? (
             <fieldset className="mb-3">
               <legend className="text-xs font-medium text-ink">Pay with</legend>
               <div className="mt-1.5 flex flex-wrap gap-3">
@@ -164,13 +196,17 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
 
           <SubmitButton
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
-            pendingLabel={trialAvailable ? 'Turning on…' : 'Starting…'}
+            pendingLabel={freeCycle ? 'Turning on…' : 'Starting…'}
           >
-            {trialAvailable
-              ? 'Turn on 3D Booth — free first cycle'
-              : active
-                ? `Renew — ${peso(pricePhp)} / 28 days`
-                : `Reactivate — ${peso(pricePhp)} / 28 days`}
+            {first5Free
+              ? active
+                ? 'Extend 3D Booth — still free'
+                : 'Turn on 3D Booth — free'
+              : trialAvailable
+                ? 'Turn on 3D Booth — free first cycle'
+                : active
+                  ? `Renew — ${peso(pricePhp)} / 28 days`
+                  : `Reactivate — ${peso(pricePhp)} / 28 days`}
           </SubmitButton>
 
           {/* Apply-then-pay instructions after a paid order was started. */}

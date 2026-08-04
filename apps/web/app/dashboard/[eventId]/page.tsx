@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -36,10 +37,12 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import type { PabatiClipThumb } from './_components/day-of-mode/video-guestbook-card';
 import { SetDateNudge } from './_components/set-date-nudge';
+import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { EventDashboard } from './_components/event-dashboard';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
+import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +60,7 @@ export const dynamic = 'force-dynamic';
  *   • SetDateNudge          — when no firm date is set
  *   • NikahEssentialsCard   — Muslim wedding track
  *   • Tea-ceremony tile     — Chinese (Tsinoy) wedding track
+ *   • PapicReadyNudge       — once, until the first photo is shot (PR-G option B)
  *
  * `<EventDashboard>` owns the AI gate (real entitlement OR `?suri=preview` for
  * internal accounts) + all its own data loading; this shell forwards the Home
@@ -322,6 +326,42 @@ export default async function EventHomePage({
   // details forward into a fresh instance.
   const canRecur = canPlanNextYear((event.event_type as string | null) ?? null);
 
+  // ── May this viewer see Papic's numbers? ───────────────────────────────────
+  // Still a CORRECTNESS gate, not a nicety: all three capture tables are
+  // couple-only in RLS (`papic_photos_couple_full` etc.) and an RLS denial returns
+  // `count: 0` with NO error — so the resolver reads via service-role and takes
+  // this flag explicitly. Without it a viewer the policy excludes is told
+  // "0 cameras out" on a wedding already mid-shoot.
+  //
+  // 🔓 WIDENED TO COORDINATORS 2026-07-30 (owner: "yes" — should coordinators see
+  // Papic counts on home). It was couple-only, which was the conservative default
+  // I shipped rather than make a privacy call unilaterally. The owner has now made
+  // it: a delegated coordinator runs the event and sees the guest list, schedule
+  // and vendors, so an aggregate photo/shot COUNT is squarely inside that remit.
+  // Note what is and is not widened — they see the NUMBERS on home; the RLS on the
+  // capture tables is deliberately UNTOUCHED, so no coordinator gains access to a
+  // photo. `['couple','coordinator']` mirrors the membership test the day-of
+  // launcher and galleries hub already use.
+  //
+  // Resolved ONCE here and threaded into <EventDashboard> for the tile, so the
+  // whole feature costs one indexed query rather than two.
+  const { data: papicViewerMembership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  const canViewPapicCounts = Boolean(papicViewerMembership);
+
+  // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
+  // render — a date-less event is showing the set-date nudge instead, and a
+  // non-couple viewer never sees it — so neither pays a query.
+  const papicNudgeVisible =
+    event.event_date && canViewPapicCounts
+      ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
+      : false;
+
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
@@ -354,6 +394,22 @@ export default async function EventHomePage({
        *  / Editorial) can launch. Renders ONLY when no date is set; dismissible
        *  per-event; links to the existing /date-selection governed surface. */}
       {!event.event_date ? <SetDateNudge eventId={eventId} /> : null}
+
+      {/* "Your free camera is ready" — Papic promotion PR-G option B (owner picked
+       *  A + B on 2026-07-30). Every event is armed at creation with a free shared
+       *  pool of shots AND one free dedicated camera, and until now the couple was
+       *  never told so anywhere on their home. Renders ONLY while nothing has been
+       *  shot yet; dismissible per-event; the mini-tile in the bento is the
+       *  permanent "where it stands" readout once shooting starts.
+       *
+       *  ⚠ IT WAITS ITS TURN BEHIND THE SET-DATE NUDGE (owner default, PR-G
+       *  question 3). Two stacked bands in one slot read as clutter, and set-date
+       *  goes first because the whole date-gated public-site lifecycle waits on
+       *  it — so a date-less event is asked for the date, and meets Papic once
+       *  that is settled. */}
+      {event.event_date && papicNudgeVisible ? (
+        <PapicReadyNudge eventId={eventId} />
+      ) : null}
 
       {/* Chinese (Tsinoy) tea-ceremony helper — a FREE, ceremony-gated tile.
        *  Renders only for Chinese weddings (primary OR secondary 'chinese' rite,
@@ -426,6 +482,9 @@ export default async function EventHomePage({
   return (
     <>
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
+      {/* Self-hiding: renders nothing unless a coordinator is waiting on an
+          answer (owner ruling 2026-07-27 — the host decides what to share). */}
+      <AccessRequestsDoorway eventId={eventId} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
         <DayOfModeGrid
@@ -458,6 +517,7 @@ export default async function EventHomePage({
         inspectId={search.inspect}
         slotAfterBento={hasOverlays ? overlays : undefined}
         dayOfActive={dayOfActive}
+        canViewPapicCounts={canViewPapicCounts}
       />
     </>
   );

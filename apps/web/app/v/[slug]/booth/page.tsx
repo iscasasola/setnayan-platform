@@ -16,7 +16,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isPubliclyVisible, type VendorPublicVisibility } from '@/lib/vendor-visibility';
-import { boothCanBrand, type Lab3DBooth } from '@/lib/seating-3d';
+import { type Lab3DBooth } from '@/lib/seating-3d';
+import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import { resolveVendorCategory } from '@/lib/vendor-packages';
 import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -142,9 +143,12 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
   // that only reaches the SoftGate stays anonymized.
   const name = boothDisplayName(vendor);
 
-  // Entitlement: the 3D booth showcase is a Pro/Enterprise perk (same gate that
-  // brands a booth). A non-Pro vendor gets a soft card, not a broken canvas.
-  if (!boothCanBrand(vendor.tier_state)) {
+  // Entitlement: the 3D booth showcase rides the same tier gate that brands a
+  // booth — a Pro/Enterprise perk today, and open to EVERY tier once the tiered
+  // add-on model is live (3D Plan Ads is then a buyable add-on on Free/Solo too,
+  // so they get to preview what they'd be buying). A gated vendor gets a soft
+  // card, not a broken canvas.
+  if (!boothTierCanBrand(vendor.tier_state)) {
     return <SoftGate slug={slug} name={name} message="A 3D booth showcase is a Pro feature — this vendor hasn't set theirs up yet." />;
   }
 
@@ -171,7 +175,7 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
       slug: vendor.business_slug,
       bookable: true,
       // The vendor's OWN booth showcase is a PREVIEW of the perk (already
-      // Pro/Enterprise-gated by the boothCanBrand SoftGate above) — brand it so
+      // tier-gated by the boothTierCanBrand SoftGate above) — brand it so
       // they see what the 3D Booth add-on renders in couples' plans. Not a real
       // couple's published plan, so it does not require the paid entitlement.
       boothAddonActive: true,

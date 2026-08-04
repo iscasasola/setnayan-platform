@@ -17,6 +17,7 @@ import { resolveMonogramMotion, type MonogramMotionKey } from '@/lib/monogram-mo
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /** Reusable SELECT column list for any page that resolves the hero monogram. */
 export const HERO_MONOGRAM_COLUMNS =
@@ -72,13 +73,8 @@ export async function resolveEventMonogram(
   row: HeroMonogramRow | null,
 ): Promise<HeroMonogramData | null> {
   if (!row) return null;
-  const bespokeSvg =
-    (typeof row.monogram_uploaded_svg === 'string' && row.monogram_uploaded_svg.trim()
-      ? row.monogram_uploaded_svg
-      : null) ??
-    (typeof row.monogram_custom_svg === 'string' && row.monogram_custom_svg.trim()
-      ? row.monogram_custom_svg
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const bespokeSvg = resolveEventMonogramSvg(row);
   const ownsAnimated = await eventAnimatedMonogramActive(client, eventId);
   const animatedMonogram: MonogramMotionKey | false = ownsAnimated
     ? resolveMonogramMotion(row.monogram_motion_key)

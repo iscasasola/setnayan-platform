@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import {
   computeCustomQuote,
   type CustomComposition,
@@ -219,7 +219,7 @@ export async function sendCustomQuote(
   // Apply-then-pay order + pending payment (mirrors the branch/seat buy flow) so
   // the quote appears in /admin/payments. event_id NULL = vendor subscription.
   const referenceCode = generateReferenceCode();
-  const { data: orderRow, error: oErr } = await admin
+  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert({
       event_id: null,
@@ -236,7 +236,7 @@ export async function sendCustomQuote(
   if (oErr || !orderRow) return err('Could not open the quote order. Please try again.');
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await admin.from('payments').insert({
+  const { error: pErr } = await createMoneyWriterClient().from('payments').insert({
     order_id: orderId,
     user_id: user.id,
     amount_php: final28,
@@ -246,7 +246,7 @@ export async function sendCustomQuote(
     paid_at: new Date().toISOString().slice(0, 10),
   });
   if (pErr) {
-    await admin.from('orders').delete().eq('order_id', orderId);
+    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
     return err('Could not open the quote payment. Please try again.');
   }
 

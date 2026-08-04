@@ -38,12 +38,14 @@ export type PrivacyControlKey =
   | 'coordinator_prep_release'
   | 'coordinator_run_of_show'
   | 'coordinator_day_of_broadcast'
+  | 'coordinator_requests_inbox'
   | 'vendor_ai_autoreply'
   | 'vendor_deep_search'
   | 'antifraud_trust_signals'
   | 'device_fingerprint'
   | 'guest_columns'
-  | 'papic_pool_gallery';
+  | 'papic_pool_gallery'
+  | 'same_date_demand';
 
 /**
  * Risk-grouped sections for the board. `group` is the KIND of data a control
@@ -212,6 +214,16 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
       'No RA 10173 exposure — an activation switch. Emails go to booked vendors’ existing contact addresses; no new PII collection.',
   },
   {
+    key: 'coordinator_requests_inbox',
+    group: 'activation_switch',
+    title: 'Day-of requests inbox + vendor status updates',
+    description:
+      'The shared day-of stream behind one inbox: the coordinator’s issues log becomes couple/vendor/host/coordinator lanes, and booked vendors get one-tap status presets ("On site", "Running late") that report into it. While inactive the issues log stays device-local, exactly as shipped.',
+    category: 'Coordinator activation — not privacy-sensitive',
+    riskNote:
+      'No new personal data is collected. Rows carry operational text between people already on the event; a booked vendor can read only their own reports, never the couple’s log or another supplier’s. Free-text bodies are author-entered, so the inbox inherits the same do-not-paste-PII guidance as chat.',
+  },
+  {
     key: 'vendor_ai_autoreply',
     group: 'automated_ai',
     title: 'Vendor AI (auto-reply)',
@@ -220,6 +232,16 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Automated processing of couple messages',
     riskNote:
       'Automated processing of couple chat + event data on the vendor’s behalf. The live /privacy notice needs a Vendor-AI section (purpose + legal basis) before this activates; couple-faith consumption must stay unwired. DPO sign-off required.',
+  },
+  {
+    key: 'same_date_demand',
+    group: 'automated_ai',
+    title: 'Same-date demand signal ("In demand right now")',
+    description:
+      'Counts the OTHER couples who have inquired with the same vendor for the same exact date, shows that number to this couple ("N couples inquired for your date"), and feeds it to the "In demand right now" ranking lens as a sub-score. Inquiry-only — a saved-but-never-contacted vendor counts as zero — and floored at 3 couples server-side, so a below-floor count never leaves the server.',
+    category: 'Cross-couple activity disclosure',
+    riskNote:
+      'Tells one couple something about other couples\u2019 booking behaviour — the only signal on the marketplace that does. The min-3 floor exists because n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying; the inquiry-only rule exists because counting a mere SAVE as competition is manufactured scarcity (owner ruling 2026-06-02: "a fineable dark pattern"). There is NO per-couple opt-out — a couple cannot exclude their own inquiry from other couples\u2019 counts. /privacy + ROPA do not declare this cross-couple aggregation yet. DPO ruling required before couples start messaging vendors.',
   },
   {
     key: 'vendor_deep_search',

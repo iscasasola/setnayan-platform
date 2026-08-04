@@ -55,3 +55,43 @@ test('no vendor → never branded', () => {
   assert.equal(boothIsBranded(null), false);
   assert.equal(boothIsBranded(undefined), false);
 });
+
+// ── 2026-07-25 tiered add-on model: allTiersAllowed lifts the TIER factor ────
+// Owner-locked — 3D Plan Ads becomes a paid add-on ANY tier can buy (₱2,000
+// Free/Solo · ₱1,500 Pro/Ent), so the entitlement earns the branded booth, not
+// the tier. Pinned here because the entitlement half must NEVER relax with it.
+
+test('allTiersAllowed defaults OFF → today’s Pro/Enterprise gate, byte-identical', () => {
+  // Explicit `false` and omitted must agree on every tier.
+  for (const t of ['pro', 'enterprise', 'solo', 'verified', 'free', 'custom', null] as const) {
+    assert.equal(boothCanBrand(t, false), boothCanBrand(t), `tier ${t}`);
+  }
+  assert.equal(
+    boothIsBranded(vendor({ tier: 'solo', boothAddonActive: true }), false),
+    false,
+  );
+});
+
+test('allTiersAllowed ON → every tier CAN brand', () => {
+  assert.equal(boothCanBrand('free', true), true);
+  assert.equal(boothCanBrand('solo', true), true);
+  assert.equal(boothCanBrand('verified', true), true);
+  assert.equal(boothCanBrand('custom', true), true);
+  assert.equal(boothCanBrand('pro', true), true);
+  assert.equal(boothCanBrand(null, true), true);
+});
+
+test('allTiersAllowed ON: Free/Solo WITH the add-on → branded', () => {
+  assert.equal(boothIsBranded(vendor({ tier: 'free', boothAddonActive: true }), true), true);
+  assert.equal(boothIsBranded(vendor({ tier: 'solo', boothAddonActive: true }), true), true);
+});
+
+test('allTiersAllowed ON: the ACTIVE-add-on half still gates every tier', () => {
+  // The whole point of the gate — opening tiers must not give anyone a free
+  // branded booth. No entitlement, no branding, on any tier.
+  assert.equal(boothIsBranded(vendor({ tier: 'free', boothAddonActive: false }), true), false);
+  assert.equal(boothIsBranded(vendor({ tier: 'solo' }), true), false);
+  assert.equal(boothIsBranded(vendor({ tier: 'pro', boothAddonActive: undefined }), true), false);
+  assert.equal(boothIsBranded(null, true), false);
+  assert.equal(boothIsBranded(undefined, true), false);
+});

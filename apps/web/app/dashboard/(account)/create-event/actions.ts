@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -18,6 +20,7 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -233,10 +236,31 @@ export async function createWeddingEvent(formData: FormData) {
     .slice(0, 80);
   const honoree_label =
     isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+  // …and WHICH alaga that name belongs to, when the who step named one. This is
+  // the STRONGER half of the cardinality key (lib/life-event-gate.ts): a link to
+  // a record survives renaming the alaga, and two alaga with the same first name
+  // stop sharing one in-planning slot. Client-supplied ⇒ re-verified against
+  // `dependents` under `owner_user_id = you`; anything unowned, handed over, or
+  // no longer matching the typed label resolves to NULL and the label keys the
+  // cap exactly as it did before. Never a new way to fail at creating an event.
+  //
+  // The `isDependentId` pre-check keeps this a strict no-op for every account
+  // without a People roster: no field, no admin client constructed, not one
+  // extra round-trip, and no new place for this action to throw.
+  const honoree_dependent_id_raw = formData.get('honoree_dependent_id');
+  const honoree_dependent_id =
+    isGatedLifeType(event_type) && isDependentId(honoree_dependent_id_raw)
+      ? await resolveHonoreeDependentId(createAdminClient(), {
+          userId: user.id,
+          dependentId: honoree_dependent_id_raw,
+          honoreeLabel: honoree_label,
+        })
+      : null;
   if (!isWedding && isGatedLifeType(event_type)) {
     const blocking = await getBlockingLifeEvent(supabase, user.id, {
       eventType: event_type,
       honoreeLabel: honoree_label,
+      honoreeDependentId: honoree_dependent_id,
     });
     if (blocking) {
       return redirect(
@@ -332,6 +356,11 @@ export async function createWeddingEvent(formData: FormData) {
       // cardinality key for life types (NULL for lifestyle types and unlabeled
       // creations). Ordinary PI; never rendered on public/vendor/guest surfaces.
       honoree_label,
+      // …and the record that name points at, when it is one of the account's own
+      // alaga (2026-08-01). Server-verified above; NULL is the norm (no People
+      // roster, "You", "Someone else", or an edited label) and behaves exactly
+      // as every row does today.
+      honoree_dependent_id,
       // Anniversary capture (PR-A): the commemorated date + typed origin, and
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,
@@ -405,6 +434,19 @@ export async function createWeddingEvent(formData: FormData) {
       `/dashboard/create-event?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
     );
   }
+
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
+  // ON free for every new event, so the metering fence must exist from the moment
+  // the event does — an event with no grant takes papic_event_pool_status()'s
+  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
 
   // Add the creating user as a couple member.
   const { error: memberError } = await admin.from('event_members').insert({
@@ -515,7 +557,11 @@ export async function planNextYearEvent(formData: FormData) {
 
   // Defence-in-depth only — NOT the gate (a guest can read this too).
   const { data: source } = await supabase
-    .from('events')
+    // SEC-2b: public.events_host, not public.events — this select names a column
+    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+    // on the base table by 20271008731642. The view is the couple/moderator-scoped
+    // read path; same columns, same row shape, guests get zero rows.
+    .from('events_host')
     .select(
       'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
     )
@@ -568,6 +614,19 @@ export async function planNextYearEvent(formData: FormData) {
       `/dashboard/${sourceId}?error=${encodeURIComponent('plan_next_year_failed: ' + (insertError?.message ?? 'unknown'))}`,
     );
   }
+
+  // Arm the free Papic pool for the CLONE (owner-locked 2026-07-27 · 50 pts). A
+  // next-year clone is a brand-new event row with its own pool — grants are never
+  // copied by buildNextYearClonePayload, so without this the clone would be the
+  // one unmetered event in the account. Idempotent + non-fatal.
+  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, inserted.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: inserted.event_id,

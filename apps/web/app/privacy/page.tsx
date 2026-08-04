@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-23 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-30 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -240,6 +240,63 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Your connection tree (limited pilot)">
+          <p>
+            Setnayan is piloting a <strong>connection tree</strong> — a record of
+            how the people around an event are related. It has three layers:{' '}
+            <strong>family</strong>, <strong>ritual</strong> (ninong and ninang),
+            and <strong>friends</strong>. It is entirely optional, and you never
+            have to add anyone to use Setnayan.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              <strong>Nothing is recorded about someone without an account.</strong>{' '}
+              During the pilot a connection can only be stored when{' '}
+              <em>both</em> people have a Setnayan account. That way both of you
+              can see it, answer it, and delete it. You cannot add someone who
+              has not signed up.
+            </li>
+            <li>
+              <strong>The other person has to agree.</strong> When you say how
+              you are related to someone, that stays a request until they
+              confirm it. Until then it counts as nothing, and it is not shown
+              as a relationship anywhere.
+            </li>
+            <li>
+              <strong>Only the person a claim is about can answer it.</strong>{' '}
+              You cannot confirm a connection you proposed yourself — that is
+              enforced by the database, not just by the interface.
+            </li>
+            <li>
+              <strong>Drafts are private to you.</strong> If you are still
+              working out your tree, a draft is visible only to you. The other
+              person is never shown a claim you have not sent.
+            </li>
+            <li>
+              <strong>Requests do not linger.</strong> A request nobody answers,
+              and a connection that is declined, are both deleted after{' '}
+              <strong>30 days</strong>.
+            </li>
+            <li>
+              <strong>Wider family words are worked out, not stored.</strong>{' '}
+              Terms like lolo, lola, tito, tita, pinsan and pamangkin are
+              calculated from the connections you and others have confirmed. We
+              do not keep a separate record of them.
+            </li>
+          </ul>
+          <p className="pt-2">
+            You can remove any connection you created at any time, and either
+            person can decline one. Deleting your account removes your side of
+            every connection.
+          </p>
+          <p className="pt-2">
+            This feature is a <strong>limited pilot</strong> while our filing
+            with the National Privacy Commission is being completed. We have kept
+            it deliberately narrow for that reason — both-parties-only, consent
+            before anything counts, and short retention.
+          </p>
+        </Section>
+
         <Section title="Gift-receiving details (Pabuya)">
           <p>
             If you set up Pabuya (digital gift-giving), you can display your own
@@ -287,12 +344,96 @@ export default function PrivacyPage() {
             photos delivered privately to the couple.
           </p>
           <p className="pt-2">
+            <strong>
+              The shared pool: other guests at the same event can see your shots.
+            </strong>{' '}
+            When the host turns on the shared pool for their event, the photos and
+            clips guests capture there become visible to the{' '}
+            <em>other signed-in guests of that same event</em> — not only to the
+            couple, and not to the public or to anyone outside the event. Only the
+            compressed web copies are shared, only after they pass the automatic
+            screening that runs on every capture, and the sharing never crosses
+            events: a pool is scoped to the one celebration. Guests can also link
+            themselves to a photo they appear in. If you would rather your shots
+            went only to the couple, ask the host to leave the shared pool off for
+            their event, or capture without it.
+          </p>
+          <p className="pt-2">
             <strong>FaceBlock.</strong> A guest who does not want to appear on an
             event&rsquo;s live photo wall can turn on FaceBlock. We then generate
             a server-side copy with detected faces blurred into the pixels and
             only that blurred copy may be projected — the wall fails closed, so
             if the safe copy is not ready the photo is withheld. You can opt out
             of the live wall this way at any time.
+          </p>
+        </Section>
+
+        <Section title="Live video connections (calls and event cameras)">
+          <p>
+            A few Setnayan features connect two devices{' '}
+            <strong>directly to each other</strong>, so that live audio and video
+            travel between them rather than through us. That is how a voice or
+            video <strong>call</strong> inside a vendor conversation works; how a
+            camera operator&rsquo;s phone sends its feed to the couple&rsquo;s Live
+            Studio control room; how a guest who taps a side camera on an event
+            page receives that angle (the operator&rsquo;s phone sends it straight
+            to them); and how the live demo on our homepage works.
+          </p>
+          <p className="pt-2">
+            <strong>
+              A direct connection means each device learns the other&rsquo;s IP
+              address.
+            </strong>{' '}
+            An IP address is the number your internet provider gives your
+            connection so that other computers know where to send data — it
+            broadly indicates your provider and general area, not your street
+            address. Two devices cannot send video straight to each other without
+            each knowing where to send it, so on a direct connection the other
+            person&rsquo;s device receives your IP address and yours receives
+            theirs. This is inherent to how direct video connections work
+            everywhere on the internet; it is not something we add, and not
+            something we can switch off while still offering the feature. Your
+            device also briefly contacts a public address-discovery (STUN) server
+            run by Google or Cloudflare to learn which address to advertise.
+          </p>
+          <p className="pt-2">
+            <strong>We do not store these addresses.</strong> To introduce the two
+            devices to each other, Setnayan carries the setup messages between
+            them, and those messages contain the candidate addresses — so the
+            addresses do pass through our infrastructure in transit. We do not
+            write them to our database, keep them in a log, or use them for
+            anything else. What we do keep for each connection is whether it ended
+            up direct or relayed and the general type of network path it used, so
+            that we can size the relay costs described below; that record contains
+            no IP address and none of the audio or video.
+          </p>
+          <p className="pt-2">
+            <strong>When a direct connection is not possible, media is relayed.</strong>{' '}
+            Some networks — Philippine mobile data and shared venue or guest Wi-Fi
+            especially — will not let two devices reach each other directly. Those
+            connections instead route the audio and video through a relay server
+            operated by <strong>Cloudflare</strong>, using short-lived credentials
+            we issue for that one connection. The relay is transit, not storage:
+            it forwards the stream, and Setnayan keeps none of it. On a relayed
+            connection the two devices see the relay instead of each other.
+          </p>
+          <p className="pt-2">
+            <strong>Tapping a side camera creates a session for you.</strong> If
+            you choose a side camera on an event page while signed out, we create
+            an anonymous sign-in for your browser at that moment — a session
+            identifier with no name, email, or password attached — because the
+            connection can only be set up under a signed-in session. We create it
+            only when you actually tap a camera, never merely for visiting the
+            page.
+          </p>
+          <p className="pt-2">
+            <strong>Calls are never recorded.</strong> Setnayan does not record,
+            store, or listen to the audio or video of a call. On a direct
+            connection the media never touches our infrastructure at all; on a
+            relayed connection it passes through the Cloudflare relay described
+            above in transit only, and is not retained there or by us. We keep
+            only the fact that a call took place on a conversation: who started
+            it, whether it was voice or video, when it began, and when it ended.
           </p>
         </Section>
 
@@ -361,6 +502,7 @@ export default function PrivacyPage() {
           <ul className="ml-5 list-disc space-y-1">
             <li>Precise location for advertising, profiling, or cross-site tracking (photo/clip GPS is described above and stripped from outbound shares)</li>
             <li>Advertising identifiers, third-party cookies, or cross-site tracking signals</li>
+            <li>Stored IP addresses from live calls and camera feeds — the two devices exchange these to connect, and they pass through our signaling in transit, but we never log or keep them (explained under &ldquo;Live video connections&rdquo; above)</li>
           </ul>
         </Section>
 
@@ -369,6 +511,54 @@ export default function PrivacyPage() {
             When you chat with a Setnayan vendor, the vendor sees only your event display
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
+          </p>
+        </Section>
+
+        <Section title="Vendor interest counts (what other couples can see)">
+          <p>
+            When you save a vendor to your plan, or send that vendor an inquiry, for an
+            event on a specific date, that action is counted toward an{' '}
+            <strong>aggregate, de-identified</strong> number — how many other couples are
+            interested in that vendor on that same date. Other couples planning that date
+            can see that number next to the vendor.
+          </p>
+          <p className="pt-2">
+            <strong>What is shared is the count, and only the count.</strong> Never your
+            name, your account, your email, your event, your budget, your guest list, or
+            any contact detail; never <em>which</em> couples they are; and never anything
+            that would let another couple work out who you are. The count is computed on
+            our servers from data no couple can read directly, and only the final number
+            reaches the page. Vendors are not shown this count either.
+          </p>
+          <p className="pt-2">
+            <strong>Small numbers are suppressed.</strong> In the Marketplace&rsquo;s
+            &ldquo;In demand right now&rdquo; ranking, the number is only sourced from
+            couples who actually <em>inquired</em> with the vendor (not from couples who
+            merely saved them), and it is not shown at all unless at least{' '}
+            <strong>three</strong> other couples have inquired for your date — so one
+            couple&rsquo;s planning is never exposed on its own. The count is also
+            exact-date only: if your date is still a month or a year rather than a day, no
+            count is computed and none is shown.
+          </p>
+          <p className="pt-2">
+            We never present this number as scarcity. Setnayan does not tell you a vendor
+            is &ldquo;almost gone&rdquo; or that there are &ldquo;only N slots left&rdquo;
+            — we do not hold a live capacity count, so any such claim would be invented.
+          </p>
+          {/* Added 2026-08-02 by the per-clause honesty audit. Every other
+              disclosure on this page states whether you can switch the thing
+              off; this one could not, because the answer is no — and a notice
+              that is silent exactly where the answer is unflattering is not an
+              honest notice. RoPA DPS-17 records the same point as the open
+              question for the DPO. */}
+          <p className="pt-2">
+            <strong>You cannot switch this one off.</strong> There is no setting
+            that removes your own inquiry from the counts other couples see. We
+            are telling you plainly rather than leaving it unsaid: what leaves our
+            servers is a number, at three or above, with nothing attached to it
+            that points back to you — that is the protection, and it is the
+            reason we consider the trade a fair one. If you would rather not be
+            counted at all, not sending the inquiry is the only way.
           </p>
         </Section>
 
@@ -394,6 +584,27 @@ export default function PrivacyPage() {
             A coordinator can also <strong>draft schedule items privately and release them
             to you</strong> when ready; drafts stay hidden from you, your guests, and your
             vendors until the coordinator releases them.
+          </p>
+          {/* Added 2026-08-02 by the per-clause audit follow-up. The section
+              described a coordinator's READ access thoroughly but not the two
+              day-of surfaces where they ACT outward — and one of them reaches
+              the couple's guests directly. RoPA DPS-19 declares both. */}
+          <p className="pt-2">
+            <strong>On the day, a coordinator can post announcements your guests
+            see.</strong>{' '}
+            A day-of announcement (&ldquo;dinner is moving up fifteen minutes&rdquo;)
+            is a short message, capped at 500 characters, that goes to{' '}
+            <em>everyone on that event</em> — you, your guests, and your vendors —
+            and it cannot be edited or unsent once posted. Only you and a
+            coordinator you invited can write one, and every message records who
+            sent it. Announcements never leave the event they belong to.
+          </p>
+          <p className="pt-2">
+            <strong>They also run a day-of requests desk.</strong> Requests raised
+            during the event — a vendor asking for something, a change of plan on
+            the floor — collect in one list the coordinator works through. It holds
+            what a person wrote into the request and who raised it, stays scoped to
+            that one event, and is deleted with it.
           </p>
           <p className="pt-2">
             <strong>Lawful basis &amp; your control.</strong> We process this on your consent
@@ -598,6 +809,99 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Guest-written columns on an event page">
+          <p>
+            If a host turns this on, guests can write a short message — a title
+            and a few sentences — for the event&rsquo;s page. A column you submit
+            is <strong>published on the open web</strong> once the couple approves
+            it, alongside a byline drawn from the name on the event&rsquo;s guest
+            list, and can be read by anyone who opens the page.
+          </p>
+          <p className="pt-2">
+            <strong>Nothing is published automatically.</strong> A column starts as
+            a submission only. It reaches the page when two things happen: it
+            passes the automatic screening applied to guest-written content, and
+            the couple approves it. The couple can decline it, with a note back to
+            you, and you can edit and resubmit.
+          </p>
+          <p className="pt-2">
+            <strong>You can take it down.</strong> Withdraw your own column at any
+            time and it comes off the page. If your guest record is deleted, or the
+            event is, your column goes with it. We record the moment you agreed to
+            publication when you submit, so consent is never assumed.
+          </p>
+        </Section>
+
+        {/* ── HOW LONG WE KEEP THINGS ────────────────────────────────────────
+            Added 2026-08-02 by the per-clause honesty audit (Interim Payments &
+            Privacy Deferral Policy §5). The notice stated retention for three
+            narrow things — a TikTok grant, a Drive connection, BIR records —
+            and NOWHERE for the largest and most sensitive category we hold:
+            guests' photos and video. RA 10173 requires the retention period to
+            be disclosed, and we had already DECIDED every number below in
+            `Data_Retention_Schedule_2026-07-11.md`; the notice simply never
+            carried them. Every figure here is that schedule, verbatim — do not
+            edit one without editing the other. */}
+        <Section title="How long we keep things">
+          <p>
+            Different kinds of data have different lifespans, and two of them are
+            set by law rather than by us. This is the whole schedule.
+          </p>
+          <ul className="list-disc space-y-1.5 pt-2 pl-5">
+            <li>
+              <strong>Photos and video</strong> — kept for{' '}
+              <strong>5 years</strong> after the event date, then purged. (They
+              stay instantly available for the first 90 days and move to cheaper
+              cold storage after that; the 5-year total is the same either way.)
+              Philippine wedding photographers keep originals for about that
+              long, and couples come back for them.
+            </li>
+            <li>
+              <strong>Face-recognition data</strong> — for the one event only.
+              Deleted the moment you withdraw, and in any case purged together
+              with that event&rsquo;s photos.
+            </li>
+            <li>
+              <strong>Messages between a couple and a vendor</strong> —{' '}
+              <strong>5 years</strong> after the event date.
+            </li>
+            <li>
+              <strong>Payments, receipts and official receipts</strong> —{' '}
+              <strong>10 years</strong>. This one is a legal floor under BIR
+              rules: we <em>cannot</em> delete these earlier, even if you ask.
+            </li>
+            <li>
+              <strong>Contracts and e-signatures</strong> —{' '}
+              <strong>10 years</strong>, the prescription period under the Civil
+              Code.
+            </li>
+            <li>
+              <strong>Your account and profile</strong> — for as long as the
+              account is open. When you close it, a short 30–90 day tail, then
+              permanent deletion.
+            </li>
+            <li>
+              <strong>Support tickets</strong> — <strong>2 years</strong> after
+              the ticket closes.
+            </li>
+            <li>
+              <strong>Error and usage logs</strong> — <strong>90 days</strong> or
+              less, and they carry no personal data by design.
+            </li>
+            <li>
+              <strong>The fraud-prevention device identifier</strong> — for the
+              life of the account, and device records unused for more than 24
+              months are pruned.
+            </li>
+          </ul>
+          <p className="pt-2">
+            Where you can end something sooner, you can: withdrawing face
+            recognition deletes that data immediately, withdrawing a column takes
+            it off the page, and closing your account starts the tail above. The
+            two 10-year items are the exception — those we are required to keep.
+          </p>
+        </Section>
+
         <Section title="Your rights (RA 10173)">
           <ul className="ml-5 list-disc space-y-1">
             <li>
@@ -681,8 +985,13 @@ export default function PrivacyPage() {
               <strong>Storage + scope.</strong> Tokens and the open ID are
               stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
               Supabase database (Singapore region · encrypted at rest), scoped
-              to one specific Setnayan event. They are never shared with
-              vendors, other couples, or third parties.
+              to one specific Setnayan event. These credentials are never
+              shared with vendors, other couples, or third parties. (That
+              statement is about your TikTok credentials specifically — it is
+              not a blanket claim that nothing you do on Setnayan is ever
+              visible to another couple. For the one place where your planning
+              activity feeds an anonymous count that other couples can see, see{' '}
+              <em>Vendor interest counts</em> above.)
             </li>
             <li>
               <strong>Retention.</strong> Grants are kept until the earlier of
@@ -715,89 +1024,200 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="YouTube integration (Live Studio)">
+        {/* ── Google / YouTube data (Live Studio) ───────────────────────────
+            Rewritten 2026-07-27. Five rules produced every sentence below.
+            Re-read them before editing:
+              1. TRUE IN BOTH ARRANGEMENTS, AND TRUE TODAY. goLivePanood
+                 prefers a Setnayan-owned pool channel when
+                 NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on
+                 (lib/live-studio-channel-grants.ts) and otherwise uses the
+                 couple's own grant (lib/panood-broadcast.ts). In production
+                 the pool is EMPTY, so the couple-connects path is the only one
+                 that has ever run. Describe whose channel is used as a
+                 FUNCTION OF HOW THE EVENT IS SET UP; never assert which
+                 arrangement is in force, in either direction.
+              2. NEVER CLAIM AN INCAPACITY THE SCOPE CONTRADICTS. auth/youtube
+                 is Google's broad "manage your YouTube account" scope. State
+                 restraint ("we do not"), never inability ("we cannot").
+              3. NEVER PROMISE AN AUTOMATION THAT DOES NOT EXIST. The old "30
+                 days after the event ends / refresh tokens purged
+                 automatically" line was implemented nowhere — retention-sweep
+                 is chat-only and api/cron/oauth-refresh only refreshes.
+              4. STATE WHAT IS GUARANTEED, NOT WHAT IS ATTEMPTED. The
+                 disconnect route calls Google's revoke endpoint only when
+                 getYoutubeOAuthConfig() resolves ready
+                 (api/oauth/youtube/disconnect/route.ts:88-92), and
+                 revokeYoutubeToken swallows every network error
+                 (panood-youtube.ts:550-563). So the Google-side revoke is
+                 best-effort and this copy says so.
+              5. THE SCOPE LIST MUST BYTE-MATCH YOUTUBE_OAUTH_SCOPES *AND* THE
+                 OAUTH CONSENT SCREEN. A policy that discloses a scope we do
+                 not request is as wrong as one that hides a scope we do. */}
+        <Section title="Google / YouTube data (Live Studio)">
           <p>
-            Couples who purchase a Live Studio SKU (live wedding broadcast) connect
-            their own YouTube channel to Setnayan so the live ceremony can
-            stream to their channel and embed on the event landing page. The
-            connection uses Google&rsquo;s standard OAuth sign-in. You can
-            revoke it at any time from your{' '}
+            Live Studio is Setnayan&rsquo;s live-broadcast feature. It is
+            optional and off by default. When a host turns it on for an event,{' '}
+            <strong>Live Studio uses YouTube API Services</strong> to set up and
+            run that event&rsquo;s live broadcast, and embeds the player on the
+            event page. Single-camera streaming is free for any host; the
+            multi-camera control room is a paid upgrade. Your use of YouTube is
+            also governed by{' '}
             <a
-              href="https://myaccount.google.com/permissions"
+              href="https://www.youtube.com/t/terms"
               className="text-terracotta hover:underline"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Google Account permissions
+              YouTube&rsquo;s Terms of Service
+            </a>{' '}
+            and the{' '}
+            <a
+              href="https://policies.google.com/privacy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Privacy Policy
             </a>
             .
           </p>
-          <ul className="ml-5 list-disc space-y-1 pt-2">
+
+          <p className="pt-2">
+            <strong>
+              Whose YouTube channel the broadcast runs on depends on how your
+              event is set up.
+            </strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
             <li>
-              <strong>Scopes requested.</strong> Only{' '}
-              <code className="font-mono text-[12px]">.../auth/youtube</code>{' '}
-              (create and manage live broadcasts on your channel),{' '}
-              <code className="font-mono text-[12px]">.../auth/youtube.upload</code>{' '}
-              (upload videos · used by V1.5+ AI Edited Highlight),{' '}
-              <code className="font-mono text-[12px]">.../auth/userinfo.email</code>, and{' '}
-              <code className="font-mono text-[12px]">.../auth/userinfo.profile</code>.
-              We never request read access to your subscribers, comments, view
-              history, watch history, search history, or any YouTube data
-              unrelated to the broadcast we created for your event.
+              <strong>You connect your own channel.</strong> You link your
+              YouTube channel to Setnayan using Google&rsquo;s standard
+              sign-in, and the broadcast is created on your channel. This is
+              the arrangement everything below describes — and the one you are
+              in if Setnayan ever asked you to sign in to Google.
             </li>
             <li>
-              <strong>What we receive from Google.</strong> A refresh token
-              tied to your YouTube channel, your channel name and ID, an
-              access token (typically valid 1 hour), and the broadcast IDs we
-              create on your behalf. We do not receive your Google password.
+              <strong>Setnayan supplies the channel.</strong> For events where
+              Setnayan provides the channel, the broadcast is created on a
+              YouTube channel Setnayan owns and operates, using a Google
+              connection that belongs to Setnayan. You connect nothing, you are
+              never asked to sign in to Google, and no Google data of yours
+              reaches us at all. What this means for the recording is under
+              &ldquo;Recordings&rdquo; below.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>When you connect your own YouTube channel</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              {/* .../auth/youtube.upload was dropped 2026-07-25 — requested for
+                  the same-day-edit feature the owner retired 2026-06-28, and no
+                  code ever called an upload endpoint. userinfo.email and
+                  userinfo.profile were removed from this list 2026-07-27: they
+                  were disclosed here but never requested. Keep this matching
+                  YOUTUBE_OAUTH_SCOPES in lib/panood-youtube.ts AND the OAuth
+                  consent screen. */}
+              <strong>The permission we ask for.</strong> Exactly one:{' '}
+              <code className="font-mono text-[12px]">
+                https://www.googleapis.com/auth/youtube
+              </code>
+              . This is the narrowest permission Google offers that can create
+              and run a live broadcast &mdash; the read-only YouTube permission
+              cannot start one, and the two other permissions that could
+              (&ldquo;force-ssl&rdquo; and &ldquo;youtubepartner&rdquo;) are
+              wider, not narrower. Google describes it broadly, as managing
+              your YouTube account &mdash; so the consent screen will tell you
+              it covers more than we use. We ask for nothing else: no permission
+              to upload videos, and no permission to read your Google email
+              address or profile. Connecting YouTube tells us your
+              channel&rsquo;s ID, name, and picture. It does not tell us your
+              Gmail address.
             </li>
             <li>
-              <strong>How we use it.</strong> The refresh token is read by our
-              broadcaster orchestration service only during your event window,
-              to (a) create the YouTube live broadcast for your event, (b)
-              push the selected camera feed to YouTube&rsquo;s ingest endpoint
-              while you are live, and (c) embed the resulting public broadcast
-              in your Setnayan event landing page. We do not browse, modify,
-              or delete any other content on your YouTube channel.
+              <strong>What we actually do with it.</strong> Six things, and
+              nothing else: (a) read which channel you connected, so we can show
+              you it is linked; (b) create the live broadcast for your event;
+              (c) create the streaming slot it receives video on; (d) link those
+              two together; (e) start the broadcast, check that video is
+              arriving, and end it; and (f) afterwards, look up the replay of
+              the broadcast <em>we</em> created, by its ID, so your event page
+              can link to it.
             </li>
             <li>
-              <strong>Storage + scope.</strong> Tokens and the channel ID are
-              stored in <code className="font-mono text-[12px]">oauth_grants</code>{' '}
-              in our Supabase database (Singapore region · encrypted at rest),
-              scoped to one specific Setnayan event. They are never shared
-              with vendors, other couples, or third parties.
+              <strong>What we do not do.</strong> We do not read, edit, or
+              delete any other video on your channel. We do not read your
+              subscribers, comments, playlists, watch history, or search
+              history. We do not upload anything to your channel. We do not
+              delete anything from your channel &mdash; including the broadcast
+              we created.
             </li>
             <li>
-              <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use
-              and transfer of information received from Google APIs to any
-              other app adheres to the{' '}
-              <a
-                href="https://developers.google.com/terms/api-services-user-data-policy"
-                className="text-terracotta hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google API Services User Data Policy
-              </a>
-              , including the Limited Use requirements. We never use your
-              YouTube data for advertising, never sell or transfer it, and
-              never use it to train AI or ML models.
+              <strong>Setnayan does not send your video to YouTube.</strong>{' '}
+              Setnayan creates the broadcast and gives you a streaming address
+              and key; your own streaming software sends the video to YouTube.
+              No ceremony video passes through Setnayan on its way to your
+              channel.
             </li>
             <li>
-              <strong>Retention.</strong> Grants are kept until the earlier of
-              (a) you revoke them from your Google account or from your
-              Setnayan profile, (b) you delete your Setnayan account, or (c)
-              30 days after the event ends. Refresh tokens past their expiry
-              are purged automatically.
+              <strong>The broadcast is unlisted.</strong> Every broadcast we
+              create is set to unlisted &mdash; it does not appear in YouTube
+              search or on a channel&rsquo;s public video list. Anyone who has
+              the link, or your event page, can watch it. It is embedded on your
+              event page using YouTube&rsquo;s privacy-enhanced player, which
+              sets no tracking cookies until someone presses play.
             </li>
             <li>
-              <strong>Revoking access.</strong> Two paths, either works
-              immediately:
+              <strong>What we receive and store.</strong> A refresh token and a
+              short-lived access token for the connection, the permission Google
+              granted, your channel&rsquo;s ID, name and picture, which Setnayan
+              account completed the connection, and the IDs of the broadcasts we
+              created. We never receive your Google password.
+            </li>
+            <li>
+              <strong>Where it is stored, and who can read it.</strong> In our
+              Supabase database in Singapore, encrypted at rest by our hosting
+              provider. The credential is readable only by our servers &mdash;
+              it is never sent to any browser, including yours, and the database
+              blocks browser-level accounts from reading it at all. No Setnayan
+              screen displays it to our staff. Access to the underlying database
+              is limited to the small team that operates Setnayan. A person only
+              ever looks at your Google connection data where it is necessary
+              for security purposes, to comply with applicable law, or where you
+              have asked us to investigate a specific problem with your
+              broadcast. Your streaming key is shown to you only when you ask to
+              see it, and is never published on your event page.
+            </li>
+            <li>
+              <strong>How long we keep it.</strong> Until you disconnect it,
+              until you delete your Setnayan account, or until you ask us to
+              remove it. We keep the connection alive in the background &mdash;
+              refreshing the access token automatically, including outside your
+              event window &mdash; so it still works on the day and so we can
+              resolve your replay afterwards. We do not currently delete the
+              connection on an automatic timer after the event. If you ask us to
+              delete the Google data we hold about you, we will do so within 30
+              days.
+            </li>
+            <li>
+              <strong>If you revoke access at Google.</strong> Our side notices
+              on the next attempt and stops using the connection. Setnayan will
+              show you that the connection needs reconnecting rather than
+              behaving as though it still works.
+            </li>
+            <li>
+              <strong>How to disconnect.</strong> Two ways, either works:
               <ul className="ml-5 mt-1 list-disc space-y-1">
                 <li>
                   In Setnayan, open the Live Studio page and click{' '}
-                  <em>Disconnect YouTube</em>. We soft-revoke the grant
-                  locally.
+                  <em>Disconnect YouTube</em>. We mark the connection revoked so
+                  Setnayan stops using it, and we ask Google to cancel our
+                  access. That second step is best-effort &mdash; if the call to
+                  Google does not go through, we still stop using the connection
+                  on our side. If you want to be certain the access is gone at
+                  Google as well, remove Setnayan from your Google account
+                  permissions too.
                 </li>
                 <li>
                   In your Google account, go to{' '}
@@ -807,40 +1227,112 @@ export default function PrivacyPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Security → Third-party apps with account access
+                    Security &rarr; Third-party apps with account access
                   </a>{' '}
-                  and remove Setnayan. We honor the revocation on the next
-                  broadcast attempt.
+                  and remove Setnayan.
                 </li>
               </ul>
             </li>
             <li>
-              <strong>Broadcasts on your YouTube channel.</strong> Once a
-              broadcast is created on your channel, the recording is owned by
-              you. Edit or delete it from YouTube Studio like any other video
-              — Setnayan cannot delete videos on your behalf after the
-              broadcast ends. Your use of YouTube is also governed by{' '}
+              <strong>If you delete your Setnayan account.</strong> We delete
+              the Google connections our records attribute to your account.
+              Where a connection was recorded before we started capturing which
+              partner completed it, we leave it in place rather than risk
+              deleting your partner&rsquo;s credential &mdash; ask us and we
+              will remove it. Deleting your account does not, by itself, call
+              Google&rsquo;s revoke endpoint, so if you want the access
+              cancelled at Google too, remove Setnayan from your{' '}
               <a
-                href="https://www.youtube.com/t/terms"
+                href="https://myaccount.google.com/permissions"
                 className="text-terracotta hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                YouTube&rsquo;s Terms of Service
-              </a>{' '}
-              and the{' '}
-              <a
-                href="https://policies.google.com/privacy"
-                className="text-terracotta hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google Privacy Policy
+                Google account permissions
               </a>
-              .
+              . Records of the broadcasts we created (their YouTube video IDs,
+              timings, and streaming keys) are not removed by account deletion
+              today; ask us and we will delete them.
             </li>
           </ul>
+
+          <p className="pt-3">
+            <strong>Recordings</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              Setnayan does not keep its own copy of your broadcast. YouTube
+              archives it, and Setnayan links to it.
+            </li>
+            <li>
+              <strong>If the broadcast ran on your own channel</strong>, the
+              recording is yours. Edit or delete it in YouTube Studio like any
+              other video. Setnayan does not delete or edit videos on your
+              channel.
+            </li>
+            <li>
+              <strong>If the broadcast ran on a Setnayan channel</strong>, the
+              recording is an unlisted video on a YouTube channel Setnayan owns.
+              Setnayan keeps it and can remove it; you will not have YouTube
+              Studio access to it. Setnayan gives you the watch link from your
+              dashboard. Ask us and we will delete it.
+            </li>
+            <li>
+              Setnayan never deletes anything on YouTube automatically. Nothing
+              disappears because an event ended.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>Sharing, advertising, and AI.</strong> Setnayan&rsquo;s use
+            and transfer of information received from Google APIs to any other
+            app adheres to the{' '}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. We do not sell YouTube
+            data, do not transfer it to anyone other than Google, do not send it
+            to advertising networks or data brokers, do not use it for
+            advertising or personalisation, and do not use it to train AI or
+            machine-learning models. Your connection credential and your channel
+            details are not shared with vendors, other couples, or any other
+            Setnayan user. The one thing that is published is the broadcast
+            itself &mdash; its link is embedded on your event page, which is
+            public, so anyone with that page or the link can watch. That is what
+            the feature is for, and you control it by choosing whether to go
+            live. (This paragraph is about your YouTube connection, not about
+            everything you do on Setnayan &mdash; your vendor shortlisting also
+            feeds an anonymous count other couples can see, described under{' '}
+            <em>Vendor interest counts</em> above.)
+          </p>
+
+          <p className="pt-3">
+            Setnayan&rsquo;s Google Drive integration (Photo Delivery and Papic)
+            is a separate connection, with a separate permission and separate
+            credentials that never mix with this one. See the Google Drive
+            section below.
+          </p>
+
+          <p className="pt-3">
+            <strong>Facebook Live.</strong> A host may also publish a Facebook
+            Live link alongside the YouTube player on their event page. For this,
+            Setnayan uses no Meta credentials of yours or of ours: the host
+            pastes in a link they created themselves on their own Facebook
+            account. Setnayan sends no video to Meta and receives no data back
+            from Meta for your broadcast. Meta, not Setnayan, controls how long
+            that replay lasts. (Separately, Setnayan does hold a credential for
+            its own Facebook and Instagram pages &mdash; that is only for
+            posting Setnayan&rsquo;s own marketing, and is covered under
+            &ldquo;Featuring your event on Setnayan&rsquo;s own social
+            channels&rdquo; above.)
+          </p>
         </Section>
+
 
         <Section title="Google Drive integration (Photo Delivery + Papic)">
           <p>
@@ -897,8 +1389,13 @@ export default function PrivacyPage() {
               email + folder IDs are stored in{' '}
               <code className="font-mono text-[12px]">oauth_grants</code>{' '}
               in our Supabase database (Singapore region · encrypted at
-              rest), scoped to one specific Setnayan event. They are never
-              shared with vendors, other couples, or third parties.
+              rest), scoped to one specific Setnayan event. These credentials
+              are never shared with vendors, other couples, or third parties.
+              (That statement is about your Google Drive credentials
+              specifically — it is not a blanket claim that nothing you do on
+              Setnayan is ever visible to another couple. See{' '}
+              <em>Vendor interest counts</em> above for the one place where your
+              planning activity feeds an anonymous count.)
             </li>
             <li>
               <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use
@@ -973,17 +1470,25 @@ export default function PrivacyPage() {
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth · Singapore region)</li>
             <li>Vercel (web hosting)</li>
-            <li>Cloudflare (CDN + R2 object storage · APAC region)</li>
+            <li>
+              Cloudflare (CDN + R2 object storage · APAC region; also the relay
+              server that carries live call and camera video when a direct
+              connection is not possible — transit only, nothing stored)
+            </li>
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics — opt-out available in your profile)</li>
             <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
-              Google (YouTube Data API — only for couples who purchase Live Studio
-              and explicitly connect their YouTube channel via OAuth; Google
+              Google (YouTube Data API — used for any event broadcast through
+              Live Studio, under either the couple&rsquo;s own connected channel
+              or a Setnayan-held connection where Setnayan supplies the channel; Google
               Drive API — only for couples who use Photo Delivery or Papic
-              and explicitly connect a Drive account via OAuth)
+              and explicitly connect a Drive account via OAuth; Google&rsquo;s
+              public STUN server — contacted briefly by your device when starting
+              a live call or camera connection, to discover its own network
+              address)
             </li>
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly

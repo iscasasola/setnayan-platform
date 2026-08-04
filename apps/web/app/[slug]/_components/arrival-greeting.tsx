@@ -55,7 +55,7 @@ export function ArrivalGreeting({ firstName, tableLabel }: Props) {
       </h2>
       <p className="relative mt-1.5 text-sm text-ink/70">
         You&rsquo;re checked in &mdash; you&rsquo;re at{' '}
-        <span className="font-semibold text-emerald-700">{tableLabel}</span>.
+        <span className="font-semibold text-terracotta">{tableLabel}</span>.
       </p>
     </div>
   );

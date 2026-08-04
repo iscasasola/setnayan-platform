@@ -789,6 +789,11 @@ export function SiteBody({
             // service will always run but the host of the event has the power to
             // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
             // absent — the camera is part of what the invitation promises.
+            watch={
+              dayOfPhase === 'live' && plan.liveMediaVisible && watchLive
+                ? { href: `/${event.slug}/hub` }
+                : null
+            }
             camera={
               hostCameraOpen
                 ? { href: '/papic/guest' }
@@ -1531,6 +1536,11 @@ export function SiteBody({
             // A guest's own roll first, then the couple's shared camera — the
             // same order GuestHubBar already uses. Locked, not hidden, when the
             // host has opened neither.
+            watch={
+              dayOfPhase === 'live' && plan.liveMediaVisible && watchLive
+                ? { href: `/${event.slug}/hub` }
+                : null
+            }
             camera={
               papicGuest
                 ? { href: `/papic/me/${guest.qr_token}` }

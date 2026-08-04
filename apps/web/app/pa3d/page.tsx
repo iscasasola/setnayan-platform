@@ -16,14 +16,7 @@
  * BENEFITS only (public-surface hygiene).
  */
 
-import Link from 'next/link';
-import { Reveal } from '@/app/_components/marketing/_motion';
-import {
-  LineRevealHeading,
-  RevealBand,
-  RevealList,
-  HowItWorksPanel,
-} from '@/app/_components/marketing/_pa-motion';
+import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -139,125 +132,32 @@ const VS = [
   ['Guess what each guest sees', 'See it from any seat'],
   ['Surprises on the day', 'Fixes while there’s still time'],
   ['Picture it in your head', 'Show everyone the same room'],
-];
+
+] as const;
 
 export default function Pa3DLandingPage() {
   return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
-      <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero */}
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">In your wedding · 3D reception</p>
-          <LineRevealHeading
-            as="h1"
-            trigger="mount"
-            className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
-          >
-            Walk your reception before it’s built.
-          </LineRevealHeading>
-          <RevealBand stagger={0.08} y={14}>
-            <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-              Pa3D lets you stand inside your reception before it’s real. See the room the way your guests will — the
-              head table, the dance floor, every seat — and know it’s right while there’s still time to change it.
-            </p>
-            <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/onboarding/wedding?from=pa3d"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
-              >
-                Start planning · free
-              </Link>
-              <Link
-                href="/pricing"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[var(--m-ink)]/20 px-7 py-3 text-sm font-semibold text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
-              >
-                See pricing
-              </Link>
-            </div>
-          </RevealBand>
-        </header>
-
-        {/* How it works — the one PanelThread panel. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Pa3D works">
-          <HowItWorksPanel>
-            <ol className="grid gap-6 sm:grid-cols-3">
-              {STEPS.map((s, i) => (
-                <li
-                  key={s.t}
-                  data-premium-item
-                  className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5"
-                >
-                  <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                  <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
-                  <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
-                </li>
-              ))}
-            </ol>
-          </HowItWorksPanel>
-        </section>
-
-        {/* The differentiator */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Pa3D different">
-          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            More than a chart
-          </LineRevealHeading>
-          <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            The free seating plan tells you who sits where. Pa3D shows you what it actually feels like.
-          </p>
-          <RevealList
-            className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10"
-            stagger={0.06}
-            y={12}
-          >
-            {VS.map(([before, after], i) => (
-              <li
-                key={after}
-                data-reveal-item
-                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
-              >
-                <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">{before}</span>
-                <span className="text-sm font-medium text-[var(--m-ink)]">{after}</span>
-              </li>
-            ))}
-          </RevealList>
-        </section>
-
-        {/* FAQ */}
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="Pa3D questions">
-          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            Questions, answered
-          </LineRevealHeading>
-          <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
-            {FAQ.map((f, i) => (
-              <Reveal key={f.q} delay={i * 40}>
-                <div className="py-5">
-                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
-                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-                </div>
-              </Reveal>
-            ))}
-          </dl>
-        </section>
-
-        {/* CTA */}
-        <Reveal>
-          <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-            <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">See the room before the day</h2>
-            <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-              The seating plan is free inside every Setnayan wedding. Start planning free, lay out your tables, and add
-              Pa3D when you want to walk the room.
-            </p>
-            <Link
-              href="/onboarding/wedding?from=pa3d"
-              className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
-            >
-              Start planning · free
-            </Link>
-          </section>
-        </Reveal>
-      </main>
-    </>
+    <DoorwayPage
+      kicker="In your wedding · 3D reception"
+      title={'Walk your reception before it’s built.'}
+      lede={'Pa3D lets you stand inside your reception before it’s real. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it.'}
+      primary={{ href: '/onboarding/wedding?from=pa3d', label: 'Start planning · free' }}
+      secondary={{ href: '/pricing', label: 'See pricing' }}
+      productName="Pa3D"
+      steps={STEPS}
+      differentiator={{
+        heading: 'More than a chart',
+        lede: 'The free seating plan tells you who sits where. Pa3D shows you what it actually feels like.',
+        rows: VS,
+      }}
+      faq={FAQ}
+      closing={{
+        heading: 'See the room before the day',
+        body: 'The seating plan is free inside every Setnayan wedding. Start planning free, lay out your tables, and add Pa3D when you want to walk the room.',
+        href: '/onboarding/wedding?from=pa3d',
+        label: 'Start planning · free',
+      }}
+      structuredData={[APP_LD, FAQ_LD]}
+    />
   );
 }

@@ -44,6 +44,22 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..'); // apps/web/app
 
 /**
+ * The shared doorway kit. A ported route holds no hero markup of its own — it
+ * mounts this once and passes copy. So the invariants MOVED with the h1, and
+ * this file is now where two of the three are enforced for every ported page.
+ * Checking the kit is strictly stronger than checking eight call sites.
+ */
+const KIT_PATH = join(HERE, '_doorway.tsx');
+const KIT = existsSync(KIT_PATH) ? code(readFileSync(KIT_PATH, 'utf8')) : '';
+/** Does this route render the shared kit, and exactly once? */
+function kitMounts(route: string): number {
+  return sourcesFor(route).reduce(
+    (n, raw) => n + (code(raw).match(/<DoorwayPage[\s/>]/g) ?? []).length,
+    0,
+  );
+}
+
+/**
  * The public doorways. `/` is deliberately absent — it is the ELN cinematic
  * reskin, owner-approved 2026-06-29 and explicitly excluded from this work.
  * `/features` is absent too: it is a different design language with a
@@ -97,7 +113,7 @@ function isPolymorphicHeading(src: string): boolean {
 }
 
 function countH1(route: string): number {
-  return sourcesFor(route).reduce((n, raw) => {
+  const own = sourcesFor(route).reduce((n, raw) => {
     const src = code(raw);
     // A call site is always a decision, wherever it lives.
     let count = (src.match(/as=["']h1["']/g) ?? []).length;
@@ -105,6 +121,9 @@ function countH1(route: string): number {
     if (!isPolymorphicHeading(src)) count += (src.match(/<h1[\s>]/g) ?? []).length;
     return n + count;
   }, 0);
+  // A ported route holds no hero of its own; the kit supplies exactly one h1,
+  // and the test below pins that. One mount ⇒ one title.
+  return own + kitMounts(route);
 }
 
 test('every doorway has EXACTLY ONE h1', () => {
@@ -162,7 +181,12 @@ test('every doorway keeps its SoftwareApplication + FAQPage structured data', ()
         wrong.push(`/${route}: lost ${type}`);
       }
     }
-    if (!/application\/ld\+json/.test(joined)) wrong.push(`/${route}: renders no JSON-LD at all`);
+    // A ported route hands its blocks to the kit, which renders them. Either
+    // the route emits the script tag itself, or it mounts the kit — which the
+    // test below proves emits one.
+    if (!/application\/ld\+json/.test(joined) && kitMounts(route) === 0) {
+      wrong.push(`/${route}: renders no JSON-LD at all`);
+    }
   }
   assert.deepEqual(
     wrong,
@@ -197,4 +221,43 @@ test('the scan is not vacuous — it really read eight pages', () => {
       `/${route}: read only ${srcs.join('').length} chars — that is not a real page`,
     );
   }
+});
+
+test('THE SHARED KIT is where the ported pages get their h1 — exactly one, not a prop', () => {
+  // This is the whole reason the extraction is safe. Eight chances to forget
+  // `as="h1"` collapse into one place that cannot forget, and this pins it.
+  assert.ok(KIT.length > 0, 'the doorway kit is missing — the ported pages have no hero');
+  const h1s = (KIT.match(/as=["']h1["']/g) ?? []).length + (KIT.match(/<h1[\s>]/g) ?? []).length;
+  assert.equal(
+    h1s,
+    1,
+    `The shared doorway kit must render exactly one h1 — found ${h1s}. Every ` +
+      `ported page inherits this, so a change here is a change to eight pages at once.`,
+  );
+  // And it must not be overridable: a caller that can pass `as` can pass 'h2',
+  // which is the exact defect the extraction exists to remove.
+  assert.ok(
+    !/\bas\??:/.test(KIT.slice(KIT.indexOf('export type DoorwayProps'), KIT.indexOf('const MUTED'))),
+    'DoorwayProps exposes an `as` prop — the h1 must not be a caller decision',
+  );
+});
+
+test('THE SHARED KIT renders the structured data it is handed', () => {
+  assert.match(
+    KIT,
+    /application\/ld\+json/,
+    'the kit dropped the JSON-LD script tag — every ported doorway loses its rich results at once',
+  );
+  assert.match(KIT, /structuredData\.map/, 'the kit must render EVERY block it is given, not the first');
+});
+
+test('a ported route mounts the kit exactly once', () => {
+  // Twice would mean two heroes and two h1s; the count above would catch it,
+  // but this names the cause instead of the symptom.
+  const wrong: string[] = [];
+  for (const route of DOORWAYS) {
+    const n = kitMounts(route);
+    if (n > 1) wrong.push(`/${route}: mounts the kit ${n} times`);
+  }
+  assert.deepEqual(wrong, [], wrong.join('\n'));
 });

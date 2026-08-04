@@ -1,5 +1,10 @@
 'use client';
 
+// The prefill and the write live in ONE module so they cannot drift again:
+// when they were apart, the box showed a different time from the line and
+// saving moved the block eight hours. See lib/schedule-datetime-local.ts.
+import { toDatetimeLocalValue } from '@/lib/schedule-datetime-local';
+
 import { useState, useTransition } from 'react';
 import { Clock, Check, X, Pencil } from 'lucide-react';
 import { updateScheduleBlock } from '../actions';
@@ -51,16 +56,6 @@ type Props = {
    *  surrounding page. */
   viewLabel: string;
 };
-
-function isoToDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-}
 
 export function BlockTimeEditor({
   eventId,
@@ -137,7 +132,7 @@ export function BlockTimeEditor({
             type="datetime-local"
             name="start_at"
             required
-            defaultValue={isoToDatetimeLocal(startAt)}
+            defaultValue={toDatetimeLocalValue(startAt)}
             className="input-field h-11 text-sm"
             disabled={isPending}
           />
@@ -149,7 +144,7 @@ export function BlockTimeEditor({
           <input
             type="datetime-local"
             name="end_at"
-            defaultValue={endAt ? isoToDatetimeLocal(endAt) : ''}
+            defaultValue={endAt ? toDatetimeLocalValue(endAt) : ''}
             className="input-field h-11 text-sm"
             disabled={isPending}
           />

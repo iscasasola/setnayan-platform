@@ -9,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  deriveRunOfShow,
   hasRunShowSignal,
   pickTriggerNowNext,
   type RunState,
@@ -116,4 +117,62 @@ test('pickTriggerNowNext: missing run_state on some rows counts as upcoming', ()
   assert.ok(res);
   assert.equal(res.current, null);
   assert.equal(res.next?.block_id, 'b');
+});
+
+// ── The drift badge: correct, or silent. Never wrong. ────────────────────────
+
+test('drift · starting exactly on time reports ZERO, not the venue offset', () => {
+  // The defect: `start_at` is a wall clock, `actual_start_at` a real instant.
+  // Subtracting them yielded a constant error equal to the UTC offset, so a
+  // coordinator who pressed Start dead on time was told the wedding was running
+  // 480 MINUTES AHEAD — on four surfaces at once.
+  const blocks = [
+    {
+      block_id: 'b1',
+      label: 'Ceremony',
+      start_at: '2026-12-18T14:00:00.000Z', // 2 PM at the venue
+      end_at: null,
+      run_state: 'live' as const,
+      location: null,
+      // 2 PM Manila is 06:00Z — the real instant of an on-time start.
+      actual_start_at: '2026-12-18T06:00:00.000Z',
+    },
+  ];
+  const on = deriveRunOfShow(blocks, new Date('2026-12-18T06:05:00Z'), 'Asia/Manila');
+  assert.equal(on.driftMinutes, 0, 'an on-time start must read as on time');
+});
+
+test('drift · a genuine delay is still reported', () => {
+  const blocks = [
+    {
+      block_id: 'b1',
+      label: 'Ceremony',
+      start_at: '2026-12-18T14:00:00.000Z',
+      end_at: null,
+      run_state: 'live' as const,
+      location: null,
+      actual_start_at: '2026-12-18T06:20:00.000Z', // 20 minutes late
+    },
+  ];
+  assert.equal(
+    deriveRunOfShow(blocks, new Date('2026-12-18T06:25:00Z'), 'Asia/Manila').driftMinutes,
+    20,
+  );
+});
+
+test('drift · with no timezone it reports NOTHING rather than a wrong number', () => {
+  // A wrong number tells a coordinator to rush a wedding that is on time.
+  // Silence is the safe failure.
+  const blocks = [
+    {
+      block_id: 'b1',
+      label: 'Ceremony',
+      start_at: '2026-12-18T14:00:00.000Z',
+      end_at: null,
+      run_state: 'live' as const,
+      location: null,
+      actual_start_at: '2026-12-18T06:00:00.000Z',
+    },
+  ];
+  assert.equal(deriveRunOfShow(blocks, new Date('2026-12-18T06:05:00Z')).driftMinutes, null);
 });

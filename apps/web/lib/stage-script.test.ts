@@ -57,7 +57,11 @@ import { resolveVendorSpecializationAccess } from './vendor-specialization-gate'
 
 /** Deterministic, human-checkable time rendering. */
 const fmt = (s: string, e: string | null) => (e ? `${s}→${e}` : s);
-const NOW = new Date('2026-07-27T10:00:00Z');
+// 10 AM AT THE VENUE. `now` is a real instant; every `start_at` below is the
+// venue's wall clock stored in a UTC column. Setting this to 10:00Z would make
+// the two look comparable when they are not — which is how the host's desk came
+// to announce a moment eight minutes away as "in 488 min".
+const NOW = new Date('2026-07-27T02:00:00Z');
 const opts = { formatTime: fmt, now: NOW };
 
 function block(over: Partial<StageScriptBlock> & { block_id: string }): StageScriptBlock {
@@ -229,7 +233,9 @@ test('drift is reported from the shipped run-of-show derivation', () => {
         block_id: 'a',
         run_state: 'live',
         start_at: '2026-07-27T10:00:00Z',
-        actual_start_at: '2026-07-27T10:12:00Z',
+        // 10 AM at the venue is 02:00Z; twelve minutes late is 02:12Z. The
+        // planned time is a wall clock, the actual one a real instant.
+        actual_start_at: '2026-07-27T02:12:00Z',
       }),
     ],
     options: opts,
@@ -480,11 +486,12 @@ test('a late show reports the next block as overdue, end to end', () => {
     blocks: [
       block({
         block_id: 'p', label: 'Reception', block_type: 'reception', run_state: 'live',
-        start_at: '2026-07-27T16:00:00Z', actual_start_at: '2026-07-27T16:18:00Z',
+        start_at: '2026-07-27T16:00:00Z', actual_start_at: '2026-07-27T08:18:00Z',
       }),
       block({ block_id: 'c', label: 'Grand march', parent_block_id: 'p', start_at: '2026-07-27T16:10:00Z' }),
     ],
-    options: { formatTime: fmt, now: new Date('2026-07-27T16:25:00Z') },
+    // 4:25 PM at the venue.
+    options: { formatTime: fmt, now: new Date('2026-07-27T08:25:00Z') },
   });
   assert.equal(m.cue.drift, '18 min behind');
   assert.equal(m.cue.next?.label, 'Grand march');
@@ -519,4 +526,16 @@ test('two moments sharing a label stay distinguishable by blockId', () => {
     options: opts,
   });
   assert.notEqual(m.cue.now?.blockId, m.cue.next?.blockId, 'identical labels must not collapse');
+});
+
+// ── The countdown must never be a whole UTC offset out ───────────────────────
+test('the countdown reads minutes away, not the venue offset', () => {
+  // A moment 8 minutes away must read 8 — the failure this pins announced it
+  // as "in 488 min", every moment, all day, on the host's live desk.
+  const m = buildStageScript({
+    blocks: [block({ block_id: 'b', start_at: '2026-07-27T10:08:00Z' })], // 10:08 AM at the venue
+    options: opts, // now = 10:00 AM at the venue
+  });
+  assert.equal(m.cue.next?.minutesAway, 8);
+  assert.equal(nextTimingLabel(m.cue.next!.minutesAway), 'in 8 min');
 });

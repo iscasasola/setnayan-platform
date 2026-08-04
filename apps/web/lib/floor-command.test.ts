@@ -346,8 +346,12 @@ test('the model surfaces running-late drift from the live block', () => {
     blocks: [
       block({
         block_id: 'a', run_state: 'live',
+        // 10 AM at the VENUE is 02:00Z. `start_at` is the wall clock; the
+        // stamp written when someone presses Start is a real instant. Twelve
+        // minutes late is 02:12Z, not 10:12Z — writing 10:12Z here is exactly
+        // the mix-up that reported every on-time wedding as 8 hours behind.
         start_at: '2026-07-27T10:00:00Z',
-        actual_start_at: '2026-07-27T10:12:00Z',
+        actual_start_at: '2026-07-27T02:12:00Z',
       }),
     ],
     grants: ALL_SHARED,

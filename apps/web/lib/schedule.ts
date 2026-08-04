@@ -753,6 +753,45 @@ export function wallClockToInstant(
   }
 }
 
+/**
+ * A `<input type="datetime-local">` value → the true instant it names AT THE
+ * VENUE, as an ISO string. Returns null if it cannot be read.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * A bare `datetime-local` value carries NO offset: the browser hands over
+ * "2026-12-18T14:00" and nothing else. `new Date(that)` reads it in the
+ * RUNTIME's timezone — and server actions run in UTC. So a couple booking a
+ * 2 PM site visit had 2 PM UTC written down, and every screen that formats it
+ * for Manila showed the vendor **10 PM**. Nothing errored; the appointment
+ * simply appeared at the wrong time to both parties.
+ *
+ * Two forms already dodged this by hand-appending `+08:00` to the value. That
+ * works until someone adds a third form and forgets — which is exactly what
+ * happened. Doing the conversion HERE, at the sink, means a plain
+ * `datetime-local` input is safe by default.
+ *
+ * A value that already carries an offset or a `Z` is passed straight through:
+ * it is already a real instant and must not be reinterpreted.
+ */
+export function datetimeLocalToIso(
+  raw: string | null | undefined,
+  tz: string = DEFAULT_EVENT_TZ,
+): string | null {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (v.length === 0) return null;
+
+  const bare = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/.exec(v);
+  if (bare) {
+    const [, y, mo, d, h, mi] = bare;
+    const ms = wallClockToInstant(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), tz);
+    return ms === null ? null : new Date(ms).toISOString();
+  }
+
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 /** A stored block time rendered in the VIEWER's (browser) local time ("5:00 AM"),
  *  or null if it can't be converted (callers then fall back to event-local). */
 export function formatViewerTime(iso: string | null, eventTz: string): string | null {

@@ -30,6 +30,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import type { NotificationType } from '@/lib/notifications';
 import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
+import { datetimeLocalToIso } from '@/lib/schedule';
 
 function str(v: FormDataEntryValue | null, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -37,10 +38,16 @@ function str(v: FormDataEntryValue | null, max = 200): string | null {
   return t.length > 0 ? t : null;
 }
 
+/**
+ * A posted appointment time → a real instant.
+ *
+ * Delegates to `datetimeLocalToIso`, which reads an offset-less
+ * `datetime-local` value AT THE VENUE. Reading it in the runtime's zone (UTC,
+ * on a server action) is what booked a 2 PM site visit and showed it to both
+ * parties as 10 PM.
+ */
 function toIso(v: FormDataEntryValue | null): string | null {
-  if (typeof v !== 'string' || v.length === 0) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  return typeof v === 'string' ? datetimeLocalToIso(v) : null;
 }
 
 function toDuration(v: FormDataEntryValue | null): number | null {

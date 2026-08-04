@@ -10,6 +10,7 @@ import {
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { useSaveLoader } from '@/components/sd-loader';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 /**
  * Shared "now / next / running ±N min" run-of-show header.
@@ -94,7 +95,11 @@ export function RunOfShowHeader({
     };
   }, [eventId, refetch]);
 
-  const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(blocks);
+  const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(
+    blocks,
+    undefined,
+    DEFAULT_EVENT_TZ,
+  );
 
   // Nothing to show if the couple hasn't built a timeline.
   if (blocks.length === 0) return null;

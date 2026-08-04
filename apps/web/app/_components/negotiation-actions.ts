@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
+import { datetimeLocalToIso } from '@/lib/schedule';
 import {
   signedAmount,
   newTotalPhp,
@@ -69,8 +70,11 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
   const shapeOk =
     !!date && !!time && /^\d{4}-\d{2}-\d{2}$/.test(date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
   if (!kind || !shapeOk) redirect(dest);
-  const scheduledAt = new Date(`${date}T${time}:00+08:00`);
-  if (Number.isNaN(scheduledAt.getTime())) redirect(dest);
+  // Read at the VENUE. The offset used to be typed in right here, which meant
+  // three copies of it across the appointment paths and one form that never
+  // got one at all.
+  const scheduledIso = datetimeLocalToIso(`${date}T${time}:00`);
+  if (!scheduledIso) redirect(dest);
 
   const supabase = await createClient();
   const {
@@ -142,7 +146,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       kind,
       type: 'custom',
       custom_label: label,
-      scheduled_at: scheduledAt.toISOString(),
+      scheduled_at: scheduledIso,
       status: 'proposed',
       initiated_by: role,
       proposed_by_user_id: user.id,

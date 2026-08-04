@@ -1,5 +1,7 @@
 'use client';
 
+import { formatWallClock } from '@/lib/schedule-datetime-local';
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarClock, ArrowRight } from 'lucide-react';
@@ -18,12 +20,11 @@ type Props = {
   blocks: Block[];
 };
 
-function formatClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+// A stored block time is the VENUE'S WALL CLOCK, not an instant. This card is
+// a client component, so `toLocaleTimeString` rendered it in the guest's own
+// timezone — eight hours late in Manila — while the Schedule page one tap away
+// rendered the same value correctly on the server. See lib/schedule-datetime-local.ts.
+const formatClock = (iso: string): string => formatWallClock(iso);
 
 export function LiveScheduleCard({ eventId, blocks }: Props) {
   // Re-render every 60s so the relative-time countdowns stay fresh.

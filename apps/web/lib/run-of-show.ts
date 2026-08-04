@@ -1,3 +1,4 @@
+import { wallClockToInstant } from './schedule';
 /**
  * Day-of run-of-show — shared types + pure derivation for the "now / next /
  * running ±N min" header.
@@ -62,9 +63,43 @@ function byStart(a: RunOfShowBlock, b: RunOfShowBlock): number {
  * wall clock dependency for "current" (run-state is the source of truth, set by
  * advance_schedule_block); the wall clock only feeds the live-block drift label.
  */
+/**
+ * A stored wall clock → the real instant it denotes at the venue.
+ *
+ * EXPORTED because three surfaces need it and three copies is how the day-of
+ * clock drifted apart in the first place. Any comparison between a schedule
+ * time and `now` (or any other real timestamp) must go through here.
+ *
+ * Returns null if the value or the zone cannot be read, so a caller reports
+ * nothing rather than a wrong number.
+ */
+export function plannedInstant(iso: string, tz: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return wallClockToInstant(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), tz);
+}
+
 export function deriveRunOfShow(
   blocks: ReadonlyArray<RunOfShowBlock>,
   now: Date = new Date(),
+  /**
+   * The venue's timezone. REQUIRED to state how far ahead or behind the day is
+   * running, and omitted deliberately by callers that do not have it — in which
+   * case no drift is reported at all.
+   *
+   * WHY: `start_at` is the venue's WALL CLOCK stored in a UTC column;
+   * `actual_start_at` is a real timestamp written by NOW(). Subtracting one from
+   * the other mixes two different kinds of value and yields a constant error
+   * equal to the venue's UTC offset — so pressing "Start" exactly on time
+   * announced the wedding was running 480 MINUTES AHEAD, on the couple's page,
+   * the guests' site, the vendor's console and the emcee's desk at once.
+   *
+   * A wrong number here is worse than none: it tells a coordinator to rush a
+   * wedding that is perfectly on time. So without a timezone this reports
+   * nothing rather than guessing.
+   */
+  eventTz?: string,
 ): RunOfShowState {
   const ordered = [...blocks].sort(byStart);
   const current = ordered.find((b) => b.run_state === 'live') ?? null;
@@ -80,10 +115,13 @@ export function deriveRunOfShow(
   }
 
   let driftMinutes: number | null = null;
-  if (current?.actual_start_at) {
-    const planned = new Date(current.start_at).getTime();
+  if (current?.actual_start_at && eventTz) {
+    // The planned time must become a REAL instant before it can be compared
+    // with one. Without that conversion the two values are not the same kind
+    // of thing and the difference is meaningless.
+    const planned = plannedInstant(current.start_at, eventTz);
     const actual = new Date(current.actual_start_at).getTime();
-    if (!Number.isNaN(planned) && !Number.isNaN(actual)) {
+    if (planned !== null && !Number.isNaN(actual)) {
       driftMinutes = Math.round((actual - planned) / 60000);
     }
   }

@@ -19,7 +19,8 @@
  * callers pass `now`.
  */
 
-import { deriveRunOfShow, type RunOfShowBlock } from '@/lib/run-of-show';
+import { deriveRunOfShow, plannedInstant, type RunOfShowBlock } from '@/lib/run-of-show';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 export type DayOfClock =
   | {
@@ -61,11 +62,13 @@ export function deriveDayOfClock(
   const nowMs = now.getTime();
 
   if (blocks.length > 0) {
-    const ros = deriveRunOfShow(blocks, now);
+    const ros = deriveRunOfShow(blocks, now, DEFAULT_EVENT_TZ);
     let minutesToNext: number | null = null;
     if (ros.next) {
-      const startMs = ms(ros.next.start_at);
-      if (!Number.isNaN(startMs)) {
+      // The schedule stores the venue's wall clock; `now` is a real instant.
+      // They only subtract meaningfully once the first is read at the venue.
+      const startMs = plannedInstant(ros.next.start_at, DEFAULT_EVENT_TZ);
+      if (startMs !== null) {
         minutesToNext = Math.round((startMs - nowMs) / 60000);
       }
     }

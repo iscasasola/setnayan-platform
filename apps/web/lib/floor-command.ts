@@ -28,6 +28,7 @@ import { deriveRunOfShow } from './run-of-show';
 import type { DelegateArea } from './event-moderators';
 import { MAX_RETIME_MINUTES } from './schedule-ros';
 import { parsePapicTagScan } from './papic-tag';
+import { DEFAULT_EVENT_TZ } from './schedule';
 
 // ─── 1. Advancing the run-of-show ──────────────────────────────────────────
 
@@ -297,7 +298,11 @@ export function buildFloorCommand(input: {
   now?: Date;
 }): FloorCommandModel {
   const now = input.now ?? new Date();
-  const state = deriveRunOfShow(input.blocks, now);
+  // DEFAULT_EVENT_TZ, explicitly: the "N minutes behind" badge is only truthful
+  // if the planned wall clock is read at the VENUE. Passed here rather than
+  // defaulted inside the derivation, so a caller that ever knows a non-PH venue
+  // has an obvious place to say so.
+  const state = deriveRunOfShow(input.blocks, now, DEFAULT_EVENT_TZ);
   const action = nextAdvanceAction(input.blocks, now);
 
   const scheduleShared = input.grants.schedule === 'edit';

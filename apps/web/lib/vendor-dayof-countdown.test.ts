@@ -93,3 +93,24 @@ test('formatDuration renders H/M compactly', () => {
   assert.equal(formatDuration(0), '0m');
   assert.equal(formatDuration(-5), '0m');
 });
+
+test('the launched console counts real minutes, not a timezone offset', () => {
+  // Same root cause as the host desk: `start_at` is the venue's wall clock and
+  // `now` is a real instant, so they must not be subtracted directly.
+  const clock = deriveDayOfClock(
+    [
+      {
+        block_id: 'b',
+        label: 'Ceremony',
+        start_at: '2026-12-18T14:30:00.000Z', // 2:30 PM at the venue
+        end_at: null,
+        location: null,
+        run_state: 'upcoming',
+        actual_start_at: null,
+      },
+    ],
+    new Date('2026-12-18T06:00:00.000Z'), // 2 PM at the venue
+  );
+  assert.equal(clock.mode, 'program');
+  if (clock.mode === 'program') assert.equal(clock.minutesToNext, 30);
+});

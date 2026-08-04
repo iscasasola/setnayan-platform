@@ -7,7 +7,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fromDatetimeLocalValue, toDatetimeLocalValue } from './schedule-datetime-local';
+import {
+  fromDatetimeLocalValue,
+  toDatetimeLocalValue,
+  formatWallClock,
+} from './schedule-datetime-local';
 
 const TYPED = [
   '2026-12-12T15:30',
@@ -78,5 +82,30 @@ test('round trip · empty and malformed input clear, never store garbage', () =>
   }
   for (const bad of ['', 'nope', null, undefined]) {
     assert.equal(toDatetimeLocalValue(bad as string), '');
+  }
+});
+
+test('formatWallClock · shows the time a person meant, in every timezone', () => {
+  // The couple's home screen and their Schedule page render in different
+  // places — one server, one browser — and used to disagree by eight hours on
+  // the same stored value.
+  const original = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
+      process.env.TZ = tz;
+      assert.equal(formatWallClock('2026-12-18T14:00:00+00:00'), '2:00 PM', `wrong in ${tz}`);
+      assert.equal(formatWallClock('2026-08-01T08:00:00+00:00'), '8:00 AM', `wrong in ${tz}`);
+      assert.equal(formatWallClock('2026-08-01T21:45:00+00:00'), '9:45 PM', `wrong in ${tz}`);
+      assert.equal(formatWallClock('2026-08-01T00:00:00+00:00'), '12:00 AM', `midnight in ${tz}`);
+      assert.equal(formatWallClock('2026-08-01T12:00:00+00:00'), '12:00 PM', `noon in ${tz}`);
+    }
+  } finally {
+    process.env.TZ = original;
+  }
+});
+
+test('formatWallClock · empty in, empty out', () => {
+  for (const bad of ['', 'nope', null, undefined]) {
+    assert.equal(formatWallClock(bad as string), '');
   }
 });

@@ -67,3 +67,37 @@ export function toDatetimeLocalValue(iso: string | null | undefined): string {
   const [, y, mo, d, h, mi] = m;
   return `${y}-${mo}-${d}T${h}:${mi}`;
 }
+
+/**
+ * A stored schedule time → what a person should read on screen: "2:00 PM".
+ *
+ * ── WHY THIS IS NOT `toLocaleTimeString` ────────────────────────────────────
+ * The obvious `new Date(iso).toLocaleTimeString(...)` reads the value as a real
+ * instant and renders it in whatever timezone the code happens to be running
+ * in. On the SERVER (TZ=UTC) that accidentally prints the wall clock correctly.
+ * In a guest's BROWSER in Manila it prints eight hours late.
+ *
+ * That is why the couple's own home screen showed the ceremony at 10 PM while
+ * the Schedule page one tap away showed 2 PM: one renders on the server, the
+ * other in the browser, from the same stored value.
+ *
+ * This reads the components directly, so it gives the SAME answer everywhere —
+ * which is the only property that matters for a value that was never an
+ * instant in the first place.
+ *
+ * @param iso   a stored wall-clock-in-UTC value
+ * @param opts  `hour12` follows the locale by default; pass false for 24-hour
+ */
+export function formatWallClock(iso: string | null | undefined, opts?: { hour12?: boolean }): string {
+  const v = toDatetimeLocalValue(iso);
+  if (!v) return '';
+  const hhmm = v.slice(11);
+  const [hStr, mStr] = hhmm.split(':');
+  const h = Number(hStr);
+  const m = mStr ?? '00';
+  if (!Number.isFinite(h)) return '';
+  if (opts?.hour12 === false) return `${String(h).padStart(2, '0')}:${m}`;
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${suffix}`;
+}

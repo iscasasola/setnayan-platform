@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import {
@@ -43,6 +44,7 @@ import {
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
+import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker } from './_components/event-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
@@ -317,7 +319,7 @@ export default async function VendorOnTheDayPage({
   // (`booked_categories`); otherwise we consider all of the vendor's services.
   // `override` is null until the per-booking configurator (a later PR) persists
   // a `vendor_dayof_configs` row — so today every vendor sees code defaults.
-  const eventTiles = brief?.booked_categories ?? null;
+  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
   const family = resolveDayOfFamily(profile.services, eventTiles);
   const modules = resolveModules(profile.services, eventTiles, null);
   const enabledModules = modules.filter((m) => m.enabled);
@@ -523,6 +525,15 @@ export default async function VendorOnTheDayPage({
         <ShotListSection eventId={todaysBooking?.eventId ?? null} eventName={coupleName} />
       ) : null}
 
+      {/* 4b · Report to the coordinator — one-tap status presets writing into
+          the shared day-of requests stream (build plan §10 #2). Renders itself
+          away when the coordinator_requests_inbox control is dark, when there
+          is no booking today, or for the coordinator (who reads the inbox
+          rather than reporting into it). */}
+      {kind !== 'coordinator' ? (
+        <VendorStatusUpdates eventId={todaysBooking?.eventId ?? null} />
+      ) : null}
+
       {/* 5 · Capture for your website + their recap. */}
       <div>
         <h2 className="sn-sec">Capture for your website + their recap</h2>
@@ -698,10 +709,11 @@ async function ConfigureEventView({
   const { data: briefData } = await supabase.rpc('get_vendor_event_brief', {
     p_event_id: booking.eventId,
   });
-  const eventTiles =
+  const eventTiles = tilesForVendorCategories(
     briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
       ? (briefData as { booked_categories: string[] }).booked_categories
-      : null;
+      : null,
+  );
   const coupleName =
     (briefData as { event?: { display_name?: string | null } } | null)?.event?.display_name ??
     booking.eventName;

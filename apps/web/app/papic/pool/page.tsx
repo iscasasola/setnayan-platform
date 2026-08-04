@@ -62,7 +62,7 @@ export default async function PapicPoolPage() {
   const admin = createAdminClient();
   const { data: ev } = await admin
     .from('events')
-    .select('display_name, pool_gallery_open')
+    .select('display_name, pool_gallery_open, event_date, event_type, papic_window_start')
     .eq('event_id', session.event_id)
     .maybeSingle();
   if (!ev?.pool_gallery_open) notFound();
@@ -85,7 +85,20 @@ export default async function PapicPoolPage() {
           and the photo joins <span className="font-medium text-ink/80">your</span> gallery
           and download.
         </p>
-        <PoolGrid initialTiles={firstPage.tiles} initialCursor={firstPage.nextCursor} />
+        {/* Chapters (owner 2026-08-02: "split by x months away. to x days away").
+            The gallery reads as a journey rather than one flat feed. Derived from
+            each capture's own timestamp — nothing is stored and nobody files a
+            photo, so it works on everything already taken and re-chapters itself
+            if the date moves. A trip counts its days instead. */}
+        <PoolGrid
+          initialTiles={firstPage.tiles}
+          initialCursor={firstPage.nextCursor}
+          chapters={{
+            eventDateIso: (ev.event_date as string | null) ?? null,
+            mode: (ev.event_type as string | null) === 'travel' ? 'trip' : 'countdown',
+            tripStartIso: (ev.papic_window_start as string | null) ?? null,
+          }}
+        />
       </div>
     </main>
   );

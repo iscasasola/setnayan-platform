@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import {
@@ -79,7 +80,7 @@ export const EDITORIAL_KWENTO_CAP = 8;
 /** How many approved Guest Columns to surface in "Letters to the Editor". */
 export const EDITORIAL_GUEST_COLUMN_CAP = 6;
 
-/** How many clean Papic 5-second clips to pull into the day timeline. */
+/** How many clean Papic 10-second clips to pull into the day timeline. */
 export const EDITORIAL_PAPIC_CLIP_CAP = 14;
 
 /**
@@ -112,7 +113,13 @@ const SERVICE_LABELS: Record<string, string> = {
   PANOOD_SYSTEM: 'Live Studio',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
-  PAPIC_GUEST: 'Papic Guest',
+  // ⚠ OWNER NAMING LOCK 2026-07-30: "we do not have papic guests — we only have
+  // Papic Pool and Papic One." `PAPIC_GUEST` / `PAPIC_SEATS` are frozen technical
+  // ids predating the two-type lock; this map is the DISPLAY name, so it says the
+  // product. PAPIC_SEATS (₱2,999 five-seat pass, is_active=false, zero orders
+  // ever) is retired — its label is kept only so a legacy row still renders a
+  // clean "Powered by", and it must not read as a live product name.
+  PAPIC_GUEST: 'Papic Pool',
   PAPIC_SEATS: 'Papic',
   PATIKTOK_COMPILER: 'Patiktok',
   PRO_RSVP: 'Pro RSVP',
@@ -167,7 +174,7 @@ export type ImpactMetrics = {
   replied: number; // attending + declined + maybe (non-pending)
   rsvpPct: number | null; // replied / guests when guests > 0
   photos: number | null; // null = omit the photo stat
-  clips: number | null; // Papic 5-second clips (living moments); null = omit
+  clips: number | null; // Papic 10-second clips (living moments); null = omit
   chapters: number | null; // "As the Day Unfolded" chapter count; null = omit
 };
 
@@ -278,7 +285,7 @@ export type VendorMediaItem = {
 };
 
 // ── "As the Day Unfolded" living-story chapters ──────────────────────────────
-// A single medium (photo or a 5-second Papic clip) inside a chapter. `url` is a
+// A single medium (photo or a 10-second Papic clip) inside a chapter. `url` is a
 // presigned display URL (a still image for a photo, the playable MP4 for a clip);
 // `posterUrl` is the clip's freeze-frame poster (null for photos / clips with no
 // baked poster). `id` is the underlying Papic photo_id, carried through so the
@@ -856,7 +863,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     photos = null;
   }
 
-  // 5-bis. Living-moments (Papic 5-second CLIPS) count — the count companion to
+  // 5-bis. Living-moments (Papic 10-second CLIPS) count — the count companion to
   // the photo count above, same fail-closed moderation filter. Feeds "By the
   // Numbers" (photos & moments sum + a living-moments cell). Best-effort → null
   // omits the clip stat, exactly like the photo stat.
@@ -915,7 +922,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     papicRows = [];
   }
 
-  // 5b-bis. The day's Papic 5-second CLIPS (photo_type='clip'). Fail-CLOSED
+  // 5b-bis. The day's Papic 10-second CLIPS (photo_type='clip'). Fail-CLOSED
   // moderation filter (only 'clean'), ordered oldest-first so they slot into the
   // "As the Day Unfolded" timeline in the order they happened. CRITICAL: a clip
   // whose poster-frame extraction failed never gets NSFW-screened (screenCapture
@@ -1228,8 +1235,13 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Living Hero Studio already bakes the couple's pick into a forward+reverse
   // ping-pong MP4; reuse it as the editorial's GIF-like moving hero, posterized
   // by heroPhotoUrl. Additive: null → the editorial hero stays the still photo.
+  // SEC-6 (D16): the boomerang is a couple-uploaded clip that nothing screens,
+  // so it does not reach a guest until it goes through the screen-and-seal
+  // spine. The still photo (already its poster) shows instead.
   const heroVideoUrl = await displayUrlForStoredAsset(
-    asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    heroVideoRefForGuests(
+      asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    ),
   );
 
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
@@ -1532,7 +1544,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
 
   // ── "As the Day Unfolded" living-story chapters ──────────────────────────────
   // Weave the day's clean photos (the WIDE captured_at-ASC timeline read, not the
-  // recency-capped gallery slice) + 5-second clips into ONE captured_at-ASC
+  // recency-capped gallery slice) + 10-second clips into ONE captured_at-ASC
   // timeline, then bucket into up to 10 chapters by an even time-order split. Each
   // chapter leads with a clip when its bucket has one (else the most-tagged photo,
   // mirroring the hero auto-pick), plus ≤2 supporting photos. We bucket from RAW

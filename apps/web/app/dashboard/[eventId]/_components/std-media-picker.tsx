@@ -14,7 +14,7 @@
 import { useRef } from 'react';
 import { Check, Images, Film, Maximize2, Minimize2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
-import type { StdMedia } from '@/lib/std-media';
+import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
 
 /** What the picker hands up when a video is uploaded (or null on clear). */
 export type StdVideoUpload = {
@@ -30,6 +30,14 @@ type Props = {
   value: StdMedia;
   onChange: (m: StdMedia) => void;
   eventId: string;
+  /**
+   * The screening status of the SAVED video, resolved server-side from
+   * events.std_media_nsfw (SEC-6). Display-only — it is deliberately NOT part of
+   * `value`, because `value` round-trips through the client and the verdict must
+   * never be something a client can hand back. A verdict that no longer binds to
+   * the saved media already reads as 'pending' upstream.
+   */
+  nsfwStatus?: StdNsfwStatus;
   /** How many photos the couple already has (the gallery option's content). */
   galleryCount?: number;
   /** Presigned URL for the currently-uploaded video, for the thumbnail. */
@@ -42,7 +50,7 @@ type Props = {
  * Grab a representative frame from a local video File via a hidden <video> +
  * canvas. Uses the local object URL (same-origin → no canvas taint). Returns a
  * JPEG blob, or null on any failure (the caller then leaves the video without a
- * poster, so it stays 'pending' and never goes live).
+ * poster, so it is never screenable and never goes live).
  */
 function extractPosterFrame(file: File): Promise<Blob | null> {
   return new Promise((resolve) => {
@@ -128,6 +136,7 @@ export function StdMediaPicker({
   value,
   onChange,
   eventId,
+  nsfwStatus = 'pending',
   galleryCount = 0,
   videoUrl,
   onUploadVideo,
@@ -219,7 +228,6 @@ export function StdMediaPicker({
               type: 'video',
               videoKey: value.videoKey ?? null,
               posterKey: value.posterKey ?? null,
-              nsfw: value.nsfw,
               fit: value.fit ?? 'fill',
             })
           }
@@ -292,9 +300,9 @@ export function StdMediaPicker({
           ) : null}
           {value.videoKey ? (
             <p className="text-[11px] font-medium">
-              {value.nsfw === 'approved' ? (
+              {nsfwStatus === 'approved' ? (
                 <span className="text-success-700">Reviewed — your video is live in the film.</span>
-              ) : value.nsfw === 'rejected' ? (
+              ) : nsfwStatus === 'rejected' ? (
                 <span className="text-danger-700">
                   This video didn&rsquo;t pass review, so your film closes on your photo gallery instead. Try a different clip.
                 </span>

@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
+import {
+  orderMayProvisionVendorTarget,
+  vendorTargetRefusalMessage,
+} from '@/lib/vendor-target-ownership';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
@@ -16,19 +20,14 @@ import {
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from '@/lib/papic-one';
 import {
   provisionPanoodCamerasAdmin,
   panoodCameraCapForSku,
 } from '@/lib/panood-camera-seats';
 import {
-  AI_SUB_SKU,
-  cyclesFromAmount,
-  extendUserAiSubscription,
-  reverseUserAiSubscriptionWindow,
-} from '@/lib/setnayan-ai-subscription';
-import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
-import {
   VENDOR_AI_ADDON_SKU_CODE,
+  isVendorAiAddonActive,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
 import {
@@ -38,7 +37,18 @@ import {
 import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
-import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
+import { type VendorTier } from '@/lib/vendor-tier-caps';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { isVendorAiLadderEnabled } from '@/lib/vendor-ai-ladder-flag';
+import {
+  VENDOR_AI_ADVANCED_SKU_CODE,
+  nextVendorAiLevel,
+  vendorAiLevelForServiceKey,
+} from '@/lib/vendor-ai-level';
+import {
+  vendorAddonActivationAllowed,
+  vendorAddonActivationBlockedReason,
+} from '@/lib/vendor-addon-activation-gate';
 import * as Sentry from '@sentry/nextjs';
 import {
   runAndRecordVendorDeepSearch,
@@ -87,11 +97,26 @@ type ActivationHook = (ctx: ActivationContext) => Promise<void>;
  * the dispatcher's outer catch logs + Sentry-reports it and the order stays
  * recoverable (admin can refund). Reads tier_state + verification_state with the
  * admin client (RLS-bypassed).
+ *
+ * ⚠ `allTiersAllowed` — pass TRUE for an add-on whose BUY path is open to every
+ * tier, and the TIER half of this assertion is skipped (verification still
+ * required, always). Under the 2026-07-25 tiered add-on model the Papic Challenge
+ * (#3692/#3697) and 3D Plan Ads (#3699) buy actions sell to Free/Solo at the entry
+ * price; without this, that vendor pays and then activation THROWS here on admin
+ * approval — money taken, entitlement never granted. The tier floor must move in
+ * lock-step with the buy gate, so both read the same
+ * `isVendorAddonTieredPricingEnabled()` switch.
+ *
+ * This is also why tier is the RIGHT half to relax and verification is not: the
+ * price band was fixed when the order was created, so a tier that changes during
+ * the 24-hr approval window must not retroactively void a paid entitlement —
+ * whereas losing verification genuinely should block provisioning.
  */
 async function assertVendorAddonActivationEligible(
   ctx: ActivationContext,
   vendorProfileId: string,
   minTier: VendorTier,
+  allTiersAllowed = false,
 ): Promise<void> {
   const { data: gate } = await ctx.admin
     .from('vendor_profiles')
@@ -101,10 +126,11 @@ async function assertVendorAddonActivationEligible(
   const tier = (gate as { tier_state?: string | null } | null)?.tier_state ?? null;
   const verification =
     (gate as { verification_state?: string | null } | null)?.verification_state ?? null;
-  if (!isTierAtLeast(tier, minTier) || verification !== 'verified') {
+  const verdict = { tier, verification, minTier, allTiersAllowed };
+  if (!vendorAddonActivationAllowed(verdict)) {
     throw new Error(
-      `vendor add-on activation blocked: ${ctx.serviceKey} requires ${minTier}+ and verified ` +
-        `(tier=${tier ?? 'null'}, verification=${verification ?? 'null'})`,
+      `vendor add-on activation blocked: ${ctx.serviceKey} ` +
+        vendorAddonActivationBlockedReason(verdict),
     );
   }
 }
@@ -136,11 +162,13 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
 }
 
 /**
- * Papic One — grant a purchased point bucket into the event capture pool.
+ * Papic POOL — grant a purchased top-up into the SHARED event capture pool.
  *
  * The couple bought N shots; this is where N becomes real. ONE row into
- * papic_event_point_grants (source 'topup_order', order_id set), which
- * lib/papic-event-pool.ts sums into the pool total.
+ * papic_event_point_grants (source 'topup_order', order_id set, seat_id LEFT
+ * NULL — that is what makes it shared), which lib/papic-event-pool.ts sums into
+ * the pool total. Papic ONE is the other half of the two-type model and takes
+ * the seat-scoped path in grantPapicCameraPoints below.
  *
  * IDEMPOTENT BY order_id — a re-approved order must never double-grant, and the
  * grants ledger is additive with no unique constraint to lean on, so the guard
@@ -169,7 +197,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
       points,
       source: 'topup_order',
       order_id: ctx.orderId,
-      note: `Papic One · ${ctx.serviceKey}`,
+      note: `Papic Pool · ${ctx.serviceKey}`,
     });
     if (error) {
       console.error('[sku-activation] Papic One grant insert failed (non-fatal):', {
@@ -195,14 +223,22 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
 }
 
 /**
- * Papic One — grant a purchased point bucket PER PAID CAMERA into the shared
- * event pool (owner 2026-07-22 · Papic_One_Pool_Model_Spec §0: ₱100/camera →
- * 250 pts each). The buy order's service_key is PAPIC_CAMERAS (the per-camera
- * buy order — NOT the mini seat's own sku_code PAPIC_CAMERA_MINI_DAY). Delegates
- * to the SQL engine papic_grant_camera_points, which counts THIS order's mini
- * seats (250 × N in one grant) and is idempotent by order_id — a re-approval
- * never double-grants. Repeatable: each new per-camera order is a distinct
- * order_id and grants again. Reversal is symmetric via reversePapicPassPoints
+ * Papic ONE — grant a purchased bucket DEDICATED to one camera (owner-locked
+ * 2026-07-29: 50 pts ₱50 · 100 pts ₱100, per camera, reloadable, no cap).
+ *
+ * Delegates to the SQL engine papic_grant_camera_points, which resolves the
+ * order shape itself so this hook stays the single conversion point for all
+ * three One service_keys:
+ *   • a papic_one_orders row → grant its snapshotted points to ITS camera. Same
+ *     path for a NEW camera and for a RELOAD of one that already exists, which
+ *     is what lets a couple add shots mid-event without reissuing a QR.
+ *   • no such row → a legacy multi-camera PAPIC_CAMERAS order: the ₱50 rung's
+ *     points to each mini seat of that order.
+ * Every shape writes seat-scoped grants, and papic_event_pool_status counts only
+ * seat_id IS NULL rows — so a One camera's shots stay unshared.
+ *
+ * Idempotent by order_id (a re-approval never double-grants) and repeatable
+ * across DISTINCT orders. Reversal is symmetric via reversePapicPassPoints
  * (deletes every grant by order_id, regardless of source).
  *
  * NON-FATAL per the dispatcher contract: a failure leaves a paid order with no
@@ -296,8 +332,8 @@ async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
  * remaining time), and — defensively — marks the one-time trial used if a paid
  * order somehow lands with it still NULL.
  *
- * IDEMPOTENT via a prior 'service_activated' ledger row for this order (same
- * guard as SETNAYAN_AI_SUB), so a re-approval never double-extends the window.
+ * IDEMPOTENT via a prior 'service_activated' ledger row for this order, so a
+ * re-approval never double-extends the window.
  * Throws only on the write so activateOrderSku's outer catch logs + the order
  * stays 'paid' (recoverable). (Function declaration → hoisted so the frozen
  * EXACT_HOOKS map below can reference it.)
@@ -327,9 +363,19 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
 
   // (3) Current window + trial marker → the new (stacked) expiry.
+  // ⚠ `ai_addon_level` is named ONLY when the ladder flag is on. PostgREST
+  // answers a select naming an unknown column with 42703 and nulls the WHOLE
+  // row, so an environment that has not yet received migration 20271003111715
+  // must never see the column in a query — that would blank the profile and
+  // silently skip the activation below.
+  const ladder = isVendorAiLadderEnabled();
   const { data: vp } = await ctx.admin
     .from('vendor_profiles')
-    .select('ai_addon_expires_at, ai_addon_trial_used_at')
+    .select(
+      ladder
+        ? 'ai_addon_expires_at, ai_addon_trial_used_at, ai_addon_level'
+        : 'ai_addon_expires_at, ai_addon_trial_used_at',
+    )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const currentExpiry =
@@ -342,6 +388,33 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   // A paid order always means the trial already ran, but never leave it NULL
   // (that would hand a paid vendor a second "free" cycle).
   if (!trialUsedAt) update.ai_addon_trial_used_at = new Date().toISOString();
+
+  // Ladder: stamp which LEVEL this window now grants. Derived from the ORDER'S
+  // service_key (server-side, never client input) and merged with the current
+  // level via nextVendorAiLevel, which takes the HIGHER rung — buying Advanced
+  // mid-cycle promotes, and buying Basic while already Advanced must not demote
+  // a vendor who paid more. Only ever written here and in the free-cycle claim,
+  // both service-role; vendor self-writes are blocked by
+  // trg_guard_vendor_profiles_entitlement.
+  if (ladder) {
+    // ⚠ Carry the existing rung forward ONLY while the window is still LIVE.
+    //
+    // nextVendorAiLevel takes the HIGHER rung so a Basic re-up mid-cycle cannot
+    // strip Advanced time the vendor already paid for. That is right INSIDE a
+    // live window and WRONG across a lapse: the marker is never cleared on lapse
+    // (expiry is evaluated at read time, there is no cron), so a stale
+    // 'advanced' would otherwise re-arm on the next BASIC purchase — buy
+    // Advanced once, then renew on Basic forever (~₱1,000/cycle × 13/yr).
+    // A lapsed rung is SPENT: pass null and let this purchase decide the level.
+    const windowLive = isVendorAiAddonActive(currentExpiry);
+    const currentLevel = windowLive
+      ? ((vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null)
+      : null;
+    update.ai_addon_level = nextVendorAiLevel(
+      currentLevel,
+      vendorAiLevelForServiceKey(ctx.serviceKey),
+    );
+  }
 
   const { error } = await ctx.admin
     .from('vendor_profiles')
@@ -411,8 +484,16 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
   if (!vendorProfileId) return;
 
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (booth branding is a
-  // Pro perk; defence in depth against a comp/self-comp bypass).
-  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
+  // Pro perk; defence in depth against a comp/self-comp bypass). The tier floor
+  // LIFTS in lock-step with the buy gate (#3699 sells 3D Plan Ads to every tier
+  // when the tiered add-on model is on) — otherwise a Free/Solo vendor pays and
+  // this throws on approval. Verified is still required either way.
+  await assertVendorAddonActivationEligible(
+    ctx,
+    vendorProfileId,
+    'pro',
+    isVendorAddonTieredPricingEnabled(),
+  );
 
   // (3) Current window + trial marker → the new (stacked) expiry.
   const { data: vp } = await ctx.admin
@@ -499,7 +580,16 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   if (!vendorProfileId) return;
 
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (defence in depth).
-  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
+  // The tier floor LIFTS in lock-step with the buy gate (#3692/#3697 sell Papic
+  // Challenges to every tier when the tiered add-on model is on) — otherwise a
+  // Free/Solo vendor pays ₱500 and this throws on approval, taking their money
+  // without granting the sponsorship. Verified is still required either way.
+  await assertVendorAddonActivationEligible(
+    ctx,
+    vendorProfileId,
+    'pro',
+    isVendorAddonTieredPricingEnabled(),
+  );
 
   // (3) Upsert the entitlement. ignoreDuplicates → INSERT … ON CONFLICT
   //     (event_id, vendor_profile_id) DO NOTHING: a vendor holds at most one
@@ -630,6 +720,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // the entitlement window on the paying vendor (the free first cycle is
   // direct-activated in the buy action). See activateVendorAiAddonOrder.
   [VENDOR_AI_ADDON_SKU_CODE]: activateVendorAiAddonOrder,
+  // Ladder: Advanced shares the SAME hook and the SAME entitlement window — the
+  // hook derives which level to stamp from the order's own service_key. A second
+  // map entry (rather than a renamed key) keeps every historical order valid.
+  [VENDOR_AI_ADVANCED_SKU_CODE]: activateVendorAiAddonOrder,
 
   // 'vendor_3d_booth' → paid 3D Booth 28-day renewal. Stamps
   // vendor_profiles.booth_addon_expires_at on the paying vendor (the free first
@@ -690,138 +784,60 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // front via the manual apply-then-pay rails and this boolean is the gate.
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
-    const update: Record<string, unknown> = { setnayan_ai_active: true };
-    // Per-EVENT pricing (owner 2026-07-02): mark the ₱499 intro consumed + stamp
-    // the 28-day access window, so this event's NEXT purchase is a ₱799 renewal.
-    // Flag-gated → inert (just the setnayan_ai_active boolean, exactly as today)
-    // while per-event pricing is off.
-    let stampedUntil: string | null = null;
-    if (await resolveSetnayanAiPerEventPricingEnabled()) {
-      update.setnayan_ai_intro_used = true;
-      // Idempotency: extend the window only ONCE per order (a re-approval must not
-      // add another 28 days). A prior 'service_activated' ledger row for this order
-      // means the window was already stamped — keep intro_used true (a no-op) but
-      // skip the extension. Mirrors the SETNAYAN_AI_SUB guard.
-      const { data: prior } = await ctx.admin
-        .from('order_ledger')
-        .select('order_id')
-        .eq('order_id', ctx.orderId)
-        .eq('event_type', 'service_activated')
-        .limit(1)
-        .maybeSingle();
-      if (!prior) {
-        const { data: ev } = await ctx.admin
-          .from('events')
-          .select('setnayan_ai_active_until')
-          .eq('event_id', ctx.eventId)
-          .maybeSingle();
-        // Stacks from the later of now / current expiry (early re-up keeps the
-        // remaining time). One 28-day cycle per SETNAYAN_AI order.
-        stampedUntil = extendUserAiSubscription(
-          (ev as { setnayan_ai_active_until?: string | null } | null)?.setnayan_ai_active_until ?? null,
-          1,
-          new Date(),
-        ).toISOString();
-        update.setnayan_ai_active_until = stampedUntil;
-      }
-    }
+    // ── ONE-TIME PER EVENT. NO WINDOW. (owner-locked 2026-07-26) ─────────────
+    // "this is per event. no time duration. just one time payment per event."
+    //
+    // A paid Setnayan AI is a PERMANENT unlock on the event: `setnayan_ai_active`
+    // and nothing else. Price varies by event TYPE (₱1,499 wedding · ₱899 debut /
+    // corporate / gala · ₱499 standard · ₱99 light · free simple_event) and is
+    // resolved server-side at checkout by resolveSetnayanAiTypeChargeCentavos;
+    // WHAT they pay is a tier question, HOW LONG they keep it is not.
+    //
+    // ⚠ WHAT WAS REMOVED, AND WHY IT MATTERED. Behind
+    // `setnayan_ai_per_event_pricing_enabled` this hook used to also set
+    // `setnayan_ai_intro_used = true` and stamp a 28-day
+    // `setnayan_ai_active_until` via extendUserAiSubscription(…, 1, …), so "this
+    // event's NEXT purchase is a ₱799 renewal". That belonged to a RETIRED
+    // intro/renewal model: `SETNAYAN_AI_RENEW` is is_active=false and its
+    // resolver (resolveSetnayanAiEventChargeCentavos) has NO callers — the live
+    // charge path is the event-TYPE ladder. So the stamp bought nothing and cost
+    // everything: eventOwnsSetnayanAi treats a non-NULL window as AUTHORITATIVE,
+    // so a couple paid once and lost AI 28 days later with no way to renew.
+    //
+    // That is why PR #3035 (mig 20270714262264) turned the flag OFF rather than
+    // fixing it — which left the per-event PRICE ladder switched off too, since
+    // one flag gated both. Removing the stamp decouples them: the flag now means
+    // only "price by event type", and can be turned on safely.
+    //
+    // Nothing to migrate: 0 events carry a window and 0 have intro_used (verified
+    // in prod 2026-07-26). Rows with a NULL window already read as permanent.
     const { error } = await ctx.admin
       .from('events')
-      .update(update)
+      .update({ setnayan_ai_active: true })
       .eq('event_id', ctx.eventId);
     // Surface a write failure so activateOrderSku's outer catch logs it —
     // otherwise the paid AI silently never provisions with no retry signal.
     // Throwing is safe: the order is already 'paid', the dispatcher swallows +
     // logs and never rolls back the approval.
     if (error) throw new Error(`SETNAYAN_AI activation write failed: ${error.message}`);
-    // Record the activation so a re-approval doesn't re-extend the window (mirrors
-    // the SETNAYAN_AI_SUB idempotency guard). Best-effort — the window is already
-    // written; a missed ledger row only risks a re-extend on a rare re-approval,
-    // never a lost grant. Only when per-event pricing stamped a fresh window.
-    if (stampedUntil) {
-      await appendLedger(ctx.admin, {
-        order_id: ctx.orderId,
-        event_type: 'service_activated',
-        actor_user_id: ctx.actorUserId,
-        actor_role: 'admin',
-        metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, active_until: stampedUntil },
-      });
-    }
+    // No ledger row and no idempotency probe are needed any more: the write is a
+    // plain idempotent boolean set, so a re-approval is a no-op. (The probe only
+    // ever existed to stop a second approval adding another 28 days.)
   },
 
-  // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,
-  // owner 2026-06-29). Extends the BUYER's user_ai_subscription window by
-  // (paid amount ÷ admin unit price) cycles × 28 days, fanning AI out to all
-  // their events. Idempotent two ways: a prior 'service_activated' ledger row
-  // for this order, OR the window already carrying this order as last_order_id —
-  // either short-circuits so a re-approval never double-grants. INERT while the
-  // per-user flag is off (the gate ignores the window), but the grant records
-  // safely regardless. Throws only on the write so the dispatcher logs + retries.
-  [AI_SUB_SKU]: async (ctx) => {
-    // (1) Idempotency — already activated this order?
-    const { data: priorLedger } = await ctx.admin
-      .from('order_ledger')
-      .select('order_id')
-      .eq('order_id', ctx.orderId)
-      .eq('event_type', 'service_activated')
-      .limit(1)
-      .maybeSingle();
-    if (priorLedger) return;
-
-    // (2) Buyer + paid amount off the order.
-    const { data: order } = await ctx.admin
-      .from('orders')
-      .select('user_id, confirmed_total_php, requested_total_php')
-      .eq('order_id', ctx.orderId)
-      .maybeSingle();
-    if (!order?.user_id) return;
-    const amountPhp = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
-
-    // (3) Admin-managed unit price (single source = the catalog).
-    const { data: sku } = await ctx.admin
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php')
-      .eq('service_code', AI_SUB_SKU)
-      .maybeSingle();
-    const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
-    if (cycles <= 0) return;
-
-    // (4) Current window (one row per user) → extend, with a second idempotency
-    // guard for the upsert-succeeded-but-ledger-failed retry case.
-    const { data: existing } = await ctx.admin
-      .from('user_ai_subscription')
-      .select('active_until, last_order_id')
-      .eq('user_id', order.user_id)
-      .maybeSingle();
-    if (existing?.last_order_id === ctx.orderId) return;
-    const newUntil = extendUserAiSubscription(
-      existing?.active_until ?? null,
-      cycles,
-      new Date(),
-    );
-
-    const { error } = await ctx.admin.from('user_ai_subscription').upsert(
-      {
-        user_id: order.user_id,
-        active_until: newUntil.toISOString(),
-        source: 'paid',
-        last_order_id: ctx.orderId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    );
-    if (error) {
-      throw new Error(`SETNAYAN_AI_SUB activation write failed: ${error.message}`);
-    }
-
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'service_activated',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, cycles, active_until: newUntil.toISOString() },
-    });
-  },
+  // 🔒 'SETNAYAN_AI_SUB' HANDLER REMOVED 2026-08-01 — Setnayan AI is PER EVENT.
+  //
+  // It extended the BUYER's `user_ai_subscription` window by (paid amount ÷ unit
+  // price) cycles × 28 days, fanning AI out to every event that user hosted.
+  // Owner decision: "it is per event." The table, the flag and this writer are
+  // all gone.
+  //
+  // Nothing is stranded: prod held 0 orders of ANY kind, 0 user_ai_subscription
+  // rows and no SETNAYAN_AI_SUB catalog row, so the SKU was never purchasable —
+  // the charge path refused it for having no server-resolvable unit price
+  // (SEC-7). Its refund counterpart (reverseUserAiSubscriptionOrder) is removed
+  // in the same change, so activate/reverse stay symmetric and no order can
+  // activate without a matching rollback.
 
   // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
   // stored unlock flag). On approval the hook PROVISIONS the 5 paparazzi seats
@@ -842,10 +858,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     }
   },
 
-  // Papic One — the PURCHASED point buckets (owner session 2026-07-20; corpus
-  // Papic_Pricing_Lock_2026-07-20.md § 2.3 + § 11). A paid tier grants its points
-  // into papic_event_point_grants; the pool sums grants into its total, so the
-  // repeatable top-up needs no extra machinery — it is just another row.
+  // Papic POOL — the SHARED, additive top-up rungs (owner-locked 2026-07-29:
+  // +3,000 ₱1,000 · +6,000 ₱2,000 · +10,000 ₱3,000). A paid rung grants its
+  // points into papic_event_point_grants with seat_id NULL, and the pool sums
+  // exactly those rows — so "additive and repeatable" needs no extra machinery,
+  // it is just another row. Every rung is repeatable now; the old is_topup gate
+  // (only unlockable at 10,000 points held) is cleared by 20271019231590.
   //
   // These are SELF-BOUNDING buckets, deliberately NOT listed in
   // papic_event_pool_config.pass_service_codes (the guest-derived fence for the
@@ -853,13 +871,25 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
+  // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
+  // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
+  // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement
+  // must still convert on approval, and the deactivated tier row makes that
+  // conversion resolve to ZERO points rather than the retired value.
   PAPIC_GUEST_TOPUP: grantPapicPassPoints,
 
-  // Papic One — the per-camera buy order (owner 2026-07-22). service_key is
-  // PAPIC_CAMERAS (the buy order), NOT the mini seat's sku_code
-  // PAPIC_CAMERA_MINI_DAY. 250 pts per paid camera into the SAME shared event
-  // pool, repeatable (each buy is its own order_id) + idempotent per order.
+  // Papic ONE — a DEDICATED camera with its own unshared balance (owner-locked
+  // 2026-07-29: 50 pts ₱50 · 100 pts ₱100, per camera, reloadable, no cap).
+  //
+  // THREE service_keys, ONE hook, on purpose. papic_grant_camera_points resolves
+  // the order shape itself — a papic_one_orders row (a single-camera buy OR a
+  // reload of a camera that already exists) or a legacy multi-camera
+  // PAPIC_CAMERAS order — so the order->points conversion stays single-sourced
+  // instead of forking per SKU. Every shape writes seat-scoped grants, which is
+  // what keeps a One camera's shots out of the shared pool.
   PAPIC_CAMERAS: grantPapicCameraPoints,
+  [PAPIC_ONE_50_SKU]: grantPapicCameraPoints,
+  [PAPIC_ONE_100_SKU]: grantPapicCameraPoints,
 
   // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
   // controller. On approval, PROVISION the tier's camera-operator seats so the
@@ -1004,6 +1034,89 @@ async function recomputeVendorExtraSeats(
 }
 
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
+/**
+ * SEC-4b · THE ORDER MUST OWN WHAT IT PROVISIONS.
+ *
+ * The four `vendor_*__<id>` hooks below read their TARGET out of the service_key
+ * string and act on it. Nothing downstream ever asked whether the ORDER belongs
+ * to the vendor that owns that target — so an order minted from any other
+ * surface (couple checkout, a comp grant, a hand-inserted row) could settle a
+ * stranger's booking fee, activate a stranger's branch, or promote a stranger's
+ * Custom plan.
+ *
+ * This resolves the OWNING vendor of the target and compares it with the order's
+ * own `vendor_profile_id`. Couple-side checkout pins that column to NULL, so a
+ * couple-minted row can never match and is refused here regardless of how it was
+ * created.
+ *
+ * ⚠ THIS IS THE ORIGIN-INDEPENDENT GATE, and the load-bearing one of the pair.
+ * Its sibling — `isVendorSurfaceServiceKey` in couple checkout (landed
+ * separately) — only guards ONE door, and what actually blocks that door today
+ * is SEC-7's pricing refusal rather than the guard itself. This check holds for
+ * every origin, including ones with no pricing step at all: a comp grant, an
+ * admin-minted bespoke order from /admin/custom-plans, or any future minter.
+ *
+ * THROWS rather than returning false. The dispatcher's catch logs it and leaves
+ * the order recoverable (an admin can refund) — which is the right outcome:
+ * money may have moved, but the wrong tenant is not provisioned. Failing OPEN
+ * here would defeat the whole check.
+ */
+async function assertOrderOwnsVendorTarget(
+  ctx: ActivationContext,
+  targetVendorProfileId: string | null,
+): Promise<void> {
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const orderVendorId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+
+  // The RULE lives in lib/vendor-target-ownership.ts — pure, and unit-tested
+  // there. This module cannot be imported by a test (it reaches `server-only`
+  // transitively via the concierge actions), so keeping the decision here would
+  // leave it provable only by reading it.
+  if (!orderMayProvisionVendorTarget(orderVendorId, targetVendorProfileId)) {
+    throw new Error(
+      vendorTargetRefusalMessage({
+        orderId: ctx.orderId,
+        serviceKey: ctx.serviceKey,
+        orderVendorProfileId: orderVendorId,
+        targetVendorProfileId,
+      }),
+    );
+  }
+}
+
+/** The vendor that owns a branch, or null when the branch is unknown. */
+async function branchOwnerVendorId(
+  ctx: ActivationContext,
+  branchId: string,
+): Promise<string | null> {
+  const { data } = await ctx.admin
+    .from('vendor_branches')
+    .select('parent_vendor_profile_id')
+    .eq('branch_id', branchId)
+    .maybeSingle();
+  return (
+    (data as { parent_vendor_profile_id?: string | null } | null)?.parent_vendor_profile_id ?? null
+  );
+}
+
+/** The vendor that owns a booking-fee charge, or null when unknown. */
+async function chargeOwnerVendorId(
+  ctx: ActivationContext,
+  chargeId: string,
+): Promise<string | null> {
+  const { data } = await ctx.admin
+    .from('booking_fee_charges')
+    .select('vendor_profile_id')
+    .eq('charge_id', chargeId)
+    .maybeSingle();
+  return (data as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+}
+
 const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
@@ -1020,6 +1133,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const chargeId = chargeIdFromBookingFeeLockServiceKey(ctx.serviceKey);
       if (!chargeId) return;
+      // SEC-4b: the paying order must belong to the charge's own vendor.
+      await assertOrderOwnsVendorTarget(ctx, await chargeOwnerVendorId(ctx, chargeId));
       const settled = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -1036,6 +1151,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const branchId = branchIdFromServiceKey(ctx.serviceKey);
       if (!branchId) return;
+      // SEC-4b: the paying order must belong to the branch's parent vendor.
+      await assertOrderOwnsVendorTarget(ctx, await branchOwnerVendorId(ctx, branchId));
       const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
       await ctx.admin
         .from('vendor_branches')
@@ -1067,6 +1184,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
+      // SEC-4b: the key names the vendor directly — the order must be theirs.
+      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
       const paidSeats = await recomputeVendorExtraSeats(ctx.admin, vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -1106,6 +1225,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
+      // SEC-4b: the key names the vendor directly — the order must be theirs.
+      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
 
       // (0) Idempotency — already activated this order? (Lets us exclude 'active'
       //     from the candidate set below without turning a re-approval into a
@@ -1377,6 +1498,57 @@ async function deactivateVendorAddonWindow(
 }
 
 /**
+ * Re-derive `vendor_profiles.ai_addon_level` when a Vendor AI order is reversed
+ * (rejected / refunded), and demote to 'basic' when the vendor no longer owns
+ * ADVANCED by any live order.
+ *
+ * ⚠ WHY THIS IS SEPARATE FROM deactivateVendorAddonWindow: that helper returns
+ * EARLY (`if (newExpiry === currentExpiry) return`) whenever a later cycle still
+ * owns the window — which is exactly the case where a refunded Advanced order
+ * leaves a live Basic window behind. A level reset written inside it would be
+ * skipped in the one scenario that matters, leaving "refund the Advanced money,
+ * keep the Advanced capability".
+ *
+ * RE-DERIVE, never blind-clear (same reasoning as the SETNAYAN_AI reversal): the
+ * vendor may still hold Advanced through a SECOND live order, and demoting them
+ * for a refund of a different one would revoke something they paid for. Only when
+ * no live Advanced order remains does the level drop.
+ *
+ * The window itself is handled separately, so a vendor who bought Basic and then
+ * Advanced keeps their Basic cycle intact — they lose the rung, not the time.
+ */
+async function rederiveVendorAiLevelOnReversal(ctx: ActivationContext): Promise<void> {
+  if (!isVendorAiLadderEnabled()) return; // never name the column while dark
+
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // Does ANOTHER live Advanced order still entitle them? (This order has already
+  // been flipped out of the live set by the time reversal runs.)
+  const { data: liveAdvanced } = await ctx.admin
+    .from('orders')
+    .select('order_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('service_key', VENDOR_AI_ADVANCED_SKU_CODE)
+    .in('status', ['paid', 'fulfilled'])
+    .neq('order_id', ctx.orderId)
+    .limit(1);
+  if (liveAdvanced && liveAdvanced.length > 0) return; // still legitimately Advanced
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update({ ai_addon_level: 'basic' })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`ai_addon_level demotion failed: ${error.message}`);
+}
+
+/**
  * Reverse a Photo Challenge sponsorship when its ₱400 order is rejected/refunded
  * — delete the papic_photo_challenge_sponsorships row for THIS (event, vendor) so
  * a refunded vendor can no longer author a sponsored challenge. Scoped to the
@@ -1405,77 +1577,10 @@ async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Prom
   }
 }
 
-/**
- * Reverse the Setnayan AI per-USER subscription window a refunded/rejected
- * SETNAYAN_AI_SUB term-pass order stamped — without this, a refund left the
- * per-user AI window live ("refund the money, keep the sub"), symmetric to the
- * SETNAYAN_AI (per-event flag) reversal below. Reads the buyer off the order +
- * the cycles this order granted from its own 'service_activated' ledger row, then
- * rolls back user_ai_subscription.active_until ONLY when this order is still the
- * window's tail (reverseUserAiSubscriptionWindow: a later stacked re-up is never
- * clobbered). Clears last_order_id so a re-reversal is a no-op. Throws only on
- * the write so deactivateOrderSku's per-branch catch logs + reports it.
- */
-async function reverseUserAiSubscriptionOrder(ctx: ActivationContext): Promise<void> {
-  const { data: order } = await ctx.admin
-    .from('orders')
-    .select('user_id')
-    .eq('order_id', ctx.orderId)
-    .maybeSingle();
-  const userId = (order as { user_id?: string | null } | null)?.user_id ?? null;
-  if (!userId) return;
-
-  // How many cycles did THIS order grant? (its own activation ledger metadata)
-  const { data: ledgerRow } = await ctx.admin
-    .from('order_ledger')
-    .select('metadata')
-    .eq('order_id', ctx.orderId)
-    .eq('event_type', 'service_activated')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const meta =
-    (ledgerRow as { metadata?: Record<string, unknown> | null } | null)?.metadata ?? null;
-  const cycles = Number(meta?.cycles ?? 0);
-  if (!Number.isFinite(cycles) || cycles <= 0) return; // this order granted nothing
-
-  const { data: sub } = await ctx.admin
-    .from('user_ai_subscription')
-    .select('active_until, last_order_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  const reduced = reverseUserAiSubscriptionWindow({
-    currentActiveUntil: (sub as { active_until?: string | null } | null)?.active_until ?? null,
-    lastOrderId: (sub as { last_order_id?: string | null } | null)?.last_order_id ?? null,
-    orderId: ctx.orderId,
-    cycles,
-    now: new Date(),
-  });
-  if (!reduced) return; // a later re-up owns the tail (or nothing to reverse) → no-op
-
-  const { error } = await ctx.admin
-    .from('user_ai_subscription')
-    .update({
-      active_until: reduced.toISOString(),
-      last_order_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-  if (error) throw new Error(`SETNAYAN_AI_SUB reversal write failed: ${error.message}`);
-
-  await appendLedger(ctx.admin, {
-    order_id: ctx.orderId,
-    event_type: 'order_refunded',
-    actor_user_id: ctx.actorUserId,
-    actor_role: 'admin',
-    metadata: {
-      service_key: ctx.serviceKey,
-      user_id: userId,
-      cycles_reversed: cycles,
-      active_until: reduced.toISOString(),
-    },
-  });
-}
+// 🔒 reverseUserAiSubscriptionOrder() REMOVED 2026-08-01 together with the
+// SETNAYAN_AI_SUB activation handler it mirrored. It rolled back
+// user_ai_subscription.active_until on a refund/reject. With per-USER retired
+// there is no window to reverse. The per-EVENT reversal below is untouched.
 
 /**
  * Reverse the flag-backed side effects of an order that was just REVERSED
@@ -1484,7 +1589,7 @@ async function reverseUserAiSubscriptionOrder(ctx: ActivationContext): Promise<v
  * the order's status flip is committed so the re-derivation sees the new state.
  *
  * Entitlements with a STORED window/row need reversing: SETNAYAN_AI (per-event
- * flag), SETNAYAN_AI_SUB (per-USER subscription window), the vendor extra-seat
+ * flag), the vendor extra-seat
  * COUNT, Vendor AI + 3D Booth (28-day window), and the Photo Challenge
  * sponsorship row. `vendor_deep_search` is already-consumed (a completed web/AI
  * run) → nothing to reverse. PAPIC_SEATS' seat provisioning + all other
@@ -1509,7 +1614,10 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
 
   // Vendor add-on windows (paid renewal OR free first cycle) — expire the window
   // this order stamped, if it's still the current one. Non-fatal + idempotent.
-  if (ctx.serviceKey === VENDOR_AI_ADDON_SKU_CODE) {
+  if (
+    ctx.serviceKey === VENDOR_AI_ADDON_SKU_CODE ||
+    ctx.serviceKey === VENDOR_AI_ADVANCED_SKU_CODE
+  ) {
     try {
       await deactivateVendorAddonWindow(ctx, {
         expiryColumn: 'ai_addon_expires_at',
@@ -1517,6 +1625,15 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       });
     } catch (e) {
       reportActivationFault('deactivate:vendor_ai_addon', ctx, e);
+    }
+    // Independent of the window rollback ON PURPOSE — deactivateVendorAddonWindow
+    // returns early when a later cycle owns the window, which is precisely the
+    // refunded-Advanced-over-live-Basic case. Own try/catch so neither step can
+    // swallow the other.
+    try {
+      await rederiveVendorAiLevelOnReversal(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_ai_level', ctx, e);
     }
   } else if (ctx.serviceKey === VENDOR_3D_BOOTH_SKU_CODE) {
     try {
@@ -1533,15 +1650,10 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
     }
-  } else if (ctx.serviceKey === AI_SUB_SKU) {
-    // Setnayan AI per-USER subscription — roll back the window this order stamped
-    // (else: refund the money, keep the sub). Non-fatal + idempotent.
-    try {
-      await reverseUserAiSubscriptionOrder(ctx);
-    } catch (e) {
-      reportActivationFault('deactivate:setnayan_ai_sub', ctx, e);
-    }
   }
+  // 🔒 The `SETNAYAN_AI_SUB` branch that stood here was removed 2026-08-01 with
+  // the rest of the per-USER path. Its activation handler went in the same
+  // change, so there is no grant left for it to reverse.
 
   // Vendor extra seat — a refunded/cancelled seat order must LOWER the paid seat
   // count. Recompute from the live paid-order set (the reversed order already

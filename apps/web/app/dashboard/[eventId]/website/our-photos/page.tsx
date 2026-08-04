@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { WebsiteProLock } from '../_components/website-pro-lock';
 
 export const metadata = { title: 'Edit our photos · Setnayan' };
 
@@ -52,6 +54,25 @@ export default async function OurPhotosEditorPage({
         (r): r is string => typeof r === 'string' && r.startsWith('r2://'),
       ) as string[])
     : [];
+
+  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // The photo gallery is now a Website PRO perk. The gate = (NOT PRO) AND (this
+  // gallery has NO existing content). A couple that already curated photos, or
+  // owns PRO, always keeps the editor — and the live guest site never loses its
+  // gallery (only the EDITOR gates going forward). Fail-open: if the entitlement
+  // read throws, treat as owned so a real couple is never locked out.
+  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  const hasContent = currentRefs.length > 0;
+  if (!proActive && !hasContent) {
+    return (
+      <WebsiteProLock
+        eventId={eventId}
+        backHref={`/dashboard/${eventId}/website`}
+        featureName="Your own photo gallery"
+        description="Add your engagement or pre-wedding photos as a gallery on your wedding website. It's part of Website PRO."
+      />
+    );
+  }
 
   // Resolve each ref to a 24h presigned display URL so the uploader shows the
   // existing gallery thumbnails on mount.

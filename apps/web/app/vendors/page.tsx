@@ -7,7 +7,7 @@
  * footer are global site-chrome (SiteChrome) — this page renders neither.
  *
  * Narrative flow (top→bottom):
- *   photographic hero → thesis strip (0% · ₱0 · pay-only-when-it-works) →
+ *   photographic hero → thesis strip (₱0 · 0%-while-we-launch · first-5-free) →
  *   run-your-business-here-free hub → Setnayan AI (dark signature: sells for
  *   you + 3 nudge steps + phone mock + flywheel callout) →
  *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
@@ -61,11 +61,11 @@ export async function generateMetadata() {
   const title = `Setnayan for Vendors · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
   return {
     title,
-    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. 0% commission, always. Pay only when a booking comes through us. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
+    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join, 0% commission while we launch — then 5% + 1% beyond ₱100,000, only on couples Setnayan brings you; your own clients always free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
     alternates: { canonical: '/vendors' },
     openGraph: {
       title,
-      description: `Run your whole business here free · 0% commission, always · pay only when a booking comes through us. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d.`,
+      description: `Run your whole business here free · 0% commission while we launch, then 5% + 1% beyond ₱100,000, only on couples we bring you · your own clients always free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d.`,
       url: '/vendors',
       type: 'website',
       siteName: 'Setnayan',
@@ -73,7 +73,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `Built to grow your business — free. 0% commission. Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly}/28d.`,
+      description: `Built to grow your business — free. 0% commission while we launch. Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly}/28d.`,
     },
   };
 }
@@ -115,7 +115,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
         '@id': `${SITE_URL}/vendors#solo-vendor-subscription`,
         name: 'Solo Vendor (28-day prepaid block)',
         description:
-          '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission. Setnayan never touches the money between you and your couples.',
+          '1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. 0% commission while we launch; after launch 5%, then 1% beyond ₱100,000, only on couples Setnayan brings you — your own clients always free. Setnayan never touches the money between you and your couples.',
         price: String(p.num.soloMonthly),
         priceCurrency: 'PHP',
         priceSpecification: {

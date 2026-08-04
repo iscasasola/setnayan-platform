@@ -85,8 +85,8 @@ export function VendorGrowHero() {
             lineHeight: 1.55,
           }}
         >
-          Profile, clients, calendar, bookings, and your own website. All set up
-          free, kept free. Pay only for the extra reach you choose.
+          Profile, clients, calendar, bookings, and your own website &mdash; all set
+          up free, kept free. Free to join, 0% commission while we launch.
         </p>
         {/* CTA row + hero scroll-lock gate — a client island (the hero itself
             stays a Server Component with the LCP <Image>). */}

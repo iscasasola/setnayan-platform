@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
-import { tierCaps } from '@/lib/vendor-tier-caps';
 import { resolveTokens, formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   resolveProposalValues,
@@ -15,6 +14,8 @@ import {
   sanitizeAndResolveSchedule,
   type ResolvedSchedule,
 } from '@/lib/proposal-payment-schedule';
+import { applyFreeTransportToQuote } from '@/lib/vendor-free-transport';
+import { resolveThreadFreeTransport } from '@/lib/vendor-free-transport.server';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -106,34 +107,13 @@ async function gateVendorProposalThread(
     };
   }
 
-  // FREE-tier block — a proposal posts a vendor chat_messages row, so it must
-  // clear the SAME in-app messaging gate sendChatMessageCore enforces. Without
-  // this, a FREE vendor on an admin-accepted thread (accepted via the
-  // service-role path that skips unlock_vendor_event's TIER_FREE_NO_INAPP) could
-  // post a proposal card here, bypassing the FREE in-app block. Isolated tier
-  // probe (tier_state is excluded from the full profile select).
-  // NOTE: mirrors the probe in lib/chat-send.ts — worth extracting into one
-  // shared vendor-chat tier-gate helper so the two can't drift.
-  {
-    let tier: string | null = null;
-    try {
-      const { data: tierRow } = await supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', profile.vendor_profile_id)
-        .maybeSingle();
-      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
-    } catch {
-      tier = null;
-    }
-    if (tierCaps(tier).chat === 'none') {
-      return {
-        ok: false,
-        code: 'tier_free',
-        message: 'Get your account verified to message couples in the app.',
-      };
-    }
-  }
+  // Inbox ungated (owner 2026-07-24) — the mirrored FREE-tier block that used to
+  // sit here (matching sendChatMessageCore's tier gate) has been REMOVED. A
+  // proposal is an answer, and the inbox is never locked by tier: a vendor on any
+  // tier who has an accepted thread can post a proposal. The gate this mirrored
+  // is gone in lib/chat-send.ts, so keeping it here would re-introduce the wall
+  // we just removed. Couple-side spam protection is unaffected (it lives on the
+  // inquiry-open path in lib/inquiry-gate.ts, not here).
 
   return { ok: true, user, profile, thread };
 }
@@ -420,10 +400,35 @@ export async function sendCustomProposalCore(
   const { user, profile, thread } = gate;
   const eventId = thread.event_id;
 
-  const { lineItems, totalCentavos } = sanitizeCustomLineItems(input.lineItems);
-  if (lineItems.length === 0) {
+  const sanitized = sanitizeCustomLineItems(input.lineItems);
+  if (sanitized.lineItems.length === 0) {
     return { ok: false, code: 'failed', message: 'Add at least one line item before sending a quote.' };
   }
+
+  // ── Inner-ring free travel · THE ENFORCEMENT BOUNDARY (spec §17 · PR #3816) ──
+  // The Proposal Maker composes its line items in the BROWSER and POSTs them as
+  // JSON, so anything the client does about the transportation field is a
+  // suggestion. Without this, a crafted request hangs a ₱15,000 "Transportation"
+  // line on a quote for a venue the vendor THEMSELVES declared inside their
+  // free-travel ring, and the couple is billed for travel the bench badge
+  // promised was free.
+  //
+  // Flag-dark and fail-soft: `resolveThreadFreeTransport` returns null before
+  // issuing a single query while NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED is
+  // off, and on any error; `applyFreeTransportToQuote(lines, null)` returns the
+  // same lines and the same total, so the flag-off path is behaviourally
+  // identical to before this block existed.
+  //
+  // The total is RECOMPUTED from the enforced lines — rewriting a line without
+  // re-summing would persist a headline the itemization contradicts, and the
+  // headline is what the booking-fee and payment-schedule maths read.
+  const freeTransport = await resolveThreadFreeTransport({
+    vendorProfileId: profile.vendor_profile_id,
+    eventId,
+  });
+  const enforced = applyFreeTransportToQuote(sanitized.lineItems, freeTransport);
+  const lineItems: ProposalLineItem[] = enforced.lineItems;
+  const totalCentavos = enforced.totalCentavos;
 
   // Payment schedule (§ 8) — RE-RESOLVE server-side from the drafts so the
   // persisted, self-balancing numbers come from the pure resolver, not the

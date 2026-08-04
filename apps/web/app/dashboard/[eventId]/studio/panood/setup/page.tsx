@@ -17,17 +17,35 @@ import {
   Unlink2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  liveStudioPoolOnly,
+  POOL_ONLY_CONNECT_NOTICE,
+} from '@/lib/live-studio-pool-only';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
   getActivePanoodStreamKey,
 } from '@/lib/panood-broadcast';
+import {
+  fetchEventRecordings,
+  type RoamRecording,
+} from '@/lib/live-studio-recordings';
 import { eventSkuActive } from '@/lib/entitlements';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { readEventWatchUrls } from '@/lib/watch-live-links';
+import {
+  savePanoodWatchUrl,
+  clearPanoodWatchUrl,
+  savePanoodFacebookUrl,
+  clearPanoodFacebookUrl,
+} from './actions';
 import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
+import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 
 export const metadata = { title: 'Live Studio setup · Setnayan' };
 
@@ -73,6 +91,10 @@ type PanoodSetup = {
   // live; null while the broadcast is staged but not yet running. With the
   // BYO-YouTube pivot, this URL points at the couple's own channel.
   youtubeWatchUrl: string | null;
+  // DUAL-STREAM (owner-approved 2026-07-26) ← events.panood_watch_url_facebook.
+  // The couple's SIMULTANEOUS Facebook Live link, pasted by them; their encoder
+  // (obs-multi-rtmp) fans the same program output out to both destinations.
+  facebookWatchUrl: string | null;
 };
 
 type YoutubeGrant = {
@@ -91,6 +113,8 @@ type Props = {
     youtube_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    facebook_url_saved?: string;
+    facebook_url_error?: string;
   }>;
 };
 
@@ -102,6 +126,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     youtube_error: youtubeError,
     watch_url_saved: watchUrlSaved,
     watch_url_error: watchUrlError,
+    facebook_url_saved: facebookUrlSaved,
+    facebook_url_error: facebookUrlError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -151,21 +177,19 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     baseOwned,
     customMonogramOwned,
     youtubeWatchUrl: null,
+    facebookWatchUrl: null,
   };
 
   // REAL watch-URL read (the first live persistence on this surface —
-  // migration 20261122000000). Tolerant separate select so a pre-migration
-  // environment renders null instead of erroring the page; the user-session
-  // client is RLS-scoped to the host's own events.
+  // migration 20261122000000), now covering the DUAL-STREAM Facebook column too
+  // (20271006100000). readEventWatchUrls retries with a YouTube-only select if
+  // the Facebook column is missing (42703), so a pre-migration environment keeps
+  // its YouTube field instead of losing both. The user-session client is
+  // RLS-scoped to the host's own events.
   try {
-    const { data: watchRow, error: watchErr } = await supabase
-      .from('events')
-      .select('panood_watch_url')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if (!watchErr && watchRow?.panood_watch_url) {
-      setup.youtubeWatchUrl = watchRow.panood_watch_url as string;
-    }
+    const urls = await readEventWatchUrls(supabase, eventId);
+    setup.youtubeWatchUrl = urls.youtubeWatchUrl;
+    setup.facebookWatchUrl = urls.facebookWatchUrl;
   } catch {
     // pre-migration env — keep null
   }
@@ -189,7 +213,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
   // priced here: single-cam Live Studio live is FREE for every host (owner model
   // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
-  // (built at /studio/panood/broadcast). The Animated-Monogram add-on
+  // (built at the control room — liveStudioControllerHref). The Animated-Monogram add-on
   // keeps its real catalog price;
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
@@ -197,10 +221,25 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
 
+  // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples
+  // download from their Setnayan dashboard via a link that resolves the YouTube
+  // watch URL through the Data API"). Service-role client because both source
+  // tables carry stream keys and are RLS-policy-less; this page is already
+  // host-gated above. Fully fail-soft — `fetchEventRecordings` returns [] on a
+  // pre-migration DB and never throws, and the section renders nothing when the
+  // list is empty, so a couple who has not broadcast yet sees no change at all.
+  let recordings: RoamRecording[] = [];
+  try {
+    recordings = await fetchEventRecordings(createAdminClient(), eventId);
+  } catch {
+    // No service-role key configured (local/preview) — no recordings section.
+  }
+
   // Single-camera live broadcast is the free core tool (no per-day SKU charge).
   // Today couples stream from their own phone or OBS to their own YouTube, so
   // this surface claims no camera count — the multi-camera control room is the
-  // PAID upgrade (built at /studio/panood/broadcast).
+  // PAID upgrade (opened via liveStudioControllerHref — the legacy Cast room
+  // today, the unified Live Studio controller once the flag flips).
 
   return (
     <section className="space-y-8">
@@ -219,11 +258,13 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           Broadcast your wedding live
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Connect your YouTube channel, go live from your phone or OBS, and Setnayan
-          embeds your broadcast on your event page so family abroad can watch in real
-          time. The watch URL and auto-archive stay on your own channel. Want more
-          than one camera? The Setnayan multicam control room — the paid upgrade —
-          lets you switch between several phones with broadcast-style overlays.
+          Connect your YouTube channel, start your stream from OBS, and Setnayan embeds
+          your broadcast on your event page so family abroad can watch in real time.
+          Setnayan sets the broadcast up and hands your encoder a streaming address and
+          key — it never sends the video itself. When you connect your own channel, the
+          watch URL and auto-archive stay on that channel. Want more than one camera? The
+          Setnayan multicam control room — the paid upgrade — lets you switch between
+          several phones with broadcast-style overlays.
         </p>
       </header>
 
@@ -251,7 +292,21 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      {youtubeError ? (
+      {/* ⭐ `pool_only` is NOT an error, so it must not render as one. The callback
+          translates Google's `org_internal` into it: the couple reached the BYO
+          consent door while Setnayan's own channel is the model. Nothing failed,
+          retrying cannot help, and support cannot fix it — so this branch states
+          the situation instead, using the SAME shared constant the closed door and
+          the controller use. */}
+      {youtubeError === 'pool_only' ? (
+        <p
+          role="status"
+          className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+        </p>
+      ) : youtubeError ? (
         <p
           role="alert"
           className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
@@ -279,7 +334,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         // "the tool is free; the premium layer is paid"). This page is already
         // host-gated, so anyone who can see it may go live without owning the
         // PANOOD_SYSTEM SKU (that SKU is the PAID multicam control-room + over-
-        // lays upgrade, built at /studio/panood/broadcast). Pass true to unlock
+        // lays upgrade, opened via liveStudioControllerHref). Pass true to unlock
         // the go-live button; the add-on rows below still reflect REAL ownership.
         ownsPanood={true}
         active={
@@ -298,6 +353,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         streamKey={activeStreamKey}
       />
 
+      <LiveStudioRecordingsCard recordings={recordings} />
+
       <SetupStatus eventId={eventId} />
 
       <BroadcastSetup eventId={eventId} />
@@ -311,9 +368,12 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       <YouTubeDelivery
         eventId={eventId}
         youtubeWatchUrl={setup.youtubeWatchUrl}
+        facebookWatchUrl={setup.facebookWatchUrl}
         connected={!!youtubeGrant}
         watchUrlSaved={Boolean(watchUrlSaved)}
         watchUrlError={Boolean(watchUrlError)}
+        facebookUrlSaved={Boolean(facebookUrlSaved)}
+        facebookUrlError={Boolean(facebookUrlError)}
       />
     </section>
   );
@@ -353,9 +413,12 @@ function YoutubeConnect({
           Connect your YouTube channel
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Live Studio broadcasts to <em>your</em> YouTube channel — your family controls who
-          subscribes, the archive belongs to you, and the watch URL is yours forever. We
-          request the minimum scopes needed to create + manage the live broadcast.
+          Connect a channel and Live Studio broadcasts to <em>your</em> YouTube channel —
+          your family controls who subscribes, the recording is yours, and the watch URL
+          stays on your channel. (For events where Setnayan supplies the channel, there is
+          nothing to connect here and the recording sits on a Setnayan channel instead.) We
+          request the minimum permission needed to create and run the live broadcast, and
+          nothing more.
         </p>
       </div>
 
@@ -367,16 +430,36 @@ function YoutubeConnect({
         <ConnectCTA eventId={eventId} />
       )}
 
+      {/* ⚠ This chip must keep byte-matching YOUTUBE_OAUTH_SCOPES in
+          lib/panood-youtube.ts AND the OAuth consent screen. It said "YouTube
+          manage + upload" until 2026-07-27 — the upload scope was removed
+          2026-07-25, so this screen was claiming a permission we no longer
+          request, one click before Google's consent screen shows a single
+          permission. */}
       <ul className="grid gap-2 text-xs text-ink/55 sm:grid-cols-2">
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
-          <span className="font-mono text-ink/65">Scopes requested:</span> YouTube manage
-          + upload (broadcast lifecycle + recording archive).
+          <span className="font-mono text-ink/65">Permission requested:</span> one —
+          YouTube account management, the narrowest permission Google offers that can
+          create and run a live broadcast (the read-only one cannot start a broadcast;
+          the alternatives are wider). No upload permission, no access to your email or
+          profile.
         </li>
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">One-time consent:</span> disconnect any
-          time from this page; we revoke the grant on Google&rsquo;s side too.
+          time from this page. We mark the connection revoked so Setnayan stops using it,
+          and ask Google to cancel our access — that second step is best-effort, so remove
+          Setnayan from your Google account permissions if you want to be certain.
         </li>
       </ul>
+      <p className="text-xs text-ink/55">
+        Setnayan uses this connection only to create, start, check, and end your
+        broadcast, and afterwards to look up its replay. We do not read your other
+        videos, subscribers, comments, or history, and we never upload to your channel.{' '}
+        <Link href="/privacy" className="text-terracotta hover:underline">
+          How we handle Google data
+        </Link>
+        .
+      </p>
     </section>
   );
 }
@@ -408,6 +491,18 @@ function ComingSoonPlaceholder() {
 }
 
 function ConnectCTA({ eventId }: { eventId: string }) {
+  // ⭐ POOL-ONLY: Setnayan supplies the channel, so there is nothing to connect and
+  // the door is closed server-side (api/oauth/youtube/start returns 409). Rendering
+  // the button anyway would be a fake door — and under an Internal-audience OAuth
+  // client Google would refuse these users with `org_internal` regardless.
+  if (liveStudioPoolOnly()) {
+    return (
+      <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
+        {POOL_ONLY_CONNECT_NOTICE}
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
       <Link
@@ -473,9 +568,10 @@ function ConnectedPanel({
         </form>
       </div>
       <p className="text-xs text-ink/65">
-        Your broadcast goes live on this channel — start it from the YouTube app or OBS,
-        then paste the watch link below so it appears on your event page. Automatic
-        broadcast creation (with ads switched off) arrives with the streaming rollout.
+        Your broadcast goes live on this channel. Use <em>Go live</em> below and Setnayan
+        creates the broadcast for you — always unlisted — then gives you the streaming
+        address and key to paste into OBS. The player appears on your event page
+        automatically once the stream is arriving.
       </p>
     </div>
   );
@@ -694,8 +790,10 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           Lay out the broadcaster admin and rehearse the camera switching so you and your
           camera operators are ready ahead of the day.
         </p>
+        {/* ONE CONTROLLER (Wave 6) — flag on: the unified controller; off: the
+            legacy Cast control room, exactly as today. */}
         <Link
-          href={`/dashboard/${eventId}/studio/panood/broadcast`}
+          href={liveStudioControllerHref(eventId)}
           className="inline-flex items-center gap-2 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           <Tv aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -877,15 +975,21 @@ function PackCard({
 function YouTubeDelivery({
   eventId,
   youtubeWatchUrl,
+  facebookWatchUrl,
   connected,
   watchUrlSaved,
   watchUrlError,
+  facebookUrlSaved,
+  facebookUrlError,
 }: {
   eventId: string;
   youtubeWatchUrl: string | null;
+  facebookWatchUrl: string | null;
   connected: boolean;
   watchUrlSaved: boolean;
   watchUrlError: boolean;
+  facebookUrlSaved: boolean;
+  facebookUrlError: boolean;
 }) {
   return (
     <section
@@ -1010,6 +1114,18 @@ function YouTubeDelivery({
           </p>
         ) : null}
       </div>
+
+      {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door,
+          directly under the YouTube one so the 30-day Facebook warning inside
+          the card sits next to the copy that lasts. */}
+      <FacebookDualStreamCard
+        eventId={eventId}
+        facebookUrl={facebookWatchUrl}
+        saveAction={savePanoodFacebookUrl}
+        clearAction={clearPanoodFacebookUrl}
+        saved={facebookUrlSaved}
+        error={facebookUrlError}
+      />
 
       <p className="text-xs text-ink/55">
         Want to share with smart-TV viewers? Once the broadcast is live, the YouTube

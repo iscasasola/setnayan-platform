@@ -29,23 +29,39 @@
  */
 
 import 'server-only';
+import type { YoutubeVideoArchive } from '@/lib/panood-youtube-types';
 import { resolveOAuthClientConfig } from '@/lib/integration-config';
 import { OAUTH_SPECS } from '@/lib/integrations/registry';
+import { buildGoogleAuthorizeUrl } from '@/lib/google-oauth-authorize';
 
-const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const YOUTUBE_CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels';
 
 /**
- * Scopes requested at consent time. `youtube` gives broadcast lifecycle
- * (create/start/end live broadcasts via the LiveBroadcasts resource);
- * `youtube.upload` is included so the future "Upload the same-day-edit
- * back to the channel" feature (TODO(0011)) doesn't require a re-consent.
+ * Scopes requested at consent time — deliberately the MINIMUM this integration
+ * actually exercises. `youtube` covers everything we call: the broadcast
+ * lifecycle (create/start/end via LiveBroadcasts), the RTMP ingestion binding
+ * (LiveStreams), and the channel read that confirms which channel is connected.
+ *
+ * `youtube.upload` was REMOVED 2026-07-25. It had been requested speculatively,
+ * to spare a future re-consent for an "upload the same-day-edit back to the
+ * channel" feature (TODO(0011)) — but that SKU was owner-RETIRED 2026-06-28
+ * ("remove same day edit", PR #2362), so the scope was being requested for a
+ * product that no longer exists. Nothing in this file (the only module that
+ * touches the YouTube API) ever called an upload endpoint: Setnayan never sends
+ * video bytes at all — the couple's own encoder pushes to the stream key.
+ *
+ * That matters beyond tidiness: Google reviews "Requesting Minimum Scopes" as
+ * its own axis during sensitive-scope verification, and carrying an unused
+ * broad scope is a standing rejection risk.
+ *
+ * ⚠ If an upload feature is ever revived, adding the scope back here is not
+ * sufficient on its own — it must also be re-declared on the OAuth consent
+ * screen and will require re-consent from already-connected users.
  */
 export const YOUTUBE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/youtube',
-  'https://www.googleapis.com/auth/youtube.upload',
 ] as const;
 
 export type PanoodYoutubeConfigStatus =
@@ -81,23 +97,36 @@ export async function getYoutubeOAuthConfig(): Promise<PanoodYoutubeConfigStatus
  * refresh_token — Google reuses the prior grant and only returns
  * access_token, which is useless to us since we discarded the prior refresh
  * token on disconnect).
+ *
+ * ⚠ `include_granted_scopes` is deliberately NOT set. Incremental
+ * authorization asks Google to fold every scope the user previously granted
+ * into THIS consent — and a user who already connected Papic's Google Drive
+ * has `drive.file`, which Google refuses to issue alongside a YouTube scope:
+ *
+ *   Access blocked: Authorization Error
+ *   This request contains scopes that cannot be requested together:
+ *   [.../auth/youtube, .../auth/drive.file]   (Error 400: invalid_request)
+ *
+ * Observed live 2026-07-25 on an account with both integrations. It is
+ * order-dependent and therefore easy to miss: whichever integration is
+ * connected SECOND is the one that breaks, so a fresh account tests clean.
+ *
+ * We never needed it. Drive and YouTube keep INDEPENDENT grants (separate
+ * `oauth_grants` rows, separate refresh tokens, separate OAuth clients) — this
+ * token only ever has to carry `auth/youtube`. Dropping the flag also matches
+ * the minimum-scope posture Google reviews. Do not re-add it.
  */
 export function buildYoutubeAuthorizeUrl(input: {
   clientId: string;
   redirectUri: string;
   state: string;
 }): string {
-  const params = new URLSearchParams({
-    client_id: input.clientId,
-    redirect_uri: input.redirectUri,
-    response_type: 'code',
-    scope: YOUTUBE_OAUTH_SCOPES.join(' '),
-    access_type: 'offline',
-    prompt: 'consent',
-    include_granted_scopes: 'true',
+  return buildGoogleAuthorizeUrl({
+    clientId: input.clientId,
+    redirectUri: input.redirectUri,
+    scopes: YOUTUBE_OAUTH_SCOPES,
     state: input.state,
   });
-  return `${GOOGLE_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 export type YoutubeTokenResponse = {
@@ -250,6 +279,7 @@ const YOUTUBE_LIVE_BROADCASTS_URL =
   'https://www.googleapis.com/youtube/v3/liveBroadcasts';
 const YOUTUBE_LIVE_STREAMS_URL =
   'https://www.googleapis.com/youtube/v3/liveStreams';
+const YOUTUBE_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
 
 export type YoutubeBroadcast = { broadcastId: string; lifeCycleStatus: string };
 export type YoutubeStream = {
@@ -412,6 +442,104 @@ export async function getYoutubeStreamStatus(
     streamStatus: st?.streamStatus ?? 'inactive',
     healthStatus: st?.healthStatus?.status ?? null,
   };
+}
+
+/**
+ * The archive shape lives in `panood-youtube-types.ts` (type-only, no
+ * `server-only`) so pure modules can be typed against it without pulling this
+ * one into their graph — see that file's header. Re-exported here so callers
+ * that are already server-side import it from the module they're using.
+ */
+export type { YoutubeVideoArchive } from '@/lib/panood-youtube-types';
+
+/**
+ * videos.list — RESOLVE the archives for broadcasts that have ended.
+ *
+ * This is the Data-API half of the recording handoff specified in
+ * `02_Specifications/09_Panood_Feature_Specification.md` § 6 ("Recording Archive
+ * — YouTube auto-archive only in V1"): *"Couples download from their Setnayan
+ * dashboard via a link that resolves the YouTube watch URL through the Data
+ * API."* We resolve rather than download on purpose — § 6 removed the parallel
+ * Cloudflare R2 archive from V1 "to avoid paying for storage of content that's
+ * already free on YouTube", and the Data API exposes no download endpoint.
+ *
+ * WHY RESOLVING BEATS DERIVING. The watch URL is `watch?v=<broadcastId>` and
+ * needs no call at all — but a broadcast that never carried video, or one whose
+ * stream ran past YouTube's 12-hour archive ceiling (§ 4f ③ of the unified
+ * spec), leaves a video id with NO replay behind it. Asking YouTube is what
+ * separates "your recording is here" from a link to nothing.
+ *
+ * CHEAP AND BATCHED: videos.list costs **1 quota unit** per call regardless of
+ * how many ids it carries (up to 50), so a whole event's cameras resolve in one
+ * unit — three orders of magnitude below the 50 units a liveBroadcasts write
+ * costs. Ids YouTube does not return (deleted, never archived, not ours) are
+ * simply absent from the result; callers must treat "missing" as "no archive"
+ * and never as an error.
+ *
+ * ⚠ **ASKS ABOUT EVERY ID, OR THROWS. NEVER A PARTIAL ANSWER.** (Fixed 2026-07-26
+ * after an adversarial review; the first cut did `.slice(0, 50)` and silently
+ * dropped the rest.) The contract above — *"callers must treat missing as no
+ * archive"* — is what makes a partial answer dangerous rather than merely
+ * incomplete: `buildRecordingList` turns "absent from the answer" into the hard
+ * `archived: false`, which the couple reads as **"No recording on YouTube"**. An
+ * id we never asked about would therefore be reported as a recording that does
+ * not exist, which is precisely the false claim the tri-state was built to
+ * prevent — inverted. So the 50-id API ceiling is handled by CHUNKING, and any
+ * chunk failure throws, so the caller degrades to `null` ("we couldn't confirm")
+ * instead of to a confident lie. Two chunks cost 2 quota units out of ~10,000/day.
+ */
+export async function fetchYoutubeVideoArchives(
+  accessToken: string,
+  videoIds: readonly string[],
+): Promise<YoutubeVideoArchive[]> {
+  const ids = [...new Set(videoIds.filter((v) => v.length > 0))];
+  if (ids.length === 0) return [];
+
+  /** videos.list accepts at most 50 ids per call. */
+  const CHUNK = 50;
+  const out: YoutubeVideoArchive[] = [];
+
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const json = (await youtubeApi(
+      `${YOUTUBE_VIDEOS_URL}?part=snippet,status,contentDetails&id=${chunk.map(encodeURIComponent).join(',')}`,
+      accessToken,
+    )) as {
+      items?: Array<{
+        id?: string;
+        snippet?: { title?: string };
+        status?: { privacyStatus?: string; uploadStatus?: string };
+        contentDetails?: { duration?: string };
+      }>;
+    };
+
+    for (const item of json.items ?? []) {
+      if (!item.id) continue;
+      out.push({
+        videoId: item.id,
+        title: item.snippet?.title ?? '',
+        durationSeconds: parseIso8601DurationSeconds(item.contentDetails?.duration),
+        privacyStatus: item.status?.privacyStatus ?? null,
+        processed: item.status?.uploadStatus === 'processed',
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * ISO-8601 duration → seconds, for the `PT#H#M#S` subset videos.list returns.
+ * Null for absent/unparseable input and for `PT0S` (YouTube reports zero while
+ * an archive is still processing, which is "unknown", not "a zero-length film").
+ */
+export function parseIso8601DurationSeconds(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const m = /^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(raw);
+  if (!m) return null;
+  const [, d, h, min, s] = m;
+  const total =
+    Number(d ?? 0) * 86400 + Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(s ?? 0);
+  return total > 0 ? total : null;
 }
 
 /**

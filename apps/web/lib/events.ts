@@ -65,6 +65,34 @@ export type EventRow = {
    * 'diy' (the safe default).
    */
   concierge_status: 'diy' | 'trial' | 'active' | 'expired' | null;
+  /**
+   * When the event row was created (`timestamptz`, NOT NULL in the base table).
+   * Read as the checklist's RUNWAY ANCHOR: a task may never be due before the
+   * plan existed, so `lib/checklist.checklistRunwayFor` compresses the template
+   * offsets into the days between this stamp and the event date. Optional here
+   * only so a caller that doesn't select it still typechecks — a missing value
+   * degrades to "no compression", the pre-2026-08-01 behaviour.
+   */
+  created_at?: string | null;
+  /**
+   * Candidate days (`date[]`) and the planning window's opening day — the
+   * date-as-OUTPUT columns the non-wedding types seed at creation while
+   * `event_date` stays NULL until it locks.
+   *
+   * Selected here for ONE reason: `lib/checklist.checklistAnchorDateFor` needs
+   * them to resolve the same deadline anchor the checklist page resolves, so a
+   * launcher card and the page it links to can't disagree about what is
+   * overdue. They are NOT a substitute for `event_date` anywhere else — the
+   * launcher's own `isPast()`, the countdown, and day-of/recap mode all keep
+   * reading the locked date, because a candidate is a guess and a guess must
+   * not move an event into "day-of" or under "Completed".
+   *
+   * Both `SELECT`-granted to `authenticated` (verified against prod
+   * 2026-08-01 via `has_column_privilege`) — a revoked column would error the
+   * WHOLE `fetchUserEvents` read, and this query powers every dashboard.
+   */
+  date_candidates?: string[] | null;
+  date_window_start?: string | null;
 };
 
 export type EventWithRole = EventRow & {
@@ -119,7 +147,10 @@ export const fetchUserEvents = cache(async (
          monogram_style,
          monogram_custom_svg,
          monogram_uploaded_svg,
-         concierge_status
+         concierge_status,
+         created_at,
+         date_candidates,
+         date_window_start
        )`,
     )
     .eq('user_id', userId);

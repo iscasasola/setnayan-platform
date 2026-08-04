@@ -140,6 +140,16 @@ const START_DAYS: Partial<Record<PlanGroupId, number>> = {
 };
 const DEFAULT_START_DAYS = 150;
 
+/**
+ * The lock-by hard floor (days before the wedding) for a plan group. Exported
+ * 2026-07-27 (Explore Replan PR-B) as the Coverage Strip's urgency tiebreak: at
+ * equal `timelineStatusOf`, the category with the EARLIER floor (the bigger
+ * number of lead days) is the more urgent one to act on.
+ */
+export function lockLeadDaysFor(groupId: PlanGroupId): number {
+  return LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
+}
+
 // Locked statuses = a pick the couple has committed to (drives "Chosen").
 const LOCKED_STATUSES = new Set([
   'contracted',
@@ -254,6 +264,15 @@ export type VendorEnrichment = {
   /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
    *  else null — feeds the reach badge's "within N km" label. */
   service_radius_km?: number | null;
+  /** INNER/OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17) — the vendor's
+   *  OWN declared rings, ALREADY tier-clamped by `effectiveInnerRadiusKm` /
+   *  `effectiveOuterRadiusKm` on the page that loads them (so a lapsed
+   *  subscription can never keep buying reach through a stale column).
+   *  Inside inner → no travel fee · inner→outer → travel fee · beyond outer →
+   *  out of range. EITHER being null means "not declared" and the bench falls
+   *  back to the tier-derived `within_radius` badge, unchanged. */
+  inner_radius_km?: number | null;
+  outer_radius_km?: number | null;
   /** The picked service's "starts at" anchor (vendor_services.starting_price_php)
    *  — the budget-fit fallback basis when the vendor hasn't sent a quote yet
    *  (total_cost_php is null). PHP whole pesos. */
@@ -267,8 +286,30 @@ export type VendorEnrichment = {
    *  positive case is carried; null/absent → neutral (serves-all / non-wedding /
    *  no match) — never a penalty. */
   faith_match?: boolean | null;
+  /** ISO timestamp of the vendor's FIRST verification approval, derived from
+   *  `MIN(vendor_tier_history.created_at) WHERE to_state = 'verified'` — the
+   *  anchor for the "New here" lens (`freshness` dim). Deliberately NOT
+   *  `vendor_profiles.last_verified_at` (every approval, including an annual
+   *  renewal, overwrites it) and NOT `vendor_profiles.created_at` (row-insert
+   *  time — the ADMIN's date for seeded profiles). null/absent → freshness is
+   *  NEUTRAL, never 0: an unknown anchor costs a new vendor its head-start but
+   *  can never make an established vendor read "New on Setnayan". */
+  first_verified_at?: string | null;
+  /** Number of OTHER couples who have INQUIRED with this vendor for the same
+   *  exact event date — the "In demand right now" lens input. Already floored
+   *  at MIN_DEMAND_COUPLE_COUNT upstream, so a value here is always ≥ that
+   *  floor and a below-floor count never leaves the server. null/absent → the
+   *  demand dim is NEUTRAL, never a penalty. */
+  demand_couple_count?: number | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
+  /** The chat thread's id for this (event, vendor profile) pair — ONE extra
+   *  column on the batched thread select the page already runs (Explore Replan
+   *  slice D · spec §12.1 step 3). It is what lets the bench card link STRAIGHT
+   *  to `/dashboard/[eventId]/messages/[threadId]` instead of firing a server
+   *  action to rediscover a thread it already knows exists. Absent → no thread
+   *  yet → the card offers "Inquire". */
+  thread_id?: string | null;
   /** Linked-services-on-card labels for this vendor's picked service.
    *  groupId (2026-06-12) = covered plan group when resolvable — feeds
    *  category-satisfaction. */
@@ -459,8 +500,13 @@ function deadlineFor(groupId: PlanGroupId, daysUntilWedding: number | null): num
  * overdue (warn); inside the START window but not yet near the floor =
  * start_now (the app's recommend-to-begin signal); before the START window =
  * upcoming (quiet). No date set yet → upcoming (nothing to warn about).
+ *
+ * EXPORTED 2026-07-27 (Explore Replan PR-B): the Coverage Strip orders its tiles
+ * by the SAME clock the accordion + "What to lock next" already read, via the
+ * tile→plan-group bridge in `lib/coverage-strip.ts`. Behaviour unchanged — only
+ * the visibility keyword moved, so the strip cannot drift from the accordion.
  */
-function timelineStatusOf(
+export function timelineStatusOf(
   groupId: PlanGroupId,
   daysUntilWedding: number | null,
   state: ChildState,

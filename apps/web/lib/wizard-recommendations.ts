@@ -42,6 +42,7 @@ import { fetchPreferenceMatches, type PreferenceMatch } from '@/lib/preference-m
 import { regionForCity } from '@/lib/regions';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { tierCaps } from '@/lib/vendor-tier-caps';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { haversineKm } from '@/lib/geo';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
@@ -610,10 +611,14 @@ export async function fetchWizardVendorRecommendations(
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
 
+  // ⚠ `category`, NOT `canonical_service` — public.vendor_services has never
+  // had a `canonical_service` column; the canonical taxonomy key lives in
+  // `category` (UNIQUE (vendor_profile_id, category), migration
+  // 20260514010000). See the query below for what the wrong name cost.
   type ServicePhotoRow = {
     vendor_profile_id: string;
     primary_photo_r2_key: string | null;
-    canonical_service: string | null;
+    category: string | null;
     is_active: boolean | null;
   };
 
@@ -623,13 +628,19 @@ export async function fetchWizardVendorRecommendations(
       // get a multi-photo collage source. Pattern B vendors only use the
       // first photo (same behavior as before). The first 5 are surfaced
       // to the tile; the rest are unused.
+      // ⚠ Named in BOTH the select and the .in() filter, so PostgREST 42703'd
+      // the whole query: `rows` was always null, the early return fired every
+      // time, and NO wizard recommendation tile ever showed a service photo.
       const { data: rows, error: err } = await admin
         .from('vendor_services')
-        .select(
-          'vendor_profile_id,primary_photo_r2_key,canonical_service,is_active',
-        )
+        .select('vendor_profile_id,primary_photo_r2_key,category,is_active')
         .in('vendor_profile_id', vendorIds)
-        .in('canonical_service', args.canonicalServices as readonly string[]);
+        .in('category', args.canonicalServices as readonly string[]);
+      if (err) {
+        logQueryError('wizard-recommendations:servicePhotos', err, {
+          vendorCount: vendorIds.length,
+        });
+      }
       if (err || !rows) return new Map();
       const out = new Map<string, ServicePhotoRow[]>();
       for (const row of rows as ServicePhotoRow[]) {
@@ -728,7 +739,7 @@ export async function fetchWizardVendorRecommendations(
             .slice(0, 5)
             .map((p) => ({
               photo_url: r2PublicUrl(R2_BUCKETS.media, p.primary_photo_r2_key!),
-              service_name: p.canonical_service ?? null,
+              service_name: p.category ?? null,
             }))
         : [];
 

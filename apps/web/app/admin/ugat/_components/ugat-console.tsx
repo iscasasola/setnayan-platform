@@ -17,9 +17,13 @@ import {
   UGAT_FINDINGS,
   UGAT_FINDINGS_BY_ID,
   UGAT_JOINTS,
+  UGAT_FINDING_STALE_AFTER_DAYS,
   platformEdges,
   findingsForType,
   findingForEdge,
+  openUgatFindings,
+  findingAgeDays,
+  isFindingStale,
   jointsForEdge,
   type UgatTypeMeta,
   type UgatFinding,
@@ -33,8 +37,14 @@ import type {
   UgatTablePage,
   UgatSearchGroup,
 } from '@/lib/ugat/data';
-import { fetchUgatTable, fetchUgatSearch, fetchUgatSavedSearch } from '../actions';
+import {
+  fetchUgatTable,
+  fetchUgatSearch,
+  fetchUgatSavedSearch,
+  fetchUgatCounts,
+} from '../actions';
 import './ugat-console.css';
+import type { JointVerdict } from '@/lib/interconnect/verdicts';
 
 /* ── inline icon helper (SVG innerHTML, no network — same set as the map) ── */
 function Ico({ name, cls }: { name: string; cls?: string }) {
@@ -63,6 +73,7 @@ const TABLE_META: Array<{ key: UgatTableKey; label: string; type: UgatEntityType
   { key: 'orders', label: 'Orders', type: 'order' },
   { key: 'threads', label: 'Threads', type: 'thread' },
   { key: 'billing', label: 'Billing', type: 'billing' },
+  { key: 'communities', label: 'Samahan', type: 'community' },
 ];
 
 const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
@@ -74,6 +85,7 @@ const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
   order: 'orders',
   thread: 'threads',
   billing: 'billing',
+  community: 'communities',
 };
 
 function fmtCount(n: number): string {
@@ -87,16 +99,114 @@ function relTime(ms: number): string {
   return `${m}m ago`;
 }
 
+/* ── finding roll-ups (the registry is static, so these are module constants) ──
+   The overlay counts what still NEEDS ATTENTION, never the registry length.
+   Until 2026-07-30 the badge read UGAT_FINDINGS.length and showed "9" while six
+   were already fixed — the surface whose whole job is truth was crying wolf. */
+const OPEN_FINDINGS = openUgatFindings();
+const OPEN_FINDING_COUNT = OPEN_FINDINGS.length;
+const FIXED_FINDING_COUNT = UGAT_FINDINGS.length - OPEN_FINDING_COUNT;
+const LAST_VERIFIED_AT = UGAT_FINDINGS.reduce(
+  (max, f) => (f.verifiedAt > max ? f.verifiedAt : max),
+  '',
+);
+
 /* ═════════════════════════════════════════════════════════════════════════
    THE CONSOLE
    ═════════════════════════════════════════════════════════════════════════ */
+/**
+ * How often an open tab re-reads the counts.
+ *
+ * Deliberately SLOWER than the 60s `unstable_cache` window behind
+ * `getUgatCounts`, so a poll usually lands on a freshly-revalidated entry
+ * instead of racing one. Polling faster would not produce fresher numbers — it
+ * would just re-serve the same cached value more often.
+ */
+const COUNT_POLL_MS = 75_000;
+
 export function UgatConsole({
-  counts,
+  counts: initialCounts,
   savedSearches,
+  probeVerdicts,
+  nowMs,
 }: {
   counts: UgatCounts;
   savedSearches: UgatSavedSearch[];
+  /**
+   * Live verdict per MAPPED joint, keyed by joint id (`J7`).
+   *
+   * A joint that is ABSENT from this map has never been probed, and must render
+   * unlit — not green. Far fewer probes exist than joints, so absence is the
+   * overwhelmingly common case and painting it as health would turn silence
+   * into a claim. Only a joint whose verdict SAYS `ok` gets lit.
+   */
+  probeVerdicts: Record<string, JointVerdict>;
+  /**
+   * Server-computed clock for finding staleness. Injected rather than read from
+   * Date.now() in here: this is a client component, and a locally-read clock
+   * renders a different staleness string on the server than on the client,
+   * which React reports as a hydration mismatch.
+   */
+  nowMs: number;
 }) {
+  /**
+   * Live counts. Seeded from the server render, then refreshed while the tab is
+   * actually being looked at.
+   *
+   * The status line has always read "Counts are live (updated …)" while the
+   * numbers were frozen at page load — a tab left open overnight showed a
+   * stale figure under a label promising the opposite. This makes the existing
+   * claim true.
+   */
+  const [counts, setCounts] = useState<UgatCounts>(initialCounts);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const refresh = async () => {
+      // Never poll a backgrounded tab: an admin with the map parked in a
+      // background tab for a working day would otherwise generate a request
+      // every 75s forever, for numbers nobody is reading.
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const next = await fetchUgatCounts();
+        if (!cancelled) setCounts(next);
+      } catch {
+        // A failed refresh keeps the last good numbers. The status line's
+        // relative timestamp then ages visibly, which is the honest signal —
+        // better than a spinner or a silently-frozen figure.
+      }
+    };
+
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(refresh, COUNT_POLL_MS);
+    };
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh(); // catch up immediately on return, then resume ticking
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
   const [control, setControl] = useState<Control>('map');
   const [resolution, setResolution] = useState<Resolution>('entities');
   const [health, setHealth] = useState(false);
@@ -137,7 +247,7 @@ export function UgatConsole({
 
   const edges = useMemo(() => platformEdges(), []);
 
-  const findingCount = UGAT_FINDINGS.length;
+  const findingCount = OPEN_FINDING_COUNT;
 
   const closePanels = useCallback(() => {
     setOpenNode(null);
@@ -200,7 +310,7 @@ export function UgatConsole({
           type="button"
           className={`ug-healthbtn${health ? ' on' : ''}`}
           onClick={() => setHealth((h) => !h)}
-          title="Toggle the 2026-07-05 audit overlay"
+          title={`Audit overlay — ${OPEN_FINDING_COUNT} open · ${FIXED_FINDING_COUNT} fixed · last re-verified ${LAST_VERIFIED_AT}`}
         >
           <span className="ug-hb-dot" />
           Health
@@ -240,22 +350,32 @@ export function UgatConsole({
         </span>
         <span className="ug-scope-note">
           <Ico name="info" />
-          Slice 1 — platform type-level only. Per-event &amp; per-vendor row scopes are slice 2.
-          Counts are live (updated {relTime(counts.computedAt)}); joint cards are static schema
-          documentation.
+          Platform type-level only; per-event &amp; per-vendor row scopes are still to come. Counts
+          are live (updated {relTime(counts.computedAt)}); joint cards are static schema
+          documentation.{' '}
+          <strong>
+            {Object.keys(probeVerdicts).length} of {UGAT_JOINTS.length} joints are watched by a live
+            probe
+          </strong>{' '}
+          — every other edge is <em>not checked</em>, not healthy. Green here is earned.
         </span>
       </div>
 
       {/* ── legend ── */}
       <div className="ug-legend">
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-edge-core)' }} /> connection
+          <span className="ug-sw" style={{ background: 'var(--ug-edge-core)' }} /> connection —{' '}
+          <strong>not checked</strong>
         </span>
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-report)' }} /> broken (audit)
+          <span className="ug-sw" style={{ background: 'var(--ug-ok)' }} /> checked, carrying
+          traffic
         </span>
         <span className="ug-li">
-          <span className="ug-sw" style={{ background: 'var(--ug-wait)' }} /> drift risk (audit)
+          <span className="ug-sw" style={{ background: 'var(--ug-report)' }} /> broken
+        </span>
+        <span className="ug-li">
+          <span className="ug-sw" style={{ background: 'var(--ug-wait)' }} /> drift risk
         </span>
         <span className="ug-li">
           <span className="ug-sw" style={{ background: 'var(--ug-gold)' }} /> a joint (the edge is a
@@ -269,9 +389,11 @@ export function UgatConsole({
           nodes={nodes}
           nodeById={nodeById}
           edges={edges}
+          probeVerdicts={probeVerdicts}
           resolution={resolution}
           health={health}
           highlight={highlight}
+          nowMs={nowMs}
           onNodeClick={openTypeNode}
           onEdgeClick={(a, b) => {
             setOpenNode(null);
@@ -338,7 +460,11 @@ export function UgatConsole({
           />
         )}
         {openFinding && UGAT_FINDINGS_BY_ID[openFinding] && (
-          <FindingCard finding={UGAT_FINDINGS_BY_ID[openFinding]} onClose={closePanels} />
+          <FindingCard
+            finding={UGAT_FINDINGS_BY_ID[openFinding]}
+            onClose={closePanels}
+            nowMs={nowMs}
+          />
         )}
       </aside>
     </div>
@@ -348,13 +474,46 @@ export function UgatConsole({
 /* ═════════════════════════════════════════════════════════════════════════
    MAP CANVAS — inline SVG, pan/zoom, node + edge rendering. Vanilla math port.
    ═════════════════════════════════════════════════════════════════════════ */
+/**
+ * A joint's live verdict as a CSS severity class, or null when the joint has
+ * never been probed.
+ *
+ * `lying` is red and outranks everything: it means service_role can see rows
+ * this surface's own reader cannot — data withheld from someone entitled to it,
+ * which renders in the product as a calm empty state. `denied` and `error` are
+ * amber (a reader who should be in was refused / the probe itself broke). `ok`
+ * returns 'lit' — the only case that adds colour for GOOD news, and the reason
+ * an unprobed edge can stay plain without lying: on this map green is EARNED,
+ * never assumed.
+ *
+ * `empty` deliberately returns null. "Permitted, and there is genuinely nothing
+ * to show" is the normal state of a pre-launch database and says nothing about
+ * whether the joint works.
+ */
+function verdictClass(v: JointVerdict | undefined): string | null {
+  if (!v) return null;
+  switch (v.verdict) {
+    case 'lying':
+      return 'red';
+    case 'denied':
+    case 'error':
+      return 'amber';
+    case 'ok':
+      return 'lit';
+    default:
+      return null;
+  }
+}
+
 function MapCanvas({
   nodes,
   nodeById,
   edges,
+  probeVerdicts,
   resolution,
   health,
   highlight,
+  nowMs,
   onNodeClick,
   onEdgeClick,
   onFindingClick,
@@ -362,9 +521,13 @@ function MapCanvas({
   nodes: LiveNode[];
   nodeById: Record<string, LiveNode>;
   edges: ReturnType<typeof platformEdges>;
+  /** Live verdict per mapped joint id; absent = never probed (renders unlit). */
+  probeVerdicts: Record<string, JointVerdict>;
   resolution: Resolution;
   health: boolean;
   highlight: string | null;
+  /** Server clock — see the note on UgatConsole's own nowMs prop. */
+  nowMs: number;
   onNodeClick: (id: string) => void;
   onEdgeClick: (a: string, b: string) => void;
   onFindingClick: (id: string) => void;
@@ -372,6 +535,12 @@ function MapCanvas({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ x: 40, y: 40, k: 0.92 });
   const panning = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+
+  // Open findings nobody has re-checked inside the staleness window.
+  const staleOpenCount = useMemo(
+    () => OPEN_FINDINGS.filter((f) => isFindingStale(f, nowMs)).length,
+    [nowMs],
+  );
 
   // fit-to-view on mount
   const fit = useCallback(() => {
@@ -508,6 +677,19 @@ function MapCanvas({
               const finding =
                 health && (findingForEdge(e.from, e.to) ??
                   (primary?.healthId ? UGAT_FINDINGS_BY_ID[primary.healthId] : undefined));
+              // LIVE telemetry, distinct from the frozen 2026-07-05 registry
+              // above. Any joint on this edge that a probe watches contributes
+              // its current verdict; the WORST wins, because an edge carrying
+              // one broken joint is not healthy on the strength of its others.
+              const liveClass = joints.reduce<string | null>((worst, j) => {
+                const c = verdictClass(probeVerdicts[j.id]);
+                if (c === 'red' || worst === 'red') return 'red';
+                if (c === 'amber' || worst === 'amber') return 'amber';
+                return c ?? worst;
+              }, null);
+              // A frozen RED finding still outranks a live green — the audit
+              // found something the probes do not yet look for.
+              const edgeState = finding ? finding.sev : liveClass;
               const jointName = primary?.joint ?? (primary ? '(direct FK)' : null);
               const short =
                 jointName && jointName.length > 18
@@ -518,7 +700,7 @@ function MapCanvas({
                 <g className="ug-edge-group" key={i}>
                   <path className="ug-edge-glow" d={d} />
                   <path
-                    className={`ug-edge ug-clickable${finding ? ' ug-h-' + finding.sev : ''}`}
+                    className={`ug-edge ug-clickable${edgeState ? ' ug-h-' + edgeState : ''}`}
                     d={d}
                     onClick={(ev) => {
                       ev.stopPropagation();
@@ -529,7 +711,11 @@ function MapCanvas({
                   {showJoints && primary && short && (
                     <g
                       className={`ug-jointmark${joints.length > 1 ? ' multi' : ''}${
-                        primary.healthId ? ' ug-h-' + (UGAT_FINDINGS_BY_ID[primary.healthId]?.sev ?? '') : ''
+                        primary.healthId
+                          ? ' ug-h-' + (UGAT_FINDINGS_BY_ID[primary.healthId]?.sev ?? '')
+                          : verdictClass(probeVerdicts[primary.id])
+                            ? ' ug-h-' + verdictClass(probeVerdicts[primary.id])
+                            : ''
                       }`}
                       transform={`translate(${cx - chW / 2},${cy - 9})`}
                       onClick={(ev) => {
@@ -581,7 +767,12 @@ function MapCanvas({
               const vocab = UGAT_TYPE_VOCAB[n.type];
               const w = nodeWidth(n);
               const h = 40;
-              const nodeFindings = health ? findingsForType(n.type) : [];
+              // OPEN findings only. findingsForType() returns fixed history too,
+              // and painting that on the canvas is what made six closed findings
+              // keep showing red markers for 25 days.
+              const nodeFindings = health
+                ? findingsForType(n.type).filter((f) => f.status !== 'fixed')
+                : [];
               const worst = nodeFindings.some((f) => f.sev === 'red')
                 ? 'red'
                 : nodeFindings.some((f) => f.sev === 'amber')
@@ -671,7 +862,13 @@ function MapCanvas({
         {health && (
           <div className="ug-healthnote">
             <Ico name="alert" />
-            Health overlay — as of the 2026-07-05 audit. Live telemetry coming (slice 2).
+            Health overlay — re-verified {LAST_VERIFIED_AT} · {OPEN_FINDING_COUNT} open ·{' '}
+            {FIXED_FINDING_COUNT} fixed (kept as history).
+            {staleOpenCount > 0 && (
+              <span className="ug-stale">
+                {staleOpenCount} unchecked &gt; {UGAT_FINDING_STALE_AFTER_DAYS}d — re-verify
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -710,10 +907,20 @@ function NodeCard({
   if (node.type === 'vendor') {
     kv.push(['Verified (marketplace)', fmtCount(node.count)]);
     kv.push(['All orgs', fmtCount(counts.detail.vendorTotalOrgs)]);
+  } else if (node.type === 'papic') {
+    // Seats are the node number (the unit of entitlement); captures are volume.
+    kv.push(['Captures', fmtCount(counts.detail.papicPhotos)]);
+    kv.push(['Guest-side captures', fmtCount(counts.detail.papicGuestCaptures)]);
   } else if (node.type === 'billing') {
     kv.push(['Active subscriptions', fmtCount(counts.detail.billingActiveSubs)]);
-    kv.push(['Tokens in circulation', fmtCount(counts.detail.billingTokensInCirculation)]);
-    kv.push(['Rate', '₱100 / token']);
+    // F11: NO static price row here. A hardcoded "₱100 / token" survived two
+    // owner decisions (the reprice to flat ₱200, then the outright retirement
+    // of the pack sale on 2026-07-21) — this panel was committing the very
+    // drift F2 exists to flag. Prices belong in the catalog, never in code.
+    kv.push([
+      'Tokens in circulation',
+      `${fmtCount(counts.detail.billingTokensInCirculation)} (dormant — sale retired)`,
+    ]);
     kv.push(['Commission', '0%']);
   } else if (node.type === 'order') {
     kv.push(['Pending payment', fmtCount(counts.detail.ordersPending)]);
@@ -1019,26 +1226,57 @@ function EdgeRow({
 /* ═════════════════════════════════════════════════════════════════════════
    FINDING CARD — the 5-step binding trace (static 2026-07-05 audit)
    ═════════════════════════════════════════════════════════════════════════ */
-function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () => void }) {
+function FindingCard({
+  finding,
+  onClose,
+  nowMs,
+}: {
+  finding: UgatFinding;
+  onClose: () => void;
+  nowMs: number;
+}) {
+  const fixed = finding.status === 'fixed';
+  const stale = isFindingStale(finding, nowMs);
+  const ageDays = findingAgeDays(finding, nowMs);
   return (
     <>
       <div className="ug-card-head">
         <div
           className="ug-av"
           style={{
-            background: finding.sev === 'red' ? 'var(--ug-report-bg)' : 'var(--ug-wait-bg)',
-            color: finding.sev === 'red' ? 'var(--ug-report)' : 'var(--ug-wait)',
+            background: fixed
+              ? 'var(--ug-ok-bg)'
+              : finding.sev === 'red'
+                ? 'var(--ug-report-bg)'
+                : 'var(--ug-wait-bg)',
+            color: fixed
+              ? 'var(--ug-ok)'
+              : finding.sev === 'red'
+                ? 'var(--ug-report)'
+                : 'var(--ug-wait)',
           }}
         >
-          <Ico name="alert" />
+          <Ico name={fixed ? 'check' : 'alert'} />
         </div>
         <div className="ug-ti">
           <div className="ug-nm">{finding.title}</div>
           <div className="ug-row2">
-            <span className={`ug-badge ${finding.sev === 'red' ? 'report' : 'wait'}`}>
-              {finding.sev === 'red' ? 'Confirmed broken' : 'Drift risk'}
-            </span>
+            {/* Status leads. A closed finding must never wear "Confirmed broken". */}
+            {fixed ? (
+              <span className="ug-badge fixed">Fixed</span>
+            ) : finding.status === 'mitigated' ? (
+              <span className="ug-badge wait">Mitigated</span>
+            ) : (
+              <span className={`ug-badge ${finding.sev === 'red' ? 'report' : 'wait'}`}>
+                {finding.sev === 'red' ? 'Confirmed broken' : 'Drift risk'}
+              </span>
+            )}
             <span className="ug-id">{finding.id}</span>
+            {stale && (
+              <span className="ug-stale" title={`Last verified ${ageDays} days ago`}>
+                STALE — re-verify
+              </span>
+            )}
           </div>
         </div>
         <button type="button" className="ug-card-x" onClick={onClose} aria-label="Close">
@@ -1048,8 +1286,17 @@ function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () =
 
       <div className="ug-status-line">
         <Ico name="info" />
-        <span>As of the 2026-07-05 audit — live telemetry coming (slice 2).</span>
+        <span>
+          Verified {finding.verifiedAt} ({ageDays}d ago) · {finding.verifiedEvidence}
+        </span>
       </div>
+
+      {finding.guard && (
+        <div className="ug-status-line">
+          <Ico name="check" />
+          <span>Guarded by {finding.guard}</span>
+        </div>
+      )}
 
       <div className="ug-card-body">
         <p className="ug-fbody">{finding.oneliner}</p>
@@ -1069,8 +1316,16 @@ function FindingCard({ finding, onClose }: { finding: UgatFinding; onClose: () =
           ))}
         </div>
         <div className="ug-sect">
-          <span className={`ug-fix-chip ${finding.fix === 'queued' ? 'queued' : 'needsowner'}`}>
-            <Ico name={finding.fix === 'queued' ? 'check' : 'alert'} />
+          <span
+            className={`ug-fix-chip ${
+              finding.fix === 'done'
+                ? 'done'
+                : finding.fix === 'queued'
+                  ? 'queued'
+                  : 'needsowner'
+            }`}
+          >
+            <Ico name={finding.fix === 'needsowner' ? 'alert' : 'check'} />
             {finding.fixLabel}
           </span>
         </div>
@@ -1271,6 +1526,8 @@ function TablesView({
   }, [active, page]);
 
   const TYPE_NODE: Record<UgatEntityType, string> = {
+    community: 'TYPE-SAMAHAN',
+    papic: 'TYPE-PAPIC',
     user: 'TYPE-USERS',
     event: 'TYPE-EVENTS',
     guest: 'TYPE-GUESTS',
@@ -1280,6 +1537,15 @@ function TablesView({
     thread: 'TYPE-THREADS',
     billing: 'TYPE-BILLING',
     taxonomy: 'TYPE-TAXONOMY',
+    person: 'TYPE-PERSON',
+    package: 'TYPE-PACKAGE',
+    proposal: 'TYPE-PROPOSAL',
+    contract: 'TYPE-CONTRACT',
+    availability: 'TYPE-AVAILABILITY',
+    geography: 'TYPE-GEOGRAPHY',
+    seatplan: 'TYPE-SEATPLAN',
+    runofshow: 'TYPE-RUNOFSHOW',
+    livestudio: 'TYPE-LIVESTUDIO',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

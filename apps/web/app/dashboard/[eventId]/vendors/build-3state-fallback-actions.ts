@@ -5,7 +5,7 @@
  * Build_3State_Solver_2026-06-16.md).
  *
  * When an Auto row can't be filled from the couple's own quoted inquiries
- * (nothing fits budget / no quote for that category — `runBuild3State` returns
+ * (nothing fits budget / no quote for that category — `proposeBuildFromQuotes` returns
  * the group in `unfilled`), the couple can ask Setnayan to look WIDER: this
  * action falls back to a marketplace search on the requirement and returns
  * SUGGESTIONS the couple taps to add to the shortlist. It NEVER auto-adds or

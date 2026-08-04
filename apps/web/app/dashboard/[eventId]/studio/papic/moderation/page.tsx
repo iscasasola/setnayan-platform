@@ -259,8 +259,11 @@ export default async function PapicModerationPage({
 
       {!owns ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">
-          Guest cameras aren&rsquo;t active for this wedding yet. Once you add
-          the Premium Guest Camera Pack, guest photos will appear here.
+          {/* "the Premium Guest Camera Pack" named a product that has never
+              existed. Owner naming lock 2026-07-30: the two Papic products are
+              Papic Pool and Papic One — nothing else may be named here. */}
+          Photos from your guests will appear here once Papic Pool is on for this
+          wedding.
         </p>
       ) : captureRows.length === 0 ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">

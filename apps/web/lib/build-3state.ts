@@ -70,6 +70,46 @@ export type CategoryBuildState = {
 export type BuildStateMap = Map<string, CategoryBuildState>;
 
 /**
+ * Treat a FILLABLE group with **no stored state row** as `'auto'`
+ * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §4).
+ *
+ * ⚠ THE BUG THIS FIXES. `DEFAULT_BUILD_STATE` is `'excluded'`, so a category the
+ * couple never touched resolves to *nothing*. Combined with the tri-state grid
+ * being retired, that meant a couple with real quotes in hand pressed the button
+ * and **nothing happened** — the state rows only ever existed because the grid
+ * wrote them. Absent-means-excluded is right for the *storage* default (never
+ * invent a row) and wrong for the *proposal*: "you have quotes, here is a build"
+ * is the whole job of the quote-fill row.
+ *
+ * SCOPE IS THE SAFETY. Only the ids in `fillableGroupIds` are touched, and the
+ * caller only puts a group there when it has ≥1 quote, no locked vendor, no
+ * existing build pick, no `event_category_decisions` row in
+ * ('excluded','complete'), and no explicit `'excluded'` state. So this can never
+ * resurrect a category the couple removed.
+ *
+ * EXPLICIT ROWS ALWAYS WIN — an id already present in `states` is copied
+ * verbatim, whatever its state. A legacy `'excluded'` row stays excluded; a
+ * legacy `'locked'` + pin still resolves to its pin. Dimension rows (`_dim_*`)
+ * are never synthesized: they carry no vendor pick and `resolveBuildPicks`
+ * skips them anyway.
+ *
+ * PURE + NON-MUTATING: returns a NEW map; `states` is never written to, so the
+ * caller can still read the raw stored set afterwards.
+ */
+export function withAbsentQuotedAsAuto(
+  states: BuildStateMap,
+  fillableGroupIds: ReadonlyArray<string>,
+): BuildStateMap {
+  const out: BuildStateMap = new Map(states);
+  for (const groupId of fillableGroupIds) {
+    if (isDimensionKey(groupId)) continue;
+    if (out.has(groupId)) continue; // explicit row wins, whatever it says.
+    out.set(groupId, { state: 'auto', pinnedVendorId: null });
+  }
+  return out;
+}
+
+/**
  * The cost-bearing quoted vendor used by the OFF solver. Only vendors with a
  * quote (`total_cost_php != null`) are build-eligible (the § 3 quoted-inquiry
  * gate). `costPhp` is the rolled total (package + transport + crew meal), used

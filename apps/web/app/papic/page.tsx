@@ -11,13 +11,47 @@
  * Server component, statically rendered. The interactive guest tooling lives at
  * /papic/guest (auth/QR-scoped); this root route is pure marketing. The
  * persistent SiteChrome nav renders because '/papic' is registered in
- * NAV_ROUTES (site-chrome.tsx). Copy sells BENEFITS only (public-surface
- * hygiene) and quotes NO price (prices are admin-managed + provisional — the
- * page links to /pricing instead).
+ * NAV_ROUTES (site-chrome.tsx). Copy sells BENEFITS first (public-surface
+ * hygiene) and still links to /pricing for the full ladder.
+ *
+ * ── THE PRICE ANCHOR IS DERIVED, NEVER TYPED (added 2026-07-30) ─────────────
+ * This page used to quote no price at all, on the stated grounds that "prices are
+ * admin-managed + provisional". That instinct was right about HARDCODING and
+ * wrong about silence: the highest-intent Papic page in the product never told a
+ * couple that Papic starts free, so the one fact most likely to convert was
+ * missing. `resolvePapicAnchor()` below reads the live rung tables
+ * (`papic_pass_tiers` / `papic_one_tiers`), the two admin-editable free
+ * allowances (`papic_event_pool_config`) and the active catalog, then renders
+ * through the `papic-tier-copy` helpers — so an admin reprice moves this page
+ * without an edit, and a rung we cannot price DROPS OUT rather than rendering a
+ * guess. If every read degrades (no service key at build time), the whole block
+ * is omitted and the page is byte-identical to before.
+ *
+ * ⚠ AUTO FACE-MATCHING IS NOT PROMISED HERE (fixed 2026-07-30). Three places on
+ * this page — a FAQ answer, step 02, and a comparison row — stated that Papic
+ * "recognises faces and sorts each one to the guests in it, automatically, in
+ * real time". There is no hosted matching model: enrollment ships, the matcher
+ * does not, and QR-scan tagging carries the load. Those claims were also inside
+ * the FAQPage JSON-LD, i.e. quotable by answer engines as a live capability.
+ * Copy law (promotion BUILD SPEC §3-5): a surface may say photos are READY for
+ * tagging, never that a guest WILL be found automatically.
  */
 
 import Link from 'next/link';
 import { Reveal } from '@/app/_components/marketing/_motion';
+import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import {
+  readPapicPassTiers,
+  readPapicOneTiers,
+  readPapicFreeGrantPoints,
+  readPapicFreeOneCameraPoints,
+} from '@/lib/papic-tier-config-read';
+import {
+  papicPoolRungPhrase,
+  papicOneRungPhrase,
+  papicBucketPhrase,
+  papicPointCurrencyTerms,
+} from '@/lib/papic-tier-copy';
 import {
   LineRevealHeading,
   RevealBand,
@@ -78,8 +112,11 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
+    'Papic Pool — one shared pool of shots any guest’s phone can spend from',
+    'Papic One — a dedicated camera with its own QR and its own shots',
+    'Free to start on every event — no card, no trial clock',
     'Guests become the photo crew — everyone contributes',
-    'Every photo automatically finds the people in it',
+    'A QR scan tags who is in a photo — no typing',
     'Each guest gets their own personal gallery',
     'Personal souvenir video reels set to music',
     '10-second candid clips, not just photos',
@@ -97,7 +134,7 @@ const FAQ = [
   },
   {
     q: 'How does each guest get their own photos?',
-    a: 'Papic recognises faces, so every photo a guest appears in is gathered into their personal gallery automatically. No one has to scroll through thousands of photos to find themselves.',
+    a: 'A quick QR scan does it. Whoever is shooting holds a guest’s place-card QR — or a table sign, which tags the whole table at once — in frame, and every photo from that moment lands in those guests’ own galleries. No typing, and no one has to scroll through thousands of photos to find themselves. Guests can also add a selfie so their photos are ready to be matched to them as well.',
   },
   {
     q: 'Isn’t this just a shared photo album?',
@@ -134,7 +171,7 @@ const STEPS = [
   },
   {
     t: 'Every photo finds its people',
-    d: 'As photos come in, Papic recognises faces and sorts each one to the guests in it — automatically, in real time. No tagging marathon, no lost photos.',
+    d: 'A QR scan is the whole mechanic: hold a guest’s place card — or a table sign, for everyone at that table — in frame, and those photos sort straight into their own galleries in real time. No tagging marathon, no lost photos.',
   },
   {
     t: 'Everyone goes home with theirs',
@@ -143,14 +180,73 @@ const STEPS = [
 ];
 
 const VS = [
-  ['A shared link everyone digs through', 'Each guest’s own gallery, sorted by face'],
+  ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
   ['Photos only', 'Photos and 10-second candid clips'],
   ['You scroll to find yourself', 'Your photos find you'],
   ['A separate site that expires', 'Lives on your own wedding website'],
   ['Some moments get lost', 'The couple receives every photo, guaranteed'],
 ];
 
-export default function PapicLandingPage() {
+/**
+ * The live, derived price anchor. Every figure comes from a table an admin owns:
+ * rung points from `papic_pass_tiers` / `papic_one_tiers`, prices from the ACTIVE
+ * customer catalog, the two free allowances from `papic_event_pool_config`.
+ *
+ * Fails QUIET, not loud. Each reader degrades on its own (no service key at build
+ * time returns [] / the documented seed), and a rung whose price is missing is
+ * DROPPED — never rendered at ₱0, which on a price list reads as "free". If
+ * nothing resolves, `null` omits the whole section and the page renders exactly as
+ * it did before this block existed.
+ */
+type PapicAnchor = {
+  freePoolPhrase: string | null;
+  freeOnePhrase: string | null;
+  poolRungs: string[];
+  oneRungs: string[];
+  fromPhp: number | null;
+  currencyTerms: readonly [string, string];
+};
+
+async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
+  const [catalog, poolTiers, oneTiers, freePoolPoints, freeOnePoints] = await Promise.all([
+    fetchV2CustomerCatalog(),
+    readPapicPassTiers(),
+    readPapicOneTiers(),
+    readPapicFreeGrantPoints(),
+    readPapicFreeOneCameraPoints(),
+  ]);
+  const priceOf = (code: string): number | null => {
+    const row = catalog.find((c) => c.service_code === code);
+    const php = row ? Number(row.retail_price_php) : NaN;
+    return Number.isFinite(php) && php > 0 ? php : null;
+  };
+  // The repeatable top-up rung is excluded here for the same reason /pricing and
+  // the onboarding services step exclude it: it is a re-buy for an event that
+  // already holds a big pool, and listing it beside the base buckets reads as a
+  // fourth product.
+  const pool = poolTiers
+    .filter((t) => !t.isTopup)
+    .map((t) => ({ t, php: priceOf(t.serviceCode) }))
+    .filter((r): r is { t: (typeof poolTiers)[number]; php: number } => r.php !== null)
+    .sort((a, b) => a.php - b.php);
+  const one = oneTiers
+    .map((t) => ({ t, php: priceOf(t.serviceCode) }))
+    .filter((r): r is { t: (typeof oneTiers)[number]; php: number } => r.php !== null)
+    .sort((a, b) => a.php - b.php);
+  const anyFree = freePoolPoints > 0 || freeOnePoints > 0;
+  if (!anyFree && pool.length === 0 && one.length === 0) return null;
+  return {
+    freePoolPhrase: freePoolPoints > 0 ? papicBucketPhrase(freePoolPoints) : null,
+    freeOnePhrase: freeOnePoints > 0 ? papicBucketPhrase(freeOnePoints) : null,
+    poolRungs: pool.map(({ t, php }) => papicPoolRungPhrase(t.points, php)),
+    oneRungs: one.map(({ t, php }) => papicOneRungPhrase(t.points, php)),
+    fromPhp: pool.length > 0 ? pool[0]!.php : one.length > 0 ? one[0]!.php : null,
+    currencyTerms: papicPointCurrencyTerms(),
+  };
+}
+
+export default async function PapicLandingPage() {
+  const anchor = await resolvePapicAnchor();
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
@@ -188,6 +284,80 @@ export default function PapicLandingPage() {
             </div>
           </RevealBand>
         </header>
+
+        {/* What it costs — DERIVED (resolvePapicAnchor). The lead is the free tier,
+            because it is both true on every event and the fact most likely to move
+            someone who came here from a search. The rungs follow so the page is
+            honest about being metered, and /pricing still owns the full ladder. */}
+        {anchor ? (
+          <section className="mx-auto mt-14 max-w-2xl" aria-label="What Papic costs">
+            <Reveal>
+              <div className="rounded-2xl border border-[var(--m-ink)]/12 bg-[var(--m-ink)]/[0.02] px-6 py-7 sm:px-8">
+                <p className="font-serif text-2xl leading-snug tracking-tight text-[var(--m-ink)]">
+                  Papic starts free on every event.
+                </p>
+                {anchor.freePoolPhrase || anchor.freeOnePhrase ? (
+                  <ul className="mt-3 space-y-1.5 text-sm text-[#5F5E5A]">
+                    {anchor.freePoolPhrase ? (
+                      <li>
+                        <span className="font-medium text-[var(--m-ink)]">Papic Pool</span> —
+                        a shared pool of shots for the whole celebration, {anchor.freePoolPhrase}.
+                      </li>
+                    ) : null}
+                    {anchor.freeOnePhrase ? (
+                      <li>
+                        <span className="font-medium text-[var(--m-ink)]">Papic One</span> —
+                        one camera of its own, {anchor.freeOnePhrase}.
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+                <p className="mt-4 text-sm text-[#5F5E5A]">
+                  Shots are the only thing counted: {anchor.currencyTerms[0]} ·{' '}
+                  {anchor.currencyTerms[1]}. When you want more
+                  {anchor.fromPhp != null
+                    ? `, top-ups start at ₱${Math.round(anchor.fromPhp).toLocaleString('en-PH')}`
+                    : ''}{' '}
+                  — and every top-up stacks on what your event already holds.
+                </p>
+                {anchor.poolRungs.length > 0 || anchor.oneRungs.length > 0 ? (
+                  <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {anchor.poolRungs.length > 0 ? (
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--m-ink)]/55">
+                          Add to the shared pool
+                        </dt>
+                        <dd className="mt-1.5 space-y-1 text-sm text-[#5F5E5A]">
+                          {anchor.poolRungs.map((r) => (
+                            <p key={r}>{r}</p>
+                          ))}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {anchor.oneRungs.length > 0 ? (
+                      <div>
+                        <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--m-ink)]/55">
+                          Reload one camera
+                        </dt>
+                        <dd className="mt-1.5 space-y-1 text-sm text-[#5F5E5A]">
+                          {anchor.oneRungs.map((r) => (
+                            <p key={r}>{r}</p>
+                          ))}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : null}
+                <Link
+                  href="/pricing"
+                  className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--m-mulberry)] hover:opacity-80"
+                >
+                  See the full price list →
+                </Link>
+              </div>
+            </Reveal>
+          </section>
+        ) : null}
 
         {/* How it works — the SECTION is the one PanelThread panel; step 02 hosts
             the signature tile-settle (its own useSettle ref, scoped separately

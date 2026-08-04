@@ -52,6 +52,42 @@ test('eligible: Enterprise and Custom pass; Solo/Verified/Free do not', () => {
   }
 });
 
+test('allTiersAllowed: lifts the Pro+ gate — Free/Verified/Solo may sponsor (2026-07-25 tiered model)', () => {
+  for (const tier of ['free', 'verified', 'solo']) {
+    assert.deepEqual(
+      photoChallengeEligibility({ ...OK, tier, allTiersAllowed: true }),
+      { ok: true },
+      `tier ${tier} should pass when allTiersAllowed`,
+    );
+  }
+  assert.equal(
+    photoChallengeEligibility({ ...OK, tier: 'enterprise', allTiersAllowed: true }).ok,
+    true,
+  );
+});
+
+test('allTiersAllowed: the OTHER gates still apply (only the tier gate is lifted)', () => {
+  assert.deepEqual(
+    photoChallengeEligibility({ ...OK, tier: 'free', allTiersAllowed: true, verification: 'pending' }),
+    { ok: false, reason: 'unverified' },
+  );
+  assert.deepEqual(
+    photoChallengeEligibility({ ...OK, tier: 'free', allTiersAllowed: true, booked: false }),
+    { ok: false, reason: 'not_booked' },
+  );
+});
+
+test('allTiersAllowed off/absent: byte-identical to the pre-2026-07-25 Pro+ gate', () => {
+  assert.deepEqual(photoChallengeEligibility({ ...OK, tier: 'solo' }), {
+    ok: false,
+    reason: 'tier_too_low',
+  });
+  assert.deepEqual(photoChallengeEligibility({ ...OK, tier: 'free', allTiersAllowed: false }), {
+    ok: false,
+    reason: 'tier_too_low',
+  });
+});
+
 test('denied: paid tier but unverified', () => {
   assert.deepEqual(photoChallengeEligibility({ ...OK, verification: 'pending' }), {
     ok: false,

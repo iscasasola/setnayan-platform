@@ -85,7 +85,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Get paid your way',
         items: [
-          { n: '0% commission, forever', b: 'Keep every peso. We never take a cut, on or off platform.' },
+          { n: '0% commission at launch', b: 'Keep 100% while we launch. After that, 5%, then 1% beyond ₱100,000 — only on couples Setnayan brings you; your own and repeat clients stay free.' },
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
           { n: 'PH-style milestone tracking', b: 'Log reservation → progress → balance with proof, the way PH couples pay.' },

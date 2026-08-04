@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /**
  * Server actions for the wedding landing page hero photo editor.
@@ -44,13 +45,17 @@ export async function uploadHeroPhoto(formData: FormData) {
 
   if (typeof heroImageUrlRaw !== 'string' || heroImageUrlRaw.length === 0) {
     // Empty upload — bounce back to the editor without changing state.
-    redirect(`/dashboard/${eventId}/website/hero-photo`);
+    redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
+  );
   }
   // Light sanity check — the /api/upload route signs only valid R2 puts so
   // anything not starting with r2:// is either an old vendor logo paste-URL
   // (which the FileUpload won't emit) or hostile input.
   if (!heroImageUrlRaw.startsWith('r2://')) {
-    redirect(`/dashboard/${eventId}/website/hero-photo`);
+    redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
+  );
   }
 
   const userId = await requireHostMembership(eventId);
@@ -72,7 +77,9 @@ export async function uploadHeroPhoto(formData: FormData) {
   revalidatePath('/[slug]', 'page');
 
   // Land back on the editor so the host sees the new preview tile.
-  redirect(`/dashboard/${eventId}/website/hero-photo`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
+  );
 }
 
 export async function removeHeroPhoto(formData: FormData) {
@@ -98,5 +105,7 @@ export async function removeHeroPhoto(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/website`);
   revalidatePath('/[slug]', 'page');
 
-  redirect(`/dashboard/${eventId}/website/hero-photo`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
+  );
 }

@@ -16,9 +16,15 @@ import {
 import { CHECKLIST_CATEGORY_LABELS, type ChecklistCategory } from './checklist';
 
 const VALID_CATEGORIES = new Set(Object.keys(CHECKLIST_CATEGORY_LABELS) as ChecklistCategory[]);
+// Every type that has a def of its OWN. date + hangout joined 2026-07-31 —
+// before that they inherited CELEBRATION's 90-day runway, which put every task
+// in the past on day one for an event planned in days.
+// Types NOT here (anniversary · graduation · reunion · gala_night ·
+// simple_event) still ride GENERIC_EVENT_CHECKLIST_DEF by design.
 const ENABLED_TYPES = [
   'debut', 'birthday', 'christening', 'corporate',
   'tournament', 'gender_reveal', 'travel', 'celebration',
+  'date', 'hangout',
 ];
 
 test('checklistDefForEventType: wedding / null / unset fall back to the wedding template (null)', () => {

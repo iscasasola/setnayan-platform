@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import jsQR from 'jsqr';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ import { packIco } from '@/lib/ico';
 import { BRAND_SETTINGS_TAG } from '@/lib/brand-settings';
 import { LOADER_SETTINGS_TAG } from '@/lib/loader-settings';
 import { clampInt, coerceVariant } from '@/lib/loader-config';
+import { isQrPhPayload } from '@/lib/emv-qr';
 
 /**
  * Admin settings server actions — V2 publisher posture, split flows.
@@ -51,6 +53,15 @@ async function requireAdmin(): Promise<void> {
   if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
     throw new Error('Forbidden');
   }
+}
+
+/** Blank → NULL (no cap configured); otherwise a positive number. */
+function nullIfBlankNumber(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim().replace(/,/g, '');
+  if (t.length === 0) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -214,10 +225,62 @@ export async function savePaymentInstruments(formData: FormData) {
     bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
     gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
     gcash_number: nullIfBlank(formData.get('gcash_number')),
+    // Kill switches. An unchecked HTML checkbox posts NOTHING, so absence must
+    // mean OFF here — reading it as "unchanged" would make the switch
+    // impossible to turn off, which is the direction that matters when an
+    // account is at its cap and transfers are bouncing.
+    gcash_enabled: formData.get('gcash_enabled') === 'on',
+    bdo_enabled: formData.get('bdo_enabled') === 'on',
+    gcash_monthly_cap_php: nullIfBlankNumber(formData.get('gcash_monthly_cap_php')),
+    bdo_monthly_cap_php: nullIfBlankNumber(formData.get('bdo_monthly_cap_php')),
     updated_at: new Date().toISOString(),
   };
 
   const admin = createAdminClient();
+
+  // Available-balance overrides carry a timestamp, and WHEN we stamp it is
+  // load-bearing (migration 20271028200000).
+  //
+  // `_as_of` marks the instant the owner read the real figure out of the bank
+  // app; only Setnayan payments recorded AFTER it are deducted, because
+  // everything earlier is already inside the number they read. So we re-stamp
+  // ONLY when the submitted value actually differs from what is stored.
+  //
+  // Re-stamping on every save would be the dangerous direction: saving this
+  // form to edit an account NAME would silently reset the clock and discard
+  // every order since, overstating the remaining headroom until a transfer
+  // bounced.
+  //
+  // The miss is benign: an owner who re-checks and lands on the same figure
+  // keeps the older timestamp, so we keep deducting orders already reflected
+  // in it. That UNDER-states remaining and closes the rail early — the safe
+  // direction to be wrong in.
+  const { data: currentRow } = await admin
+    .from('platform_settings')
+    .select('gcash_available_php,bdo_available_php')
+    .eq('id', 1)
+    .maybeSingle();
+  const current = (currentRow ?? {}) as {
+    gcash_available_php?: number | string | null;
+    bdo_available_php?: number | string | null;
+  };
+  const nowIso = new Date().toISOString();
+
+  for (const kind of ['gcash', 'bdo'] as const) {
+    const submitted = nullIfBlankNumber(formData.get(`${kind}_available_php`));
+    const stored =
+      current[`${kind}_available_php`] == null
+        ? null
+        : Number(current[`${kind}_available_php`]);
+    const changed = submitted !== stored;
+    Object.assign(payload, {
+      [`${kind}_available_php`]: submitted,
+      // Cleared → drop the timestamp too, so a NULL balance can never leave a
+      // stale `_as_of` behind for the reset check to trip over.
+      ...(changed ? { [`${kind}_available_as_of`]: submitted == null ? null : nowIso } : {}),
+    });
+  }
+
   const { error } = await admin
     .from('platform_settings')
     .update(payload)
@@ -237,6 +300,37 @@ type QrKind = 'bdo' | 'gcash';
 
 function qrColumn(kind: QrKind): 'bdo_qr_url' | 'gcash_qr_url' {
   return kind === 'bdo' ? 'bdo_qr_url' : 'gcash_qr_url';
+}
+
+function qrPayloadColumn(kind: QrKind): 'bdo_qr_payload' | 'gcash_qr_payload' {
+  return kind === 'bdo' ? 'bdo_qr_payload' : 'gcash_qr_payload';
+}
+
+/**
+ * Decode an uploaded merchant-QR image to its QR Ph payload string.
+ *
+ * Runs ONCE per upload (never per checkout paint) so the stored string can be
+ * re-minted with each order's amount — see lib/emv-qr.ts and migration
+ * 20271027100000.
+ *
+ * Returns null on ANY failure, and every caller treats null as "keep serving
+ * the static image". That is the pre-existing behaviour, so a QR we cannot
+ * read degrades to exactly what shipped before rather than breaking checkout.
+ * We deliberately reject anything that is not a valid PHP QR Ph payload —
+ * isQrPhPayload checks the CRC, the TLV structure and currency 608 — because
+ * the alternative is minting an amount onto a code we do not understand.
+ */
+async function decodeMerchantQrPayload(file: File): Promise<string | null> {
+  try {
+    const { data, info } = await sharp(Buffer.from(await file.arrayBuffer()))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const decoded = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+    return isQrPhPayload(decoded?.data) ? decoded!.data : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function uploadMerchantQr(formData: FormData) {
@@ -278,10 +372,17 @@ export async function uploadMerchantQr(formData: FormData) {
       | null
       | undefined ?? null;
 
+  // Decode alongside the URL so the two never disagree: whatever image we
+  // just stored is exactly the payload checkout will re-mint. Writing both in
+  // one UPDATE means there is no window where the URL points at a new QR while
+  // the payload still describes the old account.
+  const payload = await decodeMerchantQrPayload(file);
+
   const { error } = await admin
     .from('platform_settings')
     .update({
       [qrColumn(kind)]: upload.publicUrl,
+      [qrPayloadColumn(kind)]: payload,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
@@ -319,10 +420,13 @@ export async function removeMerchantQr(formData: FormData) {
       | null
       | undefined ?? null;
 
+  // Clear the payload with the URL. Leaving a stale payload behind would let
+  // checkout keep minting codes for an account the admin just removed.
   const { error } = await admin
     .from('platform_settings')
     .update({
       [qrColumn(kind)]: null,
+      [qrPayloadColumn(kind)]: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);

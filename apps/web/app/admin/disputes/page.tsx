@@ -301,7 +301,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           sideways. The queue shows the latest 200 matching the filters below,
           ordered by vendor tier (enterprise first) then newest.
         </p>
-        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-[color:var(--sn-ink-500)]">
+        <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-[color:var(--sn-ink-500)]">
           Use <span className="font-semibold">Resolve</span> on any open row to
           record the outcome (couple / vendor / withdrawn) with a note. The
           opener is notified automatically. A standalone detail page with the

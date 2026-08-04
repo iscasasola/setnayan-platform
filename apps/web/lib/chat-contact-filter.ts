@@ -27,6 +27,36 @@
  *   3. EMAIL / URL / HANDLE - structural patterns for an email address, a
  *      social/messaging link, or a bare @handle.
  *
+ * PROFILES - because CARD TEXT IS NOT CHAT TEXT (added 2026-07-27):
+ *   The same engine now also gates what a vendor types onto a public service
+ *   card / package (lib/service-text-integrity.ts). The leak it stops is real -
+ *   a phone number in an inclusion label reaches EVERY couple who opens the
+ *   card, not one chat partner - but the chat-tuned rules refuse honest card
+ *   copy, and a card is written once and read forever, so an over-block there
+ *   is a vendor who cannot describe what they sell. Two measured examples:
+ *     - "TikTok highlights package" - on a card that names a DELIVERABLE, not a
+ *       place to take the deal. (Setnayan's own SKU copy, "Patiktok - 250
+ *       TikTok recordings", was refused by the chat rules too.)
+ *     - "Php 9,000 per hour, minimum 4 hours, 150 pax, 20 staff" - a price
+ *       line, whose digits fuse into a PH-mobile shape once 20 chars of filler
+ *       are collapsed between them.
+ *   So `evaluateMessage(body, profile)` takes a profile. `'chat'` is the
+ *   DEFAULT and is byte-identical to what shipped - do not retune it here.
+ *   `'card'` differs in exactly four ways, each marked `CARD:` below:
+ *     (a) phone Tier 1 collapses at most CARD_PHONE_FILLER_GAP chars of filler
+ *         (2, not 20) - a card's numbers sit in prose, not in a disguise;
+ *     (b) phone Tier 2 (the dense 11+ digit run) is skipped - date ranges and
+ *         pax/price lists live there legitimately;
+ *     (c) `app_name` + `euphemism` blocklist entries are skipped - on a card
+ *         those name deliverables ("Instagram teaser reel"). The trade this
+ *         buys, and why it is affordable, is written out at the skip itself;
+ *     (d) the `solicit` rule reads the body with any "message me on Setnayan"
+ *         PHRASE scrubbed out ("Message me on Setnayan for the full menu"
+ *         points AT us). Scoped to the phrase, never the whole message - see
+ *         SOLICIT_TO_SETNAYAN for the bypass that taught us the difference.
+ *   EMAIL / EMAIL_OBFUSCATED / SOCIAL_URL / HANDLE are unchanged in BOTH
+ *   profiles: those are contact info wherever they appear.
+ *
  * Pure + synchronous + dependency-free: safe to import on BOTH the server (the
  * authoritative send gate + native endpoint) and the client (instant pre-send
  * feedback). No I/O, no throw. `evaluateMessage()` is the only entry point.
@@ -35,6 +65,12 @@
  * skipped to avoid matching them inside ordinary words), and OCR of a number
  * inside an attached image.
  */
+
+/**
+ * Which surface the text was typed on. `'chat'` is the shipped behaviour and
+ * the default, so every existing caller is unaffected.
+ */
+export type ContactProfile = 'chat' | 'card';
 
 export type ContactRuleCategory =
   | 'phone'
@@ -49,6 +85,15 @@ export interface ContactMatch {
   category: ContactRuleCategory;
   /** Human label for the admin record. */
   label: string;
+  /**
+   * The exact substring that fired, when quoting it back helps the author fix
+   * it. OPTIONAL and deliberately NARROW: populated for `handle` only, because
+   * that is the one rule whose fix is a rewrite of the matched token itself
+   * ("@Tagaytay" -> "at Tagaytay"). Every other category stays `undefined` —
+   * echoing a phone number or an email back into a UI string buys nothing and
+   * puts contact info somewhere it does not need to be.
+   */
+  sample?: string;
 }
 
 export interface ContactEvaluation {
@@ -99,11 +144,29 @@ function spelledDigitsToNumerals(text: string): string {
 // just rewords).
 const PHONE_FILLER_GAP = 20;
 
+// CARD (a): the same gap, retuned for card text. A card carries prose numbers -
+// "Php 9,000 per hour, minimum 4 hours, 150 pax, 20 staff" fuses into a PH
+// mobile shape at gap 20 (measured). At 2 only the separators a real number is
+// written with (a space, a dash, ", ", ") ") still collapse, so every disguise
+// in the test matrix - "0917 880 7163", "(0917) 880 7163", "0 9 1 7 ...",
+// "+63 917 880 7163", spelled-out - is still caught, while a price line is not.
+// The one thing gap 2 gives up is words jammed BETWEEN the digits ("0917 my
+// number is 8807163"); on a card, that is a trade the owner ruling accepts -
+// the same string still trips the `solicit` rule.
+const CARD_PHONE_FILLER_GAP = 2;
+
 // PH mobile shapes on the collapsed digit string: 09XXXXXXXXX (11), 9XXXXXXXXX
 // (10, dropped leading 0), or 639XXXXXXXXX (12, +63 with the + stripped).
 const PHONE_SHAPE = /(?:0|63)?9\d{9}/;
 
-function containsPhone(raw: string): boolean {
+type PhoneOptions = {
+  /** Max run of non-digit filler still collapsed between two digits (Tier 1). */
+  fillerGap: number;
+  /** Whether Tier 2 (the dense 11+ digit run) applies. */
+  denseRun: boolean;
+};
+
+function containsPhone(raw: string, { fillerGap, denseRun }: PhoneOptions): boolean {
   const normalized = spelledDigitsToNumerals(raw);
 
   // Tier 1 — PH mobile shape, tolerating short filler (incl. a few words)
@@ -111,11 +174,16 @@ function containsPhone(raw: string): boolean {
   // (fuse the digits), long -> a break. Catches 0917 880 7163 / 0 9 1 7 ... /
   // 0917 my number is 8807163 / spelled-out / +63.
   const t1 = normalized.replace(/[^\d]+/g, (run) =>
-    run.length <= PHONE_FILLER_GAP ? '' : '\n',
+    run.length <= fillerGap ? '' : '\n',
   );
   for (const group of t1.split('\n')) {
     if (group.length >= 10 && PHONE_SHAPE.test(group)) return true;
   }
+
+  // CARD (b): Tier 2 is chat-only. On a card the commonest discount-conditions
+  // string, "Valid 2026-09-17 - 2026-12-31", is exactly the dense run this
+  // tier looks for, and so is a bracket table of pax counts.
+  if (!denseRun) return false;
 
   // Tier 2 — a densely written number of 11+ digits using ONLY tight phone
   // separators (space, parens, +, -). Catches international / long numbers that
@@ -150,6 +218,63 @@ const SOCIAL_URL = new RegExp(
 
 const HANDLE = /(?:^|[^\w@/])@[A-Za-z][A-Za-z0-9._]{1,30}\b/;
 
+// DISPLAY ONLY — deliberately NOT the HANDLE detector, and NOT redundant with
+// it: HANDLE's character class has no hyphen, so inside "Reception @Shangri-La"
+// it matches just `@Shangri`. Quoting THAT back at the vendor would advise them
+// about text they never wrote and silently drop half their venue name. A sample
+// exists to echo the AUTHOR's own word, so it follows the author's boundaries;
+// HANDLE stays the detector and is untouched. Do not merge the two.
+const HANDLE_SAMPLE = /@[A-Za-z][A-Za-z0-9._-]*/;
+
+// A sample is pasted into vendor-facing copy, so it is bounded. Anything longer
+// is not a handle the vendor meant to type, and the caller falls back to a
+// generic example.
+const HANDLE_SAMPLE_MAX = 48;
+
+/**
+ * The `@word` that tripped HANDLE, as the author wrote it — or undefined.
+ *
+ * `HANDLE`/`HANDLE_SAMPLE` carry no /g, so `.exec()` is stateless here (see the
+ * structural-patterns note above; only /g regexes keep lastIndex).
+ */
+function handleSample(body: string): string | undefined {
+  const hit = HANDLE.exec(body);
+  if (!hit) return undefined;
+  // HANDLE consumes one leading non-@ char (the "not part of a word/email"
+  // guard). Re-anchor on the '@' itself so the sample starts where the vendor's
+  // token starts.
+  const at = body.indexOf('@', hit.index);
+  if (at < 0) return undefined;
+  const sample = HANDLE_SAMPLE.exec(body.slice(at))?.[0];
+  return sample && sample.length <= HANDLE_SAMPLE_MAX ? sample : undefined;
+}
+
+// CARD (d): a solicitation whose destination is Setnayan ITSELF is the OPPOSITE
+// of disintermediation — it is the vendor telling the couple to stay. "Message
+// me on Setnayan for the full menu" is honest card copy that the `solicit` rule
+// (which only reads the verb, not where it points) refuses.
+//
+// SUPPRESS THE MATCH, NOT THE BODY. The first cut tested a bare
+// /\b(?:on|via|in)\s+setnayan\b/ against the WHOLE string and skipped the
+// solicit rule when it fired. That was a bypass: because `app_name` is also
+// skipped on a card, "Message me on Viber, not on Setnayan" named another
+// platform, pointed at it, and then said "Setnayan" to disarm the rule — all
+// four of these were measured PASSING under 'card' and BLOCKING under 'chat':
+//   "Message me on Viber, not on Setnayan" · "Faster on Viber than on Setnayan"
+//   "We reply on Setnayan or add me on WhatsApp" · "reach me on IG, we are on
+//   Setnayan too"
+// So the exemption is scoped to the PHRASE, not the message: the honest case is
+// a vendor saying "ask me HERE", and the thing that makes it honest is the
+// destination — so only the verb-plus-Setnayan phrase is scrubbed out before
+// the solicit rule reads the text. Any OTHER solicitation left in the same
+// string still blocks. The verb list mirrors the `solicit` entry's own.
+//
+// /g is required (replace-all) and is therefore STATELESS ONLY under
+// String.replace — never call .test() on this, it carries lastIndex (see the
+// structural-patterns note above).
+const SOLICIT_TO_SETNAYAN =
+  /\b(?:message|msg|add|find|reach|contact|call|text|chat|dm|pm|ping)\s+me\s+(?:on|at|via)\s+setnayan\b/gi;
+
 // -- BLOCKLIST - the editable "list of text that isn't allowed" ---------------
 // Add or remove a line to tune what the chatroom blocks. Each entry is a
 // case-insensitive pattern + the label shown in the admin record. Word
@@ -176,23 +301,61 @@ const BLOCKLIST: { category: ContactRuleCategory; label: string; re: RegExp }[] 
 ];
 
 /**
- * Evaluate a chat body against the chatroom blocked-rules. Pure - no I/O, no
- * throw. `blocked` is true when ANY rule fires; the caller rejects the send.
+ * Evaluate a body against the blocked-rules. Pure - no I/O, no throw. `blocked`
+ * is true when ANY rule fires; the caller rejects the send / save.
+ *
+ * `profile` defaults to `'chat'`, which is exactly the shipped behaviour — so
+ * every existing caller keeps calling `evaluateMessage(body)` and gets the
+ * identical result. Pass `'card'` for vendor card / package text; see the
+ * PROFILES block at the top of this file for the four differences and why.
  */
-export function evaluateMessage(body: string): ContactEvaluation {
+export function evaluateMessage(
+  body: string,
+  profile: ContactProfile = 'chat',
+): ContactEvaluation {
   if (typeof body !== 'string' || body.trim().length === 0) {
     return { blocked: false, categories: [], matched: [] };
   }
 
+  const isCard = profile === 'card';
   const matched: ContactMatch[] = [];
 
-  if (containsPhone(body)) matched.push({ category: 'phone', label: 'Phone number' });
+  if (
+    containsPhone(body, {
+      fillerGap: isCard ? CARD_PHONE_FILLER_GAP : PHONE_FILLER_GAP,
+      denseRun: !isCard,
+    })
+  )
+    matched.push({ category: 'phone', label: 'Phone number' });
   if (EMAIL.test(body) || EMAIL_OBFUSCATED.test(body))
     matched.push({ category: 'email', label: 'Email address' });
   if (SOCIAL_URL.test(body)) matched.push({ category: 'url', label: 'Social/messaging link' });
-  if (HANDLE.test(body)) matched.push({ category: 'handle', label: '@handle' });
+  if (HANDLE.test(body))
+    matched.push({ category: 'handle', label: '@handle', sample: handleSample(body) });
+
+  // CARD (d): the solicit rule — and ONLY that rule — reads a copy of the body
+  // with any "message me on Setnayan" phrase scrubbed out. Every other rule
+  // keeps reading the original `body`, so nothing else can be laundered by
+  // mentioning us. String.replace with /g is the one stateless use of that
+  // regex.
+  const solicitBody = isCard ? body.replace(SOLICIT_TO_SETNAYAN, ' ') : body;
   for (const rule of BLOCKLIST) {
-    if (rule.re.test(body)) matched.push({ category: rule.category, label: rule.label });
+    // CARD (c): driven off the entry's CATEGORY, never a hand-picked regex, so
+    // a new blocklist line inherits the profile rule for free.
+    //
+    // THE TRADE, written down rather than discovered: skipping `app_name` means
+    // a bare platform mention with NO destination verb ("Viber only", "we also
+    // post on IG") passes on a card. That is the deliberate price of allowing
+    // "Instagram teaser reel" / "TikTok highlights package" / Setnayan's own
+    // "Patiktok — 250 TikTok recordings", and it is safe because a bare name
+    // carries no way to REACH the vendor — there is no number, no handle, no
+    // link, and no instruction. The moment it acquires one, a different rule
+    // fires: `solicit` on "add me on viber", HANDLE on "@juanphotos",
+    // SOCIAL_URL on "facebook.com/…", `phone` on a number. Those four are all
+    // still live on a card, which is what makes this skip affordable.
+    if (isCard && (rule.category === 'app_name' || rule.category === 'euphemism')) continue;
+    const subject = rule.category === 'solicit' ? solicitBody : body;
+    if (rule.re.test(subject)) matched.push({ category: rule.category, label: rule.label });
   }
 
   const categories = Array.from(new Set(matched.map((m) => m.category)));

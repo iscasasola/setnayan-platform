@@ -117,9 +117,14 @@ export async function connectEventForUser(
     const admin = createAdminClient();
 
     // Already a member of this event (e.g. a second click of the link)?
+    // ⚠ `id`, NOT `member_id` — public.event_members' primary key is `id`.
+    // PostgREST 42703s the whole query, so this "already a member?" short-circuit
+    // NEVER fired: a returning user re-clicking their magic link fell through to
+    // the email-match path and was reported `connected: false` whenever their
+    // guest row had no matching email.
     const { data: existing } = await admin
       .from('event_members')
-      .select('member_id')
+      .select('id')
       .eq('event_id', eventId)
       .eq('user_id', userId)
       .maybeSingle();

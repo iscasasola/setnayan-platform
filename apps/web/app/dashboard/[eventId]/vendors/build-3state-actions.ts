@@ -4,10 +4,17 @@
  * Build 3-State Solver — server actions (Phase 3d-A · Build_3State_Solver_2026-06-16.md).
  *
  * Backs `event_category_build_state` (migration 20261230000000 — ALREADY in prod):
- * one per-(event, plan_group_id) row holding the tri-state control
- * (Locked / Auto / Excluded) + the Locked taxonomy pick (`pinned_vendor_id`).
- * Couple-own RLS (the migration's policies scope every read/write to the
- * couple's own event + stamp `set_by = auth.uid()`).
+ * one per-(event, plan_group_id) row holding Locked / Auto / Excluded + the
+ * Locked taxonomy pick (`pinned_vendor_id`). Couple-own RLS (the migration's
+ * policies scope every read to the couple's own event).
+ *
+ * ⚠ **READ-ONLY as of 2026-07-29.** The Lock/Auto/Hidden grid that WROTE these
+ * rows is deleted (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §7), along
+ * with `setCategoryBuildState` and `resetBuildStates`. Nothing writes the table
+ * any more; the rows that exist are LEGACY and are still honored verbatim —
+ * an explicit `'excluded'` stays excluded, a `'locked'` + pin still resolves to
+ * its pin. New events simply have none, which is why `proposeBuildFromQuotes`
+ * carries the absent-row pre-pass.
  *
  * Resolved picks STILL write to the existing `event_build_picks` table so the
  * Compare + Lock tabs are unchanged. No schema change here.
@@ -19,10 +26,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   isBuildState,
-  isDimensionKey,
   resolveBuildPicks,
+  withAbsentQuotedAsAuto,
   type BuildRankMode,
-  type BuildState,
   type BuildStateMap,
   type QuotedVendor,
 } from '@/lib/build-3state';
@@ -33,17 +39,14 @@ import {
   type PriorNudge,
 } from '@/lib/build-requote-nudge';
 import { computeCompatScore } from '@/lib/compat-score';
-import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
-import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
-  resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { replacesSiblingsOnPin } from '@/lib/build-pick-rules';
 
-export type Build3StateResult = { ok: true } | { ok: false; error: string };
 export type RunBuildResult =
   | { ok: true; filled: number; cleared: number; unfilled: { groupId: string; label: string }[] }
   | { ok: false; error: string };
@@ -94,86 +97,38 @@ export async function getCategoryBuildStates(eventId: string): Promise<BuildStat
 }
 
 /**
- * Set (upsert) one row's state. Locked taxonomy rows carry a `pinnedVendorId`
- * (one of the category's quoted inquiries); Auto/Excluded + dimension rows pass
- * null. `set_by` is stamped server-side from the auth uid (required by the
- * INSERT WITH CHECK policy). Upsert onConflict matches the PK (event, group).
- */
-export async function setCategoryBuildState(input: {
-  eventId: string;
-  planGroupId: string;
-  state: BuildState;
-  pinnedVendorId?: string | null;
-}): Promise<Build3StateResult> {
-  if (!isBuildState(input.state)) return { ok: false, error: 'Unknown state.' };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in.' };
-
-  // A Locked TAXONOMY row REQUIRES a concrete pick (§4). Dimension rows lock a
-  // value on `events` (handled by the anchor editors) and never carry a vendor.
-  let pinnedVendorId: string | null = input.pinnedVendorId ?? null;
-  if (isDimensionKey(input.planGroupId)) {
-    pinnedVendorId = null;
-  } else if (input.state === 'locked' && !pinnedVendorId) {
-    return { ok: false, error: 'Choose a quoted vendor to lock this category.' };
-  }
-  if (input.state !== 'locked') pinnedVendorId = null;
-
-  const { error } = await supabase.from('event_category_build_state').upsert(
-    {
-      event_id: input.eventId,
-      plan_group_id: input.planGroupId,
-      state: input.state,
-      pinned_vendor_id: pinnedVendorId,
-      set_by: user.id,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id,plan_group_id' },
-  );
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
-  return { ok: true };
-}
-
-/**
- * [Reset] — delete every state row for the event → all rows read as Excluded
- * (the implicit default). Does NOT touch `event_build_picks`, the shortlist, or
- * locked vendors; the next [Build] reconciles picks from the (now-empty) states.
- */
-export async function resetBuildStates(input: { eventId: string }): Promise<Build3StateResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in.' };
-
-  const { error } = await supabase
-    .from('event_category_build_state')
-    .delete()
-    .eq('event_id', input.eventId);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
-  return { ok: true };
-}
-
-/**
- * [Build] — resolve the 3-state map against the couple's quoted inquiries +
- * budget, then reconcile `event_build_picks`:
- *   • LOCKED taxonomy rows → write the pinned vendor.
+ * **Fill the couple's build from the quotes they already hold.** Reads the state
+ * map + quoted inquiries + budget, then reconciles `event_build_picks`:
+ *   • FILLABLE groups with no stored row → proposed as AUTO (the pre-pass below).
+ *   • LOCKED taxonomy rows → write the pinned vendor (legacy rows still honored).
  *   • AUTO rows → OFF solver: cheapest quoted vendor that fits the remaining
  *     budget (multi-pick groups may take several), reusing the shipped logic via
  *     the pure `resolveBuildPicks`.
  *   • EXCLUDED rows → ensure no build pick remains for them.
  *
- * The resolution is the pure, unit-tested `resolveBuildPicks`; this action is
- * just the DB read + write around it. Honors `isMultiPickGroup` so a multi-pick
- * group's other picks are never clobbered (the live data-loss guard).
+ * ── RENAMED 2026-07-29 from `runBuild3State`
+ * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §4). Same read → resolve →
+ * write phase, byte for byte; the tri-state grid that was its only caller is
+ * gone and the quote-fill row calls it instead. "3-state" named a control the
+ * couple never has to learn again; the action does one thing and now says it.
+ *
+ * ── The ONE behavioural change: the ABSENT-ROW PRE-PASS.
+ * `event_category_build_state` rows only ever existed because the retired grid
+ * wrote them, and an absent row defaults to `'excluded'` — so on a fresh event
+ * this action resolved to NOTHING no matter how many quotes were in hand (spec
+ * §1). `withAbsentQuotedAsAuto` synthesizes `'auto'` for FILLABLE groups only;
+ * every explicit stored row still wins, so a category the couple excluded stays
+ * excluded and a legacy lock+pin still resolves to its pin.
+ *
+ * FILLABLE (spec §4) = ≥1 quoted inquiry · no locked vendor · no existing build
+ * pick · no `event_category_decisions` row in ('excluded','complete') for the
+ * group or its tile · no explicit `event_category_build_state = 'excluded'`.
+ * Resolved server-side here from the couple's own RLS-scoped rows — never from a
+ * client-supplied list — so a forged request can't widen the set.
  */
-export async function runBuild3State(input: { eventId: string }): Promise<RunBuildResult> {
+export async function proposeBuildFromQuotes(input: {
+  eventId: string;
+}): Promise<RunBuildResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -183,9 +138,13 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
   // RLS scopes every read to the couple's own event. The AI-gate fields
   // (planning_mode / setnayan_ai_active) + reception coords are read alongside
   // the budget so the Auto rank mode can switch to compat when Setnayan AI is on.
-  const [evRes, vendorsRes, stateRes] = await Promise.all([
+  const [evRes, vendorsRes, stateRes, pickRes, decisionRes] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'estimated_budget_centavos, planning_mode, setnayan_ai_active, venue_latitude, venue_longitude',
       )
@@ -201,6 +160,19 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
       .from('event_category_build_state')
       .select('plan_group_id, state, pinned_vendor_id')
       .eq('event_id', input.eventId),
+    // ── Fillable inputs (spec §4). Both are couple-own, RLS-scoped, and
+    // column-explicit. A group that already holds a build pick is NOT fillable
+    // (the couple has assembled it); a group the couple removed ("Not needed")
+    // or marked done ("✓ Covered") is NOT fillable either.
+    supabase
+      .from('event_build_picks')
+      .select('plan_group_id')
+      .eq('event_id', input.eventId),
+    supabase
+      .from('event_category_decisions')
+      .select('plan_group_id, tile, decision')
+      .eq('event_id', input.eventId)
+      .in('decision', ['excluded', 'complete']),
   ]);
 
   if (!evRes.data) return { ok: false, error: 'Could not load this event.' };
@@ -221,17 +193,9 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
   // boost); AI OFF keeps the shipped cheapest-fit. The governing gate is the
   // app-wide lib/setnayan-ai.ts so this surface agrees with every other one.
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
-  const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
-  const aiSubscription = aiPerUserEnabled
-    ? await getEventHostAiSubscription(createAdminClient(), input.eventId)
-    : null;
-  const aiActive = isSetnayanAiActiveForUser(
+  const aiActive = isSetnayanAiActiveForEvent(
     evRes.data as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
-    {
-      paywallEnabled: aiPaywallEnabled,
-      perUserEnabled: aiPerUserEnabled,
-      subscription: aiSubscription,
-    },
+    { paywallEnabled: aiPaywallEnabled },
   );
   const rankMode: BuildRankMode = aiActive ? 'compat' : 'cheapest';
   const evLat = (evRes.data.venue_latitude as number | null) ?? null;
@@ -338,13 +302,62 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
     states.set(r.plan_group_id, { state: r.state, pinnedVendorId: r.pinned_vendor_id ?? null });
   }
 
+  // ── The FILLABLE pre-pass (spec §4). Everything below is derived from rows
+  // already read above — no extra round-trip, no client input.
+  //
+  // 1. A category that already holds a LOCKED vendor is decided.
+  const lockedGroupIds = new Set<string>();
+  for (const r of vendors) {
+    if (!r.status || !COMMITTED_STATUSES.has(r.status)) continue;
+    if (r.category == null) continue;
+    const groupId = groupByCategory.get(r.category);
+    if (groupId) lockedGroupIds.add(groupId);
+  }
+  // 2. A category the couple has already built into is assembled, not fillable.
+  const pickedGroupIds = new Set<string>(
+    ((pickRes.data ?? []) as Array<{ plan_group_id: string }>).map((r) => r.plan_group_id),
+  );
+  // 3. Removed ("Not needed") or finished ("✓ Covered") categories. The rows key
+  //    on EITHER grain, so bridge tile → group through the same `catalogTile`
+  //    map the bench uses in the other direction. Never a guessed group.
+  const decidedGroupIds = new Set<string>();
+  {
+    const groupByTile = new Map<string, string>();
+    for (const g of PLAN_GROUPS) {
+      if (g.catalogTile) groupByTile.set(g.catalogTile, g.id);
+    }
+    for (const r of (decisionRes.data ?? []) as Array<{
+      plan_group_id: string | null;
+      tile: string | null;
+    }>) {
+      if (r.plan_group_id) decidedGroupIds.add(r.plan_group_id);
+      if (r.tile) {
+        const viaTile = groupByTile.get(r.tile);
+        if (viaTile) decidedGroupIds.add(viaTile);
+      }
+    }
+  }
+  // 4. Groups with ≥1 quote — the quoted set, bucketed above.
+  const quotedGroupIds = new Set(quoted.map((q) => q.planGroupId));
+
+  const fillableGroupIds = [...quotedGroupIds].filter(
+    (groupId) =>
+      !lockedGroupIds.has(groupId) &&
+      !pickedGroupIds.has(groupId) &&
+      !decidedGroupIds.has(groupId) &&
+      // 5. An explicit 'excluded' row is the couple saying no. `states` may also
+      //    hold 'auto'/'locked' rows here — those already resolve on their own,
+      //    and `withAbsentQuotedAsAuto` leaves every stored row untouched anyway.
+      states.get(groupId)?.state !== 'excluded',
+  );
+
   const budgetPhp =
     evRes.data.estimated_budget_centavos != null
       ? Math.round((evRes.data.estimated_budget_centavos as number) / 100)
       : null;
 
   const { picks, clearGroupIds, unfilledAuto, budgetRejected } = resolveBuildPicks({
-    states,
+    states: withAbsentQuotedAsAuto(states, fillableGroupIds),
     quoted,
     budgetPhp,
     rankMode,
@@ -453,9 +466,16 @@ export async function runBuild3State(input: { eventId: string }): Promise<RunBui
  * Build 3d-C — post the vendor re-quote nudge(s) for one [Build] run. ALWAYS
  * fire-and-forget (called from Next's after()): it NEVER throws into the build,
  * is best-effort, and degrades silently if its migration (20270101010000) isn't
- * applied yet. The flag-dark guard lives upstream (runBuild3State returns before
- * resolution when BUILD_3STATE_ENABLED is off), so this is unreachable with the
- * flag OFF.
+ * applied yet.
+ *
+ * ⚠ The old note here claimed "the flag-dark guard lives upstream —
+ * `runBuild3State` returns before resolution when BUILD_3STATE_ENABLED is off".
+ * **There is no such guard and never was** — `BUILD_3STATE_ENABLED` appears
+ * nowhere in the codebase outside comments (verified 2026-07-29 against
+ * origin/main). Recorded here rather than silently deleted, because the claim is
+ * quoted in `Explore_Integration_BUILD_SPEC_2026-07-29.md` §4. The real gating
+ * is that the action is only reachable from the quote-fill row, which the page
+ * mounts behind `isExploreReplanEnabled()`.
  *
  * Steps (all via the service-role admin client — the couple's JWT can't read the
  * vendor-side thread rows or write a 'system' message under chat RLS):

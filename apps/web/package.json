@@ -7,7 +7,6 @@
     "build": "node scripts/stamp-sw.mjs && NODE_OPTIONS=--max-old-space-size=7168 next build",
     "start": "next start --port 3000",
     "lint": "next lint",
-    "lint:retired": "node scripts/lint-retired-strings.mjs",
     "lint:botnav": "node scripts/lint-bottom-nav.mjs",
     "lint:navicon": "node scripts/lint-nav-icon-source.mjs",
     "lint:email-links": "node scripts/lint-email-links.mjs",
@@ -17,6 +16,9 @@
     "lint:radius": "node scripts/lint-radius.mjs",
     "lint:vendor-layout": "node scripts/lint-vendor-layout-revalidate.mjs",
     "lint:masthead": "node scripts/lint-page-masthead.mjs",
+    "lint:changelog-dir": "node scripts/lint-changelog-dir.mjs",
+    "lint:dup-rule": "tsx scripts/lint-dup-rule.ts",
+    "dup-rule:baseline": "tsx scripts/lint-dup-rule.ts --write",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",
     "brand:icons": "node scripts/regen-brand-rasters.mjs",
@@ -28,7 +30,10 @@
     "test:db": "tsx --test \"tests/db/*.db.test.ts\"",
     "test:event-type-coverage": "tsx --test tests/db/event-type-coverage.db.test.ts",
     "test:db:ci": "tsx --test \"tests/db/*.db.test.ts\"",
-    "typecheck": "tsc --noEmit",
+    "exposure:baseline": "tsx scripts/gen-exposure-baseline.ts",
+    "ugat:code-map": "tsx scripts/gen-ugat-code-map.ts",
+    "schema:snapshot": "tsx scripts/gen-schema-snapshot.ts",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=7168 tsc --noEmit",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -94,7 +99,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
     "music-tempo": "^1.0.3",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.18",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.0"

@@ -94,6 +94,15 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
 export const STUDIO_RECOMMEND_EXCLUDED: ReadonlySet<string> = new Set([
   'orders',
   'website-pro',
+  // Papic Pool (2026-07-30, when its card went live). Pool is not a separate
+  // service to be pushed — it is one of the TWO products under Papic (Pool and
+  // One), both chosen on the Papic surface that the `papic` card already opens.
+  // `papic` carries the family's peak month (2) and its dateLocked prerequisite,
+  // so auto-recommending a rung alongside its own umbrella would push the same
+  // product twice in one strip. Exactly the "surfaced by its own funnel" case
+  // this set exists for. Still fully browsable, and still recommendable BY A
+  // COORDINATOR (isRecommendable keys off serviceKey, not this set).
+  'papic-guest',
   // 'editorial-pro' card retired 2026-07-22 (bundle-only via Website PRO) — no
   // longer a catalog entry, so it needs no exclusion.
   'supplies-marketplace',

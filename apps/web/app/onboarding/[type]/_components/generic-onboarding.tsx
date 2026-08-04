@@ -9,8 +9,22 @@
  *
  * Iteration 0053 Phase 3 · PR2.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { isGatedLifeType } from '@/lib/life-event-gate';
+import {
+  ANCHOR_ORIGIN_LABELS,
+  ANCHOR_ORIGINS,
+  canToggleRecur,
+  nextAnniversary,
+} from '@/lib/event-anchor';
+import {
+  activeCelebrationPick,
+  celebrationOptionsFor,
+  formatCelebrationDay,
+  ordinal,
+} from '@/lib/anchor-celebration-dates';
+import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
 import { resolvePersona, type ExpAxis } from '@/app/onboarding/wedding/_data/experience-personas';
 import { PH_REGIONS } from '@/lib/regions';
 import { commitOnboardingEvent } from '@/app/onboarding/_shared/commit-event';
@@ -28,6 +42,8 @@ import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
 import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
+import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
+import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -64,12 +80,36 @@ type Props = {
    * / flag-off) makes the flow byte-identical.
    */
   prefill?: OnboardingPrefill;
+  /**
+   * The services step's server-resolved view-model (Papic + Setnayan AI).
+   * NULL = the NEXT_PUBLIC_ONBOARDING_SERVICES_STEP flag is off ⇒ the screen is
+   * dropped from `screens` and this flow renders byte-identical to today.
+   */
+  servicesStepView?: ServicesStepView | null;
+  /**
+   * The already-rendered <SetnayanAiValue mode="preview" …/> (a Server
+   * Component node), forwarded straight through to the step. Passed as a node
+   * rather than re-rendered here so its server-only transitive imports stay out
+   * of this client bundle — and so its copy is never re-authored (spec § 1.4).
+   */
+  servicesStepAiValue?: React.ReactNode;
+  /**
+   * Manila today (server clock). Drives the anchor's NEXT return, so a 2015
+   * union date offers the 2027 anniversary rather than 2015. Absent → the UTC
+   * client date, which can differ by one day near midnight and would only ever
+   * shift the suggestion by a year at the exact anniversary boundary.
+   */
+  todayISO?: string;
 };
 
 type Draft = {
   v: 1;
   startedAt: number;
   displayName: string;
+  honoree: string;
+  anchorDate: string;
+  anchorOrigin: string;
+  recurs: boolean;
   dateValue: string;
   pax: string;
   region: string;
@@ -98,12 +138,42 @@ export function GenericOnboarding(props: Props) {
     resume,
     nextPath = null,
     prefill = EMPTY_PREFILL,
+    servicesStepView = null,
+    servicesStepAiValue = null,
+    todayISO,
   } = props;
   const router = useRouter();
+  const today = todayISO ?? new Date().toISOString().slice(0, 10);
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
   const [step, setStep] = useState(0);
+  const [blockedBy, setBlockedBy] = useState<
+    { eventId: string; displayName: string } | null
+  >(null);
   const [displayName, setDisplayName] = useState('');
+  // The celebrant. Asked only for the five gated life types — it is the key the
+  // one-in-planning cap counts on, and the generic flow never collected it, so
+  // a second birthday/debut/christening/graduation/gender-reveal was refused
+  // forever with a generic error (fixed 2026-07-31).
+  const [honoree, setHonoree] = useState('');
+  // WHICH alaga that name is, when the create step's who question named one.
+  // Deliberately NOT persisted in the draft: it is only ever meaningful paired
+  // with the name it arrived with, and a 30-day draft outliving that pairing is
+  // how a link ends up on the wrong person. A resumed draft keeps the name and
+  // falls back to label-keyed capping, which is the shipped behaviour.
+  const [honoreeDependentId, setHonoreeDependentId] = useState<string | null>(null);
+  const gatedLifeType = isGatedLifeType(eventType);
+  // The date this event COMMEMORATES, and why — asked only for anniversary,
+  // whose whole nature is "the day we're marking". Never asked for
+  // birthday/debut/christening: their anchor IS a person's birthdate, which
+  // events do not store (counsel gate, also enforced in event-insert.ts).
+  const [anchorDate, setAnchorDate] = useState('');
+  const [anchorOrigin, setAnchorOrigin] = useState<string>('wedding');
+  const isAnniversary = eventType === 'anniversary';
+  // "Make it a yearly thing?" — the owner-locked toggle types. Anniversary and
+  // birthday recur by nature and get no toggle.
+  const showRecurToggle = canToggleRecur(eventType);
+  const [recurs, setRecurs] = useState(false);
   const [dateValue, setDateValue] = useState('');
   const [pax, setPax] = useState('');
   const [region, setRegion] = useState('');
@@ -141,16 +211,28 @@ export function GenericOnboarding(props: Props) {
     () => [
       'welcome',
       'name',
+      ...(gatedLifeType ? ['honoree'] : []),
+      ...(isAnniversary ? ['anchor'] : []),
       'date',
+      ...(showRecurToggle ? ['recurs'] : []),
       'pax',
       'region',
       ...questions.filter((q) => !(q.id in prefillDetails)).map((q) => `tq_${q.id}`),
       ...(specialtyFields.length > 0 ? ['specialty'] : []),
       ...axisIds, // for_whom · feel · energy · roots · effort
       'reveal',
+      // The services step sits AFTER the persona reveal (so `planServices` is
+      // already derived and can order the two Papic products) and BEFORE
+      // congrats. Absent entirely when the flag is off — not hidden, not
+      // skipped: the array is shorter, so the progress bar, the step indices
+      // and every draft key are identical to today.
+      ...(servicesStepView ? ['services'] : []),
       'congrats',
     ],
-    [questions, axisIds, specialtyFields, prefillDetails],
+    [
+      questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
+      gatedLifeType, isAnniversary, showRecurToggle,
+    ],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
@@ -166,6 +248,10 @@ export function GenericOnboarding(props: Props) {
         const d = JSON.parse(raw) as Draft;
         if (d && d.v === 1 && Date.now() - d.startedAt < DRAFT_TTL_MS) {
           setDisplayName(d.displayName ?? '');
+          setHonoree(d.honoree ?? '');
+          setAnchorDate(d.anchorDate ?? '');
+          setAnchorOrigin(d.anchorOrigin ?? 'wedding');
+          setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
           setPax(d.pax ?? '');
           setRegion(d.region ?? '');
@@ -180,21 +266,84 @@ export function GenericOnboarding(props: Props) {
     } catch {
       /* ignore corrupt draft */
     }
+    // "Para kanino ito?" was already answered one screen ago, on the create-event
+    // WHO step. Consume the carry (sessionStorage, single-read, 10-min TTL — the
+    // name never touches the URL) so this flow CONFIRMS the celebrant instead of
+    // asking the same question twice. Only for the types that actually ask.
+    if (gatedLifeType) {
+      const carried = takeHonoree();
+      if (carried) {
+        setHonoree(carried.name);
+        // …and WHICH record that name is, so the cap keys on the person rather
+        // than the spelling. A CLAIM only — commitOnboardingEvent re-reads it
+        // under `owner_user_id = you` and drops anything else.
+        setHonoreeDependentId(carried.dependentId);
+      }
+    }
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
     setHydrated(true);
-  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty]);
+  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, gatedLifeType]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, dateValue, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, dateValue, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, pax, region, axes, details, specialtyValues]);
+
+  // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
+  // `anchor_date` is what the event commemorates; `event_date` is when it is
+  // actually held. Two columns on purpose — in PH a 7th birthday on a Tuesday is
+  // very often a Saturday party. So once an anchor exists we show it as CONTEXT
+  // and still ASK for the party day, with the two days people actually choose
+  // between as quick picks. No anchor (every type but anniversary today, or an
+  // anniversary whose anchor was skipped) → the date step is exactly as it was.
+  const anchorOptions = useMemo(
+    () => celebrationOptionsFor(anchorDate, today),
+    [anchorDate, today],
+  );
+  const anchorReturn = useMemo(
+    () => (isAnniversary && anchorDate ? nextAnniversary(anchorDate, today) : null),
+    [isAnniversary, anchorDate, today],
+  );
+  const activePick = activeCelebrationPick(anchorOptions, dateValue);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  // Seed the date field with the anchor's own day the first time an anchor
+  // appears. A blank <input type="date"> opens the calendar on TODAY — the one
+  // month this event has nothing to do with. Seeding is also what makes "Another
+  // day" open the picker AT the anchor instead of blanking it. The ref keys on
+  // the anchor, so deliberately clearing the field is never undone.
+  const seededForAnchor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const iso = anchorOptions?.onTheDayISO ?? null;
+    if (!iso || seededForAnchor.current === iso) return;
+    const previous = seededForAnchor.current;
+    seededForAnchor.current = iso;
+    // Re-seed only over emptiness or over our OWN previous suggestion — going
+    // back and correcting the anchor should move the suggested day with it,
+    // while a day the user actually chose is never overwritten.
+    setDateValue((v) => (!v || v === previous ? iso : v));
+  }, [hydrated, anchorOptions?.onTheDayISO]);
+
+  function pickCelebrationDay(iso: string, openPicker = false) {
+    setDateValue(iso);
+    if (!openPicker) return;
+    const el = dateInputRef.current;
+    if (!el) return;
+    el.focus();
+    // showPicker is Chromium/Safari-only and throws if the input isn't visible.
+    try {
+      el.showPicker?.();
+    } catch {
+      /* the field is focused and seeded either way */
+    }
+  }
 
   const screen = screens[step]!;
   const axisIndex = axisIds.indexOf(screen);
@@ -273,6 +422,13 @@ export function GenericOnboarding(props: Props) {
     const payload: GenericOnboardingPayload = {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
+      honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
+      honoreeDependentId: gatedLifeType ? honoreeDependentId : null,
+      anchorDate: isAnniversary ? anchorDate || null : null,
+      anchorOrigin: isAnniversary ? anchorOrigin : null,
+      // Anniversary and birthday return every year by nature; the toggle types
+      // are the user's choice; everything else is one-time.
+      recurs: isAnniversary || eventType === 'birthday' || (showRecurToggle && recurs),
       region: region || null,
       venueLatitude: null,
       venueLongitude: null,
@@ -324,6 +480,24 @@ export function GenericOnboarding(props: Props) {
       return;
     }
     setCommitting(false);
+    if (res.error === 'life_event_exists') {
+      // NOT an error state — a real product rule (one in-planning event per
+      // person, per kind). Walk the user back to the honoree question instead
+      // of stranding them on the last screen with "try again": retrying is
+      // exactly what CANNOT work, and there is no archive control anywhere in
+      // the app to clear the other event.
+      setBlockedBy(res.blocking ?? null);
+      const idx = screens.indexOf('honoree');
+      if (idx >= 0) {
+        setStep(idx);
+        setError(null);
+      } else {
+        setError(
+          'You already have one of these in planning. Finish or archive it first.',
+        );
+      }
+      return;
+    }
     setError(
       res.error === 'not_authenticated'
         ? 'sign_in'
@@ -371,13 +545,189 @@ export function GenericOnboarding(props: Props) {
         </div>
       );
     }
-    if (screen === 'date') {
+    if (screen === 'honoree') {
       return (
         <div>
           <Eyebrow>The basics</Eyebrow>
-          <Title>When is it?</Title>
-          <p className="mt-2 text-ink/55">You can change this later — leave it blank if you’re not sure yet.</p>
+          <Title>Who are we celebrating?</Title>
+          <p className="mt-2 text-ink/55">
+            Their first name is enough. It keeps each {label.toLowerCase()} on its
+            own plan, so you can have one for each person.
+          </p>
           <input
+            autoFocus
+            value={honoree}
+            onChange={(e) => {
+              setHonoree(e.target.value);
+              // Typing here means "this one is for someone else" — so the alaga
+              // carried in from the who step no longer describes it. Drop the
+              // link rather than file the event under the previous person; the
+              // typed name still keys the cap, exactly as it did before.
+              setHonoreeDependentId(null);
+              if (blockedBy) setBlockedBy(null);
+            }}
+            placeholder="e.g. Nina"
+            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
+          />
+          {/* The refusal lands HERE, next to the field that resolves it — the
+              whole reason the old generic error was a dead end is that the user
+              was told "try again" on a screen with nothing to change. */}
+          {blockedBy ? (
+            <p className="mt-4 rounded-[var(--m-r-md)] border border-[color:var(--sn-gold-300)] bg-[color:var(--sn-gold-100)]/70 px-4 py-3 text-sm text-ink/75">
+              You already have a {label.toLowerCase()} in planning
+              {blockedBy.displayName ? ` — “${blockedBy.displayName}”` : ''}. If
+              this one is for someone else, put their name above and we’ll keep
+              the two apart.
+            </p>
+          ) : null}
+        </div>
+      );
+    }
+    if (screen === 'anchor') {
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          <Title>What date are you marking?</Title>
+          <p className="mt-2 text-ink/55">
+            The day it commemorates — not the day you’ll celebrate. We ask that
+            next, because you can hold it whenever suits everyone.
+          </p>
+          <input
+            autoFocus
+            type="date"
+            value={anchorDate}
+            onChange={(e) => setAnchorDate(e.target.value)}
+            className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
+          />
+          <p className="mt-6 text-sm font-medium text-ink/70">What is it?</p>
+          {/* Positive origins only — the DB CHECK admits no memorial option, so
+              the picker cannot offer one either. */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ANCHOR_ORIGINS.map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setAnchorOrigin(o)}
+                className={`min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold ${
+                  anchorOrigin === o
+                    ? 'border-mulberry bg-mulberry/10 text-ink'
+                    : 'border-ink/15 bg-paper text-ink/60'
+                }`}
+              >
+                {ANCHOR_ORIGIN_LABELS[o]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-ink/45">
+            This is what makes it come back every year, and what your reminder
+            counts from.
+          </p>
+        </div>
+      );
+    }
+    if (screen === 'recurs') {
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          <Title>Is this a yearly thing?</Title>
+          <p className="mt-2 text-ink/55">
+            If it comes back, we’ll line up next year’s when this one wraps.
+            You can change this later.
+          </p>
+          <div className="mt-6 flex gap-2">
+            {[
+              { v: true, label: 'Yes — every year' },
+              { v: false, label: 'Just this once' },
+            ].map((o) => (
+              <button
+                key={String(o.v)}
+                type="button"
+                onClick={() => setRecurs(o.v)}
+                className={`min-h-[48px] flex-1 rounded-[var(--m-r-md)] border px-4 text-sm font-semibold ${
+                  recurs === o.v
+                    ? 'border-mulberry bg-mulberry/10 text-ink'
+                    : 'border-ink/15 bg-paper text-ink/60'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (screen === 'date') {
+      const onTheDayLabel = formatCelebrationDay(anchorOptions?.onTheDayISO);
+      const saturdayLabel = formatCelebrationDay(anchorOptions?.saturdayAfterISO);
+      // What the anchor IS, in the user's own words: their typed origin, plus
+      // the ordinal when we can count it ("your 12th"). n < 1 means the anchor
+      // year hasn't come round yet — no ordinal rather than a wrong one.
+      const anchorWhat =
+        anchorReturn && anchorReturn.n >= 1
+          ? `Your ${ordinal(anchorReturn.n)} ${
+              anchorOrigin === 'wedding' || anchorOrigin === 'relationship'
+                ? 'anniversary'
+                : 'year'
+            }`
+          : ANCHOR_ORIGIN_LABELS[anchorOrigin as keyof typeof ANCHOR_ORIGIN_LABELS] ??
+            'The day you’re marking';
+      const chip = (on: boolean) =>
+        [
+          'min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold',
+          on
+            ? 'border-mulberry bg-mulberry/10 text-ink'
+            : 'border-ink/15 bg-paper text-ink/60',
+        ].join(' ');
+      return (
+        <div>
+          <Eyebrow>The basics</Eyebrow>
+          {/* With an anchor on file the question is no longer "when is it?" —
+              the day it marks is already known. The real question is which day
+              you'll actually hold it. */}
+          <Title>{anchorOptions ? 'When are you celebrating?' : 'When is it?'}</Title>
+          {anchorOptions && onTheDayLabel ? (
+            <p className="mt-2 text-ink/55">
+              <span className="font-medium text-ink">{anchorWhat}</span> falls on{' '}
+              <span className="font-medium text-ink">{onTheDayLabel}</span> — you can
+              celebrate any day.
+            </p>
+          ) : (
+            <p className="mt-2 text-ink/55">
+              You can change this later — leave it blank if you’re not sure yet.
+            </p>
+          )}
+          {anchorOptions && onTheDayLabel ? (
+            /* The chips are a VIEW of the field below, never a parallel state:
+               whatever the calendar lands on re-lights the matching chip, so
+               "Another day" can't keep claiming a day that IS the anchor day. */
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={chip(activePick === 'on_the_day')}
+                onClick={() => pickCelebrationDay(anchorOptions.onTheDayISO)}
+              >
+                On the day · {onTheDayLabel}
+              </button>
+              {anchorOptions.saturdayAfterISO && saturdayLabel ? (
+                <button
+                  type="button"
+                  className={chip(activePick === 'saturday_after')}
+                  onClick={() => pickCelebrationDay(anchorOptions.saturdayAfterISO!)}
+                >
+                  The Saturday after · {saturdayLabel}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={chip(activePick === 'other')}
+                onClick={() => pickCelebrationDay(anchorOptions.onTheDayISO, true)}
+              >
+                Another day
+              </button>
+            </div>
+          ) : null}
+          <input
+            ref={dateInputRef}
             type="date"
             value={dateValue}
             onChange={(e) => setDateValue(e.target.value)}
@@ -533,6 +883,23 @@ export function GenericOnboarding(props: Props) {
           ) : (
             <Title>Answer a few more to see your plan.</Title>
           )}
+        </div>
+      );
+    }
+    if (screen === 'services' && servicesStepView) {
+      return (
+        <div>
+          <Eyebrow>Your services</Eyebrow>
+          <Title>Your memories are already being kept.</Title>
+          <ServicesStep
+            className="mt-6"
+            view={servicesStepView}
+            // interested_services' FIRST reader (spec § 1.3): the persona pack's
+            // derived service list orders the two Papic products. Nothing else —
+            // both always render, at their real prices.
+            interestedServices={planServices}
+            aiValue={servicesStepAiValue}
+          />
         </div>
       );
     }

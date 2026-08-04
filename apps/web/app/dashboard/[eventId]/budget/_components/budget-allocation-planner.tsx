@@ -348,7 +348,7 @@ export function BudgetAllocationPlanner({
       {/* Save plan — sticky to the bottom so the couple can save from anywhere
           in the list. The save itself runs through a transition (pending state). */}
       <div className="sticky bottom-3 z-10 mt-2">
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/60 bg-white/80 p-3 shadow-lg backdrop-blur-xl">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/15 bg-white/80 p-3 shadow-lg backdrop-blur-xl">
           <button
             type="button"
             onClick={handleSave}
@@ -622,7 +622,11 @@ function TiltEditor({
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="sn-modal-panel sn-pop-in relative w-full max-w-md border border-white/60 p-5 sm:p-6">
+      {/* 2026-07-28 — dropped the hand-rolled `border border-white/60`. On the
+          warm-white ground a white border on a near-white panel is invisible;
+          `.sn-modal-panel` now carries the shared glass hairline itself, and
+          this utility was overriding it. */}
+      <div className="sn-modal-panel sn-pop-in relative w-full max-w-md p-5 sm:p-6">
         <button
           ref={closeBtnRef}
           type="button"

@@ -2,7 +2,6 @@ import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
-import { tierCaps } from '@/lib/vendor-tier-caps';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
@@ -214,35 +213,14 @@ export async function sendChatMessageCore(
     return { ok: false, code: 'not_accepted', message: 'Accept the inquiry first to reply.' };
   }
 
-  // Tier gate (Phase C #4). FREE vendors cannot message couples in-app
-  // (tierCaps.chat === 'none'); verified/pro/enterprise pass. The DB RPC
-  // `unlock_vendor_event` (migration 20260911000000:66-67) already raises
-  // TIER_FREE_NO_INAPP on the normal accept path, but `adminAcceptInquiry`
-  // (admin/demo-vendors/inquiries/actions.ts) sets inquiry_status='accepted'
-  // via the service-role client WITHOUT that RPC — so a claimed demo FREE
-  // vendor could otherwise reach this insert. This closes that hole.
-  // tier_state is excluded from FULL_VENDOR_PROFILE_SELECT → isolated probe
-  // (matches the branches/actions.ts soft-probe convention).
-  if (senderRole === 'vendor') {
-    let tier: string | null = null;
-    try {
-      const { data: tierRow } = await supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', thread.vendor_profile_id)
-        .maybeSingle();
-      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
-    } catch {
-      tier = null;
-    }
-    if (tierCaps(tier).chat === 'none') {
-      return {
-        ok: false,
-        code: 'tier_free',
-        message: 'Get your account verified to message couples in the app.',
-      };
-    }
-  }
+  // Inbox ungated (owner 2026-07-24) — the former FREE-vendor tier gate here
+  // (tierCaps(tier).chat === 'none' → 'tier_free') has been REMOVED so a vendor
+  // on ANY tier, verified or not, can answer a couple in-app once the thread is
+  // accepted ("your inbox is never locked"). The parallel accept-side gate
+  // (unlock_vendor_event's TIER_FREE_NO_INAPP raise) is bypassed by routing
+  // acceptInquiry to unlock_vendor_event_free (see lib/chat-actions.ts). This is
+  // purely the answering path; couple-side spam is still held back upstream by
+  // the inquiry velocity caps + Turnstile (lib/inquiry-gate.ts) — untouched here.
 
   // Chatroom blocked-rules — off-platform-contact filter
   // (NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED · default OFF). Deterministic, ₱0,

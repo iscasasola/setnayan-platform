@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, AlertTriangle, ListChecks } from 'lucide-react';
+import { ArrowRight, AlertTriangle, ListChecks, KeyRound, Plug } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
 import { KpiStatCard } from './_components/kpi-stat-card';
@@ -297,6 +297,37 @@ export default async function AdminOverview() {
           <strong className="text-ink">Money</strong> holds the catalog and
           engine-room config.
         </p>
+
+        {/* ENGINE-ROOM SHORTCUTS · owner 2026-07-25 ("place it on admin/overview
+         *  and a button for secrets").
+         *
+         *  These two pages are the engine room: keys and external services. They
+         *  live in the Money & Settings group, which the 2026-07-15 six-menu
+         *  flatten means they get NO sidebar row of their own — the owner went
+         *  looking for Secrets twice and found neither the hub card nor the tile
+         *  far down this page. A rare-but-urgent destination needs to be one
+         *  glance from the landing, not one memory away.
+         *
+         *  Deliberately a slim pill row, not tiles: the Exception Desk below is
+         *  this view's single focal element (§ 1.3) and must not be out-shouted.
+         *  Placed inside the header so it rides above the entrance cascade and
+         *  never moves when queue counts change. */}
+        <nav aria-label="Engine room" className="flex flex-wrap gap-2 pt-1">
+          <Link
+            href="/admin/secrets"
+            className="sn-press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--sn-gold-500)] px-4 py-2 text-xs font-semibold text-[color:var(--sn-ink-900)] transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-gold-500)]"
+          >
+            <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Secrets &amp; Rotation
+          </Link>
+          <Link
+            href="/admin/integrations"
+            className="sn-press inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/72 px-4 py-2 text-xs font-semibold text-ink transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-gold-500)]"
+          >
+            <Plug aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Integrations
+          </Link>
+        </nav>
       </header>
 
       {/* One-off ops reminder · date-gated to 2026-12-08 (3 days before the
@@ -609,6 +640,7 @@ export default async function AdminOverview() {
         <Tile href="/admin/vendors" icon="briefcase" title="Vendors" body="Every vendor_profile + published status." />
         <Tile href="/admin/patiktok" icon="camera" title="Patiktok renders" body="Client-side reel render queue + failures." />
         <Tile href="/admin/integrations" icon="layout-grid" title="Integrations" body="Turn email + integrations on without a redeploy." />
+        <Tile href="/admin/secrets" icon="shield-check" title="Secrets & Rotation" body="Every platform key, its age, and how to replace it." />
         <Tile
           href="/admin/verify"
           icon="shield-check"
@@ -806,7 +838,7 @@ function ActionQueueTile({
   // muted ink.
   const tone = overdue
     ? {
-        card: 'border-white/50 bg-[var(--sn-danger-soft)]',
+        card: 'border-ink/10 bg-[var(--sn-danger-soft)]',
         icon: 'text-[color:var(--sn-danger)]',
         label: 'text-[color:var(--sn-danger)]',
         arrow: 'text-[color:var(--sn-danger)]',
@@ -815,7 +847,7 @@ function ActionQueueTile({
       }
     : dueSoon
       ? {
-          card: 'border-white/50 bg-[var(--sn-warning-soft)]',
+          card: 'border-ink/10 bg-[var(--sn-warning-soft)]',
           icon: 'text-[color:var(--sn-warning)]',
           label: 'text-[color:var(--sn-warning)]',
           arrow: 'text-[color:var(--sn-warning)]',
@@ -824,7 +856,7 @@ function ActionQueueTile({
         }
       : hasWork
         ? {
-            card: 'border-white/60 bg-white/75',
+            card: 'border-ink/10 bg-white/75',
             icon: 'text-[color:var(--sn-warning)]',
             label: 'text-[color:var(--sn-warning)]',
             arrow: 'text-[color:var(--sn-warning)]',
@@ -832,7 +864,7 @@ function ActionQueueTile({
             sub: 'text-[color:var(--sn-ink-500)]',
           }
         : {
-            card: 'border-white/60 bg-white/70',
+            card: 'border-ink/10 bg-white/70',
             icon: '',
             label: 'text-[color:var(--sn-ink-400)]',
             arrow: 'text-[color:var(--sn-ink-300)]',

@@ -5,11 +5,13 @@ import {
   loadUgatTable,
   ugatSearch,
   runSavedSearch,
+  getUgatCounts,
   type UgatTableKey,
   type UgatTablePage,
   type UgatSearchGroup,
   type UgatSavedSearch,
   type UgatSavedSearchKey,
+  type UgatCounts,
 } from '@/lib/ugat/data';
 
 /**
@@ -34,6 +36,24 @@ const VALID_TABLES: readonly UgatTableKey[] = [
   'threads',
   'billing',
 ];
+
+/**
+ * Re-read the nine-plus type-node counts.
+ *
+ * The console's status line has always said "Counts are live (updated …)", but
+ * they were a server snapshot frozen at page load — a long-lived admin tab could
+ * sit for hours showing an hour-old number under a label promising otherwise.
+ * This makes the existing claim true rather than adding a new one.
+ *
+ * Cheap by construction: it delegates to the SAME `unstable_cache`-wrapped read
+ * the page uses (60s revalidate), so polling faster than that just re-serves the
+ * cached value. The client polls at 75s — deliberately slower than the cache
+ * window, so a poll usually lands on a fresh entry rather than racing one.
+ */
+export async function fetchUgatCounts(): Promise<UgatCounts> {
+  await requireAdminAction();
+  return getUgatCounts();
+}
 
 /** Fetch one page (25 rows) of an entity table. Read-only. */
 export async function fetchUgatTable(

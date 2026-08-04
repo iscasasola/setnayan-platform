@@ -22,6 +22,15 @@
  * migration seed, in ONE place, documented). `lib/papic-copy-guardrails.test.ts`
  * fails CI if any enumerated Papic surface re-grows a literal.
  *
+ * TWO-TYPE MODEL (owner-locked 2026-07-29). Papic is now Papic POOL (unlimited
+ * cameras, SHARED shots, additive top-ups) and Papic ONE (one camera, its own
+ * QR, its own UNSHARED shots). The rung phrases for both live at the bottom of
+ * this file and take their numbers as ARGUMENTS — points from papic_pass_tiers /
+ * papic_one_tiers, price from platform_retail_catalog_v2. The clip weight moved
+ * with that lock: one 10-second clip is 8 points, not 7, and it is written in
+ * exactly one place (PAPIC_POINTS_PER_CLIP in lib/papic-cameras.ts), which is why
+ * every sentence below interpolates it instead of spelling it.
+ *
  * Deliberately framed as "about N photos (fewer if you shoot clips)" — the
  * budget is ONE points purse, so an exact "N photos + M clips" promise is
  * unkeepable by construction: spending points on clips takes them from photos.
@@ -182,19 +191,21 @@ export async function fetchPapicTierConfig(
 }
 
 // ── pure copy helpers (the ONLY sanctioned way to render a Papic claim) ──────
-
-/**
- * The PUBLIC ladder — the rungs a couple can actually pick, in sort order.
- * Excludes `free` (not a purchasable rung) and `roll` (the legacy alias of
- * Mini: same ₱30, same 20 points — showing both would read as two products).
- * Inactive rows drop out, so an admin deactivating a tier removes it from every
- * surface at once.
- */
-export function publicPapicLadder(config: PapicTierConfig): PapicTierConfigRow[] {
-  return TIER_CODES.map((c) => config[c])
-    .filter((r) => r.isActive && r.tierCode !== 'free' && r.tierCode !== 'roll')
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-}
+//
+// ⚠ THE PER-DAY LADDER HELPERS ARE GONE (deleted 2026-07-30). `publicPapicLadder`,
+// `papicCapacityShort`, `papicCapLadderPhrase` and `papicTierSummary` all rendered
+// `papic_tier_config` as a ladder of per-camera-per-DAY rungs with wedding caps —
+// the model the two-type lock retired (owner 2026-07-29). Their last consumer was
+// the dead homepage pricing payload, which is exactly where they were still
+// printing "unlimited shots per day" and "₱50/guest·day" for products that are now
+// a shared pool and a flat per-camera bucket. A ladder is derived from the RUNG
+// tables now — `papic_pass_tiers` (Pool) and `papic_one_tiers` (One), priced from
+// the live catalog, phrased through `papicPoolRungPhrase` / `papicOneRungPhrase` at
+// the bottom of this file. `app/pricing/page.tsx` is the reference implementation.
+//
+// What survives here is what a per-CAMERA surface still legitimately needs:
+// `papicCapacityPhrase` (the studio's guest-camera picker), the free-seat count,
+// and the cap sentence.
 
 /** How many free cameras every event gets — from config, never a literal. */
 export function papicFreeCameraCount(config: PapicTierConfig): number {
@@ -217,6 +228,47 @@ export function papicFreeGrantPoints(config: PapicTierConfig): number {
 }
 
 /**
+ * The LIVE free-pool allowance, straight from the admin-editable column.
+ *
+ * WHY THIS EXISTS (2026-07-28). The doc above always claimed the live value was
+ * `papic_event_pool_config.free_grant_points` — but nothing ever read it.
+ * `fetchPapicTierConfig` queries a DIFFERENT table (`papic_tier_config`) and
+ * never sets `freeGrantPoints`, so `papicFreeGrantPoints()` could only ever
+ * return the fallback literal. The admin column was decorative.
+ *
+ * That was harmless while the free pool was unarmed and nothing displayed it.
+ * It stopped being harmless the moment the pool was armed (PR #3847/#3848): the
+ * GRANT writes a number, copy renders a number, and if an admin edits the column
+ * those two must not drift apart. An admin who sets the allowance to 90 and sees
+ * "about 90 photos" on the card while the meter still hands out 50 has been lied
+ * to by their own control.
+ *
+ * So this is the single live reader, and BOTH halves — the grant amount
+ * (lib/papic-free-grant.ts) and the display phrase — resolve through it.
+ * Falls back to PAPIC_FREE_GRANT_POINTS_FALLBACK in ONE place, as before.
+ */
+export async function fetchPapicFreeGrantPoints(
+  supabase: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('papic_event_pool_config')
+      .select('free_grant_points')
+      .eq('config_key', 'default')
+      .maybeSingle();
+    if (error || !data) return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+    const n = Number((data as { free_grant_points?: unknown }).free_grant_points);
+    // A non-positive or unparseable value must never mint a 0-point (or
+    // negative) grant — papic_event_point_grants CHECKs points > 0, so a bad
+    // config row would turn every event-creation arm into a silent failure and
+    // put us straight back to the unmetered state this whole line of work fixed.
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  } catch {
+    return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  }
+}
+
+/**
  * The honest capacity sentence for a points budget.
  *
  * NOT "N photos + M clips" — the budget is one purse, so clips eat into the
@@ -231,14 +283,6 @@ export function papicCapacityPhrase(pointsPerDay: number | null): string {
     `about ${photos} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
     `clips, since one 10-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
   );
-}
-
-/** Terse variant for tight UI (chips, list rows). Same derivation. */
-export function papicCapacityShort(pointsPerDay: number | null): string {
-  if (pointsPerDay == null) return 'unlimited shots per day';
-  const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
-  const clips = Math.floor(pointsPerDay / PAPIC_POINTS_PER_CLIP);
-  return `~${photos} photos/day, or ~${clips} ten-second clips`;
 }
 
 /** Peso formatter local to this module (avoids importing the catalog reader). */
@@ -256,23 +300,64 @@ export function papicCapPhrase(weddingCapPhp: number | null): string {
   return `${peso(weddingCapPhp)} max for a wedding`;
 }
 
-/** "Mini ₱6,000 · Ltd ₱10,000 · Unli ₱15,000" — derived, in ladder order. */
-export function papicCapLadderPhrase(config: PapicTierConfig): string {
-  return publicPapicLadder(config)
-    .filter((r) => r.weddingCapPhp != null && r.weddingCapPhp > 0)
-    .map((r) => `${r.displayTitle} ${peso(r.weddingCapPhp as number)}`)
-    .join(' · ');
+// ── the TWO-TYPE model (owner-locked 2026-07-29) ────────────────────────────
+//
+// Papic POOL — unlimited cameras, SHARED shots, top-ups that stack.
+// Papic ONE  — one camera, its own QR, its own UNSHARED shots.
+//
+// Both phrases below take their numbers as ARGUMENTS: points from the rung
+// tables (papic_pass_tiers / papic_one_tiers), price from
+// platform_retail_catalog_v2. Neither is written here, for the reason this whole
+// module exists — the moment a surface hardcodes "₱100 = 250 shots" it starts
+// drifting from what the meter actually hands out, and the couple is the one who
+// finds out.
+
+/**
+ * A Papic POOL top-up rung, as a couple should read it. "Adds", not "gives" —
+ * every rung stacks onto whatever the event already holds, including the free
+ * pool, and saying so is the difference between a top-up and a replacement.
+ */
+export function papicPoolRungPhrase(points: number, pricePhp: number): string {
+  return `${peso(pricePhp)} — adds ${points.toLocaleString('en-PH')} shots to your shared pool`;
 }
 
 /**
- * One rung, fully derived: title, rate, capacity, cap.
- * `ratePhp` comes from the live catalog (the caller resolves the tier's
- * `rateServiceCode`) so the price and the capacity can never disagree.
+ * A Papic ONE rung. "That camera's own" is the load-bearing half: the entire
+ * difference between One and Pool is that these shots cannot be spent by anyone
+ * else, and a phrase that only quotes a number would sell the two as the same
+ * product at different prices.
  */
-export function papicTierSummary(
-  row: PapicTierConfigRow,
-  ratePhp: number | null,
-): string {
-  const price = ratePhp != null && ratePhp > 0 ? `${peso(ratePhp)} per camera, per day` : 'free';
-  return `${row.displayTitle} — ${price} · ${papicCapacityPhrase(row.pointsPerDay)}`;
+export function papicOneRungPhrase(points: number, pricePhp: number): string {
+  return `${peso(pricePhp)} — ${points.toLocaleString('en-PH')} shots, that camera's own`;
+}
+
+/**
+ * The point CURRENCY, as two short terms a couple can read side by side.
+ *
+ * This is the one sentence that makes every other Papic number legible: without
+ * it "50 shots" and "8" are unrelated figures. Both weights interpolate the
+ * constants in lib/papic-cameras.ts, so the 7 → 8 clip reprice (owner-locked
+ * 2026-07-29) moved this line without anyone editing a surface — which is the
+ * entire reason it lives here and not in the card.
+ */
+export function papicPointCurrencyTerms(): readonly [string, string] {
+  return [
+    `1 photo = ${PAPIC_POINTS_PER_PHOTO} pt`,
+    `10-second clip = ${PAPIC_POINTS_PER_CLIP} pts`,
+  ];
+}
+
+/**
+ * The honest capacity sentence for a LIFETIME bucket of points (a Papic One
+ * camera, or the shared pool) as opposed to a per-day budget.
+ *
+ * Same "one purse" honesty as papicCapacityPhrase: an exact "N photos + M clips"
+ * promise is unkeepable, because spending points on clips takes them from photos.
+ */
+export function papicBucketPhrase(points: number): string {
+  const photos = Math.floor(points / PAPIC_POINTS_PER_PHOTO);
+  return (
+    `about ${photos.toLocaleString('en-PH')} photo${photos === 1 ? '' : 's'} — fewer if ` +
+    `you shoot clips, since one 10-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
+  );
 }

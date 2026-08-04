@@ -18,6 +18,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 // Hard caps — keep in sync with the migration comment AND the editor UI hints.
 const TITLE_MAX = 80;
@@ -145,5 +146,7 @@ export async function updateDressCode(
     revalidatePath(`/${event.slug}`);
   }
 
-  redirect(`/dashboard/${eventId}/website/dress-code?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/dress-code?saved=1`, '?saved=1'),
+  );
 }

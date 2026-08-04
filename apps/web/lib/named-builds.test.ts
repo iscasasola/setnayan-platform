@@ -136,3 +136,46 @@ test('planSaveAs blank name → create with null title (caller uses auto title)'
   const plan = planSaveAs({ rawName: '   ', overwriteBuildId: null, existing: EXISTING });
   assert.deepEqual(plan, { mode: 'create', title: null });
 });
+
+// ── §7a · a BLANK plan name must never block a save ─────────────────────────
+// Owner ruling, Integration_Contract_Booking_x_Explore_2026-07-27.md §7a:
+// "saving builds blank will make us autocreate a name for the build". These
+// pin the end-to-end blank path the Plans panel relies on — the UI shows
+// `autoBuildTitle` as the placeholder and confirms it after the save, so the
+// namer here IS the name the couple was promised.
+
+test('§7a blank name round-trip: save → null title → auto name, for BOTH create and overwrite', () => {
+  const created = planSaveAs({ rawName: '', overwriteBuildId: null, existing: EXISTING });
+  assert.deepEqual(created, { mode: 'create', title: null });
+  // The row that lands has title null → the surface names it "Build {n}".
+  assert.equal(displayBuildTitle({ build_id: 'new', label: null, title: null }, 3), 'Build 4');
+
+  const overwritten = planSaveAs({
+    rawName: '   \n\t ',
+    overwriteBuildId: EXISTING[0]!.build_id,
+    existing: EXISTING,
+  });
+  assert.equal(overwritten.mode, 'overwrite');
+  assert.equal(overwritten.title, null);
+});
+
+test('§7a the auto namer is TOTAL — every position yields a non-blank name', () => {
+  for (let i = 0; i < 25; i++) {
+    const auto = autoBuildTitle({ build_id: `b${i}`, label: null, title: null }, i);
+    assert.ok(auto.trim().length > 0, `position ${i} produced a blank name`);
+    // The placeholder the UI shows and the name the save lands on must agree.
+    assert.equal(displayBuildTitle({ build_id: `b${i}`, label: null, title: null }, i), auto);
+  }
+});
+
+test('§7a plan names get NO content gate — only trim + cap (dates, @handles, digits all survive)', () => {
+  // A 27-agent adversarial review showed the #3606 chat contact-detector
+  // misfires on honest plan names; plan names are couple-private text, so
+  // normalizeBuildTitle is the WHOLE of the validation.
+  assert.equal(normalizeBuildTitle('Valid 2026-09-17 - 2026-12-31'), 'Valid 2026-09-17 - 2026-12-31');
+  assert.equal(normalizeBuildTitle('Coverage @Tagaytay'), 'Coverage @Tagaytay');
+  assert.equal(normalizeBuildTitle('Plan 09171234567'), 'Plan 09171234567');
+  // …and the cap is still the only thing that ever shortens a name.
+  const long = 'x'.repeat(MAX_BUILD_TITLE_LEN + 40);
+  assert.equal(normalizeBuildTitle(long)?.length, MAX_BUILD_TITLE_LEN);
+});

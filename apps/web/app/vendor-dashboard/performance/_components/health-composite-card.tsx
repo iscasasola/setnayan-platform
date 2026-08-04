@@ -212,12 +212,12 @@ export function HealthCompositeCard({
 
       {children ? (
         <div
-          className="grid transition-[grid-template-rows] duration-500 ease-in-out motion-reduce:transition-none"
+          className="grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-500 ease-in-out motion-reduce:transition-none"
           style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
         >
           <div
             inert={!expanded}
-            className={`min-h-0 overflow-hidden transition-opacity duration-300 motion-reduce:transition-none ${
+            className={`min-h-0 min-w-0 overflow-hidden transition-opacity duration-300 motion-reduce:transition-none ${
               expanded ? 'opacity-100' : 'opacity-0'
             }`}
           >

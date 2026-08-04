@@ -27,7 +27,8 @@ export const VENDOR_COUNT_BRAG_THRESHOLD = 50;
 /**
  * Live count of VERIFIED, publishable vendors in the public marketplace — the
  * SAME predicate /explore + the couple-facing catalog/onboarding counts use:
- *   public_visibility ∈ {verified, coming_soon}
+ *   public_visibility = 'verified'        (🔒 owner 2026-07-27 — `coming_soon`
+ *                                          retired; it used to be admitted here)
  *   AND verification_state = 'verified'   (PR-B gate)
  *   AND is_demo IS NOT TRUE               (demo/seed vendors never counted)
  *   AND a real business_name.
@@ -49,7 +50,7 @@ const loadVerifiedVendorMarketplaceCount = unstable_cache(
       const { count, error } = await admin
         .from('vendor_profiles')
         .select('vendor_profile_id', { count: 'exact', head: true })
-        .in('public_visibility', ['verified', 'coming_soon'])
+        .in('public_visibility', ['verified'])
         .eq('verification_state', 'verified')
         // Match /explore + sitemap: demo/seed vendors are never public-counted.
         .or('is_demo.is.null,is_demo.eq.false')
@@ -72,8 +73,13 @@ export const getVerifiedVendorMarketplaceCount = cache(
 
 /**
  * Per-canonical_service vendor count, broken down by publishing state.
- * `total` is the sum of `verified` and `coming_soon` rows that pass the
- * marketplace publishing gate (non-empty business_name).
+ * `total` is the count of rows passing the marketplace publishing gate
+ * (non-empty business_name).
+ *
+ * 🔒 `coming_soon` is RETIRED (owner 2026-07-27) and is now always 0. The field
+ * is retained so tile-count consumers keep compiling; it should be deleted
+ * together with the `comingSoon` branches in category-tile.tsx when that UI is
+ * next touched. `total === verified` from here on.
  */
 export type VendorCount = {
   verified: number;
@@ -106,7 +112,7 @@ export async function fetchVendorCountsByService(
   let query = admin
     .from('vendor_profiles')
     .select('services,public_visibility')
-    .in('public_visibility', ['verified', 'coming_soon'])
+    .in('public_visibility', ['verified'])
     .not('business_name', 'is', null)
     .neq('business_name', '');
 
@@ -523,7 +529,7 @@ export async function fetchTopVendorNamesByService(
     .select(
       'business_name,services,ad_rank,review_count,avg_rating_overall,vendor_profile_id',
     )
-    .in('public_visibility', ['verified', 'coming_soon'])
+    .in('public_visibility', ['verified'])
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', args.services as readonly string[]);

@@ -8,6 +8,8 @@ import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
+import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
+import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -23,12 +25,12 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ bridge?: string }>;
+  searchParams: Promise<{ bridge?: string; papic_buy_error?: string }>;
 };
 
 export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
-  const { bridge } = await searchParams;
+  const { bridge, papic_buy_error: buyError } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
   const bridgeEnabled =
@@ -60,7 +62,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">This seat was reissued</h1>
           <p className="mt-2 text-sm text-ink/65">
-            The couple handed this seat to someone else. Ask them for a fresh
+            The host handed this seat to someone else. Ask them for a fresh
             claim link if you&rsquo;d still like to shoot.
           </p>
           <Link
@@ -119,6 +121,30 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // the server re-gates on write (recordSeatCapture). Fail-closed → OFF by default.
   const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
 
+  // Guest "Add shots" doorway (owner-locked 2026-07-29), flag-dark behind
+  // NEXT_PUBLIC_PAPIC_GUEST_BUY — the panel self-gates and renders null when the
+  // flag is off, so this page is byte-identical today.
+  //
+  // ── ANY camera the holder claimed may buy its OWN shots (owner 2026-08-02) ──
+  //
+  // This used to require a camera that ALREADY held a dedicated balance, which
+  // is circular: a guest could not buy their first private shots without
+  // already having private shots. So a pool guest whose shared pot ran dry had
+  // no way to keep shooting, and the only purchase on offer topped up the
+  // HOST's pool — money that anyone else could then spend.
+  //
+  // The old note warned that granting a pool seat dedicated points "silently
+  // moves it off the pool the host is watching". True, and it is the intended
+  // behaviour rather than a hazard: `papic_reserve_event_points_for_seat`
+  // returns -1 only WHILE `papic_seat_dedicated_points(seat) > 0`, so a camera
+  // spends what its holder paid for FIRST and falls back to the shared pool the
+  // moment those run out. The host is never billed for shots a guest bought,
+  // and the guest is never stranded once they are spent.
+  //
+  // Entitlement is still decided in app/papic/buy/actions.ts from the
+  // credential — this is only an offer.
+  const canReloadOwnCamera = papicGuestBuyEnabled();
+
   return (
     <>
       <PapicSeatCapture
@@ -141,6 +167,13 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
           eventId={(seat.event_id as string) ?? ''}
         />
       ) : null}
+      <PapicGuestBuyPanel
+        seatToken={token}
+        returnTo={`/papic/seat/${token}`}
+        error={buyError ?? null}
+        canReloadOwnCamera={canReloadOwnCamera}
+        eventId={(seat.event_id as string) ?? null}
+      />
     </>
   );
 }

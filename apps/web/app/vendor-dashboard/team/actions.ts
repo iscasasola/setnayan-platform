@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { revokeAllSessions } from '@/lib/force-logout';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import {
   VENDOR_TEAM_ROLES,
   isVendorAdminRole,
@@ -361,18 +362,34 @@ export async function buyExtraSeat(formData: FormData) {
   const feePhp = await fetchSeatFeePhp(supabase);
   const referenceCode = generateSeatReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())` — the only thing RLS checked here; it
+  // never verified the caller administers the store being billed.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate: `ensureAdmin()` above
+  // authenticates and resolves `ctx.vendorProfileId` from a `vendor_team_members`
+  // row where user_id = the caller AND role IN ('admin','owner') — server
+  // resolved, never client-supplied — and `canBuyExtraSeats(ctx.tierState)` is
+  // the Enterprise/Custom gate. Both ids handed to `orderRowFor` come from
+  // there, so a form field can never reach an identity column.
+  const moneyWriter = createMoneyWriterClient();
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: currentUserId,
-      vendor_profile_id: ctx.vendorProfileId,
-      service_key: seatServiceKey(ctx.vendorProfileId),
-      description: 'Extra Team Seat (28-day)',
-      requested_total_php: feePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: currentUserId, eventId: null, vendorProfileId: ctx.vendorProfileId },
+        {
+          service_key: seatServiceKey(ctx.vendorProfileId),
+          description: 'Extra Team Seat (28-day)',
+          requested_total_php: feePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -380,17 +397,22 @@ export async function buyExtraSeat(formData: FormData) {
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: currentUserId,
-    amount_php: feePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: currentUserId, verifiedOrderId: orderId },
+      {
+        amount_php: feePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return err('Could not start the seat order. Please try again.');
   }
 

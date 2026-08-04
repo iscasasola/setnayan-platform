@@ -1,4 +1,49 @@
 /**
+ * 🚫 RETIRED 2026-07-25 — the full-screen SETNAYAN overlay is NO LONGER DRAWN
+ *    (owner-locked · Live_Studio_Unified_Spec_2026-07-25.md § 4f ①, reversing the
+ *    2026-07-21 lock this module was written under).
+ *
+ * OWNER'S REASON, in their words: *"yes we have a free single camera."* A free host really does
+ * broadcast one camera — the live /pricing page promises "Single-camera livestream" free — so a
+ * full-screen mark sitting over it makes that published promise hollow. **The free tier's branding
+ * is now the "POWERED BY SETNAYAN" LOWER THIRD** (Wave 2 · lib/live-studio-overlays.ts →
+ * resolveOverlays), which is derived from the entitlement and never stored, so there is no setting
+ * a free host can flip and no request to replay.
+ *
+ * ── HOW IT IS RETIRED, AND WHY THE MODULE IS STILL HERE ─────────────────────────────────────
+ * `decideWatermark` returns `overlay: false` for `retired`, ahead of every other branch. Because
+ * every surface reads THIS one decision (see the note on `decideWatermark`), that single branch
+ * retires all three render sites at once: the legacy control room's program monitor, its source
+ * thumbnails, and the OBS pop-out (which receives `overlay` over the program bridge). Nothing in
+ * the render tree had to change.
+ *
+ * The module is NOT deleted, and that is deliberate. Two live things import it:
+ *   • lib/entitlements.ts reads `PANOOD_PAID_SKUS` for Wave 6's grandfather alias
+ *     (LIVE_STUDIO ← PANOOD_SYSTEM · PANOOD_SYSTEM_MOBILE), and
+ *   • lib/panood-program-bridge.ts types its frame on `WatermarkReason`.
+ * Ripping the module out would drag the Cast-buyer grandfather clause into a watermark change.
+ *
+ * ── WHY `retired` IS AN INPUT AND NOT A HARDCODED `return false` ────────────────────────────
+ * Callers pass `liveStudioRoamEnabled()`. Flag OFF, the legacy Cast control room is LIVE AND
+ * SELLING `PANOOD_SYSTEM` (₱2,500) and this overlay is its ONLY paywall — retiring it
+ * unconditionally would hand every free host an unwatermarked multi-camera broadcast the moment it
+ * shipped, weeks before the replacement paywall (Wave 5's program-source reduction,
+ * lib/live-studio-publish.ts → decideProgramAir) is even reachable. That is the same reasoning
+ * § 4e gives for not retiring the SKU while the new product is dark. Flag ON, Wave 6 already
+ * redirects that room away, so this branch is the STATED decision standing behind what would
+ * otherwise be an accident of routing — and it survives the redirect being changed, the legacy
+ * code being deleted piecemeal, or a future publisher re-wiring `watermark.overlay`.
+ *
+ * ── WHAT REPLACED THE 24-HOUR WINDOW ───────────────────────────────────────────────────────
+ * lib/live-studio-window.ts. Same best rule (never interrupt a running broadcast), same anchor
+ * (`panood_control_state.first_live_at`, reused not re-invented), but it gates MULTI-CAM rather
+ * than an overlay, it is EXTENDABLE (another ₱2,999 = another event-day), and it bounds the
+ * never-interrupt grace to the broadcast that was already running. `PANOOD_WINDOW_HOURS` below is
+ * the retired 24h constant and is superseded by `LIVE_STUDIO_DAY_HOURS` there.
+ *
+ * ═══ Everything below this line is the ORIGINAL 2026-07-21 model, kept because the flag-off path
+ *     still runs it verbatim. ═══
+ *
  * Live Studio — the SETNAYAN overlay decision (owner-locked 2026-07-21).
  *
  * THE MODEL, in the owner's words: "while not paid, we will run setnayan logo on all screens"
@@ -35,6 +80,12 @@ export const PANOOD_PAID_SKUS = ['PANOOD_SYSTEM', 'PANOOD_SYSTEM_MOBILE'] as con
 export const PANOOD_WINDOW_HOURS = 24;
 
 export type WatermarkReason =
+  /**
+   * 🚫 THE OVERLAY IS RETIRED for this request (owner 2026-07-25 · § 4f ①). Terminal and
+   * unconditional: no other input is consulted, and the only decision it can produce is
+   * `overlay: false`. Free-tier branding is the "POWERED BY SETNAYAN" lower third instead.
+   */
+  | 'retired'
   /** No paid unlock on this event. The free rig-verification tier — connect, test, see it work. */
   | 'unpaid'
   /** Paid, but they have not pressed live yet. "Until then, we only promote setnayan." */
@@ -70,6 +121,15 @@ export type WatermarkInput = {
   now: Date;
   /** Override for tests / a future tier. Defaults to the locked 24 hours. */
   windowHours?: number;
+  /**
+   * 🚫 RETIRE the full-screen overlay for this request (owner 2026-07-25 · § 4f ①).
+   *
+   * Callers pass `liveStudioRoamEnabled()`. Defaults to `false` so every existing caller and test
+   * keeps the 2026-07-21 behaviour untouched, and the retirement is opt-in per surface rather than
+   * a silent global flip — see the module header for why that matters while the legacy Cast room
+   * is still selling.
+   */
+  retired?: boolean;
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -95,6 +155,20 @@ function toDate(v: string | Date | null): Date | null {
 export function decideWatermark(input: WatermarkInput): WatermarkDecision {
   const { paid, isLive, now } = input;
   const windowHours = input.windowHours ?? PANOOD_WINDOW_HOURS;
+
+  // 🚫 RETIRED (owner 2026-07-25 · § 4f ①). FIRST branch, ahead of everything: the overlay is not
+  // a thing this product draws any more, so no other input can bring it back — not `paid: false`,
+  // not an expired window, not a missing anchor. Since every video surface reads this one
+  // decision, this is the whole retirement. Free-tier branding is the "POWERED BY SETNAYAN" lower
+  // third (lib/live-studio-overlays.ts), resolved from the entitlement on the surface that
+  // actually reaches air.
+  //
+  // No window is reported either: `expiresAt`/`minutesRemaining` are null because the 24-hour
+  // window this module owned is superseded by lib/live-studio-window.ts. Returning a stale
+  // countdown here would give a caller something plausible-looking to read.
+  if (input.retired) {
+    return { overlay: false, reason: 'retired', expiresAt: null, minutesRemaining: null };
+  }
 
   if (!paid) {
     return { overlay: true, reason: 'unpaid', expiresAt: null, minutesRemaining: null };
@@ -132,6 +206,13 @@ export function decideWatermark(input: WatermarkInput): WatermarkDecision {
  * next press-live, never mid-air.
  */
 export function canStartBroadcast(input: WatermarkInput): boolean {
+  // 🚫 RETIRED with the overlay it belonged to. This gate existed ONLY to stop a free host
+  // starting a broadcast the overlay would have ruined; with the overlay retired there is nothing
+  // for it to protect, and leaving it armed would be an invisible refusal to go live with no
+  // paywall behind it. The broadcast-day rule that replaces it gates MULTI-CAM, never go-live
+  // (lib/live-studio-window.ts) — because the /pricing page promises a free single-camera stream.
+  if (input.retired) return true;
+
   const d = decideWatermark({ ...input, isLive: false });
   return d.reason === 'window-open' || d.reason === 'awaiting-go-live';
 }
@@ -149,6 +230,14 @@ export function isWindowEndingSoon(d: WatermarkDecision): boolean {
 
 /** Operator-facing copy. Kept beside the decision so states and wording cannot drift apart. */
 export const WATERMARK_COPY: Record<WatermarkReason, { badge: string; detail: string }> = {
+  // Required, not decorative: control-room.tsx indexes this Record by the resolved reason, so a
+  // missing key is a runtime `undefined.badge`. It renders only if a caller shows the badge strip
+  // on a retired decision — the copy says nothing about an overlay, because there isn't one.
+  retired: {
+    badge: 'Live Studio',
+    detail:
+      'A free broadcast carries the “Powered by Setnayan” bar. Unlock Live Studio to put all your cameras on air with your own monogram and lower third.',
+  },
   unpaid: {
     badge: 'Preview',
     detail:

@@ -29,6 +29,15 @@ export type StoreDiscount = {
   type: string; // vendor_service_discounts.discount_type
   rate: number;
   unit: 'pct' | 'php';
+  /**
+   * Early-booking LADDER rung threshold in months (owner-locked 2026-07-27);
+   * null = no threshold. Carried so the auto-reply can NAME each rung — a
+   * ladder is several `early_booking` rows, and without the threshold the reply
+   * would list "15% off (Early Booking), 10% off (Early Booking)" as two
+   * indistinguishable offers. The reply only STATES the ladder; the couple's
+   * event date is what picks their tier, on their card, never in chat.
+   */
+  minLeadMonths?: number | null;
 };
 
 export type StoreService = {
@@ -94,7 +103,28 @@ export type EventBriefLite = {
   primaryDate: string | null; // ISO date (YYYY-MM-DD)
   candidateDates: ReadonlyArray<string>;
   pax: number | null;
-  budgetPerHeadPhp: number | null;
+  /**
+   * ⚠ THE COARSE BAND ONLY ('premium' | 'mid' | …), and ONLY when the host has
+   * opted in via `events.share_budget_band` (default FALSE). NEVER a peso
+   * figure.
+   *
+   * This replaced `budgetPerHeadPhp: number | null` on 2026-07-30, which was a
+   * consent violation with a second edge: this payload also carries `pax`, so
+   * **per-head × pax reconstructed the couple's exact budget** — on the live
+   * event, ₱2,250,000 to the peso. The opt-in this bypassed governs
+   * `public.get_vendor_event_brief`, whose own header is explicit: shown as a
+   * RANGE, *"never an exact number"*, and only when the couple has an
+   * allocation for the calling vendor's category. This TS lane honoured none of
+   * the three.
+   *
+   * So the type no longer has anywhere to PUT a figure. That is deliberate: the
+   * old field was unread by any template, i.e. a loaded gun — the first
+   * auto-reply that wanted to mention budget would have leaked the exact number
+   * with no code review flagging it, because the value was already sitting in
+   * the payload looking legitimate. If a banded range is ever wanted here, it
+   * has to be added on purpose, with the category check the SQL does.
+   */
+  budgetBand: string | null;
   region: string | null;
 };
 

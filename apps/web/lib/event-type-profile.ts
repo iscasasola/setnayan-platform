@@ -165,7 +165,7 @@ export const GENERIC_PROFILE: EventTypeProfile = {
  * exercise the in-app Setnayan services. So `marketplaceEnabled` is FALSE (the
  * dashboard hides Explore/vendors) and the enabled content surfaces are the
  * couple TOOLS that work without vendors — seating / schedule / day_of / gallery.
- * The public website, Save-the-Date, RSVP, monogram and budget stay OFF; the
+ * Save-the-Date, RSVP, monogram and budget stay OFF; the
  * in-app services hub (Studio) is always available and is the point of the type.
  * roleSetKey 'simple' → SIMPLE_ROLE_SET (a single flat 'guest' role).
  */
@@ -179,7 +179,21 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
     eventWord: 'event',
     vipTierLabel: 'Guests',
   },
-  enabledSurfaces: ['seating', 'schedule', 'day_of', 'gallery'],
+  // ⚠ 'website' IS REQUIRED HERE, and leaving it out was a DEAD END (2026-08-02).
+  //
+  // The note above still holds for what it meant — a simple event gets no
+  // wedding-style marketing site, no Save-the-Date, no RSVP. But `day_of` and
+  // `gallery` ARE enabled, and both of those RENDER ON THE PUBLIC EVENT SITE.
+  // 'website' is not a marketing surface: it is the surface that makes that site
+  // editable and, critically, the only place the "go live" control exists.
+  //
+  // Without it a host was redirected out of BOTH launch buttons — the one on
+  // Save-the-Date and the one in the website editor — so their event site stayed
+  // private forever. Guests could never open it, which also took the guest
+  // camera, the QR and the gallery with it. Enabling the day-of experience while
+  // disabling the only switch that turns it on is a contradiction, not a scope
+  // choice. Pinned by the 'day_of implies website' guard in the test file.
+  enabledSurfaces: ['website', 'seating', 'schedule', 'day_of', 'gallery'],
   marketplaceEnabled: false,
   eventClass: 'community_eligible', // a Samahan may host a simple event
   layerMode: 'anchored',

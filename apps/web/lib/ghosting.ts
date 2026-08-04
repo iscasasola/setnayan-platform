@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendVendorGhostWarningEmail } from '@/lib/vendor-email-triggers';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Login-driven ghosting check (owner directive 2026-06-07 — NO cron).
@@ -122,25 +123,38 @@ export async function runLoginGhostingCheck(
         )
           .toISOString()
           .slice(0, 10);
-        const { data: confirmed } = await admin
+        // ⚠ `marketplace_vendor_id`, NOT `vendor_profile_id` — public.event_vendors
+        // has no `vendor_profile_id`; the marketplace-vendor link is
+        // `marketplace_vendor_id` (the same column every other vendor-side read
+        // uses, e.g. lib/vendor-overview.ts and vendor-dashboard/clients).
+        // Naming it in BOTH the select and the .in() filter 42703'd the whole
+        // query, so `confirmed` was always null and the T-7-days
+        // "confirm you're ready" ghost-warning email NEVER sent to anyone.
+        const { data: confirmed, error: confirmedError } = await admin
           .from('event_vendors')
           .select(
-            'event_id, vendor_profile_id, status, event:events!inner(event_id, event_date)',
+            'event_id, marketplace_vendor_id, status, event:events!inner(event_id, event_date)',
           )
-          .in('vendor_profile_id', vpIds)
+          .in('marketplace_vendor_id', vpIds)
           .in('status', ['contracted', 'deposit_paid'])
           .gte('event.event_date', todayDate)
           .lte('event.event_date', sevenDaysOutDate);
+        if (confirmedError) {
+          logQueryError('ghosting:upcomingConfirmedBookings', confirmedError, {
+            userId,
+            vendorProfileCount: vpIds.length,
+          });
+        }
         const upcoming = (confirmed ?? []) as Array<{
           event_id: string | null;
-          vendor_profile_id: string | null;
+          marketplace_vendor_id: string | null;
         }>;
         // De-dup per (vendor_profile, event) so a multi-service vendor on one
         // wedding gets a single warning for that event.
         const warnedKeys = new Set<string>();
         for (const row of upcoming) {
           const eventId = row.event_id;
-          const vpId = row.vendor_profile_id;
+          const vpId = row.marketplace_vendor_id;
           if (!eventId || !vpId) continue;
           const key = `${vpId}:${eventId}`;
           if (warnedKeys.has(key)) continue;

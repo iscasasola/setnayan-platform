@@ -44,7 +44,7 @@ import {
   type StdBackground,
   type StdLegibility,
 } from '@/lib/std-backgrounds';
-import type { StdMedia } from '@/lib/std-media';
+import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 import {
@@ -76,6 +76,10 @@ type Props = {
   initialUploadUrl?: string | null;
   /** The couple's saved Step-3 media choice (resolved; defaults to gallery). */
   initialMedia: StdMedia;
+  /** Screening status of the SAVED video (events.std_media_nsfw · SEC-6).
+   *  Display-only, and never round-tripped back to the server — the verdict is
+   *  written by the service-role screen alone. */
+  initialNsfwStatus: StdNsfwStatus;
   /** Presigned URL for the saved uploaded video (if media.type === 'video'). */
   initialVideoUrl?: string | null;
   /** Resolved poster still of the SAVED video → the preview's blurred fill. */
@@ -134,6 +138,7 @@ export function StdBuilderClient({
   initialBackground,
   initialUploadUrl,
   initialMedia,
+  initialNsfwStatus,
   initialVideoUrl,
   initialPosterUrl,
   galleryCount,
@@ -238,7 +243,10 @@ export function StdBuilderClient({
     setMedia(m);
     if (result !== 'idle') setResult('idle');
   };
-  // A new video upload resets the NSFW gate to pending (re-screened before live).
+  // A new video upload invalidates any stored verdict by construction — the
+  // verdict names the OLD videoKey, so it stops binding the moment this saves
+  // (SEC-6). Nothing here needs to "reset" a gate; the badge below reads the
+  // server's bound status, which is why a fresh upload shows as under review.
   const handleVideoUpload = (payload: StdVideoUpload | null) => {
     if (!payload) {
       setVideoPreviewUrl(null);
@@ -250,7 +258,6 @@ export function StdBuilderClient({
       type: 'video',
       videoKey: payload.videoKey,
       posterKey: payload.posterKey,
-      nsfw: 'pending',
       fit: media.fit ?? 'fill', // preserve the couple's play-mode across re-upload
     });
   };
@@ -746,6 +753,13 @@ export function StdBuilderClient({
             value={media}
             onChange={pickMedia}
             eventId={eventId}
+            nsfwStatus={
+              // A just-picked, not-yet-saved video has no verdict of its own —
+              // show "under review" rather than the previous video's badge.
+              media.videoKey && media.videoKey !== initialMedia.videoKey
+                ? 'pending'
+                : initialNsfwStatus
+            }
             galleryCount={galleryCount}
             videoUrl={initialVideoUrl}
             onUploadVideo={handleVideoUpload}

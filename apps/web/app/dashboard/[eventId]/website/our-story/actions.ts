@@ -26,6 +26,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 const FIELD_MAX = 600;
 const SHORT_MAX = 120;
@@ -133,5 +134,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
 
   revalidatePath(`/dashboard/${eventId}/website`);
   if (event.slug) revalidatePath(`/${event.slug}`);
-  redirect(`/dashboard/${eventId}/website/our-story?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/our-story?saved=1`, '?saved=1'),
+  );
 }

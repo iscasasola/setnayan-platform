@@ -21,6 +21,7 @@ import {
   Unlink2,
   Users,
   BatteryWarning,
+  QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -46,6 +47,7 @@ import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
   papicRungRate,
+  papicRungSku,
   isPapicUncapped,
   provisionFreeCamerasAdmin,
   PAPIC_MIN_PAID_CAMERAS,
@@ -55,6 +57,8 @@ import {
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_RUNGS,
 } from '@/lib/papic-cameras';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
 // papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
@@ -80,6 +84,9 @@ import {
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
+import { GuestContributionsCard } from './_components/guest-contributions-card';
+import { PapicOneCard } from './_components/papic-one-card';
+import { PapicPoolCard } from './_components/papic-pool-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -116,6 +123,8 @@ type Props = {
     papic_ref?: string;
     papic_amount?: string;
     papic_error?: string;
+    papic_one_error?: string;
+    papic_pool_error?: string;
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -160,6 +169,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_ref: papicRef,
     papic_amount: papicAmount,
     papic_error: papicError,
+    papic_one_error: papicOneError,
+    papic_pool_error: papicPoolError,
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
@@ -231,6 +242,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
   const papicTierConfig = await fetchPapicTierConfig(supabase);
+  // The LIFETIME bucket each per-camera rung actually grants. Read from
+  // papic_one_tiers because that is the table papic_grant_camera_points()
+  // reads on approval — see the comment on `rungPoints` below.
+  const papicOneTiers = await fetchPapicOneTiers(supabase);
   // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
   // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
   // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
@@ -239,6 +254,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const uncappedEvent = isPapicUncapped(
     (event as Record<string, unknown>).event_type as string | null,
   );
+
+  // The couple's word for their own event. Papic ships on all 16 event types
+  // (owner-locked 2026-07-27), but this page still greeted every one of them
+  // with "Wedding photo capture" and offered "unlimited cameras for the whole
+  // wedding" — read by a birthday host, a reunion organiser, or the host of a
+  // Simple Event, whose type exists precisely BECAUSE it is not a wedding.
+  // `terminology.event_word` is the shipped per-type noun; nothing new.
+  const papicEventWord =
+    ((event as Record<string, unknown>).event_type as string | null) === 'wedding'
+      ? 'wedding'
+      : 'event';
   const papicMiniCapPhp = uncappedEvent
     ? Number.MAX_SAFE_INTEGER
     : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
@@ -320,6 +346,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     validUntil: papicWindow.endIso,
   });
 
+  // FREE POOL — the other half of the free tier, and the SELF-HEAL for it.
+  // The 3 seats above are useless without points: with no grant at all,
+  // papic_event_pool_status() returns applies=FALSE and papic_reserve_event_points()
+  // takes its "fence absent -> allow, ledger untouched" branch, so capture runs
+  // UNMETERED. Every event-creation path now arms this at commit; this call is the
+  // backstop that catches (a) every event created before 20271017100000 that the
+  // backfill somehow missed and (b) any creation-time write that failed its
+  // best-effort attempt. Idempotent — the partial unique index collapses repeats.
+  await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
+
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
   // the bill; render-time sync keeps cameras in line with late RSVPs (free,
@@ -381,6 +424,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     extraCameraCount = count ?? 0;
   }
 
+  // Claim-link cameras — every seat that carries its own QR (the free pool
+  // cameras, the free Papic One, and any paid extras). Counted here so the QR
+  // tile below can say how many are ready and how many are still unclaimed,
+  // rather than sending the couple to a page to find out.
+  let claimLinkTotal = 0;
+  let claimLinkUnclaimed = 0;
+  {
+    const { data: seatRows } = await supabase
+      .from('paparazzi_seats')
+      .select('claimer_user_id')
+      .eq('event_id', eventId)
+      .is('revoked_at', null);
+    const rows = seatRows ?? [];
+    claimLinkTotal = rows.length;
+    claimLinkUnclaimed = rows.filter((r) => !r.claimer_user_id).length;
+  }
+
   return (
     <section className="space-y-7 pb-12">
       <Link
@@ -396,7 +456,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <p className="sn-eye">Capture</p>
         <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Wedding photo capture
+          {papicEventWord === 'wedding' ? 'Wedding' : 'Event'} photo capture
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Your guests become the camera crew — every photo and 10-second clip lands
@@ -430,7 +490,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               Everything Papic, one price
             </h2>
             <p className="max-w-prose text-sm text-ink/70">
-              Unlimited cameras for the whole wedding + every add-on (Kwento,
+              Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
               Photo Wall, Thank You, Stories, Pabati, Camera Bridge).
             </p>
           </div>
@@ -496,6 +556,48 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <h2 className="text-xl font-semibold tracking-tight">Your cameras</h2>
         </div>
 
+        {/* ── HOW PEOPLE ACTUALLY START SHOOTING. ─────────────────────────
+            Owner, 2026-08-01: "i cannot find the qr for the papic services."
+            They were not missing — they were behind a small text link tucked
+            into the header of the off-guest-list tile, two sections down. The
+            QR is the whole mechanic of Papic, so it gets its own block, at the
+            top of Your cameras, with the counts resolved here rather than
+            making the couple open a page to discover them. */}
+        {claimLinkTotal > 0 ? (
+          <div className="sn-tile flex flex-wrap items-center justify-between gap-3 border border-terracotta/30 p-4 sm:p-5">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <QrCode aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+                Camera QR codes
+              </p>
+              <p className="mt-0.5 max-w-prose text-xs text-ink/60">
+                {claimLinkUnclaimed > 0
+                  ? `${claimLinkUnclaimed} of ${claimLinkTotal} still to hand out. `
+                  : `All ${claimLinkTotal} claimed. `}
+                Each camera has its own QR and link — show it, they scan, they
+                shoot. Every shot draws from your shared pool.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+              >
+                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Show the QR codes
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew/print`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+              >
+                Print cards
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         {/* Capture window — sets the price (days) AND how long cameras shoot. */}
         <PapicWindowPicker
           eventId={eventId}
@@ -538,28 +640,63 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               href={`/dashboard/${eventId}/studio/papic/crew`}
               className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:text-terracotta-700"
             >
-              Crew &amp; claim links
+              {/* ⚠ SAY "QR". This read "Crew & claim links", and the QR codes +
+                  the printable cards live behind it — so the word never appeared
+                  anywhere on the path to them, and the owner could not find the
+                  QRs at all. The page they open is titled "Your photo crew" and
+                  renders a QR per camera; the label just never said so. */}
+              Camera QR codes &amp; claim links
               <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </Link>
           </div>
           <div className="max-w-sm">
             <ExtraCamerasPicker
               eventId={eventId}
-              rungs={PAPIC_RUNGS.map((rung) => ({
-                rung,
-                title: papicTierConfig[rung].displayTitle,
-                ratePhp: papicRungRate(cameraRates, rung),
-                pointsPerDay: papicTierConfig[rung].pointsPerDay,
-                capPhp: papicRungCapPhp[rung],
-                // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
-                // rung. Nothing frees the ₱50 Ltd rung today.
-                free:
-                  rung === 'unlimited'
-                    ? ownsPapicUnlock
-                    : rung === 'mini'
-                      ? ownsPapicUnlockLtd
-                      : false,
-              }))}
+              // ⚠ FILTER BEFORE MAP. PAPIC_RUNGS is a static vocabulary of every
+              // rung the code can SPEAK, not a list of what is on SALE — the
+              // sale list is `papic_tier_config.is_active`, which an admin
+              // edits without a deploy. Mapping the constant straight to the
+              // picker put both RETIRED rungs on a live buy button: 'ltd'
+              // (migration 20270828150000) and 'unlimited' (20270830568357) are
+              // both is_active=false, as are their catalog price rows — so they
+              // quoted ₱50 / ₱200 off the fail-closed FALLBACK constants in
+              // lib/papic-cameras.ts, which exist so a retired rung cannot
+              // quote ₱0, not so it can keep selling. It also broke the
+              // 2026-07-30 naming lock: "Papic Ltd" and "Papic Max" are not
+              // products, and only Pool and One may appear on a display surface.
+              rungs={PAPIC_RUNGS.filter((rung) => papicTierConfig[rung].isActive).map(
+                (rung) => ({
+                  rung,
+                  title: papicTierConfig[rung].displayTitle,
+                  ratePhp: papicRungRate(cameraRates, rung),
+                  // ⚠ THE BUCKET, FROM THE TABLE THE GRANT READS.
+                  //
+                  // This used to pass `papic_tier_config.points_per_day` — the
+                  // OLD per-camera-per-DAY meter, whose 'mini' row is NULL on
+                  // prod. NULL reads as "unlimited" to every copy helper, so the
+                  // picker advertised "No limit · archived to your Drive" on a
+                  // ₱50 camera. It is not unlimited: the approval path
+                  // `papic_grant_camera_points()` grants
+                  // `papic_one_tiers[PAPIC_CAMERA_MINI_DAY].points` per seat —
+                  // 50 on prod — and the fail-closed reserve stops the shutter
+                  // there. So the picker sold unlimited and delivered 50, on the
+                  // SAME screen as the Papic One card correctly saying "50
+                  // shots". Reading the rung table is what makes the claim true
+                  // (lib/papic-tier-config-read.ts says so in its own header).
+                  points:
+                    papicOneTiers.find((t) => t.serviceCode === papicRungSku(rung))
+                      ?.points ?? null,
+                  capPhp: papicRungCapPhp[rung],
+                  // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
+                  // rung. Nothing frees the ₱50 Ltd rung today.
+                  free:
+                    rung === 'unlimited'
+                      ? ownsPapicUnlock
+                      : rung === 'mini'
+                        ? ownsPapicUnlockLtd
+                        : false,
+                }),
+              )}
               days={papicDays}
               windowSummary={papicWindowSummary}
             />
@@ -574,6 +711,35 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           the cameras it meters — deliberately NOT in the add-on region below,
           which PR #3581 (PoolGalleryCard) is concurrently editing. */}
       <HostPoolMeterCard eventId={eventId} />
+
+      {/* Papic ONE — buy a dedicated camera, or RELOAD one that already exists
+          (owner-locked 2026-07-29). Mounted right under the pool meter because
+          the two are the two halves of the model: the meter is the SHARED pool,
+          this is the camera that does not share. Minimal by design — the
+          polished card ships with the onboarding cards; what could not wait is
+          the doorway, because the free One camera is armed for every event from
+          this PR onward and a camera nobody can reload is a dead end. */}
+      {/* Papic POOL — the buy path for the SHARED pool (2026-07-31). Mounted
+          ABOVE the One card because Pool is the product a couple meets first:
+          the free 50-pt grant is a pool grant, the onboarding services card
+          leads with the Pool ladder, and the Suite CTA that lands here reads
+          "Open the pool". Until now this page answered that CTA with a One
+          camera and nothing else — the Pool ladder was advertised in two live
+          places and buyable in none, while all three PAPIC_GUEST* rows sat
+          is_active=true and `grantPapicPassPoints` sat wired and unreachable.
+          Self-gating to null when no rung has a live catalog price. */}
+      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+
+      <PapicOneCard eventId={eventId} error={papicOneError ?? null} />
+
+      {/* Guests chipped in (owner-locked 2026-07-29) — flag-dark behind
+          NEXT_PUBLIC_PAPIC_GUEST_BUY, self-gating to null when off, when the
+          viewer is not a member, or when no guest has bought anything. Sits
+          directly under the two cards it reports on, because a guest's purchase
+          lands in exactly one of them: a pool top-up in the meter above, a One
+          reload on the camera card. NOTIFICATION ONLY — there is no control
+          here, deliberately: the host is told, not asked. */}
+      <GuestContributionsCard eventId={eventId} />
 
       {/* Your Papic look — the event-wide capture template the couple picks
           once. Baked into every camera's photos (seats, guests) on
@@ -1163,7 +1329,13 @@ function StorageOptionDrive({
               ) : null}
             </div>
             <p className="text-xs text-ink/65">
-              Weddings can run 30–60 GB — make sure your Drive has space. If it
+              {/* Type-neutral on purpose: this is a STORAGE sizing note, and
+                  30–60 GB is a function of how many cameras shoot for how long,
+                  not of what the day is called. Naming the event type here
+                  would mean threading a prop into a component that has no other
+                  reason to know it. */}
+              A full day of shooting can run 30–60 GB — make sure your Drive has
+              space. If it
               runs out or disconnects, Setnayan won&rsquo;t have a backup copy.
             </p>
           </div>

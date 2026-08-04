@@ -156,3 +156,47 @@ test('integration: a Pro vendor with a use inside the cycle now pays ₱500', ()
   assert.equal(usesThisCycle2, 0);
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: usesThisCycle2, cyclePricePhp: 500 }), 0);
 });
+
+// ── 2026-07-25 tiered band, INJECTED as the cycle price ─────────────────────
+// THE REGRESSION THIS GUARDS: resolveDeepSearchPricePhp returns ₱0 for a Pro+
+// vendor's FIRST run of the cycle *before* it reads cyclePricePhp. Replacing the
+// resolver's OUTPUT with the band price — rather than passing the band IN — would
+// silently delete the Pro+ free search, a revenue-visible regression with no
+// type error and no failing test elsewhere.
+
+test('band injection preserves the Pro+ free run of the cycle', () => {
+  for (const band of [1000, 500]) {
+    assert.equal(
+      resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: band }),
+      0,
+      `pro / band ${band}`,
+    );
+    assert.equal(
+      resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 0, cyclePricePhp: band }),
+      0,
+      `enterprise / band ${band}`,
+    );
+  }
+});
+
+test('band injection prices the 2nd+ run of the cycle at the band', () => {
+  assert.equal(
+    resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 500 }),
+    500,
+  );
+  assert.equal(
+    resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 3, cyclePricePhp: 500 }),
+    500,
+  );
+});
+
+test('Solo has NO free allowance — it pays the entry band on every run', () => {
+  assert.equal(
+    resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 1000 }),
+    1000,
+  );
+  assert.equal(
+    resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 5, cyclePricePhp: 1000 }),
+    1000,
+  );
+});

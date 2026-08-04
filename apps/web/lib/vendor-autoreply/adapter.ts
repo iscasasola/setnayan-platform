@@ -47,7 +47,12 @@ function activeDiscounts(
   if (!ds) return [];
   return ds
     .filter((d) => !d.expires_at || Date.parse(d.expires_at) > now)
-    .map((d) => ({ type: d.discount_type, rate: d.rate, unit: d.unit }));
+    .map((d) => ({
+      type: d.discount_type,
+      rate: d.rate,
+      unit: d.unit,
+      minLeadMonths: d.min_lead_months,
+    }));
 }
 
 function toStoreService(row: VendorServiceRow, src: SnapshotSources, now: number): StoreService {
@@ -116,13 +121,28 @@ export function toStoreSnapshot(src: SnapshotSources, now: number = Date.now()):
   };
 }
 
-export function toEventBriefLite(brief: EventBrief): EventBriefLite {
-  const perHead = brief.constraints.budget.perHeadCentavos;
+/**
+ * Narrow the full Event Brief to the vendor-facing lite contract.
+ *
+ * `consent.shareBudgetBand` is a REQUIRED argument, not an option with a
+ * default: a caller that forgets it is a TypeScript error rather than a silent
+ * opt-in. That is the whole safety property — see `EventBriefLite.budgetBand`
+ * for what this replaced and why (per-head × pax reconstructed the couple's
+ * exact budget past an opt-in that was default-FALSE).
+ *
+ * Nothing derived from `budget.perHeadCentavos` or `budget.amountCentavos` may
+ * be returned from here. A guard test asserts that by reading this source.
+ */
+export function toEventBriefLite(
+  brief: EventBrief,
+  consent: { shareBudgetBand: boolean },
+): EventBriefLite {
   return {
     primaryDate: brief.constraints.date.primary,
     candidateDates: brief.constraints.date.candidates,
     pax: brief.constraints.pax,
-    budgetPerHeadPhp: perHead != null ? Math.round(perHead / 100) : null,
+    // Coarse band, gated on the host's opt-in. No figure, either way.
+    budgetBand: consent.shareBudgetBand ? brief.constraints.budget.band : null,
     region: brief.constraints.location.region,
   };
 }

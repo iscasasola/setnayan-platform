@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import {
   Cormorant_Garamond,
+  Fraunces,
   Manrope,
   DM_Mono,
   Hanken_Grotesk,
@@ -20,7 +21,6 @@ import { NativeBridge } from './_components/native-bridge';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
-import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
@@ -39,6 +39,7 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { orgSameAs } from '@/lib/seo/org-same-as';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -84,6 +85,24 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
   weight: ['400', '500', '600', '700'],
   variable: '--font-editorial-display',
+});
+
+// Pahina display face (guest-site design 2026-07-25 §3) — loaded under its OWN
+// variable so this PR is inert; the .sn-editorial restyle PRs consume it.
+// Wave-A PR-5 CHECKED THIS AND CORMORANT STAYS — it has real consumers, so do
+// not "clean it up" on a future bundle pass without redoing the check:
+//   · `.sn-editorial` (globals.css) maps --font-display → --font-editorial-display,
+//     so every font-display / font-serif in the guest tree still resolves here.
+//     Only the Pahina-specific `font-pahina` classes use Fraunces.
+//   · app/global-error.tsx names 'Cormorant Garamond' directly.
+// Retiring it means first repointing --font-editorial-display at Fraunces, which
+// restyles the whole guest tree — a visual change, not a bundle cleanup.
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-pahina-display',
 });
 
 const manrope = Manrope({
@@ -358,7 +377,7 @@ const organizationJsonLd = {
   },
   image: 'https://www.setnayan.com/brand/og-card.webp',
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. Couples plan their wedding free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. Everything a couple creates gathers into one living memory (Alaala) they keep, and the wedding becomes its own recurring anniversary — so a one-time wedding grows into the home for every celebration that follows. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. Couples plan their wedding free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more shots), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. Everything a couple creates gathers into one living memory (Alaala) they keep, and the wedding becomes its own recurring anniversary — so a one-time wedding grows into the home for every celebration that follows. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -387,9 +406,11 @@ const organizationJsonLd = {
   ],
   // sameAs[] — verified brand profiles that ground the Setnayan entity in the
   // knowledge graph (Google/Bing + AI answer engines cross-reference these).
-  // Facebook Page live + owner-confirmed 2026-07-10. No LinkedIn Company Page
-  // yet — append its URL here when it exists.
-  sameAs: ['https://www.facebook.com/setnayan'],
+  // The list moved to lib/seo/org-same-as.ts so the SEO audit reads THE SAME
+  // source it ships from: it used to check an env var nothing consumed, and so
+  // reported "empty — create FB Page" every day while the Page was already live
+  // and already emitted right here. Append new profiles in that module.
+  sameAs: orgSameAs(),
 };
 
 // Light-locked 2026-06-04 (owner: "just always keep it light theme"). One
@@ -463,7 +484,7 @@ export default async function RootLayout({
       lang="en-PH"
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*
@@ -563,7 +584,6 @@ export default async function RootLayout({
             tab taps. No-op on desktop / reduced-motion / unsupported browsers,
             and never touches the locked BottomNav. See nav-slide-controller.tsx. */}
         <NavSlideController />
-        <PilotModeBanner />
         {/*
           DemoModeBanner is admin-only and now a CLIENT component: it reads a
           non-httpOnly presence-hint cookie and, only when present, fetches the
@@ -594,9 +614,15 @@ export default async function RootLayout({
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />
-        {/* Site-wide cookie-consent banner (RA 10173). Self-hides on '/',
-            where HomeReskin renders its own bespoke pill — both share the
-            same consent state via lib/cookie-consent. */}
+        {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
+            it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
+            itself only on the two Live Studio surfaces where it would be
+            broadcast or cover the on-air controls — see
+            _components/capture-safe-routes.ts. Every other route, including
+            '/', still gets the ask. (The old note here claimed a '/' self-hide
+            for a bespoke HomeReskin pill; no such pill exists — the only consent
+            UI in the tree is this banner plus the "Cookie settings" re-open
+            links, which all share state via lib/cookie-consent.) */}
         <CookieConsentBanner />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for

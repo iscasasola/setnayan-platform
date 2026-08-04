@@ -18,6 +18,12 @@ import {
   figureNextMove,
   figurePayments,
 } from '@/lib/setnayan-ai-activity';
+import {
+  buildAiValueGroups,
+  WEDDING_AI_VALUE_TERMS,
+  type AiCapabilityId,
+  type AiValueTerms,
+} from './setnayan-ai-value-copy';
 
 /**
  * SetnayanAiValue — the "everything Setnayan AI is keeping for you" surface,
@@ -37,89 +43,31 @@ import {
  * no live data source yet (see setnayan-ai-snapshot.ts).
  */
 
-type Capability = {
-  icon: typeof ListChecks;
-  title: string;
-  body: string;
-  /** Live per-event figure — omitted entirely in preview mode. */
-  live?: (a: AiActivity) => string;
+/**
+ * Icon + live-figure per capability, keyed by the STABLE id from
+ * setnayan-ai-value-copy.ts. The words live there (pure + unit-tested, and
+ * varied per event type); this map holds only what can't be a string.
+ * Keyed by id, never by title — a title is copy and copy moves.
+ */
+const CAP_ICON: Record<AiCapabilityId, typeof ListChecks> = {
+  rank: ListChecks,
+  distance: MapPin,
+  first_inquiry: Send,
+  deadlines: CalendarClock,
+  chase: BellRing,
+  next_move: Clock,
+  payments: Wallet,
+  budget: PiggyBank,
+  demand: Eye,
 };
 
-type CapabilityGroup = {
-  heading: string;
-  blurb: string;
-  caps: Capability[];
+const CAP_FIGURE: Partial<Record<AiCapabilityId, (a: AiActivity) => string>> = {
+  rank: figureRanked,
+  deadlines: figureDeadlines,
+  next_move: figureNextMove,
+  payments: figurePayments,
 };
 
-const GROUPS: CapabilityGroup[] = [
-  {
-    heading: 'Finds the right people',
-    blurb: 'Turns the whole vendor directory into a shortlist made for your day.',
-    caps: [
-      {
-        icon: ListChecks,
-        title: 'Ranks every vendor by how well they fit',
-        body: 'Sorted by your date, budget, location, guest count, faith and reviews — each with a “% match”, not a generic A–Z list.',
-        live: figureRanked,
-      },
-      {
-        icon: MapPin,
-        title: 'Sorts by distance to your reception',
-        body: 'Nearer vendors rise to the top, so you’re not comparing a supplier three provinces away against one down the road.',
-      },
-      {
-        icon: Send,
-        title: 'Sends your first inquiry to the best fit',
-        body: 'For each category it can draft and open the conversation with the strongest match, so you start with a reply — not a blank page.',
-      },
-    ],
-  },
-  {
-    heading: 'Keeps it all moving',
-    blurb: 'The quiet secretary that never loses the thread.',
-    caps: [
-      {
-        icon: CalendarClock,
-        title: 'Tracks every deadline for you',
-        body: 'Recommended booking windows plus your PH marriage paperwork — license, Pre-Cana, PSA — counted down and surfaced before they bite.',
-        live: figureDeadlines,
-      },
-      {
-        icon: BellRing,
-        title: 'Chases the vendors who go quiet',
-        body: 'If someone you’ve messaged hasn’t replied, it notices and offers to send a polite nudge — so a stalled thread never becomes a lost date.',
-      },
-      {
-        icon: Clock,
-        title: 'Tells you the one thing to do next',
-        body: 'Out of everything in flight, it names the single most-urgent move and how far you’ve come — no more staring at a to-do pile.',
-        live: figureNextMove,
-      },
-    ],
-  },
-  {
-    heading: 'Guards against costly slips',
-    blurb: 'The part that is practically impossible to keep by hand.',
-    caps: [
-      {
-        icon: Wallet,
-        title: 'Flags a payment before it’s due',
-        body: 'Every vendor balance and due date, watched — so a deposit deadline never sneaks up and costs you the booking.',
-        live: figurePayments,
-      },
-      {
-        icon: PiggyBank,
-        title: 'Warns you before you go over budget',
-        body: 'It adds up what you’ve committed against your target and speaks up while there’s still room to trim, not after.',
-      },
-      {
-        icon: Eye,
-        title: 'Notices when someone eyes your date',
-        body: 'When another couple starts looking at a vendor you’re considering for your date, it tells you — so you can lock them in first.',
-      },
-    ],
-  },
-];
 
 function Figure({ text }: { text: string }) {
   return (
@@ -133,13 +81,20 @@ function Figure({ text }: { text: string }) {
 export function SetnayanAiValue({
   mode,
   activity = null,
-  eventWord = 'wedding',
+  terms = WEDDING_AI_VALUE_TERMS,
 }: {
   mode: 'live' | 'preview';
   activity?: AiActivity | null;
-  eventWord?: string;
+  /**
+   * Event-type terminology + the statutory-pack fact, from EventTypeProfile.
+   * Defaults to the wedding shape so an un-migrated caller renders exactly what
+   * it rendered before this surface became type-aware.
+   */
+  terms?: AiValueTerms;
 }) {
   const live = mode === 'live' && activity !== null;
+  const groups = buildAiValueGroups(terms);
+  const { eventWord } = terms;
 
   return (
     <div className="space-y-6">
@@ -166,17 +121,19 @@ export function SetnayanAiValue({
         </div>
       ) : null}
 
-      {GROUPS.map((group) => (
+      {groups.map((group) => (
         <section key={group.heading} className="space-y-3">
           <div>
             <h2 className="text-sm font-semibold text-ink">{group.heading}</h2>
             <p className="text-sm text-ink/55">{group.blurb}</p>
           </div>
           <ul className="grid gap-3 sm:grid-cols-3">
-            {group.caps.map(({ icon: Icon, title, body, live: liveFn }) => {
+            {group.caps.map(({ id, title, body }) => {
+              const Icon = CAP_ICON[id];
+              const liveFn = CAP_FIGURE[id];
               const figure = live && activity && liveFn ? liveFn(activity) : null;
               return (
-                <li key={title} className="sn-row flex flex-col p-4">
+                <li key={id} className="sn-row flex flex-col p-4">
                   <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
                   <p className="mt-2 text-sm font-medium text-ink">{title}</p>
                   <p className="mt-1 text-sm text-ink/65">{body}</p>

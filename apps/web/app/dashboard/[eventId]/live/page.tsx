@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   asWallTileLayout,
   clampWallPhotoCount,
@@ -96,13 +97,19 @@ export default async function LiveWallConsolePage({
   // client AFTER the membership gate above — same trust model as KwentoQueue.
   const admin = createAdminClient();
   const [
-    { data: event },
+    { data: event, error: eventError },
     { data: sessions },
     { data: feed },
     { count: visibleCount },
     { count: hiddenCount },
     { count: faceblockGuests },
   ] = await Promise.all([
+    // ⚠ `kwento_flash_auto_wall` did not exist in the database until migration
+    // 20271011120000 — the coordinator toggle and this read shipped without it.
+    // PostgREST 42703s on ONE unknown column and fails the WHOLE row, so
+    // `event` was null and this console ALSO lost event_date,
+    // live_mode_override, wall_photo_count and wall_tile_layout. The error is
+    // now surfaced instead of silently degrading to "brand new event".
     admin
       .from('events')
       .select('event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout')
@@ -138,6 +145,13 @@ export default async function LiveWallConsolePage({
       .eq('faceblock_enabled', true)
       .is('deleted_at', null),
   ]);
+
+  // A failed read and a brand-new event must not look identical: every default
+  // below (`?? null`, `?? true`, `?? ''`) is a plausible-looking value that a
+  // 42703 would have produced just as readily as real data.
+  if (eventError) {
+    logQueryError('live-console:eventRow', eventError, { eventId });
+  }
 
   const override = (event?.live_mode_override ?? null) as WallMode | null;
   const flashAutoWall = (event?.kwento_flash_auto_wall ?? true) as boolean;

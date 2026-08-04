@@ -1271,7 +1271,7 @@ After owner confirmation, follow-up PR seeds the SKUs into `service_catalog` (PR
 **Owner action checklist (separate from the spec edits above):**
 - [ ] Provision Google Cloud project for Setnayan (if not already).
 - [ ] Enable YouTube Data API v3.
-- [ ] Configure OAuth consent screen (External, Production); add scopes `https://www.googleapis.com/auth/youtube` + `https://www.googleapis.com/auth/youtube.upload`.
+- [ ] Configure OAuth consent screen (External, Production); add scope `https://www.googleapis.com/auth/youtube` — **and ONLY that one.** (`.../auth/youtube.upload` was dropped 2026-07-25: it was reserved for the same-day-edit upload, which was owner-retired 2026-06-28, and no code ever called an upload endpoint. Re-adding it invites a "Requesting Minimum Scopes" rejection.)
 - [ ] Submit for Google verification (1-4 wk).
 - [ ] Create OAuth 2.0 Web client; add `https://www.setnayan.com/api/oauth/youtube/callback` as an authorized redirect URI.
 - [ ] Paste `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`, `YOUTUBE_OAUTH_REDIRECT_URI` into Vercel env; redeploy.

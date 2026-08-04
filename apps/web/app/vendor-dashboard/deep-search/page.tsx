@@ -3,6 +3,8 @@ import { Search } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
@@ -93,7 +95,13 @@ export default async function VendorDeepSearchPage() {
 
   // Price + free-allowance state (admin-read for an authoritative use count).
   const admin = createAdminClient();
-  const cyclePricePhp = await fetchVendorDeepSearchPricePhp(supabase);
+  const catalogCyclePricePhp = await fetchVendorDeepSearchPricePhp(supabase);
+  // Tiered band for the About-You variant (₱1,000 Free/Solo · ₱500 Pro/Ent) —
+  // mirrors the action exactly, INJECTED as the input so the Pro+ free run of the
+  // cycle still resolves to ₱0.
+  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('deep_search_about_you', tier)
+    : catalogCyclePricePhp;
   let pricePhp = cyclePricePhp;
   let isFreeNow = false;
   if (eligible) {

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -129,7 +130,9 @@ export async function updateLandingPageVisibility(formData: FormData) {
     revalidatePath(`/${event.slug}`);
   }
 
-  redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1'),
+  );
 }
 
 /**

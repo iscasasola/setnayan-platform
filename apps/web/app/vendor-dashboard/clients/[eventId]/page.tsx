@@ -118,6 +118,9 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 // (couple-logged payments awaiting confirmation + plan progress / "mark cleared").
 // Reused as-is; no payment logic is reimplemented here.
 import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -632,12 +635,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const authorIds = Array.from(new Set(rawNotes.map((n) => n.author_user_id)));
   const authorLabels = new Map<string, string>();
   if (authorIds.length > 0) {
-    const { data: authors } = await admin
+    // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
+    // PostgREST 42703s the whole query, so `authors` was always null and every
+    // teammate's CRM note rendered with a blank author instead of their name
+    // (only the caller's own notes showed, via the hardcoded 'You' branch).
+    const { data: authors, error: authorsError } = await admin
       .from('users')
-      .select('user_id, full_name')
+      .select('user_id, display_name')
       .in('user_id', authorIds);
-    for (const a of (authors ?? []) as Array<{ user_id: string; full_name: string | null }>) {
-      if (a.full_name) authorLabels.set(a.user_id, a.full_name);
+    if (authorsError) {
+      logQueryError('vendor-dashboard/clients:noteAuthors', authorsError, { eventId });
+    }
+    for (const a of (authors ?? []) as Array<{ user_id: string; display_name: string | null }>) {
+      if (a.display_name) authorLabels.set(a.user_id, a.display_name);
     }
   }
   const notes: ClientNote[] = rawNotes.map((n) => ({
@@ -700,10 +710,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     .map(([key, label]) => ({ key, label, colors: brief.palette?.[key] ?? [] }))
     .filter((p) => p.colors.length > 0);
   const mealEntries = Object.entries(brief.dietary?.meal_counts ?? {}).sort((a, b) => b[1] - a[1]);
-  const monogramSvg =
-    brief.monogram.custom_svg && brief.monogram.custom_svg.trimStart().startsWith('<svg')
-      ? brief.monogram.custom_svg
-      : null;
+  // ── SEC-3 (2026-07-26) · CROSS-TENANT stored XSS ───────────────────────────
+  // This value is events.monogram_custom_svg. `events` UPDATE RLS is ROW-level,
+  // never column-level, and the anon key is public — so the COUPLE can PATCH
+  // arbitrary markup into it through PostgREST, bypassing every server action
+  // and the write-time sanitizer. It then rendered here, in a VENDOR's
+  // authenticated session, via dangerouslySetInnerHTML, with no script-src CSP
+  // to stop it. The old `startsWith('<svg')` check was a shape test, not a
+  // safety one — and the comment at the render site called this a "first-party
+  // asset", which is exactly the assumption that made it dangerous.
+  //
+  // Two changes: gate the value (safeMonogramSvg), and stop inlining it — the
+  // mark now renders as an inert data-URI <img>, an image context with no
+  // script execution and no external fetches, so this surface no longer
+  // depends on the sanitizer being exhaustive. Same pattern as
+  // BespokeMonogramMark / EventMonogram elsewhere in the app.
+  const monogramSvg = safeMonogramSvg(brief.monogram.custom_svg);
 
   // ---- Pipeline derivation (server-side, from data already loaded) ----
   //   Quoted    = any proposal row with status ≠ draft.
@@ -1853,10 +1875,18 @@ function OverviewTab(props: {
             <Palette aria-hidden className="h-4 w-4 text-terracotta" /> Style
           </h2>
           <div className="mt-3 flex items-start gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-terracotta/20 bg-terracotta/[0.06] [&_svg]:h-full [&_svg]:w-full">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-terracotta/20 bg-terracotta/[0.06]">
               {monogramSvg ? (
-                // First-party asset from the couple's own monogram studio.
-                <span dangerouslySetInnerHTML={{ __html: monogramSvg }} />
+                /* SEC-3: inert data-URI <img>, NOT dangerouslySetInnerHTML —
+                   this is the couple's host-writable mark rendering inside a
+                   vendor's session. eslint-disable-next-line @next/next/no-img-element */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={bespokeSvgToDataUri(monogramSvg)}
+                  alt=""
+                  className="h-full w-full object-contain p-0.5"
+                  draggable={false}
+                />
               ) : brief.monogram.text ? (
                 <span
                   className="text-lg font-semibold tracking-wide"

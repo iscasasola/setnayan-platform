@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { getUgatCounts } from '@/lib/ugat/data';
 import { runSavedSearch } from '@/lib/ugat/data';
 import { UGAT_SAVED_SEARCHES } from '@/lib/ugat/data';
+import { latestVerdictByJoint } from '@/lib/interconnect/verdicts';
 import { UgatConsole } from '../_components/ugat-console';
 
 export const metadata = { title: 'Entity map · Ugat · Admin' };
@@ -43,10 +44,23 @@ export default async function AdminUgatMapPage() {
 
   // One cached round trip for the nine counts; run the three saved searches so
   // the omnibox Questions group opens with live numbers.
-  const [counts, savedSearches] = await Promise.all([
+  const [counts, savedSearches, probeVerdicts] = await Promise.all([
     getUgatCounts(),
     Promise.all(UGAT_SAVED_SEARCHES.map((s) => runSavedSearch(s.key))),
+    // Slice 2, finally: the LIVE verdict per mapped joint. Absent = never
+    // probed, and the console renders that as unlit rather than healthy.
+    latestVerdictByJoint(),
   ]);
 
-  return <UgatConsole counts={counts} savedSearches={savedSearches} />;
+  // Finding staleness is computed against a SERVER clock passed into the client
+  // console. Reading Date.now() inside the client component would render one
+  // age on the server and another in the browser — a hydration mismatch.
+  return (
+    <UgatConsole
+      counts={counts}
+      savedSearches={savedSearches}
+      probeVerdicts={probeVerdicts}
+      nowMs={Date.now()}
+    />
+  );
 }

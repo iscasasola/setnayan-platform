@@ -130,11 +130,16 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
     }
   }
 
-  // All vendors for the "Add partnership" search dropdowns
+  // All vendors for the "Add partnership" search dropdowns.
+  // ⚠ Was `.eq('is_active', true)` — `vendor_profiles` HAS NO `is_active`
+  // column, so PostgREST answered 42703 and this dropdown was ALWAYS EMPTY:
+  // an admin could never add a partnership. The filter is dropped rather than
+  // re-pointed because the comment's intent is "all vendors" and this is the
+  // internal console, where an admin legitimately needs to see unverified and
+  // hidden shops too. (The vendor-facing picker keeps a liveness filter.)
   const { data: allVendors } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
-    .eq('is_active', true)
     .order('business_name', { ascending: true })
     .limit(500);
   const vendorOptions = (allVendors ?? []) as VendorOption[];

@@ -190,3 +190,80 @@ test('a paid event that has never gone live can always start', () => {
     'buying early must never expire before the first press',
   );
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   🚫 WAVE 7 · THE OVERLAY IS RETIRED (owner-locked 2026-07-25 · § 4f ①)
+
+   The property under test is blunt and total: with `retired` set, NO combination of inputs draws
+   the full-screen mark. That is what "it no longer renders" has to mean — every surface reads this
+   one decision, so if the decision can never say `overlay: true`, no surface can draw one.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+test('🚫 retired: the overlay NEVER renders, for any input combination', () => {
+  for (const paid of [true, false]) {
+    for (const firstLiveAt of [null, T0, hoursAfter(-100), 'not-a-date']) {
+      for (const isLive of [true, false]) {
+        for (const now of [T0, hoursAfter(1), hoursAfter(25), hoursAfter(9000)]) {
+          const d = decideWatermark({ paid, firstLiveAt, isLive, now, retired: true });
+          assert.equal(
+            d.overlay,
+            false,
+            `overlay drawn for paid=${paid} firstLiveAt=${String(firstLiveAt)} isLive=${isLive}`,
+          );
+          assert.equal(d.reason, 'retired');
+        }
+      }
+    }
+  }
+});
+
+test('🚫 retired reports NO window — the 24h clock moved to lib/live-studio-window.ts', () => {
+  // Leaving a plausible-looking countdown here would give a caller a stale number to render.
+  const d = decideWatermark(input({ firstLiveAt: T0, now: hoursAfter(1), retired: true }));
+  assert.equal(d.expiresAt, null);
+  assert.equal(d.minutesRemaining, null);
+  assert.equal(isWindowEndingSoon(d), false, 'no window means no "ending soon"');
+});
+
+test('🚫 retired: the go-live gate retires WITH the overlay it protected', () => {
+  // An armed gate with no paywall behind it is just an invisible refusal to broadcast — and the
+  // live /pricing page promises a FREE single-camera livestream.
+  assert.equal(
+    canStartBroadcast({ paid: false, firstLiveAt: null, isLive: false, now: T0, retired: true }),
+    true,
+    'a free host must be able to go live',
+  );
+  assert.equal(
+    canStartBroadcast({ paid: true, firstLiveAt: T0, isLive: false, now: hoursAfter(30), retired: true }),
+    true,
+    'and a spent legacy window no longer blocks the next press',
+  );
+});
+
+test('🚫 retired copy exists — control-room.tsx indexes WATERMARK_COPY by the resolved reason', () => {
+  // A missing key here is a runtime `undefined.badge` on a live surface, not a type error.
+  assert.ok(WATERMARK_COPY.retired?.badge);
+  assert.ok(WATERMARK_COPY.retired?.detail);
+  assert.ok(
+    !/overlay/i.test(WATERMARK_COPY.retired.detail),
+    'retired copy must not describe an overlay that is no longer drawn',
+  );
+});
+
+test('flag OFF is byte-identical: omitting `retired` keeps every 2026-07-21 decision', () => {
+  // The whole flag-off safety argument in one assertion — `retired` defaults to false, so the
+  // legacy Cast room (live, selling PANOOD_SYSTEM, overlay = its only paywall) is untouched.
+  const cases: WatermarkInput[] = [
+    { paid: false, firstLiveAt: null, isLive: false, now: T0 },
+    { paid: true, firstLiveAt: null, isLive: false, now: T0 },
+    { paid: true, firstLiveAt: T0, isLive: false, now: hoursAfter(1) },
+    { paid: true, firstLiveAt: T0, isLive: true, now: hoursAfter(30) },
+    { paid: true, firstLiveAt: T0, isLive: false, now: hoursAfter(30) },
+  ];
+  const expected = ['unpaid', 'awaiting-go-live', 'window-open', 'expired-broadcasting', 'expired'];
+  cases.forEach((c, i) => {
+    assert.equal(decideWatermark(c).reason, expected[i]);
+    assert.equal(decideWatermark({ ...c, retired: false }).reason, expected[i]);
+  });
+  assert.equal(decideWatermark(cases[0]!).overlay, true, 'the free tier is still overlaid flag-off');
+});

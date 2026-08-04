@@ -1,3 +1,15 @@
+import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
+
+/**
+ * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
+ * PAPIC_POINTS_PER_PHOTO / PAPIC_POINTS_PER_CLIP from the capture path itself
+ * (lib/papic-cameras.ts). The clip weight moved 7 → 8 on 2026-07-29; help prose
+ * that had typed the number would have gone quietly wrong that day, on the one
+ * surface a confused couple reads. `papic-tier-copy` is pure + client-safe, so
+ * this import adds nothing to any bundle beyond two strings.
+ */
+const SHOT_TERMS = papicPointCurrencyTerms();
+
 export type HelpRole = 'couple' | 'vendor' | 'guest' | 'admin';
 
 export type HelpArticle = {
@@ -463,12 +475,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: "Papic turns your guests' phones into candid cameras for your wedding. A few friends you pick (your photo crew) shoot freely all night, and — if you add it — every guest can snap photos too. Every shot lands in your private gallery, and each guest can find the photos they're in. No app to install; it all runs in the browser.",
+        body: "Papic turns the phones at your wedding into candid cameras. It comes in two shapes, and most couples use both. Papic Pool is one shared purse of shots that any guest's phone can spend from — they scan your event QR and start shooting, and there's no limit on how many phones join in. Papic One is a camera of its own for someone you trust: its own QR, and its own shots that nobody else can spend. Both start free on every wedding, so you can try Papic before you decide to add anything. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.",
       },
       {
         slug: 'turn-on-papic',
-        title: 'How do I turn on Papic and invite my photo crew?',
-        body: "Open your dashboard → Studio → Papic. Your first 5 guest cameras are free to try. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime.",
+        title: 'How do I turn on Papic and hand out cameras?',
+        body: "Open your dashboard → Studio → Papic. It's already on: every wedding starts with a free pool of shots plus one free camera of its own, so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person their own camera, hand them that camera's link (or QR) from the same page; their shots come out of that camera's own balance, not the shared pool, so they can't be used up by anyone else. You can hand a camera to someone else at any time, and top up either the shared pool or a single camera whenever you want — current prices are on setnayan.com/pricing.",
       },
       {
         slug: 'how-papic-tagging-works',
@@ -498,7 +510,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
-        body: "The couple sent you a seat link. Open it on your phone, sign in, and tap to claim your seat — your phone is now a candid camera for their wedding. Shoot photos and up-to-10-second clips freely; everything uploads to their gallery automatically. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their gallery automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+      },
+      {
+        slug: 'papic-pool-vs-papic-one',
+        title: 'Papic Pool or Papic One — which one do I want?',
+        body: "Both, usually. Papic Pool is the crowd: one shared purse of shots that ANY guest's phone can spend from after scanning your event QR. No limit on how many phones, no setting up anyone in advance — but they all draw from the same purse, so a few enthusiastic guests can spend a lot of it. Papic One is the person you trust: one camera with its own QR and its own shots, which nobody else can touch. Give one to the cousin who actually frames a photo, or to your maid of honour, and their balance is safe no matter how busy the crowd gets. You can have as many of these as you like — there's no cap. Both start free on every wedding, and you top up either one separately whenever you want. Rule of thumb: the Pool covers the room, a One covers a person.",
+      },
+      {
+        slug: 'how-papic-shots-work',
+        title: 'How do shots work, and how do I add more?',
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding starts with a free pool of shots plus one free camera that has its own. When something runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole celebration, or reload one camera on its own. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],
   },

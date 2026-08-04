@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
 import { toStoreSnapshot, toEventBriefLite, type SnapshotSources } from './adapter';
 import type { EventBrief } from '../event-brief';
 import type { VendorServiceRow } from '../vendor-services';
@@ -81,8 +83,8 @@ function sources(p: Partial<SnapshotSources> = {}): SnapshotSources {
     inclusionsByService: new Map([['s1', [{ vendor_service_id: 's1', label: 'Pre-nup shoot', worth_php: 5000, sort_order: 0 }]]]),
     discountsByService: new Map([
       ['s1', [
-        { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', expires_at: null, conditions_md: null, sort_order: 0 },
-        { vendor_service_id: 's1', discount_type: 'promo', rate: 5, unit: 'pct', expires_at: '2027-01-01', conditions_md: null, sort_order: 1 },
+        { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 },
+        { vendor_service_id: 's1', discount_type: 'promo', rate: 5, unit: 'pct', min_lead_months: null, expires_at: '2027-01-01', conditions_md: null, sort_order: 1 },
       ]],
     ]),
     addonsByService: new Map([['s1', [{ id: 1, label: 'Extra album', from_price_php: 3000 }]]]),
@@ -120,7 +122,37 @@ test('maps service pricing + inclusions + addons', () => {
 
 test('expired discounts are pruned; active ones kept', () => {
   const s = must(toStoreSnapshot(sources(), NOW).services[0], 'service');
-  assert.deepEqual(s.discounts, [{ type: 'early_booking', rate: 10, unit: 'pct' }]);
+  // minLeadMonths is the early-booking ladder rung (owner-locked 2026-07-27);
+  // null here = a thresholdless legacy offer, which is what the fixture carries.
+  assert.deepEqual(s.discounts, [
+    { type: 'early_booking', rate: 10, unit: 'pct', minLeadMonths: null },
+  ]);
+});
+
+test('a laddered early_booking row carries its threshold into the auto-reply', () => {
+  const laddered = toStoreSnapshot(
+    sources({
+      discountsByService: new Map([
+        [
+          's1',
+          [
+            { vendor_service_id: 's1', discount_type: 'early_booking', rate: 15, unit: 'pct', min_lead_months: 12, expires_at: null, conditions_md: null, sort_order: 0 },
+            { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: 6, expires_at: null, conditions_md: null, sort_order: 1 },
+          ],
+        ],
+      ]),
+    }),
+    NOW,
+  );
+  const s = must(laddered.services[0], 'service');
+  assert.deepEqual(
+    s.discounts.map((d) => [d.rate, d.minLeadMonths]),
+    [
+      [15, 12],
+      [10, 6],
+    ],
+    'without the threshold the reply would list two indistinguishable "Early Booking" offers',
+  );
 });
 
 test('inactive services and packages are dropped', () => {
@@ -152,7 +184,7 @@ test('coverage + reviews mapped; label optional', () => {
   assert.equal(must(toStoreSnapshot(sources(), NOW).coverages[0], 'coverage').label, null);
 });
 
-test('toEventBriefLite maps constraints + centavos->PHP per head', () => {
+test('toEventBriefLite: consent OFF shares NOTHING budget-shaped', () => {
   const brief = {
     constraints: {
       date: { mode: 'specific', candidates: ['2027-06-14', '2027-06-21'], windowStart: null, windowEnd: null, primary: '2027-06-14' },
@@ -162,10 +194,57 @@ test('toEventBriefLite maps constraints + centavos->PHP per head', () => {
       ceremony: { type: null, secondaryType: null, isMixed: false, subType: null, venueSetting: null, faiths: [] },
     },
   } as unknown as EventBrief;
-  const lite = toEventBriefLite(brief);
+  // CONSENT OFF (the events.share_budget_band default) — nothing budget-shaped
+  // leaves. This assertion used to read `budgetPerHeadPhp === 3000`, i.e. it
+  // asserted the leak: ₱3,000/head beside `pax: 150` IS the couple's exact
+  // ₱450,000, handed to a vendor past an opt-in that was FALSE.
+  const lite = toEventBriefLite(brief, { shareBudgetBand: false });
   assert.equal(lite.primaryDate, '2027-06-14');
   assert.deepEqual(lite.candidateDates, ['2027-06-14', '2027-06-21']);
   assert.equal(lite.pax, 150);
   assert.equal(lite.region, 'NCR');
-  assert.equal(lite.budgetPerHeadPhp, 3000);
+  assert.equal(lite.budgetBand, null);
+  assert.equal(
+    (lite as Record<string, unknown>).budgetPerHeadPhp,
+    undefined,
+    'the per-head figure must not survive anywhere on the lite payload',
+  );
+});
+
+test('toEventBriefLite: consent ON shares the coarse BAND, never a figure', () => {
+  const brief = {
+    constraints: {
+      date: { mode: 'specific', candidates: [], windowStart: null, windowEnd: null, primary: '2027-06-14' },
+      location: { region: 'NCR', lat: null, lng: null, hasPin: false, searchAreas: [] },
+      pax: 150,
+      budget: { band: 'premium', amountCentavos: 45000000, perHeadCentavos: 300000 },
+      ceremony: { type: null, secondaryType: null, isMixed: false, subType: null, venueSetting: null, faiths: [] },
+    },
+  } as unknown as EventBrief;
+  const lite = toEventBriefLite(brief, { shareBudgetBand: true });
+  assert.equal(lite.budgetBand, 'premium');
+  // Opting in buys the vendor a WORD, not the number, and not anything the
+  // number can be recovered from. `get_vendor_event_brief`'s own header: shown
+  // as a range, "never an exact number".
+  assert.ok(
+    !JSON.stringify(lite).includes('45000000') && !JSON.stringify(lite).includes('300000'),
+    'no centavos figure may appear anywhere in the serialised payload',
+  );
+  assert.ok(!JSON.stringify(lite).includes('3000'), 'nor the per-head peso figure');
+});
+
+test('the adapter cannot derive a budget figure at all — source guard', () => {
+  // The type has nowhere to put one, but a future edit could add a field back.
+  // This reads the adapter's own source: the two brief keys that carry money
+  // must not be referenced by it.
+  const src = readFileSync(new URL('./adapter.ts', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
+    .join('\n');
+  assert.ok(!src.includes('perHeadCentavos'), 'adapter must not read perHeadCentavos');
+  assert.ok(!src.includes('amountCentavos'), 'adapter must not read amountCentavos');
+  // And the consent argument must stay REQUIRED — an optional one re-opens the
+  // silent opt-in this closed.
+  assert.match(src, /consent:\s*\{\s*shareBudgetBand:\s*boolean\s*\}/);
 });

@@ -74,8 +74,12 @@ const PAPIC_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex flex-col bg-ink text-cream">
         <div className="flex items-center justify-between px-3 py-2.5 text-[10px] text-cream/70">
-          <span className="font-mono tracking-[0.12em]">PAPIC · SEAT 2</span>
-          <span className="rounded-full bg-cream/10 px-2 py-0.5">3 / 8</span>
+          {/* Was "PAPIC · SEAT 2" with a "3 / 8" cap — both retired: there are no
+              seats (Papic Pool + Papic One, owner naming lock 2026-07-30) and no
+              per-camera cap of 8 anything. A demo tile must not invent a limit the
+              product does not have, so it shows the label and the live-feel verb only. */}
+          <span className="font-mono tracking-[0.12em]">PAPIC</span>
+          <span className="rounded-full bg-cream/10 px-2 py-0.5">shooting</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center text-cream/40">
@@ -242,7 +246,11 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱2,499</p>
+          {/* ₱1,000 = ANIMATED_MONOGRAM. Was ₱2,499 — the retired pre-2026-07-10
+              monogram price, 2.5× the live one, found stale 2026-07-31. Declared
+              in lib/public-price-literals.ts; the daily SEO audit re-checks it
+              against the catalog so it cannot silently drift again. */}
+          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱1,000</p>
           <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
         </div>
       </div>
@@ -836,7 +844,17 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
             <span className="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[6px] font-medium text-emerald-700">Verified</span>
             <span className="rounded px-1.5 py-0.5 text-[6px] font-medium text-cream" style={{ background: MULB }}>Setnayan</span>
           </div>
-          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 also eyeing your date</span>
+          {/* The demand chip, worded EXACTLY as the app words it. It used to quote a
+              number nothing produced, phrased around the browsing act (the retired
+              wording is pinned in `.retired-strings.json`) — an act the product
+              deliberately refuses to count as demand. The owner's
+              2026-06-02 ruling: demand "starts at the inquiry (Stage 2), NEVER at
+              search (Stage 1) … counting it as competition = manufactured scarcity
+              (a fineable dark pattern)". The shipped signal is inquiry-only and
+              floored at MIN_DEMAND_COUPLE_COUNT = 3, and its one supported phrasing
+              is the measurement itself (`lib/compat-score.ts`). So 3 is the smallest
+              number this chip can honestly show, and this is the sentence it shows. */}
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 couples inquired for your date</span>
         </div>
       </div>
     ),
@@ -1052,7 +1070,8 @@ const PAKANTA_SCENES: RichFrame[] = [
             <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
           </div>
           <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
-            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱3,499
+            {/* ₱2,500 = PAKANTA. Was ₱3,499, which matches no active SKU at all. */}
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱2,500
           </button>
         </div>
       </div>

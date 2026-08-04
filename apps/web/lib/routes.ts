@@ -57,7 +57,6 @@ export const routes = {
       export: () => `/admin/growth/export`,
     },
     help: () => `/admin/help`,
-    heroVideo: () => `/admin/hero-video`,
     insights: () => `/admin/insights`,
     intelligence: () => `/admin/app-performance?tab=intelligence`,
     money: () => `/admin/money`,
@@ -294,6 +293,20 @@ export const routes = {
       },
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
       led: (eventId: string) => `/dashboard/${eventId}/studio/led`,
+      // Live Studio — the UNIFIED controller (owner 2026-07-25). Registry entries
+      // for the live route folders, which were missing. ⚠ Do NOT link straight to
+      // `control` from a doorway: while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off
+      // this surface notFound()s. Doorways call
+      // lib/live-studio-control.ts → liveStudioControllerHref(), which picks
+      // between this and `panood.broadcast` on the flag.
+      liveStudioControl: {
+        index: (eventId: string) => `/dashboard/${eventId}/studio/live-studio-control`,
+        // ⭐ WAVE 8 (§ 4g): the controller is CHROME-LESS and therefore lives
+        // outside /dashboard — an App Router page cannot opt out of an ancestor
+        // layout, and `[eventId]/layout.tsx` mounts the masthead + bottom nav.
+        // Same escape `/panood/program/[eventId]` already uses.
+        control: (eventId: string) => `/panood/control/${eventId}`,
+      },
       moodBoard: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/mood-board`,
         conceptPdf: (eventId: string) => `/dashboard/${eventId}/studio/mood-board/concept-pdf`,
@@ -301,6 +314,10 @@ export const routes = {
       pakanta: (eventId: string) => `/dashboard/${eventId}/studio/pakanta`,
       panood: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/panood`,
+        // The LEGACY Cast control room. Still the real route (and still selling)
+        // while the unified Live Studio flag is off; when the flag is on it
+        // redirects to addOns.liveStudioControl.control. Link to a control room
+        // via liveStudioControllerHref(), never this builder.
         broadcast: (eventId: string) => `/dashboard/${eventId}/studio/panood/broadcast`,
         reviews: (eventId: string) => `/dashboard/${eventId}/studio/panood/reviews`,
         setup: (eventId: string) => `/dashboard/${eventId}/studio/panood/setup`,
@@ -368,6 +385,8 @@ export const routes = {
       new: (eventId: string) => `/dashboard/${eventId}/orders/new`,
     },
     paperwork: (eventId: string) => `/dashboard/${eventId}/paperwork`,
+    /** Where the host answers a coordinator's ask for access (2026-07-27). */
+    accessRequests: (eventId: string) => `/dashboard/${eventId}/access-requests`,
     profile: {
       index: () => `/dashboard/profile`,
       concierge: () => `/dashboard/profile/concierge`,
@@ -468,7 +487,9 @@ export const routes = {
   resetPassword: () => `/reset-password`,
   signup: () => `/signup`,
   siteEditor: {
-    detail: (eventId: string) => `/site-editor/${eventId}`,
+    // Unified Website Editor (2026-07-25) — the legacy /site-editor is retired to
+    // a redirect; point callers straight at the one editor.
+    detail: (eventId: string) => `/dashboard/${eventId}/website/editor`,
   },
   sitemapBlogXml: () => `/sitemap-blog.xml`,
   sitemapHelpXml: () => `/sitemap-help.xml`,

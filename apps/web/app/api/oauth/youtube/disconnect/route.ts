@@ -90,10 +90,30 @@ export async function POST(req: NextRequest) {
     await revokeYoutubeToken(grant.refresh_token as string);
   }
 
-  // --- Flip revoked_at locally ---
+  // --- Flip revoked_at locally, AND DESTROY THE CREDENTIAL ---
+  //
+  // ⭐ 2026-07-27: this used to write `revoked_at` ALONE, which left the couple's
+  // plaintext Google refresh token sitting in `oauth_grants` indefinitely after they
+  // pressed Disconnect. Nothing would ever use it again — every reader early-returns
+  // on `revoked_at` — but "we stopped using it" is not "we no longer hold it", and a
+  // stored credential the user believes they revoked is exactly the thing RA 10173
+  // asks us not to keep. It is also the sentence /privacy has to be able to make.
+  //
+  // The pool side already did this: `lib/live-studio-channel-grants.ts` writes
+  // `refresh_token: ''` + `access_token: null` + `revoked_at` when a Setnayan channel
+  // is disconnected. The couple's own credential deserves at least the care we give
+  // our own, so BYO now matches it exactly — same three fields, same empty-string form
+  // (the column is NOT NULL, hence '' rather than null).
+  //
+  // Safe by ordering: the Google revoke above already read `grant.refresh_token` into
+  // memory, so wiping the column here cannot break it.
   await admin
     .from('oauth_grants')
-    .update({ revoked_at: new Date().toISOString() })
+    .update({
+      refresh_token: '',
+      access_token: null,
+      revoked_at: new Date().toISOString(),
+    })
     .eq('grant_id', grant.grant_id);
 
   const target = new URL(`/dashboard/${eventId}/studio/panood`, req.url);

@@ -9,10 +9,27 @@
  * chairs, delayed grand entrance) and clears each as it's handled, offline-
  * tolerant, no round-trip, no new RLS surface. A shared/synced issues log that
  * the couple can see is a follow-up (would need a table + booked-vendor RLS).
+ *
+ * ── THAT FOLLOW-UP SHIPPED (build plan §10 #6, 2026-07-27) ─────────────────
+ * The synced stream is `public.event_day_requests` (migration 20271013100000)
+ * and its UI is `requests-inbox.tsx`. This file is now the SWITCH between the
+ * two, and the switch is one-way by design:
+ *
+ *   control OFF  → the device-local log below, unchanged, byte for byte;
+ *   control ON   → the shared inbox, carrying all four origin lanes.
+ *
+ * The local log is NOT a second stream — it is the offline fallback that ships
+ * today and keeps working if the owner never flips the control. Nothing here
+ * decides the gate: `getDayRequestsView` resolves it on the server and
+ * fail-closes to OFF.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Plus, Trash2 } from 'lucide-react';
+
+import type { DayRequestRow } from '@/lib/day-requests';
+import { getDayRequestsView } from '../actions';
+import { RequestsInbox } from './requests-inbox';
 
 type Issue = { id: string; text: string; resolved: boolean; at: number };
 
@@ -24,7 +41,40 @@ function makeId(): string {
   return `i_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/**
+ * The switch. Renders the shipped local log until the server says the shared
+ * stream is live for this caller, then swaps to the one inbox.
+ */
 export function IssuesLog({ eventId }: { eventId: string }) {
+  const [inbox, setInbox] = useState<
+    { rows: DayRequestRow[]; side: 'coordinator' | 'vendor' } | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await getDayRequestsView(eventId);
+        if (cancelled || !view.active || view.side === null) return;
+        setInbox({ rows: view.rows, side: view.side });
+      } catch {
+        // Offline or the control read failed — stay on the local log, which is
+        // the whole reason it survives.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  if (inbox) {
+    return <RequestsInbox eventId={eventId} initialRows={inbox.rows} side={inbox.side} />;
+  }
+  return <LocalIssuesLog eventId={eventId} />;
+}
+
+/** The shipped device-local log — unchanged. The fallback, and the offline path. */
+function LocalIssuesLog({ eventId }: { eventId: string }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState('');

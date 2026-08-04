@@ -150,13 +150,32 @@ const RADIUS_CHIPS: ReadonlyArray<{ label: string; km: number | null }> = [
 export function CategorySearchOverlay({
   eventId,
   groupId,
+  tile = null,
   label,
   onClose,
+  onAdded,
 }: {
   eventId: string;
+  /** Plan group to scope to. `''` when the caller is the bench and the row's
+   *  tile is finer than every plan group — `tile` then carries the scope. */
   groupId: string;
+  /**
+   * Bench TILE scope (2026-07-29). Additive and optional: the accordion call
+   * site passes only `groupId` and is unchanged. Only 22 of the 69 wedding
+   * tiles are the `catalogTile` of a plan group, so without this the other 47
+   * bench rows could not open this sheet at all. See `lib/bench-category-search.ts`.
+   */
+  tile?: string | null;
   label: string;
   onClose: () => void;
+  /**
+   * Fired once per successful add. The bench uses it to decide whether closing
+   * the sheet is worth a `router.refresh()` — the new pick has to appear in
+   * that category's rail, and `saveVendorToPicks` revalidates
+   * `/dashboard/[eventId]` (the overview page), not this nested route. Optional,
+   * so the accordion call site is untouched.
+   */
+  onAdded?: (vendorProfileId: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -217,6 +236,7 @@ export function CategorySearchOverlay({
         const res = await searchCategoryVendors({
           eventId,
           groupId,
+          tile,
           query: q,
           verifiedOnly: vOnly,
           maxKm: km,
@@ -242,7 +262,7 @@ export function CategorySearchOverlay({
         if (seq === reqSeq.current) setLoading(false);
       }
     },
-    [eventId, groupId],
+    [eventId, groupId, tile],
   );
 
   // Expander: fetch the out-of-range vendors for the current search.
@@ -253,6 +273,7 @@ export function CategorySearchOverlay({
       const res = await searchCategoryVendors({
         eventId,
         groupId,
+        tile,
         query: query.trim(),
         verifiedOnly,
         maxKm,
@@ -269,7 +290,7 @@ export function CategorySearchOverlay({
     } finally {
       setFartherLoading(false);
     }
-  }, [eventId, groupId, query, verifiedOnly, maxKm, appliedFacets, facetHardFilter]);
+  }, [eventId, groupId, tile, query, verifiedOnly, maxKm, appliedFacets, facetHardFilter]);
 
   // initial load — no explicit facets (undefined → server seeds from saved prefs)
   useEffect(() => {
@@ -310,6 +331,10 @@ export function CategorySearchOverlay({
       const res = await saveVendorToPicks(fd);
       if (res.status === 'ok' || res.status === 'already_saved') {
         setAdded((prev) => new Set(prev).add(vendorProfileId));
+        // Add-and-stay: the sheet stays open (that is the point), so the caller
+        // is told instead — the bench needs the new pick in that category's rail
+        // when the sheet closes.
+        onAdded?.(vendorProfileId);
       }
     } finally {
       setPendingId(null);
@@ -545,9 +570,25 @@ export function CategorySearchOverlay({
             </a>
           </div>
         ) : results.length === 0 ? (
+          // Two different facts, two different sentences (2026-07-29). The
+          // shipped copy always said "try a different search, or widen your
+          // filters" — advice that is simply wrong on a FIRST open with no
+          // query and no filters, which is exactly the state a pre-launch
+          // catalogue is in. Telling a couple to widen filters they never set
+          // reads as a broken screen; saying the category is still filling up
+          // is the same news, told truthfully.
           <div className="empty">
-            No {label.toLowerCase()} vendors match yet. Try a different search,
-            or widen your filters.
+            {query.trim() || filterCount > 0 ? (
+              <>
+                No {label.toLowerCase()} vendors match yet. Try a different
+                search, or widen your filters.
+              </>
+            ) : (
+              <>
+                No {label.toLowerCase()} vendors here yet — we&rsquo;ll show them
+                the moment they join Setnayan.
+              </>
+            )}
           </div>
         ) : (
           <>

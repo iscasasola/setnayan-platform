@@ -90,6 +90,28 @@ function isCapCode(code: string | null | undefined): boolean {
   return code != null && CAP_CODES.has(code);
 }
 
+/**
+ * Announce that the camera just refused a shot for want of points.
+ *
+ * A window CustomEvent rather than a callback prop, so this ~1,400-line
+ * safety-critical component does not grow a new piece of page-level state (and
+ * three new setter calls) to move one boolean to a sibling. The guest "Add
+ * shots" panel listens when NEXT_PUBLIC_PAPIC_GUEST_BUY is on; when it is off
+ * nothing is mounted and this dispatch is a no-op, so the camera renders
+ * byte-identically either way.
+ *
+ * Fire-and-forget by contract: it must never be able to break a capture, hence
+ * the guard + swallow.
+ */
+function announceOutOfShots(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('papic:out-of-shots'));
+  } catch {
+    /* a missing CustomEvent constructor must not break the camera */
+  }
+}
+
 /** Friendly, paparazzo-facing copy for a tag failure. The camera never breaks
  *  on a tag miss — these just steer the next scan. */
 function tagErrorMessage(error: string): string {
@@ -97,9 +119,9 @@ function tagErrorMessage(error: string): string {
     case 'unrecognized':
       return 'That’s not a guest or table QR — point at a place card or table sign.';
     case 'guest_not_found':
-      return 'That guest QR isn’t on this wedding’s list.';
+      return 'That guest QR isn’t on this event’s guest list.';
     case 'table_not_found':
-      return 'That table QR isn’t on this wedding’s seating plan.';
+      return 'That table QR isn’t on this event’s seating plan.';
     case 'cap_reached':
       return `This photo already has all ${TAG_CAP} tags.`;
     case 'unavailable':
@@ -325,6 +347,14 @@ export function PapicSeatCapture({
   const [tagNotice, setTagNotice] = useState<string | null>(null);
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
+
+  // Points exhaustion arrives ASYNC — as `camera_points_exhausted` from
+  // recordSeatCapture / the presign route — because pack seats carry no
+  // client-side cap (photoCap/clipCap are null for them). Without this
+  // page-level latch the exhausted panel below could only ever fire off the
+  // cap props, i.e. never for a pack seat, and a dry camera kept looking like
+  // a working one that silently refuses every shot.
+  const [outOfShots, setOutOfShots] = useState(false);
 
   const photoFull = photoCap != null && photos >= photoCap;
   const clipFull = clipCap != null && clips >= clipCap;
@@ -610,6 +640,8 @@ export function PapicSeatCapture({
             if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
             else setClips(clipCap ?? ((n) => n));
             patchShot(shot.id, { status: 'capped' });
+            setOutOfShots(true);
+            announceOutOfShots();
             return;
           }
           if (result.error === 'clip_too_long') {
@@ -658,6 +690,8 @@ export function PapicSeatCapture({
           if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
           else setClips(clipCap ?? ((n) => n));
           patchShot(shot.id, { status: 'capped' });
+          setOutOfShots(true);
+          announceOutOfShots();
           return;
         }
         const code = err instanceof Error ? err.message : '';
@@ -1090,14 +1124,21 @@ export function PapicSeatCapture({
   }
 
   // One gesture shutter, so "all used up" means BOTH kinds are exhausted (a
-  // photo-only seat just needs photos gone). Paid seats are uncapped → never full.
-  const allFull = photoFull && (clipFull || !clipsAllowed);
+  // photo-only seat just needs photos gone). Pack seats carry no client cap, so
+  // for them the ONLY exhaustion signal is the async `outOfShots` latch above.
+  const allFull = outOfShots || (photoFull && (clipFull || !clipsAllowed));
 
   const countLabel = capped
     ? `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}${
         clipsAllowed ? ` · ${clips}/${clipCap} ${clips === 1 ? 'clip' : 'clips'}` : ''
       }`
     : `${photos + clips} ${photos + clips === 1 ? 'shot' : 'shots'}`;
+
+  // What this guest would LOSE by closing the tab — their own shots, which the
+  // couple keeps either way. Drives the nudge above: nothing at stake reads
+  // calm, something at stake reads urgent. Same `photos`/`clips` the header
+  // counts, so the nudge and the count can never disagree.
+  const shotsTaken = photos + clips;
 
   // Countdown ring geometry (a 4.5rem button → r≈30 stroke ring around it).
   const RING_C = 2 * Math.PI * 32;
@@ -1115,7 +1156,7 @@ export function PapicSeatCapture({
           {styleMeta && styleMeta.id !== 'ORIG' ? (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/90"
-              title={`Event look: ${styleMeta.blurb} — set by the couple`}
+              title={`Event look: ${styleMeta.blurb} — set by the host`}
             >
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               {styleMeta.label}
@@ -1129,19 +1170,59 @@ export function PapicSeatCapture({
       </header>
 
       {/* Opt-in account sync (anonymous claimers only). One-tap claim stays
-          frictionless; this is the calm "keep these" nudge — /signup attaches an
-          email to the SAME anon uid, so the seat + every capture carry over. */}
+          frictionless; /signup attaches an email to the SAME anon uid, so the
+          seat + every capture carry over.
+          
+          ⚠ THIS NUDGE NOW GROWS WITH WHAT THERE IS TO LOSE. It used to read the
+          same calm sentence whether the guest had taken 0 shots or 40 — so at
+          the only moment it mattered, it looked exactly like the moment it did
+          not, and a guest who closed the tab lost every photo they took. (The
+          couple's copy is safe either way; this is the guest's own.)
+          
+          The host's rule, owner 2026-08-02: a guest gets photos they were TAGGED
+          in, otherwise only what they took. "What they took" is precisely what
+          this nudge protects, so it has to land before the tab closes. */}
       {isAnon && (
         <Link
           href={`/signup?next=${encodeURIComponent(`/papic/seat/${token}`)}`}
-          className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15"
+          className={
+            shotsTaken > 0
+              ? 'mx-4 mb-1 flex items-center gap-2.5 rounded-lg border-2 border-champagne-gold bg-champagne-gold/20 px-3 py-2.5 text-xs text-cream transition hover:bg-champagne-gold/25'
+              : 'mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15'
+          }
         >
-          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0 text-champagne-gold" strokeWidth={1.9} />
+          <ShieldCheck
+            aria-hidden
+            className={
+              shotsTaken > 0
+                ? 'h-5 w-5 shrink-0 text-champagne-gold'
+                : 'h-4 w-4 shrink-0 text-champagne-gold'
+            }
+            strokeWidth={1.9}
+          />
           <span className="min-w-0 flex-1">
-            <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
-            Save these to your Setnayan account to find them later.
+            {shotsTaken > 0 ? (
+              <>
+                <span className="font-semibold text-cream">
+                  {shotsTaken} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
+                  on this phone.
+                </span>{' '}
+                Save them to your account or they go when you close this tab.
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
+                Save these to your Setnayan account to find them later.
+              </>
+            )}
           </span>
-          <span className="shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream">
+          <span
+            className={
+              shotsTaken > 0
+                ? 'shrink-0 rounded-full bg-cream px-3 py-1 font-semibold text-ink'
+                : 'shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream'
+            }
+          >
             Save
           </span>
         </Link>
@@ -1361,7 +1442,7 @@ export function PapicSeatCapture({
                 <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
                 <p className="mt-2 text-sm font-medium text-cream">
                   That&rsquo;s everything you can shoot — every photo and clip is in
-                  the couple&rsquo;s gallery.
+                  the host&rsquo;s gallery.
                 </p>
               </div>
             ) : (
@@ -1448,8 +1529,14 @@ export function PapicSeatCapture({
                   {recording
                     ? 'Recording… release to stop.'
                     : clipsAllowed
-                      ? 'Tap for a photo · press and hold to record (up to 5s).'
-                      : 'Tap to take a photo. Every shot lands in the couple’s gallery.'}
+                      ? // ⚠ DERIVED. This read "(up to 5s)" while CLIP_MAX_MS —
+                        // 800 lines above, in this same file — has been 10s since
+                        // the owner raised the cap on 2026-07-22. The button label
+                        // and the over-length error both said 10; only this hint
+                        // still said 5, on the same screen. Interpolate so the
+                        // next re-price cannot leave one of the three behind.
+                        `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
+                      : 'Tap to take a photo. Every shot lands in the host’s gallery.'}
                 </p>
               </>
             )}

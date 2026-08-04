@@ -51,6 +51,7 @@ import { toEventBriefLite, toStoreSnapshot } from './adapter';
 import { maybeAutoAccept } from './auto-accept';
 import { decideReply } from './engine';
 import { evaluateAutoReplyGate, startOfManilaDayIso } from './inbox-decision';
+import { voicedReplyText } from './voice-runtime';
 import { isVendorAiAddonActive } from '../vendor-addon-pricing';
 
 /** chat_messages CHECK caps body at 4000 chars — never let a long templated
@@ -228,7 +229,15 @@ export async function runVendorAutoReply(
       .select('*')
       .eq('event_id', eventId)
       .maybeSingle();
-    const event = eventRow ? toEventBriefLite(buildEventBrief(eventRow as EventBriefSource)) : null;
+    //    The budget opt-in is read off the SAME row and passed explicitly —
+    //    `events.share_budget_band` is `NOT NULL DEFAULT FALSE`, and the `?? false`
+    //    keeps a pre-migration row (or a `select('*')` that predates the column)
+    //    on the closed side rather than inheriting a truthy undefined.
+    const shareBudgetBand =
+      (eventRow as { share_budget_band?: boolean | null } | null)?.share_budget_band === true;
+    const event = eventRow
+      ? toEventBriefLite(buildEventBrief(eventRow as EventBriefSource), { shareBudgetBand })
+      : null;
 
     // 8. Availability signal — NOT computed in this phase. Per the adapter
     //    contract (types.ts), dateAvailable must be keyed to event.primaryDate;
@@ -249,6 +258,23 @@ export async function runVendorAutoReply(
         was_llm: false,
       });
     } else {
+      // 9a. ADVANCED voice-match (flag-dark · NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH).
+      //     Wraps the deterministic answer in the vendor's PRECOMPUTED voice
+      //     envelope — the numbers still come from the live rows above, so the
+      //     "cannot misquote" guarantee is untouched. Flag off (or Basic level,
+      //     or mode!=='smart', or no precomputed phrasings) returns
+      //     `decision.replyText` unchanged and issues zero extra queries.
+      //     Still `was_llm: false` — the precompute is deterministic; no model
+      //     call happens on this path, by design.
+      const voiced = await voicedReplyText({
+        admin,
+        vendorProfileId: vendorId,
+        addonActive,
+        intent: decision.intent,
+        neutralText: decision.replyText,
+        rotationKey: `${thread.thread_id}:${repliesToday ?? 0}`,
+      });
+
       const { data: botMessage, error: insertError } = await admin
         .from('chat_messages')
         .insert({
@@ -258,7 +284,7 @@ export async function runVendorAutoReply(
           sender_user_id: null,
           sender_role: 'vendor',
           is_bot: true,
-          body: decision.replyText.slice(0, MAX_BODY),
+          body: voiced.text.slice(0, MAX_BODY),
         })
         .select('message_id')
         .single();

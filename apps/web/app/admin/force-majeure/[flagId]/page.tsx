@@ -313,7 +313,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                 return (
                   <li
                     key={co.change_order_id}
-                    className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm"
+                    className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-ink">

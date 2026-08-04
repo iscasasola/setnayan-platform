@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { screenEditorialVendorMedia } from '@/lib/nsfw-screen';
+import { editorialVendorMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import {
   findRecommendedEventVendorId,
   MAX_PER_TYPE,
@@ -48,6 +49,30 @@ export async function submitVendorEditorialMedia(
   if (!user) return { ok: false, error: 'Please sign in.' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No vendor profile.' };
+
+  // ── SEC-1 lane #3: pin both refs to THIS vendor, on THIS event ─────────────
+  //
+  // Deliberately here rather than in the shape loop above: the policy is now
+  // TENANTED (`editorial-vendor/{vendorProfileId}/{eventId}/`), so it cannot be
+  // evaluated until the vendor is known. It previously ran early against a FLAT
+  // prefix, which could only contain the ref to the right bucket — never prove it
+  // belonged to this vendor, or to this couple's event.
+  //
+  // Both halves matter, because these refs are presigned onto the couple's PUBLIC
+  // editorial site (`app/[slug]/…/editorial/data.ts`) and read server-side by
+  // `lib/nsfw-screen.ts`: a vendor must not be able to attach another vendor's
+  // media, nor their OWN media from a different couple's event, to this event.
+  {
+    const policy = editorialVendorMediaPolicy(profile.vendor_profile_id, eventId);
+    for (const it of items) {
+      if (!parseClientRef(it.stillRef, policy)) {
+        return { ok: false, error: 'That image reference isn’t valid — re-upload and try again.' };
+      }
+      if (it.boomerangRef && !parseClientRef(it.boomerangRef, policy)) {
+        return { ok: false, error: 'That clip reference isn’t valid — re-upload and try again.' };
+      }
+    }
+  }
 
   const admin = createAdminClient();
 

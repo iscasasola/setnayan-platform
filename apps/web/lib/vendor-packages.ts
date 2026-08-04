@@ -20,6 +20,7 @@
  */
 
 import type { VendorCategory } from '@/lib/vendors';
+import { optionDeltaCentavos, pickBounds } from './package-credit';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* canonical_service → vendor_category mapping                              */
@@ -145,7 +146,117 @@ export type VendorPackageRow = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). The vendor's per-package
+   * decision about leftover credit: 'expiring' (use it or lose it — today's
+   * behaviour, and the column default) or 'refundable' (unspent credit comes
+   * off the price). OPTIONAL because older SELECTs predate the column.
+   * Honoured only by ./package-credit, behind ./package-credit-flag.
+   *
+   * ⚠ NOTHING WRITES THIS. There is no authoring control for it, so every
+   * package in existence is the DB default 'expiring'. Keep it that way until
+   * the owner confirms what 'refundable' means — read literally it refunds the
+   * whole unspent pool INCLUDING `consumable_budget_centavos`, i.e. money the
+   * sticker price already charged for. See the warning header in
+   * ./package-credit.
+   */
+  unspent_credit_policy?: 'expiring';
 };
+
+/**
+ * The PostgREST select list for a package. Use this, never a literal.
+ *
+ * Centralised for the same reason as {@link PACKAGE_ITEM_OPTION_SELECT}: this
+ * list was copy-pasted across four call sites, and the one time a name in a
+ * list like this was wrong (`label` for `option_label`) every copy was wrong
+ * together and every test stayed green.
+ */
+export const VENDOR_PACKAGE_SELECT =
+  'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, unspent_credit_policy, primary_canonical_service, is_active, created_at, updated_at';
+
+/**
+ * The PostgREST select list for a package line.
+ *
+ * `is_required` is load-bearing twice over: `isRemovableItem` refuses to price
+ * a removal without it, and the credit engine's whole invariant is that a
+ * required line's value never enters the pool. Omitting it reads as FALSE.
+ *
+ * ── 💰 THE FIVE BRANCHING COLUMNS ARE IN HERE NOW (2026-07-28) ──────────────
+ * They used to be deliberately withheld, and that omission WAS the ₱0 bug: the
+ * couple's screen offered a follow-up option, a second pick on a "choose 2 of
+ * 3", and an hour stepper — all with prices printed on them — while the server
+ * that commits the money read a select naming none of the columns that define
+ * those shapes. Every line arrived at the pricer as a top-level, exactly-one
+ * line, so each of those three cost exactly ₱0 at lock.
+ *
+ * The reason for withholding them was real and is now discharged: naming a
+ * column whose migration has not landed is a PostgREST 400 on a MONEY action,
+ * and this repo's migrations auto-apply unreliably. All five
+ * (`parent_option_id`, `pick_min`, `pick_max`, `max_extra_hours`,
+ * `extra_hour_centavos`) were verified present on live prod
+ * `vendor_package_items` before this list was widened, and
+ * `vendor-packages.columns.test.ts` re-checks every name against the migrations
+ * on each run.
+ *
+ * ⚠ THE TWO MONEY CALLERS MOVE TOGETHER. `lockPackage` and
+ * `removeItemFromPackage` both read with THIS constant; widening it for one and
+ * not the other is the drift `priceCustomizedPackage` exists to prevent.
+ * `PACKAGE_ITEM_BRANCHING_SELECT` stays exported as the named list of the five,
+ * and a test asserts this select contains every one of them — but no reader
+ * should append it any more, because it is already here.
+ */
+export const VENDOR_PACKAGE_ITEM_SELECT =
+  'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at, parent_option_id, pick_min, pick_max, max_extra_hours, extra_hour_centavos';
+
+/**
+ * The columns of `vendor_package_items` the AUTHORING surface reads or writes.
+ *
+ * Still a separate list from {@link VENDOR_PACKAGE_ITEM_SELECT}, but no longer
+ * because the branching columns are being withheld from the lock path — that
+ * quarantine was lifted once the columns were verified on live prod, and the
+ * shared select now carries all five. They differ because AUTHORING and READING
+ * want different sets: this one is what the vendor-side editor writes back (so
+ * it omits `created_at`, which nothing authors), and the shared select is what
+ * the couple-side money path reads.
+ *
+ * Every name here is asserted to be a real column by
+ * `vendor-packages.columns.test.ts`.
+ */
+export const PACKAGE_ITEM_AUTHORING_COLUMNS = [
+  'item_id',
+  'package_id',
+  'canonical_service',
+  'service_description',
+  'is_default_included',
+  'is_required',
+  'replacement_value_centavos',
+  'display_order',
+  'parent_option_id',
+  'pick_min',
+  'pick_max',
+  'max_extra_hours',
+] as const;
+
+/** The PostgREST select list the authoring loaders use. Never a literal. */
+export const PACKAGE_ITEM_AUTHORING_SELECT =
+  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours';
+
+/**
+ * The five branching columns, by name.
+ *
+ * ⚠ NO LONGER SOMETHING TO APPEND. These are now inside
+ * {@link VENDOR_PACKAGE_ITEM_SELECT}, so `` `${VENDOR_PACKAGE_ITEM_SELECT},
+ * ${PACKAGE_ITEM_BRANCHING_SELECT}` `` would ask PostgREST for each of them
+ * twice. This constant survives as the NAMED SET — the thing a test can assert
+ * the shared select still contains, so nobody can quietly drop one of the five
+ * and take the charge path back to ₱0 without a red test.
+ *
+ * What changed: the lock path CAN now see these columns, therefore it can price
+ * them, so a follow-up pick, an extra pick on a pick-N line, and an extra hour
+ * are all real money. See the module header of ./package-choice-tree.
+ */
+export const PACKAGE_ITEM_BRANCHING_SELECT =
+  'parent_option_id, pick_min, pick_max, max_extra_hours, extra_hour_centavos';
 
 export type VendorPackageItemRow = {
   item_id: string;
@@ -156,7 +267,137 @@ export type VendorPackageItemRow = {
   replacement_value_centavos: number;
   display_order: number;
   created_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). TRUE = the line cannot
+   * be removed AND its replacement value never enters the available-credit
+   * pool. OPTIONAL here because no shipped SELECT requests the column yet —
+   * `computeCustomization` below deliberately ignores it, so today's flag-OFF
+   * behaviour is unchanged. The credit engine that honours it lives in
+   * ./package-credit and is gated by ./package-credit-flag.
+   *
+   * ⚠ NOT the same thing as `is_default_included`, which only means "ticked
+   * by default" and never stopped anyone unticking the line.
+   */
+  is_required?: boolean;
+  /**
+   * FOLLOW-UP link (migration 20271012816361). Non-null = the couple sees this
+   * line only once that specific option is picked on another line. OPTIONAL on
+   * the TYPE only because a handful of narrow selects still exist; every select
+   * on the money path requests it — see {@link VENDOR_PACKAGE_ITEM_SELECT}.
+   *
+   * ⚠ THE PRICING HAZARD IS CLOSED — STRUCTURALLY, NOT BY FILTERING.
+   * This once read "not yet honoured by pricing": a follow-up authored as
+   * `is_default_included = TRUE` would be charged to the couple and cascade
+   * into an `event_vendors` row even though its parent option was never
+   * picked. Rather than teach each reader to skip follow-ups — which protects
+   * only the readers that know they exist — the truth now lives in the schema:
+   * `vendor_package_items_followup_not_default_included_ck` (migration
+   * 20271015207377) forces every follow-up to `is_default_included = FALSE`
+   * AND `is_required = FALSE`. A follow-up is conditional by definition, so it
+   * can never be inside `total_price_centavos`.
+   *
+   * With that forced, the LINE's own value stays out of the money in every
+   * direction: `computeCustomization` counts nothing for it, `keptItems` drops
+   * it so it cannot cascade an `event_vendors` row, and the credit engine leaves
+   * its replacement value out of the pool. `keptItems` also excludes it
+   * explicitly, as a belt over that brace.
+   *
+   * ── 💰 WHAT IS CHARGED IS ITS OWN OPTIONS (2026-07-28) ────────────────────
+   * The renderer slice shipped, and then the CHARGE path caught up with it. A
+   * follow-up whose parent option is IN FORCE is now resolved by the credit
+   * engine like any other choice line, and its picked option's delta is real
+   * money on `total_locked_centavos`. A follow-up whose parent was NOT picked is
+   * dropped by `chargeableOptionIds` before the pricer sees it, and refused
+   * (`option_on_excluded_item`) if it somehow arrives anyway.
+   *
+   * The two rules are not in tension: the follow-up LINE is a consequence of a
+   * pick and costs nothing on its own; the OPTION picked on it is an upgrade the
+   * couple asked for and costs what the vendor said it costs.
+   */
+  parent_option_id?: string | null;
+  /**
+   * "Choose N of M" bounds. Both or neither — the DB refuses a half-set pair.
+   * Null reads as exactly-one via `pickBounds`. Every pick up to `pick_max`
+   * carries its own delta onto the total.
+   */
+  pick_min?: number | null;
+  pick_max?: number | null;
+  /** Ceiling on EXTRA hours over `min_hours`. NOT a generic quantity cap. */
+  max_extra_hours?: number | null;
+  /**
+   * Cost of each hour beyond `min_hours` (migration 20270713100000). A line has
+   * a QUANTITY axis iff this is set — `max_extra_hours` only caps an hourly
+   * model that already exists, so a cap without a rate is not a stepper. This
+   * is the RATE the extra-hour stepper is billed at, re-read from the row on
+   * every price; the client only ever sends a quantity.
+   */
+  extra_hour_centavos?: number | null;
+  /**
+   * The alternatives on this line. **A line is a CHOICE iff this is non-empty**
+   * — there is no `is_choice` column, and adding one would be a second source
+   * of truth that could disagree with the rows.
+   *
+   * OPTIONAL because most SELECTs do not join the options table; `undefined`
+   * means "not fetched", which reads the same as "not a choice" everywhere it
+   * matters. Only fetch it where a couple can actually pick.
+   */
+  options?: ReadonlyArray<VendorPackageItemOptionRow>;
 };
+
+/**
+ * One alternative on a CHOICE line (migration 20271006413374). A line is a
+ * choice iff it carries at least one of these.
+ *
+ * ⚠ The DB column is `option_label`, NOT `label`. The authoring surface asked
+ * for `label` in two SELECTs and wrote `label` in its INSERT; PostgREST 400s on
+ * an unknown column, so no vendor could save or reload a choice option at all.
+ * This type and {@link PACKAGE_ITEM_OPTION_COLUMNS} exist so the name is
+ * written down once, in one place, instead of in free-text query strings —
+ * `vendor-packages.columns.test.ts` checks it against the migration.
+ */
+export type VendorPackageItemOptionRow = {
+  option_id: string;
+  item_id: string;
+  option_label: string;
+  /** EXTRA over the default. The DB pins the default option to 0. */
+  price_delta_centavos: number;
+  is_default: boolean;
+  is_available: boolean;
+  display_order: number;
+  /**
+   * 'fixed' (default) = `price_delta_centavos` is the whole uplift.
+   * 'per_pax' = the uplift is `per_pax_delta_centavos × max(pax, min_pax)` —
+   * "+₱150/head", the normal PH catering upgrade.
+   */
+  pricing_basis?: 'fixed' | 'per_pax';
+  per_pax_delta_centavos?: number;
+  min_pax?: number;
+};
+
+/**
+ * The columns of `vendor_package_item_options` this app reads or writes, spelled
+ * as the database spells them. NOT the full table — `option_description`,
+ * `created_at` and `updated_at` exist in the migration and are deliberately
+ * absent here because nothing consumes them yet.
+ *
+ * Every name in this list is asserted to be a real column by the columns test.
+ */
+export const PACKAGE_ITEM_OPTION_COLUMNS = [
+  'option_id',
+  'item_id',
+  'option_label',
+  'price_delta_centavos',
+  'is_default',
+  'is_available',
+  'display_order',
+  'pricing_basis',
+  'per_pax_delta_centavos',
+  'min_pax',
+] as const;
+
+/** The PostgREST select list for a choice option. Use this, never a literal. */
+export const PACKAGE_ITEM_OPTION_SELECT =
+  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available, pricing_basis, per_pax_delta_centavos, min_pax';
 
 export type VendorPackageWithItems = VendorPackageRow & {
   items: ReadonlyArray<VendorPackageItemRow>;
@@ -192,10 +433,95 @@ export type EventVendorPackageRow = {
  *   category-label → centavos. Informational only — actual money flow
  *   stays in remaining_consumable_centavos.
  */
-export type PackageCustomizations = {
+/**
+ * ⚠ TWO TYPES ON PURPOSE — this split is a bug fix, not bookkeeping.
+ *
+ * Three times in this wave the same failure shipped: a value that must come
+ * from the SERVER arrived from the browser and was written down as truth
+ * (`chosen_option_ids`, then `credit_additions`). Each time the cause was the
+ * same line — `{ ...customizations }` — spreading the client's own object into
+ * the row we persist.
+ *
+ * So the two things now have two types, and the compiler refuses to confuse
+ * them:
+ *
+ *   INPUT  — what a browser may send. IDs and quantities. **No money.**
+ *   STORED — what we persist. Sanitised, with every price FROZEN.
+ *
+ * `Stored` requires `unit_price_centavos` on each addition, and `Input` forbids
+ * it, so `persist({ ...input })` cannot typecheck. The old bug is now
+ * unrepresentable rather than merely tested for.
+ */
+export type PackageCustomizationsInput = {
   removed_item_ids?: string[];
   consumable_allocations?: Record<string, number>;
+  /** Option ids the host picked. Server re-reads every price. */
+  chosen_option_ids?: string[];
+  /**
+   * item_id → extra hours requested beyond the line's `min_hours`.
+   *
+   * A QUANTITY ONLY, for the same reason `chosen_option_ids` is ids only: the
+   * rate lives in `vendor_package_items.extra_hour_centavos` and the server
+   * re-reads it. A peso figure arriving here from the browser would be a
+   * client-supplied price, which is the whole failure the Input/Stored split
+   * exists to stop.
+   */
+  extra_hours?: Record<string, number>;
+  /**
+   * Catalogue buys funded by credit. IDS AND QUANTITIES ONLY — money here
+   * would be a client-supplied price, which is the whole failure this split
+   * exists to stop.
+   */
+  credit_additions?: Array<{
+    service_id: string;
+    quantity: number;
+    /** @deprecated never sent by a client; present only to make misuse loud. */
+    unit_price_centavos?: never;
+  }>;
 };
+
+/** What is written to `event_vendor_packages.customizations_json`. */
+export type PackageCustomizationsStored = {
+  removed_item_ids?: string[];
+  consumable_allocations?: Record<string, number>;
+  chosen_option_ids?: string[];
+  /**
+   * The extra hours actually CHARGED FOR, after `chargeableExtraHours` narrowed
+   * and clamped what the browser sent. Persisting the raw request instead would
+   * leave a record that disagrees with `total_locked_centavos` — the same class
+   * of bug as persisting an option id the pricer refused.
+   */
+  extra_hours?: Record<string, number>;
+  /**
+   * 🧊 THE PRICING SNAPSHOT — every number that decided this booking's total,
+   * frozen at lock. A locked order is FROZEN: `removeItemFromPackage` re-prices
+   * from this, under the model recorded in it, so nothing the vendor edits
+   * afterwards and no flag flip can move an agreed price. It is also what every
+   * post-lock surface itemises from.
+   *
+   * Typed loosely here so `./vendor-packages` stays free of a dependency on
+   * `./package-pricing-snapshot` (which imports this module). Readers go through
+   * `readPricingSnapshot`, which validates every field rather than casting.
+   */
+  pricing_snapshot?: unknown;
+  credit_additions?: Array<{
+    service_id: string;
+    quantity: number;
+    /**
+     * REQUIRED, and frozen at lock. `vendor_services.credit_price_centavos` is
+     * live and vendor-editable, so a bare pointer would let a later edit
+     * rewrite what the couple already spent (cf. `orders.pax_snapshot`).
+     */
+    unit_price_centavos: number;
+  }>;
+};
+
+/**
+ * @deprecated Use {@link PackageCustomizationsInput} at the boundary and
+ * {@link PackageCustomizationsStored} for anything persisted. Kept so existing
+ * readers of stored rows keep compiling.
+ */
+export type PackageCustomizations = PackageCustomizationsStored;
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* PHP centavos formatter                                                   */
@@ -236,6 +562,179 @@ export function formatCentavosPhp(centavos: number | null | undefined): string {
  * consumable pool stays at vendor_packages.consumable_budget_centavos
  * (no flex; host saves money instead).
  */
+/**
+ * Can the host drop this line?
+ *
+ * Two INDEPENDENT reasons a line is not removable, and both must hold for a
+ * removal to be worth money:
+ *
+ *   • `is_required` — the vendor marked it mandatory. Owner-locked 2026-07-26:
+ *     "the vendor can place required so this is something they have to pick and
+ *     cannot be unpicked."
+ *   • `!is_default_included` — the line is an optional ADD-ON that was never
+ *     inside `total_price_centavos`. "Removing" it must refund nothing, because
+ *     nothing was ever charged for it. Treating it as removable is how the
+ *     pre-fix code paid the host for a line the vendor never billed.
+ *
+ * `is_required` is optional on the row type only because the column post-dates
+ * it; every SELECT on the lock path now includes it, and the DB default is
+ * FALSE, so it is a real boolean in practice.
+ */
+export function isRemovableItem(item: VendorPackageItemRow): boolean {
+  return item.is_default_included === true && item.is_required !== true;
+}
+
+/**
+ * A line is a CHOICE iff it carries at least one alternative. Mirrors
+ * `isChoiceLine` in ./package-credit, which types the same rule for the credit
+ * engine's own structural item type.
+ */
+export function isChoiceLine(item: VendorPackageItemRow): boolean {
+  return Array.isArray(item.options) && item.options.length > 0;
+}
+
+/**
+ * The option a choice line falls back to when the host has picked nothing: the
+ * one the vendor marked standard, which `total_price_centavos` already pays for.
+ *
+ * `undefined` for a plain line, and also for the malformed case of a choice line
+ * with no available default. The authoring validator refuses to save that
+ * (`choice_needs_exactly_one_default` + `choice_default_unavailable`) and the DB
+ * enforces at-most-one via a partial unique index — but the DB does NOT enforce
+ * *at least* one, so a row written outside the validator can still land here.
+ * Callers must treat `undefined` as "unresolved", never as "free".
+ */
+export function defaultOptionFor(
+  item: VendorPackageItemRow,
+): VendorPackageItemOptionRow | undefined {
+  return item.options?.find((o) => o.is_default && o.is_available);
+}
+
+/**
+ * The option actually in force on a line, given what the host picked.
+ *
+ * Resolution order: the picked id (only if it belongs to THIS line and is still
+ * available) → the standard option → `undefined`. Scoping the lookup to the
+ * line's own options is what stops a client sending some other line's cheaper
+ * option id and being priced by it.
+ */
+export function resolveChosenOption(
+  item: VendorPackageItemRow,
+  chosenOptionIds: ReadonlyArray<string>,
+): VendorPackageItemOptionRow | undefined {
+  const picked = item.options?.find(
+    (o) => chosenOptionIds.includes(o.option_id) && o.is_available,
+  );
+  return picked ?? defaultOptionFor(item);
+}
+
+/**
+ * What the host's choices ADD to the package price, in centavos.
+ *
+ * ⚠ TAKES AN ALREADY-NARROWED SET. `chosenOptionIds` must be what
+ * `chargeableOptionIds` (./package-choice-tree) returned, which is what all
+ * three money callers pass — the lock, the re-price on removal, and the modal's
+ * live total. That narrowing is what decides WHICH picks count: a follow-up
+ * whose parent option is not in force, and a pick beyond `pick_max`, are dropped
+ * there. This function only has to turn a decided set into pesos.
+ *
+ * Prices come from the item rows the CALLER fetched, so on the server this must
+ * be called with DB-read options, never client-supplied ones.
+ *
+ * Two things changed with the charge-path widening (2026-07-28):
+ *   • EVERY pick on a line is summed, not just the first `resolveChosenOption`
+ *     found. A "choose 2 of 3" that charged for one and delivered three was
+ *     money the vendor was owed and never billed.
+ *   • A FOLLOW-UP line can contribute. It is `is_default_included = FALSE` by DB
+ *     CHECK, so the old blanket "not included ⇒ contributes nothing" skipped it
+ *     entirely; now a line with a narrowed pick on it is priced, and only a line
+ *     with NO pick falls back to the not-included test.
+ */
+export function chosenOptionsSurchargeCentavos(
+  pkg: VendorPackageWithItems,
+  removedItemIds: ReadonlyArray<string>,
+  chosenOptionIds: ReadonlyArray<string>,
+): number {
+  const removedSet = new Set(removedItemIds);
+  const chosen = new Set(chosenOptionIds);
+  return pkg.items.reduce((sum, item) => {
+    if (removedSet.has(item.item_id) && isRemovableItem(item)) return sum;
+    if (!isChoiceLine(item)) return sum;
+    // 🚨 AN ADD-ON IS NOT A FOLLOW-UP, and the difference is the whole reason
+    // this test is structural rather than a blanket `is_default_included`.
+    //   • an ADD-ON (not included, no parent) was never bought — there is no
+    //     purchase path for one, so "upgrading" it into the price is inventing
+    //     a charge. It contributes nothing, exactly as before.
+    //   • a FOLLOW-UP (not included BY DB CHECK, but with a parent) was reached
+    //     precisely by buying its parent option, so its own pick is real money.
+    // Blanket-skipping every not-included line — which is what this did — is
+    // what made a revealed follow-up's upgrade free.
+    if (!item.is_default_included && item.parent_option_id == null) return sum;
+
+    const picked = (item.options ?? [])
+      .filter((o) => chosen.has(o.option_id) && o.is_available)
+      // Bounded by the line's OWN contract, with the same `pickBounds` the
+      // renderer and the engine use. Belt over the caller's narrowing: a raw
+      // list naming three options on a one-of-N line must not triple-charge.
+      // Display order decides which survives, so the answer does not depend on
+      // the order ids happened to arrive in.
+      .slice(0, pickBounds(item).max);
+    if (picked.length > 0) {
+      // Basis-aware: a per-head option priced off its flat delta would read ₱0.
+      // `paxCount` is 0 here because this helper is the FLAG-OFF path and has no
+      // event context; `min_pax` still floors it, so a per-head upgrade shows
+      // its minimum rather than free. The credit engine prices it properly.
+      return sum + picked.reduce((s, o) => s + optionDeltaCentavos(o, 0), 0);
+    }
+
+    // Nothing picked. An INCLUDED line sits on its vendor default, whose delta
+    // the DB pins to 0. A follow-up with no pick is not in the booking at all,
+    // and neither is an add-on — both contribute nothing.
+    if (!item.is_default_included) return sum;
+    const fallback = defaultOptionFor(item);
+    return fallback ? sum + optionDeltaCentavos(fallback, 0) : sum;
+  }, 0);
+}
+
+/**
+ * What the host's EXTRA HOURS add to the package price, in centavos.
+ *
+ * The flag-OFF twin of the credit engine's hour arithmetic, and the same
+ * contract as {@link chosenOptionsSurchargeCentavos}: `extraHours` must already
+ * have been narrowed and clamped by `chargeableExtraHours`, which is what every
+ * money caller passes. The rate is re-read from the item row here — the browser
+ * only ever sends a quantity, never a peso.
+ *
+ * A defensive clamp survives anyway, because this is the last stop before a
+ * number becomes a charge: hours are floored at 0 and capped at the line's own
+ * `max_extra_hours`, and a line with no hourly rate bills nothing at all.
+ */
+export function extraHoursSurchargeCentavos(
+  pkg: VendorPackageWithItems,
+  removedItemIds: ReadonlyArray<string>,
+  extraHours: Readonly<Record<string, number>>,
+): number {
+  const removedSet = new Set(removedItemIds);
+  return pkg.items.reduce((sum, item) => {
+    if (removedSet.has(item.item_id) && isRemovableItem(item)) return sum;
+    // Same add-on / follow-up split as the option surcharge above: hours on a
+    // line nobody bought are not a charge, hours on a revealed follow-up are.
+    if (!item.is_default_included && item.parent_option_id == null) return sum;
+    const requested = extraHours?.[item.item_id];
+    if (requested === undefined) return sum;
+
+    const rate = item.extra_hour_centavos;
+    const cap = item.max_extra_hours;
+    // A cap without a rate is not a stepper, and a rate without a cap has no
+    // ceiling we are willing to bill to. Either way: nothing.
+    if (rate == null || !Number.isFinite(rate) || rate <= 0) return sum;
+    if (cap == null || !Number.isSafeInteger(cap) || cap <= 0) return sum;
+
+    if (!Number.isSafeInteger(requested) || requested <= 0) return sum;
+    return sum + Math.min(requested, cap) * rate;
+  }, 0);
+}
+
 export function computeCustomization(
   pkg: VendorPackageWithItems,
   removedItemIds: ReadonlyArray<string>,
@@ -245,8 +744,11 @@ export function computeCustomization(
   removedTotalCentavos: number;
 } {
   const removedSet = new Set(removedItemIds);
+  // Only removals the host was actually ALLOWED to make move money. An id for a
+  // required or never-included line is ignored rather than rejected, so a stale
+  // client cannot both crash the lock and cannot profit from it.
   const removedTotalCentavos = pkg.items
-    .filter((item) => removedSet.has(item.item_id))
+    .filter((item) => removedSet.has(item.item_id) && isRemovableItem(item))
     .reduce((sum, item) => sum + item.replacement_value_centavos, 0);
 
   if (pkg.is_consumable_flexible) {
@@ -276,6 +778,46 @@ export function keptItems(
   pkg: VendorPackageWithItems,
   removedItemIds: ReadonlyArray<string>,
 ): ReadonlyArray<VendorPackageItemRow> {
+  return keptItemRows(pkg.items, removedItemIds);
+}
+
+/**
+ * The same rule over bare rows, for callers that hold items without a package
+ * object (the budget reads `vendor_package_items` for many packages at once).
+ * ONE definition — `keptItems` delegates here; do not fork the predicate.
+ */
+export function keptItemRows(
+  items: ReadonlyArray<VendorPackageItemRow>,
+  removedItemIds: ReadonlyArray<string>,
+): ReadonlyArray<VendorPackageItemRow> {
   const removedSet = new Set(removedItemIds);
-  return pkg.items.filter((item) => !removedSet.has(item.item_id));
+  return items.filter((item) => {
+    // BELT over the database's BRACE. A follow-up is CONDITIONAL — the couple
+    // is shown it only once its parent option is picked — so it must never
+    // cascade into a booked event_vendors row off the back of a lock. The
+    // brace is `vendor_package_items_followup_not_default_included_ck`
+    // (migration 20271015207377), which forces `is_default_included = FALSE`
+    // on every follow-up, so the next line already excludes them from any row
+    // that came out of the database.
+    //
+    // BOTH exist because this function does not only see database rows: the
+    // customization modal, the credit adapter and every test build item
+    // objects IN MEMORY, where no constraint applies. This line is what would
+    // have cascaded the row, so it refuses the shape directly rather than
+    // trusting that whoever assembled the object honoured the schema.
+    //
+    // ⚠ Deleting this does NOT become safe once the renderer ships. A PICKED
+    // follow-up cascades through the renderer's own resolution — which knows
+    // the parent was chosen — never through "it was in the package all along".
+    if (item.parent_option_id != null) return false;
+    // Never inside the price → never cascades into an event_vendors row. There
+    // is no purchase path for add-ons yet, so shipping them as booked services
+    // would hand the host a vendor they did not pay for.
+    if (!item.is_default_included) return false;
+    // A required line survives regardless of what the client sent. Note this
+    // sits BELOW the inclusion check, so `is_required` never resurrects a line
+    // the two guards above already dropped.
+    if (item.is_required) return true;
+    return !removedSet.has(item.item_id);
+  });
 }

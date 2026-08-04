@@ -12,7 +12,7 @@ import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -68,6 +68,7 @@ import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-sche
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
+import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -1713,30 +1714,42 @@ export async function finalizeVendor(
   // groups like Music & Entertainment, multiple confirmed vendors IS the
   // happy path, so we don't accidentally archive a legitimate co-lock).
   //
+  // HARD-SINGLE ONLY (owner 2026-07-27): a multi-pick category keeps its
+  // shortlist after a lock — the couple may want a SECOND caterer / photo
+  // booth, and their remaining research is exactly what they'd pick #2
+  // from. Sweeping only applies where the slot is genuinely filled (one
+  // venue / officiant / coordinator / host / LED).
+  //
   // Failure mode: if the archive sweep fails, we DON'T roll back the lock
   // because the lock itself was the primary action the host took. The
   // host can manually delete or re-confirm any stale considering picks
   // from the vendor tracker. We log the error to console.warn so it
   // surfaces in Sentry for ops attention, but the action returns ok.
   // ----------------------------------------------------------------------
-  const { error: archiveErr } = await supabase
-    .from('event_vendors')
-    .update({
-      archived_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId)
-    .eq('category', targetCategory)
-    .neq('vendor_id', vendorId)
-    .in('status', ['considering', 'shortlisted'])
-    .is('archived_at', null);
-  if (archiveErr) {
-    // Surface to Sentry-style logging without rolling back the lock.
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
-      archiveErr.message,
-    );
+  if (isHardSingle) {
+    const { error: archiveErr } = await supabase
+      .from('event_vendors')
+      .update({
+        archived_at: new Date().toISOString(),
+        // Stamp WHO displaced these, so revertVendorToConsidering can un-archive
+        // exactly this set. Without it the undo left every displaced pick
+        // archived forever and the couple lost their research on a mis-tap.
+        archived_by_lock_of: vendorId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('category', targetCategory)
+      .neq('vendor_id', vendorId)
+      .in('status', ['considering', 'shortlisted'])
+      .is('archived_at', null);
+    if (archiveErr) {
+      // Surface to Sentry-style logging without rolling back the lock.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
+        archiveErr.message,
+      );
+    }
   }
 
   // ----------------------------------------------------------------------
@@ -2117,6 +2130,27 @@ export async function finalizeVendor(
     }
   }
 
+  // Explore Replan slice A: a hard-single lock FILLS the slot — auto-mark the
+  // category 'complete' so the bench collapses it to "✓ Covered". Multi-pick
+  // groups instead get the toast question client-side. Best-effort + flag-
+  // gated; a failure never rolls back the lock. Undo deletes the row.
+  if (isExploreReplanEnabled() && isHardSingle && groupId) {
+    try {
+      await supabase.from('event_category_decisions').upsert(
+        {
+          event_id: eventId,
+          plan_group_id: groupId,
+          decision: 'complete',
+          decided_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,plan_group_id' },
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`[finalizeVendor] auto-complete failed for group=${groupId}:`, e);
+    }
+  }
+
   // Couple locked a vendor a coordinator had proposed — resolve the pending
   // proposal so it drops off the couple's "to confirm" strip. Best-effort; the
   // lock already succeeded. No-op when there was no proposal.
@@ -2144,12 +2178,13 @@ export async function finalizeVendor(
   // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on, so this block is byte-behaviour-
   // identical to today. Pre-gated on the marketplace link too, so an off-platform
   // vendor never even calls in. A verified vendor's first 5 booked customers are
-  // FREE; booking 6+ mints a 5% vendor-payer order on the manual QR rail.
+  // FREE; booking 6+ mints a vendor-payer order on the manual QR rail, priced at
+  // the locked schedule — 5%, then 1% beyond ₱100,000 (lib/booking-fee.ts).
   // Fully fail-soft: the lock already committed — a fee hiccup never rolls it back.
   // ----------------------------------------------------------------------
   if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
     try {
-      await collectBookingFeeAtLock(createAdminClient(), { eventVendorId: vendorId });
+      await collectBookingFeeAtLock(createMoneyWriterClient(), { eventVendorId: vendorId });
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(`[finalizeVendor] booking-fee collect failed for vendor_id=${vendorId} event_id=${eventId}:`, e);
@@ -2241,6 +2276,22 @@ export async function revertVendorToConsidering(
     return { status: 'not_locked' };
   }
 
+  // Explore Replan slice A: undoing a lock reopens the category — clear any
+  // 'complete' decision (the auto hard-single one or a toast-answered one).
+  // Deliberately NOT flag-gated: rows written while the flag was on must stay
+  // clearable; deleting an absent row is a no-op.
+  {
+    const revertGroup = planGroupForCategory(current.category as VendorCategory);
+    if (revertGroup) {
+      await supabase
+        .from('event_category_decisions')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('plan_group_id', revertGroup)
+        .eq('decision', 'complete');
+    }
+  }
+
   // Un-picking a vendor must also drop the #1-pick flag + the marketplace
   // editorial credit (QA fix 2026-06-19). finalizeVendor stamps both
   // selection_match_rank=1 and linked_vendor_profile_id on lock; reverting to
@@ -2259,6 +2310,38 @@ export async function revertVendorToConsidering(
     .eq('event_id', eventId);
   if (revertErr) {
     return { status: 'error', message: revertErr.message };
+  }
+
+  // ── UN-ARCHIVE the picks THIS lock displaced ─────────────────────────────
+  // finalizeVendor archives every other considering/shortlisted pick in the
+  // won category. Until 2026-07-26 nothing reversed that, so undoing a lock
+  // left the couple's whole shortlist for that category archived — a mis-tap
+  // silently destroyed their research with no path back but re-adding each
+  // vendor by hand.
+  //
+  // Scoped by `archived_by_lock_of = vendorId`, so this restores EXACTLY what
+  // this lock hid and never resurrects a row the host archived deliberately.
+  // Rows archived before the column existed carry NULL and are left alone —
+  // they are indistinguishable from a manual archive, and guessing would
+  // un-hide picks the couple meant to hide.
+  //
+  // Best-effort, like the sweep itself: the revert has already committed, and
+  // a failure here must not roll it back. It surfaces in logging instead.
+  const { error: unarchiveErr } = await supabase
+    .from('event_vendors')
+    .update({
+      archived_at: null,
+      archived_by_lock_of: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('archived_by_lock_of', vendorId);
+  if (unarchiveErr) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[revertVendorToConsidering] un-archive failed for event_id=${eventId} vendor_id=${vendorId}:`,
+      unarchiveErr.message,
+    );
   }
 
   // ── REVIVE displaced inquiries (fairness · payment-gated) ────────────────

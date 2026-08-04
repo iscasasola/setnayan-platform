@@ -33,13 +33,17 @@ import { createClient } from '@/lib/supabase/server';
 import {
   fetchPlaylistPicks,
   groupPicksBySlot,
+  fetchSlotVibes,
   countPositivePicks,
   PLAYLIST_SLOT_TYPES,
   PLAYLIST_SLOT_LABELS,
   PLAYLIST_SLOT_HINTS,
   type PlaylistSlotType,
 } from '@/lib/playlist';
+import { fetchEventSongRequests } from '@/lib/songs';
+import { buildUnsortedTray } from '@/lib/song-desk';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
+import { UnsortedTray } from './_components/unsorted-tray';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -57,11 +61,21 @@ export default async function PlaylistPage({ params }: Props) {
   // Fetch event + booked Music vendor (if any) in parallel with picks.
   // Music vendor detection: scan event_vendors for confirmed bookings
   // matching the four Music canonical categories.
-  const [picksRaw, eventRow, musicVendorRow] = await Promise.all([
+  const [picksRaw, vibes, flatPicks, eventRow, musicVendorRow] = await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
+    // The feel per moment (PR 4) — same event scope, so it joins the batch.
+    fetchSlotVibes(supabase, eventId),
+    // The couple's FLAT onboarding picks (PR 3) — the tray is these minus
+    // whatever is already placed in a moment.
+    fetchEventSongRequests(supabase, eventId),
+    // ⚠ `display_name`, NOT `event_name` — public.events has no `event_name`
+    // column and never has. PostgREST 42703'd the WHOLE query, so
+    // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
+    // below bounced EVERY visitor straight back to /dashboard: this page was
+    // 100% unreachable in production.
     supabase
       .from('events')
-      .select('event_id,event_name')
+      .select('event_id,display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -77,8 +91,14 @@ export default async function PlaylistPage({ params }: Props) {
 
   if (!eventRow.data) redirect('/dashboard');
 
-  const grouped = groupPicksBySlot(picksRaw);
-  const positiveCount = countPositivePicks(picksRaw);
+  // `.rows` because a failed read is now distinguishable from an empty one
+  // (lib/playlist.ts). This surface behaves the same either way — the couple's
+  // own editor shows empty slots to fill — so it reads through to the rows; the
+  // distinction exists for the vendor song desk, which otherwise turns a denied
+  // read into a claim about what the couple did.
+  const unsorted = buildUnsortedTray({ flatPicks, placed: picksRaw.rows });
+  const grouped = groupPicksBySlot(picksRaw.rows);
+  const positiveCount = countPositivePicks(picksRaw.rows);
   const bookedMusic = musicVendorRow.data;
 
   return (
@@ -90,7 +110,7 @@ export default async function PlaylistPage({ params }: Props) {
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-ink/55 transition-colors hover:text-ink/85"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to {eventRow.data.event_name ?? 'event home'}
+        Back to {eventRow.data.display_name ?? 'event home'}
       </Link>
 
       <header className="sn-reveal mb-6 space-y-2">
@@ -155,6 +175,11 @@ export default async function PlaylistPage({ params }: Props) {
 
       {/* 8 slot sections · one per canonical slot type. Each is a client
           island wrapping the inline add/edit/delete form. */}
+      {/* The tray answers "where did my songs go?", which is asked before any
+          other question on this page — so it sits above the moments. It renders
+          nothing once everything is placed. */}
+      <UnsortedTray eventId={eventId} entries={unsorted} />
+
       <div className="space-y-5">
         {PLAYLIST_SLOT_TYPES.map((slot) => (
           <PlaylistSlotSection
@@ -164,6 +189,7 @@ export default async function PlaylistPage({ params }: Props) {
             label={PLAYLIST_SLOT_LABELS[slot]}
             hint={PLAYLIST_SLOT_HINTS[slot]}
             picks={grouped[slot]}
+            vibe={vibes[slot] ?? null}
             isBannedSlot={slot === 'banned_songs'}
           />
         ))}

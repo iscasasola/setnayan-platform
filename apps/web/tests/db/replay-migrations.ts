@@ -64,10 +64,6 @@ export const ALLOWED_SKIP: ReadonlyMap<string, string> = new Map([
     '20270723385655_keep_full_res_archive_sku.sql',
     'catalog seed whose billing_period predates the final CHECK on platform_retail_catalog_v2 (ordering artifact; resolves via retry on most runs)',
   ],
-  [
-    '20270832295038_setnayan_ai_event_reach_matrix.sql',
-    "writes applicable_event_types = ARRAY[...,'dinner_date'] but no migration seeds 'dinner_date' into event_type_vocab (prod-only vocab, HOLD-OWNER per 20270825054104), so the validate_applicable_event_types trigger (20261104000000) rejects it on a FRESH replay — prod-data dependency, not a schema bug",
-  ],
 ]);
 
 const BOOTSTRAP = `
@@ -182,6 +178,41 @@ END $$;
 
 GRANT USAGE ON SCHEMA public, auth, extensions, storage TO anon, authenticated, service_role;
 
+-- Supabase's platform DEFAULT PRIVILEGES: every table/sequence created in
+-- schema public is granted to the API roles AT CREATE TIME. This MUST be a
+-- default privilege and not a blanket GRANT afterwards — a trailing
+-- "GRANT ALL ON ALL TABLES ... TO anon" silently UNDOES every REVOKE a
+-- migration performed. That is not hypothetical: it is exactly how the
+-- 20271005100000 / 20271007100000 events column lockdown (master_qr_token and
+-- the OAuth token revoked from anon + authenticated) vanished in replay while
+-- being live in prod. Declaring it here reproduces prod's real privilege
+-- state: stock-granted by default, minus whatever migrations took back.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+-- ...and the same for FUNCTIONS, which matters MORE than it looks. Supabase
+-- grants EXECUTE to anon + authenticated EXPLICITLY at CREATE time. Postgres'
+-- own built-in default instead grants EXECUTE to PUBLIC. The two look
+-- identical until a migration writes:
+--
+--     REVOKE ALL ON FUNCTION f(...) FROM PUBLIC;
+--
+-- On stock Postgres that fully locks the function. On Supabase it is a NO-OP
+-- against anon and authenticated, because their grants are their own ACL
+-- entries and are not part of PUBLIC. Verified against prod 2026-07-26:
+-- purge_expired_chat, claim_unlock_vendor_event, redeem_vendor_token_voucher,
+-- admin_override_publish_review and vendor_set_booth_studio_content all use
+-- that idiom and are ALL still anon-EXECUTE in prod
+-- (proacl {postgres=X,anon=X,authenticated=X,service_role=X}), while the
+-- functions written as REVOKE ... FROM PUBLIC, anon, authenticated are
+-- correctly locked to service_role.
+--
+-- Without this line the replay under-reports the callable-RPC surface by 17
+-- functions — and they are the dangerous ones. Declaring it here makes the
+-- exposure baseline tell the truth AND makes the freeze catch the next
+-- migration that reaches for the ineffective idiom.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+
 CREATE TABLE IF NOT EXISTS public._replay_migrations (fname text PRIMARY KEY, applied_at timestamptz DEFAULT now());
 
 -- Owner precondition for 20260705000000: signed in once before migrations ran.
@@ -206,8 +237,28 @@ export type ReplayResult = {
   skipped: Array<{ file: string; reason: string }>;
 };
 
-/** Replay every migration into a fresh in-memory PGlite. ~10 s on a laptop. */
-export async function createReplayedDb(): Promise<ReplayResult> {
+export type ReplayOptions = {
+  /**
+   * Replay ONLY the migrations whose version (the leading numeric field of the
+   * filename) is in this set. Omit to replay everything — the default, and what
+   * every existing caller wants.
+   *
+   * Added for the schema-drift check, which replays exactly the migrations
+   * production's ledger says it has applied. Without that filter, a migration
+   * added in an open pull request — correctly absent from prod — would show up
+   * as drift on every schema PR, and a guard that cries wolf on every schema PR
+   * is a guard that gets deleted.
+   */
+  only?: ReadonlySet<string>;
+};
+
+/** The leading numeric field of a migration filename, e.g. `20271011120000`. */
+export function versionOf(filename: string): string {
+  return filename.split('_')[0] ?? '';
+}
+
+/** Replay every migration into a fresh in-memory PGlite. ~6 s on a laptop. */
+export async function createReplayedDb(opts: ReplayOptions = {}): Promise<ReplayResult> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(`CREATE SCHEMA IF NOT EXISTS extensions;`);
   await db.exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;`);
@@ -216,6 +267,7 @@ export async function createReplayedDb(): Promise<ReplayResult> {
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
+    .filter((f) => !opts.only || opts.only.has(versionOf(f)))
     .sort();
 
   async function applyOne(f: string): Promise<void> {
@@ -279,13 +331,13 @@ export async function createReplayedDb(): Promise<ReplayResult> {
     throw new Error(`migration replay failed — unapplied files:\n${detail}`);
   }
 
-  // Supabase grants table/sequence privileges to the API roles via platform
-  // default-privileges; mirror that so RLS (not a missing GRANT) is the gate,
-  // exactly as in prod.
-  await db.exec(`
-    GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-  `);
+  // NOTE: there is deliberately NO blanket `GRANT ALL ON ALL TABLES` here.
+  // Supabase's platform default-privileges are declared in BOOTSTRAP via
+  // ALTER DEFAULT PRIVILEGES, so tables are stock-granted at CREATE time and a
+  // migration's REVOKE survives — matching prod. Re-granting here would erase
+  // every lockdown the migrations performed and make the exposure-surface
+  // freeze (exposure-freeze.db.test.ts) blind to exactly the class of bug it
+  // exists to catch.
 
   return { db, applied: applied + skipped.length, total: files.length, skipped };
 }

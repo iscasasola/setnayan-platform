@@ -22,6 +22,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 // READ-ONLY type imports from the vendor-write module (we do not touch it).
 import type { DiscountType, VendorServiceDiscount } from '@/lib/vendor-services';
+import {
+  applicableLeadTimeTier,
+  isLeadTimeTier,
+  leadTimeTierLabel,
+} from '@/lib/vendor-lead-time-tier';
 
 // ── Inclusions ──────────────────────────────────────────────────────────────
 /** A FREE item bundled in a service card, with an optional stated peso worth. */
@@ -144,7 +149,9 @@ export async function fetchDiscountsByServicePublic(
   if (serviceIds.length === 0) return out;
   const { data, error } = await supabase
     .from('vendor_service_discounts')
-    .select('vendor_service_id,discount_type,rate,unit,expires_at,conditions_md,sort_order')
+    .select(
+      'vendor_service_id,discount_type,rate,unit,min_lead_months,expires_at,conditions_md,sort_order',
+    )
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
   if (error) return out;
@@ -171,6 +178,26 @@ export type BestDiscount = {
   /** Peso value saved on the anchor, used only to rank; not shown directly. */
   savingsPhp: number;
   type: DiscountType;
+  /**
+   * The lead-time rung this badge came from, when it came from one:
+   *   • a number → the couple's event date QUALIFIED them for this tier and the
+   *     label names it ("Booked 6+ months ahead · −10%");
+   *   • 'up-to'  → no event date in context (anonymous view), so the badge
+   *     advertises the ladder without claiming the couple qualifies;
+   *   • null     → not a lead-time tier at all (unchanged behaviour).
+   */
+  leadTier: number | 'up-to' | null;
+};
+
+/** Options for {@link pickBestDiscount}. Both are injected — never ambient. */
+export type PickBestDiscountOptions = {
+  /**
+   * The couple's event date (ISO YYYY-MM-DD) when a signed-in couple with an
+   * event is viewing. Absent/null = the anonymous public view.
+   */
+  eventDate?: string | null;
+  /** The clock. Injected for determinism; defaults to the real current time. */
+  now?: Date;
 };
 
 /**
@@ -180,31 +207,57 @@ export type BestDiscount = {
  * Heuristic (simple + honest — documented in the changelog):
  *   1. Drop expired discounts (`expires_at` in the past). A discount with no
  *      expiry never expires.
- *   2. Among the survivors, pick the one that saves the couple the MOST pesos on
+ *   2. LEAD-TIME LADDER (owner-locked 2026-07-27). `early_booking` rows that
+ *      carry a `min_lead_months` threshold are ladder rungs, and the couple's
+ *      event date picks among them — never chat:
+ *        • event date known → only the ONE rung they qualify for survives
+ *          (`applicableLeadTimeTier`: largest threshold ≤ months away). Rungs
+ *          they are too late for are dropped outright, so the card can never
+ *          dangle a discount they cannot have.
+ *        • no event date (anonymous) → every rung stays in the running and the
+ *          winning one is labelled "up to", because we cannot claim they
+ *          qualify.
+ *      Thresholdless rows (any type, incl. a legacy early_booking) are untouched.
+ *   3. Among the survivors, pick the one that saves the couple the MOST pesos on
  *      the "from ₱X" anchor:
  *        • pct → anchor × rate / 100
  *        • php → rate (capped at the anchor so a flat amount ≥ price reads as
  *          "up to ₱anchor off", never a negative price)
- *   3. Ties break by sort_order (the vendor's own display priority), which the
+ *   4. Ties break by sort_order (the vendor's own display priority), which the
  *      fetch already applied — so a stable pick falls out of the ordered list.
  *
  * Returns null when there is no applicable discount or no positive anchor to
  * measure savings against (a pct discount is meaningless without a base price).
+ *
+ * DISPLAY ONLY — services are inquiry-based; the vendor confirms the final price
+ * in their reply. Nothing here feeds a charge path.
  */
 export function pickBestDiscount(
   discounts: ReadonlyArray<VendorServiceDiscount> | undefined,
   anchorPhp: number | null,
+  opts: PickBestDiscountOptions = {},
 ): BestDiscount | null {
   if (!discounts || discounts.length === 0) return null;
-  const now = Date.now();
+  const nowDate = opts.now ?? new Date();
+  const now = nowDate.getTime();
   const hasAnchor = anchorPhp !== null && anchorPhp > 0;
+
+  // The one rung the couple's event date qualifies them for (null when there is
+  // no event date in context, no ladder, or they are booking too late).
+  const qualifiedTier = applicableLeadTimeTier(discounts, opts.eventDate, nowDate);
+  const hasEventDate = Boolean(opts.eventDate);
 
   let best: BestDiscount | null = null;
   for (const d of discounts) {
     // 1 — skip expired.
     if (d.expires_at && Date.parse(d.expires_at) <= now) continue;
 
-    // 2 — compute peso savings on the anchor.
+    // 2 — ladder gate. A rung only survives if it is THE tier for this couple;
+    // with no event date every rung survives but can only be advertised "up to".
+    const isRung = isLeadTimeTier(d);
+    if (isRung && hasEventDate && d !== qualifiedTier) continue;
+
+    // 3 — compute peso savings on the anchor.
     let savingsPhp: number;
     if (d.unit === 'pct') {
       // A percentage is only meaningful with a positive base price.
@@ -217,15 +270,24 @@ export function pickBestDiscount(
     if (savingsPhp <= 0) continue;
 
     if (best === null || savingsPhp > best.savingsPhp) {
-      const amountLabel =
+      const amount =
         d.unit === 'pct'
-          ? `${formatRate(d.rate)}% off`
-          : `₱${Math.round(d.rate).toLocaleString('en-PH')} off`;
-      best = {
-        label: `${amountLabel} · ${DISCOUNT_TYPE_LABEL[d.discount_type]}`,
-        savingsPhp,
-        type: d.discount_type,
-      };
+          ? `${formatRate(d.rate)}%`
+          : `₱${Math.round(d.rate).toLocaleString('en-PH')}`;
+      let label: string;
+      let leadTier: number | 'up-to' | null = null;
+      if (isRung && hasEventDate) {
+        // The couple qualifies — name the tier in the owner's own words.
+        leadTier = d.min_lead_months as number;
+        label = `${leadTimeTierLabel(leadTier)} · −${amount}`;
+      } else if (isRung) {
+        // Anonymous: advertise the ladder without claiming they qualify.
+        leadTier = 'up-to';
+        label = `Save up to ${amount} booking early`;
+      } else {
+        label = `${amount} off · ${DISCOUNT_TYPE_LABEL[d.discount_type]}`;
+      }
+      best = { label, savingsPhp, type: d.discount_type, leadTier };
     }
   }
   return best;

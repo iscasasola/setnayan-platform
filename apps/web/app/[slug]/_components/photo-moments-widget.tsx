@@ -99,7 +99,9 @@ export function PhotoMomentsWidget({ config }: { config: unknown }) {
 function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   if (mode === 'camera_ok') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
+      /* Functional-color exile (§4): app-green becomes the gild rule. The three
+         modes stay distinguishable by icon + key, not by hue. */
+      <span className="inline-flex items-center gap-1.5 border border-gild px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-gild">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -109,7 +111,9 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
-        Our paparazzo
+        {/* Was the singular "Our paparazzo" — Papic Pool has no limit on how many
+            phones shoot, so the badge should not imply one appointed shooter. */}
+        Our paparazzi
       </span>
     );
   }

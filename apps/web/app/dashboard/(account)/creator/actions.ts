@@ -11,6 +11,7 @@ import {
 } from '@/lib/creator-chapters';
 import { buildChapterTeaserPlan, type TeaserPlan } from '@/lib/creator-teaser';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { R2_BUCKETS } from '@/lib/r2';
 import { notifyFollowersOfNewChapter } from '@/lib/creator-notify';
 
 const SURFACE = '/dashboard/creator';
@@ -281,13 +282,36 @@ export async function finalizeChapterTeaser(args: {
   const { chapterId, bucket, key } = args;
   if (!chapterId || !bucket || !key) fail('Missing teaser upload result.');
 
-  const ref = `r2://${bucket}/${key}`;
-  const { error } = await supabase
+  // SEC-1: `bucket` + `key` were trusted verbatim — ANY signed-in account (the
+  // creator surface has no is_creator gate) could pass an arbitrary bucket/key
+  // and get it signed. Worse, the ownership UPDATE below matches on
+  // (chapter_id, user_id) but PostgREST returns NO error when it matches ZERO
+  // rows, so the presign ran even for a chapter the caller does not own.
+  //
+  // Fix: derive the key exactly as /api/creator/teaser-upload mints it
+  // (`creator/teasers/{chapterId}.{ext}`, media bucket) — taking only the file
+  // extension from the client — and make the ownership write PROVE it matched.
+  // chapterId is interpolated into an object key, so it must be a UUID — a
+  // value with a `/` would escape the `creator/teasers/` prefix. (The UPDATE
+  // below would also reject a non-uuid against the uuid column, but a key is
+  // being built here, so guard it before that.)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chapterId)) {
+    fail('Chapter not found.');
+  }
+  const ext = String(key).split('.').pop() ?? '';
+  if (!/^[a-z0-9]{2,5}$/.test(ext)) fail('Missing teaser upload result.');
+  const ref = `r2://${R2_BUCKETS.media}/creator/teasers/${chapterId}.${ext}`;
+
+  const { data: updated, error } = await supabase
     .from('creator_chapters')
     .update({ teaser_r2_key: ref, updated_at: new Date().toISOString() })
     .eq('chapter_id', chapterId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .select('chapter_id');
   if (error) fail(error.message);
+  // Zero rows = not the caller's chapter (or no such chapter). Refuse BEFORE
+  // presigning — this is the check the original `if (error)` never performed.
+  if (!updated || updated.length === 0) fail('Chapter not found.');
 
   let downloadUrl: string | null = null;
   try {

@@ -249,7 +249,9 @@ export function VendorCard({
   const href = slug ? `/v/${slug}?src=explore` : `#`;
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
-  const isComingSoon = visibility === 'coming_soon';
+  // `coming_soon` retired 2026-07-27 (owner: "we only show shops that are
+  // ready") — no publicly-listed vendor can hold that state, so the dashed
+  // card treatment and the "Coming soon" pill that used to live here are gone.
   const isDemoCard = vendor.is_demo === true;
 
   // Distance — both ends must exist or we skip the row entirely (no
@@ -281,11 +283,7 @@ export function VendorCard({
   return (
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
-        isDemoCard
-          ? 'border-warn-300 ring-1 ring-warn-200/70'
-          : isComingSoon
-            ? 'border-dashed border-ink/20 opacity-90'
-            : 'border-ink/10'
+        isDemoCard ? 'border-warn-300 ring-1 ring-warn-200/70' : 'border-ink/10'
       }`}
     >
       {/* Photo full-row banner on top on ALL viewports (owner directive
@@ -319,11 +317,6 @@ export function VendorCard({
               >
                 <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
                 Demo
-              </span>
-            ) : null}
-            {isComingSoon ? (
-              <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                Coming soon
               </span>
             ) : null}
           </div>

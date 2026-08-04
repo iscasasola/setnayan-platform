@@ -21,11 +21,15 @@ import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
 // this page must never spell a photo count, a clip count or a cap peso figure
 // as a literal (owner 2026-07-20 · guarded by lib/papic-copy-guardrails.test.ts).
 import {
-  papicCapacityShort,
-  papicFreeCameraCount,
-  publicPapicLadder,
+  papicBucketPhrase,
+  papicOneRungPhrase,
 } from '@/lib/papic-tier-copy';
-import { readPapicTierConfig } from '@/lib/papic-tier-config-read';
+import {
+  readPapicOneTiers,
+  readPapicTierConfig,
+  readPapicFreeOneCameraPoints,
+} from '@/lib/papic-tier-config-read';
+import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -119,7 +123,10 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Papic & its add-ons',
     items: [
-      { code: 'PAPIC_CAMERAS' }, // synthetic "from ₱X/camera" row — priced from the ladder (see below)
+      // The two-type model (owner-locked 2026-07-29) — both rows are SYNTHETIC,
+      // collapsing their live rungs into one "from ₱X" line each (see below).
+      { code: 'PAPIC_POOL' }, // Papic Pool — the shared shot pool, additive top-ups
+      { code: 'PAPIC_CAMERAS' }, // Papic One — a dedicated camera, its own QR + shots
       { code: 'CAMERA_BRIDGE', withPapic: true },
       { code: 'PABATI', withPapic: true },
       { code: 'KWENTO', withPapic: true },
@@ -133,11 +140,32 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      // ONE Live Studio SKU (owner 2026-07-21): ₱2,500/day unlocks everything, laptop or phone.
-      // PANOOD_SYSTEM_MOBILE was never purchasable — no buy surface ever posted it, and it had
-      // zero orders — so listing it here advertised a phantom product. Row is now inactive in
-      // the catalog and drops out of resolvedGroups automatically.
-      { code: 'PANOOD_SYSTEM' }, // Live Studio ₱2,500/day
+      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱2,999 PER EVENT (owner-locked 2026-07-25 ·
+      // Live_Studio_Unified_Spec § 3: Cast + Roam merged into one switching product).
+      //
+      // 🚨 IT MUST BE LISTED HERE OR IT CAN NEVER APPEAR. `resolvedGroups` maps over
+      // ADDON_GROUPS' items and omits anything the catalog doesn't return — so a SKU in
+      // no group is invisible on /pricing no matter what the catalog says. That is the
+      // trap COUPLE_WEBSITE_PRO's comment below records ("must be LISTED here or the
+      // reactivated umbrella never appears"), and Live Studio was walking into it: at
+      // the flag flip its Studio tile and buy drawer would light up while /pricing
+      // showed NO paid live-broadcast row at all — because the only Live Studio code
+      // listed here was PANOOD_SYSTEM, which is now permanently retired (below).
+      //
+      // Safe to list while dark: `fetchV2CustomerCatalog` name-excludes LIVE_STUDIO
+      // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
+      // and appears the moment the owner flips the flag — one launch switch, no second
+      // code change. (Free single-camera livestream is unaffected and stays free.)
+      { code: 'LIVE_STUDIO' }, // Live Studio ₱2,999/event — the unified switching SKU
+      // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
+      // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
+      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱2,999 unified
+      // controller (a ₱500 arbitrage on a live buy button). PANOOD_SYSTEM_MOBILE was
+      // retired 2026-07-21 and was never purchasable anyway (no buy surface ever posted
+      // it, zero orders). Both drop out of resolvedGroups automatically; the code stays
+      // listed — same convention as LIVE_BACKGROUND below — so the retirement is legible
+      // here rather than looking like an accidental deletion.
+      { code: 'PANOOD_SYSTEM' }, // retired 2026-07-26 — folded into LIVE_STUDIO above
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       // LIVE_BACKGROUND is bundle-only (2026-07-22) — folded into Monogram PRO —
@@ -171,13 +199,21 @@ export default async function PricingPage() {
   // Reads in parallel · helpers return [] on error, so the page still renders a
   // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
   // were removed 2026-06-29 (both deactivated).
-  const [customerSkus, vendorSkus, papicTierConfig] = await Promise.all([
-    fetchV2CustomerCatalog(),
-    fetchV2VendorCatalog(),
-    // Papic capacity + caps are DERIVED from the admin-editable tier config —
-    // never spelled as literals here (owner 2026-07-20). See lib/papic-tier-copy.ts.
-    readPapicTierConfig(),
-  ]);
+  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints] =
+    await Promise.all([
+      fetchV2CustomerCatalog(),
+      fetchV2VendorCatalog(),
+      // Papic capacity + caps are DERIVED from the admin-editable tier config —
+      // never spelled as literals here (owner 2026-07-20). See lib/papic-tier-copy.ts.
+      readPapicTierConfig(),
+      // …except the Papic ONE shot counts, which live in `papic_one_tiers`. See
+      // the ladder block below for why reading them from the tier config was a lie.
+      readPapicOneTiers(),
+      // …and the free ONE camera's bucket, which lives in a third place again:
+      // papic_event_pool_config.free_one_camera_points. See the free-camera
+      // block below for why the tier config's seat count was the wrong number.
+      readPapicFreeOneCameraPoints(),
+    ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
   // single ₱499 charge, access until the event date. The prior ₱499→₱799/28-day
@@ -189,29 +225,57 @@ export default async function PricingPage() {
   const aiIntroLabel = setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499';
   const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
 
-  // ── The Papic camera ladder — DERIVED, never spelled ──────────────────────
-  // Rungs come from papic_tier_config (admin-editable: title · daily capture-
-  // POINT budget · rate SKU · wedding cap), priced from the live catalog. A rung
-  // whose rate SKU is missing/unreadable DROPS OUT rather than rendering an
-  // invented price — the same "never hardcode a missing SKU" doctrine the
-  // grouped add-on renderer below follows.
+  // ── The Papic ONE ladder — DERIVED, never spelled ─────────────────────────
+  // Rungs come from `papic_one_tiers` (admin-editable: service_code → the
+  // LIFETIME shot count that rung grants a single dedicated camera), priced from
+  // the live catalog. A rung whose SKU is missing/unreadable DROPS OUT rather
+  // than rendering an invented price — the same "never hardcode a missing SKU"
+  // doctrine the grouped add-on renderer below follows.
   //
-  // Capacity is expressed in the points currency the code actually enforces
-  // (1 photo = 1 pt · 1 ten-second clip = 7 pts), so the copy stays true if an
-  // admin retunes a budget. Caps are WEDDINGS-ONLY (lib/papic-cameras.ts ·
-  // isPapicUncapped) and clamp the tier's whole booking, not a per-day figure.
-  const papicLadder = publicPapicLadder(papicTierConfig)
-    .map((row) => {
-      const sku = row.rateServiceCode
-        ? customerSkus.find((s) => s.service_code === row.rateServiceCode)
-        : undefined;
+  // ⚠ THIS USED TO READ `papic_tier_config.points_per_day` VIA publicPapicLadder,
+  // AND THAT WAS A LIVE FALSEHOOD. The two-type lock (owner 2026-07-29) moved
+  // Papic One off a per-day meter onto a lifetime bucket, and set the 'mini'
+  // row's points_per_day to NULL on prod. NULL means "unlimited" to every copy
+  // helper — so this page told couples a ₱50 camera shoots "unlimited shots per
+  // day" when it actually holds 50. The number and the price have to come from
+  // the same lock, or the cheaper we make Papic the bigger the lie gets.
+  //
+  // Capacity is still expressed in the points currency the code enforces
+  // (1 photo = 1 pt · one 10-second clip = the constant in lib/papic-cameras.ts),
+  // so the copy stays true if an admin retunes a rung.
+  const papicOneLadder = papicOneTiers
+    .map((tier) => {
+      const sku = customerSkus.find((s) => s.service_code === tier.serviceCode);
       const pricePhp = sku ? Number(sku.retail_price_php) : NaN;
-      return Number.isFinite(pricePhp) ? { row, pricePhp } : null;
+      return Number.isFinite(pricePhp) ? { tier, pricePhp } : null;
     })
-    .filter((r): r is { row: (typeof papicTierConfig)['mini']; pricePhp: number } => r !== null);
-  const papicFreeCameras = papicFreeCameraCount(papicTierConfig);
-  const papicFromPhp = papicLadder.length
-    ? Math.min(...papicLadder.map((r) => r.pricePhp))
+    .filter((r): r is { tier: (typeof papicOneTiers)[number]; pricePhp: number } => r !== null)
+    .sort((a, b) => a.pricePhp - b.pricePhp);
+  // 🚨 THE FREE CAMERA ON *THIS* PRODUCT IS ONE, NOT THREE (fixed 2026-07-29).
+  //
+  // Both surfaces below used to read `papicFreeCameraCount(papicTierConfig)` —
+  // i.e. `papic_tier_config.free.seats_per_event`, which is 3. That number is a
+  // Papic POOL fact: three free SHARED seats (seat_index 100..102) that spend the
+  // event's shared point pool. Papic ONE is the DEDICATED product, and it gets
+  // exactly ONE free camera — `papic_ensure_free_one_camera` pins it to a single
+  // fixed seat_index and two unique constraints make a second impossible.
+  //
+  // So the One tab quoted the POOL's free-seat count on a product that gives one
+  // dedicated camera, and the estimator billed for that many fewer cameras than
+  // a couple would actually buy. Under the 2026-07-29 two-type lock the free tier is
+  // "unlimited POOL cameras sharing one purse, plus ONE free dedicated camera" —
+  // the three shared seats aren't a One allowance at all, and quoting them here
+  // was the last place the retired per-seat model still spoke.
+  //
+  // The free camera's own bucket is smaller than any paid rung, so the copy says
+  // so rather than implying a free camera equals a bought one.
+  const papicFreeOneCameras = papicFreeOnePoints > 0 ? PAPIC_FREE_ONE_CAMERA_COUNT : 0;
+  const papicOneLadderPhrase = papicOneLadder
+    .map(({ tier, pricePhp }) => papicOneRungPhrase(tier.points, pricePhp))
+    .join(' · ');
+  const papicOneTitle = papicTierConfig.mini.displayTitle;
+  const papicFromPhp = papicOneLadder.length
+    ? Math.min(...papicOneLadder.map((r) => r.pricePhp))
     : null;
 
   // Collapse the per-camera rate SKU(s) into ONE synthetic "from ₱X/camera"
@@ -222,17 +286,19 @@ export default async function PricingPage() {
     papicFromPhp != null
       ? {
           service_code: 'PAPIC_CAMERAS',
-          title: 'Papic One',
+          title: papicOneTitle,
           retail_price_php: papicFromPhp,
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
-            `Turn your guests into paparazzi — every candid lands in your shared gallery. ` +
-            `Your first ${papicFreeCameras} camera${papicFreeCameras === 1 ? '' : 's'} are free; after that, ` +
-            papicLadder
-              .map(({ row, pricePhp }) => `${row.displayTitle} is ₱${formatPeso(pricePhp)} per camera`)
-              .join(' · ') +
-            `.`,
+            `A camera of its own for someone you trust — its own QR, and shots ` +
+            `nobody else can spend. ` +
+            (papicFreeOneCameras > 0
+              ? `Your ${papicFreeOneCameras === 1 ? 'first camera is' : `first ${papicFreeOneCameras} cameras are`} ` +
+                `free to try — ${papicBucketPhrase(papicFreeOnePoints)}. Then ` +
+                papicOneLadderPhrase
+              : papicOneLadderPhrase) +
+            `. Reload any camera any time.`,
           build_status: 'live',
           billing_period: 'one_time',
           is_pax_priced: true, // drives the "from ₱X" label
@@ -243,11 +309,69 @@ export default async function PricingPage() {
         }
       : null;
 
-  // Look up table for the grouped add-on renderer — includes the synthetic row.
+  // Papic Pool — the shared shot-pool buckets, flat-priced from the live
+  // catalog. Only the three base buckets (3k/6k/10k); the superseded top-up row
+  // is not a base pick. Absent rows drop out (a coming-soon Pool → no Pool
+  // picker, per the same "never hardcode a missing SKU" doctrine as the grouped
+  // renderer).
+  const POOL_BUCKET_CODES = ['PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K']; // gitleaks:allow — Papic Pool SKU service_codes, not secrets
+  const papicPoolBuckets = POOL_BUCKET_CODES.map((code) =>
+    customerSkus.find((s) => s.service_code === code),
+  )
+    .filter((s): s is V2CustomerSku => Boolean(s))
+    .map((s) => ({
+      key: s.service_code,
+      // Short bucket label from the catalog title ("Papic Pool — add 3,000
+      // shots" → "add 3,000 shots"); never a hardcoded shot count.
+      label: s.title
+        .replace(/^Papic Pool\s*[—-]\s*/i, '')
+        .replace(/\s*\(per event\)\s*$/i, ''),
+      pricePhp: Number(s.retail_price_php),
+    }))
+    .sort((a, b) => a.pricePhp - b.pricePhp);
+
+  // Collapse the Pool buckets into ONE synthetic "from ₱X" row, the same way
+  // PAPIC_CAMERAS collapses the One rungs.
+  //
+  // 🚨 WITHOUT THIS, PAPIC POOL IS INVISIBLE ON THIS PAGE. `resolvedGroups` only
+  // renders codes that appear in ADDON_GROUPS, so a SKU in no group cannot show
+  // no matter what the catalog says — the exact trap recorded on LIVE_STUDIO
+  // above. The Pool rows were reactivated on 2026-07-29 and belong to no group,
+  // so the estimator quoted a product the price list did not carry. Listing the
+  // three buckets separately would read as three products; one "from ₱X" row
+  // with the ladder in its description reads as what it is — one shared pool
+  // you top up.
+  const papicPoolSynthetic: V2CustomerSku | null =
+    papicPoolBuckets.length > 0
+      ? {
+          service_code: 'PAPIC_POOL',
+          title: 'Papic Pool',
+          retail_price_php: papicPoolBuckets[0]!.pricePhp,
+          saas_overhead_cost_php: 0,
+          is_token_able: false,
+          description:
+            `One shared pool of shots that every guest's phone can spend from — ` +
+            `no per-camera math, no seat limit. ` +
+            papicPoolBuckets
+              .map(({ label, pricePhp }) => `₱${formatPeso(pricePhp)} to ${label}`)
+              .join(' · ') +
+            `. Every top-up stacks on what your event already holds.`,
+          build_status: 'live',
+          billing_period: 'one_time',
+          is_pax_priced: true, // drives the "from ₱X" label — the ladder starts here
+          pax_floor: null,
+          pax_floor_price_php: null,
+          pax_increment_size: null,
+          pax_increment_price_php: null,
+        }
+      : null;
+
+  // Look up table for the grouped add-on renderer — includes the synthetic rows.
   const skuByCode = new Map<string, V2CustomerSku>(
     customerSkus.map((s) => [s.service_code, s]),
   );
   if (papicCamerasSynthetic) skuByCode.set('PAPIC_CAMERAS', papicCamerasSynthetic);
+  if (papicPoolSynthetic) skuByCode.set('PAPIC_POOL', papicPoolSynthetic);
 
   // Resolve each add-on group's rows from the catalog, dropping any SKU that is
   // absent (and gated rows unless present + active). NEVER hardcodes a price.
@@ -277,39 +401,25 @@ export default async function PricingPage() {
     // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
     // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
-  // Papic One — the single dedicated-camera rung (flat per-camera). Prefer the
-  // 'mini' rung (Papic One); fall back to the cheapest live rung. null = the
-  // ladder is unreadable at build time (catalog empty).
-  const papicOneRung =
-    papicLadder.find(({ row }) => row.tierCode === 'mini') ?? papicLadder[0] ?? null;
-
-  // Papic Pool — the shared shot-pool buckets, flat-priced from the live
-  // catalog. Only the three base buckets (3k/6k/10k); the +10,000 top-up is not
-  // a base pick. Absent rows drop out (a coming-soon Pool → no Pool picker, per
-  // the same "never hardcode a missing SKU" doctrine as the grouped renderer).
-  const POOL_BUCKET_CODES = ['PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K']; // gitleaks:allow — Papic Pool SKU service_codes, not secrets
-  const papicPoolBuckets = POOL_BUCKET_CODES.map((code) =>
-    customerSkus.find((s) => s.service_code === code),
-  )
-    .filter((s): s is V2CustomerSku => Boolean(s))
-    .map((s) => ({
-      key: s.service_code,
-      // Short bucket label from the catalog title ("Papic Pool — 3,000 shots
-      // (per event)" → "3,000 shots"); never a hardcoded shot count.
-      label: s.title
-        .replace(/^Papic Pool\s*[—-]\s*/i, '')
-        .replace(/\s*\(per event\)\s*$/i, ''),
-      pricePhp: Number(s.retail_price_php),
-    }))
-    .sort((a, b) => a.pricePhp - b.pricePhp);
+  // Papic One — the rung the estimator prices a camera at: the CHEAPEST live
+  // one (papicOneLadder is price-sorted). null = the ladder is unreadable at
+  // build time (catalog empty).
+  const papicOneRung = papicOneLadder[0] ?? null;
 
   const estimatorRates: EstimatorRates = {
-    freeCameras: papicFreeCameras,
+    // ONE free dedicated camera, not the three shared-pool seats — see the
+    // papicFreeOneCameras block above. This makes the quote go UP for anyone
+    // estimating more than one camera, which is the correct direction: they
+    // were previously quoted for two fewer paid cameras than they would buy.
+    freeCameras: papicFreeOneCameras,
+    freeCameraCapacity: papicFreeOnePoints > 0 ? papicBucketPhrase(papicFreeOnePoints) : null,
     one: papicOneRung
       ? {
-          label: papicOneRung.row.displayTitle,
+          label: papicOneTitle,
           pricePhp: papicOneRung.pricePhp,
-          capacity: papicCapacityShort(papicOneRung.row.pointsPerDay),
+          // The rung's LIFETIME shot bucket, not a per-day meter — see the
+          // ladder block above for why the per-day reading was false.
+          capacity: papicBucketPhrase(papicOneRung.tier.points),
         }
       : null,
     pool: papicPoolBuckets,

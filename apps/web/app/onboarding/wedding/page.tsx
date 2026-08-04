@@ -29,6 +29,10 @@ import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
+import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
+import { readServicesStepView } from '@/lib/onboarding/services-step-server';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 
@@ -109,9 +113,10 @@ export default async function OnboardingWeddingPage({
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
   // committed event yet (lazy commit at the final button) → estimated_pax is
-  // unknown → pass no pax → PAPIC_GUEST renders "from ₱2,999" via
-  // formatSkuPriceLabel (matches /pricing's public no-pax behavior). The
-  // authoritative pax charge is still recomputed server-side at order time by
+  // unknown → pass no pax. No live SKU is pax-priced since the 2026-07-29
+  // two-type Papic reprice (PAPIC_GUEST is now a flat ₱1,000 pool top-up), so
+  // every label renders as a flat "₱X" — matching /pricing's public behavior.
+  // The authoritative charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
 
@@ -128,8 +133,32 @@ export default async function OnboardingWeddingPage({
     if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
   }
 
+  // The services step (Papic + Setnayan AI), resolved server-side because the
+  // shell is a client component. Flag OFF ⇒ null ⇒ the shell drops the screen
+  // from buildSequence and this flow is byte-identical to today.
+  let servicesStepView = null;
+  let servicesStepAiValue = null;
+  if (onboardingServicesStepEnabled()) {
+    servicesStepView = await readServicesStepView(supabase, 'wedding');
+    if (servicesStepView.ai != null) {
+      const profile = await resolveProfile('wedding');
+      servicesStepAiValue = (
+        <SetnayanAiValue
+          mode="preview"
+          terms={{
+            eventWord: profile.terminology.eventWord,
+            organizerNoun: profile.terminology.organizerNoun,
+            hasStatutoryPaperwork: profile.statutoryPackKey != null,
+          }}
+        />
+      );
+    }
+  }
+
   return (
     <OnboardingShell
+      servicesStepView={servicesStepView}
+      servicesStepAiValue={servicesStepAiValue}
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}

@@ -229,7 +229,13 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
       'The candids no hired lens catches',
       'Every photo reaches you — tagged or not',
       'Each guest gets their own shots',
-      'Try it free before you commit',
+      // Was "Try it free before you commit" — true but empty, and it was written
+      // when the free taste was a trial. It isn't: every event is auto-armed with
+      // a shared pool of shots plus one dedicated camera, and neither expires or
+      // asks for a card. Say what they already have. No number here on purpose —
+      // the allowances are admin-editable (papic_event_pool_config) and the Papic
+      // surface derives them; a literal would drift the day one is retuned.
+      'Your first shots are already free — no card',
     ],
     preview: [
       { context: 'They shoot', glyph: '◉', caption: 'Friends capture the night, freely.', aspect: '9/16' },
@@ -379,23 +385,23 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
 // voice rule). Roam has no bespoke /studio page, so it uses this App Store detail.
 if (liveStudioRoamEnabled()) {
   ADD_ON_DETAILS['live-studio-roam'] = {
-    eyebrow: 'Live Studio Roam',
-    heroTitle: 'They pick where to watch.',
+    eyebrow: 'Live Studio',
+    heroTitle: 'Stream it live — your way.',
     tagline:
-      'Family who can’t be there choose their own view — the vows, the dance floor, the whole room — and move between them, live.',
+      'Direct a Main Stage between your cameras with a tap, or let the people you love pick their own view — the vows, the dance floor, the whole room — live.',
     paragraphs: [
       'Distance shouldn’t mean one fixed camera.',
-      'Let the people you love roam your celebration from wherever they are — following the moment that matters most to them, as it happens, with the directed view always one tap away.',
+      'Line up your cameras across every angle and venue, then cut whichever matters most onto the Main Stage everyone follows — or let remote guests roam and choose their own, with your directed view always one tap away.',
     ],
     highlights: [
-      'Guests choose their own angle',
-      'Move between the ceremony, the floor, every corner',
-      'One tap back to the main view',
+      'Direct a Main Stage between your cameras',
+      'Guests can pick their own angle and switch live',
+      'Cover the ceremony, the floor, every corner and venue',
       'Watch from anywhere, right on your event page',
     ],
     preview: [
-      { context: 'Their choice', glyph: '◉', caption: 'Every guest picks the view they want to watch.' },
-      { context: 'Wander', glyph: '⤢', caption: 'Move between the ceremony, the floor, the whole room.' },
+      { context: 'Direct', glyph: '◉', caption: 'Cut whichever camera you want onto the Main Stage.' },
+      { context: 'Or wander', glyph: '⤢', caption: 'Let guests move between the ceremony, the floor, the whole room.' },
       { context: 'From afar', glyph: '♡', caption: 'The ones who can’t be there feel like they are.' },
     ],
   };

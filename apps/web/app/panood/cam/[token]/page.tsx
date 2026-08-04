@@ -76,6 +76,10 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
           label={claimed.label}
           eventId={claimed.event_id}
           streamingEnabled={panoodStreamingEnabled()}
+          // Their OWN token, already in their address bar — see the prop's note.
+          // `fetchClaimedCameraForUser` has just proved this token is bound to
+          // this user, so nothing is handed to anyone who didn't already hold it.
+          claimToken={token}
         />
       );
     }

@@ -9,6 +9,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { PrintButton } from '@/components/print-button';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   PROPOSAL_STATUS_LABEL,
@@ -117,11 +118,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   }
 
   // Letterhead — vendor business identity (falls back to the frozen snapshot).
-  const { data: vendorProfile } = await supabase
+  // ⚠ `location_city`, NOT `city` — public.vendor_profiles has no `city`.
+  // PostgREST 42703s on ONE unknown column and fails the WHOLE row, so this
+  // letterhead silently lost `business_name` AND `logo_url` too and every
+  // proposal fell back to the frozen snapshot (or the "Your vendor" placeholder).
+  const { data: vendorProfile, error: vendorProfileError } = await supabase
     .from('vendor_profiles')
-    .select('business_name, logo_url, city')
+    .select('business_name, logo_url, location_city')
     .eq('vendor_profile_id', proposal.vendor_profile_id)
     .maybeSingle();
+  if (vendorProfileError) {
+    logQueryError('proposals/[publicId]:letterhead', vendorProfileError, {
+      vendorProfileId: proposal.vendor_profile_id,
+    });
+  }
   const businessName =
     vendorProfile?.business_name ??
     proposal.merge_snapshot.values?.business_name ??
@@ -189,8 +199,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           ) : null}
           <div>
             <p className="text-lg font-semibold">{businessName}</p>
-            {vendorProfile?.city ? (
-              <p className="text-xs text-ink/55">{vendorProfile.city}</p>
+            {vendorProfile?.location_city ? (
+              <p className="text-xs text-ink/55">{vendorProfile.location_city}</p>
             ) : null}
           </div>
         </div>

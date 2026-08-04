@@ -88,7 +88,7 @@ test('availability without a date -> clarify', () => {
 test('availability with date + signal -> reply', () => {
   const d = decideReply(
     inp('are you free on my date?', {
-      event: { primaryDate: '2027-06-14', candidateDates: [], pax: null, budgetPerHeadPhp: null, region: null },
+      event: { primaryDate: '2027-06-14', candidateDates: [], pax: null, budgetBand: null, region: null },
       signals: { dateAvailable: true },
     }),
   );

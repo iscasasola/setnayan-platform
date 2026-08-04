@@ -5,6 +5,7 @@ import {
   type AddOnEntry,
   type StudioGroup,
 } from '@/lib/add-ons-catalog';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { formatPhp } from '@/lib/orders';
@@ -16,7 +17,12 @@ import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vig
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import {
+  resolveProfileByEvent,
+  surfaceEnabled,
+  type ProfileSurface,
+} from '@/lib/event-type-profile';
+import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { routes } from '@/lib/routes';
 import { RevealList } from '@/app/_components/reveal-list';
 import { notFound } from 'next/navigation';
@@ -85,6 +91,25 @@ type FreeTool = {
   tags: readonly string[];
   /** The one hero free helper, given a featured card instead of a strip row. */
   featured?: boolean;
+  /**
+   * Event-type SURFACE this tool belongs to, same contract as
+   * `AddOnEntry.surface` (0053). Unset ⇒ universal.
+   *
+   * ⚠ THIS LIST WAS THE THIRD ONE. The dashboard body and the add-on grid were
+   * both gated on the event-type profile, and this array — hardcoded in the
+   * same file, rendered raw — was gated by nothing. So a vendor-free Simple
+   * Event's Suite offered "Budget Planner" while `budget` is absent from its
+   * `enabled_surfaces` AND the nav already hid it. Two correct gates and one
+   * unguarded list beside them is the shape of every defect found today.
+   */
+  surface?: ProfileSurface;
+  /**
+   * True ⇒ this tool is a doorway into the vendor marketplace, so it must not
+   * render where `marketplace_enabled = false`. Separate from `surface`
+   * because the marketplace is not a surface — it is the profile column that
+   * encodes vendor-free, and no `enabled_surfaces` entry stands for it.
+   */
+  requiresMarketplace?: boolean;
 };
 
 const FREE_TOOLS: readonly FreeTool[] = [
@@ -109,6 +134,9 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'budget',
+    // `budget` is absent from simple_event's enabled_surfaces, and the nav has
+    // hidden Budget there since 2026-06-27 — this card contradicted its own nav.
+    surface: 'budget',
     tags: ['Budget', 'Planning', 'Free'],
     label: 'Budget Planner',
     blurb: 'Track every payment — vendor packages, crew meals, and proof.',
@@ -136,6 +164,9 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'compare',
+    // A marketplace doorway: its href is routes.explore.*, and Explore is
+    // exactly what marketplace_enabled=false turns off.
+    requiresMarketplace: true,
     tags: ['Vendors', 'Planning', 'Free'],
     label: 'Compare vendors',
     blurb: 'Save vendors as you browse, then see two side by side — price, inclusions, reviews.',
@@ -188,7 +219,6 @@ export default async function SuitePage({ params }: Props) {
 
   // ── Event-type surface gating (0053) — same contract as the Studio hub. ────
   const profile = await resolveProfileByEvent(eventId);
-  const surfaceOk = (a: AddOnEntry) => !a.surface || surfaceEnabled(profile, a.surface);
 
   // ── Bundle-aware ownership + live admin-catalog prices, one round-trip each
   // (mirrors the Studio hub exactly: ownership on the admin client so a co-host
@@ -219,7 +249,10 @@ export default async function SuitePage({ params }: Props) {
     // date under the names). One extra select in the same round-trip batch.
     supabase
       .from('events')
-      .select('display_name, event_date, monogram_text')
+      // community_id rides along for papicGuestPassAccess() below — anniversary
+      // is the one type whose Papic eligibility splits on the CONTROLLER
+      // (personally-owned vs Samahan-owned), not on the type.
+      .select('display_name, event_date, monogram_text, community_id')
       .eq('event_id', eventId)
       .maybeSingle(),
     // Compare-vendors doorway — resolve the couple's saved shortlist in the same
@@ -234,6 +267,57 @@ export default async function SuitePage({ params }: Props) {
       .neq('status', 'declined')
       .order('vendor_id', { ascending: true }),
   ]);
+
+  // ── The add-on gate. TWO layers, and the second is NOT derivable from the
+  // first (this is the Studio hub's contract, restored here).
+  //
+  //   1. The generic SURFACE gate (0053) — an add-on tagged with a `surface`
+  //      shows only when this event type's profile enables it.
+  //   2. The Papic Pool PREDICATE. `papic-guest` is tagged `surface: 'rsvp'`,
+  //      but migration 20270804110223 added `rsvp` to EVERY non-wedding profile
+  //      row — all 16 types carry it in prod today. So the surface check alone
+  //      admits the pool on types nobody has scoped. papicGuestPassAccess()
+  //      carries the phase ladder and FAILS CLOSED for a type nobody has
+  //      scoped yet.
+  //
+  //      ⚠ AS OF 2026-08-01 THIS LAYER DENIES NO LIVE TYPE. The owner ruled
+  //      "offer Papic everywhere": `travel` came off the deny list, and the
+  //      remaining eight — `date` · `hangout` (untiered), `reunion` ·
+  //      `celebration` · `gala_night` (Phase 2), `corporate` · `tournament`
+  //      (Phase 3) and Samahan-owned `anniversary` (a hardcoded controller
+  //      split) — all moved to Phase 1. It still fires for a type created after
+  //      that ruling. Keep calling it; do not inline "always true".
+  //
+  // ⚠ WHY THIS IS BEING RE-ADDED, not added: the predicate WAS wired — into
+  // `studio/page.tsx`. That page now `redirect()`s here on its first statement
+  // whenever NEXT_PUBLIC_SUITE is on, which it is in prod, so the gate has had
+  // ZERO effective callers since Suite shipped. The unit tests kept passing the
+  // whole time: they exercise the predicate, and the predicate was never wrong
+  // — the surface that had to call it simply stopped being the surface. Verify
+  // the CONSUMER, not the helper.
+  // Both layers now live in ONE place — `addOnOfferedForEvent` — so this grid
+  // and the /studio/about/<key> deep-link cannot drift. They already had: this
+  // page ran the gate, that route ran nothing, and a URL is not hidden by a
+  // card that isn't rendered.
+  const communityId =
+    (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
+  const surfaceOk = (a: AddOnEntry) => addOnOfferedForEvent(a, profile, communityId);
+
+  // …and the SAME gate for the free-tools strip. It is a separate array, so it
+  // needs a separate call — which is exactly why it was missed: two correct
+  // gates sat in this file while this third list rendered raw. Derived from the
+  // profile (a `surface` entry + the `marketplace_enabled` column), never from
+  // the event type's name, so a future vendor-free type is covered for free.
+  //
+  // ONE resolver, used by BOTH render sites below (the search index at
+  // `SuiteSearchItem[]` and the card strip). Filtering only one of them would
+  // leave the tool findable by search but absent from the page, or vice versa.
+  const freeToolOk = (t: FreeTool) => {
+    if (t.surface && !surfaceEnabled(profile, t.surface)) return false;
+    if (t.requiresMarketplace && profile.marketplaceEnabled !== true) return false;
+    return true;
+  };
+  const freeTools = FREE_TOOLS.filter(freeToolOk);
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back
@@ -264,6 +348,33 @@ export default async function SuitePage({ params }: Props) {
     if (r.service_code != null && r.retail_price_php != null) {
       priceMap.set(r.service_code as string, formatPhp(Number(r.retail_price_php)));
     }
+  }
+
+  // ── Setnayan AI is priced PER EVENT TYPE — this hub was the last surface
+  //    still quoting the flat rate (2026-07-31). ─────────────────────────────
+  // The bulk read above asks for `SETNAYAN_AI` (Tier A, ₱1,499) and filters
+  // `is_active = true`. Both are right for an ordinary SKU and wrong for this
+  // one: the tier rows SETNAYAN_AI_B/C/D are price-source-only and deliberately
+  // is_active = FALSE, so they could never come back from that query even if it
+  // asked for them. Result: every event type saw ₱1,499 while checkout charged
+  // ₱899 / ₱499 / ₱99 — the hub is the FIRST price a host sees, and it was the
+  // only one that lied.
+  //
+  // Resolved through `resolveSetnayanAiDisplayPricePhp`, the shared switch the
+  // detail page and `order-charge-authority` already use, so shown and charged
+  // cannot disagree in EITHER state of `setnayan_ai_per_event_pricing_enabled`
+  // (see lib/setnayan-ai-server.ts for why that switch exists at all).
+  const aiDisplayPhp = await resolveSetnayanAiDisplayPricePhp(
+    supabase,
+    profile.eventType,
+  ).catch(() => 0);
+  if (aiDisplayPhp > 0) {
+    priceMap.set('SETNAYAN_AI', formatPhp(aiDisplayPhp));
+  } else {
+    // 0 = Tier E (no vendors ⇒ Setnayan AI is not present) or an unreadable
+    // read. Drop the stale flat price rather than print a number this event can
+    // neither be shown nor charged.
+    priceMap.delete('SETNAYAN_AI');
   }
 
   function isOwned(entry: AddOnEntry): boolean {
@@ -319,7 +430,17 @@ export default async function SuitePage({ params }: Props) {
           : 'Your last stretch — capture, and the event itself.';
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
-  const eligible = ADD_ONS.filter((a) => surfaceOk(a) && a.studioGroup !== 'utility');
+  // Tier E (simple_event: marketplace off ⇒ no vendors ⇒ nothing for the
+  // planner to plan) has no AI SKU at all, so the card was a fake door: it
+  // rendered, took the tap, and could never complete a purchase. Gate it on the
+  // SAME resolved price, so the hub can never offer what checkout cannot sell.
+  const aiSellable = aiDisplayPhp > 0;
+  const eligible = ADD_ONS.filter(
+    (a) =>
+      surfaceOk(a) &&
+      a.studioGroup !== 'utility' &&
+      (a.serviceKey !== 'SETNAYAN_AI' || aiSellable || ownedActive.has('SETNAYAN_AI')),
+  );
   const active = eligible.filter((a) => isOwned(a));
   const freeSkus = eligible
     .filter((a) => !isOwned(a) && a.tier === 'free' && a.status !== 'coming_soon')
@@ -382,7 +503,7 @@ export default async function SuitePage({ params }: Props) {
       tags: a.tags ?? [],
       node: cardFor(a),
     })),
-    ...FREE_TOOLS.map((t) => ({
+    ...freeTools.map((t) => ({
       key: t.key,
       text: hay(t.label, t.blurb, t.tags),
       tags: t.tags,
@@ -487,7 +608,7 @@ export default async function SuitePage({ params }: Props) {
           as="ul"
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
-          {FREE_TOOLS.map(freeToolCard)}
+          {freeTools.map(freeToolCard)}
           {freeSkus.map(cardFor)}
         </RevealList>
         </section>

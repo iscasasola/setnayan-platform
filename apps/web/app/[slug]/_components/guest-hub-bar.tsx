@@ -248,7 +248,7 @@ export function GuestHubBar({
             {selfRotateEnabled ? (
               <div className="mt-4 border-t border-ink/10 pt-3 text-left">
                 {rotateStatus === 'done' ? (
-                  <p role="status" className="text-xs text-success-700">
+                  <p role="status" className="text-xs text-ink/70">
                     Done — this is your new QR. Your old printed QR and old links no longer
                     work. Your seat, RSVP, and photos are untouched.
                   </p>

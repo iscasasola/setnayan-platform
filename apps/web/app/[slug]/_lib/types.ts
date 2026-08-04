@@ -6,6 +6,7 @@
 // module stays value-free for the client components that import from it.
 import type { GuestRole } from '@/lib/guests';
 import type { RoamManifest } from '@/lib/live-studio-roam';
+import type { GuestPickCamera } from '@/lib/live-studio-guest-pick';
 import type { WallTile } from '@/lib/live-wall-logic';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
@@ -22,8 +23,29 @@ import type { EntrancePos } from '@/lib/indoor-blueprint';
 import type { GuestHubData } from '../_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
- *  staged — single-cam Panood live is free for every host). */
-export type WatchLiveData = { embedUrl: string; watchUrl: string; roam?: RoamManifest };
+ *  staged — single-cam Panood live is free for every host).
+ *
+ *  DUAL-STREAM (2026-07-26): a couple may also be live on Facebook. `embedUrl` /
+ *  `watchUrl` are NULLABLE because Facebook can be the only destination they
+ *  published — in that case there is no player, just the link. `facebookUrl` is
+ *  a LINK-OUT ONLY: facebook.com is deliberately absent from next.config.ts
+ *  frame-src, so it is never an iframe src. Both values come out of
+ *  lib/watch-live-links.ts, which re-validates them on every render. */
+export type WatchLiveData = {
+  embedUrl: string | null;
+  watchUrl: string | null;
+  roam?: RoamManifest;
+  facebookUrl?: string | null;
+  /**
+   * Wave 10 · side cameras a guest may switch to, served PEER-TO-PEER from the
+   * operator's phone rather than broadcast to YouTube. Populated only when the flag
+   * is on, the host enabled guest-pick, and `canPublishMultiCam` says the event is
+   * entitled — so an un-entitled event's browser is never told these exist.
+   * `eventId` rides along because the WebRTC signaling topic is keyed on it.
+   */
+  guestCameras?: GuestPickCamera[];
+  eventId?: string;
+};
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 export type LiveWallData = {
   tiles: WallTile[];
@@ -60,6 +82,16 @@ export type EventRow = {
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
   // unknown + sanitized at use so a thin/absent palette degrades to defaults.
   role_palette?: unknown;
+  // Website Pro net-new manual site colours (events.site_bg_color /
+  // site_button_color · #rrggbb hex · migration 20270930244819). Override the
+  // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
+  // site, applied ONLY when set AND the event owns active Website Pro
+  // (loadMedia gates + resolves them into `siteColorVars`). NULL = inert.
+  /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
+   *  guest site to the dark direction; absent/'daylight' = today's look. */
+  site_art_direction?: 'daylight' | 'candlelight' | null;
+  site_bg_color?: string | null;
+  site_button_color?: string | null;
   // Couple's love story (events.love_story JSONB, written at onboarding; also
   // feeds Pakanta). Rendered on the pre-event paths (Save the Date teaser ·
   // RSVP · Event) via <OurStory>; NOT on the post-event Editorial. Typed
@@ -98,8 +130,12 @@ export type EventRow = {
   std_theme?: string | null;
   // Step-1 background choice {kind, value} (events.std_background · 2026-06-19).
   std_background?: unknown;
-  // Step-3 media choice {type, videoKey?, posterKey?, nsfw?} (events.std_media · 2026-06-19).
+  // Step-3 media choice {type, videoKey?, posterKey?, fit?} (events.std_media · 2026-06-19).
   std_media?: unknown;
+  // The NSFW verdict for that media, BOUND to it (events.std_media_nsfw · SEC-6
+  // 2026-07-26). Host-unwritable; a verdict that no longer matches std_media is
+  // stale and the video does not play. See lib/std-media.ts.
+  std_media_nsfw?: unknown;
   // Manual STD venue override (reception fallback when no finalized booking).
   std_film_venue_name?: string | null;
   std_film_venue_city?: string | null;
@@ -186,6 +222,9 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  // Website Pro net-new manual site colour overrides (PR-C) — pre-gated on
+  // ACTIVE Website Pro + non-NULL columns; null when inert (renders as today).
+  siteColorVars: Record<string, string> | null;
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;

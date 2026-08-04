@@ -48,7 +48,6 @@ export type StdFilmContent = {
   /** Reception city/area subtitle; null → name only. */
   receptionCity?: string | null;
   storyTeaser?: string | null;
-  websiteUrl?: string | null;
   gcalUrl?: string | null;
   icsHref?: string | null;
   icsFilename: string;
@@ -58,7 +57,9 @@ export type StdFilmContent = {
    * Presigned URL of the couple's uploaded closing VIDEO — plays as a locked
    * real-time island beat (plays to the end with sound) in place of the photo
    * gallery. null → no video beat (the gallery beat shows instead). On the live
-   * page this is set ONLY when the video is NSFW-approved (stdVideoIsLive).
+   * page this is set ONLY when the video carries an NSFW verdict that is
+   * `approved` AND still bound to it — same R2 keys, same bytes (SEC-6 ·
+   * stdVideoServeUrls). Stale or unknown ⇒ null, and the gallery beat shows.
    */
   videoUrl?: string | null;
   /** Poster still of the closing video — for the blurred letterbox fill behind
@@ -87,8 +88,6 @@ export type ResolveStdFilmInput = {
   receptionCity?: string | null;
   /** Raw events.love_story (unknown shape) — teaser extracted + truncated. */
   loveStory?: unknown;
-  /** "See details" target; null → the button hides (P4 builder can set it). */
-  websiteUrl?: string | null;
   publicId: string;
   /** Presigned soundtrack URL (the couple's site music) — resolved server-side. */
   musicUrl?: string | null;
@@ -183,7 +182,6 @@ export function resolveStdFilmContent(input: ResolveStdFilmInput): StdFilmConten
     receptionVenue: input.receptionVenue?.trim() || null,
     receptionCity: input.receptionCity?.trim() || null,
     storyTeaser: storyTeaserOf(input.loveStory),
-    websiteUrl: input.websiteUrl ?? null,
     gcalUrl,
     icsHref: ics ? icsDataHref(ics) : null,
     icsFilename: `${input.displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`,

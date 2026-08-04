@@ -1,7 +1,12 @@
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolveStdMedia } from '@/lib/std-media';
+import {
+  resolveStdMedia,
+  resolveStdNsfwVerdict,
+  stdNsfwDisplayStatus,
+  verdictIsGrandfathered,
+} from '@/lib/std-media';
+import { stdVideoReviewMedia } from '@/lib/std-video-gate';
 import { RevealStudio } from '@/app/admin/reveal-studio/studio';
 import {
   StdVideoModeration,
@@ -22,8 +27,17 @@ import {
  * /admin/reveal-studio route (which now redirects here); no route collision.
  */
 
-/** Couple STD videos awaiting (pending) or failed (rejected) the auto-screen —
- *  the admin override queue. Auto-approved videos are presumed fine + omitted. */
+/**
+ * The admin review queue — and, since SEC-6 round three, the gate every couple
+ * Save-the-Date video must pass to play at all.
+ *
+ * A row belongs here when it is NOT serving (`stdNsfwDisplayStatus !==
+ * 'approved'`) — pending, in_review, rejected — OR when it IS serving but only
+ * on the SEC-6 cutover marker (`verdictIsGrandfathered`), which is a row an
+ * operator should re-review even though nothing is broken. Filtering on the raw
+ * status alone is how a fail-closed row hides from the one surface that can fix
+ * it, and how a grandfathered row would quietly become permanent.
+ */
 async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
   try {
     const admin = createAdminClient();
@@ -33,18 +47,64 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
       .filter('std_media->>type', 'eq', 'video')
       .limit(200);
     const rows = (data ?? []) as Array<Record<string, unknown>>;
+    if (rows.length === 0) return [];
+
+    // SEC-6 — the verdict is a SEPARATE, host-unwritable column, fetched in its
+    // OWN query so a deploy that lands ahead of the migration degrades to "every
+    // video needs review" (a fuller queue) instead of an empty one. An empty
+    // review queue is the dangerous failure here, not a crowded one.
+    const verdicts = new Map<string, unknown>();
+    {
+      const { data: vRows } = await admin
+        .from('events')
+        .select('event_id, std_media_nsfw')
+        .in(
+          'event_id',
+          rows.map((r) => r.event_id as string),
+        );
+      for (const v of (vRows ?? []) as Array<Record<string, unknown>>) {
+        verdicts.set(v.event_id as string, v.std_media_nsfw);
+      }
+    }
+
     const needing = rows
-      .map((r) => ({ r, m: resolveStdMedia(r.std_media) }))
-      .filter(({ m }) => m.type === 'video' && m.videoKey && m.nsfw !== 'approved');
+      .map((r) => {
+        const eventId = r.event_id as string;
+        const m = resolveStdMedia(r.std_media, eventId);
+        const verdict = resolveStdNsfwVerdict(verdicts.get(eventId));
+        return {
+          r,
+          m,
+          verdict,
+          s: stdNsfwDisplayStatus(m, verdict, eventId),
+          grandfathered: verdictIsGrandfathered(verdict),
+        };
+      })
+      .filter(
+        ({ m, s, grandfathered }) =>
+          m.type === 'video' && m.videoKey && (s !== 'approved' || grandfathered),
+      );
     return Promise.all(
-      needing.map(async ({ r, m }) => ({
-        eventId: r.event_id as string,
-        publicId: (r.public_id as string) ?? '',
-        name: (r.display_name as string) || 'Untitled wedding',
-        status: (m.nsfw === 'rejected' ? 'rejected' : 'pending') as 'pending' | 'rejected',
-        videoUrl: m.videoKey ? await displayUrlForStoredAsset(m.videoKey) : null,
-        posterUrl: m.posterKey ? await displayUrlForStoredAsset(m.posterKey) : null,
-      })),
+      needing.map(async ({ r, m, verdict, s, grandfathered }) => {
+        // The reviewer watches the SEALED objects — the exact immutable bytes a
+        // guest receives — never the couple's still-writable upload key. The
+        // fingerprints ride along so Approve can be pinned to them, and
+        // `approvable` is false for a row nothing has frozen yet.
+        const review = await stdVideoReviewMedia(m, verdict, r.event_id as string);
+        return {
+          eventId: r.event_id as string,
+          publicId: (r.public_id as string) ?? '',
+          name: (r.display_name as string) || 'Untitled wedding',
+          status: s,
+          grandfathered,
+          videoUrl: review.videoUrl,
+          posterUrl: review.posterUrl,
+          videoFingerprint: review.videoFingerprint,
+          posterFingerprint: review.posterFingerprint,
+          approvable: review.approvable,
+          sealBroken: review.sealBroken,
+        };
+      }),
     );
   } catch {
     // Pre-migration env / read error → empty queue (panel hides). Never break the page.

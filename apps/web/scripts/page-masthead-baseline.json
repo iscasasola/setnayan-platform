@@ -95,7 +95,6 @@
   "app/dashboard/[eventId]/website/dress-code/page.tsx",
   "app/dashboard/[eventId]/website/editorial/page.tsx",
   "app/dashboard/[eventId]/website/hero-photo/page.tsx",
-  "app/dashboard/[eventId]/website/launch/page.tsx",
   "app/dashboard/[eventId]/website/our-photos/page.tsx",
   "app/dashboard/[eventId]/website/our-story/page.tsx",
   "app/dashboard/[eventId]/website/page.tsx",

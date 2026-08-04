@@ -14,10 +14,29 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { BadgePercent, Check, Info, Users } from 'lucide-react';
+import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
+import {
+  CardRecordSection,
+  type CardRecordRating,
+} from '@/app/_components/card-record-section';
+import type { CompiledCardRecord } from '@/lib/service-card-record';
+import {
+  ServiceDetailsSheet,
+  type ServiceInquireMode,
+} from './service-details-sheet';
 
 export type ServiceCard = {
   id: string;
+  /**
+   * `vendor_services.public_id` (S89…) — the deep-link handle for `?service=`.
+   * The internal uuid stays out of the URL bar.
+   *
+   * OPTIONAL, and ABSENT (not `''`, not null) when `serviceDetailsEnabled()` is
+   * off: the flag's contract is that the flag-OFF card is byte-identical to
+   * today, and that has to include the serialized RSC payload, not just the
+   * rendered DOM. Pinned by `service-details-dark.test.ts`.
+   */
+  publicId?: string;
   label: string;
   priceLabel: string;
   /** Crew / meal line, pre-joined server-side. null → no second line. */
@@ -32,6 +51,11 @@ export type ServiceCard = {
   inclusions: string[];
   /** How many inclusions were trimmed off `inclusions` (drives "+N more"). */
   inclusionsMore: number;
+  /** The UNTRIMMED inclusion list, for the details sheet — the "+N more" tail is
+   *  exactly what a couple opens the sheet to read. Present ONLY when
+   *  `serviceDetailsEnabled()`; with the flag off the key is ABSENT, so the
+   *  card's serialized payload is byte-for-byte what it is today. */
+  inclusionsFull?: string[];
   /** "Not included" expectation flags, pre-formatted server-side
    *  ("Crew meal not included", "Transport: ₱1,500"). Empty → row hidden. */
   notIncluded: string[];
@@ -47,6 +71,16 @@ export type ServiceCard = {
   photos: string[];
   /** Showcase clip display URL (presigned server-side). null → no video. */
   videoUrl: string | null;
+  // ── Card Record (2026-07-28, flag NEXT_PUBLIC_CARD_RECORD_ENABLED) ────────
+  /** Compiled history of THIS card — booked count, event-type mix, anonymized
+   *  ledger, milestone medals. Compiled server-side by compileCardRecord(); the
+   *  underlying reader emits only de-identified aggregates. null when the flag
+   *  is off OR the card has never been booked — a zero-history card shows
+   *  nothing new. */
+  record: CompiledCardRecord | null;
+  /** Vendor-level trusted rating shown inside the record block. SHOP-wide, not
+   *  per-card: reviews carry no service dimension. null → no stars. */
+  recordRating: CardRecordRating | null;
 };
 
 export type ServiceGroup = {
@@ -57,14 +91,57 @@ export type ServiceGroup = {
 
 const ALL = '__all__';
 
-export function ServicesGallery({ groups }: { groups: ServiceGroup[] }) {
+export function ServicesGallery({
+  groups,
+  /**
+   * `serviceDetailsEnabled()`, resolved server-side. OFF ⇒ every card renders
+   * as the same static `<div>` it does today, no sheet is ever mounted, and no
+   * doorway affordance is added.
+   */
+  detailsEnabled = false,
+  /**
+   * How the sheet's "Inquire about this" should behave — decided server-side
+   * because only the server knows which composer is on the page. Ignored while
+   * `detailsEnabled` is false.
+   */
+  inquireMode = 'none',
+  /**
+   * `?service=<public id>` from the URL — opens that card's sheet on arrival, so
+   * a details screen is linkable. An unknown / stale id opens nothing (it is
+   * matched against the cards the server actually rendered), never errors.
+   */
+  openServicePublicId = null,
+}: {
+  groups: ServiceGroup[];
+  detailsEnabled?: boolean;
+  inquireMode?: ServiceInquireMode;
+  openServicePublicId?: string | null;
+}) {
   const [active, setActive] = useState<string>(ALL);
+
+  // The card whose details sheet is open, by `ServiceCard.id`. Seeded ONCE from
+  // the deep link (lazy initial state, so a later re-render can't re-open a
+  // sheet the couple already dismissed).
+  const [openCardId, setOpenCardId] = useState<string | null>(() => {
+    if (!detailsEnabled || !openServicePublicId) return null;
+    for (const g of groups) {
+      const hit = g.cards.find((c) => c.publicId === openServicePublicId);
+      if (hit) return hit.id;
+    }
+    return null;
+  });
 
   // Only offer filtering when there's more than one coverage group to switch
   // between; otherwise the chips are dead weight.
   const showChips = groups.length > 1;
   const total = groups.reduce((n, g) => n + g.cards.length, 0);
   const visible = active === ALL ? groups : groups.filter((g) => g.key === active);
+
+  // Resolved across ALL groups, not just the visible ones: a deep link can name
+  // a card sitting behind a coverage chip the couple has not clicked.
+  const openCard = openCardId
+    ? (groups.flatMap((g) => g.cards).find((c) => c.id === openCardId) ?? null)
+    : null;
 
   return (
     <div className="space-y-5">
@@ -100,13 +177,28 @@ export function ServicesGallery({ groups }: { groups: ServiceGroup[] }) {
             <ul className="grid gap-2 sm:grid-cols-2">
               {g.cards.map((c) => (
                 <li key={c.id}>
-                  <ServiceCardView card={c} />
+                  <ServiceCardView
+                    card={c}
+                    detailsEnabled={detailsEnabled}
+                    onOpen={() => setOpenCardId(c.id)}
+                  />
                 </li>
               ))}
             </ul>
           </div>
         ))}
       </div>
+
+      {/* ONE sheet for the whole gallery, not one per card — mounting a dialog
+          per card would put N focus-trap subscriptions on the page for a screen
+          only ever open on one of them. */}
+      {detailsEnabled && openCard ? (
+        <ServiceDetailsSheet
+          card={openCard}
+          inquireMode={inquireMode}
+          onClose={() => setOpenCardId(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -120,10 +212,37 @@ export function ServicesGallery({ groups }: { groups: ServiceGroup[] }) {
  * Layout order top→bottom: title + price (+ pricing-basis detail) · discount
  * badge · showcase media (photo strip + clip) · inclusions · crew/meal meta ·
  * not-included flags · serves line — value story first, caveats + scope last.
+ *
+ * ── THE DOORWAY (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) ─────────────────
+ * With the flag ON the card becomes clickable: a STRETCHED button covering the
+ * card opens `ServiceDetailsSheet`. Stretched rather than wrapping the whole
+ * card in a `<button>` because the card already contains a `<video controls>`,
+ * and an interactive control nested inside a button is invalid markup that
+ * eats the video's own controls. The overlay is the LAST child, so it paints
+ * over the static content without any z-index; the clip is lifted above it with
+ * `relative z-10` so play/scrub still work in place.
+ *
+ * With the flag OFF this returns the identical static `<div>` it always has —
+ * same class string, same children, no overlay, no affordance, and the sheet
+ * module is never mounted.
  */
-function ServiceCardView({ card: c }: { card: ServiceCard }) {
+function ServiceCardView({
+  card: c,
+  detailsEnabled,
+  onOpen,
+}: {
+  card: ServiceCard;
+  detailsEnabled: boolean;
+  onOpen: () => void;
+}) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4">
+    <div
+      className={
+        detailsEnabled
+          ? 'relative flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40'
+          : 'flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4'
+      }
+    >
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-medium text-ink">{c.label}</p>
         <p className="font-mono text-sm text-ink/80">{c.priceLabel}</p>
@@ -174,7 +293,11 @@ function ServiceCardView({ card: c }: { card: ServiceCard }) {
           preload="metadata"
           playsInline
           muted
-          className="mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover"
+          className={
+            detailsEnabled
+              ? 'relative z-10 mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover'
+              : 'mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover'
+          }
         />
       ) : null}
 
@@ -222,6 +345,41 @@ function ServiceCardView({ card: c }: { card: ServiceCard }) {
           <Users className="mt-0.5 h-3 w-3 shrink-0 text-ink/35" strokeWidth={2} aria-hidden />
           <span>Serves: {c.serves}</span>
         </p>
+      ) : null}
+
+      {/* Card record — the compiled history this card has earned. Appended, not
+          woven in: it closes the card below every claim the vendor authored, so
+          the proof reads last. `mt-auto` inside the section pins it to the
+          card's bottom edge across a grid row of unequal cards. Absent unless
+          the flag is on AND the card has been booked at least once. */}
+      {c.record ? (
+        <CardRecordSection record={c.record} variant="couple" rating={c.recordRating} />
+      ) : null}
+
+      {/* The doorway. A VISIBLE affordance, because a card that silently became
+          clickable is a card nobody clicks. Decorative only — the accessible
+          name lives on the stretched overlay below, so this is aria-hidden to
+          avoid announcing the same control twice. */}
+      {detailsEnabled ? (
+        <p
+          aria-hidden
+          className="mt-3 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700"
+        >
+          View details
+          <ChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
+        </p>
+      ) : null}
+
+      {/* THE STRETCHED BUTTON — last child, so it covers the static content
+          without a z-index. The clip above carries `relative z-10` and stays
+          usable in place. */}
+      {detailsEnabled ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`View details for ${c.label}`}
+          className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        />
       ) : null}
     </div>
   );

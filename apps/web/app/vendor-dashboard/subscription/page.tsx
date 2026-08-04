@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Crown, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Crown, Search, Sparkles, ReceiptText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
+import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -23,6 +26,14 @@ import {
   fetchVendor3dBoothPricePhp,
   isVendor3dBoothActive,
 } from '@/lib/vendor-3d-booth-pricing';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+} from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
@@ -167,10 +178,20 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // try/catch) so a pre-migration DB degrades to "not activated, trial
   // available" instead of blanking the page.
   const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
-  const [aiAddonState, aiAddonPricePhp] = await Promise.all([
+  const [aiAddonState, aiAddonCatalogPricePhp] = await Promise.all([
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
     fetchVendorAiAddonPricePhp(supabase),
   ]);
+  // 2026-07-25 tiered band for AI Chatbot Basic (₱2,000 Free/Solo · ₱1,500
+  // Pro/Ent). Mirrors ai-addon-actions.ts so the card and the charge agree.
+  const aiAddonPricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('ai_chatbot_basic', currentTier)
+    : aiAddonCatalogPricePhp;
+  // Deep Search — About-You band (₱1,000 Free/Solo · ₱500 Pro/Ent) for the
+  // doorway copy below, so the tile never quotes a price the runner won't charge.
+  const deepSearchPricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('deep_search_about_you', currentTier)
+    : 500;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
@@ -178,12 +199,37 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
   // (try/catch inside) degrade to "not activated, trial available" on a
   // pre-migration DB instead of blanking the page.
-  const isProTierForBooth = isTierAtLeast(currentTier, 'pro');
-  const [boothAddonState, boothAddonPricePhp] = await Promise.all([
+  //
+  // 2026-07-25 tiered add-on model (flag-dark): when on, 3D Plan Ads opens to
+  // EVERY tier at its band's price (₱2,000 Free/Solo · ₱1,500 Pro/Ent) — the
+  // verified-only rule stays. Mirrors the buy action's gate exactly, so the card
+  // never offers what the server would reject (or vice versa).
+  const tieredAddonPricing = isVendorAddonTieredPricingEnabled();
+  const isProTierForBooth = tieredAddonPricing || isTierAtLeast(currentTier, 'pro');
+  const [boothAddonState, boothAddonCatalogPricePhp] = await Promise.all([
     fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
     fetchVendor3dBoothPricePhp(supabase),
   ]);
+  const boothAddonPricePhp = tieredAddonPricing
+    ? resolveVendorAddonPricePhp('ads_3d_plan', currentTier)
+    : boothAddonCatalogPricePhp;
   const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
+
+  // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Reads the SAME
+  // pure decision the buy action does, off the SAME committed-booking count, so
+  // the price on the card and the price charged can never disagree. The count
+  // read fails CLOSED, so a bad read shows the paid price rather than a ₱0 the
+  // server would refuse. Flag off → both false/0 and the card is unchanged.
+  const first5FreeEnabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5FreeEnabled
+    ? await fetchVendorCommittedBookingCount(supabase, profile.vendor_profile_id)
+    : Number.NaN;
+  const boothFirst5Free = addonIsFreeUnderFirst5({
+    sku: 'ads_3d_plan',
+    committedBookingCount: committedBookings,
+    enabled: first5FreeEnabled,
+  });
+  const first5Remaining = first5FreeEnabled ? first5BookingsRemaining(committedBookings) : 0;
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -284,6 +330,13 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     currentTier === 'enterprise' ||
     currentTier === 'custom';
 
+  // Booking-fee doorway (surfacing layer). Flag-gated AND count-gated so nothing
+  // shows when the fee system is dark OR the vendor owes nothing ("no fee →
+  // nothing shows"). RLS scopes the count to this vendor's own fee orders.
+  const bookingFeeDueCount = isBookingFeeEnabled()
+    ? await countDueVendorFeeOrders(supabase, user.id)
+    : 0;
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
@@ -343,6 +396,36 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </div>
         )}
       </header>
+
+      {/* Booking-fee doorway — appears only when the fee system is live AND this
+          vendor has an unpaid fee (surfacing layer; no fee → nothing shows). */}
+      {bookingFeeDueCount > 0 ? (
+        <Link
+          href={VENDOR_BOOKING_FEES_PATH}
+          className="sn-card sn-press mb-5 flex flex-wrap items-center gap-4 border-warn-300/60 bg-warn-50 p-5 sm:flex-nowrap"
+        >
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+            style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+          >
+            <ReceiptText className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-ink">
+              You have {bookingFeeDueCount} unpaid booking{' '}
+              {bookingFeeDueCount === 1 ? 'fee' : 'fees'}.
+            </p>
+            <p className="mt-0.5 text-sm text-ink/60">
+              Pay your Setnayan booking fee on the same GCash/BDO rail — it clears
+              once our team confirms your payment.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+            View booking fees
+            <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </span>
+        </Link>
+      ) : null}
 
       {/* Monthly / annual toggle (client component · updates ?cycle=) */}
       <SubscriptionCycleToggle cycle={cycle} />
@@ -418,7 +501,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
       {/* 3D Booth add-on — free first 28-day cycle, then ₱1,500/28d, on
           Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
-          vendor's branded booth inside their couples' published 3D Plans. */}
+          vendor's branded booth inside their couples' published 3D Plans.
+          With the 2026-07-25 tiered model on: every verified tier, at ₱2,000
+          (Free/Solo) or ₱1,500 (Pro/Ent). */}
       <BoothAddonCard
         available={seating3dEnabled()}
         eligible={isProTierForBooth && isVerifiedVendor}
@@ -427,6 +512,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         active={boothAddonActive}
         expiresAt={boothAddonState.expiresAt}
         pricePhp={boothAddonPricePhp}
+        first5Free={boothFirst5Free}
+        first5Remaining={first5Remaining}
       />
 
       {/* Deep Search — a metered ₱500/search add-on that researches the vendor's
@@ -451,8 +538,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             {isPaidTierForAddon
               ? isVerifiedVendor
                 ? isTierAtLeast(currentTier, 'pro')
-                  ? 'We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱500 each.'
-                  : 'We research your business and hand you a “what we learned” review. ₱500 per search on Solo.'
+                  ? `We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱${deepSearchPricePhp.toLocaleString('en-PH')} each.`
+                  : `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search on Solo.`
                 : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
               : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
           </p>

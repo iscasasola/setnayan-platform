@@ -1,6 +1,6 @@
 /**
  * Setnayan AI per-event-type pricing — the locked ladder + classification
- * invariants (node:test via tsx). Owner-locked 2026-07-22: ₱1,499 / ₱999 / ₱499
+ * invariants (node:test via tsx). Owner-locked 2026-07-22: ₱1,499 / ₱899 / ₱499
  * / ₱99 / ₱0 by AI load. Pure map, no I/O.
  */
 import { test } from 'node:test';
@@ -15,7 +15,7 @@ import {
 } from './setnayan-ai-type-pricing';
 
 test('the locked ladder values', () => {
-  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 1499, B: 999, C: 499, D: 99, E: 0 });
+  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 1499, B: 899, C: 499, D: 99, E: 0 });
   assert.deepEqual(AI_TIER_SKU, {
     A: 'SETNAYAN_AI',
     B: 'SETNAYAN_AI_B',
@@ -28,8 +28,8 @@ test('the locked ladder values', () => {
 test('every canonical event type maps to its locked tier + price', () => {
   const cases: Array<[string, string, number]> = [
     ['wedding', 'A', 1499],
-    ['debut', 'B', 999],
-    ['corporate', 'B', 999],
+    ['debut', 'B', 899],
+    ['corporate', 'B', 899],
     ['christening', 'C', 499],
     ['birthday', 'C', 499],
     ['celebration', 'C', 499],
@@ -38,7 +38,7 @@ test('every canonical event type maps to its locked tier + price', () => {
     ['anniversary', 'C', 499],
     ['graduation', 'C', 499],
     ['reunion', 'C', 499],
-    ['gala_night', 'B', 999],
+    ['gala_night', 'B', 899],
     ['gender_reveal', 'D', 99],
     ['date', 'D', 99],
     ['hangout', 'D', 99],
@@ -68,4 +68,43 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
     assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined), 499);
     assert.equal(setnayanAiTierSkuForEventType(t as string | null | undefined), 'SETNAYAN_AI_C');
   }
+});
+
+/* ── Regression guard for the 2026-08-01 per-USER retirement ─────────────────
+ * The change that removed `user_ai_subscription`, the
+ * `setnayan_ai_per_user_enabled` flag and the `SETNAYAN_AI_SUB` term pass was
+ * required to leave the PER-EVENT price ladder byte-identical. This pins the
+ * complete triple — tier · catalog SKU · fallback ₱ — for every event type in
+ * ONE assertion, so "we did not change what anyone is charged or shown" is a
+ * test result rather than a claim in a PR description.
+ * ------------------------------------------------------------------------- */
+test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', () => {
+  const expected: Record<string, [string, string | null, number]> = {
+    wedding: ['A', 'SETNAYAN_AI', 1499],
+    debut: ['B', 'SETNAYAN_AI_B', 899],
+    corporate: ['B', 'SETNAYAN_AI_B', 899],
+    gala_night: ['B', 'SETNAYAN_AI_B', 899],
+    christening: ['C', 'SETNAYAN_AI_C', 499],
+    birthday: ['C', 'SETNAYAN_AI_C', 499],
+    celebration: ['C', 'SETNAYAN_AI_C', 499],
+    travel: ['C', 'SETNAYAN_AI_C', 499],
+    anniversary: ['C', 'SETNAYAN_AI_C', 499],
+    graduation: ['C', 'SETNAYAN_AI_C', 499],
+    reunion: ['C', 'SETNAYAN_AI_C', 499],
+    tournament: ['D', 'SETNAYAN_AI_D', 99],
+    gender_reveal: ['D', 'SETNAYAN_AI_D', 99],
+    date: ['D', 'SETNAYAN_AI_D', 99],
+    hangout: ['D', 'SETNAYAN_AI_D', 99],
+    simple_event: ['E', null, 0],
+  };
+
+  for (const [type, [tier, sku, php]] of Object.entries(expected)) {
+    assert.equal(setnayanAiTierForEventType(type), tier, `${type} tier`);
+    assert.equal(setnayanAiTierSkuForEventType(type), sku, `${type} SKU`);
+    assert.equal(setnayanAiTierFallbackPhp(type), php, `${type} fallback ₱`);
+  }
+
+  // Papic's travel exclusion was dropped in the SAME change. Confirm that did
+  // NOT leak into AI pricing — travel is still Tier C at ₱499, exactly as before.
+  assert.equal(setnayanAiTierFallbackPhp('travel'), 499, 'travel AI price must not move');
 });

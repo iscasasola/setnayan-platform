@@ -23,15 +23,20 @@ import {
  * papic_event_point_grants, tagged by `source` ('admin' · 'topup_order' ·
  * 'comp' · 'migration' · 'free_grant' · 'camera_grant') and order_id.
  *
- * ── PAPIC ONE / DEDICATED-PER-CAMERA CAVEAT (owner 2026-07-23) ────────────
- * Papic One points are meant to be DEDICATED per camera, not pooled. The
- * shipped ledger does NOT model that: 'camera_grant' rows carry event_id +
- * order_id only (no seat scope), and usage is a single per-event counter with
- * no seat attribution — so a per-camera "dedicated remaining" cannot be
- * derived from what exists. Per the build brief, this reader therefore reports
- * the ONE shared pool (which is exactly what the reserve RPC enforces today)
- * and does not attempt a shared-vs-dedicated split. Modelling dedication is a
- * ledger change owned by a later, supervised PR — do not bolt it on here.
+ * ── PAPIC ONE IS NO LONGER IN HERE (owner-locked 2026-07-29) ──────────────
+ * This header used to record a caveat: Papic One points were MEANT to be
+ * dedicated per camera, but the ledger could not express it ('camera_grant' rows
+ * carried event_id + order_id only, and usage was a single per-event counter),
+ * so this meter reported the one shared pool and the split was deferred to "a
+ * later, supervised PR".
+ *
+ * That PR landed (migration 20271019231590): grants now carry `seat_id`, and
+ * papic_event_pool_status sums ONLY the seat_id IS NULL rows. So this meter is
+ * still exactly right and is now MORE right — it reports the SHARED pool, and a
+ * Papic One camera's dedicated balance is genuinely not part of it. A camera's
+ * own remaining reads through papic_camera_points_remaining / the Papic One card
+ * instead. Do NOT add dedicated points back into this total: that would put a
+ * number on the couple's shared meter that no shared capture may spend.
  *
  * ── DISPLAY, NOT A GATE ───────────────────────────────────────────────────
  * Same posture as fetchEventPoolStatus: this drives a meter, never blocks a

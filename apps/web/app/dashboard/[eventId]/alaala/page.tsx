@@ -4,6 +4,7 @@ import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { getKwentoDensity, type KwentoDensityRow } from '@/lib/kwento-density';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Alaala — the couple's living-memory hub (Lane 2 of the Alaala embed).
@@ -109,16 +110,36 @@ export default async function AlaalaPage({ params }: Props) {
   const densityCards: DensityCard[] = densityRows.length
     ? await Promise.all(
         densityRows.map(async (row: KwentoDensityRow) => {
-          // Try to get a thumbnail from papic_guest_captures.r2_key first.
+          // ⚠ `r2_key` DOES NOT EXIST on papic_guest_captures — the keys are
+          // `thumb_r2_key` / `display_r2_key` / `r2_object_key`. PostgREST
+          // 42703s the whole query on an unknown column, so `cap` was always
+          // null and EVERY Kwento density card rendered without its thumbnail.
+          // The try/catch could not help: PostgREST returns the error in the
+          // result, it does not throw.
+          //
+          // Prefer the cheapest usable rendition, same chain the library uses
+          // (photos-albums.ts): thumb → display → original. The original is
+          // skipped once `full_res_dropped_at` is stamped, because that key no
+          // longer resolves.
           let thumbUrl: string | null = null;
           try {
-            const { data: cap } = await admin
+            const { data: cap, error: capError } = await admin
               .from('papic_guest_captures')
-              .select('r2_key')
+              .select('thumb_r2_key, display_r2_key, r2_object_key, full_res_dropped_at')
               .eq('capture_id', row.photoId)
               .maybeSingle();
-            if (cap?.r2_key) {
-              thumbUrl = await displayUrlForStoredAsset(cap.r2_key as string, {
+            if (capError) {
+              logQueryError('alaala:densityThumb', capError, {
+                eventId,
+                captureId: row.photoId,
+              });
+            }
+            const key =
+              (cap?.thumb_r2_key as string | null) ??
+              (cap?.display_r2_key as string | null) ??
+              (cap?.full_res_dropped_at ? null : (cap?.r2_object_key as string | null));
+            if (key) {
+              thumbUrl = await displayUrlForStoredAsset(key, {
                 ttlSeconds: 60 * 60,
               });
             }

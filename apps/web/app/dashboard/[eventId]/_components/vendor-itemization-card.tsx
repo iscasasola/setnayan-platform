@@ -665,13 +665,26 @@ function PaymentSection({
         />
         {/* Optional receipt screenshot — couples pay vendors off-platform, so
             this is their own record of the transfer (not a Setnayan-verified
-            proof). Emits an `r2://media/…` ref via a hidden input that
-            logPayment reads as `proof_r2_key`. */}
+            proof). Emits an `r2://thread-files/…` ref via a hidden input that
+            logPayment reads as `proof_r2_key`.
+
+            🔒 PRIVATE BUCKET, deliberately. This wrote to `media` until
+            2026-07-30 — the one publicly-served bucket (`PUBLIC_MEDIA_BUCKET`
+            in lib/booth-studio.ts, fetched unsigned). These are bank-transfer
+            screenshots carrying reference numbers, partial account numbers and
+            names: the same PII class as Setnayan-checkout proofs, which already
+            route to `thread-files` via bucketForPrefix(). "The host's own
+            record" describes whose data it is, not how exposed it may be.
+
+            There is currently NO reader — `proof_r2_key` is written here and
+            displayed nowhere. When a reader is built it MUST resolve the ref
+            through `displayUrlForStoredAsset()` (lib/uploads.ts), which signs a
+            short-lived GET; never interpolate the key into a public URL. */}
         <div className="col-span-2 sm:col-span-4">
           <FileUpload
             name="proof_r2_key"
-            bucket="media"
-            pathPrefix={`events/${eventId}/payment-proof`}
+            bucket="thread-files"
+            pathPrefix={`payment-proof/events/${eventId}`}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             label="Attach receipt (optional)"

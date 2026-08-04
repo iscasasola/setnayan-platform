@@ -8,7 +8,8 @@
  * little under your last proposal — want to re-propose?"). It is opportunity-
  * framed, never a rejection, and NEVER prints the couple's budget number.
  *
- * The nudge fires ONLY from `runBuild3State` (the Build resolver). This module is
+ * The nudge fires ONLY from `proposeBuildFromQuotes` (the resolver, renamed from
+ * `runBuild3State` 2026-07-29). This module is
  * pure (no DB, no env). It does NOT depend on Setnayan AI; the nudge fires for
  * both the cheapest-fit (AI-off) and compat (AI-on) Auto paths.
  *

@@ -9,9 +9,20 @@ import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
-import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
+import {
+  resolveStdMedia,
+  resolveStdNsfwVerdict,
+  stdVideoNeedsScreen,
+  type StdMedia,
+} from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { presignClientRef } from '@/lib/r2-client-ref.server';
+import {
+  eventMediaPolicy,
+  parseClientRef,
+  stdMediaPolicy,
+} from '@/lib/r2-client-ref';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
 
@@ -95,7 +106,12 @@ export async function presignStdBackground(
 ): Promise<{ url: string | null }> {
   if (!eventId || !ref) return { url: null };
   await requireCouple(eventId);
-  const url = await displayUrlForStoredAsset(ref);
+  // SEC-1: `ref` is a raw server-action argument — any signed-in caller can put
+  // ANY key in it. Membership on `eventId` says nothing about who owns the
+  // object, so this used to sign another couple's payment proof or another
+  // vendor's DTI permit (all five buckets) on request. Pin it to THIS event's
+  // own Save-the-Date uploads in the public media bucket; anything else → null.
+  const url = await presignClientRef(ref, stdMediaPolicy(eventId));
   return { url: url ?? null };
 }
 
@@ -181,39 +197,99 @@ export async function saveAllStdContent(
   }
   // Step-1 background choice — validated to {kind, value}.
   if (data.background !== undefined && data.background !== null) {
-    patch.std_background = resolveStdBackground(data.background);
+    const bg = resolveStdBackground(data.background);
+    // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
+    // presigned LATER — by lib/std-bg-image.ts and by the PUBLIC wedding-site
+    // loaders, which serve anonymous visitors. `resolveStdBackground` accepts
+    // ANY non-empty string for kind==='upload', so an unvalidated ref turns
+    // this write into a cross-tenant read oracle with an anonymous delivery
+    // channel. Refuse a foreign ref rather than persisting it.
+    //
+    // Grandfather clause: a value IDENTICAL to what is already stored is
+    // allowed through even if it fails today's policy. Re-saving the builder
+    // must not brick on a row written before this rule existed — and echoing
+    // back a ref we already serve introduces nothing new.
+    if (bg.kind === 'upload' && !parseClientRef(bg.value, stdMediaPolicy(eventId))) {
+      const { data: curBg } = await supabase
+        .from('events')
+        .select('std_background')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const stored = resolveStdBackground(
+        (curBg as Record<string, unknown> | null)?.std_background,
+      );
+      if (!(stored.kind === 'upload' && stored.value === bg.value)) {
+        return { ok: false, error: 'bad-background-ref' };
+      }
+    }
+    patch.std_background = bg;
   }
-  // Step-3 media choice — validated to {type, videoKey?, posterKey?, nsfw?}.
+  // Step-3 media choice — validated to {type, videoKey?, posterKey?, fit?}.
   //
-  // SECURITY: the NSFW verdict is set by the SERVER-SIDE screen only — never
-  // trusted from the client (otherwise a couple could POST nsfw:'approved' and
-  // bypass the platform lock). So a new/changed video is forced to 'pending';
-  // an UNCHANGED video keeps the server's existing verdict. The poster frame
-  // (the screening proxy) is taken from the upload, falling back to the saved
-  // one for an unchanged video.
+  // SECURITY (SEC-6 · 2026-07-26): the NSFW verdict is NOT in this object any
+  // more. It used to be — and because `std_media` is a host-writable column and
+  // RLS is row-level, a couple could bypass this whole action with a PostgREST
+  // PATCH setting nsfw:'approved'. The verdict now lives in
+  // events.std_media_nsfw, which `authenticated` holds no UPDATE/INSERT on, and
+  // it is BOUND to the exact videoKey + posterKey + content fingerprints it was
+  // computed for. So this action no longer decides anything about approval: it
+  // just records the couple's media choice and schedules a screen when the
+  // stored verdict does not (or no longer) covers it.
+  //
+  // The poster frame (the screening proxy) is taken from the upload, falling
+  // back to the saved one when the video is unchanged.
   let screenAfterSave: { videoKey: string; posterR2Key: string } | null = null;
   if (data.media !== undefined && data.media !== null) {
-    const incoming = resolveStdMedia(data.media);
+    const incoming = resolveStdMedia(data.media, eventId);
+    // SEC-1: videoKey / posterKey are client-supplied refs that get presigned
+    // later on the PUBLIC wedding site (app/[slug]/_lib/loaders.ts) and read
+    // server-side by screenStdVideo(). Pin both to this event's own uploads.
+    const stdPolicy = stdMediaPolicy(eventId);
     if (incoming.type === 'video' && incoming.videoKey) {
       const { data: cur } = await supabase
         .from('events')
-        .select('std_media')
+        .select('std_media, std_media_nsfw')
         .eq('event_id', eventId)
         .maybeSingle();
-      const current = resolveStdMedia((cur as Record<string, unknown> | null)?.std_media);
+      const currentRow = (cur as Record<string, unknown> | null) ?? null;
+      const current = resolveStdMedia(currentRow?.std_media, eventId);
+      // Same grandfather clause as the background above: a ref identical to the
+      // one already stored may be echoed back, anything NEW must pass policy.
+      if (
+        !parseClientRef(incoming.videoKey, stdPolicy) &&
+        !(current.type === 'video' && current.videoKey === incoming.videoKey)
+      ) {
+        return { ok: false, error: 'bad-video-ref' };
+      }
+      if (
+        incoming.posterKey &&
+        !parseClientRef(incoming.posterKey, stdPolicy) &&
+        !(current.type === 'video' && current.posterKey === incoming.posterKey)
+      ) {
+        return { ok: false, error: 'bad-poster-ref' };
+      }
       const sameVideo =
         current.type === 'video' && current.videoKey === incoming.videoKey;
-      const nsfw = sameVideo ? (current.nsfw ?? 'pending') : 'pending';
       const posterKey =
         incoming.posterKey ?? (sameVideo ? (current.posterKey ?? null) : null);
-      patch.std_media = {
-        type: 'video',
+      const nextMedia = {
+        type: 'video' as const,
         videoKey: incoming.videoKey,
         posterKey,
-        nsfw,
         fit: incoming.fit ?? 'fill',
       };
-      if (nsfw === 'pending' && posterKey) {
+      patch.std_media = nextMedia;
+      // Schedule a screen when the stored verdict does not bind to what we are
+      // about to save. `stdVideoNeedsScreen` is the SAME predicate the screen
+      // itself re-checks, so this is a hint, never an authorisation.
+      if (
+        stdVideoNeedsScreen(
+          nextMedia,
+          resolveStdNsfwVerdict(currentRow?.std_media_nsfw),
+          eventId,
+        ) &&
+        posterKey
+      ) {
         screenAfterSave = { videoKey: incoming.videoKey, posterR2Key: posterKey };
       }
     } else {
@@ -226,7 +302,21 @@ export async function saveAllStdContent(
   // the film + Event/RSVP paths read). Uploading a song enables it; removal /
   // disable stays on the dedicated site-chrome surface (we never clobber here).
   if (typeof data.siteMusicKey === 'string' && data.siteMusicKey.trim()) {
-    patch.site_bg_music_r2_key = data.siteMusicKey.trim();
+    // SEC-1: same laundering path — the song ref is presigned for anonymous
+    // visitors by the public site loader. Must be this event's own upload.
+    const musicKey = data.siteMusicKey.trim();
+    if (!parseClientRef(musicKey, eventMediaPolicy(eventId))) {
+      // Grandfather an unchanged value, as above.
+      const { data: curMusic } = await supabase
+        .from('events')
+        .select('site_bg_music_r2_key')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const stored = (curMusic as { site_bg_music_r2_key?: string | null } | null)
+        ?.site_bg_music_r2_key;
+      if (stored !== musicKey) return { ok: false, error: 'bad-music-ref' };
+    }
+    patch.site_bg_music_r2_key = musicKey;
     patch.site_bg_music_enabled = true;
   }
 
@@ -240,16 +330,39 @@ export async function saveAllStdContent(
   // Save-the-Date appear (it'd sit in the RSVP phase). Guarded to event_date IS
   // NULL so an existing wedding date is never clobbered; std_film_date stays the
   // display-only override on top.
+  //
+  // ⚠ IT MUST ADVANCE THE PRECISION TOO (fixed 2026-07-30). Until this line
+  // existed, the backfill wrote a real calendar day while leaving
+  // `event_date_precision` at its creation default of 'year'
+  // (create-event/actions.ts) — and countdown maths only runs at 'day'
+  // (`lib/progress-stages.ts`), so the event a couple had just dated was
+  // skipped by everything that counts down. BOTH prod events carried the
+  // signature (`event_date = std_film_date`, precision 'year'); this was the
+  // only `events.event_date` writer that didn't set precision alongside it.
+  // `std_film_date` is a specific day, so 'day' is the honest precision — and
+  // year → day is a NARROWING, which the refine-only ratchet in
+  // `[eventId]/actions.ts` allows. This action still does not WRITE
+  // `date_status` — but as of migration 20271033121603 it no longer leaves it
+  // stale either: the `sync_event_date_status_trg` trigger on `events` promotes
+  // an untouched `date_status` to 'locked' whenever a DAY-precise `event_date`
+  // lands. That is deliberate. The previous note here claimed committing was
+  // "date-selection/actions.ts's job, not a film's", but this writer puts the
+  // day into `events.event_date` — the column every countdown, deadline and
+  // vendor surface treats as THE date — so calling it uncommitted was a
+  // distinction the rest of the app did not honour, and it was one of the four
+  // paths that left `date_status` permanently 'undecided' in prod.
   if (filmDate) {
     await supabase
       .from('events')
-      .update({ event_date: filmDate })
+      .update({ event_date: filmDate, event_date_precision: 'day' })
       .eq('event_id', eventId)
       .is('event_date', null);
   }
 
-  // Screen the uploaded video by its poster frame (background, fail-open). Only
-  // an 'approved' verdict ever lets the video play on the public page.
+  // Screen the uploaded video by its poster frame (background). Only an
+  // 'approved' verdict BOUND to this exact media ever lets the video play on the
+  // public page — if this fire-and-forget drops, the video simply stays dark and
+  // the builder page's opportunistic heal retries it.
   if (screenAfterSave) {
     const { videoKey, posterR2Key } = screenAfterSave;
     after(() => screenStdVideo({ eventId, videoKey, posterR2Key }).catch(() => {}));

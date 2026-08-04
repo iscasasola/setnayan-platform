@@ -47,6 +47,28 @@ export interface UgatCounts {
   billing: number;
   /** Taxonomy: folders · tiles · leaves · refinement sets (leaf count as the node number). */
   taxonomy: number;
+  /** Samahan: non-archived communities (the live groups). */
+  community: number;
+  /** Papic: provisioned paparazzi seats — the unit of entitlement. */
+  papic: number;
+  /** Person: durable identities. Reads 0 until the counsel-gated spine lands. */
+  person: number;
+  /** Package: what vendors have authored for sale. */
+  package: number;
+  /** Proposal: offers made to a specific event. */
+  proposal: number;
+  /** Contract: signed artefacts. */
+  contract: number;
+  /** Availability: bookable pools. */
+  availability: number;
+  /** Geography: the shared region vocabulary. */
+  geography: number;
+  /** Seat Plan: tables laid out in the room. */
+  seatplan: number;
+  /** Run of Show: schedule blocks in the day. */
+  runofshow: number;
+  /** Live Studio: claimed camera operators. */
+  livestudio: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -57,6 +79,17 @@ export interface UgatCounts {
     taxonomyLeaves: number;
     taxonomyRefinementSets: number;
     ordersPending: number;
+    /**
+     * Total membership ROWS across all communities — a tally, never identities.
+     * The roster is personal data about third parties (RA 10173), so the admin
+     * map counts memberships and stops there; naming members needs its own
+     * stated basis and its own surface.
+     */
+    communityMembers: number;
+    /** Captures across the whole platform (papic_photos rows). */
+    papicPhotos: number;
+    /** Guest-side captures (the Papic One shape). */
+    papicGuestCaptures: number;
   };
   /** Epoch ms the counts were computed (shown as "live · updated Xs ago"). */
   computedAt: number;
@@ -124,6 +157,20 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     taxFolders,
     refinementSets,
     walletRows,
+    communitiesLive,
+    communityMemberRows,
+    papicSeats,
+    papicPhotoRows,
+    papicGuestCaptureRows,
+    peopleRows,
+    packageRows,
+    proposalRows,
+    contractRows,
+    poolRows,
+    regionRows,
+    tableRows,
+    blockRows,
+    cameraRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -163,6 +210,28 @@ async function loadUgatCounts(): Promise<UgatCounts> {
           0,
         );
       }, () => 0),
+    // Samahan: LIVE groups only — `archived` is a soft-retire, so counting all
+    // rows would inflate the node with groups nobody is in anymore.
+    headCount(admin, 'communities', (q) => q.eq('archived', false)),
+    // Membership TALLY only. Never select user_id here: the roster is personal
+    // data about third parties (J14's trap), and a head-count needs no identities.
+    headCount(admin, 'community_members'),
+    // Papic: SEATS are the node number — a seat is the unit of entitlement, and
+    // it is the hub of the 17-table cluster (J16).
+    headCount(admin, 'paparazzi_seats'),
+    // Capture volumes as sub-figures. Counts only: capture rows carry geo,
+    // device and EXIF metadata, none of which an admin roll-up needs.
+    headCount(admin, 'papic_photos'),
+    headCount(admin, 'papic_guest_captures'),
+    headCount(admin, 'people'),
+    headCount(admin, 'vendor_packages'),
+    headCount(admin, 'vendor_proposals'),
+    headCount(admin, 'vendor_contracts'),
+    headCount(admin, 'vendor_schedule_pools'),
+    headCount(admin, 'regions'),
+    headCount(admin, 'event_tables'),
+    headCount(admin, 'event_schedule_blocks'),
+    headCount(admin, 'panood_camera_operators'),
   ]);
 
   return {
@@ -176,6 +245,17 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // Composite billing figure: active subs + wallets that hold tokens.
     billing: activeSubs,
     taxonomy: taxLeaves,
+    community: communitiesLive,
+    papic: papicSeats,
+    person: peopleRows,
+    package: packageRows,
+    proposal: proposalRows,
+    contract: contractRows,
+    availability: poolRows,
+    geography: regionRows,
+    seatplan: tableRows,
+    runofshow: blockRows,
+    livestudio: cameraRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -185,12 +265,22 @@ async function loadUgatCounts(): Promise<UgatCounts> {
       taxonomyLeaves: taxLeaves,
       taxonomyRefinementSets: refinementSets,
       ordersPending,
+      communityMembers: communityMemberRows,
+      papicPhotos: papicPhotoRows,
+      papicGuestCaptures: papicGuestCaptureRows,
     },
     computedAt: Date.now(),
   };
 }
 
-const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v1'], {
+// Key bumped v1 → v2 for the added `community` + `detail.communityMembers`
+// fields. Without the bump a cached v1 payload keeps being served for up to 60s
+// and the new sub-figures read as undefined — which renders as a plausible-
+// looking blank rather than an error, the worst kind of wrong.
+// v2 → v3 for the added `papic` count + its two capture sub-figures. Same reason
+// as the v1→v2 bump: a stale payload renders the new figures as undefined, which
+// looks like a plausible blank rather than an error.
+const loadUgatCountsCached = unstable_cache(loadUgatCounts, ['ugat-type-counts-v3'], {
   revalidate: 60,
 });
 
@@ -213,7 +303,8 @@ export type UgatTableKey =
   | 'services'
   | 'orders'
   | 'threads'
-  | 'billing';
+  | 'billing'
+  | 'communities';
 
 /** A generic display row. `cells` are pre-formatted strings the table renders. */
 export interface UgatRow {
@@ -248,6 +339,8 @@ const TABLE_COLUMNS: Record<UgatTableKey, string[]> = {
   orders: ['Reference', 'Service key', 'Status', 'Amount'],
   threads: ['Event × Vendor', 'Status', 'Last activity'],
   billing: ['Vendor', 'Kind', 'Detail'],
+  // "Members" is a TALLY column, never a roster — see the communities case.
+  communities: ['Samahan', 'Kind', 'Members'],
 };
 
 function fmtDate(v: string | null | undefined): string {
@@ -597,6 +690,53 @@ async function loadUgatTableInner(
         }));
         return base;
       }
+      case 'communities': {
+        // GROUP-LEVEL ONLY. A samahan is an entity and may be listed; its ROSTER
+        // is personal data about third parties (RA 10173 · joint J14's trap), so
+        // this reads member TALLIES and never selects a single user_id. If a
+        // future surface needs to name members, it needs its own stated basis —
+        // not a widened select here.
+        const { data, count, error } = await admin
+          .from('communities')
+          .select('community_id, public_id, name, kind, archived, created_at', {
+            count: 'exact',
+          })
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        base.total = count ?? 0;
+
+        // One extra query for the tallies on THIS page only, counted in JS.
+        // Selecting community_id alone keeps identities out of the payload.
+        const ids = (data ?? []).map((c: any) => c.community_id).filter(Boolean);
+        const memberTally = new Map<string, number>();
+        if (ids.length) {
+          const { data: ms } = await admin
+            .from('community_members')
+            .select('community_id')
+            .in('community_id', ids);
+          for (const m of ms ?? [])
+            memberTally.set(m.community_id, (memberTally.get(m.community_id) ?? 0) + 1);
+        }
+
+        base.rows = (data ?? []).map((c: any) => ({
+          id: c.community_id,
+          type: 'community' as const,
+          name: c.name || c.public_id || 'Samahan',
+          // No href: there is no /admin communities surface yet. The first one
+          // to ship should wire it here rather than inventing a second link.
+          status: [c.archived ? 'archived' : 'live', c.archived ? 'neutral' : 'ok'] as [
+            string,
+            'ok' | 'wait' | 'neutral' | 'report',
+          ],
+          cells: [
+            c.name || c.public_id || 'Samahan',
+            c.kind ?? '—',
+            `${memberTally.get(c.community_id) ?? 0} members`,
+          ],
+        }));
+        return base;
+      }
       default:
         return base;
     }
@@ -634,6 +774,17 @@ export interface UgatSearchGroup {
 }
 
 const TYPE_NODE_FOR: Record<UgatEntityType, string> = {
+  community: 'TYPE-SAMAHAN',
+  papic: 'TYPE-PAPIC',
+  person: 'TYPE-PERSON',
+  package: 'TYPE-PACKAGE',
+  proposal: 'TYPE-PROPOSAL',
+  contract: 'TYPE-CONTRACT',
+  availability: 'TYPE-AVAILABILITY',
+  geography: 'TYPE-GEOGRAPHY',
+  seatplan: 'TYPE-SEATPLAN',
+  runofshow: 'TYPE-RUNOFSHOW',
+  livestudio: 'TYPE-LIVESTUDIO',
   user: 'TYPE-USERS',
   event: 'TYPE-EVENTS',
   guest: 'TYPE-GUESTS',

@@ -154,7 +154,85 @@ export function buildSitePaletteVars(
     '--color-mulberry': channels(cta),
     '--color-mulberry-600': channels(darken(cta, 0.15)),
     '--color-mulberry-700': channels(darken(cta, 0.28)),
+    // Pahina material tokens (design 2026-07-25 §4). Decor-only roles — none
+    // carries body text, so no WCAG remap. Root fallbacks live in globals.css
+    // so palette-less events (this fn returns null) get the same three tokens.
+    '--color-gild': channels(gildFromPool(pool)),
+    '--color-paper-deep': channels(darken(paper, 0.04)),
+    '--color-veil': channels(hexToRgb(veilColorFromPalette(palette)) ?? PAHINA_VEIL_FALLBACK),
   };
+}
+
+// ── Pahina material derivations (design 2026-07-25 §4) ───────────────────────
+
+// Atelier gold — the blend target + fallback for the gild (decor metallic).
+const GILD_TARGET: RGB = { r: 176, g: 141, b: 87 }; // #B08D57
+const GILD_FALLBACK: RGB = { r: 169, g: 131, b: 75 }; // #A9834B
+const PAHINA_VEIL_FALLBACK: RGB = { r: 243, g: 236, b: 225 }; // #f3ece1 (veil ivory)
+
+/** Blend a→b by `t` (0 = a, 1 = b). */
+function blend(a: RGB, b: RGB, t: number): RGB {
+  return {
+    r: a.r + (b.r - a.r) * t,
+    g: a.g + (b.g - a.g) * t,
+    b: a.b + (b.b - a.b) * t,
+  };
+}
+
+/**
+ * Gild — the palette's warmest mid-luminance swatch nudged 35% toward metallic
+ * gold (#B08D57); Atelier-gold fallback when the palette has no warm mid-tone.
+ * Decor-only (numerals, chapter №s, rules, seal) — never body text, so no
+ * contrast enforcement (spec §4: "never body text below AA-large").
+ */
+function gildFromPool(pool: RGB[]): RGB {
+  const mid = pool.filter((c) => {
+    const l = luminance(c);
+    return l >= 0.12 && l <= 0.72;
+  });
+  // Warmth: red-minus-blue spread; require genuine warmth so cool palettes
+  // fall back to the brand gold instead of gilding with a mauve.
+  const warm = mid
+    .filter((c) => c.r - c.b >= 16)
+    .sort((a, b) => b.r - b.b - (a.r - a.b));
+  const base = warm[0];
+  if (!base) return GILD_FALLBACK;
+  return blend(base, GILD_TARGET, 0.35);
+}
+
+// ── Website Pro · manual site colours (Launch settings §4.4 · PR-C) ───────────
+// Two NET-NEW couple-chosen colours (events.site_bg_color / site_button_color,
+// #rrggbb hex) that OVERRIDE the Mood-Board-derived tokens for the guest site.
+// This is a DIRECT override — no WCAG remap like buildSitePaletteVars — because
+// the couple picks these explicitly with a live preview; the editor validates
+// the hex, and the renderer gates the whole thing on ACTIVE Website Pro. Returns
+// null when NEITHER column carries a valid hex, so the caller injects nothing
+// and the page renders exactly as today (the load-bearing "inert" contract).
+//
+//   • background → --color-cream  (the page bg + every cream surface token)
+//   • button     → --color-mulberry + its -600 / -700 hover derivatives (CTA)
+//
+// The caller layers these OVER buildSitePaletteVars, so a couple who set only
+// one colour keeps the palette (or brand default) for the other role.
+export function buildCustomSiteColorVars(
+  bgHex: string | null | undefined,
+  buttonHex: string | null | undefined,
+): Record<string, string> | null {
+  const vars: Record<string, string> = {};
+
+  const bg = bgHex ? hexToRgb(bgHex) : null;
+  if (bg) {
+    vars['--color-cream'] = channels(bg);
+  }
+
+  const button = buttonHex ? hexToRgb(buttonHex) : null;
+  if (button) {
+    vars['--color-mulberry'] = channels(button);
+    vars['--color-mulberry-600'] = channels(darken(button, 0.15));
+    vars['--color-mulberry-700'] = channels(darken(button, 0.28));
+  }
+
+  return Object.keys(vars).length > 0 ? vars : null;
 }
 
 // ── Save-the-Date reveal colours (0024 addendum §4) ───────────────────────────

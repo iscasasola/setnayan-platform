@@ -34,7 +34,7 @@ export default async function EventActivityPage({
   const grouped = groupByDay(activity);
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <header className="sn-reveal space-y-2">
         <Link
           href={`/dashboard/${eventId}`}

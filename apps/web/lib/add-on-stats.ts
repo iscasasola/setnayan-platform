@@ -55,6 +55,12 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',
   ],
+  // Unified Live Studio (owner 2026-07-25) — the merged switching product. Feature key
+  // stays 'live-studio-roam' (internal, built on the Roam substrate); the SKU it grants
+  // is now LIVE_STUDIO (the retired LIVE_STUDIO_ROAM row still resolves for any historical
+  // order). An event that buys Live Studio flips its card/detail to 'launch' → the unified
+  // controller. Drives resolveAddOnState + fetchAddOnStats.
+  'live-studio-roam': ['LIVE_STUDIO', 'LIVE_STUDIO_ROAM'],
   papic: [
     // 0012 SKUs slot in here once the iteration's catalog rows land.
   ],

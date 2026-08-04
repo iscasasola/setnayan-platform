@@ -258,7 +258,10 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   // --- activity: admin write-actions taken ON this account -------------------
   const { data: adminActions } = await admin
     .from('admin_audit_log')
-    .select('audit_id, action, actor_user_id, created_at')
+    // ⚠ `audit_log_id`, NOT `audit_id` — public.admin_audit_log has no
+    // `audit_id`. PostgREST 42703s the whole query on an unknown column, so the
+    // "admin actions taken on this account" timeline was permanently empty.
+    .select('audit_log_id, action, actor_user_id, created_at')
     .eq('target_id', userId)
     .order('created_at', { ascending: false })
     .limit(30);
@@ -727,7 +730,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                   at: (p.paid_at as string) ?? (p.created_at as string),
                 })),
                 adminActions: (adminActions ?? []).map((a) => ({
-                  id: a.audit_id as string,
+                  id: a.audit_log_id as string,
                   action: a.action as string,
                   at: a.created_at as string,
                 })),

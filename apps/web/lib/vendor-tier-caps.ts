@@ -23,6 +23,28 @@ export type SchedulingMode = 'manual' | 'hybrid';
 export type NameMode = 'hidden' | 'screen' | 'true';
 export type WebsiteMode = 'basic' | 'custom';
 
+/**
+ * External-visibility ladder (Vendor_Monetization_Model_LOCKED_2026-07-25 § 8 —
+ * "SEO/GEO/AEO is BUNDLED into the subscription, never an add-on"):
+ *
+ *   'basic'    — Free · Verified. Basic indexability: the /v/[slug] page is
+ *                crawlable and carries the core LocalBusiness identity graph
+ *                (name · url · description · image · city · breadcrumb). FREE
+ *                FOR EVERYONE, deliberately — it also feeds Setnayan's own SEO,
+ *                so we never de-index a vendor to sell a tier.
+ *   'enhanced' — Solo+. Enhanced SEO + GEO: the local/entity enrichment that
+ *                lets Google and local-pack surfaces match the vendor against
+ *                category + place queries (`knowsAbout` service entities).
+ *   'aeo'      — Pro+. Answer-Engine Optimization: the machine-answerable OFFER
+ *                graph (`hasOfferCatalog` · `makesOffer` · `priceRange`) that AI
+ *                answer engines quote verbatim, plus priority sitemap weight.
+ *   'priority' — Enterprise · Custom. Everything in 'aeo' plus the top sitemap
+ *                priority band ("Priority + AEO" in the locked matrix).
+ *
+ * Monotonic by construction — see `SEO_LEVEL_RANK` + the ladder tests.
+ */
+export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
+
 export interface TierCaps {
   /** Service/distance coverage radius. Infinity = unlimited, 0 = ✗. */
   serviceRadiusKm: number;
@@ -75,6 +97,33 @@ export interface TierCaps {
    * anonymity mechanic at the read sites (resolveVendorDisplayName).
    */
   editorialTagged: boolean;
+  /**
+   * EDITORIAL FEATURES — the GROWTH row of the locked matrix
+   * (Vendor_Monetization_Model_LOCKED_2026-07-25 § 1: "Vendor favorites ·
+   * Editorial features | — | favorites | ✓ | ✓") → **Pro+**.
+   *
+   * ⚠ THIS IS NOT `editorialTagged`, and the distinction is load-bearing:
+   *   • `editorialTagged` = being CREDITED in a couple's story (logo + /v link).
+   *     ALWAYS FREE at every tier — owner-ratified Simplicity Canon rule 2
+   *     (2026-07-16): "You never pay to be named in a story." Untouched here.
+   *   • `editorialFeatures` = Setnayan proactively FEATURING/promoting the
+   *     vendor editorially (§ 8's "AI-surfaced featuring"), i.e. the vendor is
+   *     eligible to be picked for a Setnayan-authored feature slot.
+   *
+   * Deliberately NOT wired to any credit path — doing so would break rule 2.
+   * Shipped as the SSOT cap + `canUseEditorialFeatures()` helper so the
+   * featuring surface (when it exists) reads the matrix instead of inventing a
+   * tier check. See the changelog fragment's owner-decision note.
+   */
+  editorialFeatures: boolean;
+  /**
+   * External visibility bundled into the subscription — see {@link VendorSeoLevel}.
+   * Basic indexability is FREE for every tier; Solo buys GEO enrichment, Pro
+   * buys AEO + priority sitemap, Enterprise/Custom buy the top priority band.
+   * Read through `vendorSeoPlan()` (lib/vendor-seo-tier.ts), never directly at a
+   * render site, so the flag-dark fallback stays in exactly one place.
+   */
+  seoLevel: VendorSeoLevel;
   /** Review star average is counted/shown. */
   reviewStarsCounted: boolean;
   /** Review free-text comments are viewable. */
@@ -92,10 +141,13 @@ export interface TierCaps {
    */
   /**
    * Demand Radar + Price-Position / cross-business market intelligence surface.
-   * ENTERPRISE-ONLY (owner 2026-07-01 My Performance tiering): this is the only
+   * **PRO-AND-UP** — owner 2026-07-11, re-confirmed by the locked monetization
+   * matrix (Vendor_Monetization_Model_LOCKED_2026-07-25 § 1 GROW row: "Market
+   * intel (Demand Radar + price-position) | — | — | ✓ | ✓"). This is the only
    * class of analytics derived from OTHER businesses' aggregate (de-identified +
-   * min-N) data, so it sits at the top tier. Own-business analytics never gate
-   * here. (Was Pro+ until the tiering decision.)
+   * min-N) data. Own-business analytics never gate here.
+   * (History: briefly Enterprise-only under the 2026-07-01 My Performance
+   * tiering; the 2026-07-11 reversal to Pro+ stands and is now matrix-locked.)
    */
   marketIntel: boolean;
   /** Reverse-image theft-watch surface. Pro+. */
@@ -150,6 +202,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceAdvanced: false,
     soloBusinessTools: false,
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
+    editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
+    seoLevel: 'basic', // basic indexability is free for all (§ 8)
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
     website: 'basic',
@@ -190,6 +244,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
+    editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
+    seoLevel: 'basic', // basic indexability is free for all (§ 8)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -222,6 +278,10 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
+    editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
+    // Solo buys ENHANCED SEO + GEO (§ 8): local/entity structured data on top of
+    // the free basic indexability. AEO stays Pro+.
+    seoLevel: 'enhanced',
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -254,6 +314,10 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     importCustomerTokenCost: 0,
     portfolioPhotos: 100,
     editorialTagged: true,
+    editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
+    // Pro buys AEO — the machine-answerable offer graph AI answer engines quote
+    // — plus priority sitemap weight (§ 8).
+    seoLevel: 'aeo',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
@@ -288,6 +352,10 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
     editorialTagged: true,
+    editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
+    // Enterprise · Custom buy the TOP sitemap priority band on top of AEO
+    // ("Priority + AEO" · § 8).
+    seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
@@ -324,6 +392,10 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
     editorialTagged: true,
+    editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
+    // Enterprise · Custom buy the TOP sitemap priority band on top of AEO
+    // ("Priority + AEO" · § 8).
+    seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
@@ -521,4 +593,41 @@ export function canUseSoloBusinessTools(tier: string | null | undefined): boolea
 }
 export function canUseCalls(tier: string | null | undefined): boolean {
   return tierCaps(tier).calls; // in-thread voice/video calls with couples — any paid plan (Solo+)
+}
+
+/**
+ * GROWTH row of the locked matrix — proactive EDITORIAL FEATURING (Pro+).
+ *
+ * ⚠ Not the editorial CREDIT chip: being named/credited in a couple's story is
+ * free at every tier forever (Simplicity Canon rule 2 · `editorialTagged`). This
+ * helper answers only "is this vendor eligible to be picked for a Setnayan-
+ * authored feature slot?".
+ */
+export function canUseEditorialFeatures(tier: string | null | undefined): boolean {
+  return tierCaps(tier).editorialFeatures; // Pro-and-up (locked matrix § 1 GROW)
+}
+
+/**
+ * Ordinal rank of the external-visibility ladder, so "at least enhanced" is a
+ * comparison instead of a set membership (the same lesson as `TIER_RANK`: a
+ * hardcoded tier set is what broke `canPlotTimeSlots`).
+ */
+export const SEO_LEVEL_RANK: Record<VendorSeoLevel, number> = {
+  basic: 0,
+  enhanced: 1,
+  aeo: 2,
+  priority: 3,
+};
+
+/** The tier's bundled external-visibility level (§ 8). Never a price — a level. */
+export function vendorSeoLevel(tier: string | null | undefined): VendorSeoLevel {
+  return tierCaps(tier).seoLevel;
+}
+
+/** True when the tier's SEO level is at or above `min`. */
+export function isSeoLevelAtLeast(
+  tier: string | null | undefined,
+  min: VendorSeoLevel,
+): boolean {
+  return SEO_LEVEL_RANK[vendorSeoLevel(tier)] >= SEO_LEVEL_RANK[min];
 }

@@ -10,7 +10,15 @@ import {
 } from '@/lib/vendors';
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { ServiceWizard } from '../../_components/service-wizard';
-import { fetchVendorCoverages, resolveCoverageLabels } from '@/lib/vendor-coverages';
+import { CanvasMaker } from '../../_components/canvas-maker';
+import {
+  fetchVendorCoverages,
+  getCoverageTaxonomy,
+  resolveCoverageLabels,
+} from '@/lib/vendor-coverages';
+import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { FAITH_REGISTRY } from '@/lib/faith-registry';
 
 export const metadata = { title: 'Add a service · Setnayan' };
 
@@ -92,6 +100,43 @@ export default async function NewServicePage({
       : c.canonical_service,
   }));
 
+  // ── Zero-step canvas maker (NEXT_PUBLIC_CANVAS_MAKER_ENABLED, ships dark) ──
+  // Flag OFF ⇒ nothing below runs and <ServiceWizard> renders exactly as it does
+  // today, down to the queries this page makes. The audience vocab is only
+  // fetched for the canvas, which is the only surface that shows it.
+  const canvas = canvasMakerEnabled();
+  const eventTypeOptions = canvas
+    ? (await getEventTypeVocab().catch(() => [])).map((e) => ({
+        key: e.key,
+        label: e.label,
+      }))
+    : [];
+  const faithOptions = canvas
+    ? FAITH_REGISTRY.map((f) => ({ key: f.faithCol, label: f.label }))
+    : [];
+  // coverage id → its CURRENT event_types / faiths, so the audience chips open
+  // showing what the vendor already serves rather than an empty slate.
+  const coverageAudience: Record<number, { eventTypes: string[]; faiths: string[] }> = {};
+  // coverage id → the leaf's allowed event types from the live taxonomy, so the
+  // audience chips render only what the server will keep on save. Fail-soft: a
+  // failed tree read leaves every id unmapped → null → full vocab (pre-fix
+  // behaviour), never a false restriction.
+  const coverageAllowed: Record<number, string[] | null> = {};
+  if (canvas) {
+    const tree = await getCoverageTaxonomy().catch(() => []);
+    const allowedByLeaf = new Map<string, string[] | null>();
+    for (const p of tree)
+      for (const b of p.branches)
+        for (const l of b.leaves) allowedByLeaf.set(l.canonicalService, l.allowedEventTypes);
+    for (const c of vendorCoverages) {
+      coverageAudience[c.id] = {
+        eventTypes: c.event_types ?? [],
+        faiths: c.faiths ?? [],
+      };
+      coverageAllowed[c.id] = allowedByLeaf.get(c.canonical_service) ?? null;
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
@@ -103,7 +148,9 @@ export default async function NewServicePage({
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">Add a service</h1>
       <p className="mb-6 mt-1 text-sm text-ink/60">
-        A few quick answers — three to publish, the rest optional. Everything saves together at the end.
+        {canvas
+          ? 'This is your card — the one couples will see. Tap any part of it to edit. Everything saves together.'
+          : 'A few quick answers — three to publish, the rest optional. Everything saves together at the end.'}
       </p>
       {showClaimBanner && claimContext ? (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
@@ -123,14 +170,29 @@ export default async function NewServicePage({
           </p>
         </div>
       ) : null}
-      <ServiceWizard
-        categoryValue={cat}
-        categoryLabel={displayServiceLabel(cat)}
-        otherCategories={otherCategories}
-        coverages={coverageOptions}
-        vendorProfileId={profile.vendor_profile_id}
-        claimToken={showClaimBanner ? claimToken : null}
-      />
+      {canvas ? (
+        <CanvasMaker
+          categoryValue={cat}
+          categoryLabel={displayServiceLabel(cat)}
+          otherCategories={otherCategories}
+          coverages={coverageOptions}
+          vendorProfileId={profile.vendor_profile_id}
+          claimToken={showClaimBanner ? claimToken : null}
+          eventTypeOptions={eventTypeOptions}
+          faithOptions={faithOptions}
+          coverageAudience={coverageAudience}
+          coverageAllowed={coverageAllowed}
+        />
+      ) : (
+        <ServiceWizard
+          categoryValue={cat}
+          categoryLabel={displayServiceLabel(cat)}
+          otherCategories={otherCategories}
+          coverages={coverageOptions}
+          vendorProfileId={profile.vendor_profile_id}
+          claimToken={showClaimBanner ? claimToken : null}
+        />
+      )}
     </div>
   );
 }

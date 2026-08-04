@@ -96,6 +96,19 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         }
       : null;
 
+  // "We have your payment and we're checking it" — the state the couple lands
+  // in after tapping the Verifying chip (owner 2026-08-01).
+  //
+  // Gated on a PENDING payment row, not merely on the order status: an order
+  // sitting at 'submitted' with nothing uploaded yet is a different situation
+  // (they still owe us proof) and telling that couple we're verifying would be
+  // a lie that stops them finishing. `resubmitRequested` takes precedence and
+  // renders its own banner, so this stays quiet while we're asking for a fix.
+  const awaitingVerification =
+    !resubmitRequested &&
+    latestPayment?.status === 'pending' &&
+    (order.status === 'submitted' || order.status === 'awaiting_payment');
+
   const canCancel = order.status === 'submitted' || order.status === 'awaiting_payment';
   // canLogPayment already returns true for status='submitted' so the upload
   // form stays open when admin requests a resubmit (order status doesn't
@@ -168,6 +181,40 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               Requested {resubmitRequested.reviewedAt.slice(0, 10)}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {awaitingVerification ? (
+        <div
+          role="status"
+          className="space-y-2 rounded-2xl border border-warn-300/60 bg-warn-50 p-5 text-warn-900"
+        >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
+            Verifying your payment
+          </p>
+          <p className="text-sm">
+            We&rsquo;ve got your payment details and we&rsquo;re checking them against our
+            bank and GCash records. Nothing more is needed from you.
+          </p>
+          <p className="text-sm">
+            Your service unlocks the moment it&rsquo;s confirmed &mdash; usually within a
+            day. We&rsquo;ll email you as soon as it does.
+          </p>
+          {latestPayment?.reference_number ? (
+            <p className="text-xs text-warn-900/85">
+              We&rsquo;re looking for reference{' '}
+              <span className="font-mono font-semibold">
+                {latestPayment.reference_number}
+              </span>
+              . If that doesn&rsquo;t match your receipt, log the payment again below with
+              the right one &mdash; no need to create a new order.
+            </p>
+          ) : (
+            <p className="text-xs text-warn-900/85">
+              Adding the reference number from your receipt below helps us confirm it
+              faster.
+            </p>
+          )}
         </div>
       ) : null}
 

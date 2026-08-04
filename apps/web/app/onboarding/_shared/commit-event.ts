@@ -19,7 +19,10 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
+import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 
 export async function commitOnboardingEvent(
@@ -66,11 +69,52 @@ export async function commitOnboardingEvent(
   // so a life-type commit contends for the per-type singleton slot; lifestyle
   // types return null immediately. Anonymous drafts have no prior events by
   // construction but run the guard anyway (it's one indexed read).
+  // The honoree is now COLLECTED by the generic onboarding (2026-07-31), so a
+  // second birthday for a different child no longer collides with the first.
+  // Passing it here is the whole fix: `blocksLifeEventCreation` compares
+  // normalized honoree keys and only treats two UNLABELED events as the same
+  // singleton slot.
+  //
+  // The STRONGER half of that key — WHICH alaga — rides along from the create
+  // step's who question. It arrives from the client, so it is re-read here under
+  // `owner_user_id = you` and dropped unless the caller owns it AND the typed
+  // label still matches its name; anything else resolves to NULL and the label
+  // keys the cap exactly as it does today. This is a refinement of the cap, so
+  // it must never become a new way to fail: a missing service key is already
+  // fatal further down (server_config_error) and is swallowed here rather than
+  // moved earlier.
+  let honoreeDependentId: string | null = null;
+  if (isDependentId(payload.honoreeDependentId)) {
+    try {
+      honoreeDependentId = await resolveHonoreeDependentId(createAdminClient(), {
+        userId: user.id,
+        dependentId: payload.honoreeDependentId,
+        honoreeLabel: payload.honoreeLabel,
+      });
+    } catch {
+      honoreeDependentId = null;
+    }
+  }
+
   const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
     eventType: payload.eventType,
+    honoreeLabel: payload.honoreeLabel?.trim() || null,
+    honoreeDependentId,
   });
   if (blockingLifeEvent) {
-    return { ok: false, error: 'life_event_exists' };
+    // Hand back WHICH event conflicts. The client walks the user to the
+    // honoree question with this name in the copy — previously this returned a
+    // bare error string that surfaced as "Something went wrong saving your
+    // plan. Please try again.", which was untrue (nothing went wrong) and
+    // unactionable (retrying fails identically, forever).
+    return {
+      ok: false,
+      error: 'life_event_exists',
+      blocking: {
+        eventId: blockingLifeEvent.eventId,
+        displayName: blockingLifeEvent.displayName,
+      },
+    };
   }
 
   // Resolve the profile for a sensible display-name fallback + to confirm the type
@@ -91,7 +135,9 @@ export async function commitOnboardingEvent(
   const now = new Date().toISOString();
 
   const row = buildGenericEventInsert(
-    { ...payload, displayName },
+    // `honoreeDependentId` is OVERWRITTEN with the server-verified value, never
+    // merged with the client's — a forged id must not survive the spread.
+    { ...payload, displayName, honoreeDependentId },
     {
       slug,
       now,
@@ -118,6 +164,21 @@ export async function commitOnboardingEvent(
     );
     return { ok: false, error: insertError?.message ?? 'event_insert_failed' };
   }
+
+  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
+  // ON free for every new event, so the metering fence must exist from the moment
+  // the event does — an event with no grant takes papic_event_pool_status()'s
+  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
+  // a miss here is self-healed on the first Papic-studio render, and must never
+  // cost the couple their event.
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+  // shared pool because the two are different products — the pool grant does
+  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+  // idempotent (fixed seat index + a partial unique index on the grant), so the
+  // creation call and the studio self-heal collapse to one camera.
+  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

@@ -118,24 +118,32 @@ export async function GuestColumnCard({
   }
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-cream p-6 shadow-sm sm:p-8">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        Guest columns
+    /* Pahina (design 2026-07-25 §7): "The paper" is the most literally editorial
+       surface on the site, so it drops the card shell entirely — an unnumbered
+       eyebrow, a display-face masthead, and columns separated by hairlines with
+       mono bylines. Moderation gating and the form below are untouched. */
+    <section className="space-y-4">
+      <p className="pahina-eyebrow">
+        <span>Guest columns</span>
       </p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight">The paper</h2>
-      <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
+      <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
+        The paper
+      </h2>
+      <p className="max-w-prose text-sm leading-relaxed text-ink/60">
         Short columns written by guests for the couple&rsquo;s paper. Write one —
         the couple reads and approves every column before it appears.
       </p>
 
       {published.length > 0 ? (
-        <div className="mt-6 space-y-4 text-left">
+        <div className="border-t border-ink/12 text-left">
           {published.map((col, i) => (
-            <article key={i} className="rounded-xl border border-ink/10 bg-white/60 p-4">
-              <h3 className="font-display text-lg font-medium italic text-ink">{col.title}</h3>
-              <p className="mt-1.5 text-sm text-ink/80">{col.body}</p>
+            <article key={i} className="border-b border-ink/12 py-4">
+              <h3 className="font-pahina text-lg font-light italic leading-snug text-ink">
+                {col.title}
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink/80">{col.body}</p>
               {col.author ? (
-                <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/50">
+                <p className="mt-2 font-mono text-[0.6rem] uppercase tracking-[0.18em] text-gild">
                   — {col.author}
                 </p>
               ) : null}

@@ -3,6 +3,7 @@
 import { AlertTriangle, CheckCircle2, XCircle, Search, Bot } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { HealthFinding, PriceDriftEntry, HealthStatus } from '@/lib/seo/health-checks';
+import { SeoRerunButton } from './seo-rerun-button';
 
 type Snapshot = {
   checked_at: string;
@@ -67,9 +68,15 @@ export async function SeoSurface() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <header className="flex items-start gap-3">
-        <Search className="mt-1 h-6 w-6 text-ink/40" />
-        <div>
-          <h1 className="text-xl font-semibold text-ink">SEO &amp; GEO</h1>
+        <Search className="mt-1 h-6 w-6 shrink-0 text-ink/40" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-xl font-semibold text-ink">SEO &amp; GEO</h1>
+            {/* The audit is claim-gated to ~daily off admin traffic, and after()
+                shows the PREVIOUS snapshot — this is the only way to see a
+                catalog edit reflected immediately. */}
+            <SeoRerunButton />
+          </div>
           <p className="mt-1 max-w-2xl text-sm text-ink/60">
             Daily automated audit of the search + AI-answer-engine surface. The{' '}
             <code className="rounded bg-ink/5 px-1">seo-health</code> cron diffs the served{' '}

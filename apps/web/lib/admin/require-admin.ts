@@ -2,6 +2,15 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { loginRedirectPath } from '@/lib/auth';
+import { isAdminProfile } from './admin-predicate';
+
+/**
+ * THE admin predicate lives in `./admin-predicate` (pure + dependency-free so
+ * it is unit-testable); re-exported here so app code has ONE import site for
+ * the admin gate. Never hand-roll a narrower copy of it — see the comment on
+ * `requireAdmin` in `app/admin/editorial-review/[editorialId]/actions.ts`.
+ */
+export { isAdminProfile, type AdminProfileRow } from './admin-predicate';
 
 /**
  * Shared admin gate — council fix #1 (2026-07-09).
@@ -35,11 +44,7 @@ const getAdminGate = cache(
       .maybeSingle();
     return {
       userId: user.id,
-      isAdmin: !!(
-        me?.is_internal ||
-        me?.is_team_member ||
-        me?.account_type === 'admin'
-      ),
+      isAdmin: isAdminProfile(me),
     };
   },
 );

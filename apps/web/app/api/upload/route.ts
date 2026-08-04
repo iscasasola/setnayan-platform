@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  tenancyForPathPrefix,
+  UPLOAD_TENANCY_REFUSAL,
+} from '@/lib/upload-prefix-tenancy';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
@@ -6,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
+import { pathPrefixIsAcceptable, privateBucketRootIsAllowed } from '@/lib/r2-client-ref';
 import {
   encodeR2Ref,
   presignDisplayUrl,
@@ -411,11 +416,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // is a pure no-op there and today's behaviour is byte-identical. Pool =
         // clamp(guests × 150, 5,000, 30,000) pts, admin-tunable in
         // papic_event_pool_config. Same fail-CLOSED posture as the seat gate.
+        //
+        // ..._FOR_SEAT (owner-locked 2026-07-29): a PAPIC ONE camera holds its
+        // OWN unshared balance, which the seat probe above already read, so the
+        // shared pool must not bound it — the RPC returns MAXINT for a dedicated
+        // seat. Without this, a One camera would be refused a presigned URL the
+        // moment the event's free 50-pt pool ran dry, despite having its own
+        // shots left, and the two budgets would be co-enforced instead of
+        // separate.
         let eventGate: PointsGateVerdict;
         try {
           const { data: poolLeft, error: poolErr } = await admin.rpc(
-            'papic_event_points_remaining',
-            { p_event_id: seat.event_id as string },
+            'papic_event_points_remaining_for_seat',
+            {
+              p_event_id: seat.event_id as string,
+              p_seat_id: seat.seat_id as string,
+            },
           );
           eventGate = resolvePointsGate(
             poolErr ? (poolErr.code ?? 'unknown') : null,
@@ -492,7 +508,92 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     pathPrefix = sanitized;
   }
+  // SEC-6 — two structural refusals on the final prefix, for EVERY branch.
+  //
+  //  • A RESERVED segment (`std-screened`) holds the sealed copies the public
+  //    guest page serves. Those objects carry an `approved` NSFW verdict and are
+  //    supposed to be un-writable; a client that could presign a PUT there would
+  //    overwrite screened bytes at an already-approved key, which is the whole
+  //    bypass wearing a different hat. This route is the only client-driven
+  //    presigner for the media bucket, so refusing here is what makes
+  //    "immutable" true rather than aspirational (lib/std-video-gate.ts).
+  //
+  //  • A `:` in any segment makes the KEY URL-SHAPED. `sanitizePathPrefix` drops
+  //    `.`/`..` and collapses slashes but happily keeps a scheme segment, so
+  //    `pathPrefix: "http://evil.example/v"` minted a real R2 object at
+  //    `http:/evil.example/v/<uuid>-clip.mp4` — a string the verify side read as
+  //    an object key and the browser resolved to a foreign origin. The read path
+  //    no longer accepts such a ref; this stops the decoy being mintable at all.
+  //
+  // Deliberately non-specific message (lib/r2-client-ref.ts house style): the
+  // caller learns their prefix was refused, not which rule caught them.
+  if (!pathPrefixIsAcceptable(pathPrefix)) {
+    return NextResponse.json(
+      { error: 'That upload location isn’t allowed.' },
+      { status: 400 },
+    );
+  }
+
+  // SEC-1 lane #1 — YOU MAY NOT NAME AN ID YOU DO NOT HOLD.
+  //
+  // The generic branch above lets the client choose the prefix. The bucket is
+  // whitelisted, the prefix sanitised, and the final key carries a server-side
+  // randomUUID() — so this was never disclosure and never overwrite. It WAS
+  // cross-tenant write pollution: any signed-in user could presign a PUT under
+  // `deposit-proof/<another-couple's-event>` or `chat/<someone-else's-thread>`,
+  // landing bytes in a space the victim's own surfaces read from.
+  //
+  // The check is shape-based (a UUID segment), not a prefix allowlist, because
+  // `<FileUpload>` takes pathPrefix as a PROP — the caller set is open-ended, and
+  // an allowlist built by grep would be a guess whose failure mode is a broken
+  // upload on a surface nobody tested. A new `receipts/<eventId>` surface is
+  // covered the day it ships, with no registry to update.
+  //
+  // RLS IS THE TENANCY CHECK, not a second bespoke rule: the read below runs on
+  // the CALLER's client, so it returns a row only if they may already read that
+  // event / thread. Same pattern lib/r2-client-ref.ts documents. Seat mode is
+  // exempt — its prefix is derived server-side from the seat, so there is no
+  // client-named id to verify.
+  if (!seatMode) {
+    const tenancy = tenancyForPathPrefix(pathPrefix);
+    if (tenancy) {
+      const { data: owned } =
+        tenancy.kind === 'event'
+          ? await supabase
+              .from('events')
+              .select('event_id')
+              .eq('event_id', tenancy.id)
+              .maybeSingle()
+          : await supabase
+              .from('chat_threads')
+              .select('thread_id')
+              .eq('thread_id', tenancy.id)
+              .maybeSingle();
+      if (!owned) {
+        // Non-specific on purpose (r2-client-ref house style): a caller must not
+        // be able to use this endpoint to learn whether an id exists.
+        return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+      }
+    }
+  }
   const bucketName = R2_BUCKETS[bucketKey];
+
+  // SEC-1 lane #1 — a PRIVATE bucket may only be written under a root segment
+  // that belongs to it. Keys are minted server-side so nothing is overwritable;
+  // what this stops is write POLLUTION across flows — arbitrary bytes landing in
+  // `vendors/…/verification/` (which an admin reviews to approve a business) or in
+  // `thread-files` (dispute evidence) from an unrelated surface. Public media is
+  // deliberately untouched: see the note on PRIVATE_BUCKET_ROOTS for why a
+  // fail-closed allowlist over its long prefix tail would be the riskier change.
+  //
+  // Containment, not tenancy: this proves the prefix family fits the bucket, not
+  // that the caller owns the id inside it. Same deliberately non-specific refusal.
+  if (!privateBucketRootIsAllowed(bucketName, pathPrefix)) {
+    return NextResponse.json(
+      { error: 'That upload location isn’t allowed.' },
+      { status: 400 },
+    );
+  }
 
   const filenameRaw = typeof body.filename === 'string' ? body.filename : '';
   if (filenameRaw.length === 0) {

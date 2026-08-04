@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { deletePublicAsset } from '@/lib/storage';
@@ -163,7 +164,31 @@ export async function submitRsvp(
   // 2026-06-05). Gated on EXPLICIT biometric consent (RA 10173): no consent →
   // no photo, no enrollment. Best-effort + non-fatal — a selfie/enrollment
   // failure must NEVER roll back the RSVP that already succeeded above.
-  const selfieRef = clean(formData.get('selfie_ref'));
+  // ── 🔴 SEC-1: the selfie ref is GUEST-SUPPLIED, so it is pinned before use ──
+  //
+  // `guestSelfiePolicy` already existed for exactly this flow and was already
+  // wired in `papic/face-enroll-actions.ts` — but NOT here, on the RSVP path. Same
+  // column, same renderers, one writer guarded and one not.
+  //
+  // Why that mattered: this write uses the ADMIN client (RLS cannot help), and
+  // `guests.photo_url` is resolved through `displayUrlForStoredAsset` on at least
+  // five surfaces — the guest list, both seating views, the 3D plan and the guest
+  // avatar. So a crafted RSVP post naming
+  // `r2://setnayan-vendor-verification/vendors/X/verification/dti.pdf` (or another
+  // event's selfie, or a payment screenshot in thread-files) would be stored as
+  // that guest's avatar and SIGNED for the couple — a cross-tenant read out of a
+  // private bucket, through a form any invited guest can submit. The consent and
+  // age booleans gating the block below are themselves client-supplied, so they
+  // are no obstacle.
+  //
+  // A ref that fails the policy is treated as ABSENT rather than fatal: this
+  // file's own rule is that a selfie problem must never roll back an RSVP that
+  // already succeeded, and `null` simply skips the enrollment block below.
+  const selfieRefRaw = clean(formData.get('selfie_ref'));
+  const selfieRef =
+    selfieRefRaw && parseClientRef(selfieRefRaw, guestSelfiePolicy(eventId, guestId))
+      ? selfieRefRaw
+      : null;
   const biometricConsent = clean(formData.get('biometric_consent')) === '1';
   // Adults-only gate (RA 10173 · NPC — minors scoped OUT of biometric
   // enrollment for V1). The client blocks capture until both boxes are ticked;

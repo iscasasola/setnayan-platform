@@ -7,8 +7,32 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ADD_ONS } from './add-ons-catalog';
+import { ADD_ON_SKU_MAP } from './add-on-stats';
 
 const byKey = new Map(ADD_ONS.map((a) => [a.key, a] as const));
+
+// ── Unified Live Studio: no dead buy buttons for the retired SKUs (2026-07-25) ──
+
+test('no Studio tile sells the retired LIVE_STUDIO_ROAM SKU (no dead buy button)', () => {
+  // LIVE_STUDIO_ROAM is is_active=false (retired into LIVE_STUDIO). If any tile still
+  // carried it as serviceKey, its buy drawer would 500-reject at checkout
+  // (resolveServiceSellability → 'retired'). The unified tile must sell LIVE_STUDIO.
+  for (const a of ADD_ONS) {
+    assert.notEqual(
+      a.serviceKey,
+      'LIVE_STUDIO_ROAM',
+      `add-on "${a.key}" must not sell the retired Roam SKU`,
+    );
+  }
+});
+
+test('the Live Studio feature resolves ownership against the active LIVE_STUDIO SKU', () => {
+  // Ownership/stats/launch-state read orders by these service_keys. After the
+  // merge the feature must grant on LIVE_STUDIO; the retired LIVE_STUDIO_ROAM stays
+  // so any historical order still flips the card to 'launch'.
+  const skus = ADD_ON_SKU_MAP['live-studio-roam'] ?? [];
+  assert.ok(skus.includes('LIVE_STUDIO'), 'live-studio feature must grant on LIVE_STUDIO');
+});
 
 test('wedding-surface add-ons carry the right surface', () => {
   const expected: Record<string, string> = {
@@ -20,8 +44,11 @@ test('wedding-surface add-ons carry the right surface', () => {
     'animated-monogram': 'monogram',
     // Papic Buong Araw (PAPIC_GUEST) — the flat guest-camera pass needs a guest
     // ROSTER, so it hides wherever the type has no RSVP surface (simple_event).
-    // NOTE: `surface` alone does NOT deny travel (its profile enables rsvp) —
-    // lib/papic-event-access.ts carries that deny.
+    // NOTE: `surface` alone does NOT scope this by event type (every
+    // non-wedding profile enables rsvp) — lib/papic-event-access.ts is the
+    // authoritative predicate. Since 2026-08-01 ("offer Papic everywhere") it
+    // admits all 16 live types, so `rsvp` is the last gate with teeth: a
+    // DEGRADED profile read (SIMPLE_PROFILE has no rsvp) still hides the card.
     'papic-guest': 'rsvp',
   };
   for (const [key, surface] of Object.entries(expected)) {
@@ -40,16 +67,48 @@ test('universal in-app services carry NO surface (shown for every event type)', 
   }
 });
 
-test('Papic Buong Araw stays unbuyable until its Phase-0 gates land', () => {
-  // The live catalog row is still pax-priced at ₱2,999 (verdict gate 0b is an
-  // owner DB action), the event-scoped points pool (0c) is unbuilt, and the
-  // ROPA row + DPO consent-text sign-off (0d/0e) are open. A 'live' card would
-  // show the wrong price and open a buy path that cannot honour it. Flip this
-  // assertion in the SAME PR that flips the status — never before.
+test('Papic Pool is LIVE, and sells shots rather than per-guest cameras', () => {
+  // Flipped 2026-07-30, in the same PR as the status — as the previous version of
+  // this test instructed. Its two economic gates are closed: 0b (the repricing off
+  // the pax curve) and 0c (the event-scoped points pool, shipped 20271019231590 +
+  // #3847/#3848). Verified against prod: PAPIC_GUEST ₱1,000 · _6K ₱2,000 ·
+  // _10K ₱3,000 all is_active; the pax-priced ₱2,999 row is _TOPUP, now inactive.
+  //
+  // ⚠ 0d/0e (guest-media ROPA row + DPO sign-off on the RSVP consent text) remain
+  // OPEN and are tracked as their own compliance item. They are deliberately NOT
+  // asserted here: the sale they gate went live 2026-07-29 through the studio and
+  // the guest buy sheet, so pinning this ONE card dark would have recorded a
+  // closed gate that isn't closed anywhere else.
   const entry = byKey.get('papic-guest');
   assert.ok(entry, 'papic-guest add-on should exist (the doorway is gate 0h)');
-  assert.equal(entry!.status, 'coming_soon');
+  assert.notEqual(entry!.status, 'coming_soon', 'Papic Pool is on sale — no "Soon" pill');
   assert.equal(entry!.serviceKey, 'PAPIC_GUEST');
+  // The copy must not re-import the retired pax model. The pool meters SHOTS, so
+  // a per-guest / per-day / roster promise is false by construction — this is the
+  // sentence that was wrong ("every guest on the list gets a camera, all day").
+  for (const re of [/every guest/i, /all day/i, /per guest/i, /on the list/i, /\bseats?\b/i]) {
+    assert.equal(
+      re.test(entry!.blurb),
+      false,
+      `Papic Pool blurb carries retired pax-pass language (${re}): "${entry!.blurb}"`,
+    );
+  }
+  // …and it must not spell a shot count or a peso figure: both are derived on the
+  // surface the card opens (papic_pass_tiers + the live catalog).
+  assert.equal(/₱|\d{2,}/.test(entry!.blurb), false, 'no price/points literal in the blurb');
+  assert.equal(entry!.tags?.includes('Soon'), false, 'the "Soon" tag must go with the pill');
+});
+
+test('the umbrella Papic card points at NO single SKU', () => {
+  // PAPIC_SEATS (₱2,999, five seats) is is_active=false with zero orders ever, and
+  // the two-type lock retired the product. A dead serviceKey here made the card
+  // `isRecommendable()` on the Studio hub — a coordinator could recommend a SKU
+  // nobody can buy. Papic is two products across five active rows now; its own
+  // surface owns the buy, which is what `variablePricing` declares.
+  const entry = byKey.get('papic');
+  assert.ok(entry, 'papic add-on should exist');
+  assert.equal(entry!.serviceKey, undefined, 'Papic has no single representative SKU');
+  assert.equal(entry!.variablePricing, true, 'per-unit pricing must stay declared');
 });
 
 test('every surface value is a known ProfileSurface', () => {

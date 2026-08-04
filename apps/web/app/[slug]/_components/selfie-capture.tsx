@@ -434,13 +434,26 @@ export function SelfieCapture({
           onChange={(e) => onConsentChange(e.target.checked)}
           className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
         />
+        {/* Copy widened 2026-08-02 to close DPO gate 0e. The previous wording
+            named the MATCHING but neither of the two facts that give it
+            meaning: WHERE the photos come from (largely other guests' own
+            phones — Papic Pool sells shots to attendees, so the dominant
+            capture source is a stranger's handset, not an operator the couple
+            controls) and WHAT the match is for (delivery — the match is how a
+            photo reaches this guest's own gallery). RoPA DPS-05 now states both
+            as well. Consent has to describe the processing a person is actually
+            agreeing to, not just name the technique. */}
         <span>
           I consent to{' '}
           <span className="font-medium">
             facial-recognition photo matching for this event
           </span>
-          . My selfie is used only to recognize me in this event&rsquo;s photos,
-          only for this event, and I can withdraw anytime in my settings.{' '}
+          . My selfie is used only to find me in photos taken at this event —{' '}
+          <span className="font-medium">
+            including photos other guests take on their own phones
+          </span>{' '}
+          — so those photos can be delivered to me. This event only, and I can
+          withdraw anytime in my settings.{' '}
           <span className="text-ink/45">
             (Philippine Data Privacy Act, RA 10173.)
           </span>
@@ -600,7 +613,7 @@ export function SelfieCapture({
                 ) : error ? (
                   <p className="text-terracotta-700">{error}</p>
                 ) : gate && gate.available && !gate.ok ? (
-                  <p className="inline-flex items-start gap-1.5 text-warn-700">
+                  <p className="inline-flex items-start gap-1.5 text-ink/80">
                     <AlertTriangle
                       className="mt-0.5 h-3.5 w-3.5 shrink-0"
                       strokeWidth={2}
@@ -613,7 +626,7 @@ export function SelfieCapture({
                     </span>
                   </p>
                 ) : r2Ref ? (
-                  <p className="inline-flex items-center gap-1.5 text-success-700">
+                  <p className="inline-flex items-center gap-1.5 text-ink/70">
                     <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                     Looks great — added to your RSVP.
                   </p>
@@ -665,7 +678,7 @@ export function SelfieCapture({
                 </>
               ) : null}
             </div>
-            <p className="inline-flex items-center gap-1.5 text-xs text-success-700">
+            <p className="inline-flex items-center gap-1.5 text-xs text-ink/70">
               <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
               {shots.length} of {maxShots} angles added
               {shots.length < maxShots

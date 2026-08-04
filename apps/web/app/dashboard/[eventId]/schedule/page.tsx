@@ -35,6 +35,7 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 // statutory milestones) — see lib/preparation.ts for the source map.
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
+import { EmceePicks } from './_components/emcee-picks';
 import { PreparationAgendaView } from './_components/preparation-agenda';
 // Journey mode — the full event-lifecycle arc (creation → the day →
 // editorial), a phase-grouped read-only view over the same agenda data plus
@@ -356,7 +357,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   }
 
   return (
-    <section className="space-y-6">
+    <section className="sn-col space-y-6">
       <header className="sn-reveal space-y-3">
         <div>
           <p className="sn-eye">Timeline</p>
@@ -442,6 +443,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             suggestions={openSuggestions}
             blocks={scheduleBlocks}
           />
+          {/* The host's own segments — their catalogue, ticked by the couple and
+           *  dropped onto this timeline. Renders NOTHING when there is no booked
+           *  host/MC or they have written no segments, so a couple without one
+           *  never sees an empty menu. Sits directly above the emcee script,
+           *  because picking and reading the resulting script are the same job.
+           *  Placement logic is pure in lib/vendor-activities. */}
+          <EmceePicks supabase={supabase} eventId={eventId} />
           {/* Emcee script — compiles this timeline + the wedding-party names
            *  into a clean host script (copy / download). Read-only over the
            *  saved program; pure compiler in lib/emcee-script. */}

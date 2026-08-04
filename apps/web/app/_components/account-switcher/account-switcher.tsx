@@ -171,21 +171,12 @@ function SwitcherPanelBody({
           >
             <UserRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile &amp; settings
           </Link>
-          {/* Setnayan AI — moved into the avatar "You" menu by the four-surface
-              home remodel (owner-approved 2026-07-15): the launcher's on-page
-              "Your account" section is gone, so the account-level Setnayan AI
-              surface (/dashboard/setnayan-ai) lives here beside Profile.
-              Hidden for anon-drafts (they get the Secure-your-plan CTA instead
-              of account surfaces, matching the Sign-out swap below). */}
-          {!data.isAnonymous ? (
-            <Link
-              href="/dashboard/setnayan-ai"
-              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
-              onClick={close}
-            >
-              <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Setnayan AI
-            </Link>
-          ) : null}
+          {/* 🔒 Setnayan AI link REMOVED 2026-08-01. It pointed at
+              /dashboard/setnayan-ai — the ACCOUNT-level per-USER subscription
+              surface — which is deleted. Owner decision: "it is per event", so
+              there is no account-scoped Setnayan AI to link to. The live surface
+              is /dashboard/[eventId]/studio/setnayan-ai, reached from an event.
+              Do not re-add an account-level doorway here. */}
           {/* Your Story — the Storyteller chapters surface (/dashboard/creator).
               The authoring funnel had NO doorway anywhere (creator readiness
               verdict 2026-07-16 · B4 — the wayfinding rule: a page ships with

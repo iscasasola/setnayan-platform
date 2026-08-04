@@ -12,6 +12,59 @@ export type GenericOnboardingPayload = {
   eventType: string;
   /** The event name the organizer typed (→ `events.display_name`). */
   displayName: string;
+  /**
+   * The celebrant's first name (→ `events.honoree_label`) — asked ONLY for the
+   * five gated life types (debut · christening · birthday · graduation · gender
+   * reveal). It is the cardinality key: the cap is one in-planning event per
+   * (account × type × HONOREE), so without it every birthday an account creates
+   * collides with every other and the second one is refused forever.
+   * NULL for lifestyle types, and for a user who skips the question.
+   * Ordinary PI (a first name) — never a birthdate, never a dependent link.
+   *
+   * OPTIONAL so every existing payload constructor (and every fixture) stays
+   * valid without a churn edit; absent and null mean the same thing — unlabeled,
+   * which contends for the per-type singleton slot.
+   */
+  honoreeLabel?: string | null;
+  /**
+   * WHICH alaga that name is (→ `events.honoree_dependent_id`) — the STRONGER
+   * half of the same cardinality key, carried from the create step's who
+   * question. A link to a RECORD, so renaming the alaga no longer moves the
+   * event to a different slot and two alaga who share a first name stop sharing
+   * one. NULL for "You", for "Someone else", and for every account with no
+   * People roster — i.e. for everything that behaved as it does today.
+   *
+   * ⚠ NEVER trust this from the wire. The client can forge it, and writing an
+   * unowned id would leak a relationship AND corrupt another account's cap.
+   * `commitOnboardingEvent` replaces whatever arrives here with the result of
+   * `resolveHonoreeDependentId` (ownership + label re-checked server-side)
+   * before it reaches `buildGenericEventInsert`.
+   *
+   * Still not a birthdate, and still not a link to one — the counsel gate in
+   * event-insert.ts is untouched.
+   */
+  honoreeDependentId?: string | null;
+  /**
+   * The date this event COMMEMORATES (→ `events.anchor_date`) — NOT the day it
+   * is held. Two columns on purpose: an anniversary marks a wedding date but is
+   * celebrated whenever the couple holds it, and in PH a Tuesday milestone is
+   * very often a Saturday party.
+   *
+   * ⚠ COUNSEL GATE — only ever written for anchor kinds that are NOT
+   * `person_birthdate`. A person's birthdate is never stored on an event, so
+   * birthday / debut / christening pass NULL here even though their anchor kind
+   * names a birthdate. `buildGenericEventInsert` enforces this; the wizard also
+   * never asks.
+   */
+  anchorDate?: string | null;
+  /**
+   * Why that date matters (→ `events.anchor_origin`). CHECK-constrained in the
+   * DB to POSITIVE origins only — there is deliberately no memorial option
+   * (babang-luksa stays out of this product).
+   */
+  anchorOrigin?: string | null;
+  /** Does it come back every year? (→ `events.recurs`) */
+  recurs?: boolean;
   region: string | null;
   /** Reception/venue anchor coords from the primary area pick (→ events.venue_latitude/longitude). */
   venueLatitude: number | null;
@@ -66,4 +119,15 @@ export type GenericOnboardingPayload = {
 
 export type GenericCommitResult =
   | { ok: true; eventId: string }
-  | { ok: false; error: string };
+  /**
+   * `blocking` rides ONLY with error 'life_event_exists'. Without it the client
+   * could say no more than "something went wrong", which is what made the
+   * duplicate-life-event refusal a silent dead end: the user was never told
+   * WHICH event conflicted, and the one act that resolves it — naming a
+   * different celebrant — was never suggested.
+   */
+  | {
+      ok: false;
+      error: string;
+      blocking?: { eventId: string; displayName: string };
+    };

@@ -215,8 +215,10 @@ export async function CategoryTile({
 function ariaLabelFor(data: CategoryTileData, state: TileState): string {
   const name = data.displayNameEn;
   switch (state.kind) {
+    // `comingSoon` is retired (owner 2026-07-27) and always 0 — a listed
+    // vendor is a verified one, so the label states just that.
     case 'populated':
-      return `${name}, ${state.verified} verified, ${state.comingSoon} coming soon`;
+      return `${name}, ${state.verified} verified`;
     case 'recruiting':
       return `${name}, recruiting vendors now`;
     case 'future':
@@ -237,7 +239,7 @@ function StatePill({ state }: { state: TileState }) {
     case 'populated':
       return (
         <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
-          {state.verified + state.comingSoon} listed
+          {state.verified} listed
         </span>
       );
     case 'recruiting':
@@ -258,11 +260,11 @@ function StatePill({ state }: { state: TileState }) {
 function CtaLine({ state }: { state: TileState }) {
   let copy: string;
   switch (state.kind) {
+    // `populated` now implies `verified > 0` — the tile count is verified-only
+    // since `coming_soon` was retired, so the old "Preview N coming-soon
+    // vendors" fallback is unreachable and would have read "Preview 0".
     case 'populated':
-      copy =
-        state.verified > 0
-          ? `Browse ${state.verified} vendor${state.verified === 1 ? '' : 's'} →`
-          : `Preview ${state.comingSoon} coming-soon vendor${state.comingSoon === 1 ? '' : 's'} →`;
+      copy = `Browse ${state.verified} vendor${state.verified === 1 ? '' : 's'} →`;
       break;
     case 'recruiting':
       copy = 'Be the first to list →';

@@ -2,6 +2,13 @@ import { CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
 import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import {
+  channelHeadroom,
+  headroomMessage,
+  monthStartISO,
+  PAY_CHANNEL_LABEL,
+} from '@/lib/payment-channels';
+import { formatPhp } from '@/lib/orders';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -65,6 +72,61 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
+
+  // Setnayan inflow per rail, in TWO windows — the meter needs both.
+  //
+  //   • sinceMonthStart — for CAP mode, matching how the bank accounts for a
+  //     monthly limit. (The previous rolling-30-day window disagreed with
+  //     GCash's own calendar-month reckoning by up to 30 days.)
+  //   • sinceAsOf       — for OWNER-BALANCE mode: only orders recorded AFTER
+  //     the owner read their real balance, since earlier ones are already
+  //     inside the figure they typed.
+  //
+  // Counts 'matched' only — that is what approvePayment writes; there is NO
+  // 'approved' value in the payment_status enum, and querying one would return
+  // zero rows forever behind a reassuring empty meter. A 'pending' row is
+  // money we have not confirmed arrived.
+  //
+  // Fail-soft: a read error leaves the sums at zero and the meter simply reads
+  // low. It must never take the settings form down — the admin may be opening
+  // this page precisely BECAUSE payments are misbehaving.
+  const now = new Date();
+  const monthStart = monthStartISO(now);
+  const asOfFloor = [settings.gcash_available_as_of, settings.bdo_available_as_of]
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .sort()[0];
+  const sinceMonthStart = { gcash: 0, bdo: 0 };
+  const sinceAsOf = { gcash: 0, bdo: 0 };
+  try {
+    // One read covering both windows — the earlier of (month start, oldest
+    // override) — then bucket in memory rather than issuing two queries.
+    const floor =
+      asOfFloor && asOfFloor.slice(0, 10) < monthStart ? asOfFloor.slice(0, 10) : monthStart;
+    const { data: inflow } = await admin
+      .from('payments')
+      .select('channel, amount_php, paid_at, created_at')
+      .eq('status', 'matched')
+      .gte('paid_at', floor);
+    for (const row of (inflow ?? []) as {
+      channel: string;
+      amount_php: number;
+      paid_at: string;
+      created_at: string;
+    }[]) {
+      const rail = row.channel === 'gcash' ? 'gcash' : row.channel === 'bdo' ? 'bdo' : null;
+      if (!rail) continue;
+      const amount = Number(row.amount_php) || 0;
+      if (row.paid_at >= monthStart) sinceMonthStart[rail] += amount;
+      const asOf = rail === 'gcash' ? settings.gcash_available_as_of : settings.bdo_available_as_of;
+      // created_at, not paid_at: paid_at is a DATE the couple asserts, so a
+      // same-day order would compare equal to the override instant and get
+      // dropped. created_at is when WE recorded it, which is the honest
+      // "after the owner looked" test.
+      if (asOf && row.created_at > asOf) sinceAsOf[rail] += amount;
+    }
+  } catch {
+    /* meters read zero; the form still renders */
+  }
   const { data, error } = await admin
     .from('setnayan_pay_methods')
     .select(
@@ -148,6 +210,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               className="input-field font-mono"
             />
           </Field>
+          <ChannelSwitch
+            kind="bdo"
+            enabled={settings.bdo_enabled}
+            capPhp={settings.bdo_monthly_cap_php}
+            availablePhp={settings.bdo_available_php}
+            availableAsOf={settings.bdo_available_as_of}
+            inflowSinceAsOfPhp={sinceAsOf.bdo}
+            inflowThisMonthPhp={sinceMonthStart.bdo}
+            now={now}
+          />
         </section>
 
         <section className="space-y-4">
@@ -174,6 +246,16 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               className="input-field font-mono"
             />
           </Field>
+          <ChannelSwitch
+            kind="gcash"
+            enabled={settings.gcash_enabled}
+            capPhp={settings.gcash_monthly_cap_php}
+            availablePhp={settings.gcash_available_php}
+            availableAsOf={settings.gcash_available_as_of}
+            inflowSinceAsOfPhp={sinceAsOf.gcash}
+            inflowThisMonthPhp={sinceMonthStart.gcash}
+            now={now}
+          />
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
@@ -352,7 +434,7 @@ function QrUploadBlock({
           <img
             src={currentUrl}
             alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-white/60 bg-white/70 object-contain"
+            className="h-40 w-40 rounded-md border border-ink/10 bg-white/70 object-contain"
           />
           <div className="flex-1 space-y-2 text-sm text-ink/65">
             <p>Currently shown to couples on order detail pages.</p>
@@ -377,5 +459,154 @@ function QrUploadBlock({
 
       <QrUploadForm kind={kind} replace={!!currentUrl} />
     </section>
+  );
+}
+
+/**
+ * Per-rail kill switch + available-balance meter.
+ *
+ * Setnayan receives on PERSONAL accounts (owner 2026-08-01: no business
+ * account yet). A personal GCash wallet has a monthly RECEIVING limit —
+ * ₱500,000 — and past it incoming transfers **fail rather than queue**, with
+ * no warning inside GCash's own flow.
+ *
+ * Two modes, and the difference is the point:
+ *
+ *   • Leave the balance blank and the meter measures Setnayan orders against
+ *     the monthly cap. That is OPTIMISTIC: the bank counts the owner's
+ *     personal transfers too, and we cannot see them.
+ *   • Type the real remaining headroom out of the bank app and the meter
+ *     counts down from THAT, which accounts for everything — up to the moment
+ *     it was read. Re-reading and updating keeps it honest.
+ *
+ * The monthly reset is derived, not scheduled: an override entered in a
+ * previous calendar month is ignored and the cap applies again. No cron.
+ */
+function ChannelSwitch({
+  kind,
+  enabled,
+  capPhp,
+  availablePhp,
+  availableAsOf,
+  inflowSinceAsOfPhp,
+  inflowThisMonthPhp,
+  now,
+}: {
+  kind: 'gcash' | 'bdo';
+  enabled: boolean;
+  capPhp: number | null;
+  availablePhp: number | null;
+  availableAsOf: string | null;
+  inflowSinceAsOfPhp: number;
+  inflowThisMonthPhp: number;
+  now: Date;
+}) {
+  const label = PAY_CHANNEL_LABEL[kind];
+  const headroom = channelHeadroom({
+    capPhp,
+    availablePhp,
+    availableAsOf,
+    inflowSinceAsOfPhp,
+    inflowThisMonthPhp,
+    now,
+  });
+  const tone =
+    headroom == null
+      ? 'border-ink/10 bg-cream'
+      : headroom.band === 'over' || headroom.band === 'critical'
+        ? 'border-warn-300/70 bg-warn-50'
+        : headroom.band === 'warn'
+          ? 'border-warn-300/40 bg-warn-50/60'
+          : 'border-ink/10 bg-cream';
+
+  return (
+    <div className={`space-y-3 rounded-xl border p-4 ${tone}`}>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name={`${kind}_enabled`}
+          defaultChecked={enabled}
+          className="mt-0.5 h-4 w-4 accent-[var(--sn-success,green)]"
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-ink">
+            Accept {label} payments
+          </span>
+          <span className="block text-[12px] leading-relaxed text-ink/60">
+            Uncheck to stop offering {label} at checkout — do this the moment
+            the account reaches its monthly limit, because transfers past it{' '}
+            <strong>fail</strong> instead of queuing. Turning both rails off
+            pauses payments entirely, which is deliberate: a working-looking
+            button on a full account is worse than an honest pause.
+          </span>
+        </span>
+      </label>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label={`${label} available balance now (₱)`}
+          htmlFor={`${kind}_available_php`}
+        >
+          <input
+            id={`${kind}_available_php`}
+            name={`${kind}_available_php`}
+            defaultValue={availablePhp != null ? String(availablePhp) : ''}
+            inputMode="decimal"
+            placeholder="read it from the app"
+            className="input-field font-mono"
+          />
+        </Field>
+        <Field label={`${label} monthly limit (₱)`} htmlFor={`${kind}_monthly_cap_php`}>
+          <input
+            id={`${kind}_monthly_cap_php`}
+            name={`${kind}_monthly_cap_php`}
+            defaultValue={capPhp != null ? String(capPhp) : ''}
+            inputMode="decimal"
+            placeholder={kind === 'gcash' ? '500000' : 'leave blank if none'}
+            className="input-field font-mono"
+          />
+        </Field>
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-ink/55">
+        Open {label}, read how much it can still receive this month, and type it
+        on the left. We count Setnayan orders down from that figure — so it
+        stays right even though your personal transfers are invisible to us.
+        Leave it blank to measure against the monthly limit instead, which
+        always reads higher than the truth. It resets to the limit on the 1st.
+      </p>
+
+      {headroom ? (
+        <div className="space-y-1.5">
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
+            role="img"
+            aria-label={`${Math.round(headroom.pct)} percent used`}
+          >
+            <div
+              className={`h-full rounded-full ${
+                headroom.band === 'over' || headroom.band === 'critical'
+                  ? 'bg-[var(--sn-warning,orange)]'
+                  : 'bg-[var(--sn-success,green)]'
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, Math.round(headroom.pct)))}%` }}
+            />
+          </div>
+          <p className="text-[12px] leading-relaxed text-ink/70">
+            {headroomMessage(headroom, label)}
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            {formatPhp(headroom.remainingPhp)} left of {formatPhp(headroom.startingPhp)}
+            {headroom.source === 'owner_balance' && availableAsOf
+              ? ` · your reading ${new Date(availableAsOf).toLocaleDateString()}`
+              : ' · from the monthly limit'}
+          </p>
+        </div>
+      ) : (
+        <p className="text-[12px] text-ink/55">
+          Enter a balance or a monthly limit above to see how much room is left.
+        </p>
+      )}
+    </div>
   );
 }

@@ -296,10 +296,16 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-account",
     route: "/dashboard/library",
-    label: "Memories Hub",
+    // Alaala is the single MEMORY dimension; "Memories Hub" was its old name
+    // (owner 2026-07-31). The slot KEY stays `customer.account.library` and the
+    // ROUTE stays /dashboard/library — admin overrides key off the slot and
+    // every shipped link points at that URL. Only the default LABEL changes,
+    // matching home-pill-nav.tsx and home-board.tsx, which already say "Alaala".
+    // ⚠ An explicit admin rename in `nav_slot_overrides` still wins over this.
+    label: "Alaala",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "LayoutGrid",
+    lucideName: "Sparkles",
     customRef: null,
     sortOrder: 5,
   },
@@ -358,9 +364,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    // Renamed Explore → Merkado (owner-approved product naming; design
-    // prototype). Slot key + route unchanged.
-    label: "Merkado",
+    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
+    // owner: "just use Marketplace so it is easier to understand").
+    // Slot key + route unchanged throughout.
+    label: "Marketplace",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -398,9 +405,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    // Renamed Explore → Merkado (owner-approved product naming; design
-    // prototype). Slot key + route unchanged.
-    label: "Merkado",
+    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
+    // owner: "just use Marketplace so it is easier to understand").
+    // Slot key + route unchanged throughout.
+    label: "Marketplace",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -616,7 +624,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.sidebar.website",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/site-editor/[eventId]",
+    route: "/dashboard/[eventId]/website/editor",
     label: "Website",
     labelKind: "literal",
     iconKind: "lucide",
@@ -630,7 +638,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.sidebar.launch",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/website/launch",
+    route: "/dashboard/[eventId]/website/editor",
     label: "Launch",
     labelKind: "literal",
     iconKind: "lucide",
@@ -1026,63 +1034,25 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 4,
   },
-  // (The "customer.budget-subnav.summary" slot was removed 2026-06-25 — owner
-  // "start with shortlist right away": the Services takeover's Summary cover
-  // tab is gone, so its sub-nav child default went too, mirroring the 2026-06-20
-  // lock-tab removal below. Shortlist is now the first (sortOrder 0) section.)
-  {
-    key: "customer.budget-subnav.shortlist",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=shortlist",
-    label: "Shortlist",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Bookmark",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.budget-subnav.build",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=build",
-    label: "Build",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Hammer",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
-    key: "customer.budget-subnav.budget",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/vendors?tab=budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 2,
-  },
-  {
-    key: "customer.budget-subnav.compare",
-    scope: "customer",
-    area: "budget-build-subnav",
-    route: "/dashboard/[eventId]/budget?tab=compare",
-    label: "Compare",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Scale",
-    customRef: null,
-    sortOrder: 3,
-  },
-  // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
-  // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now
-  // lives inside the Build tab, so its sub-nav child + slot default went too.
-  // customer-menu.ts derives the Explore children from BUDGET_BUILD_TABS, which
-  // no longer includes 'lock'.)
+  // (The whole "customer.budget-subnav.*" AREA was removed 2026-07-30 — the
+  // Marketplace takeover's mobile 4-chip dock is gone (Explore replan PR-3
+  // #3877: the page is one scroll, and the Coverage Strip is the navigator), so
+  // these four slots described a nav element that no longer renders. An orphan
+  // slot is worse than a missing one: /admin/menus offers it as renameable, and
+  // the rename appears to do nothing. Removed: .shortlist · .build · .budget ·
+  // .compare — VERIFIED against prod first, `nav_slot_override` held ZERO rows
+  // for any of them, so no admin customisation was discarded.
+  //
+  // Two earlier siblings had already gone the same way: .summary (2026-06-25 —
+  // owner "start with shortlist right away") and .lock (2026-06-20 — "Build
+  // absorbs Lock" PR2; customer-menu.ts derives the Explore children from
+  // BUDGET_BUILD_TABS, which no longer includes 'lock').
+  //
+  // ⚠ With the replan flag OFF the dock returns (customer-menu.ts still emits
+  // the children + their `slotKey`s on that path), and an unknown slotKey falls
+  // through to the child's CODE default label/icon — so it renders identically
+  // to today; it simply stops being admin-editable. That is the intended trade:
+  // the dock is not coming back.
   // Studio docked sub-nav — the 4 sections of the /add-ons hub (customer-menu
   // redesign 2026-06-17). The mobile <SubNav> overlays these admin overrides on
   // its code defaults (lib/customer-menu.ts child.slotKey).
@@ -1150,11 +1120,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
-    // "Launch" route child (owner 2026-06-28) — preview + go-live surface.
+    // "Launch" route child (owner 2026-06-28) — preview + go-live surface;
+    // re-pointed 2026-07-25 to the unified website editor.
     key: "customer.studio-subnav.launch",
     scope: "customer",
     area: "studio-subnav",
-    route: "/dashboard/[eventId]/website/launch",
+    route: "/dashboard/[eventId]/website/editor",
     label: "Launch",
     labelKind: "literal",
     iconKind: "lucide",
@@ -2480,18 +2451,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 41,
   },
   {
-    key: "admin.sidebar.hero-video",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/hero-video",
-    label: "Hero video",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Video",
-    customRef: null,
-    sortOrder: 42,
-  },
-  {
     key: "admin.sidebar.background-videos",
     scope: "admin",
     area: "admin-sidebar",
@@ -2502,6 +2461,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "Film",
     customRef: null,
     sortOrder: 42,
+  },
+  {
+    key: "admin.sidebar.website-media",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/website-media",
+    label: "Website media",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Images",
+    customRef: null,
+    sortOrder: 43,
   },
   {
     key: "admin.sidebar.reveal-studio",

@@ -54,7 +54,11 @@ export default async function PersonalizationPage({
   if (!user) redirect('/login');
 
   const { data: event, error: eventError } = await supabase
-    .from('events')
+    // SEC-2b: public.events_host, not public.events — this select names a column
+    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+    // on the base table by 20271008731642. The view is the couple/moderator-scoped
+    // read path; same columns, same row shape, guests get zero rows.
+    .from('events_host')
     .select(
       'event_id, display_name, event_type, bride_name, groom_name, region, mood_feel_key, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
@@ -146,7 +150,7 @@ export default async function PersonalizationPage({
       : null;
 
   return (
-    <section className="space-y-5">
+    <section className="sn-col space-y-5">
       <PageMasthead title="Personalization" lede="Everything from your onboarding lives here. Refine it anytime — it tunes the services we match and sort for you." />
 
       {/* Band 1 — the basics (governance-free, editable inline) */}

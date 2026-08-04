@@ -21,6 +21,7 @@ import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { sanitizeStudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * <AnimatedMonogramUpgrade> — the paid ANIMATED_MONOGRAM upgrade, rendered
@@ -111,13 +112,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   // via StudioRevealPlayer and MONOGRAM_MOTIONS never runs — so this page must
   // pitch and preview THAT reveal on THAT mark, not the six lockup signatures
   // on a lockup the couple doesn't use (council verdict 2026-07-17 §5.1–5.2).
-  const bespokeSvg =
-    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null) ??
-    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
-      ? event.monogram_custom_svg
-      : null);
+  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+  const bespokeSvg = resolveEventMonogramSvg(event);
   const studioCfg = sanitizeStudioConfig(event.monogram_studio_config);
   const studioAnim: StudioAnim = studioCfg?.anim
     ? { kind: studioCfg.anim.kind, dur: studioCfg.anim.dur, smooth: studioCfg.anim.smooth, delay: studioCfg.anim.delay }

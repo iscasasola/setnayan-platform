@@ -3,10 +3,13 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
 import {
@@ -143,11 +146,26 @@ export async function activateVendorAiAddon(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Vendor AI is temporarily unavailable. Please try again later.');
   }
-  const cyclePricePhp =
+  const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
+  // 2026-07-25 tiered add-on model: the CYCLE price comes from the code SSOT band
+  // (₱2,000 Free/Solo · ₱1,500 Pro/Ent) instead of the flat catalog row.
+  //
+  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveVendorAiAddonPricePhp
+  // short-circuits to ₱0 on the free first cycle BEFORE it looks at this value, so
+  // overwriting `pricePhp` afterwards would silently bill the trial. Same shape as
+  // booth-addon-actions.ts. The tier is re-read server-side above, so a tampered
+  // client can never force the cheaper Pro band.
+  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('ai_chatbot_basic', tier)
+    : catalogCyclePricePhp;
   const pricePhp = resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp });
+  /** What a cycle costs this vendor once the free first cycle is spent — so no
+   *  message below hardcodes ₱1,500, which is wrong for the entry band. */
+  const renewalPricePhp = resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp });
+  const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
   // ── FREE first cycle → atomic claim + direct activation ────────────────────
   if (pricePhp <= 0) {
@@ -170,28 +188,33 @@ export async function activateVendorAiAddon(
     if (!claimed || claimed.length === 0) {
       // Lost the race (another request just claimed the trial) — the caller
       // should re-submit and land on the paid path. Surface it plainly.
-      return err('Your free cycle was just used. Refresh to buy the next cycle (₱1,500 / 28 days).');
+      return err(
+        `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+      );
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
     const referenceCode = generateReferenceCode();
-    const { data: orderRow } = await admin
+    const { data: orderRow } = await createMoneyWriterClient()
       .from('orders')
-      .insert({
-        event_id: null,
-        user_id: user.id,
-        vendor_profile_id: vendorProfileId,
-        service_key: VENDOR_AI_ADDON_SKU_CODE,
-        description: 'Vendor AI — AI Chatbot (first cycle · free)',
-        requested_total_php: 0,
-        confirmed_total_php: 0,
-        status: 'paid',
-        reference_code: referenceCode,
-        // Stamp the order's window so the renewal-reminder job nudges the vendor
-        // before the free cycle lapses (subscriptions_due_for_renewal_reminder
-        // reads orders.expires_at).
-        expires_at: newExpiry,
-      })
+      .insert(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
+          { userId: user.id, eventId: null, vendorProfileId },
+          {
+            service_key: VENDOR_AI_ADDON_SKU_CODE,
+            description: 'Vendor AI — AI Chatbot (first cycle · free)',
+            reference_code: referenceCode,
+            // Stamp the order's window so the renewal-reminder job nudges the vendor
+            // before the free cycle lapses (subscriptions_due_for_renewal_reminder
+            // reads orders.expires_at).
+            expires_at: newExpiry,
+          },
+        ),
+      )
       .select('order_id')
       .maybeSingle();
     if (orderRow) {
@@ -215,7 +238,7 @@ export async function activateVendorAiAddon(
     return {
       status: 'activated',
       message:
-        'Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ₱1,500 / 28 days.',
+        `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 
@@ -223,18 +246,33 @@ export async function activateVendorAiAddon(
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())` — RLS's only check on this row.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate: authenticated →
+  // `fetchOwnVendorProfile` (server-resolved id) → `resolveVendorRoleForProfile`
+  // + canManageVendor (PROFILE-scoped) → `vendorAutoReplyEnabled()` feature
+  // backstop → `isTierAtLeast(tier,'solo')` → `verification_state === 'verified'`
+  // → the SKU is_active reject. The free-first-cycle branch above keeps its own
+  // admin client and its atomic is-null-guarded trial claim, untouched.
+  const moneyWriter = createMoneyWriterClient();
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_AI_ADDON_SKU_CODE,
-      description: 'Vendor AI — AI Chatbot (28-day)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId: null, vendorProfileId },
+        {
+          service_key: VENDOR_AI_ADDON_SKU_CODE,
+          description: 'Vendor AI — AI Chatbot (28-day)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -242,17 +280,22 @@ export async function activateVendorAiAddon(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Vendor AI payment. Please try again.');
   }
 

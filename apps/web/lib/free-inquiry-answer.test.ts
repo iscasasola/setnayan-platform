@@ -1,22 +1,23 @@
 /**
- * Guard: answering a vendor inquiry must not require a PURCHASABLE token.
+ * Guard: the vendor inbox is UNGATED — every vendor can receive and answer a
+ * couple inquiry with no tier wall and no weekly cap ("your inbox is never
+ * locked", owner 2026-07-24) — AND ungating the inbox must NOT remove the
+ * couple-side spam protection.
  *
- * The vendor token packs are retired (migration
- * 20270910266901_retire_vendor_token_packs). Before that, the live accept path
- * (chat-actions.ts `acceptInquiry` → the `unlock_vendor_event` RPC) burned 1-3
- * region-banded tokens per NEW (vendor,event) unlock and RAISED
- * `INSUFFICIENT_WALLET_BALANCES` (rolling the tx back) when the answering member
- * had no balance — which, with packs unsellable, could strand a token-less paid
- * vendor. Migration 20270909586177 neutralises that burn.
+ * The unit-test harness has no database, so these invariants are asserted
+ * STATICALLY on the source + SQL (the established pattern in this repo). Three
+ * things must hold together:
  *
- * The unit-test harness has no database, so this asserts the invariant
- * STATICALLY on the SQL: in the NEWEST migration that (re)defines
- * `unlock_vendor_event`, the token cost is pinned to zero before the unlock is
- * recorded, and the token-consuming branch is still guarded by `v_tokens > 0`.
- * Together those mean no `consume_*` runs on an answer, so
- * `INSUFFICIENT_WALLET_BALANCES` can never fire — a paid vendor with no
- * purchased tokens can always answer. If a future migration reintroduces a burn
- * on the answer without re-pinning the cost to zero, this test fails.
+ *   1. The answer RPC the app uses (unlock_vendor_event_free) drops the two
+ *      tier gates — TIER_FREE_NO_INAPP (free-tier block) and
+ *      VERIFIED_WEEKLY_LIMIT (10/rolling-week) — while pinning the token cost to
+ *      zero and keeping FORBIDDEN + idempotency.
+ *   2. acceptInquiry routes UNCONDITIONALLY to that free variant (no
+ *      tier-gated unlock_vendor_event, no launch flag), and the send/proposal
+ *      paths no longer carry the FREE-tier ('tier_free') block.
+ *   3. The couple-side spam gate (velocity caps in lib/inquiry-gate.ts) is still
+ *      present — the ungate opens the vendor's answer path, it does not open a
+ *      spam hole.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,10 +28,26 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(HERE, '..', '..', '..', 'supabase', 'migrations');
 
-const DEFINES_RPC = /CREATE OR REPLACE FUNCTION\s+public\.unlock_vendor_event\s*\(/;
+/**
+ * Strip comments so the assertions test CODE, not prose. Source-scan tests must
+ * ignore the explanatory comments that describe the very gates we removed (both
+ * the TS files and the free-variant migration keep a "we removed
+ * TIER_FREE_NO_INAPP here" note) — otherwise a negative assertion trips on the
+ * comment that documents the removal. Removes block comments plus line comments
+ * beginning with the given marker (`//` for TS, `--` for SQL).
+ */
+function stripComments(text: string, lineMarker: '//' | '--'): string {
+  const esc = lineMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, '') // block comments (both TS and SQL)
+    .replace(new RegExp(esc + '.*', 'g'), ''); // line comments to EOL
+}
 
-/** The newest migration file (by sort-order prefix) that defines the RPC. */
-function newestUnlockVendorEventMigration(): { file: string; sql: string } {
+/** Comment-stripped source of a sibling lib file. */
+const src = (name: string): string => stripComments(readFileSync(join(HERE, name), 'utf8'), '//');
+
+/** The newest migration file (by sort-order prefix) that defines the given RPC. */
+function newestMigrationDefining(re: RegExp): { file: string; sql: string } {
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
     .sort(); // 14-digit prefixes sort chronologically as strings
@@ -38,61 +55,93 @@ function newestUnlockVendorEventMigration(): { file: string; sql: string } {
     const file = files[i];
     if (file === undefined) continue;
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-    if (DEFINES_RPC.test(sql)) return { file, sql };
+    if (re.test(sql)) return { file, sql };
   }
-  throw new Error('No migration defines public.unlock_vendor_event');
+  throw new Error(`No migration defines the RPC matching ${re}`);
 }
 
-/** Extract the newest unlock_vendor_event body (from its CREATE to the closing $$). */
-function newestRpcBody(): { file: string; body: string } {
-  const { file, sql } = newestUnlockVendorEventMigration();
-  const start = sql.search(DEFINES_RPC);
-  const rest = sql.slice(start);
-  // The function body is delimited by `AS $$ … $$`.
+/** Extract a plpgsql function body (from its CREATE to the closing $$), comment-stripped. */
+function rpcBody(re: RegExp): { file: string; body: string } {
+  const { file, sql } = newestMigrationDefining(re);
+  const rest = sql.slice(sql.search(re));
   const open = rest.indexOf('$$');
   const close = rest.indexOf('$$', open + 2);
   assert.ok(open !== -1 && close !== -1, `Could not delimit the RPC body in ${file}`);
-  return { file, body: rest.slice(open + 2, close) };
+  return { file, body: stripComments(rest.slice(open + 2, close), '--') };
 }
 
-test('the live unlock_vendor_event pins the answer cost to zero (free answer)', () => {
-  const { file, body } = newestRpcBody();
+const DEFINES_FREE = /CREATE OR REPLACE FUNCTION\s+public\.unlock_vendor_event_free\s*\(/;
 
-  // The cost is forced to 0 for the answer.
+test('the answer RPC (unlock_vendor_event_free) drops both tier gates', () => {
+  const { file, body } = rpcBody(DEFINES_FREE);
+
+  // The free-tier block is GONE — a free vendor may answer.
+  assert.ok(
+    !/TIER_FREE_NO_INAPP/.test(body),
+    `${file}: unlock_vendor_event_free must NOT raise TIER_FREE_NO_INAPP (free vendors can answer).`,
+  );
+  // The verified weekly cap is GONE — no 10/rolling-week wall.
+  assert.ok(
+    !/VERIFIED_WEEKLY_LIMIT/.test(body),
+    `${file}: unlock_vendor_event_free must NOT raise VERIFIED_WEEKLY_LIMIT (no weekly cap).`,
+  );
+  // The answer is still free (token cost pinned to zero before the unlock row).
   assert.match(
     body,
     /v_tokens\s*:=\s*0\s*;/,
-    `${file}: expected the answer token cost to be pinned to zero (v_tokens := 0;).`,
+    `${file}: the answer token cost must be pinned to zero (v_tokens := 0;).`,
   );
-
-  // The token debit is still guarded by v_tokens > 0, so with the cost pinned to
-  // zero it is unreachable on an answer.
+  // The non-purchase invariants survive: answering-member ownership + idempotency.
+  assert.match(body, /FORBIDDEN/, `${file}: the answering-member gate (FORBIDDEN) must be preserved.`);
   assert.match(
     body,
-    /IF\s+v_paid\s+AND\s+v_tokens\s*>\s*0\s+THEN/,
-    `${file}: expected the consume_* debit to stay guarded by "IF v_paid AND v_tokens > 0".`,
-  );
-
-  // The zeroing must land BEFORE the unlock is recorded (so the recorded
-  // tokens_burned is 0 and the debit block below sees v_tokens = 0).
-  const zeroAt = body.search(/v_tokens\s*:=\s*0\s*;/g);
-  const insertAt = body.indexOf('INSERT INTO public.vendor_event_unlocks');
-  const guardAt = body.search(/IF\s+v_paid\s+AND\s+v_tokens\s*>\s*0\s+THEN/);
-  assert.ok(insertAt !== -1, `${file}: could not find the vendor_event_unlocks INSERT.`);
-  assert.ok(
-    zeroAt !== -1 && zeroAt < insertAt && zeroAt < guardAt,
-    `${file}: the "v_tokens := 0;" pin must precede both the unlock INSERT and the debit guard.`,
+    /vendor_event_unlocks/,
+    `${file}: the idempotent per-(vendor,event) unlock row must be preserved.`,
   );
 });
 
-test('answering keeps its non-purchase gates (free-tier block preserved)', () => {
-  const { file, body } = newestRpcBody();
-  // Making the answer free must NOT open it to unverified/free vendors: the
-  // tier gate stays. (The verified 10/week throttle is a tier limit, not a
-  // purchase gate, and is intentionally retained.)
+test('acceptInquiry routes unconditionally to the ungated answer RPC', () => {
+  const body = src('chat-actions.ts');
   assert.match(
     body,
-    /TIER_FREE_NO_INAPP/,
-    `${file}: the free-tier block (TIER_FREE_NO_INAPP) must be preserved.`,
+    /rpc\(\s*['"]unlock_vendor_event_free['"]/,
+    'chat-actions.ts: acceptInquiry must call unlock_vendor_event_free.',
+  );
+  // The tier-GATED variant must no longer be invoked on the accept path.
+  assert.ok(
+    !/rpc\(\s*['"]unlock_vendor_event['"]/.test(body),
+    'chat-actions.ts: the tier-gated unlock_vendor_event must NOT be called (inbox is ungated).',
+  );
+  // No launch flag gating the ungate — it is the default, not a toggle.
+  assert.ok(
+    !/freeInquiryAcceptEnabled/.test(body),
+    'chat-actions.ts: the ungate must be unconditional (no freeInquiryAcceptEnabled flag).',
+  );
+});
+
+test('the send + proposal paths no longer carry the FREE-tier block', () => {
+  for (const name of ['chat-send.ts', 'proposal-send.ts']) {
+    const body = src(name);
+    assert.ok(
+      !/tierCaps\([^)]*\)\.chat\s*===\s*['"]none['"]/.test(body),
+      `${name}: the FREE-tier messaging gate (tierCaps(...).chat === 'none') must be removed.`,
+    );
+  }
+});
+
+test('ungating the inbox did NOT remove couple-side spam protection', () => {
+  const body = src('inquiry-gate.ts');
+  // The velocity caps + master switch that blunt a bot/sock-puppet flood must
+  // still exist — ungating the vendor answer path must not touch them.
+  assert.match(body, /INQUIRY_DAILY_CAP/, 'inquiry-gate.ts: the daily inquiry cap must be preserved.');
+  assert.match(
+    body,
+    /INQUIRY_CONCURRENT_OPEN_CAP/,
+    'inquiry-gate.ts: the concurrent-open inquiry cap must be preserved.',
+  );
+  assert.match(
+    body,
+    /inquiryGateEnabled/,
+    'inquiry-gate.ts: the spam-gate master switch must be preserved.',
   );
 });

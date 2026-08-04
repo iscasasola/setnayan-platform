@@ -1188,6 +1188,18 @@ export type BoothVendor = {
    *  logo (branding is the Pro/Enterprise perk). Optional so an older cached
    *  scene payload (pre-poster) still parses. */
   posterUrl?: string | null;
+  /** Booth Studio (`event_vendor_booth_posters.poster_content`): the vendor's
+   *  STRUCTURED, palette-harmonized poster for THIS event — headline / offer /
+   *  price / accent composed at runtime in the couple's Mood Board palette (see
+   *  lib/booth-studio). Distinct from `posterUrl` (a raw uploaded image): this
+   *  is data, not a fetched raster, so it can never carry a presigned URL into a
+   *  cached scene payload. `logoPublicUrl` is the vendor logo resolved to a
+   *  PUBLIC (never presigned) R2 URL for the optional logo lockup. Rendered only
+   *  behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED. Optional so an older cached scene
+   *  payload (pre-Booth-Studio) still parses. Typed loosely here (the shape
+   *  lives in lib/booth-studio, which must not be imported into this hot pure
+   *  module); the renderer sanitizes it. */
+  posterContent?: unknown;
   /** Whether the profile can take bookings (`public_visibility === 'verified'`
    *  — lib/vendor-visibility isBookable). Gates the booth card's "Book this
    *  vendor" wording: a coming_soon profile keeps its slug (the profile page
@@ -1215,8 +1227,23 @@ export type BoothCardItem = { label: string; worthPhp?: number | null };
  *  generic. Tier-only predicate — the paid 3D Booth add-on entitlement is
  *  layered on top by {@link boothIsBranded}. Still used directly by the vendor's
  *  OWN booth showcase/preview (/v/[slug]/booth) — a Pro vendor previews the perk
- *  before buying the add-on — and by the shared gate below. */
-export function boothCanBrand(tier: string | null | undefined): boolean {
+ *  before buying the add-on — and by the shared gate below.
+ *
+ *  `allTiersAllowed` (2026-07-25 tiered add-on model, owner-locked): when true
+ *  the Pro/Enterprise TIER gate is LIFTED — EVERY tier may brand, because under
+ *  that model 3D Plan Ads is a paid add-on any tier can buy (Free/Solo ₱2,000,
+ *  Pro/Ent ₱1,500), so the entitlement — not the tier — is what earns branding.
+ *  Default false → the pre-2026-07-25 Pro-and-up perk, byte-identical. Callers
+ *  set it from `isVendorAddonTieredPricingEnabled()`; keeping it a plain
+ *  parameter keeps this hot module PURE (no env read), exactly as
+ *  `photoChallengeEligibility`'s `allTiersAllowed` does for Papic. Render + gate
+ *  surfaces should call the flag-aware wrappers in `lib/booth-branding-tier-gate`
+ *  rather than reading the flag at each of the seven call sites. */
+export function boothCanBrand(
+  tier: string | null | undefined,
+  allTiersAllowed = false,
+): boolean {
+  if (allTiersAllowed) return true;
   return tier === 'pro' || tier === 'enterprise';
 }
 
@@ -1230,9 +1257,20 @@ export function boothCanBrand(tier: string | null | undefined): boolean {
  *  boolean, so the entitlement can never drift between the logo, the poster, and
  *  the crowd-avoidance disc. Demo + the vendor's own showcase set
  *  `boothAddonActive: true` (illustrative/preview surfaces, not a couple's real
- *  published plan). */
-export function boothIsBranded(vendor: BoothVendor | null | undefined): boolean {
-  return !!vendor && boothCanBrand(vendor.tier) && vendor.boothAddonActive === true;
+ *  published plan).
+ *
+ *  `allTiersAllowed` forwards to {@link boothCanBrand} — under the 2026-07-25
+ *  tiered add-on model the paid entitlement ALONE decides, so a Free/Solo vendor
+ *  that bought 3D Plan Ads brands too. Default false = today's Pro+ behaviour.
+ *  The ACTIVE-add-on half of the gate never relaxes: no entitlement, no branding,
+ *  on every tier. */
+export function boothIsBranded(
+  vendor: BoothVendor | null | undefined,
+  allTiersAllowed = false,
+): boolean {
+  return (
+    !!vendor && boothCanBrand(vendor.tier, allTiersAllowed) && vendor.boothAddonActive === true
+  );
 }
 
 /** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */

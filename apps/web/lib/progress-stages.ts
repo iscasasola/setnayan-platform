@@ -347,12 +347,19 @@ export function buildProgressStages(
     },
     {
       key: 'wedding',
-      label: PROGRESS_STAGE_LABELS.wedding,
+      // The KEY stays 'wedding' (it is the stage's stable id, referenced by
+      // resolveStage and by callers), but the LABEL is the one the couple
+      // reads — and "Wedding day" on a birthday, a reunion or a Simple Event
+      // is simply wrong. Reuses the `eventWord` already derived above rather
+      // than adding a second event-type test that could drift from it.
+      label: eventWord === 'wedding' ? PROGRESS_STAGE_LABELS.wedding : 'Event day',
       pct: weddingPct,
       done: weddingDone,
       todo: weddingTodo,
       aiNote:
-        'Day-of mode switches on by itself an hour before the ceremony — your only job that morning is to show up.',
+        eventWord === 'wedding'
+          ? 'Day-of mode switches on by itself an hour before the ceremony — your only job that morning is to show up.'
+          : 'Day-of mode switches on by itself an hour before the event — your only job that morning is to show up.',
     },
     {
       key: 'after',

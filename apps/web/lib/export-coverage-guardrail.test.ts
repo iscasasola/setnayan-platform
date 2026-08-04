@@ -61,9 +61,13 @@
  *     stamp this test exists to prevent. The numbers are recorded so the
  *     trade-off stays auditable and revisitable, not so it stays permanent.
  *  4. A textual reference in the route proves a table is TOUCHED, not that it is
- *     CORRECTLY SCOPED. Only T6 (author column) and T11 (which CLIENT issues the
- *     read) check scoping, and only for the two tables this PR fixed. Every
- *     other EXPORTED entry is trusted to be reviewed by a human.
+ *     CORRECTLY SCOPED, and it says NOTHING about which of the table's columns
+ *     actually reach the subject. Only T6 (identity column) and T11 (which
+ *     CLIENT issues the read) check scoping, and only for the three tables read
+ *     through the service-role client; only T12 checks column COMPLETENESS, and
+ *     only for `vendor_profiles`. Every other EXPORTED entry is trusted to be
+ *     reviewed by a human — including its select list, which for most sections
+ *     is a hand-written subset nothing compares against the table.
  *  5. Retired tables are not detected. `DROP TABLE` in these migrations is
  *     idempotency scaffolding preceding a CREATE, not retirement — so a
  *     genuinely dropped table would linger as a stale map entry until T3 is
@@ -75,123 +79,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readSchema, type TableSchema } from './security/migration-schema';
+import {
+  VENDOR_PROFILE_EXPORT_COLUMNS,
+  VENDOR_PROFILE_EXPORT_OMITTED,
+} from './export-vendor-profile-columns';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const MIGRATIONS = path.resolve(HERE, '..', '..', '..', 'supabase', 'migrations');
 const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route.ts');
 
 // ── Parser ───────────────────────────────────────────────────────────────────
-
-/** Trailing table-constraint keywords that look like a column name at line start. */
-const NOT_A_COLUMN = /^(constraint|primary|unique|foreign|check|exclude|like)$/i;
-
-export type TableSchema = {
-  /** union of every column name seen across ALL migrations */
-  cols: Set<string>;
-  /** subset of `cols` that carries `REFERENCES public.users(user_id)` */
-  userFks: Set<string>;
-};
-
-/** Split a CREATE TABLE body on top-level commas — one entry per column/constraint. */
-function splitTopLevel(body: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const ch of body) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-    } else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-
-const USER_FK = /REFERENCES\s+public\.users\s*\(\s*user_id/i;
-
-/**
- * table -> columns + which of them FK to public.users(user_id). Union (not
- * last-write) because several migrations DROP+CREATE the same table for
- * idempotency, and later ALTERs add columns.
- *
- * Segment-oriented, NOT line-oriented: a column declaration is frequently
- * wrapped across lines with its REFERENCES clause on the next one, e.g.
- *   customer_id    UUID NOT NULL
- *                  REFERENCES public.users(user_id) ON DELETE CASCADE,
- * (marketing_share_consents, 20261203000000_social_sharing_program.sql:72-73).
- * A line-oriented parser sees the name but never the FK.
- */
-function readSchema(): Map<string, TableSchema> {
-  const schema = new Map<string, TableSchema>();
-  const files = fs
-    .readdirSync(MIGRATIONS)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS, file), 'utf8');
-
-    const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.([a-z0-9_]+)\s*\(/gi;
-    let m: RegExpExecArray | null;
-    while ((m = createRe.exec(sql))) {
-      const table = m[1] ?? '';
-      if (!table) continue;
-      // Walk forward from the opening paren, balancing parens, to find the
-      // matching close — the column body can contain nested parens (CHECK,
-      // numeric(10,2), …) so a lazy regex would truncate it.
-      let depth = 0;
-      let end = -1;
-      for (let i = createRe.lastIndex - 1; i < sql.length; i++) {
-        if (sql[i] === '(') depth++;
-        else if (sql[i] === ')') {
-          depth--;
-          if (depth === 0) {
-            end = i;
-            break;
-          }
-        }
-      }
-      if (end < 0) continue;
-
-      const entry = schema.get(table) ?? { cols: new Set<string>(), userFks: new Set<string>() };
-      // Strip `--` comments to END OF LINE, not just whole comment LINES.
-      // A trailing inline comment routinely contains a comma:
-      //   … ON DELETE SET NULL,  -- the rite (kasal/binyag/kumpil), if any
-      // (20270514787557_phase2_person_connections_schema.sql:39). Under a
-      // whole-line filter that comma survives, splitTopLevel breaks the segment
-      // there, and the NEXT real column is swallowed into a segment starting
-      // with leftover comment text — so the ^-anchored column regex never sees
-      // it. Measured: the whole-line filter dropped 161 columns across 55
-      // tables and silently pushed `people` and `vendor_meetings` OUT of the
-      // enforced tier while the suite stayed green. T10 now makes that class of
-      // silent narrowing impossible to ship.
-      const body = sql.slice(createRe.lastIndex, end).replace(/--[^\n]*/g, '');
-      for (const seg of splitTopLevel(body)) {
-        const s = seg.trim();
-        const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(s)?.[1];
-        if (!col || NOT_A_COLUMN.test(col)) continue;
-        entry.cols.add(col);
-        if (USER_FK.test(s)) entry.userFks.add(col);
-      }
-      schema.set(table, entry);
-    }
-
-    const alterRe = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?public\.([a-z0-9_]+)([\s\S]*?);/gi;
-    while ((m = alterRe.exec(sql))) {
-      const entry = schema.get(m[1] ?? '');
-      if (!entry) continue;
-      const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)([^,;]*)/gi;
-      let a: RegExpExecArray | null;
-      while ((a = addRe.exec(m[2] ?? ''))) {
-        if (!a[1]) continue;
-        entry.cols.add(a[1]);
-        if (USER_FK.test(a[2] ?? '')) entry.userFks.add(a[1]);
-      }
-    }
-  }
-  return schema;
-}
+// Extracted 2026-07-26 to lib/security/migration-schema.ts so the RA 10173
+// ERASURE guardrail reuses this exact parser instead of growing a second one.
+// The honesty notes in the docblock above still describe its limits.
 
 /** `user_id` or anything ending `_user_id` — the account holder's own handle. */
 const SUBJECT_COL = /^([a-z0-9_]*_)?user_id$/;
@@ -297,6 +198,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
   vendor_admin_motion_votes: 'Admin decision record — the uid on it is a staff actor, not the subject.',
+  oauth_grants:
+    'Live credential material — refresh_token / access_token to the subject’s Google account. Same rule as api_keys: a bearer secret is never exported, and a subject-access download is a file that lands in Downloads and gets emailed around. Newly VISIBLE 2026-07-26, not newly excluded: `granted_by_user_id` was added so ERASURE could stop deleting the co-partner’s grant event-wide (migration 20271009200000), and the attribution column is what made this table detectable at all. The non-secret fact of the connection (which account, connected when) is mirrored onto `events.photo_delivery_account_email` / `photo_delivery_status`.',
 
   // ── Newly VISIBLE 2026-07-21 (second pass) ────────────────────────────────
   // These 21 became visible when STAFF_ACTOR_FK was DELETED (see the
@@ -349,6 +252,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
  * exactly what this map exists to make visible.
  */
 const KNOWN_GAPS: Record<string, string> = {
+  // ── Newly VISIBLE 2026-07-26, not newly created ──────────────────────────
+  event_paperwork:
+    'TODO(RA10173-backlog): the subject’s own PSA / CENOMAR / baptismal reference numbers and the scanned documents behind them — squarely subject data, and not exported today. It became DETECTABLE only on 2026-07-26, when `subject_user_id` was added so ERASURE could stop destroying the co-partner’s civil-registry documents event-wide (migration 20271009200000). Nothing populates that column yet (no user↔partner-slot mapping exists), so an attribution-scoped export would currently return zero rows; wire it into the export route in the same PR that lands the mapping. Only the 8 per-partner document_type values can ever have a subject — the 7 joint ones (marriage_license, pre_cana_certificate, banns_posted, the counselling records) belong to both partners and need their own disclosure decision.',
+
   // ── Newly VISIBLE 2026-07-21, not newly created ──────────────────────────
   // These three were always gaps. They were invisible because STAFF_ACTOR
   // wrongly claimed `accessed_user_id` / `target_user_id` name an operator; on
@@ -395,6 +302,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_moderators: 'TODO(RA10173-backlog): coordinator/moderator grants naming the subject.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
+  event_playlist_slot_vibes:
+    'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
   event_sponsors: 'TODO(RA10173-backlog): sponsor rows naming the subject.',
   event_walkthrough_zones: 'TODO(RA10173-backlog): walkthrough notes the subject authored.',
@@ -413,8 +322,15 @@ const KNOWN_GAPS: Record<string, string> = {
   kwento_assignments: 'TODO(RA10173-backlog): assignments naming the subject.',
   lead_token_holds: 'TODO(RA10173-backlog): token holds tied to the subject’s vendor account.',
   manpower_gigs: 'TODO(RA10173-backlog): gigs the subject posted or accepted.',
+  // ⚠ CORRECTED 2026-07-26. Previously said "staff-authored fields need
+  // stripping first" — naming fields that do not exist. The richer shape was
+  // declared by 20260628000000 and never landed (CREATE TABLE IF NOT EXISTS
+  // no-opped); prod has no `verified_by_admin_id`, no `rejection_reason`, and
+  // no `customer_user_id`. There is nothing staff-authored to strip, and the
+  // row has no direct subject key — it reaches a person only via `event_id`.
+  // See 20271011873973 and apps/web/tests/db/schema-drift.db.test.ts.
   manual_payment_logs:
-    'TODO(RA10173-backlog): manual reconciliation entries about the subject’s payments (staff-authored fields need stripping first).',
+    'TODO(RA10173-backlog): manual QR/bank payment rows for the subject’s events (reference_number + amount + status). Reachable only via event_id — there is no direct subject key and nothing staff-authored on the row.',
   notifications: 'TODO(RA10173-backlog): the subject’s notification history — a real omission.',
   panood_camera_operators: 'TODO(RA10173-backlog): operator assignments naming the subject.',
   paparazzi_seats: 'TODO(RA10173-backlog): seats claimed by the subject.',
@@ -432,7 +348,16 @@ const KNOWN_GAPS: Record<string, string> = {
   supplies_orders: 'TODO(RA10173-backlog): the subject’s own supplies orders.',
   thread_calls:
     'TODO(RA10173-backlog): call metadata (never content — calls are locked never-recorded); metadata is still personal data.',
-  user_ai_subscription: 'TODO(RA10173-backlog): the subject’s own AI subscription record.',
+  // ⚠ TABLE DROPPED 2026-08-01 (migration 20271028225106) with the per-USER
+  // Setnayan AI path — owner: "it is per event". The entry STAYS because
+  // lib/security/migration-schema.ts derives the schema from migration HISTORY
+  // and does not parse DROP TABLE, so the historical CREATE still makes this
+  // table visible to the classifier. Removing the line fails the "every
+  // subject-bearing table is classified" gate. Several already-dropped tables
+  // (patiktok_*, panood_roam_*, telemetry_events, creator_applications) sit in
+  // these lists for the same reason; teaching the parser about DROP TABLE would
+  // prune them all at once and is deliberately NOT bundled into this change.
+  user_ai_subscription: 'TODO(RA10173-backlog): table DROPPED 2026-08-01 — nothing to export.',
   user_devices: 'TODO(RA10173-backlog): the subject’s devices — same credential caveat as push_subscriptions.',
   user_face_profiles:
     'TODO(RA10173-backlog): account-level face profile — must ship METADATA ONLY, mirroring guest_face_enrollments.',
@@ -494,8 +419,28 @@ const KNOWN_GAPS: Record<string, string> = {
  * coverage got worse. Refusing the raise would have meant keeping the heuristic
  * wrong to protect a number — precisely the false confidence this file exists
  * to prevent. Every future movement must be downward.
+ *
+ *   88 → 89  2026-07-26 · `event_paperwork`. Same shape as every raise above:
+ *            the gap is not new, the VISIBILITY is. The table holds the
+ *            subject's PSA / CENOMAR references and was never exported, but it
+ *            is keyed by event_id and had no user column at all, so this
+ *            detector was structurally incapable of counting it. Adding
+ *            `subject_user_id` — for ERASURE, so one partner deleting their
+ *            account would stop destroying the OTHER partner's civil-registry
+ *            documents — is what made it countable. (`oauth_grants` became
+ *            visible in the same migration and went to DELIBERATE_EXCLUSIONS
+ *            instead: it is credential material.)
+ *
+ *            Worth stating plainly, because it is the reusable lesson: an
+ *            attribution column improves BOTH sides at once. It let erasure
+ *            stop over-deleting, and it dragged a silent export gap into the
+ *            count. Tables with no user column are not clean; they are unread.
  */
-const KNOWN_GAP_CEILING = 88;
+// Raised 89 → 90 on 2026-07-30 for `event_playlist_slot_vibes` (Song Desk PR 4).
+// Deliberate, not a rubber stamp: the vibe is taste data the subject chose, in the
+// same class as `event_playlist_picks` directly above it in KNOWN_GAPS, so it gets
+// the same honest "not yet decided" rather than an invented exclusion reason.
+const KNOWN_GAP_CEILING = 90;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -647,7 +592,7 @@ test('T10 · every classified table is still IN SCOPE (a narrowing heuristic mus
   );
 });
 
-test('T11 · the two author-scoped reads use the PRIVILEGED client, not the session client', () => {
+test('T11 · the three identity-scoped reads use the PRIVILEGED client, not the session client', () => {
   const src = fs.readFileSync(ROUTE, 'utf8');
   // THE load-bearing assertion for this whole fix, and it is here because
   // mutation testing proved its absence: reverting both reads to the RLS
@@ -657,15 +602,26 @@ test('T11 · the two author-scoped reads use the PRIVILEGED client, not the sess
   // coordinator (removeHost stamps event_moderators.removed_at AND deletes the
   // event_members row) reads ZERO rows through the session client and receives
   // a subject-access file asserting they wrote nothing.
+  // `vendor_profiles` joined this set on 2026-07-27 for a DIFFERENT reason than
+  // the two coordinator tables, and the difference is worth stating so nobody
+  // "simplifies" it back: those two have no author SELECT policy, so RLS filters
+  // the subject's own rows to zero. vendor_profiles has a working owner policy —
+  // what breaks it is COLUMN privilege. Once `SELECT (tin_number, …)` is revoked
+  // from `authenticated` (the whole point of the follow-up PR), the owner's own
+  // read 42501s and PostgREST drops the ENTIRE row, not the one column. Same
+  // outcome as the coordinator bug — the subject's own record missing from the
+  // subject's own export — reached by a different mechanism.
   for (const [table, col] of [
     ['event_vendor_working_notes', 'author_user_id'],
     ['coordinator_broadcasts', 'sender_user_id'],
+    ['vendor_profiles', 'user_id'],
   ] as const) {
     assert.match(
       src,
       new RegExp(`admin\\s*\\n?\\s*\\.from\\(\\s*'${table}'\\s*\\)`),
-      `${table} must be read from the SERVICE-ROLE client (\`admin\`). It has no author SELECT policy, so an ` +
-        'RLS-enforced read returns zero rows for a coordinator whose grant was revoked — a false "you wrote nothing".',
+      `${table} must be read from the SERVICE-ROLE client (\`admin\`) — otherwise the subject's own ` +
+        'rows are filtered or refused on their own subject-access request (no author SELECT policy for the ' +
+        'coordinator tables; a column-level REVOKE for vendor_profiles), and they receive a false empty.',
     );
     assert.doesNotMatch(
       src,
@@ -690,6 +646,122 @@ test('T11 · the two author-scoped reads use the PRIVILEGED client, not the sess
     /process\.env\.SUPABASE_SERVICE_ROLE_KEY/,
     'The route must gate the privileged read on SUPABASE_SERVICE_ROLE_KEY being present. ' +
       'A try/catch around createAdminClient() is NOT enough — the dev-only anon-key fallback in lib/supabase/admin.ts never throws.',
+  );
+});
+
+test('T12 · the vendor_profiles export projection is COMPLETE (no column silently drops out)', () => {
+  // WHY THIS TEST IS THE POINT OF THE CHANGE IT GUARDS.
+  //
+  // Replacing `select('*')` with a named list buys a column-level revoke on
+  // vendor_profiles, and costs a new failure mode that the wildcard could not
+  // have: UNDER-EXPORT. A wildcard cannot forget a column. A hand-written list
+  // can, and the omission is invisible in every way that normally catches
+  // things — the route still returns 200, the section still looks populated,
+  // typecheck is silent (a PostgREST select list is a string), and the phantom-
+  // column scanner only looks for the OPPOSITE error (a column that does not
+  // exist). The data subject receives a file that is quietly missing their
+  // registered business address, and nobody finds out.
+  //
+  // So the projection is not trusted; it is DERIVED-CHECKED. The assertion is
+  // an equality, deliberately, not a subset check in either direction:
+  //   • schema \ (projection ∪ omitted) → UNDER-EXPORT, an incomplete legal
+  //     disclosure. This is the one that motivated the test.
+  //   • projection \ schema → a phantom column. PostgREST 42501/42703s the
+  //     WHOLE statement on one bad name, so this would delete the entire
+  //     vendor_profile section rather than one field.
+  //   • omitted \ schema → a stale withholding decision pointing at a column
+  //     that no longer exists, i.e. a reason nobody has re-read.
+  //
+  // Same `readSchema()` the rest of this file uses, so its honesty notes apply
+  // verbatim: a column added inside a DO block or applied straight to prod is
+  // invisible here. Mitigated once by hand — the migration-derived set was
+  // diffed against production `information_schema.columns` on 2026-07-27 and
+  // matched exactly, 93 for 93.
+  const table = readSchema().get('vendor_profiles');
+  assert.ok(
+    table,
+    'No CREATE TABLE public.vendor_profiles found in supabase/migrations — the parser regressed, ' +
+      'and with it every assertion below (an empty schema would make this test vacuously green).',
+  );
+
+  const omitted = Object.keys(VENDOR_PROFILE_EXPORT_OMITTED);
+  const projected = new Set(VENDOR_PROFILE_EXPORT_COLUMNS);
+
+  // Anti-vacuity. If the projection were emptied, or the parser started
+  // returning a handful of columns, the set arithmetic below could still be
+  // made to pass by a matching mistake on the other side.
+  assert.ok(
+    table.cols.size > 80,
+    `readSchema() sees only ${table.cols.size} columns on vendor_profiles; production had 93 on 2026-07-27. ` +
+      'The parser has narrowed — fix it rather than lowering this floor.',
+  );
+  assert.equal(
+    projected.size,
+    VENDOR_PROFILE_EXPORT_COLUMNS.length,
+    'The projection names the same column twice. It is derived by splitting VENDOR_PROFILE_EXPORT_SELECT, ' +
+      'so a duplicate means the string itself repeats a name.',
+  );
+
+  const missing = [...table.cols].filter((c) => !projected.has(c) && !omitted.includes(c)).sort();
+  assert.deepEqual(
+    missing,
+    [],
+    `UNDER-EXPORT: vendor_profiles column(s) reach no data subject: ${missing.join(', ')}.\n` +
+      'A column exists on the table but is neither in the export projection nor deliberately withheld. ' +
+      'Under RA 10173 that is an incomplete subject-access response, not a style issue. Do one of:\n' +
+      '  1. add it to VENDOR_PROFILE_EXPORT_SELECT in lib/export-vendor-profile-columns.ts (preferred), or\n' +
+      '  2. add a VENDOR_PROFILE_EXPORT_OMITTED entry there with the reason it is withheld from the ' +
+      'subject — and expect that reason to be read by the DPO, not by a linter.',
+  );
+
+  const phantom = [...projected].filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(
+    phantom,
+    [],
+    `Projected column(s) no migration declares on vendor_profiles: ${phantom.join(', ')}.\n` +
+      'PostgREST fails the WHOLE select on one unknown column, so this does not lose a field — it loses ' +
+      'the entire vendor_profile section of every vendor’s export.',
+  );
+
+  const staleOmissions = omitted.filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(
+    staleOmissions,
+    [],
+    `VENDOR_PROFILE_EXPORT_OMITTED names column(s) that no longer exist: ${staleOmissions.join(', ')}. ` +
+      'Delete the entries — a withholding decision about a dropped column is a reason nobody has re-read.',
+  );
+
+  for (const [col, reason] of Object.entries(VENDOR_PROFILE_EXPORT_OMITTED)) {
+    assert.ok(
+      reason.trim().length > 20,
+      `VENDOR_PROFILE_EXPORT_OMITTED.${col} needs a real reason, not a placeholder. ` +
+        'Withholding a column from a subject-access response is a decision someone must defend.',
+    );
+  }
+});
+
+test('T13 · a privileged read that could not run is DISCLOSED, never rendered as an empty', () => {
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // The `admin === null` path (no SUPABASE_SERVICE_ROLE_KEY) is not an error —
+  // it is the route declining to take a read it cannot take honestly. Every
+  // section behind that client must therefore pass `adminUnavailable` into its
+  // outcome helper, or it ships `[]` / `null` under `export_complete: true`:
+  // the exact false statement of fact this route exists to prevent, just
+  // relocated. vendor_profile is the newest such section and the easiest to
+  // miss, because unlike the other two it reads as an ordinary owner query.
+  assert.match(
+    src,
+    /singleOutcome<[\s\S]{0,300}?>\(\s*'vendor_profile'\s*,\s*vendorProfileRes\s*,\s*adminUnavailable\s*\)/,
+    "The vendor_profile section must be unwrapped as singleOutcome('vendor_profile', vendorProfileRes, " +
+      "adminUnavailable). Without the third argument a run with no service key reports `vendor_profile: null` " +
+      'with export_complete TRUE — telling a vendor in writing that Setnayan holds no business record for them.',
+  );
+  // The two media sections hang off the profile row, so they go empty with it.
+  assert.match(
+    src,
+    /vendorMediaIncomplete\s*=\s*listOutcome\(/,
+    'When the vendor_profile read is not taken, vendor_portfolio_media and vendor_submitted_media resolve to ' +
+      '[] with nothing said — the same silent empty one level down. They must be named as NOT READ too.',
   );
 });
 
@@ -752,7 +824,7 @@ test('T9 · no read on the export route is unwrapped with a bare `?? []`', () =>
   );
 });
 
-test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {
+test('T6 · the privileged reads stay IDENTITY-scoped, never event- or profile-scoped', () => {
   const src = fs.readFileSync(ROUTE, 'utf8');
   // Coarse but real: a refactor that flips either filter to .eq('event_id', …)
   // would leak a third party's prose into a subject-access file — private
@@ -767,5 +839,16 @@ test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {
     src,
     /coordinator_broadcasts[\s\S]{0,400}?sender_user_id/,
     'coordinator_broadcasts must be filtered by sender_user_id, not by event_id.',
+  );
+  // vendor_profiles (2026-07-27). The tempting refactor here is not event_id —
+  // it is `.eq('vendor_profile_id', …)` resolved from somewhere else, which
+  // behind the service-role client would hand one vendor another vendor's BIR
+  // tax identity. The uid filter is the only thing making this read
+  // self-scoped now that RLS is no longer in the path.
+  assert.match(
+    src,
+    /'vendor_profiles'[\s\S]{0,400}?\.eq\(\s*'user_id'\s*,\s*user\.id\s*\)/,
+    "vendor_profiles must be filtered by .eq('user_id', user.id). It is read service-role, so RLS is NOT " +
+      'a second line of defence here — the filter is the only bound on the row set.',
   );
 });

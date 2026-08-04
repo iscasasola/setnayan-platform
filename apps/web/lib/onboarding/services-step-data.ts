@@ -1,0 +1,207 @@
+/**
+ * services-step-data.ts — the live view-model behind the onboarding services
+ * step (`app/onboarding/_shared/services-step.tsx`).
+ *
+ * ⚠ CLIENT-SAFE BY CONSTRUCTION — the types + the PURE derivation only. The
+ * live reader lives in its sibling `services-step-server.ts`, and the split is
+ * load-bearing: the step renders inside two CLIENT wizards, which import this
+ * module for `orderPapicTypes` and the view types. Keeping the reader here would
+ * drag `createAdminClient` (and the whole v2-catalog + event-type-profile chain)
+ * into the onboarding browser bundle — "never import this from a client
+ * component", as lib/supabase/admin.ts puts it. Nothing here may import a module
+ * that touches the service-role client, React `cache()`, or `next/headers`.
+ *
+ * It carries no 'use client' and no React either, so a Server Component may
+ * import it just as freely — and the derivation is unit-testable without a DOM.
+ *
+ * ── WHAT THE VIEW-MODEL PROMISES ────────────────────────────────────────────
+ * Every figure the card can print arrives here already resolved from a live
+ * table — points from papic_pass_tiers / papic_one_tiers, prices from
+ * platform_retail_catalog_v2, the two free allowances from
+ * papic_event_pool_config, the photo/clip weights from the capture-path
+ * constants. This module's job is to DROP anything it cannot fully resolve: a
+ * rung with no live price disappears rather than rendering at ₱0, which on a
+ * price ladder reads as "free". A shorter true ladder, never a fake door.
+ */
+import { PAPIC_FREE_ONE_CAMERA_COUNT, type PapicOneTier } from '@/lib/papic-one';
+import type { PapicPassTier } from '@/lib/papic-pass-tiers';
+import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
+
+/** One purchasable rung, fully resolved. Points from its tier table, price from the catalog. */
+export type PapicRungView = {
+  /** platform_retail_catalog_v2 service_code — the React key. Never displayed. */
+  key: string;
+  points: number;
+  pricePhp: number;
+};
+
+/** One of the two Papic products, as the card reads it. */
+export type PapicTypeView = {
+  /** Stable id — the card keys copy + emphasis off this, never off a title. */
+  id: 'pool' | 'one';
+  /**
+   * The onboarding inapp service key this product maps to. The bridge to
+   * `style_preferences.interested_services`, whose values are exactly these keys
+   * (INAPP_TO_SERVICE_CODE) — which is how the persona's derived interest can
+   * order the two products without either side inventing a third vocabulary.
+   */
+  inappKey: string;
+  /** Free points on this product. 0 ⇒ the free rung is not rendered. */
+  freePoints: number;
+  /**
+   * Free CAMERAS on this product. `null` = not a per-camera product (the Pool is
+   * unlimited cameras sharing one purse). A number = free dedicated cameras.
+   */
+  freeCameras: number | null;
+  /** Paid rungs, cheapest first. Empty ⇒ the ladder shows only the free rung. */
+  rungs: PapicRungView[];
+};
+
+export type PapicCardView = {
+  /** terminology.eventWord — 'wedding' | 'event' | 'trip'. The runway noun. */
+  eventWord: string;
+  /** Pool first by default; the card may reorder from interested_services. */
+  types: PapicTypeView[];
+  /** ['1 photo = 1 pt', '10-second clip = 8 pts'] — derived, never typed. */
+  currencyTerms: readonly [string, string];
+};
+
+export type AiCardView = {
+  /** Display price, e.g. "₱1,499". Resolved from the type's tier SKU. */
+  priceLabel: string;
+};
+
+export type ServicesStepView = {
+  papic: PapicCardView;
+  /** null ⇒ the vendor-free gate closed it. The card does not render at all. */
+  ai: AiCardView | null;
+};
+
+/** The onboarding inapp keys the two Papic products answer to (INAPP_TO_SERVICE_CODE). */
+export const PAPIC_POOL_INAPP_KEY = 'papic_guest';
+export const PAPIC_ONE_INAPP_KEY = 'papic_seats';
+
+const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
+
+/**
+ * PURE. Resolve one tier table + a price lookup into renderable rungs.
+ *
+ * Both halves must answer or the rung is dropped. A tier row with no live
+ * catalog price is the dangerous case — it is a real product the couple cannot
+ * be quoted, and printing it with a blank or zero price reads as "free".
+ */
+function rungsFrom(
+  tiers: ReadonlyArray<{ serviceCode: string; points: number }>,
+  pricePhpByCode: ReadonlyMap<string, number>,
+): PapicRungView[] {
+  return tiers
+    .map((t) => {
+      const pricePhp = pricePhpByCode.get(t.serviceCode);
+      if (typeof pricePhp !== 'number' || !Number.isFinite(pricePhp) || pricePhp <= 0) {
+        return null;
+      }
+      return { key: t.serviceCode, points: t.points, pricePhp };
+    })
+    .filter((r): r is PapicRungView => r !== null)
+    .sort((a, b) => a.pricePhp - b.pricePhp);
+}
+
+/**
+ * PURE. Build the whole view-model from already-fetched inputs.
+ *
+ * Split out from the reader below so every branch — a dead catalog, a zeroed
+ * free allowance, a closed AI gate — is assertable without touching a database.
+ */
+export function buildServicesStepView(input: {
+  eventWord: string;
+  poolTiers: readonly PapicPassTier[];
+  oneTiers: readonly PapicOneTier[];
+  /** service_code → price (pesos), from the ACTIVE customer catalog only. */
+  pricePhpByCode: ReadonlyMap<string, number>;
+  freePoolPoints: number;
+  freeOnePoints: number;
+  /** null ⇒ the gate closed. Never 0-as-a-signal — 0 is a price, not an absence. */
+  aiPricePhp: number | null;
+}): ServicesStepView {
+  const {
+    eventWord,
+    poolTiers,
+    oneTiers,
+    pricePhpByCode,
+    freePoolPoints,
+    freeOnePoints,
+    aiPricePhp,
+  } = input;
+
+  const types: PapicTypeView[] = [
+    {
+      id: 'pool',
+      inappKey: PAPIC_POOL_INAPP_KEY,
+      freePoints: Math.max(0, freePoolPoints),
+      // The Pool is deliberately camera-less: any guest phone that scans the
+      // event QR shoots from it, so there is no seat to count and no seat to
+      // sell. Rendering a number here would re-import the per-seat model the
+      // two-type lock retired.
+      freeCameras: null,
+      // The repeatable top-up rung is excluded, exactly as /pricing excludes it:
+      // it is a re-buy for an event that already holds a big pool, not a base
+      // pick, and listing it beside the three buckets reads as a fourth product.
+      rungs: rungsFrom(
+        poolTiers.filter((t) => !t.isTopup),
+        pricePhpByCode,
+      ),
+    },
+    {
+      id: 'one',
+      inappKey: PAPIC_ONE_INAPP_KEY,
+      freePoints: Math.max(0, freeOnePoints),
+      // Exactly one, and structurally so — see PAPIC_FREE_ONE_CAMERA_COUNT. A
+      // zeroed allowance means the SQL arms no camera, so the free rung goes
+      // with it rather than promising a camera that is never minted.
+      freeCameras: freeOnePoints > 0 ? PAPIC_FREE_ONE_CAMERA_COUNT : 0,
+      rungs: rungsFrom(oneTiers, pricePhpByCode),
+    },
+  ];
+
+  return {
+    papic: { eventWord, types, currencyTerms: papicPointCurrencyTerms() },
+    ai:
+      aiPricePhp != null && aiPricePhp > 0 ? { priceLabel: peso(aiPricePhp) } : null,
+  };
+}
+
+/**
+ * PURE. Order the two Papic products by what the persona actually asked for.
+ *
+ * ── THIS IS `interested_services`' FIRST READER (BUILD SPEC § 1.3) ───────────
+ * `style_preferences.interested_services` has been WRITTEN by three onboarding
+ * files and read by ZERO since PR #2137 (2026-06-25). The persona packs derive a
+ * per-type, per-persona service list — `papic_guest` (Pool) leads for the
+ * big-celebration personas, `papic_seats` (One) for the keepsake ones — and then
+ * that judgement was thrown away.
+ *
+ * Deliberately the LIGHTEST possible touch: it changes ORDER and nothing else.
+ * Both products always render, at their real prices, with their real free tiers —
+ * a couple whose persona leaned one way is never shown less. Anything stronger
+ * (hiding a product, pre-selecting one, discounting one) would turn a derived
+ * guess into a decision the couple never made, on a screen that deliberately
+ * takes no money.
+ *
+ * Stable: a named product sorts ahead of an unnamed one, ties keep the incoming
+ * order (Pool first), so an empty or unrecognised list is a no-op.
+ */
+export function orderPapicTypes(
+  types: readonly PapicTypeView[],
+  interestedServices: readonly string[] | null | undefined,
+): PapicTypeView[] {
+  const wanted = interestedServices ?? [];
+  if (wanted.length === 0) return [...types];
+  const rank = (t: PapicTypeView) => {
+    const i = wanted.indexOf(t.inappKey);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return types
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i)
+    .map(({ t }) => t);
+}

@@ -4,12 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { encryptToken } from '@/lib/encryption';
 import {
   getSecretIntegration,
   getOAuthIntegration,
   MAYA_INTEGRATION,
 } from '@/lib/integrations/registry';
+import {
+  writeIntegrationSecretColumns,
+  clearIntegrationSecretColumns,
+  CONSOLE_SAVE_NOTE,
+} from '@/lib/integrations/write';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
 //
@@ -18,6 +22,12 @@ import {
 // before it ever touches the DB. requireAdmin mirrors the team-member-aware gate
 // used across /admin (NOT the SQL is_admin() helper, which only checks
 // account_type='admin' and would lock out team-member admins).
+//
+// 2026-07-25: the encrypt + upsert + rotation-stamp body moved to
+// lib/integrations/write.ts so the Secrets & Rotation board's inline paste boxes
+// share this exact write layer instead of growing a second copy of it. These
+// actions keep the console's own concerns: the allowlist lookup, the non-secret
+// config columns on platform_settings, and where to redirect afterwards.
 
 async function requireAdmin(): Promise<void> {
   const supabase = await createClient();
@@ -52,11 +62,14 @@ export async function saveResendConfig(formData: FormData): Promise<void> {
   // the stored secret back through the form).
   const keyRaw = formData.get('resend_api_key');
   if (typeof keyRaw === 'string' && keyRaw.trim()) {
-    const enc = encryptToken(keyRaw.trim());
-    await admin
-      .from('platform_integration_secrets')
-      .update({ resend_api_key_enc: enc, updated_at: new Date().toISOString() })
-      .eq('id', 1);
+    const res = await writeIntegrationSecretColumns(
+      { resend_api_key_enc: keyRaw.trim() },
+      CONSOLE_SAVE_NOTE,
+    );
+    // Before the shared writer, a missing ENCRYPTION_KEY threw here and the
+    // owner got a 500. Now it comes back as a status — say so rather than
+    // redirecting to "Saved." with nothing stored.
+    if (!res.ok) redirect('/admin/integrations?error=secret_write');
   }
 
   revalidatePath('/admin/integrations');
@@ -97,12 +110,11 @@ export async function saveIntegrationSecret(formData: FormData): Promise<void> {
 
   const secretRaw = formData.get('secret');
   if (typeof secretRaw === 'string' && secretRaw.trim()) {
-    const admin = createAdminClient();
-    const enc = encryptToken(secretRaw.trim());
-    await admin
-      .from('platform_integration_secrets')
-      .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
-      .eq('id', 1);
+    const res = await writeIntegrationSecretColumns(
+      { [def.secretColumn]: secretRaw.trim() },
+      CONSOLE_SAVE_NOTE,
+    );
+    if (!res.ok) redirect('/admin/integrations?error=secret_write');
   }
 
   revalidatePath('/admin/integrations');
@@ -115,11 +127,7 @@ export async function clearIntegrationSecret(formData: FormData): Promise<void> 
   const def = typeof id === 'string' ? getSecretIntegration(id) : undefined;
   if (!def) throw new Error('Unknown integration');
 
-  const admin = createAdminClient();
-  await admin
-    .from('platform_integration_secrets')
-    .update({ [def.secretColumn]: null, updated_at: new Date().toISOString() })
-    .eq('id', 1);
+  await clearIntegrationSecretColumns([def.secretColumn]);
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
@@ -169,11 +177,11 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
   // Client secret → encrypted, only if a new value was entered.
   const secretRaw = formData.get('client_secret');
   if (typeof secretRaw === 'string' && secretRaw.trim()) {
-    const enc = encryptToken(secretRaw.trim());
-    await admin
-      .from('platform_integration_secrets')
-      .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
-      .eq('id', 1);
+    const res = await writeIntegrationSecretColumns(
+      { [def.secretColumn]: secretRaw.trim() },
+      CONSOLE_SAVE_NOTE,
+    );
+    if (!res.ok) redirect('/admin/integrations?error=secret_write');
   }
 
   revalidatePath('/admin/integrations');
@@ -186,11 +194,7 @@ export async function clearOAuthSecret(formData: FormData): Promise<void> {
   const def = typeof id === 'string' ? getOAuthIntegration(id) : undefined;
   if (!def) throw new Error('Unknown integration');
 
-  const admin = createAdminClient();
-  await admin
-    .from('platform_integration_secrets')
-    .update({ [def.secretColumn]: null, updated_at: new Date().toISOString() })
-    .eq('id', 1);
+  await clearIntegrationSecretColumns([def.secretColumn]);
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
@@ -198,15 +202,8 @@ export async function clearOAuthSecret(formData: FormData): Promise<void> {
 
 export async function clearResendKey(): Promise<void> {
   await requireAdmin();
-  const admin = createAdminClient();
-  await admin
-    .from('platform_integration_secrets')
-    .update({
-      resend_api_key_enc: null,
-      last_verified_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
+  // `last_verified_at` clears with it — see COMPANION_NULL_ON_CLEAR.
+  await clearIntegrationSecretColumns(['resend_api_key_enc']);
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
 }
@@ -244,22 +241,19 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
     .update({ [MAYA_INTEGRATION.endpointColumn]: endpoint })
     .eq('id', 1);
 
-  // Secrets → encrypt + write only the keys that were entered.
+  // Secrets → write only the keys that were entered. Both Maya columns map to
+  // the same registry id, so the shared writer stamps the rotation clock once.
   const secretPatch: Record<string, string> = {};
   const pubRaw = formData.get('maya_public_api_key');
   if (typeof pubRaw === 'string' && pubRaw.trim()) {
-    secretPatch[MAYA_INTEGRATION.publicKeyColumn] = encryptToken(pubRaw.trim());
+    secretPatch[MAYA_INTEGRATION.publicKeyColumn] = pubRaw.trim();
   }
   const secRaw = formData.get('maya_secret_api_key');
   if (typeof secRaw === 'string' && secRaw.trim()) {
-    secretPatch[MAYA_INTEGRATION.secretKeyColumn] = encryptToken(secRaw.trim());
+    secretPatch[MAYA_INTEGRATION.secretKeyColumn] = secRaw.trim();
   }
-  if (Object.keys(secretPatch).length > 0) {
-    await admin
-      .from('platform_integration_secrets')
-      .update({ ...secretPatch, updated_at: new Date().toISOString() })
-      .eq('id', 1);
-  }
+  const res = await writeIntegrationSecretColumns(secretPatch, CONSOLE_SAVE_NOTE);
+  if (!res.ok) redirect('/admin/integrations?error=secret_write');
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');
@@ -267,15 +261,10 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
 
 export async function clearMayaSecrets(): Promise<void> {
   await requireAdmin();
-  const admin = createAdminClient();
-  await admin
-    .from('platform_integration_secrets')
-    .update({
-      [MAYA_INTEGRATION.publicKeyColumn]: null,
-      [MAYA_INTEGRATION.secretKeyColumn]: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
+  await clearIntegrationSecretColumns([
+    MAYA_INTEGRATION.publicKeyColumn,
+    MAYA_INTEGRATION.secretKeyColumn,
+  ]);
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
 }

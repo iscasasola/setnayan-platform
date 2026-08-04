@@ -79,9 +79,11 @@ import {
   type ScheduleBlockType,
 } from '@/lib/schedule';
 import { BLOCK_CUE } from '@/lib/emcee-script';
+import { DEFAULT_EVENT_TZ } from './schedule';
 import {
   deriveRunOfShow,
   driftLabel,
+  plannedInstant,
   type RunState,
 } from '@/lib/run-of-show';
 
@@ -227,9 +229,17 @@ function byTime(a: StageScriptBlock, b: StageScriptBlock): number {
 }
 
 /** Whole minutes from `now` to a planned start. Null on an unparseable time. */
-function minutesUntil(startIso: string, now: Date): number | null {
-  const t = new Date(startIso).getTime();
-  if (Number.isNaN(t)) return null;
+/**
+ * How far away the next moment is, in minutes.
+ *
+ * `startIso` is the VENUE'S WALL CLOCK; `now` is a real instant. Reading the
+ * first as the second put the host's desk exactly one UTC offset out — a
+ * 3 PM moment, eight minutes away, announced as "in 488 min" all afternoon,
+ * so the countdown was useless precisely when it mattered.
+ */
+function minutesUntil(startIso: string, now: Date, tz: string): number | null {
+  const t = plannedInstant(startIso, tz);
+  if (t === null) return null;
   return Math.round((t - now.getTime()) / 60000);
 }
 
@@ -331,7 +341,7 @@ export function buildStageScript(input: {
 
   // Run-state truth, reusing the shipped derivation. `StageScriptBlock` is a
   // structural superset of `RunOfShowBlock`, so the real rows go straight in.
-  const run = deriveRunOfShow(blocks, now);
+  const run = deriveRunOfShow(blocks, now, DEFAULT_EVENT_TZ);
   const byId = new Map(blocks.map((b) => [b.block_id, b]));
   const currentBlock = run.current ? byId.get(run.current.block_id) ?? null : null;
   const nextBlock = run.next ? byId.get(run.next.block_id) ?? null : null;
@@ -347,7 +357,7 @@ export function buildStageScript(input: {
 
   const nowCue = currentBlock ? toCueBlock(currentBlock, formatTime) : null;
   const nextCue = nextBlock
-    ? { ...toCueBlock(nextBlock, formatTime), minutesAway: minutesUntil(nextBlock.start_at, now) }
+    ? { ...toCueBlock(nextBlock, formatTime), minutesAway: minutesUntil(nextBlock.start_at, now, DEFAULT_EVENT_TZ) }
     : null;
 
   const cue: StageCue = {

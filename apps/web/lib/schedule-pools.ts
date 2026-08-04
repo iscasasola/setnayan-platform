@@ -232,3 +232,59 @@ export async function releaseSchedulePools(
   const env = (data ?? {}) as { status?: string; released?: number };
   return env.status === 'ok' ? (env.released ?? 0) : null;
 }
+
+/**
+ * Resolve a booking's pools from a GIVEN `event_vendors` row and acquire them.
+ * (Explore_Replan_BUILD_SPEC_2026-07-27.md §12.2 steps 5–6)
+ *
+ * Callers pass the id they want the reservation held AGAINST — for a package
+ * that must be the ANCHOR row (`resolveFeeAnchorRowId`), never a cascade row.
+ *
+ * ─── Why the row identity matters ────────────────────────────────────────
+ * `acquire_schedule_pools` counts occupancy as every live booking whose
+ * `event_vendor_id <> p_event_vendor_id`. So if one path acquires on a covered
+ * cascade row and another acquires on the anchor for the SAME package, the two
+ * rows count each other: the vendor's daily capacity is eaten twice by one
+ * booking, and a real second couple is told the date is fully booked.
+ * Re-acquiring the same id is idempotent (`ON CONFLICT (pool_id,
+ * event_vendor_id) WHERE released_at IS NULL DO NOTHING`), so routing every
+ * acquire through one identity is the whole fix.
+ *
+ * ─── Which resolver fires ────────────────────────────────────────────────
+ * `service_id` when the row names one, else the category. Package cascade rows
+ * carry a `category` and NO `service_id`, so the category branch is the one
+ * that fires for them.
+ *
+ * Degrades OPEN and never throws: a booking with no marketplace link, no
+ * service/category, or no pools is not a scheduling participant.
+ *
+ * @param admin service-role client — the row read crosses the couple/vendor RLS
+ *              boundary, and after the 2026-08-04 widening the RPC accepts a
+ *              vendor or admin caller as well as the couple.
+ */
+export async function acquireSchedulePoolsForBooking(
+  admin: SupabaseClient,
+  eventId: string,
+  eventVendorId: string,
+): Promise<PoolAcquireResult> {
+  const { data, error } = await admin
+    .from('event_vendors')
+    .select('marketplace_vendor_id, service_id, category')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+  if (error || !data) return { status: 'no_pools' };
+
+  const row = data as {
+    marketplace_vendor_id: string | null;
+    service_id: string | null;
+    category: string | null;
+  };
+  if (!row.marketplace_vendor_id) return { status: 'no_pools' };
+
+  const poolIds = row.service_id
+    ? await resolvePoolIdsForService(admin, row.marketplace_vendor_id, row.service_id)
+    : await resolvePoolIdsForCategory(admin, row.marketplace_vendor_id, row.category);
+  if (poolIds.length === 0) return { status: 'no_pools' };
+
+  return acquireSchedulePools(admin, eventId, eventVendorId, poolIds);
+}

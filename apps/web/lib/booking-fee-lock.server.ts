@@ -189,3 +189,80 @@ export async function collectBookingFeeAtLock(
 
   return { status: 'ordered', chargeId, orderId, referenceCode, amountPhp };
 }
+
+/**
+ * Which `event_vendors` row the money belongs to — or NULL for "bill nothing".
+ * (Explore_Replan_BUILD_SPEC_2026-07-27.md §12.2 step 1)
+ *
+ * ─── The problem ─────────────────────────────────────────────────────────
+ * A package booking is N rows: ONE `package_role='anchor'` carrying the whole
+ * `total_cost_php` the couple agreed, plus N−1 `package_role='covered'` cascade
+ * rows carrying ₱0. Only the anchor is the money row.
+ *
+ * The acknowledge path can be handed EITHER. `fetchLockRequests`
+ * (`lib/vendor-overview.ts`) queries with the service-role client filtered only
+ * on `marketplace_vendor_id` + deposit markers — no `package_role` filter, no
+ * `archived_at` filter — and posts that raw id straight into
+ * `vendorAcknowledgeDeposit`. And the DB does not stop it: the "covered rows
+ * carry no money" CHECK (`20271009160000:64-67`) constrains `total_cost_php`
+ * and `deposit_paid_php` only, NOT the deposit timestamps.
+ *
+ * ─── The rule ────────────────────────────────────────────────────────────
+ * Resolve to the anchor, or bill NOTHING. **Never** fall back to the covered
+ * row's own id: skipping a fee is a recoverable mistake; charging the wrong row
+ * freezes a ledger ordinal (`ON CONFLICT … DO UPDATE` never rewrites
+ * `attribution`, `20271009180000:83-89`) and burns one of the vendor's five
+ * free bookings — permanently, on a row that was never supposed to carry money.
+ *
+ * Fail-safe invariant #1 of the seam contract, verbatim: *any resolution error
+ * or unknown state bills NOTHING. A vendor must never be charged by a bug.*
+ * Every early return below is that invariant.
+ *
+ * ⚠ Do NOT resolve via `event_vendor_packages.primary_event_vendor_id` — it is
+ * `ON DELETE SET NULL` (`20260604110000:241-242`) and couple-RLS'd, so a vendor
+ * session reads nothing. The second query here is index-served by
+ * `event_vendors_package_idx`.
+ *
+ * @param admin MUST be the service-role client — `event_vendor_packages` and
+ *              the anchor lookup are couple-scoped under RLS.
+ */
+export async function resolveFeeAnchorRowId(
+  admin: SupabaseClient,
+  eventVendorId: string,
+): Promise<string | null> {
+  const { data: row, error } = await admin
+    .from('event_vendors')
+    .select('vendor_id, package_role, event_vendor_package_id, archived_at')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+
+  // Row vanished, or the read failed → bill nothing.
+  if (error || !row) return null;
+
+  const r = row as {
+    vendor_id: string;
+    package_role: string | null;
+    event_vendor_package_id: string | null;
+    archived_at: string | null;
+  };
+
+  // An archived (rejected/withdrawn) booking is not a sale.
+  if (r.archived_at) return null;
+
+  // NULL (an ordinary single booking) or 'anchor' → it IS the money row.
+  if (r.package_role !== 'covered') return r.vendor_id;
+
+  // Orphaned cascade row — the FK is ON DELETE SET NULL, so this is reachable.
+  if (!r.event_vendor_package_id) return null;
+
+  const { data: anchor } = await admin
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_vendor_package_id', r.event_vendor_package_id)
+    .eq('package_role', 'anchor')
+    .is('archived_at', null)
+    .maybeSingle();
+
+  // Anchor gone → bill nothing. Never the covered row's own id.
+  return (anchor as { vendor_id: string } | null)?.vendor_id ?? null;
+}

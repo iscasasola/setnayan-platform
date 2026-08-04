@@ -16,10 +16,41 @@ const base: NavInput = {
   hostAllowsCamera: true,
   anyChapterPublic: true,
   liveBroadcast: false,
+  // A real caller always resolves these — it knows the slug and the guest's
+  // token. Absent, a slot correctly LOCKS rather than pointing nowhere, which
+  // is its own assertion below.
+  destinations: { camera: '/papic/guest', watch: '/maria-and-jose/hub' },
 };
 const at = (o: Partial<NavInput>) => resolveSiteNav({ ...base, ...o });
 const keys = (s: NavSlot[]) => s.map((x) => x.key);
 const cam = (s: NavSlot[]) => s.find((x) => x.key === 'camera');
+
+test('nav · a slot with no destination LOCKS rather than pointing nowhere', () => {
+  // The caller resolves destinations; if it cannot build one (no token, no
+  // stream), the slot must not render as a live link to "#". A link that goes
+  // nowhere is the dead button this whole bar exists to avoid.
+  const noDest = at({ viewer: { kind: 'couple' }, destinations: {} });
+  const cameraSlot = cam(noDest);
+  assert.equal(cameraSlot?.state, 'locked');
+  assert.ok(cameraSlot?.lockedReason);
+});
+
+test('nav · every slot carries a destination, and no live slot points at "#"', () => {
+  for (const viewer of [
+    { kind: 'public' as const },
+    { kind: 'guest' as const },
+    { kind: 'couple' as const },
+    { kind: 'vendor' as const, kits: [] as VendorKit[] },
+  ])
+    for (const phase of ['before', 'day', 'after'] as const)
+      for (const liveBroadcast of [true, false])
+        for (const slot of at({ viewer, phase, liveBroadcast })) {
+          assert.ok(slot.href, `${slot.key} has no destination`);
+          if (slot.state === 'live') {
+            assert.notEqual(slot.href, '#', `${slot.key} is live but points at "#"`);
+          }
+        }
+});
 
 test('nav · the bar never exceeds five slots, for anyone, in any phase', () => {
   const viewers = [

@@ -65,7 +65,7 @@ export type VendorKit = 'floor_command' | 'song_desk' | 'stage_script';
 /** How close the wedding is. */
 export type NavPhase = 'before' | 'day' | 'after';
 
-export type NavSlotKey = 'home' | 'details' | 'camera' | 'watch' | 'gallery' | 'me';
+export type NavSlotKey = 'home' | 'details' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -75,6 +75,14 @@ export type NavSlot = {
   state: 'live' | 'locked';
   /** Why it is locked — shown to the viewer. Absent when live. */
   lockedReason?: string;
+  /**
+   * Where the slot goes. An in-page `#anchor` for the sections of the site
+   * itself; a real path for the ones that LEAVE (the camera, the broadcast).
+   * Carried here so the bar renders slots without knowing any routing — the
+   * rules live in one tested place, and a component cannot quietly invent a
+   * destination the rules never sanctioned.
+   */
+  href: string;
 };
 
 export type NavInput = {
@@ -84,8 +92,24 @@ export type NavInput = {
   hostAllowsCamera: boolean;
   /** Has the couple made at least one gallery chapter public? */
   anyChapterPublic: boolean;
+  /** Did the couple write a story section? */
+  hasStory?: boolean;
   /** Is a broadcast running right now? */
   liveBroadcast: boolean;
+  /** Where each leaving slot goes, resolved by the caller (it knows the slug,
+   *  the guest's token and whether a paid roll exists). A missing destination
+   *  means the caller could not build one — the slot then LOCKS rather than
+   *  pointing nowhere. */
+  destinations?: { camera?: string | null; watch?: string | null };
+};
+
+/** In-page anchors, mirroring SITE_MENU_ANCHORS. */
+const ANCHOR: Record<'home' | 'details' | 'story' | 'gallery' | 'me', string> = {
+  home: '#site-home',
+  details: '#site-details',
+  story: '#site-story',
+  gallery: '#site-gallery',
+  me: '#site-me',
 };
 
 /** One-word kit labels — the nav cannot hold "Script & cues" (it wraps). */
@@ -102,6 +126,8 @@ const KIT_SLOT_LABEL: Record<VendorKit, string> = {
  */
 export function resolveSiteNav(input: NavInput): NavSlot[] {
   const { viewer, phase, hostAllowsCamera, anyChapterPublic, liveBroadcast } = input;
+  const dest = input.destinations ?? {};
+  const hasStory = input.hasStory ?? false;
   const isVendor = viewer.kind === 'vendor';
   const isCouple = viewer.kind === 'couple';
   const slots: NavSlot[] = [];
@@ -111,31 +137,54 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     key: 'home',
     label: phase === 'day' ? 'Now' : phase === 'after' ? 'Recap' : 'Home',
     state: 'live',
+    href: ANCHOR.home,
   });
 
   // 2 — DETAILS, or WATCH once a broadcast is actually running. Watch takes
   //     this slot rather than the Gallery one: on the day a viewer needs the
   //     camera AND the gallery, so the broadcast may not displace either.
   if (phase === 'day' && liveBroadcast && !isVendor) {
-    slots.push({ key: 'watch', label: 'Watch', state: 'live' });
+    slots.push(
+      dest.watch
+        ? { key: 'watch', label: 'Watch', state: 'live', href: dest.watch }
+        : { key: 'watch', label: 'Watch', state: 'locked', href: '#', lockedReason: 'The broadcast has not started' },
+    );
   } else if (phase === 'before') {
-    slots.push({ key: 'details', label: 'Details', state: 'live' });
+    slots.push({ key: 'details', label: 'Details', state: 'live', href: ANCHOR.details });
   } else if (isVendor) {
-    slots.push({ key: 'details', label: 'Cues', state: 'live' });
+    slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
   }
 
-  // 3 — CAMERA (Papic). The centre slot on the day.
+  // 3 — STORY. The couple's own words, before the day only: once the wedding is
+  //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
+  //     holds five.
+  if (phase === 'before' && !isVendor && hasStory) {
+    slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
+  }
+
+  // 4 — CAMERA (Papic). The centre slot on the day.
   if (isCouple) {
     // Unconditional. It is their wedding.
-    slots.push({ key: 'camera', label: 'Camera', state: 'live' });
-  } else if (!isVendor) {
     slots.push(
-      hostAllowsCamera
-        ? { key: 'camera', label: 'Camera', state: 'live' }
+      dest.camera
+        ? { key: 'camera', label: 'Camera', state: 'live', href: dest.camera }
         : {
             key: 'camera',
             label: 'Camera',
             state: 'locked',
+            href: '#',
+            lockedReason: 'No camera is open for this event yet',
+          },
+    );
+  } else if (!isVendor) {
+    slots.push(
+      hostAllowsCamera && dest.camera
+        ? { key: 'camera', label: 'Camera', state: 'live', href: dest.camera }
+        : {
+            key: 'camera',
+            label: 'Camera',
+            state: 'locked',
+            href: '#',
             lockedReason: 'The host has not opened the camera',
           },
     );
@@ -148,13 +197,14 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     when none is, the slot is NOT DRAWN. Hiding content, not announcing it.
   if (!isVendor && (phase === 'day' || phase === 'after')) {
     if (isCouple || anyChapterPublic) {
-      slots.push({ key: 'gallery', label: 'Gallery', state: 'live' });
+      slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
     }
   }
 
   // 5 — ME. Always last, always present; its name follows who they are.
   slots.push({
     key: 'me',
+    href: ANCHOR.me,
     label: isVendor
       ? vendorSlotLabel(viewer.kits)
       : isCouple

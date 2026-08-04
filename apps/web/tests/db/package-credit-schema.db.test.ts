@@ -238,9 +238,16 @@ test('RLS is enabled on the options table with the sibling public-read / owner-w
      ORDER BY policyname`,
   );
   const names = policies.rows.map((r) => r.policyname);
+  // Deliberately a CLOSED set, not a `.includes()` — a new policy on this table
+  // is an exposure change and must be read by a human before it lands. The
+  // third entry arrived with 20271104090000: `vendor_packages` had been given a
+  // team-admin policy in 20260822000000 while its two child tables were missed,
+  // so a vendor TEAM ADMIN could start a package and never finish one. Keep this
+  // closed; add the name, never loosen the comparison.
   assert.deepEqual(names, [
     'vendor_package_item_options_owner_write',
     'vendor_package_item_options_public_read',
+    'vendor_package_item_options_team_admin',
   ]);
 });
 

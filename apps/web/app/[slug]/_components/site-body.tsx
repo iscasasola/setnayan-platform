@@ -247,6 +247,8 @@ type SiteBodyProps = {
    *  film's monogram beats. null → text initials. */
   bespokeSvg: string | null;
   dayOfPhase: DayOfPhase;
+  /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
+  hostCameraOpen?: boolean;
   /** The coordinator's latest announcement, live window only. Guests only. */
   dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -337,6 +339,7 @@ export function SiteBody({
   studioAnim,
   bespokeSvg,
   dayOfPhase,
+  hostCameraOpen = false,
   dayOfBroadcast = null,
   phasesEnabled,
   lifecyclePhase,
@@ -779,7 +782,20 @@ export function SiteBody({
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires
             the old bars. */}
-        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
+        {menuOn ? (
+          <SiteMenuBar
+            sections={menuSections}
+            // Papic. The host's switch is the gate (owner 2026-08-03: "the papic
+            // service will always run but the host of the event has the power to
+            // allow use and not allow use"). Closed ⇒ DRAWN AND LOCKED, never
+            // absent — the camera is part of what the invitation promises.
+            camera={
+              hostCameraOpen
+                ? { href: '/papic/guest' }
+                : { locked: true, reason: 'The host has not opened the camera' }
+            }
+          />
+        ) : null}
       </>
     );
   };
@@ -1509,7 +1525,21 @@ export function SiteBody({
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.
             Coexists with the GuestHubBar (page.tsx) until PR11 retires the old
             bars. */}
-        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
+        {menuOn ? (
+          <SiteMenuBar
+            sections={menuSections}
+            // A guest's own roll first, then the couple's shared camera — the
+            // same order GuestHubBar already uses. Locked, not hidden, when the
+            // host has opened neither.
+            camera={
+              papicGuest
+                ? { href: `/papic/me/${guest.qr_token}` }
+                : hostCameraOpen
+                  ? { href: '/papic/guest' }
+                  : { locked: true, reason: 'The host has not opened the camera' }
+            }
+          />
+        ) : null}
       </>
     );
   };

@@ -747,10 +747,18 @@ export const loadLiveLayer = cache(
     // surfaces only during the live window when the couple's PAPIC_GUEST camera
     // is open; the public album points at the Live Photo Wall during the day and
     // the recap after. One cheap read, and only in the live window.
-    const publicCandidCameraActive =
-      dayOfPhase === 'live'
-        ? await eventPapicGuestActive(admin, event.event_id)
-        : false;
+    // THE HOST'S SWITCH, asked unconditionally.
+    //
+    // Owner, 2026-08-03: "the papic service will always run but the host of the
+    // event has the power to allow use and not allow use." So the gate is the
+    // SWITCH, not the calendar — and the menu's camera slot needs to know the
+    // switch's real state on every day, not just the wedding day, so it can be
+    // drawn LOCKED with an honest reason rather than silently vanishing.
+    const hostCameraOpen = await eventPapicGuestActive(admin, event.event_id);
+    // The day-of BAR keeps its original live-window rule: that surface is the
+    // on-the-day chrome and has no meaning before it. Only the menu slot follows
+    // the switch alone.
+    const publicCandidCameraActive = dayOfPhase === 'live' ? hostCameraOpen : false;
     // During the live window the Live Photo Wall is already mirrored INLINE on
     // this page (the #live-photo-wall section below), so "Photos" anchors to it —
     // NOT to `/[slug]/live-wall`, which is a JSON poll-feed route handler (the
@@ -768,6 +776,7 @@ export const loadLiveLayer = cache(
       liveWall,
       watchLive,
       publicCandidCameraActive,
+      hostCameraOpen,
       publicAlbumHref,
     };
   },

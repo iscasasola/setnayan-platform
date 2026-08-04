@@ -247,6 +247,10 @@ export type LiveLayerData = {
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;
   publicCandidCameraActive: boolean;
+  /** The host's Papic switch, read on ANY day — the menu's camera slot follows
+   *  the SWITCH, not the calendar (owner 2026-08-03). Distinct from
+   *  `publicCandidCameraActive`, which stays live-window-only for the day-of bar. */
+  hostCameraOpen: boolean;
   publicAlbumHref: string | null;
 };
 

@@ -1969,7 +1969,17 @@ export async function finalizeVendor(
         })),
         isChineseWedding(stillRow),
       );
-      const { error: dateErr } = await supabase
+      // ⚠ `.is('event_date', null)` is a CONCURRENCY guard, and it must stay: the
+      // `stillNoDate` pre-read above is TOCTOU, so it is the only thing stopping a
+      // slow lock from clobbering a date the couple set in a parallel tab.
+      //
+      // But a guarded UPDATE that matches ZERO rows SUCCEEDS WITH NO ERROR. Reading
+      // `!dateErr` as "the date was written" therefore told the couple "your date is
+      // now locked" when they had LOST that race and the date is someone else's —
+      // a milestone, a toast and a `dateJustLocked` flag, all for a write that never
+      // happened. `.select('event_id')` makes the row count the answer instead of
+      // the absence of an error.
+      const { data: dateRows, error: dateErr } = await supabase
         .from('events')
         .update({
           event_date: forcedDateKey,
@@ -1978,8 +1988,9 @@ export async function finalizeVendor(
           auspicious_reasons: reasons,
         })
         .eq('event_id', eventId)
-        .is('event_date', null);
-      if (!dateErr) dateLockedNow = true;
+        .is('event_date', null)
+        .select('event_id');
+      dateLockedNow = !dateErr && (dateRows?.length ?? 0) > 0;
     }
   }
 

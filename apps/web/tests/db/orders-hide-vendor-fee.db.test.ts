@@ -1,7 +1,7 @@
 /**
  * PRIVACY: a couple / co-host must NOT see the vendor's booking-fee order.
  * END-TO-END DB verification (migrations replayed) of the tightened co-host read
- * policy (20270930140000_orders_cohost_exclude_vendor_payer): the vendor-payer
+ * policy (20271102603681_orders_exclude_vendor_payer_from_event_reads): the vendor-payer
  * fee order — stamped with the couple's event_id so the vendor's own pay screen
  * can scope it — must be invisible to every event member while the vendor still
  * reads it and admins still see everything.
@@ -75,6 +75,7 @@ type Fixtures = {
   vendorUser: string;
   admin: string;
   stranger: string;
+  guest: string;
   eventId: string;
   coupleOrderId: string;
   cohostOrderId: string;
@@ -87,6 +88,7 @@ const F: Fixtures = {
   vendorUser: '',
   admin: '',
   stranger: '',
+  guest: '',
   eventId: '',
   coupleOrderId: '',
   cohostOrderId: '',
@@ -103,6 +105,9 @@ before(async () => {
   F.vendorUser = await createUser('feepriv-vendor@t.test', 'vendor');
   F.admin = await createUser('feepriv-admin@t.test', 'customer');
   F.stranger = await createUser('feepriv-stranger@t.test', 'customer');
+  // A GUEST of the same event. Not a party to the couple's money at all — this
+  // fixture exists to pin the NARROW helper (see the guest test below).
+  F.guest = await createUser('feepriv-guest@t.test', 'customer');
 
   // Promote the admin (is_admin() reads public.users.account_type). The
   // guard_users_privilege_columns trigger blocks escalation to 'admin' unless
@@ -118,11 +123,12 @@ before(async () => {
   );
   F.eventId = ev.rows[0]!.event_id;
 
-  // Couple + co-host are event members; the VENDOR is NOT a member of this event.
+  // Couple + co-host + a guest are event members; the VENDOR is NOT a member of
+  // this event.
   await db.query(
     `INSERT INTO public.event_members (event_id, user_id, member_type)
-     VALUES ($1, $2, 'couple'), ($1, $3, 'coordinator')`,
-    [F.eventId, F.couple, F.cohost],
+     VALUES ($1, $2, 'couple'), ($1, $3, 'coordinator'), ($1, $4, 'guest')`,
+    [F.eventId, F.couple, F.cohost, F.guest],
   );
 
   // Couple-side SKU order (payer = couple, an event member).
@@ -190,6 +196,27 @@ test('co-host (coordinator): same — no vendor fee order', async () => {
   assert.ok(ids.has(F.coupleOrderId), 'co-host sees couple order');
   assert.ok(ids.has(F.cohostOrderId), 'co-host sees own order');
   assert.ok(!ids.has(F.vendorFeeOrderId), 'co-host does NOT see the vendor booking-fee order');
+});
+
+test('REGRESSION: a GUEST of the event reads NO orders at all — not even the couple\'s', async () => {
+  // Why this test exists. The July draft of this fix was written against an
+  // older policy that used current_event_ids() (EVERY event_members row) and
+  // would have DROPped the later, narrower current_couple_or_coordinator_event_ids()
+  // (member_type IN couple/coordinator) and recreated the broad one. It would
+  // have passed every other test in this file — because they only seed a couple
+  // and a coordinator — while quietly handing the couple's entire order history,
+  // amounts and reference codes included, to every guest at the wedding.
+  //
+  // So: this is the case that tells the two helpers apart. If someone widens the
+  // policy back to current_event_ids(), this is the test that goes red.
+  await asAuthed(F.guest);
+  const ids = await selectEventOrderIds();
+  await reset();
+  assert.ok(!ids.has(F.coupleOrderId), 'guest must NOT see the couple SKU order');
+  assert.ok(!ids.has(F.cohostOrderId), 'guest must NOT see the co-host order');
+  assert.ok(!ids.has(F.adhocOrderId), 'guest must NOT see the ad-hoc order');
+  assert.ok(!ids.has(F.vendorFeeOrderId), 'guest must NOT see the vendor booking-fee order');
+  assert.equal(ids.size, 0, 'a guest reads NOTHING from orders for their event');
 });
 
 test('ADVERSARIAL: couple cannot reach the vendor fee order by direct order_id', async () => {

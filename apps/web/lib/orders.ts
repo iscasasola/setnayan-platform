@@ -117,7 +117,7 @@ const ORDER_SELECT =
  *
  * DEFENSE-IN-DEPTH belt: the real guard is RLS (orders_owner_read now requires
  * the order's payer to be an event member — see
- * 20270930140000_orders_cohost_exclude_vendor_payer.sql). This filter is a
+ * 20271102603681_orders_exclude_vendor_payer_from_event_reads.sql). This filter is a
  * second layer so a couple-facing list can never surface the fee order even if
  * the RLS guard were ever loosened.
  *

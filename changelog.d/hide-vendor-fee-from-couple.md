@@ -12,7 +12,7 @@ reference code and status. A couple must never see what their vendor is charged.
 
 Closed at BOTH layers (defense in depth), vendor + admin access intact:
 
-- **RLS (the real guard):** `20270930140000_orders_cohost_exclude_vendor_payer.sql`
+- **RLS (the real guard):** `20271102603681_orders_exclude_vendor_payer_from_event_reads.sql`
   tightens the co-host branch so it only admits orders whose PAYER is themselves
   an `event_members` row of that event (new SECURITY DEFINER helper
   `public.is_event_member(event_id, user_id)`). Couple purchasers + co-hosts are
@@ -40,3 +40,41 @@ orders; vendor still reads own fee order; admin sees all; stranger sees none) pl
 the app-side belt predicate proven RLS-off.
 
 SPEC IMPACT: None (privacy fix — vendor fee orders are no longer visible to the couple; no product-surface or pricing change).
+
+---
+
+## 2026-08-04 · the July migration was re-issued — it would have opened a bigger hole than it closed
+
+This PR sat open since 2026-07-24 with auto-merge armed, 930 commits behind `main`. Refreshing
+it surfaced two defects in the original migration, both of which would have shipped silently.
+
+**1 · It would have WIDENED the policy it was fixing.** The draft was written against an older
+`orders_owner_read` that used `current_event_ids()`. Prod has since narrowed that branch to
+`current_couple_or_coordinator_event_ids()`. Because the migration is a
+`DROP POLICY … ; CREATE POLICY …` pair, re-issuing it verbatim would have dropped the narrow
+policy and recreated the **broad** one:
+
+| helper | admits |
+|---|---|
+| `current_event_ids()` | every `event_members` row — **guests included** |
+| `current_couple_or_coordinator_event_ids()` | `member_type IN ('couple','coordinator')` |
+
+So the fix for "the couple can see the vendor's fee" would have handed **every guest at the
+wedding** the couple's entire order history — amounts, reference codes, statuses. Verified
+against live prod (`pg_policy` + `pg_get_functiondef`) before rewriting rather than inferred
+from the migration text.
+
+**2 · It would probably never have run.** Prefix `20270930140000` sits below **114**
+already-applied migrations (head `20271102113000`). Re-allocated via the allocator to
+`20271102603681`.
+
+**The test suite could not have caught either.** It seeded only a `couple` and a `coordinator`
+— the two member types both helpers admit — so the widening was invisible to all 9 tests.
+Added a `guest` fixture and a `REGRESSION` case asserting a guest reads **zero** rows, then
+**watched it fail**: re-widening the helper turns it red (`# fail 1`), restoring it turns it
+green (`# pass 10`). A guard nobody has seen fail is not a guard.
+
+**Live-defect status:** confirmed still open in prod on 2026-08-04 — `orders_owner_read`'s
+middle branch admits any order carrying the event's id, and the booking fee is armed.
+
+SPEC IMPACT: None. No pricing, SKU or scope change — an RLS narrowing plus its regression test.

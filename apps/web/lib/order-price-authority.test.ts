@@ -824,8 +824,8 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // must pass the money writer, and those callers are scanned normally.
   const INJECTED_CLIENT_REVIEWED: Record<string, string> = {
     'lib/booking-fee-lock.server.ts':
-      '`admin: SupabaseClient` is a parameter. Both production callers ' +
-      '(app/dashboard/[eventId]/vendors/actions.ts and …/vendors/packages/actions.ts) pass ' +
+      '`admin: SupabaseClient` is a parameter. Its ONE production caller ' +
+      '(app/vendor-dashboard/clients/[eventId]/actions.ts — vendorAcknowledgeDeposit) passes ' +
       'createMoneyWriterClient(); tests/db passes its replay client.',
   };
 
@@ -845,11 +845,20 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
     }
   }
 
-  // …and the exemption is not a blank cheque: the callers must actually pass it.
-  for (const caller of [
-    'app/dashboard/[eventId]/vendors/actions.ts',
-    'app/dashboard/[eventId]/vendors/packages/actions.ts',
-  ]) {
+  // …and the exemption is not a blank cheque: the caller must actually pass it.
+  //
+  // ⚠ THIS LIST MOVED 2026-08-04 (PR-I). It used to name the two LOCK sites —
+  // finalizeVendor and lockPackage. The owner's lock-handshake ruling makes a
+  // couple's lock a REQUEST and bills the syncing fee when the VENDOR ACCEPTS
+  // THE PAYMENT, so those two no longer call the collector at all and this
+  // hardcoded list was the thing that noticed. That is the guard working: it is
+  // pinned to WHO SPENDS MONEY, and when that changed it went red instead of
+  // quietly passing over files that had stopped being money paths.
+  //
+  // `lib/booking-fee-single-trigger.test.ts` is the companion check — it fails
+  // if a SECOND non-test caller ever appears, or if this one disappears. If a
+  // sixth ruling moves the trigger again, both files change together.
+  for (const caller of ['app/vendor-dashboard/clients/[eventId]/actions.ts']) {
     const src = readFileSync(join(WEB, caller), 'utf8');
     if (!/collectBookingFeeAtLock\(\s*createMoneyWriterClient\(\)/.test(src)) {
       offenders.push(`${caller} → passes a non-money client into collectBookingFeeAtLock`);

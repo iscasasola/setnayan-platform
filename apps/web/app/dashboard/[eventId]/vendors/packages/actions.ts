@@ -5,10 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { resolveLivePax } from '@/lib/pax';
-import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import {
   priceCustomizedPackage,
@@ -530,39 +527,23 @@ export async function lockPackage(
         .update({ primary_event_vendor_id: anchorRow.vendor_id })
         .eq('booking_id', bookingId);
 
-      // ── § 6.4 — the booking fee, ONCE, on the package's agreed total ──────
+      // ── § 6.4 — NO BOOKING FEE HERE ANY MORE ─────────────────────────────
       //
-      // Until now `lockPackage` never called the collector at all, so on
-      // flag-flip a package booked for ₱0 in fees no matter its size.
+      // This used to collect the fee on the anchor at lock time. The owner's
+      // 2026-07-27 handshake ruling (the fifth on this trigger, reaffirmed
+      // 2026-08-03) makes a couple's lock a REQUEST: the fee is billed when the
+      // VENDOR ACCEPTS THE PAYMENT, in `vendorAcknowledgeDeposit`, which is now
+      // the one and only caller of `collectBookingFeeAtLock`.
       //
-      // It fires on the ANCHOR precisely because the anchor carries
-      // `total_cost_php` = the whole number the couple accepted. Calling it per
-      // cascaded row would instead price the largest single LINE, and — worse —
-      // burn one of the vendor's five free bookings per service and freeze a
-      // ledger ordinal that is only ever computed once. The RPC now refuses a
-      // covered row outright (`covered_row_no_fee`) so that cannot happen even
-      // by mistake.
+      // The anchor still matters, and the reason survives the move: the anchor
+      // carries `total_cost_php` = the whole number the couple accepted, while
+      // a covered cascade row carries ₱0. Billing a covered row would price the
+      // largest single LINE, burn one of the vendor's five free bookings and
+      // freeze a ledger ordinal that is only ever computed once. That resolution
+      // now lives in `resolveFeeAnchorRowId`, applied at the acknowledge site.
       //
-      // Ships dark: `collectBookingFeeAtLock` is a no-op unless
-      // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on. Fail-soft on purpose — the
-      // couple's booking must never fail because a fee could not be opened;
-      // the next lock re-attempts it.
-      //
-      // ⚠ TRIGGER MOVED — see the note in `vendors/actions.ts`. 2 of 3 call
-      // sites. `isLockHandshakeEnabled()` ON defers this to vendor
-      // payment-acceptance; OFF keeps billing here at the lock.
-      if (!isLockHandshakeEnabled() && isBookingFeeEnabled()) {
-        try {
-          await collectBookingFeeAtLock(createMoneyWriterClient(), {
-            eventVendorId: anchorRow.vendor_id,
-          });
-        } catch (e) {
-          console.error(
-            `[lockPackage] booking-fee collect failed for booking_id=${bookingId}:`,
-            e,
-          );
-        }
-      }
+      // Enforced, not merely described: `lib/booking-fee-single-trigger.test.ts`
+      // fails if a second non-test call site reappears here or anywhere else.
     }
   }
 

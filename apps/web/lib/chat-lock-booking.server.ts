@@ -1,8 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
-import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 
 /**
@@ -112,26 +110,26 @@ export async function bookVendorAtChatLock(
     }
   }
 
-  // Collect (or reuse) the Booking Fee — reads the just-written total_cost_php,
-  // idempotent per (vendor, event). A pure no-op unless NEXT_PUBLIC_BOOKING_FEE_
-  // ENABLED is on; free for the vendor's first 5 booked customers; 6th+ mints a
-  // 5% vendor-payer order. Fail-soft: the lock committed — a fee hiccup here must
-  // never roll it back.
+  // NO FEE HERE ANY MORE — see the note in
+  // `app/dashboard/[eventId]/vendors/actions.ts`. A couple's lock is a REQUEST;
+  // the fee is billed when the VENDOR ACCEPTS THE PAYMENT
+  // (`vendorAcknowledgeDeposit`), the one and only caller of
+  // `collectBookingFeeAtLock`, enforced by
+  // `lib/booking-fee-single-trigger.test.ts`.
   //
-  // ⚠ TRIGGER MOVED — see the note in `dashboard/[eventId]/vendors/actions.ts`.
-  // 3 of 3 call sites. This is the one most easily missed: it bills from a CHAT
-  // message, not from a lock screen, so a sweep that greps the vendors surface
-  // alone walks straight past it and the couple gets billed twice by taking a
-  // different route to the same booking.
-  let feeCharged = false;
-  if (!isLockHandshakeEnabled()) {
-    try {
-      const res = await collectBookingFeeAtLock(admin, { eventVendorId });
-      feeCharged = res.status === 'ordered';
-    } catch {
-      // swallow — the lock stands; the next lock/re-lock re-attempts the fee.
-    }
-  }
+  // ⚠ THIS SITE IS THE EASY ONE TO MISS: it bills from a CHAT message, not a
+  // lock screen, so a sweep of the vendors surface walks straight past it.
+  // Leaving it behind would have billed at the lock AND again at acknowledge —
+  // the same booking charged twice, depending only on which route the couple
+  // happened to take.
+  //
+  // `feeCharged` stays in the return shape and is now always false from here.
+  // That is CORRECT, not a stub: nothing is charged at lock any more. The
+  // 'refresh_fee_only' branch — which existed solely to re-attempt the fee on an
+  // already-booked pair — is consequently inert. Retiring it means changing the
+  // shared decision type and its callers, so it is left for its own change
+  // rather than widened into a money move.
+  const feeCharged = false;
 
   return action === 'refresh_fee_only'
     ? { status: 'already_booked', feeCharged }

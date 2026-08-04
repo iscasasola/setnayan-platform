@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { collectBookingFeeAtLock, resolveFeeAnchorRowId } from '@/lib/booking-fee-lock.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import { emitNotification } from '@/lib/notification-emit';
@@ -166,7 +165,7 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
     // redirect below. A vendor's confirmation is not allowed to fail because a
     // fee or a pool row misbehaved.
     // ────────────────────────────────────────────────────────────────────
-    if (isLockHandshakeEnabled()) {
+    {
       try {
         const admin = createAdminClient();
 

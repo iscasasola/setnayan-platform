@@ -101,27 +101,6 @@ const FLAGS: FlagSpec[] = [
     ],
     locals: ['replan'],
   },
-  {
-    // PR-I · §7. Moves the syncing fee AND the schedule reservation from the
-    // couple's lock to the vendor's payment-acceptance (owner ruling 5 of 5,
-    // 2026-07-27). Registered the day the first surface was wired.
-    env: 'NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED',
-    helper: 'lib/lock-handshake-flag.ts',
-    fn: 'isLockHandshakeEnabled',
-    gates: [
-      // THE THREE LOCK SITES THAT BILL. They must move TOGETHER — one left
-      // behind bills at the lock while acknowledge bills again, so the same
-      // booking is charged twice depending on which route the couple took.
-      // This list is the guard against exactly that.
-      'app/dashboard/[eventId]/vendors/actions.ts',
-      'app/dashboard/[eventId]/vendors/packages/actions.ts',
-      'lib/chat-lock-booking.server.ts',
-      // …and the one that now bills instead.
-      'app/vendor-dashboard/clients/[eventId]/actions.ts',
-    ],
-    pureCores: [],
-    locals: ['handshake', 'lockHandshake'],
-  },
 ];
 
 /** Strip comments — a docblock naming the helper must not read as a call. */

@@ -29,9 +29,16 @@
  * A rung the catalog can't price is already gone by the time it gets here, so a
  * dead SKU shortens the ladder instead of lying about it.
  *
- * Guests only. Vendor capture is counsel-gated OFF (`vendor_papic_capture`
- * defaults off and /api/vendor/papic-capture 403s), so this copy must not
- * promise it until the DPO/NPC ruling lands.
+ * Guests only — and that is a COPY decision, not a consequence of the vendor
+ * lane being off. ⚠ It IS on: the `vendor_papic_capture` privacy control was
+ * approved in production on 2026-07-16, and this docblock claimed the opposite
+ * for the nineteen days after. A comment that states a live system's state goes
+ * stale silently; check the control, not this line.
+ *
+ * The reason this step still says guests only is simpler: it is the COUPLE'S
+ * onboarding. What a booked vendor may capture is the vendor's own decision on
+ * their own console, and promising it here would sell the couple something
+ * neither they nor we control.
  */
 
 import { useMemo, type ReactNode } from 'react';

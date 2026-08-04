@@ -6021,7 +6021,7 @@ func	public.acknowledge_handover(p_handover_id uuid)	secdef=yes exec=authenticat
 func	public.acknowledge_vendor_deposit(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.acquire_schedule_pools(p_event_id uuid, p_event_vendor_id uuid, p_pool_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.acquire_seating_editor_lock(p_event_id uuid, p_label text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.acquire_service_time_slot(p_event_id uuid, p_vendor_id uuid, p_service_id uuid, p_slot_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.acquire_service_time_slot(p_event_id uuid, p_vendor_id uuid, p_service_id uuid, p_slot_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.admin_churn_risk_events(p_stale_days integer, p_limit integer)	secdef=yes exec=authenticated search_path=public
 func	public.admin_inquiry_outcomes_overview()	secdef=yes exec=authenticated search_path=public
 func	public.admin_lead_scores(p_limit integer)	secdef=yes exec=authenticated search_path=public
@@ -6179,7 +6179,7 @@ func	public.user_holds_founder_seat(p_user_id uuid)	secdef=yes exec=anon,authent
 func	public.vendor_booking_daily_series(p_vendor_profile_id uuid, p_days integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_booking_monthly_series(p_vendor_profile_id uuid, p_months integer, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_cancel_admin_motion(p_motion_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_delete_cocktail_booth(p_event_id uuid, p_booth_id uuid)	secdef=yes exec=anon,authenticated search_path=public

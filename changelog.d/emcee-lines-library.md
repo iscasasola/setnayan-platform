@@ -139,3 +139,18 @@ scoped by the canonical `current_vendor_ids()` helper. Anon reaches nothing.
 to_regclass('public.vendor_lines');` must be non-NULL.
 
 SPEC IMPACT: None — no pricing, SKU or scope change.
+
+### Follow-up: the Ugat map noticed a hub it never knew about
+
+Adding `vendor_lines` made **`vendor_activities`** the target of two referencing tables
+(`event_activity_picks` + `vendor_lines`), which pushed it over the hub threshold and correctly
+failed `ugat-concept-coverage.db.test.ts` — a subsystem visible to the schema but absent from
+the map.
+
+Recorded as **`map-backlog`, deliberately not `declined`.** It genuinely is a concept: the
+emcee's activity catalogue (shipped 2026-07-29, migration `20271015817050`) — the vendor
+authors the activities he can run, the couple picks from them, and the picks bridge into the
+timeline. A real node needs joints with REQUIRED claims to `vendor_profiles`,
+`event_activity_picks` and the schedule blocks, and that is its own modelling pass rather than
+a side effect of the PR that happened to add the second reference. The guard stays at full
+strength — nothing weakened, nothing deleted.

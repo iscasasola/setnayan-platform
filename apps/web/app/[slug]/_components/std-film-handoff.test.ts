@@ -172,3 +172,27 @@ test('handoff · the veil retires on the SAME event the exit fires', () => {
     'the listener must use the imported constant, never a re-typed string literal',
   );
 });
+
+// ── The editorial phase is the same defect, in the other direction ───────────
+// The Save-the-Date wall covered the site BEFORE the wedding. The editorial
+// phase stripped it AFTER. Both were one flag answering two questions.
+
+test('after the wedding, the site persists BELOW the editorial cover', () => {
+  const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
+  const editorial = SITE.slice(
+    SITE.indexOf("plan.body === 'editorial' ? ("),
+    SITE.indexOf("plan.body === 'save_the_date' ? ("),
+  );
+  assert.match(
+    editorial,
+    /\{normalBody\(\)\}/,
+    'the editorial phase renders the cover alone again — it strips the guest gallery, ' +
+      'the closing-access notice, and the five widget types a couple can switch on for ' +
+      'after the wedding',
+  );
+  assert.ok(
+    !/plan\.openBrowse \?/.test(editorial),
+    'the editorial body has been re-gated on openBrowse — with that flag false, which is ' +
+      'every real event, the whole site disappears after the wedding',
+  );
+});

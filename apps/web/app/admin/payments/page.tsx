@@ -661,6 +661,22 @@ function PaymentsList({
                       />
                       Also mark order as paid
                     </label>
+                    {/*
+                      Unticked by default, and only ever meaningful after the
+                      admin has been REFUSED once and read the warning naming
+                      the other order. 🔑 It cannot unlock the same-order case —
+                      one transfer counted twice against one bill is refused in
+                      the core no matter what this box says, because the
+                      shortfall guard would add it up into a false "fully paid".
+                    */}
+                    <label className="flex items-center gap-2 text-xs text-ink/65">
+                      <input
+                        type="checkbox"
+                        name="acknowledge_duplicate"
+                        className="h-4 w-4 cursor-pointer accent-terracotta"
+                      />
+                      One transfer really covers two orders — I checked the bank
+                    </label>
                     <SubmitButton
                       className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
                       pendingLabel="Approving…"

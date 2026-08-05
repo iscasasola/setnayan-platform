@@ -174,7 +174,7 @@ export type VendorCardData = {
    * has an active admin-verified partnership pointing at this card vendor.
    */
   partnership_badge?: {
-    relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
+    relationship_type: 'included_in_package' | 'discounted_together' | 'accredited' | 'general';
     recommending_vendor_name: string;
     discount_pct: number | null;
   } | null;
@@ -378,8 +378,8 @@ export function VendorCard({
 
       {/* PR #6 — partnership badge. Renders only when an admin-verified
           active partnership exists between one of the couple's shortlisted
-          vendors and this vendor. Pinned types (sponsored_included,
-          sponsored_discounted) render a prominent teal chip; accredited
+          vendors and this vendor. Pinned types (included_in_package,
+          discounted_together) render a prominent teal chip; accredited
           gets an indigo chip; general gets a subtle grey label. */}
       {vendor.partnership_badge ? (
         <PartnershipBadge badge={vendor.partnership_badge} />
@@ -534,10 +534,10 @@ function PartnershipBadge({
   let chipCopy: string;
   let chipClasses: string;
 
-  if (type === 'sponsored_included') {
+  if (type === 'included_in_package') {
     chipCopy = `Included with ${source} · No extra fee`;
     chipClasses = 'border-teal-300/60 bg-teal-50 text-teal-900';
-  } else if (type === 'sponsored_discounted') {
+  } else if (type === 'discounted_together') {
     chipCopy = `Preferred partner of ${source}${disc ? ` · ${disc}% off` : ''}`;
     chipClasses = 'border-teal-300/60 bg-teal-50 text-teal-900';
   } else if (type === 'accredited') {

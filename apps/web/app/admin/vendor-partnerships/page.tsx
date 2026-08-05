@@ -42,8 +42,8 @@ type ServiceCategoryOption = {
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
   accredited: 'Accredited',
-  sponsored_included: 'Included in package',
-  sponsored_discounted: 'Discounted',
+  included_in_package: 'Included in package',
+  discounted_together: 'Discounted',
   general: 'General referral',
 };
 
@@ -55,7 +55,7 @@ const STATUS_LABELS: Record<PartnershipStatus, string> = {
 };
 
 function formatFee(cents: number | null, type: string): string {
-  if (type === 'sponsored_included') return 'Included (₱0)';
+  if (type === 'included_in_package') return 'Included (₱0)';
   if (cents === null) return '—';
   if (cents === 0) return '₱0';
   return `₱${(cents / 100).toLocaleString('en-PH')}`;
@@ -236,7 +236,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                           </span>
                         ) : null}
                         {row.additional_fee_centavos !== null &&
-                        row.relationship_type !== 'sponsored_included' ? (
+                        row.relationship_type !== 'included_in_package' ? (
                           <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[11px] font-semibold text-warn-800">
                             {formatFee(row.additional_fee_centavos, row.relationship_type)}
                           </span>

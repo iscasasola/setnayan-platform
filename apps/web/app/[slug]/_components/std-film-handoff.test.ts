@@ -196,3 +196,24 @@ test('after the wedding, the site persists BELOW the editorial cover', () => {
       'every real event, the whole site disappears after the wedding',
   );
 });
+
+test('the site below the film keeps the same column as every other page', () => {
+  // The whole Save-the-Date phase runs `fullBleed`, and the shell's fullBleed
+  // branch returns a bare <main> with no padded column — right for a film that
+  // plays edge to edge. Once the real site started rendering UNDERNEATH that
+  // film for every event, it inherited the film's no-column treatment: every
+  // card, heading and paragraph ran into both edges of the phone. It was live
+  // on both real couples' pages, because a wedding more than ~90 days out sits
+  // in exactly this phase — which is nearly every wedding, for most of its life.
+  assert.match(
+    HANDOFF,
+    /<div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">\{children\}<\/div>/,
+    'The site below the film lost its column again. The class string must match ' +
+      'invitation-shell.tsx exactly, so the page reads the same before and after ' +
+      'the film — a different column here is a visible jump at the handoff.',
+  );
+  assert.ok(
+    !/\{children\}(?!<\/div>)/.test(HANDOFF.replace(/<div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">\{children\}<\/div>/, '')),
+    'There is a second, unwrapped {children} render — one of them will be edge-to-edge.',
+  );
+});

@@ -23,6 +23,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { AdminSidebar } from './_components/admin-sidebar';
+import { AdminCommandPalette } from './_components/admin-command-palette';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
 import Link from 'next/link';
@@ -264,6 +265,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="app-surface">
+      {/* ⌘K / Ctrl-K anywhere in the admin. Mounted ONCE at the shell rather
+          than per page, so the shortcut works on all 108 of them and there is
+          only ever one overlay in the tree. It renders null until opened, so
+          the cost while closed is a keydown listener.
+
+          A SHORTCUT, NEVER THE ONLY DOOR: everything it reaches is also
+          browsable at /admin/more ("All surfaces"). If a destination is ever
+          reachable only by typing, that is a bug in the menu. */}
+      <AdminCommandPalette />
       <SidebarShell
         sidebarHeader={
           <DoorwaySidebarHeader

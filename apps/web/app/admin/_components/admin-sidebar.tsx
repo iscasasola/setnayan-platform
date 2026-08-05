@@ -121,6 +121,7 @@ import {
   Users,
   Clapperboard,
   Network,
+  LayoutGrid,
   type LucideIcon,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -338,6 +339,29 @@ export function AdminSidebar({
           // reachable from the landing pages / tabbed studios / the work list.
           <AdminSidebarMenu key={item.key} menu={item} pathname={pathname} />
         ))}
+
+        {/* ALL SURFACES — the whole map, and the reason the six rows above can
+            stay short. The 2026-07-15 flatten turned each menu into a plain
+            doorway, which left 108 admin pages with no single browsable index on
+            desktop; /admin/more had one the entire time, hidden behind an
+            lg:hidden on the premise that "the sidebar handles overflow", which
+            the flatten had already stopped being true.
+
+            Deliberately NOT a seventh entry in ADMIN_NAV_GROUPS: it is a link to
+            a page, not a group of items, and adding it there would break the
+            groups-to-MENU_HUBS parity that admin-nav-groups.test.ts asserts
+            after a cleanup commit silently deleted two whole groups. */}
+        <AdminSidebarMenu
+          key="all-surfaces"
+          menu={{
+            key: 'all-surfaces',
+            label: 'All surfaces',
+            href: '/admin/more',
+            icon: LayoutGrid,
+            description: 'Every admin page, grouped and searchable.',
+          }}
+          pathname={pathname}
+        />
       </ul>
     </section>
   );

@@ -31,9 +31,21 @@ export default function AdminMoreLanding() {
 
   return (
     <MobileLandingGrid
-      title="Menu"
-      subtitle="Every admin surface, one tap away — the same six menus you see on desktop."
+      title="All surfaces"
+      subtitle="Every admin page there is, grouped and searchable. The same list on desktop and phone."
       searchable
+      // VISIBLE ON DESKTOP TOO — 2026-08-04. This page was phone-only on the
+      // premise that "the sidebar handles overflow there". The 2026-07-15
+      // flatten removed that: the sidebar is now six plain doorways, so desktop
+      // had NO way to see the whole list, and the admin's 108 pages were only
+      // browsable from a phone. The owner's approved simplification calls this
+      // screen "All surfaces" and puts it on both — which is also the
+      // 2026-07-04 lock (same menu content, different orientation).
+      //
+      // Nothing new is built here: the grid already had `desktopVisible`, and
+      // `searchable` already mounts the live filter. The full map existed the
+      // whole time behind an `lg:hidden`.
+      desktopVisible
       groups={groups}
     />
   );

@@ -418,7 +418,11 @@ export function SelfieCapture({
       {/* Adults-only notice + the two REQUIRED affirmations. Both gate the
           capture UI (never the RSVP submit). Minors are scoped out of biometric
           enrollment for V1 (RA 10173 · NPC) — hence a distinct 18+ box, not a
-          buried clause. No age/DOB is collected; these are attestations. */}
+          buried clause. No age/DOB is collected; these are attestations.
+
+          The 18+ box stays in BOTH modes: a guest photo on someone else's event
+          list is adult-only whether or not a face is measured. Only the reason
+          changes, so only the reason's wording does. */}
       <p className="mt-3 text-[0.7rem] font-medium uppercase tracking-wide text-terracotta">
         Adults only (18+)
       </p>
@@ -443,21 +447,48 @@ export function SelfieCapture({
             photo reaches this guest's own gallery). RoPA DPS-05 now states both
             as well. Consent has to describe the processing a person is actually
             agreeing to, not just name the technique. */}
-        <span>
-          I consent to{' '}
-          <span className="font-medium">
-            facial-recognition photo matching for this event
+        {/* ⚠ THE WORDS FOLLOW THE MODE, because the processing does.
+            `faceMode` already decides whether a descriptor is computed at all —
+            in mode_b nothing biometric happens — but this copy used to promise
+            "facial-recognition photo matching" either way. Every event on the
+            platform is mode_b until an admin switches it on, so every guest who
+            has ever ticked this box consented to matching that did not run, and
+            went on believing their photos would find them by themselves.
+
+            Consent has to describe the processing a person is ACTUALLY agreeing
+            to. Asking for a biometric consent we will not act on is both a false
+            promise to them and a consent we should not be collecting. */}
+        {faceMode === 'mode_a' ? (
+          <span>
+            I consent to{' '}
+            <span className="font-medium">
+              facial-recognition photo matching for this event
+            </span>
+            . My selfie is used only to find me in photos taken at this event —{' '}
+            <span className="font-medium">
+              including photos other guests take on their own phones
+            </span>{' '}
+            — so those photos can be delivered to me. This event only, and I can
+            withdraw anytime in my settings.{' '}
+            <span className="text-ink/45">
+              (Philippine Data Privacy Act, RA 10173.)
+            </span>
           </span>
-          . My selfie is used only to find me in photos taken at this event —{' '}
-          <span className="font-medium">
-            including photos other guests take on their own phones
-          </span>{' '}
-          — so those photos can be delivered to me. This event only, and I can
-          withdraw anytime in my settings.{' '}
-          <span className="text-ink/45">
-            (Philippine Data Privacy Act, RA 10173.)
+        ) : (
+          <span>
+            I agree to add{' '}
+            <span className="font-medium">my photo to this event&rsquo;s guest list</span>
+            , so the couple and their team can recognise me.{' '}
+            <span className="font-medium">
+              No facial recognition runs at this event
+            </span>{' '}
+            — photos reach me when someone scans my QR or tags me. I can remove my
+            photo anytime in my settings.{' '}
+            <span className="text-ink/45">
+              (Philippine Data Privacy Act, RA 10173.)
+            </span>
           </span>
-        </span>
+        )}
       </label>
 
       {/* 2. Required 18+ affirmation — attestation only, no age field. */}
@@ -472,11 +503,22 @@ export function SelfieCapture({
         />
         <span>
           I confirm I am{' '}
-          <span className="font-medium">18 or older</span> and consent to
-          facial-recognition photo matching for this event.{' '}
-          <span className="text-ink/45">
-            (Face recognition is not offered to minors.)
-          </span>
+          <span className="font-medium">18 or older</span>
+          {faceMode === 'mode_a' ? (
+            <>
+              {' '}and consent to facial-recognition photo matching for this event.{' '}
+              <span className="text-ink/45">
+                (Face recognition is not offered to minors.)
+              </span>
+            </>
+          ) : (
+            <>
+              .{' '}
+              <span className="text-ink/45">
+                (Guest photos are adults-only at this event.)
+              </span>
+            </>
+          )}
         </span>
       </label>
 

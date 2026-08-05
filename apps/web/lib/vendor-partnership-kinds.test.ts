@@ -91,24 +91,46 @@ test('a claim about the partner’s pricing needs their consent', () => {
   assert.equal(claimsPartnerPricing('general'), false);
 });
 
-test('changing INTO a pricing claim un-publishes the badge and re-asks', () => {
+test('changing kind WITHDRAWS and re-proposes — it never edits in place', () => {
+  // ⚠ THIS TEST REPLACES ONE THAT PASSED ON A FEATURE THAT COULD NEVER RUN.
+  // The first version asserted the action set status='proposed' and nulled
+  // accepted_at on an UPDATE. It did — and the update was refused by a live
+  // BEFORE UPDATE trigger (IMMUTABLE_PARTNERSHIP_FIELDS) and by RLS, for every
+  // non-admin, always. The assertions were all file-shape, so nothing ever
+  // executed the write and CI stayed green over a dead button.
+  //
+  // The lock is correct: a partnership's terms must not change under the
+  // partner who accepted them. So the change is a withdrawal plus a new
+  // proposal — which is also what makes the consent behaviour real rather than
+  // remembered.
   const src = read('..', 'app', 'vendor-dashboard', 'partnerships', 'actions.ts');
   const fn = src.slice(src.indexOf('export async function changePartnershipKind'));
-  assert.match(fn, /claimsPartnerPricing\(next\)/);
-  const branch = fn.slice(fn.indexOf('if (claimsPartnerPricing(next))'));
-  assert.match(branch, /patch\.status = 'proposed'/, 'must go back for acceptance');
-  assert.match(
-    branch,
-    /patch\.accepted_at = null/,
-    'and must drop the acceptance stamp — leaving it would keep an unagreed pricing claim public',
+  const code = fn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  assert.ok(
+    !/\.update\(\{\s*relationship_type/.test(code),
+    'must not try to edit relationship_type in place — the database refuses it',
   );
+  assert.match(code, /status: 'withdrawn'/, 'the old partnership must be withdrawn');
+  assert.match(code, /\.insert\(\{/, 'and a fresh proposal inserted');
+  assert.ok(
+    code.indexOf("status: 'withdrawn'") < code.indexOf('.insert({'),
+    'withdraw BEFORE inserting — the badge must come down first',
+  );
+  assert.match(code, /status: 'proposed'/, 'the replacement waits for acceptance');
 });
 
 test('only the vendor who made the recommendation can restate it', () => {
   const src = read('..', 'app', 'vendor-dashboard', 'partnerships', 'actions.ts');
   const fn = src.slice(src.indexOf('export async function changePartnershipKind'));
-  assert.match(fn, /\.eq\('recommending_vendor_id', vendorProfileId\)/);
+  // Both statements, not just one — scoping the read and forgetting the write
+  // would let anyone withdraw a partnership they do not own.
+  assert.ok(
+    (fn.match(/\.eq\('recommending_vendor_id', vendorProfileId\)/g) ?? []).length >= 2,
+    'the read AND the withdrawal must both be scoped to the recommending vendor',
+  );
 });
+
 
 // ── The two surfaces must not drift apart again ─────────────────────────────
 

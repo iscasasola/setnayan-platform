@@ -69,3 +69,47 @@ test('every claim about recognition sits inside a mode branch', () => {
   );
   assert.ok(mentions.length > 0, 'mode_a must still name the technique');
 });
+
+// ── The whole SCREEN must agree, not just the checkbox ──────────────────────
+// The consent box was fixed first, and the card wrapping it kept promising
+// "the candid shots of you get gathered for you automatically. No scanning, no
+// searching." Two contradictory claims, two inches apart, on the same screen.
+// A guest reads the headline, not the small print.
+
+test('the enrolment card promises no automatic gathering on a switched-off event', () => {
+  const card = readFileSync(
+    join(HERE, '..', 'app', '[slug]', '_components', 'day-of-face-enroll.tsx'),
+    'utf8',
+  );
+  const code = card.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  assert.match(code, /faceMode === 'mode_a'/, 'the card must branch on the mode too');
+  // The three unconditional promises that used to sit here.
+  for (const promise of [
+    'get gathered for you automatically',
+    'No scanning, no\n                searching',
+  ]) {
+    const idx = code.indexOf(promise.split('\n')[0]!);
+    if (idx === -1) continue;
+    const before = code.slice(Math.max(0, idx - 400), idx);
+    assert.match(
+      before,
+      /faceMode === 'mode_a'/,
+      `"${promise.split('\n')[0]}" must sit inside a mode_a branch`,
+    );
+  }
+});
+
+test('the success state does not tell a mode_b guest photos will find them', () => {
+  const card = readFileSync(
+    join(HERE, '..', 'app', '[slug]', '_components', 'day-of-face-enroll.tsx'),
+    'utf8',
+  );
+  const code = card.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const idx = code.indexOf('find their way to you');
+  assert.ok(idx > -1, 'the mode_a success copy should still exist');
+  assert.match(
+    code.slice(Math.max(0, idx - 300), idx),
+    /faceMode === 'mode_a'/,
+    'it must be gated — it is a promise of automatic delivery',
+  );
+});

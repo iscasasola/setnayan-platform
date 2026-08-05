@@ -49,8 +49,22 @@ export function eventTypeForcesModeB(eventType: string | null | undefined): bool
 export function resolveFaceMode(
   storedMode: string | null | undefined,
   eventType: string | null | undefined,
+  /**
+   * The couple declined face tagging on their own event.
+   *
+   * ⚠ NARROWS ONLY, and the parameter order says so: this is the LAST word and
+   * it can only ever say no. A couple cannot switch face tagging ON where an
+   * admin has not, and cannot override the christening/debut lock above.
+   *
+   * Optional so every existing caller keeps its meaning — but a caller that
+   * omits it is asking "what did the ADMIN set", not "what runs on this event".
+   * Only `resolvePapicFaceMode` (which reads the column) should be trusted for
+   * the second question.
+   */
+  coupleDeclined?: boolean | null,
 ): PapicFaceMode {
   if (eventTypeForcesModeB(eventType)) return 'mode_b';
+  if (coupleDeclined === true) return 'mode_b';
   return storedMode === 'mode_a' ? 'mode_a' : 'mode_b';
 }
 
@@ -101,12 +115,23 @@ export async function resolvePapicFaceMode(
     if (!eventId) return 'mode_b';
     const { data, error } = await client
       .from('events')
-      .select('papic_face_mode, event_type')
+      .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
       .eq('event_id', eventId)
       .maybeSingle();
     if (error || !data) return 'mode_b';
-    const row = data as { papic_face_mode?: string | null; event_type?: string | null };
-    return resolveFaceMode(row.papic_face_mode, row.event_type);
+    const row = data as {
+      papic_face_mode?: string | null;
+      event_type?: string | null;
+      face_tagging_declined_by_couple?: boolean | null;
+    };
+    // The couple's decline is passed here and NOWHERE ELSE derived — this is the
+    // one function that answers "what actually runs on this event", so every
+    // caller of it inherits the couple's choice without having to know about it.
+    return resolveFaceMode(
+      row.papic_face_mode,
+      row.event_type,
+      row.face_tagging_declined_by_couple,
+    );
   } catch {
     return 'mode_b';
   }

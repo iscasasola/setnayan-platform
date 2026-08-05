@@ -1,24 +1,25 @@
 /**
  * THE FOUR PARTNERSHIP KINDS — one definition, used by every surface.
  *
- * ── ⚠ READ THIS BEFORE YOU TRUST THE COLUMN VALUES ──────────────────────────
- * Two of the stored values are called `sponsored_included` and
- * `sponsored_discounted`, and **"sponsored" here has nothing to do with paying
- * Setnayan.** Nobody buys placement. The vendor is sponsoring their PARTNER'S
- * SERVICE FOR THE COUPLE:
+ * ── NOBODY PAYS FOR ANY OF THESE ────────────────────────────────────────────
+ * Owner, 2026-08-05: **no payment for any kind.** All four are free, forever, on
+ * both sides. Two of them are offers the vendor makes to the COUPLE:
  *
- *   · `sponsored_included`   — the partner is in my package, free to the couple
- *   · `sponsored_discounted` — the partner discounts when booked alongside me
+ *   · `included_in_package` — the partner is in my package, free to the couple
+ *   · `discounted_together` — the partner discounts when booked alongside me
  *
- * The name reads as advertising and has already caused one reviewer to conclude
- * the marketplace was being reordered by paid placement. It is not. Owner,
- * 2026-08-05: **no payment for any of these.** All four are free, forever, on
- * both sides.
+ * ⚠ These were called `sponsored_included` / `sponsored_discounted` until
+ * 2026-08-05 (migration `20271108090000`). The word "sponsored" sent two
+ * independent readers to the same wrong conclusion — that the marketplace was
+ * being reordered by paid advertising — and one of those readings reached the
+ * owner as a pricing recommendation before the vendor-facing form was read.
+ * If you meet the old names in an archived doc or an old branch, that is what
+ * they meant: sponsoring a PARTNER'S SERVICE, never buying placement.
  *
  * ── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
  * The same four kinds were ranked in TWO PLACES, in OPPOSITE ORDERS. The
  * vendor's public page picked a badge alphabetically (so `accredited` always
- * won) while Explore ranked `sponsored_included` highest. A vendor holding both
+ * won) while Explore ranked `included_in_package` highest. A vendor holding both
  * got the strongest position in search and the weaker badge on their profile,
  * and no single file said which was intended.
  *
@@ -26,8 +27,8 @@
  */
 
 export const PARTNERSHIP_KINDS = [
-  'sponsored_included',
-  'sponsored_discounted',
+  'included_in_package',
+  'discounted_together',
   'accredited',
   'general',
 ] as const;
@@ -49,8 +50,8 @@ export function isPartnershipKind(value: unknown): value is PartnershipKind {
  * Higher number = stronger.
  */
 export const PARTNERSHIP_RANK: Record<PartnershipKind, number> = {
-  sponsored_included: 4,
-  sponsored_discounted: 3,
+  included_in_package: 4,
+  discounted_together: 3,
   accredited: 2,
   general: 1,
 };
@@ -79,25 +80,25 @@ export function strongestPartnershipKind(
  * it appears under someone else's name.
  */
 export const PARTNERSHIP_PUBLIC_LABEL: Record<PartnershipKind, string> = {
-  sponsored_included: 'Included in their package',
-  sponsored_discounted: 'Discounted together',
+  included_in_package: 'Included in their package',
+  discounted_together: 'Discounted together',
   accredited: 'Accredited',
   general: 'Works with',
 };
 
 /** A short plain-English gloss, for a tooltip or a caption. */
 export const PARTNERSHIP_PUBLIC_HINT: Record<PartnershipKind, string> = {
-  sponsored_included: 'Booked through them, at no extra cost to you',
-  sponsored_discounted: 'A discount when you book both',
+  included_in_package: 'Booked through them, at no extra cost to you',
+  discounted_together: 'A discount when you book both',
   accredited: 'They formally certify this vendor',
   general: 'They work together often',
 };
 
 /** What a VENDOR is told, choosing a kind. Long form, on the proposal form. */
 export const PARTNERSHIP_VENDOR_LABEL: Record<PartnershipKind, string> = {
-  sponsored_included:
+  included_in_package:
     'Included in package — recommended vendor is part of your offering at no extra cost',
-  sponsored_discounted:
+  discounted_together:
     'Discounted — recommended vendor offers a discount when booked alongside you',
   accredited: 'Accredited — you formally certify this vendor',
   general: 'General referral — informal "works well with" recommendation',
@@ -105,8 +106,8 @@ export const PARTNERSHIP_VENDOR_LABEL: Record<PartnershipKind, string> = {
 
 /** Short form, for a chip on an existing row. */
 export const PARTNERSHIP_VENDOR_LABEL_SHORT: Record<PartnershipKind, string> = {
-  sponsored_included: 'Included in package',
-  sponsored_discounted: 'Discounted',
+  included_in_package: 'Included in package',
+  discounted_together: 'Discounted',
   accredited: 'Accredited',
   general: 'General referral',
 };
@@ -121,5 +122,5 @@ export const PARTNERSHIP_VENDOR_LABEL_SHORT: Record<PartnershipKind, string> = {
  * does not.
  */
 export function claimsPartnerPricing(kind: PartnershipKind): boolean {
-  return kind === 'sponsored_included' || kind === 'sponsored_discounted';
+  return kind === 'included_in_package' || kind === 'discounted_together';
 }

@@ -654,7 +654,7 @@ type VendorCardRow = {
    * NULL = no mutually-accepted partnership to a shortlisted couple vendor.
    */
   partnership_badge?: {
-    relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
+    relationship_type: 'included_in_package' | 'discounted_together' | 'accredited' | 'general';
     recommending_vendor_name: string;
     discount_pct: number | null;
   } | null;
@@ -2223,7 +2223,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       //      status = 'accepted' AND is_active = true.
       //   3. Also fetch business_name for the recommending vendors.
       //   4. For each visible vendor, find the "best" partnership
-      //      (priority: sponsored_included > sponsored_discounted > accredited > general).
+      //      (priority: included_in_package > discounted_together > accredited > general).
       //
       // Returns a Map from vendor_profile_id → partnership_badge object.
       // Fail-soft: empty map = no badges rendered.
@@ -2313,8 +2313,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             : -1;
           if (newPriority > existingPriority) {
             const rt = r.relationship_type as
-              | 'sponsored_included'
-              | 'sponsored_discounted'
+              | 'included_in_package'
+              | 'discounted_together'
               | 'accredited'
               | 'general';
             out.set(r.recommended_vendor_id, {
@@ -2427,7 +2427,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // it layers additive signals without breaking the existing precedence.
   //
   // Priority stack within this pass:
-  //   1. sponsored_included / sponsored_discounted partnerships → pin top
+  //   1. included_in_package / discounted_together partnerships → pin top
   //   2. accredited partnerships → rise in sort
   //   3. quality_score DESC (0–100, missing → 50 default)
   //   4. general partnerships → no position change (badge only)
@@ -2442,8 +2442,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (hasPartnership || hasQualityData) {
     const partnershipPriority = (v: VendorCardRow): number => {
       const type = v.partnership_badge?.relationship_type;
-      if (type === 'sponsored_included') return 4;
-      if (type === 'sponsored_discounted') return 3;
+      if (type === 'included_in_package') return 4;
+      if (type === 'discounted_together') return 3;
       if (type === 'accredited') return 2;
       // 'general' badge renders but doesn't change position
       return 0;
@@ -2457,7 +2457,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
       //    first-party rows are filtered out of the query entirely, so this
       //    tiebreak could only ever compare false-to-false.
-      // 2. Partnership priority DESC (sponsored_included → sponsored_discounted → accredited).
+      // 2. Partnership priority DESC (included_in_package → discounted_together → accredited).
       const partDiff = partnershipPriority(b) - partnershipPriority(a);
       if (partDiff !== 0) return partDiff;
       // 3. quality_score DESC (50 default for unscored vendors).

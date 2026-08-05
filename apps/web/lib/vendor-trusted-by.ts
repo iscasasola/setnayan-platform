@@ -5,8 +5,8 @@ import { strongestPartnershipKind } from '@/lib/vendor-partnership-kinds';
 
 export type TrustedByRelationship =
   | 'accredited'
-  | 'sponsored_included'
-  | 'sponsored_discounted'
+  | 'included_in_package'
+  | 'discounted_together'
   | 'general';
 
 export type TrustedByVendor = {

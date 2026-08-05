@@ -1,0 +1,75 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { approvePaymentCore } from '@/app/admin/payments/actions';
+
+/**
+ * Settle a queue item FROM THE WORK LIST, without leaving it.
+ *
+ * Owner, 2026-08-03: *"a faster way to respond to quick actions needed instead
+ * of them making jump to a new page."*
+ *
+ * 🔑 WHY THIS EXISTS RATHER THAN REUSING `approvePayment`. That action ends in
+ * `redirect('/admin/payments?…')` — correct for the payments page, and exactly
+ * the page-jump the owner asked to remove when the same decision is taken from
+ * the list. It already had a non-redirecting half (`approvePaymentCore`, which
+ * RETURNS its outcome so the batch path can loop); this calls that half and
+ * revalidates in place. **The money logic is not duplicated** — one core, two
+ * entry points, so the list can never drift from the page.
+ *
+ * ⚠ ONLY "FACT" QUEUES REACH HERE. A payment either arrived or it did not, so
+ * one click is honest. Judgement queues (disputes, fraud, user reports, erasure
+ * requests) deliberately have no action here at all — see JUDGEMENT_QUEUES in
+ * lib/admin/queue-peek.ts. And a queue that needs DETAILS (payouts wants the
+ * method and the reference of a transfer the admin made by hand) is not a
+ * button either; it gets a form, which is a later slice.
+ *
+ * requireAdmin() runs here and again inside the core — the layout is not an
+ * auth boundary in front of a service-role client, and the core is now exported
+ * so it must not assume its caller checked.
+ */
+/**
+ * Returns void because a `<form action=…>` must. A refusal is surfaced by
+ * bouncing back to the work list with the reason in the query string — the
+ * admin stays exactly where they were, with the row still there and an
+ * explanation, rather than being thrown onto another page to find out why.
+ */
+export async function approvePaymentFromWorkList(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin();
+
+  const paymentId = formData.get('payment_id');
+  const back = typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  if (typeof paymentId !== 'string' || paymentId.length === 0) {
+    redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
+  }
+
+  const outcome = await approvePaymentCore({
+    admin: createAdminClient(),
+    userId,
+    paymentId,
+    // No notes and no order promotion from the list: both are deliberate
+    // decisions that belong on the payments page, where the admin can see the
+    // whole order. The list settles the simple case and nothing more.
+    adminNotes: null,
+    promoteOrder: false,
+  });
+
+  if (!outcome.ok) {
+    // A shortfall is the real "this is not the simple case" signal — the amount
+    // does not cover the order. Bounce back to the SAME list view with the
+    // reason, so the admin knows to open the payment rather than wondering why
+    // the row did not clear.
+    redirect(
+      `${back}${back.includes('?') ? '&' : '?'}settle=shortfall&why=${encodeURIComponent(outcome.message)}`,
+    );
+  }
+
+  // Refresh the list and the surfaces that count it, so the row disappears and
+  // every badge agrees. Cheap: both are already dynamic.
+  revalidatePath('/admin/work');
+  revalidatePath('/admin');
+  revalidatePath('/admin/payments');
+}

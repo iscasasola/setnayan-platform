@@ -17,6 +17,8 @@
 
 import Link from 'next/link';
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react';
+import type { QueuePeek } from '@/lib/admin/queue-peek';
+import { QueueDrawer } from './queue-drawer';
 import type {
   AdminQueueLane,
   AdminQueueDueState,
@@ -37,6 +39,8 @@ export type TriageItem = {
   dueState?: AdminQueueDueState;
   /** Age line shown in place of the description when there's open work. */
   ageLabel?: string;
+  /** Items behind this row, when the queue is the one `?open=` names. */
+  peek?: QueuePeek | null;
 };
 
 type Props = {
@@ -56,6 +60,8 @@ type Props = {
   lane?: AdminQueueLane;
   /** Base path the lane chips link to. */
   basePath?: string;
+  /** The queue currently expanded via `?open=`, if any. */
+  openKey?: string;
 };
 
 const LANE_LABEL: Record<AdminQueueLane, string> = {
@@ -84,14 +90,22 @@ function badgeColor(dueState?: AdminQueueDueState): string {
   return '#8A6A2E';
 }
 
-function TriageRow({ item }: { item: TriageItem }) {
+function TriageRow({
+  item,
+  toggleHref,
+}: {
+  item: TriageItem;
+  /** Opens this row, or closes it when it is the open one. Absent ⇒ plain link. */
+  toggleHref?: string;
+}) {
   const Icon = item.icon;
   const open = (item.count ?? 0) > 0;
   const accent = DUE_ACCENT[item.dueState ?? 'ok'];
   return (
     <li>
       <Link
-        href={item.href}
+        href={toggleHref ?? item.href}
+        aria-expanded={toggleHref ? Boolean(item.peek) : undefined}
         className="sn-row flex items-center gap-3 p-4 transition-colors hover:bg-[var(--sn-paper)]"
         style={{
           color: 'var(--sn-ink-900)',
@@ -153,6 +167,14 @@ function TriageRow({ item }: { item: TriageItem }) {
           />
         )}
       </Link>
+      {item.peek ? (
+        <QueueDrawer
+          peek={item.peek}
+          href={item.href}
+          label={item.label}
+          backTo={toggleHref ?? '/admin/work'}
+        />
+      ) : null}
     </li>
   );
 }
@@ -272,6 +294,7 @@ export function QueuesTriageFeed({
   title = 'Queues',
   lane,
   basePath = '/admin/work',
+  openKey,
 }: Props) {
   const subtitle =
     totalOpen === 0
@@ -279,6 +302,16 @@ export function QueuesTriageFeed({
       : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across all queues.`;
 
   // The strip + chips read the FULL list; only the rows below are filtered.
+  // Opening a row keeps the lane filter; closing drops only `open`. Built here
+  // rather than in the row so the row stays presentational.
+  const toggleFor = (key: string) => {
+    const p = new URLSearchParams();
+    if (lane) p.set('lane', lane);
+    if (openKey !== key) p.set('open', key);
+    const q = p.toString();
+    return q ? `${basePath}?${q}` : basePath;
+  };
+
   const shown = lane ? items.filter((i) => i.lane === lane) : items;
   const overdue = shown.filter((i) => i.dueState === 'overdue');
   const rest = shown.filter((i) => i.dueState !== 'overdue');
@@ -329,7 +362,7 @@ export function QueuesTriageFeed({
           </h2>
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {overdue.map((item) => (
-              <TriageRow key={item.key} item={item} />
+              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
             ))}
           </ul>
         </section>
@@ -342,7 +375,7 @@ export function QueuesTriageFeed({
           )}
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {rest.map((item) => (
-              <TriageRow key={item.key} item={item} />
+              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
             ))}
           </ul>
         </section>

@@ -110,7 +110,7 @@ export function QueueDrawer({
             <span className="block text-xs text-[color:var(--sn-ink-500)]">{it.detail}</span>
           </span>
 
-          <span className="flex shrink-0 flex-wrap items-center gap-2">
+          <span className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
             {it.action ? (
               (() => {
                 const a = ACTIONS[it.action.kind];
@@ -134,7 +134,7 @@ export function QueueDrawer({
                 const form = it.form;
                 const f = FORMS[form.kind];
                 return (
-                  <form action={f.fn} className="flex flex-wrap items-center gap-1.5">
+                  <form action={f.fn} className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
                     <input type="hidden" name={f.field} value={form.id} />
                     <input type="hidden" name="back" value={backTo} />
                     {form.fields.map((fl: (typeof form.fields)[number]) =>
@@ -158,7 +158,7 @@ export function QueueDrawer({
                           name={fl.name}
                           required={fl.required}
                           placeholder={fl.placeholder}
-                          className="min-w-[10rem] rounded-md border px-2 py-1.5 text-xs"
+                          className="min-w-[10rem] flex-1 rounded-md border px-2 py-1.5 text-xs sm:flex-none"
                           style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
                         />
                       ),

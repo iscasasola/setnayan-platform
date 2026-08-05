@@ -44,6 +44,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
+import { VenueMatchCard } from './_components/venue-match-card';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
   fetchVendorTeam,
@@ -180,6 +181,10 @@ type ShopData = {
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
   businessStartDate: string | null;
+  /** Shop-DECLARED reception settings. NULL = undeclared = open to every venue. */
+  compatibleVenueSettings: string[] | null;
+  /** Shop-DECLARED ceremonies. NULL = undeclared = open to every ceremony. */
+  compatibleCeremonyTypes: string[] | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -592,6 +597,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     checklist: completion.items,
     profileFields,
     businessStartDate,
+    compatibleVenueSettings: profile.compatible_venue_settings ?? null,
+    compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -822,6 +829,15 @@ async function ShopHome({
                 </button>
               </div>
             </form>
+            {/* Which weddings this shop is a fit for. NOT a checklist item: it
+                is optional by design (undeclared = open to all), so it must
+                never drag a finished profile back below 100%. This card is the
+                writer both columns shipped without — Explore has filtered on
+                them since 0043 while no form in the product could set them. */}
+            <VenueMatchCard
+              initialVenueSettings={data.compatibleVenueSettings}
+              initialCeremonyTypes={data.compatibleCeremonyTypes}
+            />
           </>
         }
         websitePanel={

@@ -92,13 +92,21 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
  *  well-behaved `React.cache` key component. */
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-// Soft-404 fix (SEO) — this route has a loading.tsx, so the streaming shell
-// commits an HTTP 200 BEFORE the page body runs; a notFound() thrown in the
-// body renders the 404 UI but the status stays 200 (Google soft-404, and any
-// junk top-level URL was an indexable 200). generateMetadata resolves before
-// the stream starts on Next 15.1, so the slug lookup happens HERE: a miss
-// throws notFound() pre-stream and the response is a real 404. React cache()
-// dedupes the read — the page body reuses the same single DB roundtrip.
+// Soft-404 fix (SEO). ANY streaming boundary on this route commits an HTTP 200
+// BEFORE the page body runs, so a notFound() thrown in the body renders the 404
+// UI while the status stays 200 — a Google soft-404, and every junk top-level
+// URL an indexable 200. generateMetadata resolves before the stream starts on
+// Next 15.1, so the slug lookup happens HERE: a miss throws notFound()
+// pre-stream and the response is a real 404. React cache() dedupes the read —
+// the page body reuses the same single DB roundtrip.
+//
+// ⚠ THIS COMMENT USED TO SAY "this route has a loading.tsx". It does not — that
+// file was deleted by 04c03063d for exactly the reason above, and the sentence
+// then sat here for months describing the opposite of what the code does. The
+// rule it was protecting is real and still binding: NO route-level loading.tsx
+// at `[slug]/` or `[slug]/hub/`. The blank-white-screen fix (2026-08-05) is a
+// `<Suspense>` INSIDE page.tsx, placed AFTER every notFound()/redirect, so the
+// status is settled before the first flush and this stays true.
 //
 // (PR2 note: this is page.tsx's `fetchEventBySlug`, re-homed as the event-shell
 // loader. It creates its OWN admin client so the cache key stays the slug alone

@@ -30,7 +30,8 @@ type LaneTile = {
   sub: string;
   href: string;
   oldestAt?: string | null;
-  slaHours?: number;
+  /** `null` = this queue has no clock (the admin is not who clears it). */
+  slaHours?: number | null;
 };
 
 export default async function AdminOverview() {
@@ -819,7 +820,8 @@ function ActionQueueTile({
   sub: string;
   href: string;
   oldestAt?: string | null;
-  slaHours?: number;
+  /** `null` = this queue has no clock (the admin is not who clears it). */
+  slaHours?: number | null;
   nowMs: number;
 }) {
   const hasWork = (value ?? 0) > 0;

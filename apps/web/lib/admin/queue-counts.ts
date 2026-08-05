@@ -41,7 +41,18 @@ type QueueDef = {
    * How long the OLDEST open item may sit before the queue is "overdue" (the
    * clock that turns it red). OWNER-TUNABLE first-pass defaults.
    */
-  slaHours: number;
+  /**
+   * `null` = THIS QUEUE HAS NO CLOCK, because the admin is not the one who can
+   * clear it. Watching is not a task.
+   *
+   * 🔑 A DEADLINE ON SOMEONE ELSE'S DECISION IS PERMANENT RED. Partnerships is
+   * the worked example: the rows are proposals awaiting the RECIPIENT VENDOR's
+   * answer, and the only admin control is a veto. A 72-hour promise on that can
+   * never be met by any admin action, so every solo admin was shown a red
+   * past-promise row forever — the same noise that got payouts removed from
+   * this list, arriving by a different route.
+   */
+  slaHours: number | null;
   /** Applies the queue's "open work" filter to a select()-ed builder. */
   filter: (q: any, ctx: { nowIso: string }) => any;
   /**
@@ -177,7 +188,11 @@ const QUEUE_DEFS: QueueDef[] = [
     key: 'vendor-partnerships',
     table: 'vendor_partnerships',
     lane: 'growth',
-    slaHours: 72,
+    // NO CLOCK — see the slaHours doc above. These rows wait on the RECIPIENT
+    // VENDOR, not on us; the only admin control is a veto. The 72-hour promise
+    // could never be met by any admin action, so it produced a permanently red
+    // row for every solo admin.
+    slaHours: null,
     filter: (q) => q.eq('status', 'proposed').eq('is_active', true),
   },
   // User reports — UGC moderation queue (Apple 1.2 / Play UGC). status='open'
@@ -231,7 +246,7 @@ export function getQueueSource(
 
 export const ADMIN_QUEUE_META: Record<
   string,
-  { lane: AdminQueueLane; slaHours: number }
+  { lane: AdminQueueLane; slaHours: number | null }
 > = Object.fromEntries(
   QUEUE_DEFS.map((d) => [d.key, { lane: d.lane, slaHours: d.slaHours }]),
 );
@@ -325,11 +340,14 @@ export type AdminQueueDueState =
  */
 export function computeDueState(
   row: AdminQueueDigestRow,
-  slaHours: number,
+  slaHours: number | null,
   nowMs: number,
 ): AdminQueueDueState {
   if (row.count === null) return 'unknown';
   if (row.count <= 0) return 'clear';
+  // No clock ⇒ never late and never nearly-late. It still shows its count, so
+  // the work is visible; it just stops claiming a promise nobody made.
+  if (slaHours === null) return 'ok';
   if (!row.oldestAt) return 'unknown';
   const ageHours = (nowMs - new Date(row.oldestAt).getTime()) / 3_600_000;
   if (ageHours >= slaHours) return 'overdue';

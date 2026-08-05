@@ -10,19 +10,40 @@
  * — full timezone correctness lives in the guest-facing renderer per the spec,
  * this couple-side surface uses the dashboard user's clock):
  *
- *   pre      : T - 3d   .. T - 1h
- *   live     : T - 1h   .. T + 8h
- *   post     : T + 8h   .. T + 24h
+ *   pre      : T - 3d   .. T - 12h
+ *   live     : T - 12h  .. T + 36h   (noon the day before → noon the day after)
+ *   post     : T + 36h  .. T + 60h
  *   inactive : everything else
  */
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+/**
+ * T is MIDNIGHT on the wedding day, in the venue's timezone.
+ *
+ * ⚠ THE WINDOW WIDENED 2026-08-05 (owner: "needs to run 12 hours before and 12
+ * hours after"). It used to be T-1h .. T+8h — roughly 11pm the night before to
+ * 8am on the day. A Filipino wedding's reception is in the EVENING, so day-of
+ * mode was never on while the wedding was happening: no live photo wall, no
+ * day-of banner, no announcements, no "happening now". It switched itself off
+ * before the guests arrived.
+ *
+ * ⚠ AND WHY IT IS NOT LITERALLY ±12h FROM T. Midnight ±12h is noon-the-day-
+ * before to noon-on-the-day — which still ENDS BEFORE AN EVENING RECEPTION and
+ * would not have fixed anything. The owner's "12 before and 12 after" is 12
+ * hours either side of the wedding DAY, not of its first instant:
+ *
+ *     live : T - 12h .. T + 36h   (noon the day before → noon the day after)
+ *
+ * That is one clean rule with no schedule required — which matters, because
+ * only one event in production has any schedule blocks at all, so a
+ * ceremony-time anchor would leave every other wedding on a fallback.
+ */
 const PRE_WINDOW_START_MS = 3 * DAY_MS; // T - 3d
-const LIVE_WINDOW_START_MS = 1 * HOUR_MS; // T - 1h
-const LIVE_WINDOW_END_MS = 8 * HOUR_MS; // T + 8h
-const POST_WINDOW_END_MS = 24 * HOUR_MS; // T + 24h
+const LIVE_WINDOW_START_MS = 12 * HOUR_MS; // T - 12h  (noon the day before)
+const LIVE_WINDOW_END_MS = 36 * HOUR_MS; // T + 36h (noon the day after)
+const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
 
 export type DayOfPhase = 'pre' | 'live' | 'post' | 'inactive';
 

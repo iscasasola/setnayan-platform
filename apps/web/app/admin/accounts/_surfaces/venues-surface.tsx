@@ -30,6 +30,8 @@ const VENUE_TYPE_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'heritage', label: 'Heritage' },
   { value: 'outdoor_tent', label: 'Outdoor Tent' },
   { value: 'temple', label: 'Temple' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'multi_purpose_hall', label: 'Multi-Purpose Hall' },
 ];
 
 /**

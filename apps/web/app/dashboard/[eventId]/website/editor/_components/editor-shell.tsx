@@ -79,8 +79,9 @@ type PreviewTab = {
   phase: PhaseKey;
   /** `?as=` value — set only by simulated-viewer tabs. */
   as?: 'replied';
-  /** Shown under the strip so a simulated preview is never mistaken for the
-   *  couple's real page. */
+  /** Whose view this tab is. REQUIRED in practice: a tab with no caption
+   *  silently implies "this is your page", and four of the five render the
+   *  page as a stranger sees it. */
   caption?: string;
 };
 
@@ -97,10 +98,31 @@ const DEVICES: Array<{ key: DeviceKey; label: string; Icon: typeof Smartphone }>
   { key: 'desktop', label: 'Desktop', Icon: Monitor },
 ];
 /** Also the fall-back when an unknown tab key somehow lands in state. */
-const INVITATION_TAB: PreviewTab = { key: 'rsvp', label: 'Invitation', phase: 'rsvp' };
+// EVERY TAB NOW SAYS WHOSE VIEW IT IS (2026-08-05).
+//
+// Four of the five tabs render the page as a STRANGER sees it — someone who
+// followed the link with no invitation. Only the RSVP'd tab simulates a guest,
+// and it was the only one that said so, so the silence on the others read as
+// "this is just your page". A couple could style their Invitation tab for weeks
+// without once seeing the thing an invited guest actually opens: their name,
+// their seat, their own QR. The `?as=` machinery that would show it exists but
+// covers one phase; until it covers these, the honest move is to stop implying
+// otherwise. A caption is not a substitute for the view — it is a substitute
+// for the wrong impression.
+const INVITATION_TAB: PreviewTab = {
+  key: 'rsvp',
+  label: 'Invitation',
+  phase: 'rsvp',
+  caption: 'as a visitor with no invitation sees it — an invited guest also sees their name, seat and QR',
+};
 
 const PREVIEW_TABS: PreviewTab[] = [
-  { key: 'save_the_date', label: 'Save-the-Date', phase: 'save_the_date' },
+  {
+    key: 'save_the_date',
+    label: 'Save-the-Date',
+    phase: 'save_the_date',
+    caption: 'as anyone who opens your link sees it',
+  },
   INVITATION_TAB,
   {
     key: 'rsvp_replied',
@@ -109,8 +131,18 @@ const PREVIEW_TABS: PreviewTab[] = [
     as: 'replied',
     caption: 'what a confirmed guest sees — sample guest, not one of yours',
   },
-  { key: 'event', label: 'Wedding day', phase: 'event' },
-  { key: 'editorial', label: 'After', phase: 'editorial' },
+  {
+    key: 'event',
+    label: 'Wedding day',
+    phase: 'event',
+    caption: 'as a visitor with no invitation sees it — an invited guest also sees their table and camera',
+  },
+  {
+    key: 'editorial',
+    label: 'After',
+    phase: 'editorial',
+    caption: 'as anyone who opens your link sees it',
+  },
 ];
 
 export function EditorShell({

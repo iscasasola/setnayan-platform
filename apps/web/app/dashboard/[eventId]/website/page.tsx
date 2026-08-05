@@ -21,6 +21,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
 import { eventNoun, eventNounCap } from '@/lib/event-noun';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
+import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 
 export const metadata = { title: 'Event website' };
 
@@ -70,7 +71,9 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug, event_type, love_story')
+      .select(
+      'event_id, display_name, slug, event_type, love_story, landing_page_visibility, scheduled_launch_at, std_launched_at',
+    )
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -120,6 +123,10 @@ export default async function WebsiteHubPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Can a guest actually open it? Same predicate the guest page renders from,
+  // so this screen and that one cannot disagree.
+  const reach = resolveSiteReachability(event);
+
   // Custom Subdomain (EVENT_SUBDOMAIN ₱999/yr) — when owned, the couple's site is
   // ALSO reachable at {slug}.setnayan.com (routed by the paid-gated subdomain
   // middleware). Shown as a secondary vanity address under the canonical link.
@@ -151,10 +158,32 @@ export default async function WebsiteHubPage({
           <div className="space-y-1.5">
             {publicLandingUrl ? (
               <>
-                <p className="flex items-center gap-1.5 text-sm text-success-700">
-                  <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Live — this link is yours.
-                </p>
+                {/* "Live" now means A PERSON WHO OPENS THE LINK SEES THE PAGE.
+                    It used to mean `event.slug !== null` — and a slug is a NAME,
+                    handed out at creation, months before launch and equally
+                    present on a page set to Private. A couple prints this link
+                    on invitations; the green tick has to be earned. */}
+                {reach.reachable ? (
+                  <p className="flex items-center gap-1.5 text-sm text-success-700">
+                    <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    {reach.visibility === 'unlisted'
+                      ? 'Live — anyone with this link can open it.'
+                      : 'Live — this link is yours.'}
+                  </p>
+                ) : (
+                  <p className="flex items-start gap-1.5 text-sm text-ink/70">
+                    <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+                    <span>
+                      {reach.launchedButHidden
+                        ? // The case worth naming. Saying only "not live" would send
+                          // them looking for a launch button they already pressed.
+                          'Not live yet — you launched, but your page is set to Private, so guests who open this link see a locked screen.'
+                        : reach.scheduled
+                          ? 'Not live yet — your launch is scheduled. Guests who open this link before then see a locked screen.'
+                          : 'Not live yet — guests who open this link see a locked screen until you launch.'}
+                    </span>
+                  </p>
+                )}
                 <a
                   href={publicLandingUrl}
                   target="_blank"

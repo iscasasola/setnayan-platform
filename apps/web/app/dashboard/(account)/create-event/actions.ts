@@ -64,6 +64,7 @@ type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
 const ALLOWED_VENUES = [
   'banquet_hall',
+  'restaurant',
   'garden',
   'beach',
   'destination',

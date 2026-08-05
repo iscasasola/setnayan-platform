@@ -1,7 +1,19 @@
 import Link from 'next/link';
 import { Check, ChevronRight, ShieldAlert } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
-import { approvePaymentFromWorkList } from '@/app/admin/work/actions';
+import {
+  approvePaymentFromWorkList,
+  approveVerificationFromWorkList,
+  agreeToRequestFromWorkList,
+} from '@/app/admin/work/actions';
+
+/** Which server action + hidden field each kind posts. One table so a new fact
+ *  queue is a row here, not another branch in the markup. */
+const ACTIONS = {
+  'approve-payment': { fn: approvePaymentFromWorkList, field: 'payment_id' },
+  'approve-verification': { fn: approveVerificationFromWorkList, field: 'application_id' },
+  'agree-request': { fn: agreeToRequestFromWorkList, field: 'approval_id' },
+} as const;
 
 /**
  * QueueDrawer — the items behind one work-list row, settled in place.
@@ -78,18 +90,23 @@ export function QueueDrawer({
           </span>
 
           <span className="flex shrink-0 flex-wrap items-center gap-2">
-            {it.action?.kind === 'approve-payment' ? (
-              <form action={approvePaymentFromWorkList}>
-                <input type="hidden" name="payment_id" value={it.action.id} />
-                <input type="hidden" name="back" value={backTo} />
-                <button
-                  type="submit"
-                  className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                  style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
-                >
-                  {it.action.label}
-                </button>
-              </form>
+            {it.action ? (
+              (() => {
+                const a = ACTIONS[it.action.kind];
+                return (
+                  <form action={a.fn}>
+                    <input type="hidden" name={a.field} value={it.action.id} />
+                    <input type="hidden" name="back" value={backTo} />
+                    <button
+                      type="submit"
+                      className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
+                    >
+                      {it.action.label}
+                    </button>
+                  </form>
+                );
+              })()
             ) : null}
             <Link
               href={it.href}

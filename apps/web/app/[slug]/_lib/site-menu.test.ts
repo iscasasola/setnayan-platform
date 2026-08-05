@@ -3,7 +3,7 @@
  * five tabs are Home · Details · Story · Gallery · Me; "Gallery" is the owner
  * rename (never "Photos"); Home + Me are always present; a middle tab appears
  * ONLY when its section rendered (no dead anchors — the rejected Program Board
- * bug); and the enable gate is flag-dark but always-on for the sample event.
+ * bug); and the enable gate is ON by default, opt-out via env (PR11).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,11 +49,35 @@ test('no tab ever anchors to nothing — every anchor is a #site- id', () => {
   }
 });
 
-test('enable gate: flag-dark by default, always on for the sample event', () => {
-  assert.equal(siteMenuEnabled({ flag: undefined, isSample: false }), false, 'off by default');
-  assert.equal(siteMenuEnabled({ flag: 'false', isSample: false }), false, 'explicit off');
-  assert.equal(siteMenuEnabled({ flag: 'true', isSample: false }), true, 'flag flips it on');
+// The gate FLIPPED on 2026-08-05 (PR11). It used to be `isSample || flag ===
+// 'true'`, which this test pinned as "flag-dark by default, always on for the
+// sample event" — and that reading was the problem, not the assertion. There is
+// exactly ONE row with `is_sample = TRUE`, and the env flag was never set, so
+// the menu rendered on the demo wedding and nowhere else. A month of navigation
+// work — the resolver, the phase-aware labels, the stranger's Join destination —
+// was live only on the one event every verification pass was run against.
+// Meanwhile the guests of real couples got the legacy bar, which is also why
+// nobody ever saw the two bars stack on top of each other.
+//
+// The flag is now an opt-OUT. See bottom-edge.test.ts for the composition guard.
+test('enable gate: on by default for real events, never off for the sample', () => {
+  assert.equal(
+    siteMenuEnabled({ flag: undefined, isSample: false }),
+    true,
+    'a real event with nothing set gets the menu — this is the whole point of the flip',
+  );
+  assert.equal(siteMenuEnabled({ flag: 'true', isSample: false }), true, 'explicit on');
+  assert.equal(
+    siteMenuEnabled({ flag: 'false', isSample: false }),
+    false,
+    'the escape hatch still works — one env value switches the bar back off',
+  );
   assert.equal(siteMenuEnabled({ flag: undefined, isSample: true }), true, 'sample always on');
+  assert.equal(
+    siteMenuEnabled({ flag: 'false', isSample: true }),
+    true,
+    'and the sample cannot be switched off by a stray env value',
+  );
 });
 
 // ── browsableBodyRenders — the no-dead-anchors guard ─────────────────────────

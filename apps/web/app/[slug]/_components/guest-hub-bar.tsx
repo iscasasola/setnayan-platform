@@ -48,6 +48,7 @@ export function GuestHubBar({
   selfRotateEnabled,
   dayOfLive,
   slug,
+  menuOn,
 }: {
   /** Guest personal QR token — the /papic/me/[token] bridge resolves it. */
   qrToken: string;
@@ -74,6 +75,24 @@ export function GuestHubBar({
   dayOfLive?: boolean;
   /** Route slug — the self-rotate action revalidates this path. */
   slug?: string;
+  /**
+   * Is the five-tab site menu rendering on this page? (PR11, 2026-08-05.)
+   *
+   * Both bars are `fixed … bottom-0`, this one at `z-40` and the menu at
+   * `z-30`, so wherever they coexist this bar sits ON TOP of the menu and the
+   * guest cannot tap Home, Details, Story, Gallery or Me at all. It never
+   * showed up because the menu only rendered on the sample event.
+   *
+   * When the menu is on it owns the bottom edge and takes over Camera outright,
+   * so this component gives up its own fixed bar. It does NOT give up what the
+   * menu has no slot for: the guest's personal QR — the thing they hold up to
+   * be photographed — and "Photos of you", which goes to their own tagged roll
+   * and is a different destination from the menu's Gallery anchor (that one
+   * scrolls to the couple's public chapters). Those two move into the page as
+   * the **Me** section, which is where the menu's Me tab has been anchoring to
+   * an empty div this whole time.
+   */
+  menuOn?: boolean;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const qrDialogRef = useRef<HTMLDivElement>(null);
@@ -146,8 +165,48 @@ export function GuestHubBar({
         ) : null}
       </div>
 
+      {/* The Me section — where the personal QR and the guest's own roll live
+          once the menu owns the bottom edge. This carries the `#site-me` id, so
+          the guest tree drops the empty marker it used to render under exactly
+          the same condition; two elements with one id would send the Me tab to
+          whichever came first, which is the blank one. */}
+      {menuOn ? (
+        <section id="site-me" className="mt-12 scroll-mt-6">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">You</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">Your invitation</h2>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setQrOpen(true)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta"
+            >
+              <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <span>My QR</span>
+            </button>
+            <Link
+              href={galleryHref}
+              className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta"
+            >
+              <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <span>Photos of you</span>
+              {galleryCount > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
+                  {galleryCount > 99 ? '99+' : galleryCount}
+                </span>
+              ) : null}
+            </Link>
+          </div>
+          <p className="mt-3 text-sm text-ink/60">
+            Show your QR so photographers and friends can tag you. Anything you are tagged in
+            shows up under Photos of you.
+          </p>
+        </section>
+      ) : null}
+
       {/* Fixed bottom control bar — 3 controls, the Camera the prominent center
-          action. Safe-area padding keeps it above the iOS home indicator. */}
+          action. Safe-area padding keeps it above the iOS home indicator.
+          Retired wherever the menu renders (see `menuOn`). */}
+      {menuOn ? null : (
       <nav
         aria-label="Your event controls"
         className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
@@ -200,6 +259,7 @@ export function GuestHubBar({
           </Link>
         </div>
       </nav>
+      )}
 
       {/* Personal-QR modal. */}
       {qrOpen ? (

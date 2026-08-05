@@ -66,7 +66,10 @@ export function BackgroundMusic({ src }: { src: string }) {
         aria-pressed={playing}
         aria-label={playing ? 'Mute background music' : 'Play background music'}
         title={playing ? 'Mute music' : 'Play music'}
-        className="fixed bottom-5 left-5 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-cream/90 text-terracotta shadow-lg backdrop-blur transition hover:bg-cream"
+        // PR11 (2026-08-05): at `bottom-5` this 2.75rem button sat squarely on
+        // the bottom bar's leftmost tab, and at `z-50` it won — so on a page
+        // with music the Home tab was a mute button. Lifted clear of the bar.
+        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-5 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-cream/90 text-terracotta shadow-lg backdrop-blur transition hover:bg-cream"
       >
         {playing ? (
           <Volume2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />

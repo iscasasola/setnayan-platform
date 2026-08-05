@@ -126,6 +126,17 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
   );
 
   return (
+    <>
+    {/* The bar reserves its own space (PR11, 2026-08-05).
+        Being `fixed`, it is out of flow and covers the last ~3.5rem of the
+        document. Whatever ended up at the foot of the page was therefore
+        UNTAPPABLE: for a visitor with no invitation that is "Open my
+        invitation" — the single control that gets them in — and for a guest it
+        is Sign out. This element sits in normal flow at the end of the page, so
+        the document simply grows by the height the bar occupies. Putting it
+        here rather than on a page wrapper means the space is reserved wherever
+        the bar renders and nowhere it does not — the two can never drift. */}
+    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden" />
     <nav
       aria-label="Site sections"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur"
@@ -138,5 +149,6 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
       {/* The home-indicator strip — without it the labels sit under the home bar. */}
       <div className="min-h-[0.5rem] bg-cream [height:env(safe-area-inset-bottom)]" />
     </nav>
+    </>
   );
 }

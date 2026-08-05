@@ -24,6 +24,7 @@ export function PublicEventDayBar({
   candidCameraActive,
   photosHref,
   hubHref,
+  menuOn,
 }: {
   /** Couple's PAPIC_GUEST candid camera is open → show the center Camera. */
   candidCameraActive: boolean;
@@ -32,8 +33,20 @@ export function PublicEventDayBar({
   /** When set (event-day live/post), a top-left chip opens the fullscreen
    *  no-scroll hub (public panels only for a no-guest viewer). */
   hubHref?: string | null;
+  /**
+   * Is the five-tab site menu rendering on this page? (PR11, 2026-08-05.)
+   *
+   * This bar is `fixed bottom-0 z-40` and the menu is `z-30`, so wherever both
+   * render this one covers the menu whole — every tab untappable. The menu
+   * resolves Camera and Photos for every viewer, so those two controls go.
+   * The "Live hub" chip does NOT: the nav resolver has no hub slot, and the
+   * chip is top-left chrome that was never in the bar's way. Retiring it here
+   * would delete the only day-of doorway a visitor without an invitation has.
+   */
+  menuOn?: boolean;
 }) {
-  if (!candidCameraActive && !photosHref && !hubHref) return null;
+  const showBar = !menuOn && (candidCameraActive || Boolean(photosHref));
+  if (!showBar && !hubHref) return null;
 
   return (
     <>
@@ -52,7 +65,7 @@ export function PublicEventDayBar({
         </div>
       ) : null}
 
-      {candidCameraActive || photosHref ? (
+      {showBar ? (
         <nav
           aria-label="Event controls"
           className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"

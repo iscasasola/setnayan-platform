@@ -58,7 +58,22 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
     // decisions that belong on the payments page, where the admin can see the
     // whole order. The list settles the simple case and nothing more.
     adminNotes: null,
-    promoteOrder: false,
+    // 🚨 THIS WAS `false` AND THAT WAS A TRAP (fixed 2026-08-05 after an audit).
+    // The reasoning was "promotion is a deliberate decision that belongs on the
+    // payments page" — which assumed the admin could go and finish it there.
+    // THEY CANNOT: the payments page only offers Approve while the payment is
+    // still `pending`, and this call has already moved it to `matched`. So the
+    // button reported success, the row vanished, the order never became paid,
+    // no receipt went out, the SKU never switched on, and NO SCREEN IN THE
+    // ADMIN COULD RESCUE IT. A couple would be told their payment was matched
+    // and then nothing would happen.
+    //
+    // 🔑 One click is only honest if it finishes the thing it claims to. The
+    // shortfall guard inside the core is what makes `true` safe: if the matched
+    // payments do not cover the gross, it returns { ok: false, shortfall } and
+    // provisions NOTHING — and the refusal below bounces the admin back to this
+    // list with the reason, instead of half-completing in silence.
+    promoteOrder: true,
   });
 
   if (!outcome.ok) {
@@ -158,8 +173,31 @@ export async function agreeToRequestFromWorkList(formData: FormData): Promise<vo
  */
 export async function publishReviewFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
-  await overridePublishReview(formData);
+
+  const back =
+    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+
+  // The page's own action ends in redirect('/admin/reviews?override=1') — right
+  // for that page, and the exact page-jump the owner asked to remove when the
+  // same decision is taken from the list. Next signals a redirect by THROWING,
+  // so a success arrives here as a thrown value carrying a NEXT_REDIRECT digest.
+  //
+  // 🔑 ONLY A REDIRECT IS SWALLOWED. A real failure — "Override reason is
+  // required", "not allowed for owner_self" — is a plain Error with no digest
+  // and is rethrown untouched, so a refusal can never be mistaken for success.
+  try {
+    await overridePublishReview(formData);
+  } catch (e) {
+    const digest = (e as { digest?: unknown })?.digest;
+    if (typeof digest !== 'string' || !digest.startsWith('NEXT_REDIRECT')) throw e;
+    revalidatePath('/admin/work');
+    revalidatePath('/admin/reviews');
+    redirect(`${back}${back.includes('?') ? '&' : '?'}settle=published`);
+  }
+
   revalidatePath('/admin/work');
+  revalidatePath('/admin/reviews');
+  redirect(`${back}${back.includes('?') ? '&' : '?'}settle=published`);
 }
 
 /**

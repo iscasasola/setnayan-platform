@@ -94,6 +94,24 @@ export function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
           allowFullScreen
         />
       </div>
+      {/* NOTHING HERE KNOWS WHETHER A STREAM IS RUNNING (2026-08-05).
+          The pulsing dot above and this whole block appear because the couple
+          SAVED A LINK and the event is inside its day-of window — which is now
+          noon the day before to noon the day after. The broadcast itself might
+          be three hours of that. So the relative in Dubai who opens the page at
+          8 AM sees a live badge and a player that says "video unavailable", and
+          has no way to tell a stream that has not started from one that broke.
+          One true sentence, said before they need it.
+
+          The real fix is the couple (or their coordinator) flipping the
+          broadcast on — the same shape as the host's Papic switch, owner-ruled
+          2026-08-03. It needs a column and a control, and it is the next slice.
+          Detecting it from YouTube is not an option: the Google account is
+          suspended (appeal 73857927), so there is no API to ask. */}
+      <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
+        If the ceremony hasn&rsquo;t started, the player above will say the video
+        is unavailable. Nothing is wrong — check back a little later.
+      </p>
     </section>
   );
 }

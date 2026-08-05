@@ -19,6 +19,7 @@
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
 import { cache } from 'react';
+import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
@@ -105,13 +106,28 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 // admin-client parameter would fork the key per call site.)
 export const loadEventShell = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('events')
     .select(
       'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
     )
     .ilike('slug', slug)
     .maybeSingle();
+  // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
+  //
+  // The error used to be discarded, so a database hiccup returned `data = null`
+  // — indistinguishable from "no event has this slug". Every caller reads that
+  // as a miss and calls notFound(), which tells a guest standing at the venue
+  // that their invitation link is wrong, offers them a sign-in button for a
+  // site that is working fine, and tells Google the page does not exist.
+  //
+  // Throwing routes to the route's error boundary instead, which says "having
+  // trouble loading, try again" and offers a retry. The distinction only ever
+  // matters when something is already broken, which is exactly when a guest
+  // most needs to be told the truth about which thing broke.
+  if (error) {
+    throw new Error(`loadEventShell: could not read the event for "${slug}": ${error.message}`);
+  }
   return data;
 });
 
@@ -133,6 +149,15 @@ export type EventShellRow = NonNullable<Awaited<ReturnType<typeof loadEventShell
  * The caller resolves the viewer via the cookie-scoped client and passes the
  * user id IN — auth/cookie reads never happen inside a cached loader.
  */
+/**
+ * Host-membership check for THIS event.
+ *
+ * 🔴 It used to select `member_type` and NEVER COMPARE IT, returning
+ * `Boolean(memberRow)` — and `event_members` is the event's people table, not a
+ * host table, so a guest who scanned the event QR counted as a host. See
+ * `host-scope.ts` for the full note and the shared definition.
+ */
+
 export const loadHostMembership = cache(
   async (admin: AdminClient, eventId: string, userId: string): Promise<boolean> => {
     const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
@@ -141,6 +166,7 @@ export const loadHostMembership = cache(
         .select('member_type')
         .eq('event_id', eventId)
         .eq('user_id', userId)
+        .in('member_type', [...HOST_MEMBER_TYPES])
         .maybeSingle(),
       admin
         .from('event_moderators')
@@ -817,7 +843,7 @@ export const loadGuestContext = cache(
       throw new Error('loadGuestContext called with a session for another event');
     }
 
-    const { data: guest } = await admin
+    const { data: guest, error: guestError } = await admin
       .from('guests')
       .select(
         'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token, photo_url, photo_source',
@@ -826,6 +852,17 @@ export const loadGuestContext = cache(
       .is('deleted_at', null)
       .maybeSingle();
 
+    // Same distinction as loadEventShell: `not_found` renders "we couldn't find
+    // that invitation", which is a real accusation to make at someone holding a
+    // printed QR — and it was also what a failed read produced, because the
+    // error was discarded and a broken query returns `data = null` too. The
+    // guest whose row is genuinely gone still gets told so; the guest whose
+    // read merely failed gets told to try again.
+    if (guestError) {
+      throw new Error(
+        `loadGuestContext: could not read guest ${session.guest_id}: ${guestError.message}`,
+      );
+    }
     if (!guest) {
       return { kind: 'not_found' };
     }

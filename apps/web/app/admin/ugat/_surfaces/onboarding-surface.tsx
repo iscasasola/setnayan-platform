@@ -16,7 +16,10 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { updateOnboardingMusic } from '@/app/admin/onboarding/actions';
+import {
+  updateOnboardingMusic,
+  ONBOARDING_MUSIC_MAX_TRACKS,
+} from '@/app/admin/onboarding/actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 
@@ -31,14 +34,28 @@ export async function OnboardingSurface({ searchParams }: Props) {
   // Wedding onboarding background music — resolve the stored r2:// ref so the
   // uploader shows the current track. Same columns the /onboarding/wedding read
   // path uses (relocated here from /admin/settings; read path unchanged).
-  const musicRef =
+  // The PLAYLIST, in author order — with a fallback to the legacy singular
+  // column. Prod today has the real track in the singular column and `[]` in the
+  // array (the array arrived via a schema reconcile with no writer), so reading
+  // the array alone would show an empty uploader over live music.
+  const musicKeys = Array.isArray(settings.onboarding_bg_music_r2_keys)
+    ? settings.onboarding_bg_music_r2_keys.filter(
+        (k): k is string => typeof k === 'string' && k.startsWith('r2://'),
+      )
+    : [];
+  const legacyRef =
     typeof settings.onboarding_bg_music_r2_key === 'string' &&
     settings.onboarding_bg_music_r2_key.startsWith('r2://')
       ? settings.onboarding_bg_music_r2_key
       : null;
-  const musicUrl = musicRef ? await displayUrlForStoredAsset(musicRef) : null;
+  const musicRefs = musicKeys.length > 0 ? musicKeys : legacyRef ? [legacyRef] : [];
   const musicDisplay: Record<string, string> = {};
-  if (musicRef && musicUrl) musicDisplay[musicRef] = musicUrl;
+  await Promise.all(
+    musicRefs.map(async (ref) => {
+      const u = await displayUrlForStoredAsset(ref);
+      if (u) musicDisplay[ref] = u;
+    }),
+  );
   const musicEnabled = settings.onboarding_bg_music_enabled === true;
 
   return (
@@ -103,14 +120,15 @@ export async function OnboardingSurface({ searchParams }: Props) {
               bucket="media"
               pathPrefix="onboarding/background-music"
               name="bg_music_url"
-              multiple={false}
+              multiple
+              maxFiles={ONBOARDING_MUSIC_MAX_TRACKS}
               maxSizeMB={40}
               acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
-              currentValue={musicRef}
+              currentValue={musicRefs}
               initialDisplayUrls={musicDisplay}
               variant="wide"
-              label="Music file"
-              help="MP3, M4A, AAC, OGG, or WAV. Up to 40 MB (a ~30-min instrumental fits). A seamless loop also works."
+              label="Music files"
+              help={`MP3, M4A, AAC, OGG, or WAV. Up to ${ONBOARDING_MUSIC_MAX_TRACKS} tracks, 40 MB each. They play in the order shown, then loop back to the first. Press play on any track to hear what is set.`}
             />
             <label className="flex items-center gap-2 text-sm text-ink">
               <input

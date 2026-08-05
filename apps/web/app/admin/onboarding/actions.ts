@@ -40,6 +40,9 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
+/** Playlist cap. The admin form and the save action must agree on one number. */
+export const ONBOARDING_MUSIC_MAX_TRACKS = 8;
+
 function r2RefOrNull(v: FormDataEntryValue | null): string | null {
   return typeof v === 'string' && v.startsWith('r2://') ? v : null;
 }
@@ -53,7 +56,18 @@ function r2RefOrNull(v: FormDataEntryValue | null): string | null {
  */
 export async function updateOnboardingMusic(formData: FormData) {
   await requireAdmin();
-  const musicRef = r2RefOrNull(formData.get('bg_music_url'));
+  // getAll — the uploader is now `multiple`, so a save carries 0..N refs in
+  // author order. getValue would silently keep only the first and drop the rest.
+  const musicRefs = formData
+    .getAll('bg_music_url')
+    .map((v) => r2RefOrNull(v))
+    .filter((r): r is string => r !== null)
+    .slice(0, ONBOARDING_MUSIC_MAX_TRACKS);
+  // The legacy singular column is MIRRORED, never abandoned: fetchOnboardingBgMusicUrl()
+  // still reads it, /admin/website-media resolves it to decide whether a track is
+  // "In use", and prod's real track lives there today. Letting the two disagree is
+  // how a live file becomes deletable.
+  const musicRef = musicRefs[0] ?? null;
   const enabledRequested = formData.get('onboarding_bg_music_enabled') === 'on';
   const enabled = enabledRequested && Boolean(musicRef);
 
@@ -62,6 +76,7 @@ export async function updateOnboardingMusic(formData: FormData) {
     .from('platform_settings')
     .update({
       onboarding_bg_music_r2_key: musicRef,
+      onboarding_bg_music_r2_keys: musicRefs,
       onboarding_bg_music_enabled: enabled,
       updated_at: new Date().toISOString(),
     })

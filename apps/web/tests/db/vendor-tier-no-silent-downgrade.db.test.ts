@@ -31,7 +31,7 @@ before(async () => {
 });
 
 after(async () => {
-  await replay?.cleanup?.();
+  await db?.close();
 });
 
 async function newVendorAt(
@@ -136,11 +136,19 @@ test('a deliberate downgrade is possible, but only by saying so', async () => {
   // A refund or a correction is legitimate. The escape hatch is per-statement,
   // not a standing exemption, so the default stays closed.
   const id = await newVendorAt('tier-deliberate@test.local', 'enterprise', "NOW() + INTERVAL '20 days'");
-  await db.query(`SET LOCAL setnayan.allow_tier_downgrade = 'on'`);
-  await db.query(
-    `UPDATE public.vendor_profiles SET tier_state = 'pro' WHERE vendor_profile_id = $1`,
-    [id],
-  );
+  // ⚠ SET LOCAL ONLY LIVES INSIDE A TRANSACTION, and every query here is its
+  // own. Setting it in a separate call would have no effect by the time the
+  // UPDATE runs — the test would fail and look like the guard was too strict,
+  // sending the next reader to weaken a rule that was working correctly.
+  // Keeping them in one transaction is also how a real admin override must be
+  // written, so this doubles as the worked example.
+  await db.exec(`
+    BEGIN;
+    SET LOCAL setnayan.allow_tier_downgrade = 'on';
+    UPDATE public.vendor_profiles SET tier_state = 'pro'
+     WHERE vendor_profile_id = '${id}';
+    COMMIT;
+  `);
   const after = await db.query<{ tier_state: string }>(
     `SELECT tier_state FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
     [id],

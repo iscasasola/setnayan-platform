@@ -70,7 +70,7 @@ export default async function AdminWorkLanding({
   // authenticated non-admin could otherwise leak per-queue open counts +
   // timestamps. MUST be the first statement, before any service-role read —
   // matches app/admin/page.tsx.
-  await requireAdmin();
+  const { userId: viewerUserId } = await requireAdmin();
 
   // One round-trip per queue (count + oldest-open age). Fails open: a thrown
   // query degrades the whole feed to "all clear" rather than 500-ing.
@@ -127,7 +127,7 @@ export default async function AdminWorkLanding({
   const withPeek: TriageItem[] = openKey
     ? await Promise.all(
         ordered.map(async (row) =>
-          row.key === openKey ? { ...row, peek: await peekQueue(row.key) } : row,
+          row.key === openKey ? { ...row, peek: await peekQueue(row.key, viewerUserId) } : row,
         ),
       )
     : ordered;

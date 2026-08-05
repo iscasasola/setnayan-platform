@@ -1,4 +1,9 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { latestAnnouncementForGuest } from '../announcement-actions';
 
 /**
  * DayOfAnnouncement — what the coordinator says, where the guests are.
@@ -24,8 +29,86 @@ import { Megaphone } from 'lucide-react';
  * Not a feed and not a conversation. One message, the latest. Anything
  * two-way belongs in the coordinator's own surfaces, not on a wedding page a
  * guest opened to find their table.
+ *
+ * ── IT ARRIVES ON ITS OWN NOW (2026-08-05) ──────────────────────────────────
+ * It used to be resolved once, server-side, at render. So the message reached
+ * only the guests who happened to reload — and nobody reloads a page they are
+ * already looking at. "Phones down, the ceremony is starting" is worth nothing
+ * five minutes late.
+ *
+ * Two things bring it in, and the ORDER MATTERS:
+ *   1. a Supabase `broadcast` ping on this event's channel — instant, and
+ *      carrying NO TEXT (see announcement-actions.ts for why);
+ *   2. a slow poll, because venue wifi drops channels constantly. The ping is
+ *      a hint; the timer is the guarantee. A dropped channel costs latency,
+ *      never the message.
+ *
+ * The server-rendered `body` seeds it, so the first paint is unchanged and a
+ * guest who lands mid-announcement still sees it with no round-trip.
  */
-export function DayOfAnnouncement({ body }: { body: string }) {
+export function DayOfAnnouncement({
+  body,
+  eventId,
+}: {
+  body: string;
+  /** Which event to listen on. Absent → the component stays exactly as it was,
+   *  server-rendered and static, so nothing regresses if a caller forgets. */
+  eventId?: string;
+}) {
+  const [text, setText] = useState(body);
+  // The server value wins on navigation — otherwise a guest moving between
+  // pages would keep whatever the last subscription happened to fetch.
+  const seeded = useRef(body);
+  if (seeded.current !== body) {
+    seeded.current = body;
+    if (text !== body) setText(body);
+  }
+
+  useEffect(() => {
+    if (!eventId) return;
+    let alive = true;
+
+    const pull = async () => {
+      try {
+        const latest = await latestAnnouncementForGuest(eventId);
+        // Only ever REPLACE with something real. A failed read must not blank a
+        // standing "phones down" off a guest's screen — the same rule the rest
+        // of the guest site follows: an empty answer and a broken one are not
+        // the same thing, and this one is safety-adjacent.
+        if (alive && latest?.body) setText(latest.body);
+      } catch {
+        // Venue wifi. The next tick covers it.
+      }
+    };
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`announce:${eventId}`)
+      .on('broadcast', { event: 'announcement' }, () => {
+        void pull();
+      })
+      .subscribe();
+
+    // 45s: slow enough to be invisible on a phone battery through a reception,
+    // fast enough that a dropped channel is a delay and not a silence.
+    const timer = window.setInterval(() => void pull(), 45_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void pull();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [eventId]);
+
+  return <AnnouncementCard body={text} />;
+}
+
+function AnnouncementCard({ body }: { body: string }) {
   return (
     <aside
       // `role="status"` + polite: a screen reader announces it when it appears

@@ -175,3 +175,90 @@ export async function setShowcaseConsent(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/website/privacy`);
   redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
 }
+
+/**
+ * Live media audience — who may watch the broadcast and the live photo wall.
+ *
+ * 🔴 THIS COLUMN HAD NO WRITER. `events.live_media_public` shipped on
+ * 2026-09-20 as "the couple's opt-in for anonymous live media", `NOT NULL
+ * DEFAULT FALSE`, read on every render of the guest site — and NOTHING
+ * ANYWHERE SET IT. All five events in production are FALSE, including the
+ * sample, because false is simply what the default was and there was never a
+ * control to change it.
+ *
+ * What that costs: the guest site computes
+ *
+ *     liveMediaVisible = viewer is a guest OR live_media_public
+ *
+ * so a cookie-less visitor never sees the livestream or the live photo wall on
+ * ANY event. That visitor is the relative overseas who opened the link someone
+ * forwarded on Messenger — precisely the person a wedding livestream exists
+ * for. They were being shown a page with no broadcast on it, on the day, while
+ * the broadcast was running.
+ *
+ * The column also carries the ONLY audience decision the broadcast has, which
+ * makes this the honest home for "we are live now": the couple opens the doors
+ * when they are ready, and closes them after. (Nothing can detect whether a
+ * stream is actually running — that would mean asking the YouTube API, and the
+ * Google Cloud account is suspended, appeal 73857927.)
+ *
+ * ⚠ SERVICE-ROLE WRITE, DELIBERATELY. `live_media_public` is on the
+ * withheld-from-authenticated list in
+ * `20271005100000_events_column_update_privileges.sql` — its own comment says
+ * "the host path deliberately routes through service-role", because
+ * `events` UPDATE RLS is ROW-level and the anon key is public, so a
+ * column a host could PATCH directly is a column anyone holding a host session
+ * could set on any row their policy admits. The host gate below is what
+ * authorizes it; the admin client is only how it is written.
+ */
+export async function setLiveMediaAudience(formData: FormData) {
+  const eventIdRaw = formData.get('event_id');
+  const open = formData.get('open') === '1';
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  const eventId = eventIdRaw as string;
+
+  // Opening the broadcast to people with no invitation is a public-audience
+  // act, exactly like going public/unlisted — so an anonymous draft account
+  // must secure itself first. Closing it again is always allowed.
+  await requireHostMembership(eventId, { secured: open });
+
+  const supabase = await createClient();
+  const { data: event, error: fetchErr } = await supabase
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (fetchErr) {
+    throw new Error(`Failed to load event: ${fetchErr.message}`);
+  }
+  if (!event) {
+    redirect('/dashboard');
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ live_media_public: open })
+    .eq('event_id', eventId);
+
+  if (error) {
+    throw new Error(`Failed to update the live audience: ${error.message}`);
+  }
+
+  // The public landing is ISR-cached (revalidate = 60), so without this the
+  // doors take up to a minute to open — on the one day where a minute is the
+  // difference between catching the entrance and missing it.
+  revalidatePath(`/dashboard/${eventId}/website`);
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
+  if (event.slug) {
+    revalidatePath(`/${event.slug}`);
+    revalidatePath(`/${event.slug}/hub`);
+  }
+
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1'),
+  );
+}

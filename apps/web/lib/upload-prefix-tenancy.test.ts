@@ -14,7 +14,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,29 +23,74 @@ import { tenancyForPathPrefix, isUuid, UPLOAD_TENANCY_REFUSAL } from './upload-p
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa'; // a real prod event id shape
+const ORDER = '7f3d1c2e-9a4b-4c8d-b1e5-2f6a8c0d4e91';
+
 const THREAD = '947e7bab-893d-454d-b4c5-0a6e23f36009';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · THE SHAPE RULE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('every id-bearing prefix shipped today resolves to an event', () => {
-  // Enumerated from the live call sites, so a refactor that changes one of
-  // these shapes shows up here rather than as a silent loss of the check.
-  for (const prefix of [
-    `deposit-proof/${EVENT}`,
-    `manual-vendors/${EVENT}`,
-    `force-majeure/${EVENT}`,
-    `handovers/${EVENT}`,
-    `events/${EVENT}/std-video-poster`,
-    `inspiration/${EVENT}/hero`,
-  ]) {
-    assert.deepEqual(
-      tenancyForPathPrefix(prefix),
-      { kind: 'event', id: EVENT },
-      `${prefix} must demand the event`,
-    );
+test('EVERY pathPrefix in the repo resolves to a kind the route can check', () => {
+  // 🚨 THIS TEST USED TO BE A HAND-TYPED LIST OF SIX PREFIXES, and that is
+  // exactly how `payments/<orderId>` shipped broken. It was never added to the
+  // list, so the list stayed green while the real call site was refused every
+  // single time. **Two hand-maintained things are not a guard; they drift
+  // together.** It is now an actual scan of the source.
+  //
+  // What it enforces: every prefix a component actually passes must resolve to
+  // a tenancy KIND the upload route knows how to verify. A new prefix family
+  // whose id is neither an event, a thread nor an order will fail here — at
+  // authoring time — instead of failing closed in a user's face with an upload
+  // box that turns red and logs nothing.
+  const roots = new Set();
+  for (const dir of ['app', 'components', 'lib']) {
+    const base = join(process.cwd(), dir);
+    if (!existsSync(base)) continue;
+    for (const file of walk(base)) {
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/pathPrefix[=:]\s*[{'"`]+\s*`?([a-z0-9-]+)\//gi)) {
+        if (m[1]) roots.add(m[1].toLowerCase());
+      }
+    }
   }
+
+  assert.ok(roots.size > 0, 'the scan found no pathPrefix call sites — the regex is stale');
+
+  const unhandled = [];
+  for (const root of roots) {
+    const kind = tenancyForPathPrefix(`${root}/${EVENT}`)?.kind;
+    // 'event' is the default and always checkable; thread and order have their
+    // own arms in the route. Anything else means the route cannot verify it.
+    if (!kind || !['event', 'thread', 'order'].includes(kind)) unhandled.push(root);
+  }
+  assert.deepEqual(unhandled, [], `these prefix roots resolve to no checkable tenancy: ${unhandled.join(', ')}`);
+});
+
+test('a payments prefix demands the ORDER, never the event', () => {
+  // 🚨 THE LIVE BREAK. `payments/<orderId>` carries an ORDER id. Read as an
+  // event id it was checked against a wedding that does not exist, so the
+  // couple's order page and the vendor's booking-fee page could not attach a
+  // payment screenshot at all — and there is no other way to send one from
+  // those screens. The first proof of a purchase still arrived via a different
+  // screen, so what broke was the SECOND chance: an admin asking for a clearer
+  // picture addressed it to someone who could not send it.
+  assert.deepEqual(tenancyForPathPrefix(`payments/${ORDER}`), { kind: 'order', id: ORDER });
+  assert.notEqual(
+    tenancyForPathPrefix(`payments/${ORDER}`)?.kind,
+    'event',
+    'a payments prefix must never be checked against events — that is the bug',
+  );
+});
+
+test('the route checks each tenancy kind against its OWN table', () => {
+  // A kind the resolver can return but the route cannot check would fail
+  // closed exactly like the original bug, silently.
+  const route = readFileSync(join(process.cwd(), 'app/api/upload/route.ts'), 'utf8');
+  assert.match(route, /kind === 'order'/, 'the route must handle order tenancy');
+  assert.match(route, /from\('orders'\)/, 'order tenancy must be checked against the orders table');
+  assert.match(route, /from\('events'\)/, 'event tenancy must still be checked against events');
+  assert.match(route, /from\('chat_threads'\)/, 'thread tenancy must still be checked against chat_threads');
 });
 
 test('chat is the one thread-rooted family', () => {

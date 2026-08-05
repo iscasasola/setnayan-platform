@@ -22,6 +22,7 @@
  */
 
 import Link from 'next/link';
+import { ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 import type { NavItem } from '@/app/_components/nav/types';
 import { MoreSearch } from '@/app/_components/more-search';
 
@@ -63,7 +64,18 @@ function LandingCard({ item }: { item: LandingItem }) {
   const Icon = item.icon;
   const count = item.count ?? 0;
   return (
-    <li data-more-card data-more-label={item.label}>
+    <li
+      data-more-card
+      data-more-label={item.label}
+      // 🔑 THE SAME HAYSTACK THE DESKTOP PALETTE SEARCHES. The filter used to
+      // match the LABEL only, so the owner's "pending" found nothing on a
+      // phone while finding three pages on a laptop — the identical complaint,
+      // fixed on one device and left live on the other. Name + section +
+      // description + the hand-picked aliases, all from the one shared module.
+      data-more-hay={[item.label, item.description, ADMIN_NAV_ALIASES[item.key] ?? '']
+        .join(' ')
+        .toLowerCase()}
+    >
       <Link
         href={item.href}
         className="m-card relative flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)]"

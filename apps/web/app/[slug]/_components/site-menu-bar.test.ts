@@ -68,8 +68,33 @@ test('menu bar · a closed camera is DRAWN and locked, never absent', () => {
   // The locked branch must not be a link — a link would navigate.
   const locked = BAR.slice(BAR.indexOf('aria-disabled'));
   assert.ok(!locked.slice(0, 400).includes('<a'), 'the locked camera is still a link');
-  // And it must carry the reason.
-  assert.match(BAR, /title=\{slot\.lockedReason\}/);
+
+  // And it must carry the reason SOMEWHERE A PHONE CAN REACH.
+  //
+  // ⚠ THIS ASSERTION USED TO BE `title={slot.lockedReason}`, AND IT PASSED
+  // WHILE THE REASON WAS UNREADABLE. `title` is a native tooltip: it needs a
+  // mouse hovering. This is a fixed bar at the BOTTOM OF A PHONE SCREEN, where
+  // there is no hover — so for the entire audience of this component the reason
+  // did not exist. The test was checking that a string had been passed, not
+  // that anyone could read it.
+  //
+  // The claim being pinned is unchanged and is the one in the comment above:
+  // "locked says neither". A padlock nobody can interrogate says "broken".
+  assert.ok(
+    !/title=\{slot\.lockedReason\}/.test(BAR),
+    'The reason is back in a `title=` — a hover tooltip, on a phone.',
+  );
+  assert.match(
+    BAR,
+    /aria-label=\{`\$\{slot\.label\} — \$\{slot\.lockedReason \?\? 'not available yet'\}`\}/,
+    'A screen reader must get the reason without having to interact first.',
+  );
+  assert.match(
+    BAR,
+    /onClick=\{\(\) => setOpenReason\(slot\.lockedReason \?\? null\)\}/,
+    'Tapping the locked slot must reveal the reason — that is the only route a ' +
+      'touch device has.',
+  );
 });
 
 test('menu bar · both trees offer the camera, and both lock it rather than hide it', () => {

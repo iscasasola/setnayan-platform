@@ -99,6 +99,10 @@ export type GuestSiteIdentity = {
   eventVendorCredits: VendorCard[];
   /** Invite/Join v2: flash after a guest saves a vendor. */
   saveFlash: string | null;
+  /** The guest's reply either landed or it did not — and until 2026-08-05 both
+   *  outcomes rendered the same page with no message at all, so a failed write
+   *  was indistinguishable from never having tapped Save. */
+  rsvpFlash: { tone: 'ok' | 'error'; text: string } | null;
   /** Server-resolved effective face-tag mode (One-Pool spec §3.4) for the
    *  RSVP selfie + day-of enroll surfaces. mode_b ⇒ no descriptor computed. */
   faceMode: PapicFaceMode;
@@ -320,6 +324,7 @@ export function guestIdentity(input: Omit<GuestSiteIdentity, 'kind'>): GuestSite
     accountlessPhotosClosed: input.accountlessPhotosClosed,
     eventVendorCredits: input.eventVendorCredits,
     saveFlash: input.saveFlash,
+    rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
   };
 }

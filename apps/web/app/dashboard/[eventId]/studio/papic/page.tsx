@@ -89,6 +89,7 @@ import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicOneCard } from './_components/papic-one-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
+import { FaceTaggingChoice } from './_components/face-tagging-choice';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -799,10 +800,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Gallery. */}
       <GalleryPreviewCard eventId={eventId} />
 
-      {/* The couple's own lever over supplier photos. Renders nothing until a
-          supplier has actually shot something, so it never appears as an empty
-          control next to a florist who will never take a picture. */}
+      {/* Two levers the couple holds over their own photos, side by side
+          because they answer the same question — what happens to pictures of my
+          guests. Each renders nothing when it has nothing to offer. */}
       <VendorMediaControls eventId={eventId} />
+      <FaceTaggingChoice eventId={eventId} />
 
       {/* Moderation — a slim, real action. */}
       <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">

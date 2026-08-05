@@ -137,8 +137,6 @@ export async function submitRsvp(
     .eq('event_id', eventId);
 
   if (error) {
-    // Best-effort silent failure for guest-side surface; couple sees the row
-    // unchanged. A toast UI lands with the polish pass.
     await insertFaultLog({
       event_type: 'SUPABASE_SAVE_ERROR',
       element_name: 'Submit guest RSVP',
@@ -146,7 +144,25 @@ export async function submitRsvp(
       error_message: error.message,
       payload_snapshot: { eventId, guestId, status, meal },
     });
-    return;
+    // 🔴 THIS USED TO `return` SILENTLY — "a toast UI lands with the polish
+    // pass", which it never did. The guest tapped Save, the button stopped
+    // spinning, the page came back looking exactly as before, and nothing was
+    // written. They walk away believing they have replied.
+    //
+    // Nobody finds out. The guest thinks they are counted; the couple's list
+    // says they never answered; the caterer's headcount is short by however
+    // many people hit a bad second. A silent write failure on an RSVP is the
+    // one failure with no natural discovery path — the guest has no reason to
+    // check again, and the couple cannot tell "did not reply" from "replied
+    // and we dropped it".
+    //
+    // The fault log is for us. This redirect is for them.
+    const { data: evFail } = await admin
+      .from('events')
+      .select('slug')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
   }
 
   // Smart seat-plan Phase 5 (gap G2): a guest confirming from their own invite
@@ -341,7 +357,7 @@ export async function submitRsvp(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(ev?.slug ? `/${ev.slug}?saved=1` : '/');
+  redirect(ev?.slug ? `/${ev.slug}?rsvp=ok` : '/');
 }
 
 /**

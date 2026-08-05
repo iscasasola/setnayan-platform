@@ -67,18 +67,42 @@ test('announcement · not dismissible, and announced politely', () => {
   // Scan the CODE, not the prose — the file's own docblock explains why it is
   // not dismissible, and matching that word would fail on the explanation.
   const code = CARD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  // The real signals of dismissibility are a handler and local state. Do NOT
-  // add bare words like "hidden" here: `aria-hidden` on the decorative icon is
-  // correct, and a blunt word-list flags it. (Caught three times in one day —
-  // a smell test that fires on correct code teaches people to delete the test.)
-  for (const smell of ['onClick', 'useState', 'dismiss(', 'Dismiss(', 'onDismiss']) {
+  // Do NOT add bare words like "hidden" here: `aria-hidden` on the decorative
+  // icon is correct, and a blunt word-list flags it. (Caught three times in one
+  // day — a smell test that fires on correct code teaches people to delete the
+  // test.)
+  for (const smell of ['onClick', 'dismiss(', 'Dismiss(', 'onDismiss', 'setDismissed']) {
     assert.ok(
       !code.includes(smell),
       `the announcement card's CODE contains "${smell}" — it must not be dismissible`,
     );
   }
-  // It is a server component: no directive, so no client state is even possible.
-  assert.ok(!code.includes("'use client'"), 'the card became a client component — why?');
+
+  // ⚠ THIS TEST USED TO ASSERT `useState` AND `'use client'` WERE ABSENT, and
+  // it went red on 2026-08-05 when the card began subscribing to realtime. It
+  // was right to fire: those were its proof. But they were a PROXY — "it cannot
+  // be dismissed because it cannot hold state" — and the card now must hold
+  // state, because the announcement used to reach only guests who happened to
+  // reload, which on the one day this exists for is no delivery at all.
+  //
+  // The property is unchanged and is what is asserted now: there is no control
+  // that hides it, and nothing renders it conditionally on having been seen.
+  // Loosening the proxy without pinning the property is how a guard quietly
+  // becomes decoration, so the state it IS allowed to hold is named exactly.
+  const stateHooks = code.match(/useState[<(]/g) ?? [];
+  assert.equal(
+    stateHooks.length,
+    1,
+    'The card holds more state than the one piece it is allowed (the current ' +
+      'announcement text, replaced live). A second useState is where a ' +
+      '"dismissed" flag would live — say why it is here, or do not add it.',
+  );
+  assert.match(
+    code,
+    /const \[text, setText\] = useState\(body\)/,
+    'The one permitted state is the announcement text itself, seeded from the ' +
+      'server render.',
+  );
   // role=status + polite: announced without seizing focus. `alert` would
   // interrupt whatever the guest is reading, and this is not an error.
   assert.match(CARD, /role="status"/);

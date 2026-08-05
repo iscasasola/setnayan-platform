@@ -85,6 +85,25 @@ export function QueueDrawer({
     );
   }
 
+  // 🪤 "We could not look" is NOT "there is nothing here." Saying the latter
+  // with a green tick is a confident lie the moment a read fails.
+  if (peek.unreadable) {
+    return (
+      <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
+        <p className="flex items-start gap-2 text-xs" style={{ color: '#B54708' }}>
+          <ShieldAlert aria-hidden className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            Could not load these right now — this is not the same as the queue being
+            clear.{' '}
+            <Link href={href} className="underline underline-offset-2">
+              Open {label}
+            </Link>
+          </span>
+        </p>
+      </div>
+    );
+  }
+
   if (peek.items.length === 0) {
     return (
       <div className="border-t border-[color:var(--sn-line-soft,#F1ECE3)] px-4 py-3">
@@ -173,6 +192,11 @@ export function QueueDrawer({
                   </form>
                 );
               })()
+            ) : null}
+            {it.note ? (
+              <span className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
+                {it.note}
+              </span>
             ) : null}
             <Link
               href={it.href}

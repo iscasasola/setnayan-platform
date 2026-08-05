@@ -66,8 +66,26 @@ export function StdFilmHandoff({
     <>
       {/* The site is always in the tree. Only its visibility changes, so
           leaving the film costs no fetch and returning costs no re-render of
-          the page beneath. */}
-      {children}
+          the page beneath.
+
+          THE COLUMN HAS TO BE PUT BACK HERE (2026-08-05). The whole
+          Save-the-Date phase runs `fullBleed`, and the shell's fullBleed branch
+          returns a bare `<main>` with no padded column — correct for a film
+          that plays edge to edge. But once the real site started rendering
+          UNDERNEATH that film for every event, the site inherited the film's
+          no-column treatment: every card, heading and paragraph ran into both
+          edges of the phone, and the rounded cards looked broken at the sides.
+          It is live on both real couples' pages right now, because a wedding
+          more than ~90 days out is in exactly this phase.
+
+          The class string is the one `invitation-shell.tsx` uses for every
+          other page, so the site below the film is laid out identically to the
+          site after it. Wrapping HERE rather than at the call site means any
+          future thing mounted beneath the film gets it too.
+
+          ⚠ Do NOT "fix" this by turning `fullBleed` off — that would put the
+          Setnayan header and footer back over a paid full-screen film. */}
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
 
       {showFilm ? (
         film

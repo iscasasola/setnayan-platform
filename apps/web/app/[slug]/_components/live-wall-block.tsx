@@ -45,12 +45,21 @@ export function LiveWallBlock({
   const [tiles, setTiles] = useState<WallTile[]>(initialTiles);
   const [count, setCount] = useState(initialCount);
   const [caption, setCaption] = useState<LiveWallCaption>(initialCaption);
+  // Two consecutive fetch failures — see the poll loop. Only ever set from
+  // there, so a first-load-with-no-tiles (the ordinary quiet moment) never
+  // shows an error that is not true.
+  const [stalled, setStalled] = useState(false);
   // feedIds present at first paint — only LATER arrivals animate in.
   const seededIds = useRef(new Set(initialTiles.map((t) => t.feedId)));
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     let inFlight = false;
+    // Consecutive failures. TWO, not one: a single miss on venue wifi is
+    // ordinary and must not accuse the network. Two in a row is a pattern, and
+    // by then the guest has been staring at "the wall is warming up" for the
+    // best part of a minute believing photos are on their way.
+    let misses = 0;
 
     const poll = async () => {
       if (inFlight || document.visibilityState !== 'visible') return;
@@ -59,7 +68,13 @@ export function LiveWallBlock({
         const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`, {
           cache: 'no-store',
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          misses += 1;
+          if (misses >= 2) setStalled(true);
+          return;
+        }
+        misses = 0;
+        setStalled(false);
         const data = (await res.json()) as {
           tiles?: WallTile[];
           count?: number;
@@ -71,7 +86,17 @@ export function LiveWallBlock({
         if (typeof data.count === 'number') setCount(data.count);
         if (data.caption !== undefined) setCaption(data.caption);
       } catch {
-        // transient venue-WiFi failure — next tick covers it
+        // Transient venue-wifi failure — the next tick covers it, and after two
+        // in a row we stop promising photos that are not coming.
+        //
+        // 🔴 BOTH THIS CATCH AND THE `!res.ok` ABOVE USED TO CHANGE NO STATE AT
+        // ALL. The wall kept retrying every 25 seconds forever while the guest
+        // read "The wall is warming up — photos appear here the moment they're
+        // taken." On a bad venue network that sentence was a promise the page
+        // had already stopped being able to keep, and there was nothing on
+        // screen to tap, retry, or even suspect.
+        misses += 1;
+        if (misses >= 2) setStalled(true);
       } finally {
         inFlight = false;
       }
@@ -113,7 +138,9 @@ export function LiveWallBlock({
       >
         <LiveWallHeader count={0} />
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-          The wall is warming up — photos appear here the moment they&rsquo;re taken.
+          {stalled
+            ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
+            : 'The wall is warming up — photos appear here the moment they’re taken.'}
         </p>
       </section>
     );

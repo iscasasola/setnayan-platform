@@ -210,6 +210,25 @@ const QUEUE_DEFS: QueueDef[] = [
  * (which is also why this carries no drift tripwire test — there is no second
  * list left to drift). Same keys, same values as the old hand-written map.
  */
+/**
+ * The table + "open work" filter for one queue, for consumers that need to LIST
+ * the rows the count counted — currently the work-list drawer (queue-peek.ts).
+ *
+ * 🔑 THE NUMBER AND THE LIST MUST COME FROM ONE PREDICATE. The drawer originally
+ * re-typed each filter by hand. Three matched by luck; PAYOUTS did not — the row
+ * counted `paid_at IS NULL AND NOT on_hold` (the V2 payout model) while the
+ * drawer listed `released_at IS NULL` (the V1 one). Both columns exist on the
+ * table, so nothing errors: the badge says one thing and the list underneath it
+ * shows another, forever, in silence. Reading the filter from here instead of
+ * copying it removes the whole class.
+ */
+export function getQueueSource(
+  key: string,
+): { table: string; filter: (q: any, ctx: { nowIso: string }) => any } | null {
+  const def = QUEUE_DEFS.find((d) => d.key === key);
+  return def ? { table: def.table, filter: def.filter } : null;
+}
+
 export const ADMIN_QUEUE_META: Record<
   string,
   { lane: AdminQueueLane; slaHours: number }

@@ -186,3 +186,49 @@ export function adaptAdminGroupItems(
   const group = groups.find((g) => g.key === groupKey);
   return group ? group.items.map(toLandingItem) : [];
 }
+
+
+/**
+ * Words a person would TYPE that are not in a page's name.
+ *
+ * 🔑 SEARCHING BY WHAT YOU ARE TRYING TO DO, NOT BY WHAT THE PAGE IS CALLED.
+ * The owner typed "pending" and got *"Nothing called pending."* — correct, and
+ * useless: three different pages hold pending work and none has that word in
+ * its title. These are the words that bridge the two.
+ *
+ * ⚠ IT LIVES HERE, BESIDE THE DESCRIPTIONS, BECAUSE TWO SURFACES SEARCH: the
+ * desktop palette and the phone's "All surfaces" map. It began inside the
+ * palette, which is why the phone kept matching titles only — the owner's own
+ * complaint was fixed on one device and left live on the other. One list, both
+ * readers; never copy it.
+ *
+ * Hand-picked on purpose. A generated synonym list would match everything and
+ * rank nothing.
+ */
+export const ADMIN_NAV_ALIASES: Record<string, string> = {
+  payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money',
+  payouts: 'release transfer send money vendor owed',
+  verify: 'pending id identity dti sec documents badge legit',
+  disputes: 'complaint refund argument conflict problem',
+  fraud: 'scam suspicious fake abuse',
+  'user-reports': 'report flag complaint abuse takedown',
+  'account-deletions': 'erasure delete privacy gdpr ra10173 right to be forgotten',
+  'data-privacy': 'npc privacy dpo consent ra10173 filing',
+  approvals: 'pending sign off second admin two admin',
+  subscriptions: 'pro plan upgrade billing recurring',
+  'token-purchases': 'tokens packs credits',
+  pricing: 'price cost sku catalog catalogue amount',
+  'price-bands': 'market range benchmark',
+  secrets: 'keys api credentials rotate env',
+  integrations: 'connect services resend openai gcash maya switches',
+  compliance: 'npc bir legal privacy dpo',
+  taxonomy: 'categories services vocabulary tags event types',
+  menus: 'labels icons rename nav navigation',
+  users: 'accounts people customers couples',
+  vendors: 'suppliers shops businesses',
+  venues: 'places locations',
+  events: 'weddings bookings',
+  help: 'support tickets questions',
+  seo: 'search google ranking llms',
+  receipts: 'invoice or bir official receipt',
+};

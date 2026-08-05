@@ -35,6 +35,7 @@ import {
 } from '@/lib/papic-drive';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
@@ -1588,9 +1589,15 @@ async function GalleryPreviewCard({
   eventId: string;
 }) {
   const supabase = await createClient();
-  const [photos, densityRows] = await Promise.all([
+  const [photos, densityRows, seesAll] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
     getKwentoDensity(eventId, 60),
+    // Asked SEPARATELY on purpose — an RLS refusal on the two couple-only
+    // sources arrives as an empty list with no error, indistinguishable from a
+    // wedding where nobody took a picture. Without this, a promoted coordinator
+    // was shown the vendor's documentation shots as if they were the whole
+    // album.
+    viewerSeesCoupleScopedPapic(supabase, eventId),
   ]);
   const hasPhotos = photos.length > 0;
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
@@ -1599,12 +1606,24 @@ async function GalleryPreviewCard({
     <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">
-          {hasPhotos ? 'Your gallery' : 'What your gallery looks like'}
+          {seesAll
+            ? hasPhotos
+              ? 'Your gallery'
+              : 'What your gallery looks like'
+            : 'Photos shared with you'}
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          Guests who scan a personal or table QR are tagged on the spot. Untagged
-          photos still land here — Papic never drops a photo.
-        </p>
+        {seesAll ? (
+          <p className="max-w-prose text-sm text-ink/60">
+            Guests who scan a personal or table QR are tagged on the spot. Untagged
+            photos still land here — Papic never drops a photo.
+          </p>
+        ) : (
+          <p className="max-w-prose text-sm text-ink/60">
+            You&rsquo;re seeing what the couple&rsquo;s suppliers shot for their records.
+            The photos the crew and guests took belong to the couple and aren&rsquo;t
+            shared with you.
+          </p>
+        )}
       </div>
 
       {hasPhotos ? (
@@ -1612,8 +1631,9 @@ async function GalleryPreviewCard({
       ) : (
         <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">
-            Your gallery fills up as your crew shoots — the first photos land here
-            in real time.
+            {seesAll
+              ? 'Your gallery fills up as your crew shoots — the first photos land here in real time.'
+              : 'Nothing has been shared with you yet.'}
           </p>
         </div>
       )}

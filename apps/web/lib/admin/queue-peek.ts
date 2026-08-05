@@ -46,12 +46,38 @@ export type PeekAction = {
   id: string;
 };
 
+/**
+ * A NEEDS-DETAILS queue: a small form, never a single button.
+ *
+ * 🔑 THE CODE DECIDES WHICH QUEUES LAND HERE, NOT TASTE. Reviews earns a form
+ * because `overridePublishReview` throws *"Override reason is required"*;
+ * payouts earns one because `markPayoutPaidAction` needs the method AND the
+ * reference of a transfer made by hand, and a money record without its
+ * reference cannot be matched to a bank statement later. A one-click version of
+ * either would have to invent the missing half.
+ *
+ * The field list lives here, beside the query that produced the row, so the
+ * form and the arguments its action requires are described once.
+ */
+export type PeekForm = {
+  kind: 'publish-review' | 'record-payout';
+  /** The row id the action needs. */
+  id: string;
+  submitLabel: string;
+  fields: Array<
+    | { name: string; type: 'text'; placeholder: string; required: boolean }
+    | { name: string; type: 'select'; options: string[]; required: boolean }
+  >;
+};
+
 export type PeekItem = {
   id: string;
   title: string;
   detail: string;
   /** Present only for FACT queues. Absent ⇒ the row offers the case file only. */
   action?: PeekAction;
+  /** Present when the decision needs details the admin must supply. */
+  form?: PeekForm;
   /** Where "Open" goes — always available, even when an action is. */
   href: string;
 };
@@ -225,7 +251,65 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
             id: row.appeal_id,
             title: (row.matched_signal ?? 'Review appeal').replace(/_/g, ' '),
             detail: row.appeal_reason?.slice(0, 90) ?? 'No reason given',
+            // NOT a button: overridePublishReview REFUSES without a reason.
+            // Publishing over a couple's review is on the record, and the
+            // record needs the why.
+            form: {
+              kind: 'publish-review',
+              id: row.appeal_id,
+              submitLabel: 'Publish',
+              fields: [
+                {
+                  name: 'reason',
+                  type: 'text',
+                  placeholder: 'Why publish this? (required, on the record)',
+                  required: true,
+                },
+              ],
+            },
             href: '/admin/reviews',
+          };
+        }),
+      };
+    }
+
+    if (key === 'payouts') {
+      const admin = createAdminClient();
+      const { data, count } = await admin
+        .from('vendor_payouts')
+        // Real columns, read out of the migration: `stage` (not payout_stage),
+        // `amount_centavos` (not net_centavos), `trigger_date` (not
+        // scheduled_at), and pending is `released_at IS NULL` — the table has
+        // no `status`. Four guesses, four wrong; the column guard caught them.
+        .select('payout_id, amount_centavos, stage, trigger_date', { count: 'exact' })
+        .is('released_at', null)
+        .order('trigger_date', { ascending: true })
+        .limit(PEEK_LIMIT);
+      return {
+        total: count ?? 0,
+        items: (data ?? []).map((r) => {
+          const row = r as {
+            payout_id: string;
+            amount_centavos: number | null;
+            stage: string | null;
+          };
+          return {
+            id: row.payout_id,
+            title: formatCentavosPhp(row.amount_centavos ?? 0),
+            detail: (row.stage ?? 'payout').replace(/_/g, ' '),
+            // NOT a button. markPayoutPaidAction RECORDS a transfer the admin
+            // already made by hand; without the method and the reference the
+            // record cannot be matched to a bank statement later.
+            form: {
+              kind: 'record-payout',
+              id: row.payout_id,
+              submitLabel: 'Record as paid',
+              fields: [
+                { name: 'payment_method', type: 'select', options: ['gcash', 'bdo_transfer', 'maya', 'check'], required: true },
+                { name: 'payout_reference', type: 'text', placeholder: 'Reference number', required: true },
+              ],
+            },
+            href: '/admin/payouts',
           };
         }),
       };

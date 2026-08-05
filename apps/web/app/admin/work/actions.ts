@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
+import { overridePublishReview } from '@/app/admin/reviews/actions';
+import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
 import { applyApplicationDecision } from '@/app/admin/verify/actions';
 import { approveRequest } from '@/app/admin/approvals/actions';
 
@@ -139,5 +141,40 @@ export async function approveVerificationFromWorkList(formData: FormData): Promi
 export async function agreeToRequestFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
   await approveRequest(formData);
+  revalidatePath('/admin/work');
+  revalidatePath('/admin/approvals');
+}
+
+/**
+ * REVIEWS — publish over a contested review, with the reason it requires.
+ *
+ * 🔑 NOT A ONE-CLICK BUTTON, AND THE CODE IS WHY. `overridePublishReview` throws
+ * *"Override reason is required (1–4000 chars)"*. Publishing over a couple's
+ * review moves a vendor's public star rating and is on the record — the record
+ * needs the why. A one-click version would have to invent one.
+ *
+ * Delegates to the page's own action, reason and all, so the two entry points
+ * cannot diverge on what an override means.
+ */
+export async function publishReviewFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await overridePublishReview(formData);
+  revalidatePath('/admin/work');
+}
+
+/**
+ * PAYOUTS — record a transfer the admin already made by hand.
+ *
+ * 🔑 ALSO NOT A BUTTON. `markPayoutPaidAction` needs the METHOD and the
+ * REFERENCE; without them the record cannot be matched to a bank statement
+ * later, and an unmatchable money record is worse than no record. The drawer
+ * renders a method picker and a reference field, still without leaving the list.
+ *
+ * ⚠ NOTHING HERE MOVES MONEY. The transfer already happened outside Setnayan;
+ * this only writes down that it did.
+ */
+export async function recordPayoutFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await markPayoutPaidAction(formData);
   revalidatePath('/admin/work');
 }

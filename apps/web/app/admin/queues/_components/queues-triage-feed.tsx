@@ -18,6 +18,7 @@
 import Link from 'next/link';
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
+import { partitionQueues } from '@/lib/admin/queue-partition';
 import { QueueDrawer } from './queue-drawer';
 import type {
   AdminQueueLane,
@@ -313,8 +314,7 @@ export function QueuesTriageFeed({
   };
 
   const shown = lane ? items.filter((i) => i.lane === lane) : items;
-  const overdue = shown.filter((i) => i.dueState === 'overdue');
-  const rest = shown.filter((i) => i.dueState !== 'overdue');
+  const { overdue, waiting, clear } = partitionQueues(shown);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
@@ -368,17 +368,42 @@ export function QueuesTriageFeed({
         </section>
       )}
 
-      {rest.length > 0 && (
+      {waiting.length > 0 && (
         <section>
-          {overdue.length > 0 && (
-            <h2 className="sn-eye mb-3">All queues</h2>
-          )}
+          {overdue.length > 0 && <h2 className="sn-eye mb-3">Also waiting</h2>}
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {rest.map((item) => (
+            {waiting.map((item) => (
               <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
             ))}
           </ul>
         </section>
+      )}
+
+      {/* The quiet majority. <details> because it must open with JavaScript off,
+          like everything else on this page — and because a native disclosure is
+          keyboard- and screen-reader-correct without a line of our own code. */}
+      {clear.length > 0 && (
+        <details className="mt-6 group">
+          <summary
+            className="flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-4 py-3 text-sm"
+            style={{ color: 'var(--sn-ink-500)' }}
+          >
+            <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+            <span>
+              <strong style={{ color: 'var(--sn-ink-900)' }}>{clear.length}</strong>{' '}
+              {clear.length === 1 ? 'queue is' : 'queues are'} clear
+            </span>
+            <ChevronRight
+              aria-hidden
+              className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+            />
+          </summary>
+          <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {clear.map((item) => (
+              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
+            ))}
+          </ul>
+        </details>
       )}
 
       {/* A lane can be chosen while every queue in it is clear. Without this the

@@ -5,6 +5,8 @@ import {
   approvePaymentFromWorkList,
   approveVerificationFromWorkList,
   agreeToRequestFromWorkList,
+  publishReviewFromWorkList,
+  recordPayoutFromWorkList,
 } from '@/app/admin/work/actions';
 
 /** Which server action + hidden field each kind posts. One table so a new fact
@@ -13,6 +15,25 @@ const ACTIONS = {
   'approve-payment': { fn: approvePaymentFromWorkList, field: 'payment_id' },
   'approve-verification': { fn: approveVerificationFromWorkList, field: 'application_id' },
   'agree-request': { fn: agreeToRequestFromWorkList, field: 'approval_id' },
+} as const;
+
+/**
+ * FORMS — the queues the code itself refuses to settle on one click.
+ *
+ * 🔑 THE CODE DECIDED THIS, NOT ME. `overridePublishReview` throws *"Override
+ * reason is required"*, and `markPayoutPaidAction` needs a method AND a
+ * reference. Publishing over a couple's review moves a vendor's public rating
+ * and belongs on the record with its why; a money record without its reference
+ * cannot be matched to a bank statement later. A one-click version of either
+ * would have to invent the missing half.
+ *
+ * The FIELDS come from lib/admin/queue-peek.ts so the shape of the form and the
+ * arguments the action requires are described in one place — not here and
+ * again there, which is how the two drift.
+ */
+const FORMS = {
+  'publish-review': { fn: publishReviewFromWorkList, field: 'appeal_id' },
+  'record-payout': { fn: recordPayoutFromWorkList, field: 'payout_id' },
 } as const;
 
 /**
@@ -89,7 +110,7 @@ export function QueueDrawer({
             <span className="block text-xs text-[color:var(--sn-ink-500)]">{it.detail}</span>
           </span>
 
-          <span className="flex shrink-0 flex-wrap items-center gap-2">
+          <span className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
             {it.action ? (
               (() => {
                 const a = ACTIONS[it.action.kind];
@@ -103,6 +124,51 @@ export function QueueDrawer({
                       style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
                     >
                       {it.action.label}
+                    </button>
+                  </form>
+                );
+              })()
+            ) : null}
+            {it.form ? (
+              (() => {
+                const form = it.form;
+                const f = FORMS[form.kind];
+                return (
+                  <form action={f.fn} className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+                    <input type="hidden" name={f.field} value={form.id} />
+                    <input type="hidden" name="back" value={backTo} />
+                    {form.fields.map((fl: (typeof form.fields)[number]) =>
+                      fl.type === 'select' ? (
+                        <select
+                          key={fl.name}
+                          name={fl.name}
+                          required={fl.required}
+                          className="rounded-md border px-2 py-1.5 text-xs"
+                          style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
+                        >
+                          {fl.options.map((o: string) => (
+                            <option key={o} value={o}>
+                              {o.replace(/_/g, ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          key={fl.name}
+                          name={fl.name}
+                          required={fl.required}
+                          placeholder={fl.placeholder}
+                          className="min-w-[10rem] flex-1 rounded-md border px-2 py-1.5 text-xs sm:flex-none"
+                          style={{ borderColor: 'var(--sn-line)', background: 'transparent' }}
+                        />
+                      ),
+                    )}
+                    <button
+                      type="submit"
+                      className="rounded-md px-3 py-1.5 text-xs font-semibold"
+                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FDFBF7' }}
+                    >
+                      {form.submitLabel}
                     </button>
                   </form>
                 );

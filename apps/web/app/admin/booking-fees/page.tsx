@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCentavosPhp } from '@/lib/payouts';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,14 +135,13 @@ export default async function AdminBookingFeesPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
-      <header className="mb-6 space-y-2">
-        <p className="sn-eye">Admin</p>
-        <h1 className="sn-h1">Booking fees owed</h1>
-        <p className="text-sm text-[color:var(--sn-ink-500)]">
-          Vendors who owe a syncing fee and have not paid it yet. Confirming the money
-          happens on the payment itself, where the reference and screenshot are.
-        </p>
-      </header>
+      {/* The shared masthead, not a hand-rolled <header> — a guard rejects a new
+          page that draws its own, and it has no eyebrow by design. */}
+      <PageMasthead
+        title="Booking fees owed"
+        lede="Vendors who owe a syncing fee and have not paid it yet. Confirming the money happens on the payment itself, where the reference and screenshot are."
+        className="mb-6"
+      />
 
       {unreadable ? (
         <div className="sn-tile mb-4 flex items-start gap-3 p-4">

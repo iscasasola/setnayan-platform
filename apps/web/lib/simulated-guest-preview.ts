@@ -209,6 +209,9 @@ export function buildSimulatedGuestIdentity(input: { slug: string }): GuestSiteI
     // the RSVPed state, and the vendor-credits strip is not part of that fork.
     eventVendorCredits: [],
     saveFlash: null,
+    // The simulated guest is a literal, never a real render outcome — there is
+    // no reply to have succeeded or failed.
+    rsvpFlash: null,
     // mode_b = no face embedding computed. The conservative arm, and correct:
     // there is no face to enroll for a guest who does not exist.
     faceMode: 'mode_b',

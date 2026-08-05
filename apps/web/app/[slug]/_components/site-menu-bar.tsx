@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
 
@@ -60,6 +61,15 @@ const SLOT =
   'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
 
 export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
+  // 🔴 A LOCKED TAB'S REASON WAS IN A `title=`, WHICH A PHONE CANNOT SHOW.
+  //
+  // This file's own comment says "a padlock with its reason says the truth" —
+  // and the reason lived in a native tooltip, which needs a mouse hovering. On
+  // a phone there is no hover, so the entire audience for this bar saw a faint
+  // Camera with a small padlock on it and no way whatsoever to find out why.
+  // The resolver has always carried `lockedReason` precisely so it can be SAID;
+  // the bar just never said it. Tapping now shows it.
+  const [openReason, setOpenReason] = useState<string | null>(null);
   // The camera is pulled OUT and re-inserted at the centre. That is a LAYOUT
   // decision — the one kind this component may still make. It never decides
   // whether a slot exists, where it points, or whether it is locked; those come
@@ -79,7 +89,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
     return (
       <li key={slot.key} className="min-w-0 flex-1">
         {slot.state === 'locked' ? (
-          <span aria-disabled="true" title={slot.lockedReason} className={`${SLOT} text-ink/35`}>
+          <button
+            type="button"
+            aria-disabled="true"
+            aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
+            onClick={() => setOpenReason(slot.lockedReason ?? null)}
+            className={`${SLOT} w-full text-ink/35`}
+          >
             <span className="relative inline-flex">
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               <Lock
@@ -89,7 +105,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
               />
             </span>
             {slot.label}
-          </span>
+          </button>
         ) : (
           <a href={slot.href} className={`${SLOT} text-ink/65 hover:text-ink`}>
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -105,7 +121,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
   const renderCamera = (slot: NavSlot) => (
     <li key="camera" className="min-w-0 flex-1">
       {slot.state === 'locked' ? (
-        <span aria-disabled="true" title={slot.lockedReason} className={`${SLOT} text-ink/35`}>
+        <button
+          type="button"
+          aria-disabled="true"
+          aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
+          onClick={() => setOpenReason(slot.lockedReason ?? null)}
+          className={`${SLOT} w-full text-ink/35`}
+        >
           <span className="relative inline-flex">
             <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
             <Lock
@@ -115,7 +137,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             />
           </span>
           {slot.label}
-        </span>
+        </button>
       ) : (
         <a href={slot.href} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
           <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
@@ -137,6 +159,21 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         here rather than on a page wrapper means the space is reserved wherever
         the bar renders and nowhere it does not — the two can never drift. */}
     <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden" />
+    {/* The reason, said out loud. Sits ABOVE the bar so it is never the thing
+        the bar is covering, and dismisses on its own tap — no click-away layer
+        to fight the tabs underneath it. */}
+    {openReason ? (
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 pb-2">
+        <button
+          type="button"
+          onClick={() => setOpenReason(null)}
+          role="status"
+          className="max-w-md rounded-xl border border-ink/10 bg-ink px-3.5 py-2 text-left text-sm text-cream shadow-lg"
+        >
+          {openReason}
+        </button>
+      </div>
+    ) : null}
     <nav
       aria-label="Site sections"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur"

@@ -178,9 +178,16 @@ export default async function VendorOverviewPage() {
   const { whatsNew, ongoing, upcoming } = data;
 
   // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
-  // (its first year) and a yearly anniversary after: "a reason to celebrate and
-  // create events". Prefers the precise founding date (guarded read, so a
-  // not-yet-applied migration degrades to the open-date + year fallback).
+  // (its first year) and a yearly anniversary after. Prefers the precise
+  // founding date (guarded read, so a not-yet-applied migration degrades to the
+  // open-date + year fallback).
+  //
+  // ⚠ RETIRED 2026-08-05 (owner, looking at the live shop overview: "on vendor
+  // why is there plan a celebration? there shouldn't be") — the pill shipped
+  // 07-13 alongside a "Plan a celebration →" link into `/dashboard/create-event`.
+  // That is the COUPLE doorway; a vendor's shop overview must not hand them a
+  // plan-your-own-event flow. The badge stays (it was the ask); do NOT re-add
+  // the CTA.
   const businessStartDate = await fetchVendorBusinessStartDate(
     supabase,
     profile.vendor_profile_id,
@@ -217,7 +224,7 @@ export default async function VendorOverviewPage() {
             : "You're all caught up — new leads land here the moment a couple unlocks you."}
         </p>
         {milestone ? (
-          <div className="flex flex-wrap items-center gap-2 pt-1.5">
+          <div className="pt-1.5">
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
               style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-ink-900)' }}
@@ -237,13 +244,6 @@ export default async function VendorOverviewPage() {
                 </span>
               ) : null}
             </span>
-            <Link
-              href="/dashboard/create-event"
-              className="text-xs font-semibold underline-offset-2 hover:underline"
-              style={{ color: 'var(--sn-gold-700)' }}
-            >
-              Plan a celebration →
-            </Link>
           </div>
         ) : null}
       </header>

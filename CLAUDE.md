@@ -81,6 +81,34 @@ The specs at `~/Documents/Claude/Projects/Setnayan/` are the canonical product c
 
 `COWORK_INBOX.md` is retained only as a historical worklist of pre-authorization pending items; new spec deltas land directly in the corpus, not as `[PENDING]` rows.
 
+## ⛔ FALSE BELIEF ABOUT MIGRATION PREFIXES — kill it on sight
+
+**"A migration whose 14-digit prefix sits below prod's applied head merges green and creates
+NOTHING."** **THIS IS FALSE.** `.github/workflows/deploy-prod.yml:184` and
+`supabase-migrations.yml:203` both run `supabase db push --include-all --yes`, and `--include-all`
+exists precisely to apply migrations dated before the remote head.
+
+**Measured 13 ways (2026-08-04):** 12 migrations were historically added out of order and **all 12
+are applied in prod**; and `20271102765509` applied while sitting **two prefixes below the head**.
+It was also already tested and disproven once, on 2026-07-27 — and then re-invented a week later.
+
+🦠 **It spreads, and this file is where the spreaders were looking.** It is written into **six**
+applied migration headers — `20271102603681` · `20271102765509` · `20271102810371` ·
+`20271103100614` · `20271104090000` · `20271106090000` — one of which was authored *after* the
+correction merged. **Applied migrations are never edited, so those comments stay wrong. Do not
+treat a migration comment as evidence.**
+
+🔑 **Where it comes from:** a `count(*) WHERE version = <prefix>` on an **unmerged** PR returns `0`,
+which reads as *"it will be skipped."* Zero is because the PR has not merged. Correct fact,
+invented consequence.
+
+✅ **What IS true:** the PGlite replay (`apps/web/tests/db/replay-migrations.ts`) applies in
+**filename order**, so a low prefix that depends on a higher-prefixed, already-merged migration
+fails every `*.db.test.ts` while prod is fine. Allocate forward with `pnpm migration:new` for
+**that** reason and for the UNIQUE rule — never because "it won't apply."
+`scripts/check-migration-timestamps.mjs` enforces UNIQUE + not-hand-typed-round; its own docblock
+says **"NOT A RULE — ORDERING."**
+
 ## Locked decisions you must respect
 
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.

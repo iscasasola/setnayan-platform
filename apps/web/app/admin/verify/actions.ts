@@ -308,7 +308,7 @@ type ApplicationDecisionInput = {
   reason: string | null;
 };
 
-async function applyApplicationDecision(
+export async function applyApplicationDecision(
   input: ApplicationDecisionInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();

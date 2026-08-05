@@ -19,12 +19,37 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type PapicFaceMode = 'mode_a' | 'mode_b';
 
 /**
- * Event types whose honoree/guests skew toward minors (christening) or a
- * minor-adjacent milestone (debut). These are FORCED to mode_b (no embedding)
- * regardless of the stored column, until a guardian-consent workflow exists —
- * a ship blocker for these types, not an open item (spec §3.5 / DPIA BV-8).
+ * Event types where MOST OF THE ROOM IS LIKELY TO BE CHILDREN.
+ *
+ * ── WHAT THIS PROTECTS, AND WHAT IT DOES NOT ────────────────────────────────
+ * Not the honoree. At a christening the baby is not enrolling; at a debut the
+ * eighteen-year-old is. It is the GUESTS. The only thing standing between a
+ * child and a face enrolment is a checkbox reading "I am 18 or older" — a
+ * self-attestation a child can tick. At a wedding that is an edge case. At a
+ * debut it is most of the room.
+ *
+ * ── CHANGED 2026-08-05 — A DEFAULT, NO LONGER A BLOCK ───────────────────────
+ * These used to be FORCED to mode_b regardless of the stored column: face
+ * tagging could not run on them at all. Owner (who is also the DPO), asked
+ * directly: *"i think face tagging applies to all events we offer."*
+ *
+ * So the list no longer overrides the column. What it does instead is make
+ * these types **off by default and deliberately enabled** — an admin must turn
+ * each one on individually, on the record, seeing a confirmation that names the
+ * reason. Every other event type behaves exactly as before.
+ *
+ * ⚠ THE GUARDIAN-CONSENT WORKFLOW STILL DOES NOT EXIST (spec §3.5 / DPIA BV-8).
+ * What changed is who decides, not what is built. Until it exists, the
+ * per-guest protections are the whole of the protection on these events:
+ * opt-in consent, the 18+ attestation, and the host's per-guest
+ * `face_recognition_excluded` flag — which as of this change is the one worth
+ * reaching for on a debut, and which nobody has used yet.
  */
-export const FORCE_MODE_B_EVENT_TYPES = ['christening', 'debut'] as const;
+export const MINOR_HEAVY_EVENT_TYPES = ['christening', 'debut'] as const;
+
+/** @deprecated Renamed to {@link MINOR_HEAVY_EVENT_TYPES}, which is what it
+ *  now means: not a forced mode, a default that an admin may change. */
+export const FORCE_MODE_B_EVENT_TYPES = MINOR_HEAVY_EVENT_TYPES;
 
 /**
  * Per-event face-consent copy version. The account-face path already pins
@@ -35,10 +60,25 @@ export const FORCE_MODE_B_EVENT_TYPES = ['christening', 'debut'] as const;
  */
 export const FACE_CONSENT_COPY_VERSION = 'v1';
 
-/** True when the event type is forced to mode_b regardless of the stored value. */
-export function eventTypeForcesModeB(eventType: string | null | undefined): boolean {
+/**
+ * True when this event type is likely to be full of children, so face tagging
+ * is OFF unless an admin has deliberately turned it on for this event.
+ *
+ * ⚠ Renamed in spirit, not just in name: it no longer FORCES anything. Callers
+ * that used it as "this event can never have face tagging" are wrong as of
+ * 2026-08-05 — ask `resolveFaceMode`, which is the only thing that knows.
+ */
+export function eventTypeNeedsDeliberateFaceOptIn(
+  eventType: string | null | undefined,
+): boolean {
   if (!eventType) return false;
-  return (FORCE_MODE_B_EVENT_TYPES as readonly string[]).includes(eventType);
+  return (MINOR_HEAVY_EVENT_TYPES as readonly string[]).includes(eventType);
+}
+
+/** @deprecated Misleading since 2026-08-05 — the type no longer forces the
+ *  mode. Use {@link eventTypeNeedsDeliberateFaceOptIn}. */
+export function eventTypeForcesModeB(eventType: string | null | undefined): boolean {
+  return eventTypeNeedsDeliberateFaceOptIn(eventType);
 }
 
 /**
@@ -54,7 +94,7 @@ export function resolveFaceMode(
    *
    * ⚠ NARROWS ONLY, and the parameter order says so: this is the LAST word and
    * it can only ever say no. A couple cannot switch face tagging ON where an
-   * admin has not, and cannot override the christening/debut lock above.
+   * admin has not.
    *
    * Optional so every existing caller keeps its meaning — but a caller that
    * omits it is asking "what did the ADMIN set", not "what runs on this event".
@@ -63,8 +103,12 @@ export function resolveFaceMode(
    */
   coupleDeclined?: boolean | null,
 ): PapicFaceMode {
-  if (eventTypeForcesModeB(eventType)) return 'mode_b';
+  // The couple's decline is still the last word — it can only ever say no.
   if (coupleDeclined === true) return 'mode_b';
+  // Every event type now honours the stored column. A minor-heavy type differs
+  // only in that an admin had to choose it deliberately (the confirmation on
+  // the admin control names the reason), never in whether the choice is
+  // possible at all. Owner ruling 2026-08-05.
   return storedMode === 'mode_a' ? 'mode_a' : 'mode_b';
 }
 

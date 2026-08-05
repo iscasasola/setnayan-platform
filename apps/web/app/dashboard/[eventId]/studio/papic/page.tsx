@@ -88,6 +88,7 @@ import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicOneCard } from './_components/papic-one-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
+import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 
 // Iteration 0012 — Papic studio (couple setup surface).
@@ -799,9 +800,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* Gallery. */}
       <GalleryPreviewCard eventId={eventId} />
 
-      {/* The couple's own say over face tagging. Renders nothing when it is not
-          available for this event — "turn it on" is not something a couple can
-          do, and a control that cannot enable anything is an empty promise. */}
+      {/* Two levers the couple holds over their own photos, side by side
+          because they answer the same question — what happens to pictures of my
+          guests. Each renders nothing when it has nothing to offer. */}
+      <VendorMediaControls eventId={eventId} />
       <FaceTaggingChoice eventId={eventId} />
 
       {/* Moderation — a slim, real action. */}

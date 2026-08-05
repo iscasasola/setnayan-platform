@@ -92,11 +92,31 @@ export async function fetchPapicGallery(
     // non-hidden rows of their own event.
     supabase
       .from('vendor_papic_captures')
-      .select('capture_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
+      .select('capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
   ]);
+
+  // Which suppliers has the couple taken out of their own gallery? One read,
+  // hidden-only, so a couple with no exclusions costs nothing.
+  //
+  // 🪤 ON ERROR THIS HIDES NOTHING, deliberately. The opposite — treating a
+  // failed read as "hide everything" — would blank a couple's gallery because a
+  // query stumbled. This flag only ever REMOVES, so failing to apply it shows
+  // too much rather than too little, and the couple can see that and retry.
+  // A privacy flag that could EXPOSE something would need the other direction.
+  const { data: hiddenVendorRows } = await supabase
+    .from('event_vendors')
+    .select('linked_vendor_profile_id')
+    .eq('event_id', eventId)
+    .eq('papic_captures_hidden', true)
+    .not('linked_vendor_profile_id', 'is', null);
+  const hiddenVendorIds = new Set(
+    (hiddenVendorRows ?? [])
+      .map((r) => (r as { linked_vendor_profile_id: string | null }).linked_vendor_profile_id)
+      .filter((v): v is string => typeof v === 'string'),
+  );
 
   // Graceful-degrade: a missing table/column (pre-migration) → empty, never crash.
   const seatRows = seatRes.error ? [] : (seatRes.data ?? []);
@@ -118,6 +138,9 @@ export async function fetchPapicGallery(
   // whole-lane DPO control that governs whether captures exist at all.)
   const visibleVendor = vendorRows.filter(
     (r) =>
+      // The couple said "not this supplier". Checked FIRST so the intent is
+      // legible: everything below is a safety rule, this one is their choice.
+      !hiddenVendorIds.has((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') &&
       r.nsfw_checked === true &&
       r.consent_basis !== 'pending_dpo_ruling' &&
       !r.hidden_at &&

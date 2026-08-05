@@ -136,10 +136,17 @@ test('simulated identity is the guest tier, replied "attending"', () => {
   assert.equal(identity.guestHubData.rsvpStatus, 'attending');
 });
 
-test('simulated identity carries exactly the fifteen guest keys', () => {
+test('simulated identity carries exactly the guest keys, and no more', () => {
   // Same claim lib/anonymous-zero-guest.test.ts pins for the real path: going
   // through guestIdentity() means no extra key — and never an owner capability
   // — can ride along on the simulated object either.
+  //
+  // `rsvpFlash` joined the list on 2026-08-05: the guest's reply either landed
+  // or it did not, and both outcomes used to render the same page with no
+  // message. The simulated guest is a literal, so its value is null — there is
+  // no real render outcome to report. The COUNT deliberately left the test name
+  // when it did, because pinning a number in the title is how this assertion
+  // gets "fixed" by editing the title instead of thinking about the key.
   const identity = buildSimulatedGuestIdentity({ slug: SLUG });
   assert.deepEqual(Object.keys(identity).sort(), [
     'accountlessPhotosClosed',
@@ -154,6 +161,7 @@ test('simulated identity carries exactly the fifteen guest keys', () => {
     'pabati',
     'papicGuest',
     'qrSvg',
+    'rsvpFlash',
     'saveFlash',
     'seatMap',
     'seatPassActive',

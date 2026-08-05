@@ -177,6 +177,16 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-08-05 with the table itself ──
+  event_stage_notes:
+    'Not the subject’s data to export. A stage note is an operational instruction about ' +
+    'the WEDDING, written by a coordinator TO a supplier ("hold the toast — the father is ' +
+    'still parking"). The requester appears only as `author_user_id`, an actor stamp. ' +
+    'Exporting it would hand one person a channel between two OTHER parties on someone ' +
+    'else’s event — the recipient supplier’s inbox — which is more disclosure than the ' +
+    'right of access asks for. The subject’s own authorship is already evidenced by the ' +
+    'event membership and booking records that ARE exported.',
+
   // Became "user-identifying" on 2026-08-04 when the lock handshake added
   // lock_requested_by_user_id / lock_answered_by_user_id. Both are ACTOR STAMPS
   // (SET NULL + nullable — the same actor-or-subject test the erasure guardrail

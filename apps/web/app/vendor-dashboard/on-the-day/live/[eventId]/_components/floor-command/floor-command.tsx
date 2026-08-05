@@ -17,6 +17,7 @@ import { fetchMyAreaGrants, fetchMyPendingAsk } from './access-actions';
 import { AskAccess } from './ask-access';
 import { ScheduleUpdater } from './schedule-updater';
 import { SeatScanner } from './seat-scanner';
+import { StageNoteCompose } from '../stage-note-compose';
 
 /**
  * FLOOR COMMAND — the day-of specialization for the coordinator.
@@ -87,6 +88,12 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
       ) : (
         <Closed title="The running order" reason={model.schedule.reason} />
       )}
+
+      {/* A line to the host, without opening the event to them. The note is
+          ADDRESSED to one supplier — granting the emcee event-member access was
+          rejected, because a member can read the couple's private schedule
+          notes. Renders only when this event actually has a host booked. */}
+      <StageNoteCompose eventId={eventId} />
 
       <ConsoleRule />
 

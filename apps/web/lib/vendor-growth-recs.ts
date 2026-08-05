@@ -17,6 +17,7 @@ export type GrowthRecKey =
   | 'reply_faster'
   | 'add_photos'
   | 'ask_reviews'
+  | 'build_partnerships'
   | 'open_saturdays';
 
 /** Coarse expected-impact band → the chip label + tone. */
@@ -43,6 +44,16 @@ export type GrowthRecStats = {
   review_count: number | null;
   profile_completeness_pct: number | null;
   finalized_booking_count: number | null;
+  /**
+   * How many live partnerships this vendor already has (accepted + active, in
+   * either direction). Null = not read.
+   *
+   * Partnerships were complete on both sides and reachable — and NOTHING ever
+   * invited a vendor into them, so nobody used them. Owner 2026-08-05 asked for
+   * them promoted rather than retired; this is that promotion, in the one place
+   * that already earns a vendor's attention with honest, self-derived advice.
+   */
+  partnership_count: number | null;
 };
 
 const IMPACT_LABEL: Record<GrowthImpact, string> = {
@@ -114,6 +125,28 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
       ctaLabel: 'See reviews',
       ctaHref: '/vendor-dashboard/reviews',
       weight: (5 - Math.min(reviewCount, 5)) * 8 + 10,
+    });
+  }
+
+  // Link up with vendors you already work with — fires only for a vendor with
+  // few or no partnerships, so someone who has already built their circle never
+  // sees it. Real lever: a couple who shortlists your coordinator sees YOU in
+  // their results, and being included in a package is the strongest thing a
+  // couple can read about you.
+  const partnerships = Number(stats?.partnership_count ?? 0);
+  if (!hasStats || partnerships < 3) {
+    recs.push({
+      key: 'build_partnerships',
+      title: 'Link up with vendors you already work with',
+      body:
+        partnerships > 0
+          ? `You have ${partnerships} partnership${partnerships === 1 ? '' : 's'}. When a couple shortlists a vendor who vouches for you, you show up in their results.`
+          : 'When a coordinator or venue you work with vouches for you, you appear in their couples’ results — with their name on it.',
+      impact: 'medium',
+      impactLabel: IMPACT_LABEL.medium,
+      ctaLabel: 'Open partnerships',
+      ctaHref: '/vendor-dashboard/partnerships',
+      weight: (3 - Math.min(partnerships, 3)) * 9 + 12,
     });
   }
 

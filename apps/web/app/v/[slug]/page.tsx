@@ -50,6 +50,7 @@ import {
   type TrustedByVendor,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
+import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
 import {
   AnonInquiryComposer,
   type AnonComposerService,
@@ -3106,12 +3107,15 @@ function toServiceCard(
 // 2026-07-02: favorites public / viewers vendor-only; behavioral-data min-N lock).
 const FAVORITES_MIN_DISPLAY = 3;
 
-const TRUSTED_BY_RELATIONSHIP_LABEL: Record<TrustedByRelationship, string> = {
-  accredited: 'Accredited',
-  sponsored_included: 'Preferred partner',
-  sponsored_discounted: 'Preferred partner',
-  general: 'Works with',
-};
+// The couple-facing words now live in lib/vendor-partnership-kinds.ts, shared
+// with Explore and the vendor's own screen.
+//
+// ⚠ Both bundle kinds used to render here as "Preferred partner" — one phrase
+// for two different offers, and it threw away the only part a couple cares
+// about. Being told a florist is INCLUDED in their coordinator's package at no
+// extra cost is the most useful thing on that row; "Preferred partner" is a
+// shrug. It also read as paid placement to at least one reviewer, which it has
+// never been.
 
 /**
  * "Trusted by" — vendors who endorsed this one through the vendor↔vendor
@@ -3145,8 +3149,8 @@ function TrustedBySection({
             <>
               <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
               <span className="font-medium text-ink">{v.displayName}</span>
-              <span className="text-ink/45">
-                · {TRUSTED_BY_RELATIONSHIP_LABEL[v.relationshipType]}
+              <span className="text-ink/45" title={PARTNERSHIP_PUBLIC_HINT[v.relationshipType]}>
+                · {PARTNERSHIP_PUBLIC_LABEL[v.relationshipType]}
               </span>
             </>
           );

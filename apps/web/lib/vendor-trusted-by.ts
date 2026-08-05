@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { strongestPartnershipKind } from '@/lib/vendor-partnership-kinds';
 
 export type TrustedByRelationship =
   | 'accredited'
@@ -42,24 +43,32 @@ export async function fetchTrustedByVendors(
     .eq('recommended_vendor_id', recommendedVendorProfileId)
     .eq('status', 'accepted')
     .eq('is_active', true)
-    // Deterministic tie-break: a directed pair (A→B) can hold two accepted+active
-    // rows of DIFFERENT types (the UNIQUE is keyed with relationship_type), so
-    // without an explicit order PostgREST could flip which badge wins between
-    // renders. Order by relationship_type (alphabetical puts 'accredited' — the
-    // strongest endorsement — first) then vendor id, so the first-wins dedupe
-    // below is stable.
-    .order('relationship_type', { ascending: true })
-    .order('recommending_vendor_id', { ascending: true });
+    // Stable read order only. The BADGE choice is made in code below, by
+    // PARTNERSHIP_RANK — not by this ORDER BY.
+    //
+    // ⚠ It used to be made here, alphabetically, which meant `accredited` always
+    // won. A directed pair (A→B) can hold two accepted+active rows of different
+    // kinds (the UNIQUE is keyed with relationship_type), so a vendor who was
+    // BOTH accredited and included-in-package showed the weaker badge here while
+    // Explore ranked them by the stronger one. Same four kinds, two files,
+    // opposite orders.
+    .order('recommending_vendor_id', { ascending: true })
+    .order('relationship_type', { ascending: true });
   if (error || !rows || rows.length === 0) return [];
 
-  // One badge per endorsing vendor — dedupe if a vendor has multiple types.
-  // Deterministic thanks to the ORDER BY above (accredited wins ties).
-  const relByVendor = new Map<string, TrustedByRelationship>();
+  // One badge per endorsing vendor: the STRONGEST kind they hold, ranked by
+  // what the couple actually gets (shared with Explore, so the two agree).
+  const kindsByVendor = new Map<string, string[]>();
   for (const r of rows) {
     const vid = r.recommending_vendor_id as string;
-    if (!relByVendor.has(vid)) {
-      relByVendor.set(vid, r.relationship_type as TrustedByRelationship);
-    }
+    const list = kindsByVendor.get(vid);
+    if (list) list.push(r.relationship_type as string);
+    else kindsByVendor.set(vid, [r.relationship_type as string]);
+  }
+  const relByVendor = new Map<string, TrustedByRelationship>();
+  for (const [vid, kinds] of kindsByVendor) {
+    const best = strongestPartnershipKind(kinds);
+    if (best) relByVendor.set(vid, best);
   }
 
   const { data: profiles, error: profErr } = await admin

@@ -334,7 +334,28 @@ export default async function PerformanceHome({
   const health = buildVendorHealthComposite(
     (statsRow as VendorHealthInputs | null) ?? null,
   );
-  const growthRecs = buildGrowthRecs((statsRow as GrowthRecStats | null) ?? null);
+  // Live partnerships, either direction — so the "link up" card stops being
+  // shown to a vendor who has already built their circle. Fail-soft to 0: a
+  // failed count would otherwise read as "none" and nag someone who has ten.
+  // (0 with a read error is the same value as 0 with none — so on error we
+  // suppress the card instead, by reporting a count above the threshold.)
+  const { count: partnershipCount, error: partnershipErr } = await supabase
+    .from('vendor_partnerships')
+    .select('id', { count: 'exact', head: true })
+    .or(
+      `recommending_vendor_id.eq.${profile.vendor_profile_id},recommended_vendor_id.eq.${profile.vendor_profile_id}`,
+    )
+    .eq('status', 'accepted')
+    .eq('is_active', true);
+
+  const growthRecs = buildGrowthRecs(
+    statsRow
+      ? {
+          ...(statsRow as Omit<GrowthRecStats, 'partnership_count'>),
+          partnership_count: partnershipErr ? 99 : (partnershipCount ?? 0),
+        }
+      : null,
+  );
 
   // month-over-month composite delta — no historical snapshot table exists yet,
   // so there is no prior composite to diff against. Rather than invent a number,

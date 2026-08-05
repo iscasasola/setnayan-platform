@@ -8,6 +8,7 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
+import { OwnCapturesStrip } from '../_components/own-captures-strip';
 
 export const metadata = { title: 'Papic capture · On the Day · Setnayan' };
 
@@ -78,6 +79,12 @@ export default async function VendorPapicCapturePage({
         pointsCap={allowance.pointsCap}
         pointsSpent={allowance.pointsSpent}
       />
+
+      {/* What they already shot, under the shutter — the question on a dark
+          reception floor is "did that upload?", and the answer belongs on the
+          same screen. Read with the vendor's OWN client so the RLS policy stays
+          the boundary. */}
+      <OwnCapturesStrip supabase={supabase} eventId={eventId} />
     </section>
   );
 }

@@ -91,6 +91,7 @@ import {
 } from '@/lib/vendor-badges';
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -2289,15 +2290,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           nameMap.set(r.vendor_profile_id, r.business_name ?? 'Your vendor');
         }
 
-        // Priority order: sponsored_included wins, then sponsored_discounted,
-        // then accredited, then general. When a visible vendor is recommended
-        // by multiple shortlisted vendors, the highest-priority badge wins.
-        const PRIORITY: Record<string, number> = {
-          sponsored_included: 4,
-          sponsored_discounted: 3,
-          accredited: 2,
-          general: 1,
-        };
+        // Ranked by what the COUPLE gets — free beats cheaper beats certified
+        // beats "we work together". Shared with the vendor's public page, which
+        // used to pick its badge alphabetically and disagree with this.
+        // A tiny reader so an unknown value from the DB scores 0 rather than
+        // crashing the whole ranking pass.
+        const PRIORITY = (kind: string): number =>
+          isPartnershipKind(kind) ? PARTNERSHIP_RANK[kind] : 0;
 
         const out = new Map<string, VendorCardRow['partnership_badge']>();
         for (const row of pData) {
@@ -2308,9 +2307,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             discount_pct: number | null;
           };
           const existing = out.get(r.recommended_vendor_id);
-          const newPriority = PRIORITY[r.relationship_type] ?? 0;
+          const newPriority = PRIORITY(r.relationship_type);
           const existingPriority = existing
-            ? (PRIORITY[existing.relationship_type] ?? 0)
+            ? PRIORITY(existing.relationship_type)
             : -1;
           if (newPriority > existingPriority) {
             const rt = r.relationship_type as

@@ -54,7 +54,10 @@ export default function InvitationError({ error, reset }: Props) {
           Try again
         </button>
         {error?.digest && (
-          <p className="mt-10 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30">
+          // 12px, not the root boundary's 10px: this screen is read by a guest,
+          // often an older one at a venue, and the reference is the thing they
+          // would be asked to read out to whoever they call for help.
+          <p className="mt-10 font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
             Reference: {error.digest}
           </p>
         )}

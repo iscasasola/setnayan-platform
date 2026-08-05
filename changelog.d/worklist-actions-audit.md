@@ -55,3 +55,31 @@ named assertion. The coverage guard parses the real source rather than comparing
 two hand-typed arrays.
 
 SPEC IMPACT: None.
+
+**8 · 🚨 NO PROOF ⇒ NO ONE-CLICK (owner, 2026-08-05).** *"vendor must send their
+booking fee payment before we activate it. admin will verify it manually if paid
+via QR."* Tracing that instruction found the sharpest edge of fix #1: a
+booking-fee payment row is inserted as `pending` **the moment the vendor confirms
+the deposit — before any money moves** — with `reference_number: null` and
+`screenshot_url: null`. It is a placeholder for a payment that is EXPECTED, not
+a record of one that ARRIVED.
+
+On the payments page an admin sees the blank screenshot and thinks twice. On a
+list built for speed it looked identical to every other one-tap row — and with
+`promoteOrder: true` that tap promotes the order, settles the booking-fee charge
+and **activates a booking nobody paid for.** The two fixes together made this
+sharper than either alone.
+
+The row now shows the sentence instead of the button until a reference number or
+a screenshot exists. Guarded and mutation-checked, including that proof means
+NON-EMPTY, not merely non-null (a blank string is what an empty field posts).
+🔑 **A fact queue is only a fact queue when the fact is on the row.**
+
+✅ **Nothing else about the owner's flow needed building** — vendor confirms
+deposit → charge opens → the vendor gets a payable QR order → admin verifies →
+order reaches `paid` → the activation hook settles the exact charge. That chain
+already ships and is enforced by `booking-fee-single-trigger.test.ts`. It is
+flag-dark behind `NEXT_PUBLIC_BOOKING_FEE_ENABLED`.
+⏭ **One real gap:** no admin page lists who currently OWES a fee. The payment
+itself surfaces in the payments queue, so verification works — but there is no
+"outstanding fees" view.

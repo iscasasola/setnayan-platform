@@ -193,7 +193,7 @@ export async function peekQueue(
 
   try {
     if (key === 'payments') {
-      const q = open('payment_id, amount_php, channel, reference_number, created_at');
+      const q = open('payment_id, amount_php, channel, reference_number, screenshot_url, created_at');
       if (!q) return null;
       const { data, count } = await q
         .order('created_at', { ascending: true })
@@ -205,7 +205,26 @@ export async function peekQueue(
           amount_php: number | null;
           channel: string | null;
           reference_number: string | null;
+          screenshot_url: string | null;
         };
+        // 🚨 NO PROOF ⇒ NO ONE-CLICK. Owner, 2026-08-05: *"vendor must send
+        // their booking fee payment before we activate it. admin will verify it
+        // manually if paid via QR."*
+        //
+        // A booking-fee row is OPENED AS PENDING THE MOMENT THE VENDOR CONFIRMS
+        // THE DEPOSIT — before any money moves — with a null reference number
+        // and a null screenshot. It is a placeholder for a payment that is
+        // EXPECTED, not a record of one that ARRIVED. On the payments page an
+        // admin would see the blank screenshot and think twice; on a list built
+        // for speed it looked exactly like every settled-by-one-tap row, and
+        // one tap now fully activates the booking (promoteOrder).
+        //
+        // 🔑 A FACT QUEUE IS ONLY A FACT QUEUE WHEN THE FACT IS ON THE ROW.
+        // With neither a reference nor a screenshot there is nothing to verify
+        // against, so this row gets the page and a sentence instead.
+        const hasProof =
+          (row.reference_number != null && row.reference_number.trim() !== '') ||
+          (row.screenshot_url != null && row.screenshot_url.trim() !== '');
         return {
           id: row.payment_id,
           title: formatCentavosPhp(Math.round((row.amount_php ?? 0) * 100)),
@@ -215,8 +234,13 @@ export async function peekQueue(
           ]
             .filter(Boolean)
             .join(' · '),
-          // A FACT: the money either arrived or it did not. One click is honest.
-          action: { kind: 'approve-payment', label: 'Confirm payment', id: row.payment_id },
+          // A FACT — but only once there is something proving it. See hasProof.
+          action: hasProof
+            ? { kind: 'approve-payment', label: 'Confirm payment', id: row.payment_id }
+            : undefined,
+          note: hasProof
+            ? undefined
+            : 'No reference or screenshot yet — nothing to check the money against. Open it to see the order.',
           href: '/admin/payments',
         };
       });

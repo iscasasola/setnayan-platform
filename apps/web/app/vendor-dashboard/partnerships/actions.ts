@@ -23,16 +23,19 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  PARTNERSHIP_KINDS,
+  claimsPartnerPricing,
+  isPartnershipKind,
+  type PartnershipKind,
+} from '@/lib/vendor-partnership-kinds';
 
 const PANEL_PATH = '/vendor-dashboard/partnerships';
 
-const RELATIONSHIP_TYPES = [
-  'accredited',
-  'sponsored_included',
-  'sponsored_discounted',
-  'general',
-] as const;
-type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
+// The four kinds live in one place now — see the file's own docblock for why
+// "sponsored" here does NOT mean paid placement.
+const RELATIONSHIP_TYPES = PARTNERSHIP_KINDS;
+type RelationshipType = PartnershipKind;
 
 /** Resolve the current user → their own vendor_profile_id, or bounce. */
 async function ensureProfile() {
@@ -179,4 +182,82 @@ export async function withdrawPartnership(formData: FormData) {
   revalidatePath(PANEL_PATH);
   revalidatePath('/explore');
   redirect(`${PANEL_PATH}?withdrawn=1`);
+}
+
+// ---------------------------------------------------------------------------
+// change the kind of an existing partnership
+// ---------------------------------------------------------------------------
+
+/**
+ * Move an existing partnership to a different kind.
+ *
+ * ── WHY THIS DID NOT EXIST, AND WHY IT HAD TO ───────────────────────────────
+ * The kind was chosen once, at proposal, and nothing anywhere could change it.
+ * A florist and a coordinator who start as "we work together" and grow into a
+ * package had no way forward: their only option was to propose a SECOND,
+ * duplicate partnership with the same vendor and get accepted all over again.
+ *
+ * ── CONSENT IS THE WHOLE DESIGN ─────────────────────────────────────────────
+ * "Included in my package" and "discounted alongside me" are claims about the
+ * OTHER vendor's money. One side must not be able to publish those alone — that
+ * is the same reason the original proposal needs an accept.
+ *
+ * So an UPGRADE into a pricing claim goes back to `proposed` and waits for the
+ * partner to accept it, exactly like a new proposal. A DOWNGRADE to `accredited`
+ * or `general` claims nothing new about them and applies immediately — a vendor
+ * can always say LESS about a partner without asking permission.
+ *
+ * 🪤 The upgrade is written as `status='proposed'` on the EXISTING row, so the
+ * badge that is currently published comes down the moment the change is
+ * requested. Leaving it accepted while the partner decides would keep an
+ * unagreed pricing claim on a public page for as long as they took to answer.
+ */
+export async function changePartnershipKind(formData: FormData) {
+  const { supabase, vendorProfileId } = await ensureProfile();
+
+  const idRaw = readString(formData, 'partnership_id');
+  const partnershipId = Number.parseInt(idRaw, 10);
+  if (!Number.isInteger(partnershipId) || partnershipId <= 0) {
+    back('Missing partnership reference.');
+  }
+
+  const nextRaw = readString(formData, 'relationship_type');
+  if (!isPartnershipKind(nextRaw)) {
+    back('Unknown partnership type.');
+  }
+  const next = nextRaw;
+
+  const patch: Record<string, unknown> = { relationship_type: next };
+  if (claimsPartnerPricing(next)) {
+    // Back to the partner for consent, and off the public page meanwhile.
+    patch.status = 'proposed';
+    patch.accepted_at = null;
+  }
+
+  // Only the vendor who MADE the recommendation may restate it — the claim is
+  // theirs. Scoped in the query as well as by RLS.
+  const { data, error } = await supabase
+    .from('vendor_partnerships')
+    .update(patch)
+    .eq('id', partnershipId)
+    .eq('recommending_vendor_id', vendorProfileId)
+    .in('status', ['proposed', 'accepted'])
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    // 23505 = a partnership of the target kind already exists between the two.
+    if (error.code === '23505') {
+      back('You already have that kind of partnership with this vendor.');
+    }
+    back(error.message);
+  }
+  if (!data) {
+    back('That partnership could not be changed — it may have been withdrawn.');
+  }
+
+  revalidatePath(PANEL_PATH);
+  redirect(
+    `${PANEL_PATH}?${claimsPartnerPricing(next) ? 'proposed=1' : 'changed=1'}`,
+  );
 }

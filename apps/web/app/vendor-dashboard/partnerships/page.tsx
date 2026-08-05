@@ -9,7 +9,13 @@ import {
   acceptPartnership,
   declinePartnership,
   withdrawPartnership,
+  changePartnershipKind,
 } from './actions';
+import {
+  PARTNERSHIP_KINDS,
+  PARTNERSHIP_VENDOR_LABEL,
+  PARTNERSHIP_VENDOR_LABEL_SHORT,
+} from '@/lib/vendor-partnership-kinds';
 
 export const metadata = { title: 'Partnerships · Vendor' };
 
@@ -18,6 +24,7 @@ type SearchParams = {
   accepted?: string;
   declined?: string;
   withdrawn?: string;
+  changed?: string;
   error?: string;
 };
 
@@ -36,19 +43,9 @@ type VendorOption = {
   business_name: string;
 };
 
-const RELATIONSHIP_LABELS: Record<string, string> = {
-  accredited: 'Accredited — you formally certify this vendor',
-  sponsored_included: 'Included in package — recommended vendor is part of your offering at no extra cost',
-  sponsored_discounted: 'Discounted — recommended vendor offers a discount when booked alongside you',
-  general: 'General referral — informal "works well with" recommendation',
-};
-
-const RELATIONSHIP_LABELS_SHORT: Record<string, string> = {
-  accredited: 'Accredited',
-  sponsored_included: 'Included in package',
-  sponsored_discounted: 'Discounted',
-  general: 'General referral',
-};
+// Shared with the public page and Explore — one set of words, one rank order.
+const RELATIONSHIP_LABELS: Record<string, string> = PARTNERSHIP_VENDOR_LABEL;
+const RELATIONSHIP_LABELS_SHORT: Record<string, string> = PARTNERSHIP_VENDOR_LABEL_SHORT;
 
 type Props = {
   searchParams: Promise<SearchParams>;
@@ -165,6 +162,9 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       </header>
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
+      {sp.changed ? (
+        <FormFlash tone="success">Updated — the new wording is live on their profile.</FormFlash>
+      ) : null}
       {sp.proposed ? (
         <FormFlash tone="success">
           Proposal sent. The other vendor will see it in their partnerships inbox — the
@@ -246,6 +246,39 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
                     Live
                   </span>
+                  {/* CHANGE THE KIND — only the vendor who made the
+                      recommendation may restate it, because the claim is
+                      theirs. Moving to "included in package" or "discounted"
+                      says something about the OTHER vendor's money, so the
+                      action sends it back to them and takes the badge down
+                      until they agree. Dropping to a weaker kind applies at
+                      once — a vendor may always say LESS about a partner. */}
+                  {iProposed ? (
+                    <form action={changePartnershipKind} className="flex items-center gap-1.5">
+                      <input type="hidden" name="partnership_id" value={p.id} />
+                      <label className="sr-only" htmlFor={`kind-${p.id}`}>
+                        Change this partnership
+                      </label>
+                      <select
+                        id={`kind-${p.id}`}
+                        name="relationship_type"
+                        defaultValue={p.relationship_type}
+                        className="rounded-md border border-ink/20 bg-cream px-2 py-1.5 text-xs text-ink"
+                      >
+                        {PARTNERSHIP_KINDS.map((k) => (
+                          <option key={k} value={k}>
+                            {PARTNERSHIP_VENDOR_LABEL_SHORT[k]}
+                          </option>
+                        ))}
+                      </select>
+                      <SubmitButton
+                        pendingLabel="Saving…"
+                        className="rounded-md border border-ink/20 px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+                      >
+                        Change
+                      </SubmitButton>
+                    </form>
+                  ) : null}
                 </li>
               );
             })}

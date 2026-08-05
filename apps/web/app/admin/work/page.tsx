@@ -124,6 +124,20 @@ export default async function AdminWorkLanding({
   const lane = coerceLane(sp?.lane);
   const openRaw = sp?.open;
   const openKey = Array.isArray(openRaw) ? openRaw[0] : openRaw;
+
+  // 🚨 THE REFUSALS WERE INVISIBLE. Every settle action writes `settle=` and
+  // `why=` into this URL on a refusal — and nothing read them. The page redrew
+  // identically to a success, and because the payment row had ALREADY flipped
+  // to matched before the shortfall was detected, the row dropped out of the
+  // list and the count ticked down. Every signal on screen said "done" while
+  // the order sat unpaid with no receipt and nothing switched on.
+  // 🔑 A GUARD THAT REFUSES IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT
+  // PASSED. The payments page has shown this correctly all along; the work
+  // list copied the message and never built the place to show it.
+  const settleRaw = sp?.settle;
+  const settle = Array.isArray(settleRaw) ? settleRaw[0] : settleRaw;
+  const whyRaw = sp?.why;
+  const why = Array.isArray(whyRaw) ? whyRaw[0] : whyRaw;
   const withPeek: TriageItem[] = openKey
     ? await Promise.all(
         ordered.map(async (row) =>
@@ -136,6 +150,8 @@ export default async function AdminWorkLanding({
   // and the triage strip describe the whole day; only the rows below narrow.
   return (
     <QueuesTriageFeed
+      settle={settle}
+      why={why}
       title="Work"
       items={withPeek}
       totalOpen={totalOpen}

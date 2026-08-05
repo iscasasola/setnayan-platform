@@ -33,6 +33,7 @@ import {
   withdrawChangeOrder,
 } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCalendarDate } from '@/lib/events';
 
 export type ChangeOrderRow = {
   change_order_id: string;
@@ -69,11 +70,8 @@ function fmtPHP(raw: number | string | null): string {
 function fmtDate(iso: string | null): string {
   if (!iso) return '';
   try {
-    return new Date(iso).toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    // A DATE column — the day it names must not move with the reader.
+  return formatCalendarDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return '';
   }

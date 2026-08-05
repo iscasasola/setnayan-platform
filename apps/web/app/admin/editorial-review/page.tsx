@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCalendarDate } from '@/lib/events';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewPage() {
@@ -126,7 +127,7 @@ function EditorialRow({ row }: { row: RowData }) {
         </p>
         <p className="text-xs text-[--m-ink-tertiary] mt-0.5">
           {ev?.event_date
-            ? new Date(ev.event_date).toLocaleDateString('en-PH', {
+            ? formatCalendarDate(ev.event_date, {
                 month: 'short', day: 'numeric', year: 'numeric',
               })
             : 'No date'}{' '}

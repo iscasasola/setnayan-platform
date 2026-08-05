@@ -9,6 +9,7 @@ import {
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
 import { isAcceptableStatus, selectCurrentQuote } from '@/lib/thread-quotations';
+import { formatCalendarDate } from '@/lib/events';
 
 /**
  * Pinned "current quote" + quotation bookmark list for a couple↔vendor thread.
@@ -40,11 +41,8 @@ const MAX_PINNED_INCLUSIONS = 5;
 
 function fmtDate(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  // A DATE column — the day it names must not move with the reader.
+  return formatCalendarDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export async function ThreadQuotationsCard({

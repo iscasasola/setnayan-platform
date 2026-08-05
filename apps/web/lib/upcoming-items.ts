@@ -59,6 +59,7 @@ import {
   type PlanGroupId,
 } from './wedding-plan-groups';
 import { venueNowMs, DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { plannedInstant } from '@/lib/run-of-show';
 
 // ----------------------------------------------------------------------------
 // Public types
@@ -343,6 +344,25 @@ async function fetchAppointments(
 // Source 2 — event_schedule_blocks
 // ----------------------------------------------------------------------------
 
+/**
+ * Drop what has passed, then order what remains.
+ *
+ * Extracted so it can actually be RUN by a test. It was three inlined lines,
+ * and the defect it now guards — a schedule block sorting eight hours out of
+ * position against a meeting — was invisible to every test in the suite because
+ * nothing could reach it without a database.
+ *
+ * ⚠ EVERY `item.date` REACHING HERE MUST ALREADY BE A REAL INSTANT. Meetings and
+ * appointments always were; schedule blocks arrive as the venue's wall clock and
+ * are lifted at the point they enter the list. Comparing the two kinds here is
+ * the bug this function exists to make testable.
+ */
+export function mergeUpcoming<T extends { date: Date }>(items: T[], now: Date): T[] {
+  return items
+    .filter((item) => item.date.getTime() > now.getTime())
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 async function fetchScheduleBlockItems(
   supabase: SupabaseClient,
   eventId: string,
@@ -364,7 +384,20 @@ async function fetchScheduleBlockItems(
   if (error || !data) return [];
 
   return (data as ScheduleBlockRow[]).map((row) => {
-    const date = new Date(row.start_at);
+    // ⚠ LIFTED TO A REAL INSTANT, and this is the whole point of the line.
+    //
+    // Everything else in this list — vendor meetings, appointments — carries a
+    // genuine timestamp. A schedule block carries the VENUE'S WALL CLOCK. The
+    // merged array is then filtered and SORTED against `now` in
+    // `fetchUpcomingItems`, so leaving these two kinds of value side by side
+    // put every timeline moment 8 hours out of position against its neighbours:
+    // a 4 PM meeting listed ABOVE a 2 PM ceremony.
+    //
+    // The DB filter above was converted first and is not enough on its own —
+    // filtering in one space and sorting in another still sorts wrong. Convert
+    // where the value ENTERS the shared list, so nothing downstream has to know.
+    const plannedMs = plannedInstant(row.start_at, DEFAULT_EVENT_TZ);
+    const date = plannedMs === null ? new Date(row.start_at) : new Date(plannedMs);
     return {
       id: `schedule_block:${row.block_id}`,
       source: 'schedule_block' as const,
@@ -767,16 +800,17 @@ export async function fetchUpcomingItems(
     ? buildDocumentDeadlines(eventId, eventDate, ceremonyType, now)
     : [];
 
-  const merged = [
-    ...meetings,
-    ...scheduleBlocks,
-    ...vendorPayments,
-    ...skuRenewals,
-    ...documentDeadlines,
-    ...recommendedDeadlines,
-  ]
-    .filter((item) => item.date.getTime() > now.getTime())
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const merged = mergeUpcoming(
+    [
+      ...meetings,
+      ...scheduleBlocks,
+      ...vendorPayments,
+      ...skuRenewals,
+      ...documentDeadlines,
+      ...recommendedDeadlines,
+    ],
+    now,
+  );
 
   const items = merged.slice(0, limit);
 

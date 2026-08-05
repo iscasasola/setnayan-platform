@@ -10,6 +10,7 @@ import {
 } from '@/lib/contracts';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { cancelContract, publishContractToCouple } from '../actions';
+import { formatCalendarDate } from '@/lib/events';
 
 export const metadata = { title: 'Contract · Vendor' };
 
@@ -61,7 +62,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
         <p className="text-sm text-ink/65">
           For <strong>{event?.display_name ?? 'Unknown event'}</strong>
           {event?.event_date
-            ? ` · ${new Date(event.event_date).toLocaleDateString('en-PH', {
+            ? ` · ${formatCalendarDate(event.event_date, {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',

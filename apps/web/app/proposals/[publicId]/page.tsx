@@ -28,6 +28,7 @@ import {
   respondToProposal,
   sendProposal,
 } from '@/app/vendor-dashboard/proposals/actions';
+import { formatCalendarDate } from '@/lib/events';
 
 export const metadata = { title: 'Proposal · Setnayan' };
 
@@ -71,11 +72,8 @@ type ProposalRow = {
 
 function fmtDate(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString('en-PH', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  // A DATE column — the day it names must not move with the reader.
+  return formatCalendarDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 type Props = {

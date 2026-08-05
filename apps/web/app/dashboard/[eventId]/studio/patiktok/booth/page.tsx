@@ -19,6 +19,7 @@ import {
 } from '@/lib/patiktok';
 import { BoothCapture } from '../_components/booth-capture';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { formatCalendarDate } from '@/lib/events';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -143,7 +144,7 @@ export default async function PatiktokBoothDashboard({
           {event?.display_name ?? 'Your event'}
           {event?.event_date ? (
             <span className="ml-2 font-mono text-base text-ink/55">
-              · {new Date(event.event_date).toLocaleDateString('en-PH', { dateStyle: 'long' })}
+              · {formatCalendarDate(event.event_date, { dateStyle: 'long' })}
             </span>
           ) : null}
         </h1>

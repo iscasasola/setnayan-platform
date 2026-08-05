@@ -166,7 +166,18 @@ export async function getGuestLiveGallery(
       )
     ).filter((p): p is GuestLivePhoto => Boolean(p));
 
-    if (photos.length === 0) return null;
+    // 🔴 THIS USED TO `return null` WHEN photos.length === 0, WHICH IS THE SAME
+    // VALUE THE CATCH BELOW RETURNS. So "nobody has tagged you yet" and "the
+    // read broke" were one answer, and the invitation renders nothing for it:
+    // a guest photographed all evening opened her page and found no "Photos of
+    // you" area AT ALL — not an empty one, not an error, just nothing where it
+    // should be. She has no way to tell whether the photographers missed her or
+    // the page did.
+    //
+    // An empty result is now a REAL result. `null` means, and only means, that
+    // the read failed. Every other caller already handled an empty list —
+    // papic/me checks `photos.length === 0`, the library maps to `refs: []`,
+    // the hub reads `.photos`/`.total` — so nothing downstream changes shape.
     return { photos, total: ordered.length };
   } catch {
     return null; // gallery trouble must never break the wedding page

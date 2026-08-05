@@ -89,6 +89,7 @@ type Props = {
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
+    rsvp?: string;
     // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
     // as a guest who already answered "attending". Honoured ONLY for a viewer
     // holding a server-verified OwnerCapability; inert for everyone else, so a
@@ -669,6 +670,21 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // (eventVendorCredits — "vendors who made this day" — now resolves inside
   // loadGuestContext, destructured above.)
+  // The guest's reply either landed or it did not, and until now BOTH outcomes
+  // rendered the same page with no message. Success at least left their answer
+  // on the form; a failure left the form showing whatever was there before,
+  // which for a first-time reply is an empty form — indistinguishable from
+  // never having tapped Save.
+  const rsvpFlash =
+    search.rsvp === 'ok'
+      ? { tone: 'ok' as const, text: 'Your reply is in — thank you.' }
+      : search.rsvp === 'error'
+        ? {
+            tone: 'error' as const,
+            text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
+          }
+        : null;
+
   const saveFlash =
     search.save === 'ok'
       ? 'Saved to your account — find it in your Library for your own plans.'
@@ -700,6 +716,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           accountlessPhotosClosed,
           eventVendorCredits,
           saveFlash,
+          rsvpFlash,
           faceMode: rsvpFaceMode,
         })}
       />

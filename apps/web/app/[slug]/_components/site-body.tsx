@@ -860,6 +860,7 @@ export function SiteBody({
       accountlessPhotosClosed,
       eventVendorCredits,
       saveFlash,
+      rsvpFlash,
       faceMode,
     } = g;
 
@@ -1456,6 +1457,7 @@ export function SiteBody({
                           eventPublicId={event.public_id}
                           limited={isLimitedPlusOne}
                           faceMode={faceMode}
+                          flash={rsvpFlash}
                         />
                       </div>
                     </details>
@@ -1470,6 +1472,7 @@ export function SiteBody({
                     eventPublicId={event.public_id}
                     limited={isLimitedPlusOne}
                     faceMode={faceMode}
+                    flash={rsvpFlash}
                   />
                 )
               ) : null}

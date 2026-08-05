@@ -64,7 +64,7 @@ wedding** the couple's entire order history — amounts, reference codes, status
 against live prod (`pg_policy` + `pg_get_functiondef`) before rewriting rather than inferred
 from the migration text.
 
-**2 · It would probably never have run.** Prefix `20270930140000` sits below **114**
+**2 · It would probably never have run.** Prefix `20270930140000` (superseded → `20271102603681`) sits below **114**
 already-applied migrations (head `20271102113000`). Re-allocated via the allocator to
 `20271102603681`.
 
@@ -97,3 +97,16 @@ hardens into **"members only"**. 11/11 here, 20/20 on the papic suite.
 🔑 The lesson is the shape, not the line: **that test existed precisely to catch a future
 narrowing of this arm, and it worked.** My suite passed 10/10 while the change was wrong,
 because I only seeded the payers I was thinking about.
+
+> ⛔ **CORRECTED 2026-08-05 — the migration-prefix reasoning above is WRONG.** This fragment claims a
+> prefix below prod's applied head would have "merged green and created nothing". **False.**
+> `deploy-prod.yml:184` and `supabase-migrations.yml:203` both run `supabase db push --include-all
+> --yes`, and `--include-all` applies out-of-order migrations. Verified 13 ways: 12 historically
+> out-of-order migrations are all applied in prod, and `20271102765509` applied on 2026-08-04 while
+> sitting two prefixes below the head. The error came from reading `count(*) = 0` on an **unmerged**
+> PR as "it will be skipped" — it was 0 because the PR had not merged.
+> What a low prefix ACTUALLY costs is the **PGlite replay**, which applies in FILENAME order
+> (`tests/db/replay-migrations.ts:268-271`), so it breaks `*.db.test.ts`, never prod. The
+> re-allocation was harmless and mildly useful — for replay order and the UNIQUE rule — but not the
+> safety fix described here. Authoritative correction: corpus `CLAUDE.md`.
+

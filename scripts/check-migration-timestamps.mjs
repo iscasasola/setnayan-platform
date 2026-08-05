@@ -30,10 +30,20 @@
 //     migration 20271102765509 applied on 2026-08-04 while sitting TWO prefixes
 //     below the head (events.website_open_browse column_default reads `true`).
 //
-//     ⚠ Two MERGED migration headers still assert the false version and must not
-//     be trusted: 20271102765509_open_browse_default_new_events_on.sql and
-//     20271102810371_vendor_lines_library.sql. They are applied, so they are not
-//     edited (never edit an applied migration); this comment is the correction.
+//     ⚠ SIX MERGED migration headers still assert the false version and must not
+//     be trusted (this list said TWO until 2026-08-05 — it was written by the
+//     same session that had authored three of them, which is its own lesson:
+//     an exclusion list assembled from memory undercounts):
+//       20271102603681_orders_exclude_vendor_payer_from_event_reads.sql
+//       20271102765509_open_browse_default_new_events_on.sql
+//       20271102810371_vendor_lines_library.sql
+//       20271103100614_vendor_reuse_requests.sql
+//       20271104090000_vendor_package_items_team_admin.sql
+//       20271106090000_events_date_forced_by_lock_of.sql
+//     The last two were written by OTHER sessions AFTER this correction landed
+//     — the belief propagates faster than a docblock fixes it, which is why the
+//     authoritative correction now lives in the AUTO-LOADED corpus CLAUDE.md.
+//     All six are applied, so none is edited (never edit an applied migration).
 //
 //     WHAT A LOW PREFIX ACTUALLY COSTS — the PGlite REPLAY, not prod.
 //     apps/web/tests/db/replay-migrations.ts replays with

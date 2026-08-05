@@ -107,7 +107,7 @@ Sprint 0 was the platform foundation — Next.js 15 + Tauri 2 + Supabase + Cloud
 
 - Vercel project connected, env vars set, deploys clean
 - Supabase Singapore region, base schema migration `20260512000000`, 5 RLS helpers, on_auth_user_created trigger
-- R2: 4 PH-region buckets (`setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`)
+- R2: 5 buckets in the **Asia-Pacific (APAC)** region — `setnayan-media`, `-thread-files`, `-vendor-contracts`, `-samples`, `-vendor-verification` (the last holds vendor government IDs). ⚠ NOT the Philippines; R2 has no PH region. Confirmed in the Cloudflare dashboard 2026-08-01. This line was wrong twice over — wrong region AND wrong count.
 - Auth: email/password + magic-link; owner email auto-flagged `is_internal=TRUE`
 - Tauri 2 scaffold, GitHub Actions matrix building `.dmg` + `.msi` artifacts
 - PWA manifest + service worker scaffolded (later replaced with the full caching foundation)

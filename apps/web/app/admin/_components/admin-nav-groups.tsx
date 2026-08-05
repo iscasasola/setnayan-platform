@@ -80,6 +80,7 @@ import {
   UsersRound,
   Wallet,
   WifiOff,
+  FileWarning,
 } from 'lucide-react';
 
 import type { NavGroup } from '@/app/_components/nav/types';
@@ -118,6 +119,19 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/verify',
         icon: BadgeCheck,
         matchPrefix: '/admin/verify',
+      },
+      {
+        // Verification documents — the READ side of the vendor-verification
+        // bucket, next to the queue that collects them. Deliberately NOT part of
+        // Website media: that page manages the site's own furniture, and a
+        // person's government ID is not furniture. Re-uploads and abandoned
+        // applications leave identity documents behind that nothing else in the
+        // app can see, let alone remove.
+        key: 'verification-docs',
+        label: 'ID documents',
+        href: '/admin/verification-docs',
+        icon: FileWarning,
+        matchPrefix: '/admin/verification-docs',
       },
       {
         // Vendor Partnerships — two-admin verification queue for vendor-to-vendor

@@ -1174,7 +1174,19 @@ export function SiteBody({
                   half of the on-the-day gallery pair (the wall mirror above is the
                   shared half): this guest's clean-screened tagged photos, arriving
                   through the day. Personalization no competitor has. */}
-              {(isLive || isPost) && guestLiveGallery ? (
+              {/* THE SECTION RENDERS FOR THE WHOLE WINDOW NOW (2026-08-05).
+                  It used to be gated on `guestLiveGallery` being truthy, and
+                  the loader returned the SAME null for "nobody has tagged you
+                  yet" and "the read broke" — so a guest photographed all
+                  evening opened her page and found no "Photos of you" area at
+                  all. Not an empty one, not an error: nothing, where it should
+                  have been. She has no way to tell whether the photographers
+                  missed her or the page did.
+
+                  An empty list is now a real result and null means only that
+                  the read failed, so the three states can finally be told
+                  apart. */}
+              {isLive || isPost ? (
                 <section
                   aria-label="Photos of you"
                   className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
@@ -1187,7 +1199,7 @@ export function SiteBody({
                       Photos of you{isLive ? ' — so far' : ''}
                     </p>
                     <p className="text-sm text-ink/70">
-                      {guestLiveGallery.total.toLocaleString()}
+                      {(guestLiveGallery?.total ?? 0).toLocaleString()}
                       {isLive ? ' so far' : ''}
                     </p>
                   </div>
@@ -1203,8 +1215,23 @@ export function SiteBody({
                   ) : null}
                   {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
                       are big enough for an older guest (Guest Legibility Floor). */}
+                  {!guestLiveGallery ? (
+                    // The read failed. Say so — and say whose fault it is.
+                    <p className="mt-4 rounded-lg border border-ink/10 bg-white px-3 py-3 text-sm text-ink/70">
+                      We couldn&rsquo;t load your photos just now. Nothing is lost — pull
+                      down to refresh in a moment.
+                    </p>
+                  ) : guestLiveGallery.photos.length === 0 ? (
+                    // Genuinely none yet. The commonest state early in a day, and
+                    // the one a guest most needs reassurance about.
+                    <p className="mt-4 rounded-lg border border-ink/10 bg-white px-3 py-3 text-sm text-ink/70">
+                      {isLive
+                        ? 'No one has tagged you yet — your photos appear here as they’re taken.'
+                        : 'No photos of you were tagged at this celebration.'}
+                    </p>
+                  ) : null}
                   <div className="mt-4 grid grid-cols-3 gap-2">
-                    {guestLiveGallery.photos.map((p) => (
+                    {(guestLiveGallery?.photos ?? []).map((p) => (
                       <figure
                         key={p.id}
                         className="group relative aspect-square overflow-hidden rounded-lg bg-ink/5"
@@ -1241,12 +1268,14 @@ export function SiteBody({
                       </figure>
                     ))}
                   </div>
-                  <p className="mt-3 text-sm text-ink/70">
-                    {isLive
-                      ? 'More arrive as the day unfolds — and every photo of you is yours to keep after the celebration.'
-                      : 'Tap any photo to open it full size and save it.'}{' '}
-                    Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
-                  </p>
+                  {guestLiveGallery && guestLiveGallery.photos.length > 0 ? (
+                    <p className="mt-3 text-sm text-ink/70">
+                      {isLive
+                        ? 'More arrive as the day unfolds — and every photo of you is yours to keep after the celebration.'
+                        : 'Tap any photo to open it full size and save it.'}{' '}
+                      Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
+                    </p>
+                  ) : null}
                 </section>
               ) : null}
 

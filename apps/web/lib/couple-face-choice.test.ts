@@ -28,9 +28,13 @@ test('a couple CANNOT switch it on where an admin has not', () => {
   assert.equal(resolveFaceMode(undefined, 'wedding', false), 'mode_b');
 });
 
-test('a couple cannot override the christening/debut lock', () => {
-  for (const type of ['christening', 'debut']) {
-    assert.equal(resolveFaceMode('mode_a', type, false), 'mode_b', `${type} stays locked`);
+test('a couple can decline on ANY event type, including the minor-heavy ones', () => {
+  // ⚠ CHANGED 2026-08-05: these types are no longer force-locked, so the
+  // couple's decline is what protects them if an admin has enabled it — which
+  // makes this test more load-bearing than the one it replaces, not less.
+  for (const type of ['christening', 'debut', 'wedding', 'birthday']) {
+    assert.equal(resolveFaceMode('mode_a', type, true), 'mode_b', `${type} must obey the couple`);
+    assert.equal(resolveFaceMode('mode_a', type, false), 'mode_a', `${type} runs when they don't`);
   }
 });
 

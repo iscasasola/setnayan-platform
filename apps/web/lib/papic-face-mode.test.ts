@@ -40,9 +40,29 @@ test('resolveFaceMode fails closed to mode_b on anything unexpected', () => {
   assert.equal(resolveFaceMode('MODE_A', 'wedding'), 'mode_b'); // case-sensitive
 });
 
-test('resolveFaceMode forces mode_b for christening/debut even when stored mode_a', () => {
-  assert.equal(resolveFaceMode('mode_a', 'christening'), 'mode_b');
-  assert.equal(resolveFaceMode('mode_a', 'debut'), 'mode_b');
+test('christening/debut are OFF BY DEFAULT, and honour an explicit setting', () => {
+  // ⚠ REWRITTEN 2026-08-05. This asserted a FORCED mode_b for these two types.
+  // The owner — who is also the DPO — ruled that face tagging applies to every
+  // event type Setnayan offers, so the type no longer overrides the column.
+  //
+  // What replaces the block: the default, the deliberate act (the admin
+  // confirmation names the risk in words — pinned in face-mode-switch.test.ts),
+  // the per-guest 18+ attestation, the host's face_recognition_excluded flag,
+  // and the couple's own decline. The guardian-consent workflow still does not
+  // exist; that is unchanged and remains the reason to be careful here.
+  for (const type of ['christening', 'debut'] as const) {
+    assert.equal(resolveFaceMode(null, type), 'mode_b', `${type}: untouched stores nothing`);
+    assert.equal(resolveFaceMode('mode_b', type), 'mode_b');
+    assert.equal(resolveFaceMode('mode_a', type), 'mode_a', `${type}: an explicit choice holds`);
+  }
+});
+
+test('the couple can still shut it off on a minor-heavy event', () => {
+  // With the type-level block gone, this is now the STRONGEST remaining
+  // override on these events, so it matters more than it did before.
+  for (const type of ['christening', 'debut'] as const) {
+    assert.equal(resolveFaceMode('mode_a', type, true), 'mode_b');
+  }
 });
 
 // ── faceModeAllowsEmbedding ─────────────────────────────────────────────────
@@ -83,16 +103,25 @@ test('mode_a with no descriptor stays image-only (null vector, null model)', () 
   });
 });
 
-test('christening/debut (forced mode_b) stores NO vector even with a consented payload', () => {
-  // A guest POSTs biometric_consent=1 + age_affirmation=1 + a real selfie_vector.
-  // The event type forces mode_b regardless of any stored mode_a, and the guard
-  // then drops the vector — the minor-honoree biometric leak is closed.
+test('an untouched christening/debut stores NO vector even with a consented payload', () => {
+  // A guest POSTs biometric_consent=1 + age_affirmation=1 + a real vector. On an
+  // event nobody has deliberately enabled, the guard still drops it.
+  // ⚠ REWRITTEN 2026-08-05: the premise moved from "the type forces mode_b" to
+  // "the default is mode_b". The protection for an untouched event is identical;
+  // what changed is that an admin can now choose otherwise, on the record.
   for (const type of ['christening', 'debut'] as const) {
-    const effective = resolveFaceMode('mode_a', type); // → 'mode_b'
+    const effective = resolveFaceMode(null, type);
     assert.equal(effective, 'mode_b');
     const out = faceVectorForMode(effective, PAYLOAD_VECTOR, MODEL);
     assert.equal(out.face_vector, null, `${type}: vector must not persist`);
     assert.equal(out.vector_model, null, `${type}: model must not persist`);
+  }
+});
+
+test('a couple’s decline drops the vector on a minor-heavy event too', () => {
+  for (const type of ['christening', 'debut'] as const) {
+    const effective = resolveFaceMode('mode_a', type, true);
+    assert.equal(faceVectorForMode(effective, PAYLOAD_VECTOR, MODEL).face_vector, null);
   }
 });
 
@@ -109,9 +138,16 @@ test('multi-shot enroll: every shot is nulled in mode_b (mirrors enrollGuestFace
   assert.ok(rowsA.every((r) => Array.isArray(r.face_vector) && r.vector_model === MODEL));
 });
 
-test('async resolvePapicFaceMode + guard: christening row saying mode_a still stores nothing', async () => {
+test('async: a christening the couple declined stores nothing, whatever the admin set', async () => {
+  // ⚠ REWRITTEN 2026-08-05 — was "a christening row saying mode_a still stores
+  // nothing", which is no longer true and is no longer supposed to be. The
+  // couple's decline is the override that survives, so it is what this pins.
   const client = fakeClient({
-    data: { papic_face_mode: 'mode_a', event_type: 'christening' },
+    data: {
+      papic_face_mode: 'mode_a',
+      event_type: 'christening',
+      face_tagging_declined_by_couple: true,
+    },
     error: null,
   });
   const mode = await resolvePapicFaceMode(client as never, 'evt-1');
@@ -146,12 +182,22 @@ test('resolvePapicFaceMode reads the row and resolves mode_a', async () => {
   assert.equal(await resolvePapicFaceMode(client as never, 'evt-1'), 'mode_a');
 });
 
-test('resolvePapicFaceMode forces mode_b for christening even if row says mode_a', async () => {
+test('async: a christening an admin deliberately enabled resolves to mode_a', async () => {
   const client = fakeClient({
     data: { papic_face_mode: 'mode_a', event_type: 'christening' },
     error: null,
   });
-  assert.equal(await resolvePapicFaceMode(client as never, 'evt-1'), 'mode_b');
+  assert.equal(await resolvePapicFaceMode(client as never, 'evt-1'), 'mode_a');
+});
+
+test('async: fail-closed still wins — a read error resolves to mode_b', async () => {
+  // Unchanged by today's ruling, and the reason it is restated here: the type
+  // no longer refuses, so the fallback carries more weight than it used to.
+  assert.equal(await resolvePapicFaceMode(fakeClient('throw') as never, 'e'), 'mode_b');
+  assert.equal(
+    await resolvePapicFaceMode(fakeClient({ data: null, error: { message: 'x' } }) as never, 'e'),
+    'mode_b',
+  );
 });
 
 test('resolvePapicFaceMode fails closed to mode_b on empty id, error, missing row, or throw', async () => {

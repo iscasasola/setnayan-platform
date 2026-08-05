@@ -20,6 +20,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
+import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -221,7 +222,11 @@ export async function submitRsvp(
     .eq('event_id', eventId)
     .maybeSingle();
   const faceExcluded = (fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true;
-  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded) {
+  // Owner 2026-08-05: "under 18 will not allow face tagging." The attestation is
+  // the enabler; this is the refusal that does not depend on it. Where the guest
+  // list already records a birth date showing a child, no tickbox overrides it.
+  const knownMinor = await isKnownMinorGuest(admin, eventId, guestId);
+  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded && !knownMinor) {
     try {
       // Selfie is the highest-priority display photo — it always wins over a
       // Gmail avatar / couple upload.

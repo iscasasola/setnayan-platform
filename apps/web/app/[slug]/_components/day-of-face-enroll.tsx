@@ -53,9 +53,25 @@ export function DayOfFaceEnroll({
         <h2 className="mt-2 text-lg font-semibold tracking-tight text-ink">
           You&rsquo;re set
         </h2>
+        {/* ⚠ The promise has to follow the event, like the consent box it sits
+            above. This card RECEIVES `faceMode` and always did — it just never
+            used it for its own words, so on an event with matching switched off
+            it promised photos would arrive by themselves while the checkbox two
+            inches below said no recognition runs. The two contradicted each
+            other on one screen. */}
         <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
-          Your candid photos will find their way to you. Look for &ldquo;Photos
-          of you&rdquo; right here as the celebration unfolds.
+          {faceMode === 'mode_a' ? (
+            <>
+              Your candid photos will find their way to you. Look for &ldquo;Photos
+              of you&rdquo; right here as the celebration unfolds.
+            </>
+          ) : (
+            <>
+              Your photo is on the guest list now. Look for &ldquo;Photos of
+              you&rdquo; right here — pictures arrive when someone scans your QR or
+              tags you.
+            </>
+          )}
         </p>
       </section>
     );
@@ -67,15 +83,25 @@ export function DayOfFaceEnroll({
         <Sparkles aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            So your photos find you
+            {faceMode === 'mode_a' ? 'So your photos find you' : 'So people know you'}
           </p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">
-            Add your face
+            {faceMode === 'mode_a' ? 'Add your face' : 'Add your photo'}
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            Take a few quick selfies — or upload up to 3 photos — and the candid
-            shots of you get gathered for you automatically. No scanning, no
-            searching.
+            {faceMode === 'mode_a' ? (
+              <>
+                Take a few quick selfies — or upload up to 3 photos — and the candid
+                shots of you get gathered for you automatically. No scanning, no
+                searching.
+              </>
+            ) : (
+              <>
+                Take a quick selfie — or upload a photo — so the couple and their
+                team can recognise you. Pictures reach you when someone scans your
+                QR or tags you.
+              </>
+            )}
           </p>
         </div>
       </div>

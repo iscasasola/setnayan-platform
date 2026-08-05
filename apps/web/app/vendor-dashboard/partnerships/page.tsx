@@ -163,7 +163,10 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
       {sp.changed ? (
-        <FormFlash tone="success">Updated — the new wording is live on their profile.</FormFlash>
+        <FormFlash tone="success">
+          Sent. The old partnership is withdrawn and the new wording is waiting for
+          them to accept — the badge returns once they do.
+        </FormFlash>
       ) : null}
       {sp.proposed ? (
         <FormFlash tone="success">
@@ -246,13 +249,19 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
                     Live
                   </span>
-                  {/* CHANGE THE KIND — only the vendor who made the
-                      recommendation may restate it, because the claim is
-                      theirs. Moving to "included in package" or "discounted"
-                      says something about the OTHER vendor's money, so the
-                      action sends it back to them and takes the badge down
-                      until they agree. Dropping to a weaker kind applies at
-                      once — a vendor may always say LESS about a partner. */}
+                  {/* RE-PROPOSE UNDER A DIFFERENT KIND. Only the vendor who
+                      made the recommendation sees this, because the claim is
+                      theirs to restate.
+
+                      ⚠ It withdraws and re-proposes rather than editing in
+                      place: the database FORBIDS changing an accepted
+                      partnership's terms (trg_vendor_partnerships_lock_immutable),
+                      and it is right to — the terms must not change under the
+                      partner who agreed to them. The badge therefore comes down
+                      at the withdrawal and returns only when they accept the new
+                      wording, which is the consent behaviour we wanted, enforced
+                      by the schema instead of by an action remembering to do
+                      it. */}
                   {iProposed ? (
                     <form action={changePartnershipKind} className="flex items-center gap-1.5">
                       <input type="hidden" name="partnership_id" value={p.id} />
@@ -272,10 +281,11 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         ))}
                       </select>
                       <SubmitButton
-                        pendingLabel="Saving…"
+                        pendingLabel="Sending…"
+                        title="Withdraws this partnership and sends the new wording to them to accept."
                         className="rounded-md border border-ink/20 px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
                       >
-                        Change
+                        Re-propose
                       </SubmitButton>
                     </form>
                   ) : null}

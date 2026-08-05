@@ -1,6 +1,7 @@
 import { Images, Video } from 'lucide-react';
 
 import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
+import { parseR2Ref } from '@/lib/nsfw-screen';
 import {
   captureSummary,
   clipLengthLabel,
@@ -74,17 +75,34 @@ export async function OwnCapturesStrip({
     );
   }
 
+  // 🪤 THE STORED VALUE IS A REF, NOT A KEY. The capture route writes
+  // `r2://setnayan-media/papic/...` into `r2_object_key` / `poster_r2_key`,
+  // while the object itself lives at the bare `papic/...`. Handing the raw
+  // column to `r2SignedGet` as an S3 Key produces a PERFECTLY VALID signed URL
+  // for an object that does not exist — signing is offline, so nothing throws,
+  // the `.catch` never fires, and every tile 404s in the browser instead.
+  //
+  // That is precisely how the first version of this strip shipped: green CI, a
+  // grid of broken images. The couple's own gallery has always routed these two
+  // columns through a parser; this was the one consumer that skipped it.
+  //
   // Signed for an hour: long enough for a working shift, short enough that a
   // link copied out of the page dies the same night.
   const tiles = await Promise.all(
-    captures.map(async (c) => ({
-      capture: c,
-      url: await r2SignedGet({
-        bucket: R2_BUCKETS.media,
-        key: c.tileKey,
-        expiresIn: 3600,
-      }).catch(() => null),
-    })),
+    captures.map(async (c) => {
+      // The ref names its own bucket; ignore it and use the media bucket the
+      // capture route actually writes to. Trusting a bucket name out of a
+      // stored string would let a bad row point the signer anywhere.
+      const { key } = parseR2Ref(c.tileKey);
+      return {
+        capture: c,
+        url: await r2SignedGet({
+          bucket: R2_BUCKETS.media,
+          key,
+          expiresIn: 3600,
+        }).catch(() => null),
+      };
+    }),
   );
 
   return (

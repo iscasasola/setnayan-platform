@@ -25,7 +25,6 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   PARTNERSHIP_KINDS,
-  claimsPartnerPricing,
   isPartnershipKind,
   type PartnershipKind,
 } from '@/lib/vendor-partnership-kinds';
@@ -189,28 +188,40 @@ export async function withdrawPartnership(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 /**
- * Move an existing partnership to a different kind.
+ * Move to a different kind by WITHDRAWING the old partnership and proposing the
+ * new one.
  *
- * ── WHY THIS DID NOT EXIST, AND WHY IT HAD TO ───────────────────────────────
- * The kind was chosen once, at proposal, and nothing anywhere could change it.
- * A florist and a coordinator who start as "we work together" and grow into a
- * package had no way forward: their only option was to propose a SECOND,
- * duplicate partnership with the same vendor and get accepted all over again.
+ * ── ⚠ WHY IT IS NOT AN UPDATE, AND WHY THE FIRST VERSION WAS DEAD ───────────
+ * This shipped on 2026-08-05 as `.update({ relationship_type })` and it could
+ * NEVER have succeeded for any vendor. Two independent live mechanisms refuse
+ * it, and neither is visible in the table definition:
  *
- * ── CONSENT IS THE WHOLE DESIGN ─────────────────────────────────────────────
- * "Included in my package" and "discounted alongside me" are claims about the
- * OTHER vendor's money. One side must not be able to publish those alone — that
- * is the same reason the original proposal needs an accept.
+ *   1. A BEFORE UPDATE trigger, `trg_vendor_partnerships_lock_immutable`,
+ *      raises IMMUTABLE_PARTNERSHIP_FIELDS on any change to
+ *      `relationship_type` (or the money columns) unless `is_admin()`.
+ *   2. There is no UPDATE policy that permits it either. The proposer's only
+ *      one has `WITH CHECK (… AND status = 'withdrawn')`.
  *
- * So an UPGRADE into a pricing claim goes back to `proposed` and waits for the
- * partner to accept it, exactly like a new proposal. A DOWNGRADE to `accredited`
- * or `general` claims nothing new about them and applies immediately — a vendor
- * can always say LESS about a partner without asking permission.
+ * A vendor pressing Change got the raw string "IMMUTABLE_PARTNERSHIP_FIELDS"
+ * in their error banner. The tests were all file-shape assertions, so CI was
+ * green — nothing ever executed the write.
  *
- * 🪤 The upgrade is written as `status='proposed'` on the EXISTING row, so the
- * badge that is currently published comes down the moment the change is
- * requested. Leaving it accepted while the partner decides would keep an
- * unagreed pricing claim on a public page for as long as they took to answer.
+ * ── THE LOCK IS RIGHT AND STAYS ─────────────────────────────────────────────
+ * It exists so a partnership's TERMS cannot change under the partner who agreed
+ * to them — the same concern the consent rule was written for, already solved
+ * one layer down and solved better. Relaxing it to make my control work would
+ * have removed a real protection to accommodate a mistake.
+ *
+ * So the change becomes what the database already allows: withdraw the old row,
+ * insert a new proposal, and let the partner accept it. The badge comes down at
+ * the withdrawal and returns only on their acceptance — which is exactly the
+ * consent behaviour intended, now enforced by the schema rather than by this
+ * function remembering to null a column.
+ *
+ * Not a transaction: two statements, and a failure between them leaves the old
+ * partnership withdrawn with no replacement. That is the safe direction — a
+ * missing badge is recoverable by proposing again; a stale one is a false claim
+ * about someone else's pricing.
  */
 export async function changePartnershipKind(formData: FormData) {
   const { supabase, vendorProfileId } = await ensureProfile();
@@ -227,37 +238,45 @@ export async function changePartnershipKind(formData: FormData) {
   }
   const next = nextRaw;
 
-  const patch: Record<string, unknown> = { relationship_type: next };
-  if (claimsPartnerPricing(next)) {
-    // Back to the partner for consent, and off the public page meanwhile.
-    patch.status = 'proposed';
-    patch.accepted_at = null;
-  }
-
-  // Only the vendor who MADE the recommendation may restate it — the claim is
-  // theirs. Scoped in the query as well as by RLS.
-  const { data, error } = await supabase
+  // Read the row first — we need the partner's id to re-propose, and scoping to
+  // `recommending_vendor_id` is what stops anyone restating someone else's claim.
+  const { data: existing, error: readErr } = await supabase
     .from('vendor_partnerships')
-    .update(patch)
+    .select('id, recommended_vendor_id, relationship_type')
     .eq('id', partnershipId)
     .eq('recommending_vendor_id', vendorProfileId)
-    .in('status', ['proposed', 'accepted'])
-    .select('id')
     .maybeSingle();
 
-  if (error) {
-    // 23505 = a partnership of the target kind already exists between the two.
-    if (error.code === '23505') {
+  if (readErr) back(readErr.message);
+  if (!existing) {
+    back('That partnership could not be changed — it may have been withdrawn.');
+  }
+  if (existing.relationship_type === next) {
+    back('That is already how this partnership is described.');
+  }
+
+  const { error: withdrawErr } = await supabase
+    .from('vendor_partnerships')
+    .update({ status: 'withdrawn' })
+    .eq('id', partnershipId)
+    .eq('recommending_vendor_id', vendorProfileId)
+    .in('status', ['proposed', 'accepted']);
+  if (withdrawErr) back(withdrawErr.message);
+
+  const { error: insertErr } = await supabase.from('vendor_partnerships').insert({
+    recommending_vendor_id: vendorProfileId,
+    recommended_vendor_id: existing.recommended_vendor_id,
+    relationship_type: next,
+    status: 'proposed',
+    is_active: true,
+  });
+  if (insertErr) {
+    if (insertErr.code === '23505') {
       back('You already have that kind of partnership with this vendor.');
     }
-    back(error.message);
-  }
-  if (!data) {
-    back('That partnership could not be changed — it may have been withdrawn.');
+    back(insertErr.message);
   }
 
   revalidatePath(PANEL_PATH);
-  redirect(
-    `${PANEL_PATH}?${claimsPartnerPricing(next) ? 'proposed=1' : 'changed=1'}`,
-  );
+  redirect(`${PANEL_PATH}?proposed=1`);
 }

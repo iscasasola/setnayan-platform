@@ -152,6 +152,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/payments',
       },
       {
+        // Who owes Setnayan a syncing fee and has not paid it. Sits beside
+        // Payments because that is where the money is actually confirmed —
+        // this page only shows WHO owes; it deliberately has no buttons.
+        key: 'booking-fees',
+        label: 'Fees owed',
+        href: '/admin/booking-fees',
+        icon: Receipt,
+        matchPrefix: '/admin/booking-fees',
+      },
+      {
         // Money queue — vendor payout release (was in Money group).
         key: 'payouts',
         label: 'Payouts',

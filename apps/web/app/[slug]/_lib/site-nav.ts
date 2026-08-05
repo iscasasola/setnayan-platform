@@ -94,13 +94,17 @@ export type NavInput = {
   anyChapterPublic: boolean;
   /** Did the couple write a story section? */
   hasStory?: boolean;
+  /** Is a details section actually on the page? Without this the Details tab
+   *  was pushed unconditionally and scrolled to an anchor that did not exist —
+   *  a tab that does nothing when tapped. */
+  hasDetails?: boolean;
   /** Is a broadcast running right now? */
   liveBroadcast: boolean;
   /** Where each leaving slot goes, resolved by the caller (it knows the slug,
    *  the guest's token and whether a paid roll exists). A missing destination
    *  means the caller could not build one — the slot then LOCKS rather than
    *  pointing nowhere. */
-  destinations?: { camera?: string | null; watch?: string | null };
+  destinations?: { camera?: string | null; watch?: string | null; join?: string | null };
 };
 
 /** In-page anchors, mirroring SITE_MENU_ANCHORS. */
@@ -149,7 +153,7 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
         ? { key: 'watch', label: 'Watch', state: 'live', href: dest.watch }
         : { key: 'watch', label: 'Watch', state: 'locked', href: '#', lockedReason: 'The broadcast has not started' },
     );
-  } else if (phase === 'before') {
+  } else if (phase === 'before' && (input.hasDetails ?? true)) {
     slots.push({ key: 'details', label: 'Details', state: 'live', href: ANCHOR.details });
   } else if (isVendor) {
     slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
@@ -202,18 +206,34 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   }
 
   // 5 — ME. Always last, always present; its name follows who they are.
-  slots.push({
-    key: 'me',
-    href: ANCHOR.me,
-    label: isVendor
-      ? vendorSlotLabel(viewer.kits)
-      : isCouple
-        ? 'Manage'
-        : viewer.kind === 'guest'
-          ? 'Me'
-          : 'Join',
-    state: 'live',
-  });
+  //
+  // ⚠ A STRANGER'S "Join" USED TO GO NOWHERE. `ANCHOR.me` is an in-page anchor,
+  // and for a visitor with no invite that section is an empty aria-hidden div —
+  // so the one tab inviting a relative to add themselves did nothing when
+  // tapped, while the page that actually works (`/[slug]/invite`) was linked
+  // from nowhere. A stranger's Join now LEAVES for that page; if the caller
+  // could not build the link, the slot LOCKS rather than pretending.
+  const isStranger = !isVendor && !isCouple && viewer.kind !== 'guest';
+  if (isStranger) {
+    slots.push(
+      dest.join
+        ? { key: 'me', label: 'Join', state: 'live', href: dest.join }
+        : {
+            key: 'me',
+            label: 'Join',
+            state: 'locked',
+            href: '#',
+            lockedReason: 'Open your invitation link to join this guest list',
+          },
+    );
+  } else {
+    slots.push({
+      key: 'me',
+      href: ANCHOR.me,
+      label: isVendor ? vendorSlotLabel(viewer.kits) : isCouple ? 'Manage' : 'Me',
+      state: 'live',
+    });
+  }
 
   return slots;
 }

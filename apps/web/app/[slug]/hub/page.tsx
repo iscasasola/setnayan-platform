@@ -183,7 +183,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       : null;
 
   const dayOfPhase: DayOfPhase =
-    phaseOverride ?? (event.event_date ? getDayOfPhase(event.event_date) : 'inactive');
+    phaseOverride ?? (event.event_date ? getDayOfPhase(event.event_date, eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)) : 'inactive');
   const isLive = dayOfPhase === 'live';
   const isPost = dayOfPhase === 'post';
 

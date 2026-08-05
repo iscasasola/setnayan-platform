@@ -824,10 +824,12 @@ export function SiteBody({
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
+              hasDetails: menuSections.details,
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 camera: hostCameraOpen ? '/papic/guest' : null,
                 watch: `/${event.slug}/hub`,
+                join: `/${event.slug}/invite`,
               },
             })}
           />
@@ -1575,6 +1577,7 @@ export function SiteBody({
               hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
+              hasDetails: menuSections.details,
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 camera: papicGuest
@@ -1583,6 +1586,7 @@ export function SiteBody({
                     ? '/papic/guest'
                     : null,
                 watch: `/${event.slug}/hub`,
+                join: `/${event.slug}/invite`,
               },
             })}
           />

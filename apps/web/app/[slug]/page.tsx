@@ -26,6 +26,7 @@ import {
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar } from './_components/guest-hub-bar';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
@@ -432,7 +433,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ? 'post'
         : 'pre'
     : event.event_date
-      ? getDayOfPhase(event.event_date)
+      ? getDayOfPhase(event.event_date, eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude))
       : 'inactive';
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into

@@ -26,16 +26,65 @@ const POST_WINDOW_END_MS = 24 * HOUR_MS; // T + 24h
 
 export type DayOfPhase = 'pre' | 'live' | 'post' | 'inactive';
 
-function eventDateToEpoch(eventDate: string | Date): number {
+/**
+ * How far `tz` is ahead of UTC at a given instant, in ms. Intl-only, no deps —
+ * format the instant in the zone, read it back as if it were UTC, and diff.
+ * `hourCycle: 'h23'` because `hour12: false` yields "24" for midnight on some
+ * engines, which would silently shift the anchor by a day.
+ */
+function zoneOffsetMs(tz: string, atUtcMs: number): number {
+  try {
+    return offsetFor(tz, atUtcMs);
+  } catch {
+    // An unrecognised IANA string must never take the guest page down mid-
+    // wedding. Fall back to the runtime's own anchor.
+    return 0;
+  }
+}
+
+function offsetFor(tz: string, atUtcMs: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(atUtcMs));
+  const f = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
+  return Date.UTC(f('year'), f('month') - 1, f('day'), f('hour'), f('minute'), f('second')) - atUtcMs;
+}
+
+/**
+ * Midnight on `eventDate` — in the WEDDING'S timezone when one is known.
+ *
+ * ⚠ WHY THIS TAKES A TIMEZONE (fixed 2026-08-05). The old comment said it built
+ * "the dashboard user's local midnight", which is what `new Date(y, m, d)` does
+ * — in a BROWSER. This module also runs in server components, and Vercel runs
+ * UTC. So for a Manila wedding the anchor landed at 08:00 local, and the `live`
+ * window (T-1h .. T+8h) ran roughly **07:00–16:00 on the wedding day** — it
+ * switched off mid-reception and was never on for the evening, which is when a
+ * Filipino wedding actually happens.
+ *
+ * The five clock fixes merged 2026-08-04 corrected the schedule, the broadcast
+ * and the vendor countdown, and stopped one file short of this one — the file
+ * that decides whether the guest page is in `live` at all.
+ *
+ * `tz` omitted keeps the previous runtime-local behaviour, so no caller changes
+ * meaning by accident; every guest-facing caller passes the venue's zone.
+ */
+function eventDateToEpoch(eventDate: string | Date, tz?: string): number {
   if (eventDate instanceof Date) return eventDate.getTime();
-  // Bare date strings ("2026-12-19") parse as UTC midnight; we want the
-  // dashboard user's local midnight so the day-of window aligns with the
-  // wedding-day morning rather than potentially flipping at 8 PM the night
-  // before for far-east timezones. Construct local midnight explicitly when
-  // we receive a YYYY-MM-DD shape.
   const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(eventDate);
   if (dateOnlyMatch) {
     const [, y, m, d] = dateOnlyMatch;
+    if (tz) {
+      // Guess UTC midnight, then correct by the zone's offset at that instant.
+      const guess = Date.UTC(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0);
+      return guess - zoneOffsetMs(tz, guess);
+    }
     return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0).getTime();
   }
   return new Date(eventDate).getTime();
@@ -53,8 +102,8 @@ function eventDateToEpoch(eventDate: string | Date): number {
  * // wedding scheduled two days from now
  * isInDayOfWindow('2099-01-01'); // false
  */
-export function isInDayOfWindow(eventDate: string | Date): boolean {
-  return getDayOfPhase(eventDate) === 'live';
+export function isInDayOfWindow(eventDate: string | Date, tz?: string): boolean {
+  return getDayOfPhase(eventDate, tz) === 'live';
 }
 
 /**
@@ -129,8 +178,8 @@ export function getMenuLifecyclePhase(
  * // 5 days before the wedding
  * getDayOfPhase(fiveDaysOut); // 'inactive'
  */
-export function getDayOfPhase(eventDate: string | Date): DayOfPhase {
-  const eventMs = eventDateToEpoch(eventDate);
+export function getDayOfPhase(eventDate: string | Date, tz?: string): DayOfPhase {
+  const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return 'inactive';
   const now = Date.now();
   const delta = now - eventMs; // positive = past anchor

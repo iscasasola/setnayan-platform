@@ -1,4 +1,5 @@
 import { Camera } from 'lucide-react';
+import Link from 'next/link';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
@@ -55,6 +56,16 @@ export default async function PapicGuestPage({
           Scan your personal QR or open your invite link, then come back here to
           start shooting candids for the host.
         </p>
+        {/* ⚠ THIS PAGE USED TO END HERE — a heading, a sentence, and nothing to
+            press. It is reached from the day-of bar by exactly the people who do
+            NOT have an invite (the cousin who scanned the poster at the venue),
+            so the browser back button was their only way out on the wedding day. */}
+        <Link
+          href="/"
+          className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-ink/20 px-5 text-sm font-medium text-ink transition-colors hover:bg-ink/[0.04]"
+        >
+          Back to Setnayan
+        </Link>
       </Shell>
     );
   }

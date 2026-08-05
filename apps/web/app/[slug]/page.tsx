@@ -4,7 +4,9 @@ import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
 import {
@@ -44,6 +46,7 @@ import {
   loadLiveLayer,
   loadMedia,
   loadWidgets,
+  type EventShellRow,
 } from './_lib/loaders';
 import {
   anonymousIdentity,
@@ -254,6 +257,68 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+
+  // ── THE BLANK WHITE SCREEN (2026-08-05) ───────────────────────────────────
+  //
+  // Everything above this line is a ROUTING decision — notFound(), the redeem
+  // redirect, the /u/ canonicalisation, the vendor dispatch. Everything below
+  // is body work: a dozen-plus sequential awaits, several of them R2 presign
+  // round-trips.
+  //
+  // With no boundary anywhere under this route, the whole page WAS React's
+  // shell, so not one byte flushed until the last await resolved. A guest
+  // scanning the QR on a crowded venue network got a blank white screen — no
+  // monogram, no couple's name, not even a spinner — for as long as the server
+  // took. Most people tap again, or decide the link is broken.
+  //
+  // ⛔ THE FIX IS NOT A `loading.tsx`. One existed and was deliberately deleted
+  // (04c03063d, "real 404s on unknown slugs"): a route-level loading file makes
+  // the streaming shell commit HTTP 200 BEFORE the body runs, so every junk URL
+  // became an indexable soft-404. A Suspense boundary placed AFTER the
+  // notFound/redirect decisions keeps the real 404, because the status is
+  // settled before the first flush.
+  return (
+    <Suspense
+      fallback={
+        <InvitationSkeleton
+          displayName={event.display_name}
+          monogramText={event.monogram_text}
+        />
+      }
+    >
+      <InvitationBody
+        event={event}
+        slug={slug}
+        search={search}
+        admin={admin}
+        inviteError={inviteError}
+        eventTypeProfile={eventTypeProfile}
+      />
+    </Suspense>
+  );
+}
+
+/**
+ * The invitation itself. Split out of the page component so a Suspense boundary
+ * can sit between the routing decisions (which must settle the HTTP status) and
+ * the body work (which is slow). Nothing here moved a line — it is the same
+ * code, one function deeper.
+ */
+async function InvitationBody({
+  event,
+  slug,
+  search,
+  admin,
+  inviteError,
+  eventTypeProfile,
+}: {
+  event: EventShellRow;
+  slug: string;
+  search: Awaited<Props['searchParams']>;
+  admin: ReturnType<typeof createAdminClient>;
+  inviteError: string | null;
+  eventTypeProfile: Awaited<ReturnType<typeof resolveProfile>>;
+}) {
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private
   // gate exactly as the inline block did (PrivateLanding consumes the monogram

@@ -180,7 +180,8 @@ export async function peekQueue(
   // Returns an untyped PostgREST builder (the shared filter is duck-typed), so
   // every consumer below narrows its own row with an explicit cast — the same
   // discipline the file already used.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // `any` matches how queue-counts.ts types its own filter builders — the
+  // PostgREST chain is duck-typed and each branch narrows its rows explicitly.
   const open = (cols: string): any => {
     const src = getQueueSource(key);
     if (!src) return null;

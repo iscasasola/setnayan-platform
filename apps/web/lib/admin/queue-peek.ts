@@ -40,7 +40,7 @@ export const PEEK_LIMIT = 3;
 
 export type PeekAction = {
   /** Server-action id the feed maps to a real action. */
-  kind: 'approve-payment';
+  kind: 'approve-payment' | 'approve-verification' | 'agree-request';
   label: string;
   /** The row id the action needs. */
   id: string;
@@ -160,6 +160,13 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
             // `docs_complete` is the one fact that decides whether this is even
             // reviewable yet, so it is what the glance should show.
             detail: row.docs_complete ? 'Documents complete' : 'Waiting on documents',
+            // Only offer the stamp when the documents are actually in. An
+            // application still waiting on uploads is not a fact yet, so it gets
+            // the page instead of a button — the same fact/judgement test, one
+            // level down inside a single queue.
+            action: row.docs_complete
+              ? { kind: 'approve-verification', label: 'Verify shop', id: row.application_id }
+              : undefined,
             href: '/admin/verify',
           };
         }),
@@ -189,6 +196,9 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
             // A second admin is being asked to agree to something; their
             // colleague's REASON is the whole content of the decision.
             detail: row.rationale?.slice(0, 90) ?? 'No reason given',
+            // "I agree", never "Approve" — this is the SECOND signature on a
+            // colleague's decision, not the decision itself.
+            action: { kind: 'agree-request', label: 'I agree', id: row.approval_id },
             href: '/admin/approvals',
           };
         }),

@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
+import { applyApplicationDecision } from '@/app/admin/verify/actions';
+import { approveRequest } from '@/app/admin/approvals/actions';
 
 /**
  * Settle a queue item FROM THE WORK LIST, without leaving it.
@@ -72,4 +74,70 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
   revalidatePath('/admin/work');
   revalidatePath('/admin');
   revalidatePath('/admin/payments');
+}
+
+
+/**
+ * VERIFY — stamp a vendor as verified, from the list.
+ *
+ * ⚠ THIS IS THE BADGE COUPLES TRUST, so it reuses the SAME decision engine the
+ * verify page uses (`applyApplicationDecision`) rather than writing a status.
+ * That engine is what also sets `verified`, `last_verified_at` and moves the
+ * documents — a hand-written UPDATE here would set the flag and skip the rest.
+ *
+ * `approveApplication` (the page's action) redirects on success; this calls the
+ * engine directly and revalidates, so the admin stays on the list. One engine,
+ * two entry points.
+ *
+ * No `reason` from the list: an approval needs none, and the page is where a
+ * rejection with its reason belongs.
+ */
+export async function approveVerificationFromWorkList(formData: FormData): Promise<void> {
+  // The verify module carries its OWN `AdminUser = { user_id }`, while the
+  // shared requireAdmin() returns `{ userId }`. Two names for one thing; the
+  // typechecker caught the mismatch rather than a `user_id: undefined` reaching
+  // an audit column.
+  const { userId } = await requireAdmin();
+  const applicationId = formData.get('application_id');
+  const back = typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  if (typeof applicationId !== 'string' || applicationId.length === 0) {
+    redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
+  }
+
+  const result = await applyApplicationDecision({
+    actor: { user_id: userId },
+    applicationId,
+    decision: 'approved',
+    reason: null,
+  });
+
+  if (!result.ok) {
+    redirect(
+      `${back}${back.includes('?') ? '&' : '?'}settle=refused&why=${encodeURIComponent(result.error)}`,
+    );
+  }
+
+  revalidatePath('/admin/work');
+  revalidatePath('/admin');
+  revalidatePath('/admin/verify');
+  revalidatePath('/admin/vendors');
+  revalidatePath('/explore');
+}
+
+/**
+ * APPROVALS — co-sign a colleague's request, from the list.
+ *
+ * 🔑 THE LABEL IS "I AGREE", NOT "APPROVE". This is the SECOND signature on a
+ * decision someone else already made; the admin is agreeing to their colleague's
+ * call, not making one. A button saying "Approve" invites reading it as the
+ * whole decision, which is exactly what a two-admin gate exists to prevent.
+ *
+ * Delegates straight to the page's own `approveRequest` — it does NOT redirect
+ * (it only revalidates), so unlike payments and verify there is no core to
+ * extract. Its claim-then-decide guard already handles two admins racing.
+ */
+export async function agreeToRequestFromWorkList(formData: FormData): Promise<void> {
+  await requireAdmin();
+  await approveRequest(formData);
+  revalidatePath('/admin/work');
 }

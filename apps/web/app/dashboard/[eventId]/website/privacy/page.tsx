@@ -16,6 +16,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { updateLandingPageVisibility, setShowcaseConsent } from './actions';
 import { eventNoun } from '@/lib/event-noun';
+import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 
 export const metadata = { title: 'Who can view your event page' };
 
@@ -74,8 +75,18 @@ export default async function PrivacyEditorPage({
   // Launch status (read-only mirror — the controls live in the Save-the-Date
   // studio, owner 2026-06-28). Live when public/launched; otherwise scheduled or
   // private. Formatted in Manila time to match the studio scheduler.
-  const launched =
-    Boolean(event.std_launched_at) || currentVisibility === 'public';
+  // 🔴 THIS USED TO SAY `Boolean(std_launched_at) || visibility === 'public'`,
+  // which made "launched" and "private" both true at once. A couple who
+  // launched their Save-the-Date and later set the picker below to Private saw
+  // "Your page is live — anyone with your link can view your page" sitting
+  // directly above a radio button reading Private. The banner and the control
+  // contradicted each other on one screen, and the banner was the wrong one:
+  // guests opening the link were getting the locked screen.
+  //
+  // The question a couple is asking is "can my guests open this?", so it is now
+  // answered by the predicate the guest page itself renders from.
+  const reach = resolveSiteReachability(event);
+  const launched = reach.reachable;
   const scheduledAt =
     typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
   const scheduledLabel = scheduledAt
@@ -151,6 +162,11 @@ export default async function PrivacyEditorPage({
         <div className="flex items-start gap-3">
           {launched ? (
             <Globe aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
+          ) : reach.launchedButHidden ? (
+            // Same precedence as the copy below — a page that is launched AND
+            // scheduled AND private must not show a calendar next to the words
+            // "Launched — but hidden".
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/55" strokeWidth={1.75} />
           ) : scheduledLabel ? (
             <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
           ) : (
@@ -160,16 +176,20 @@ export default async function PrivacyEditorPage({
             <p className="text-sm font-semibold text-ink">
               {launched
                 ? 'Your page is live'
-                : scheduledLabel
-                  ? 'Launch scheduled'
-                  : 'Your page is private'}
+                : reach.launchedButHidden
+                  ? 'Launched — but hidden'
+                  : scheduledLabel
+                    ? 'Launch scheduled'
+                    : 'Your page is private'}
             </p>
             <p className="text-sm text-ink/65">
               {launched
                 ? 'Your Save-the-Date is launched — anyone with your link can view your page.'
-                : scheduledLabel
-                  ? `Goes live ${scheduledLabel} (Manila time). Until then, only you and invited guests can see it.`
-                  : 'Launch your Save-the-Date to make your page public — now, or at a time you choose.'}
+                : reach.launchedButHidden
+                  ? 'You launched your Save-the-Date, but the setting below is on Private — guests who open your link see a locked screen. Choose Public or Unlisted to let them in.'
+                  : scheduledLabel
+                    ? `Goes live ${scheduledLabel} (Manila time). Until then, only you and invited guests can see it.`
+                    : 'Launch your Save-the-Date to make your page public — now, or at a time you choose.'}
             </p>
           </div>
         </div>
@@ -178,7 +198,13 @@ export default async function PrivacyEditorPage({
           className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center"
         >
           <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {launched ? 'Manage launch' : scheduledLabel ? 'Change schedule' : 'Launch or schedule'}
+          {launched
+            ? 'Manage launch'
+            : reach.launchedButHidden
+              ? 'Manage launch'
+              : scheduledLabel
+                ? 'Change schedule'
+                : 'Launch or schedule'}
         </Link>
       </div>
 

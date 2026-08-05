@@ -74,3 +74,58 @@ export async function publishSaveTheDate(
   if (error || !data) return null;
   return { slug: (data.slug as string | null) ?? null };
 }
+
+/**
+ * What the COUPLE should be told about their own page — derived from the same
+ * predicate the guest page renders from, never from a separate signal.
+ *
+ * 🔴 THE BUG THIS EXISTS FOR. Two surfaces claimed the page was live on
+ * evidence that had nothing to do with whether anyone could open it:
+ *
+ *   • the website home showed a green tick and "Live — this link is yours" the
+ *     moment `event.slug` was non-null. A slug is a NAME. Every event has one
+ *     from creation, months before launch, and a private page has one too.
+ *   • the privacy page computed `launched = std_launched_at || visibility ===
+ *     'public'`, so a couple who launched their Save-the-Date and LATER set
+ *     visibility to Private saw "Your page is live — anyone with your link can
+ *     view your page" directly above a radio button set to Private. The banner
+ *     and the control contradicted each other on the same screen, and the
+ *     banner was the wrong one: guests were getting the locked screen.
+ *
+ * A couple puts this link on printed invitations. "Live" has to mean a person
+ * who opens it sees the page.
+ *
+ * `launchedButHidden` is the case worth naming: they DID launch, and something
+ * they changed afterwards is now overriding it. Saying "not live" alone would
+ * be true and useless — they would go looking for a launch button they already
+ * pressed.
+ */
+export type SiteReachability = {
+  /** Can a person who opens the link see the page right now? */
+  reachable: boolean;
+  /** Public (indexable) · unlisted (link-only) · private (locked screen). */
+  visibility: 'public' | 'unlisted' | 'private';
+  /** They launched, but the page is private anyway — explain, don't just deny. */
+  launchedButHidden: boolean;
+  /** A launch is set for the future and has not arrived yet. */
+  scheduled: boolean;
+};
+
+export function resolveSiteReachability(
+  event: LaunchState & { slug?: string | null },
+  now: number = Date.now(),
+): SiteReachability {
+  const visibility = resolveEffectiveVisibility(event, now);
+  // No slug means there is no address to open, whatever the visibility says.
+  const hasAddress = Boolean(event.slug);
+  const reachable = hasAddress && visibility !== 'private';
+  return {
+    reachable,
+    visibility,
+    launchedButHidden: Boolean(event.std_launched_at) && visibility === 'private',
+    scheduled:
+      visibility === 'private' &&
+      Boolean(event.scheduled_launch_at) &&
+      !isScheduledLaunchDue(event, now),
+  };
+}

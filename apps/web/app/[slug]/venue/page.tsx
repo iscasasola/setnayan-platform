@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { eventNoun } from '@/lib/event-noun';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchBooths } from '@/lib/seating';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
@@ -29,9 +31,29 @@ export default async function VenuePage({
   const admin = createAdminClient();
   const [{ data, error }, paletteRow] = await Promise.all([
     admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
-    admin.from('events').select('event_id, role_palette').eq('slug', slug).maybeSingle(),
+    admin.from('events').select('event_id, event_type, role_palette').eq('slug', slug).maybeSingle(),
   ]);
+  // THE ONE CHECK THIS PAGE NEVER MADE: DOES THE EVENT EXIST?
+  //
+  // `public_venue_scene` returns `{"published": false}` — no error — when NO
+  // EVENT MATCHES THE SLUG. So a mistyped address, or an old link, fell into
+  // the same plate as a real event whose plan is not up yet, and a stranger was
+  // told that a specific couple had not posted their seating plan for a couple
+  // who does not exist. The "back to the wedding" button under it then
+  // dead-ended on a 404. This is the only guest sub-route with no existence
+  // check — seat, find-seat, find-my-table, hub, recap, pabuya and print all
+  // call notFound().
+  //
+  // The row that answers it was already being read for the palette.
+  if (paletteRow.error) {
+    // Same rule as the rest of the guest site: a failed read is NOT a missing
+    // event. Saying "no such wedding" because a query stumbled is the lie.
+    throw new Error(`venue: could not read the event for "${slug}": ${paletteRow.error.message}`);
+  }
+  if (!paletteRow.data) notFound();
+
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
+  const noun = eventNoun((paletteRow.data as { event_type?: string | null }).event_type);
   let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
   // Event UUID (top-scope) — the shared-room channel scope for the 3D walk, and
   // the booth-slug join below.
@@ -146,16 +168,37 @@ export default async function VenuePage({
     }
   }
 
-  if (error || !scene || !scene.published) {
+  // Three unrelated causes used to share one plate. The event-does-not-exist
+  // case is gone (notFound() above); these are the remaining two, and they need
+  // different words because they ask different things of the reader: one says
+  // come back later, the other says try again now.
+  if (error || !scene) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#0b0d12] p-6 text-center">
+        <div className="max-w-sm">
+          <p className="text-lg font-medium text-white">The 3D venue didn&rsquo;t load</p>
+          <p className="mt-2 text-sm text-white/60">
+            Your link is fine — something on our end is having trouble. Give it a
+            moment and try again.
+          </p>
+          <Link href={`/${slug}/venue`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+            Try again
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!scene.published) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#0b0d12] p-6 text-center">
         <div className="max-w-sm">
           <p className="text-lg font-medium text-white">The 3D venue isn&rsquo;t ready yet</p>
           <p className="mt-2 text-sm text-white/60">
-            The couple hasn&rsquo;t posted their seating plan. Check back closer to the day.
+            The seating plan hasn&rsquo;t been posted. Check back closer to the day.
           </p>
           <Link href={`/${slug}`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
-            ← Back to the wedding
+            ← Back to the {noun}
           </Link>
         </div>
       </main>

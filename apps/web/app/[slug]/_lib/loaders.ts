@@ -303,12 +303,35 @@ export const loadDayOfBroadcast = cache(
  */
 export const loadWidgets = cache(
   async (admin: AdminClient, eventId: string): Promise<InvitationWidgetRow[]> => {
-    const { data: widgetsRaw } = await admin
+    const { data: widgetsRaw, error } = await admin
       .from('invitation_widgets')
       .select(
         'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
       )
       .eq('event_id', eventId);
+
+    // AN EMPTY WIDGET LIST IS NOT A THINNER PAGE — IT IS A BLANK ONE.
+    //
+    // `widgetShouldRender(null)` is FALSE, so a missing row does not hide one
+    // section, it hides the section. With no rows at all, `heroShouldRender`,
+    // `greetingShouldRender`, `qrCardShouldRender` and the RSVP gate ALL go
+    // false together: the couple's names and date, the welcome line, the
+    // guest's own entry QR and the RSVP form vanish in one go, with nothing on
+    // screen saying anything went wrong. The guest concludes the couple never
+    // filled their invitation in.
+    //
+    // And that state is not reachable any other way: **every event in
+    // production has exactly 16 widget rows, 4 of them always-on** — they are
+    // seeded at creation, so an empty list can only mean the read failed. The
+    // error used to be discarded, which turned a one-second database hiccup
+    // into an invitation that looked abandoned.
+    //
+    // Throwing hands it to app/[slug]/error.tsx, which tells the guest their
+    // link is fine and offers a retry — the honest answer, and a recoverable
+    // one, where a blank page is neither.
+    if (error) {
+      throw new Error(`loadWidgets: could not read the invitation for ${eventId}: ${error.message}`);
+    }
 
     const widgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
       Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
@@ -973,14 +996,26 @@ export const loadGuestContext = cache(
     let needsFaceEnroll = false;
     if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
-        const { data: liveEnrollment } = await admin
+        const { data: liveEnrollment, error: enrollError } = await admin
           .from('guest_face_enrollments')
           .select('id')
           .eq('event_id', event.event_id)
           .eq('guest_id', guest.guest_id)
           .is('revoked_at', null)
           .maybeSingle();
-        needsFaceEnroll = !liveEnrollment;
+        // A FAILED READ MUST NOT ASK FOR A FACE SCAN AGAIN.
+        //
+        // The error was discarded, so a failed read produced `null` — the same
+        // value as "never enrolled" — and the page asked a guest who had
+        // already given their face scan to give it a second time. Of the two
+        // ways to be wrong about biometric consent, re-asking is the worse
+        // one: it is a fresh collection prompt aimed at someone who already
+        // decided, and it reads as though their answer was lost.
+        //
+        // So this fails toward SILENCE rather than toward asking. A guest who
+        // genuinely has not enrolled and misses the prompt on one render sees
+        // it on the next; nobody is asked twice for something they gave once.
+        needsFaceEnroll = enrollError ? false : !liveEnrollment;
       }
     }
 

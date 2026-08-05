@@ -74,6 +74,31 @@ export async function sendCoordinatorBroadcast(
     return { ok: false, error: 'Could not send the broadcast. Try again.' };
   }
 
+  // Tell the guests' phones, without telling the channel what was said.
+  //
+  // Their pages used to resolve the announcement ONCE at render, so "phones
+  // down, the ceremony is starting" reached only whoever happened to reload —
+  // and nobody reloads a page they are already looking at.
+  //
+  // The payload is deliberately EMPTY. A `broadcast` channel has no RLS, so
+  // anything put on it is readable by anyone who can guess an event id; the
+  // words are fetched by each guest through an action that checks their own
+  // cookie. What travels here is only "there is something new for this event",
+  // which is already implied by the page being live.
+  //
+  // Best-effort by design: if this send fails, every guest's page still polls,
+  // so a coordinator's words arrive late rather than never. It must never fail
+  // the write that already succeeded.
+  try {
+    await supabase.channel(`announce:${eventId}`).send({
+      type: 'broadcast',
+      event: 'announcement',
+      payload: {},
+    });
+  } catch {
+    // Channel unavailable — the poll covers it.
+  }
+
   revalidatePath(`/dashboard/${eventId}`);
   return { ok: true };
 }

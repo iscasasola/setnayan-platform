@@ -921,7 +921,9 @@ export function SiteBody({
             announcement is for the people in the room, and a stranger with the
             link has no business knowing the ceremony is running late. Null
             outside the live window, so nothing stale survives the day. */}
-        {dayOfBroadcast ? <DayOfAnnouncement body={dayOfBroadcast.body} /> : null}
+        {dayOfBroadcast ? (
+          <DayOfAnnouncement body={dayOfBroadcast.body} eventId={event.event_id} />
+        ) : null}
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
             reveal. Deliberately an explicit marker rather than a bare
             `article > *` selector — `article` is used liberally in this tree

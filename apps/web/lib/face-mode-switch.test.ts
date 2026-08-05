@@ -13,7 +13,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { faceVectorForMode, resolveFaceMode } from './papic-face-mode';
+import {
+  eventTypeNeedsDeliberateFaceOptIn,
+  faceVectorForMode,
+  resolveFaceMode,
+} from './papic-face-mode';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ACTION = readFileSync(join(HERE, '..', 'app', 'admin', 'events', 'actions.ts'), 'utf8');
@@ -40,17 +44,46 @@ test('only an exact mode_a keeps a descriptor', () => {
   assert.equal(vector_model, 'test-model');
 });
 
-test('christening and debut stay off no matter what the switch writes', () => {
-  // The guardian-consent workflow does not exist. The admin control must not be
-  // able to open this door, and resolveFaceMode is what guarantees it.
-  for (const type of ['christening', 'debut']) {
-    assert.equal(
-      resolveFaceMode('mode_a', type),
-      'mode_b',
-      `${type} must be forced off even when the column says mode_a`,
-    );
+test('every event type we offer honours the admin’s choice', () => {
+  // ⚠ CHANGED 2026-08-05. This test asserted the opposite until today:
+  // christening and debut were forced off regardless of the column. The owner
+  // (also the DPO) ruled that face tagging applies to every event type we
+  // offer, so the switch works everywhere — what protects a minor-heavy room is
+  // now the deliberate act plus the per-guest flags, not a blanket refusal.
+  for (const type of ['wedding', 'birthday', 'christening', 'debut', 'graduation']) {
+    assert.equal(resolveFaceMode('mode_a', type), 'mode_a', `${type} must honour mode_a`);
+    assert.equal(resolveFaceMode('mode_b', type), 'mode_b', `${type} must honour mode_b`);
   }
-  assert.equal(resolveFaceMode('mode_a', 'wedding'), 'mode_a');
+});
+
+test('a minor-heavy type is still OFF until someone deliberately turns it on', () => {
+  // The default is what carries the protection now. An event nobody has touched
+  // stores no descriptors, on every type.
+  for (const type of ['christening', 'debut']) {
+    assert.equal(resolveFaceMode(null, type), 'mode_b');
+    assert.equal(resolveFaceMode(undefined, type), 'mode_b');
+  }
+  assert.equal(eventTypeNeedsDeliberateFaceOptIn('christening'), true);
+  assert.equal(eventTypeNeedsDeliberateFaceOptIn('debut'), true);
+  assert.equal(eventTypeNeedsDeliberateFaceOptIn('wedding'), false);
+});
+
+test('THE WARNING IS THE PROTECTION NOW — the confirmation must name the risk', () => {
+  // With the hard block gone, the only thing between a DPO and switching face
+  // tagging on at a room full of children is what the confirmation says. If
+  // that text is ever softened to the generic one, the safeguard is gone and
+  // nothing else would notice.
+  const surface = readFileSync(
+    join(HERE, '..', 'app', 'admin', 'accounts', '_surfaces', 'events-surface.tsx'),
+    'utf8',
+  );
+  assert.match(surface, /MINOR_HEAVY\.has\(e\.event_type/, 'the confirm must branch on the type');
+  assert.match(surface, /CHILDREN/, 'and say so plainly');
+  assert.match(
+    surface,
+    /guardian-consent workflow does not exist/,
+    'and state that the workflow protecting them is still missing',
+  );
 });
 
 test('the switch is admin-gated and writes through the service-role client', () => {

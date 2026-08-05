@@ -21,11 +21,16 @@ type EventRow = {
   event_type: string | null;
 };
 
-/** Event types that can never store face data, whatever the column says —
- *  mirrors FORCE_MODE_B_EVENT_TYPES in lib/papic-face-mode.ts. Shown as
- *  "locked" rather than hidden, so an admin sees the rule instead of wondering
- *  why the switch is missing. */
-const FORCED_FACE_OFF = new Set(['christening', 'debut']);
+/**
+ * Event types where most of the room is likely to be CHILDREN.
+ *
+ * ⚠ These were "locked — cannot ever store face data" until 2026-08-05. The
+ * owner (also the DPO) ruled that face tagging applies to every event type we
+ * offer, so the switch now works here too — but the confirmation names the risk
+ * and the guardian-consent workflow still does not exist. Mirrors
+ * MINOR_HEAVY_EVENT_TYPES in lib/papic-face-mode.ts.
+ */
+const MINOR_HEAVY = new Set(['christening', 'debut']);
 
 function formatUpdated(iso: string): string {
   // YYYY-MM-DD HH:mm in Manila time — admin's mental model. Falls back to
@@ -255,20 +260,15 @@ export async function EventsSurface({
                         Christening + debut are forced off regardless — the
                         guardian-consent workflow does not exist yet. */}
                     <td className="px-3 py-3 text-right">
-                      {FORCED_FACE_OFF.has(e.event_type ?? '') ? (
-                        <span
-                          className="font-mono text-[11px] text-ink/40"
-                          title="Christening and debut events cannot store face data — no guardian-consent workflow exists."
-                        >
-                          off · locked
-                        </span>
-                      ) : (
+                      {(
                         <ConfirmForm
                           action={setEventFaceMode}
                           message={
                             e.papic_face_mode === 'mode_a'
                               ? `Turn face auto-tagging OFF for "${e.display_name}"? New photos stop being matched to faces. Descriptors already stored are not deleted by this.`
-                              : `Turn face auto-tagging ON for "${e.display_name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.`
+                              : MINOR_HEAVY.has(e.event_type ?? '')
+                                ? `Turn face auto-tagging ON for "${e.display_name}"?\n\n⚠ This is a ${e.event_type} — most of the room is likely to be CHILDREN, and the only thing standing between a child and a face enrolment is a checkbox they can tick themselves. The guardian-consent workflow does not exist yet.\n\nIf you turn this on, use the per-guest "exclude from face recognition" flag on every minor. You are the DPO making this call.`
+                                : `Turn face auto-tagging ON for "${e.display_name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.`
                           }
                         >
                           <input type="hidden" name="event_id" value={e.event_id} />

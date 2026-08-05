@@ -156,6 +156,20 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-08-05 with the table itself ──
+  event_stage_notes:
+    'De-identifies itself on account deletion. The ONLY subject-identifying column is ' +
+    '`author_user_id`, declared nullable + ON DELETE SET NULL in the same migration that ' +
+    'creates it (20271111090000) — deliberately, because the FK cannot fire against a ' +
+    'NOT NULL column. It is an ACTOR stamp: the note is an operational instruction about ' +
+    'the WEDDING ("hold the toast, the father is still parking"), authored by a ' +
+    'coordinator, read by the host, and belonging to an event that outlives either ' +
+    'account. Erasing the author strips the attribution and what survives says nothing ' +
+    'about them. Per the project rule: CASCADE + NOT NULL means the row is ABOUT them; ' +
+    'SET NULL means it records that they acted. ⚠ `recipient_vendor_profile_id` is a ' +
+    'VENDOR PROFILE, not a user — vendor-account erasure is a separate path and this ' +
+    'column follows the profile, not a person.',
+
   // ── final batch, settled 2026-08-02 ──
   platform_settings:
     'No user-bearing column exists — verified column by column against prod-schema.snapshot.txt, and the table has ZERO lines in user-fk-behaviour.generated.txt. Key/value platform configuration written by admins through a settings surface that stamps nothing. Nothing to erase.',

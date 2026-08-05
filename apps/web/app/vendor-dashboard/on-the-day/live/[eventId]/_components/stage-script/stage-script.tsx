@@ -10,6 +10,8 @@ import {
   type StageScriptModel,
 } from '@/lib/stage-script';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
+import { fetchStageNotes } from '@/lib/stage-notes';
+import { StageNotesCard } from '../stage-notes-card';
 
 /**
  * SCRIPT & CUES — the host / MC specialization surface (`stage_script`).
@@ -125,8 +127,16 @@ export async function StageScript({
     );
   }
 
+  // Notes the coordinator addressed to THIS supplier. Read with the caller's
+  // own client — the policy names the recipient, so this returns their notes
+  // and nobody else's, and grants no other access to the event.
+  const stageNotes = await fetchStageNotes(supabase, eventId, vendorProfileId);
+
   return (
     <div className="space-y-4">
+      {stageNotes.length > 0 ? (
+        <StageNotesCard eventId={eventId} notes={stageNotes} />
+      ) : null}
       {model.order.map((card) =>
         card === 'cue' ? (
           <CueCard key={card} model={model} myLines={myLines} />

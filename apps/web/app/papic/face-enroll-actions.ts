@@ -9,6 +9,7 @@ import {
   resolvePapicFaceMode,
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
+import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 
 // Day-of / camera face enrollment — the "register your face if you haven't yet"
 // path for a guest who SKIPPED the optional RSVP selfie. Same write as the RSVP
@@ -66,6 +67,15 @@ export async function enrollGuestFace(
       .eq('event_id', eventId)
       .maybeSingle();
     if ((fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true) {
+      return { ok: false };
+    }
+
+    // Owner 2026-08-05: "under 18 will not allow face tagging." The 18+ tickbox
+    // above is the enabler; this is the refusal that does not depend on it —
+    // where the guest list records a birth date showing a child, no tickbox
+    // overrides it. Both enrolment writers apply it, because a guard on one path
+    // is a guard on neither.
+    if (await isKnownMinorGuest(admin, eventId, guestId)) {
       return { ok: false };
     }
 

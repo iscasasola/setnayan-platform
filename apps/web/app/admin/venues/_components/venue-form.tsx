@@ -33,6 +33,8 @@ const VENUE_TYPE_LABEL: Record<(typeof VENUE_TYPES)[number], string> = {
   heritage: 'Heritage',
   outdoor_tent: 'Outdoor Tent',
   temple: 'Temple',
+  restaurant: 'Restaurant',
+  multi_purpose_hall: 'Multi-Purpose Hall',
 };
 
 const CEREMONY_TYPE_LABEL: Record<(typeof CEREMONY_TYPES)[number], string> = {

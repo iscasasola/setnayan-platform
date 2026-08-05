@@ -13,6 +13,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   formatPhp,
@@ -92,9 +93,19 @@ export async function approvePayment(formData: FormData) {
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
   const admin = createAdminClient();
-  const outcome = await approvePaymentCore({ admin, userId, paymentId, adminNotes, promoteOrder });
+  const outcome = await approvePaymentCore({
+    admin,
+    userId,
+    paymentId,
+    adminNotes,
+    promoteOrder,
+    // Only ever true because the admin ticked the box after READING the
+    // warning that named the other order. It cannot unlock the same-order
+    // case, which the core refuses regardless.
+    acknowledgeDuplicate: formData.get('acknowledge_duplicate') === 'on',
+  });
   if (!outcome.ok) {
-    // Shortfall — surface the same inline warn notice + URL the guard used
+    // Shortfall or duplicate — surface the same inline warn notice + URL the guard used
     // before it was hoisted into the core helper. A NEXT_REDIRECT control exit,
     // so (exactly like the prior in-line throw/redirect) nothing below runs.
     redirect(
@@ -133,8 +144,100 @@ export async function approvePaymentCore(args: {
   paymentId: string;
   adminNotes: string | null;
   promoteOrder: boolean;
-}): Promise<{ ok: true } | { ok: false; shortfall: true; message: string }> {
+  /**
+   * The admin has SEEN a cross-order duplicate warning and confirmed that one
+   * real transfer covers both. Never defaults to true: the whole value of the
+   * warning is that a human with the bank app open said so.
+   *
+   * ⚠ Does NOT unlock the same-order case. That one is refused outright,
+   * because there is no honest reading of one transfer counted twice against
+   * one bill — and the shortfall guard would happily add it up.
+   */
+  acknowledgeDuplicate?: boolean;
+}): Promise<
+  | { ok: true }
+  | { ok: false; shortfall: true; message: string }
+  | { ok: false; duplicate: true; message: string; blocking: boolean }
+> {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
+
+  // ---- DUPLICATE REFERENCE (owner, 2026-08-05) ---------------------------
+  // Runs BEFORE the flip to 'matched', because after it this row would be its
+  // own duplicate — and because refusing a row we already counted is not a
+  // refusal.
+  //
+  // 🔑 A REFERENCE IS NOT UNIQUE, AND MUST NOT BE. Three repeats are honest:
+  // the corrected re-send after "send me a clearer picture", one lump sum
+  // covering two orders, and the BDO rail where our code wraps theirs. So the
+  // rule lives in lib/payment-reference-match.ts and only ONE case is refused
+  // outright — the same transfer counted twice against the same bill, which
+  // the shortfall guard would otherwise add up into a false "fully paid".
+  {
+    const { data: me } = await admin
+      .from('payments')
+      .select('order_id, reference_number')
+      .eq('payment_id', paymentId)
+      .maybeSingle();
+    const mine = me as { order_id: string; reference_number: string | null } | null;
+    if (mine && normalizeReference(mine.reference_number) !== '') {
+      // Cast a wide net and let the pure rule narrow it: an exact SQL match
+      // would miss the BDO shape entirely, which is most large transfers.
+      // 🚨 'paid' IS NOT A PAYMENT STATUS. The enum is pending / matched /
+      // rejected (migration 20260513150000). Shipping `.in('status',
+      // ['matched','paid'])` made Postgres reject the WHOLE query — so `data`
+      // came back null, the loop saw zero priors, and this guard concluded
+      // "no duplicates" on every payment, forever, from the hour it merged.
+      // Its seven tests passed because they read the source and exercised the
+      // pure comparison; neither runs the query.
+      //
+      // 🔑 THE HOUSE RULE I ALREADY KNEW, APPLIED ONE LEVEL TOO SHALLOW: a
+      // Supabase call naming something the schema does not have returns an
+      // ERROR, not a crash. I had internalised that for COLUMN names and
+      // missed it for ENUM VALUES, which fail exactly the same way.
+      const { data: others, error: othersErr } = await admin
+        .from('payments')
+        .select('payment_id, order_id, reference_number, status')
+        .neq('payment_id', paymentId)
+        .in('status', MONEY_STATUSES);
+
+      // 🔑 A MONEY GUARD THAT CANNOT READ MUST NOT PASS. Swallowing this is
+      // what made the bug above invisible: "the check found nothing" and "the
+      // check could not run" produced identical, reassuring behaviour. Refuse
+      // instead, so a schema change is loud on the first payment rather than
+      // silent for a month.
+      if (othersErr) {
+        return {
+          ok: false,
+          duplicate: true,
+          blocking: true,
+          message:
+            'Could not check this reference against previous payments, so it is not safe ' +
+            'to confirm yet. This is a fault on our side — the check itself failed.',
+        };
+      }
+      const verdict = classifyDuplicate({
+        reference: mine.reference_number,
+        orderId: mine.order_id,
+        priors: ((others ?? []) as {
+          payment_id: string;
+          order_id: string;
+          reference_number: string | null;
+          status: string;
+        }[]).map((o) => ({
+          paymentId: o.payment_id,
+          orderId: o.order_id,
+          referenceNumber: o.reference_number,
+          status: o.status,
+        })),
+      });
+      if (verdict.kind === 'refuse') {
+        return { ok: false, duplicate: true, message: verdict.message, blocking: true };
+      }
+      if (verdict.kind === 'warn' && !args.acknowledgeDuplicate) {
+        return { ok: false, duplicate: true, message: verdict.message, blocking: false };
+      }
+    }
+  }
   // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
   // pending → matched. If the row was already matched/rejected (race with
   // another admin, double-click after 503, stale page render), the WHERE
@@ -543,7 +646,12 @@ export async function batchApprovePayments(formData: FormData) {
         promoteOrder: true,
       });
       if (outcome.ok) approved += 1;
-      else failed += 1; // defensive: decisive check should preclude a shortfall
+      // A shortfall (the decisive check should preclude it) or a DUPLICATE
+      // REFERENCE. 🔑 A DUPLICATE MUST NEVER CLEAR IN A BATCH: the whole point
+      // of the cross-order warning is that a human with the bank app open
+      // decides, and `acknowledgeDuplicate` is deliberately not passed here —
+      // batch is the one place nobody is reading.
+      else failed += 1;
     } catch (e) {
       // Already-resolved (race) or a DB write error — count it, keep going.
       console.error('batchApprovePayments row failed (non-fatal to batch):', id, e);

@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventNoun } from '@/lib/event-noun';
 import { Logo } from '@/app/_components/logo';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import {
@@ -96,7 +98,24 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     .ilike('slug', slug)
     .maybeSingle();
 
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // 🔴 THIS USED TO BE `event.event_type !== 'wedding'`, WHICH 404'd A PAID
+  // FEATURE. Nothing on the couple's side gates the seat plan by event type: a
+  // debut, a birthday or a christening host can build it, publish it, AND BUY
+  // the Custom QR seat pass — and their guests, holding the QR that pass
+  // printed, landed on "this page does not exist". They were sold something
+  // their guests could not open.
+  //
+  // Now the same line every sibling sub-route uses (find-seat, find-my-table,
+  // recap): the event-type profile decides, and a missing profile row degrades
+  // to ENABLED, matching GENERIC_PROFILE. A wedding is unchanged.
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // The three guest-facing strings below said "wedding" outright. That was
+  // harmless while the page 404'd for everything else; opening it to a debut or
+  // a christening makes it reachable and wrong, so it is fixed in the same
+  // change rather than left as a known defect on a newly-unlocked audience.
+  const noun = eventNoun(event.event_type);
 
   // Gate FIRST — before any token lookup. Unowned events get a friendly prompt
   // and we never confirm whether a token is valid for this wedding.
@@ -105,8 +124,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     return (
       <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
-          title="No seat pass for this wedding yet"
-          body="The couple hasn’t added the Custom QR seat pass for this wedding. You’ll find your table on the printed seating signs at the venue."
+          title={`No seat pass for this ${noun} yet`}
+          body={`The host hasn’t added the Custom QR seat pass for this ${noun}. You’ll find your table on the printed seating signs at the venue.`}
         />
       </SeatPassShell>
     );
@@ -163,7 +182,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
         <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="Seating isn’t posted yet"
-            body="The couple hasn’t published the seating for this wedding. Check back closer to the day — this table’s guests will appear here once it’s posted."
+            body={`The host hasn’t published the seating for this ${noun}. Check back closer to the day — this table’s guests will appear here once it’s posted.`}
           />
         </SeatPassShell>
       );

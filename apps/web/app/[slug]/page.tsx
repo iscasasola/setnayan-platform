@@ -53,6 +53,7 @@ import {
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
+import { siteMenuEnabled } from './_lib/site-menu';
 import {
   buildSimulatedGuestIdentity,
   shouldSimulateRepliedGuest,
@@ -724,6 +725,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         selfRotateEnabled={process.env.GUEST_QR_SELF_ROTATE === 'true'}
         dayOfLive={dayOfPhase === 'live'}
         slug={event.slug ?? slug}
+        // Resolved from the SAME two inputs as the menu itself (site-body.tsx),
+        // so the bar this component gives up and the bar that replaces it can
+        // never disagree — and neither can the two owners of `#site-me`.
+        menuOn={siteMenuEnabled({
+          flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+          isSample: Boolean(event.is_sample),
+        })}
       />
     </>
   );

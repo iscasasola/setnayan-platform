@@ -25,10 +25,21 @@ export function PublicPageActions({
   canShare,
   reportTargetId,
   shareTitle,
+  aboveMenuBar = false,
 }: {
   canShare: boolean;
   reportTargetId: string;
   shareTitle: string;
+  /**
+   * Is a fixed bottom menu bar on this page? (PR11, 2026-08-05.)
+   *
+   * This pill sits at `bottom-4` — INSIDE the ~4rem footprint of the guest
+   * site's bottom bar — and both are `z-30`, with the bar later in the DOM, so
+   * it wins on paint order. Share and Report were drawn underneath it: tapping
+   * Share hit whichever tab happened to be there. Lifted clear when a bar is
+   * present, left where it is on every page that has none.
+   */
+  aboveMenuBar?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -59,7 +70,13 @@ export function PublicPageActions({
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4 print:hidden">
+    <div
+      className={`pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 print:hidden ${
+        aboveMenuBar
+          ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'
+          : 'bottom-4'
+      }`}
+    >
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-ink/15 bg-cream/85 px-3 py-1.5 shadow-lg backdrop-blur">
         {canShare && (
           <button

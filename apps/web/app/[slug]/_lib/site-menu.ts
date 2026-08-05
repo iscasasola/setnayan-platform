@@ -63,16 +63,30 @@ export function siteMenuTabs(present: SiteMenuSectionsPresent): SiteMenuTab[] {
 }
 
 /**
- * Is the open-browse site menu enabled? Flag-dark by default
- * (`NEXT_PUBLIC_WEBSITE_MENU_ENABLED`), but always ON for the demo/sample event
- * so the owner can walk it before any real-event flip (council PR6 + PR11).
+ * Is the guest-site menu enabled?
+ *
+ * PR11 (2026-08-05) — **the bar is now the default.** It used to be flag-dark
+ * (`NEXT_PUBLIC_WEBSITE_MENU_ENABLED === 'true'`) plus always-on for the sample
+ * event, and that combination is why an entire month of navigation work was
+ * never seen by anyone: `is_sample` is TRUE on exactly one row, so the bar, the
+ * resolver behind it and every fix layered on top rendered ONLY on the demo
+ * wedding. A real couple's guests got the old three-button bar the whole time,
+ * and every verification pass ran against the one event configured to look
+ * good — which is also why the two bars were never observed stacking.
+ *
+ * A flag that is off for every real event is not shipped, it is staged. So the
+ * flag is now an **opt-OUT** (`'false'` switches the bar back off) rather than
+ * an opt-in nobody would ever remember to flip. The sample stays pinned on so
+ * the demo cannot be switched off by a stray env value.
+ *
  * Pure — takes the resolved env value + is_sample so it stays unit-testable.
  */
 export function siteMenuEnabled(opts: {
   flag: string | undefined;
   isSample: boolean;
 }): boolean {
-  return opts.isSample || opts.flag === 'true';
+  if (opts.isSample) return true;
+  return opts.flag !== 'false';
 }
 
 /**

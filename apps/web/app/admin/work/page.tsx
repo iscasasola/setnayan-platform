@@ -33,6 +33,7 @@ import {
 } from '@/lib/admin/queue-counts';
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { peekQueue } from '@/lib/admin/queue-peek';
 
 export const metadata = { title: 'Work · Admin' };
 
@@ -116,15 +117,31 @@ export default async function AdminWorkLanding({
     0,
   );
 
+  // ?open=<queue> expands ONE row in place — URL-driven, same convention as
+  // ?lane=, so the feed stays a Server Component, works with JS off, and an
+  // opened queue is bookmarkable. Only the named row pays for a peek query.
+  const sp = await searchParams;
+  const lane = coerceLane(sp?.lane);
+  const openRaw = sp?.open;
+  const openKey = Array.isArray(openRaw) ? openRaw[0] : openRaw;
+  const withPeek: TriageItem[] = openKey
+    ? await Promise.all(
+        ordered.map(async (row) =>
+          row.key === openKey ? { ...row, peek: await peekQueue(row.key) } : row,
+        ),
+      )
+    : ordered;
+
   // `totalOpen` stays the FULL total even when a lane is chosen — the subtitle
   // and the triage strip describe the whole day; only the rows below narrow.
   return (
     <QueuesTriageFeed
       title="Work"
-      items={ordered}
+      items={withPeek}
       totalOpen={totalOpen}
-      lane={coerceLane((await searchParams)?.lane)}
+      lane={lane}
       basePath="/admin/work"
+      openKey={openKey}
     />
   );
 }

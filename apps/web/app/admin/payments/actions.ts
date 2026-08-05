@@ -127,7 +127,7 @@ export async function approvePayment(formData: FormData) {
  * the single action surfaces them as before; the batch action catches them
  * per-row so one bad row never aborts the rest. Callers own revalidation.
  */
-async function approvePaymentCore(args: {
+export async function approvePaymentCore(args: {
   admin: ReturnType<typeof createAdminClient>;
   userId: string;
   paymentId: string;

@@ -557,6 +557,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!seatMode) {
     const tenancy = tenancyForPathPrefix(pathPrefix);
     if (tenancy) {
+      // Each kind is checked against ITS OWN table, through the caller's own
+      // client so RLS decides. An order id checked against `events` can only
+      // ever come back empty — that is the live break this branch fixes, and
+      // it is why the third arm exists rather than a widened default.
       const { data: owned } =
         tenancy.kind === 'event'
           ? await supabase
@@ -564,11 +568,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               .select('event_id')
               .eq('event_id', tenancy.id)
               .maybeSingle()
-          : await supabase
-              .from('chat_threads')
-              .select('thread_id')
-              .eq('thread_id', tenancy.id)
-              .maybeSingle();
+          : tenancy.kind === 'order'
+            ? await supabase
+                .from('orders')
+                .select('order_id')
+                .eq('order_id', tenancy.id)
+                .maybeSingle()
+            : await supabase
+                .from('chat_threads')
+                .select('thread_id')
+                .eq('thread_id', tenancy.id)
+                .maybeSingle();
       if (!owned) {
         // Non-specific on purpose (r2-client-ref house style): a caller must not
         // be able to use this endpoint to learn whether an id exists.

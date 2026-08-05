@@ -58,6 +58,7 @@ export function isUuid(segment: string): boolean {
 export type UploadTenancy =
   | { kind: 'event'; id: string }
   | { kind: 'thread'; id: string }
+  | { kind: 'order'; id: string }
   | null;
 
 /**
@@ -68,6 +69,29 @@ export type UploadTenancy =
  * never open.
  */
 const THREAD_ROOTS = new Set(['chat']);
+
+/**
+ * Prefix families whose UUID is an ORDER id, not an event id.
+ *
+ * 🚨 THE LIVE BREAK THIS FIXES. `payments/<orderId>` is where the couple's
+ * order page and the vendor's booking-fee page file a payment screenshot. The
+ * "everything else is an event" default read that order id as an event id,
+ * checked the payer against a wedding that does not exist, and refused —
+ * **fail-closed working exactly as designed, on a legitimate path.**
+ *
+ * What that cost: from those two screens the upload box turned red and said
+ * the location was not allowed. There is NO other way to send the picture from
+ * them, nothing was logged, and the form still submitted happily without one.
+ * The first screenshot of a purchase still arrived (a different screen files it
+ * under a different prefix) — so what broke was the SECOND chance: an admin
+ * asking *"send me a clearer picture"* addressed it to someone who could not.
+ *
+ * 🔑 THE CONSERVATIVE DEFAULT WAS ONLY CONSERVATIVE FOR THE CALLERS THAT
+ * EXISTED WHEN IT WAS WRITTEN. Its own comment says "an event check is the
+ * stricter one for every current caller" — true then, and this prefix made it
+ * false without changing a line of this file.
+ */
+const ORDER_ROOTS = new Set(['payments']);
 
 /**
  * Resolve the tenancy a sanitised `pathPrefix` implies.
@@ -86,7 +110,9 @@ export function tenancyForPathPrefix(sanitizedPrefix: string): UploadTenancy {
 
   const root = segments[0]?.toLowerCase() ?? '';
   const id = segments[idIndex]!;
-  return THREAD_ROOTS.has(root) ? { kind: 'thread', id } : { kind: 'event', id };
+  if (THREAD_ROOTS.has(root)) return { kind: 'thread', id };
+  if (ORDER_ROOTS.has(root)) return { kind: 'order', id };
+  return { kind: 'event', id };
 }
 
 /**

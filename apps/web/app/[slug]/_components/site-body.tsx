@@ -693,6 +693,13 @@ export function SiteBody({
                 three event-day views stop looking like different pages. Fixed-position
                 and self-hiding: renders nothing outside the live/post window (both
                 inputs fall to false/null). */}
+            {/* The anonymous tree's own legacy bottom bar. Same retirement as
+                GuestHubBar (PR11): it is `fixed bottom-0 z-40`, the menu is
+                `z-30`, so wherever both render this one covers the menu whole.
+                Its two bottom controls (camera · photos) are slots the menu
+                resolves for every viewer, so they go. Its day-of "Live hub"
+                chip is NOT — the resolver has no hub slot — and that chip is
+                top-left chrome that never touches the bar, so it stays. */}
             <PublicEventDayBar
               candidCameraActive={publicCandidCameraActive}
               photosHref={publicAlbumHref}
@@ -701,6 +708,7 @@ export function SiteBody({
                   ? `/${event.slug}/hub`
                   : null
               }
+              menuOn={menuOn}
             />
 
             {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
@@ -1539,12 +1547,12 @@ export function SiteBody({
             />
           ) : null)}
 
-          {/* Menu-shell "Me" anchor (PR6) — the guest's account/sign-out area at
-              the foot of the page. The guest's personal-QR affordance stays on
-              the coexisting GuestHubBar until PR11 retires it. */}
-          {menuOn ? (
-            <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
-          ) : null}
+          {/* Menu-shell "Me" anchor (PR6) — used to be an EMPTY div, so a guest
+              who tapped Me scrolled to nothing and the real affordance (their
+              personal QR) sat on the GuestHubBar that was covering the menu.
+              PR11: GuestHubBar renders the real `#site-me` section under the
+              same `menuOn` condition, so this marker would now be a second
+              element with the same id — and the first one wins. Removed. */}
           {/* Footer with sign-out */}
           <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
             <form action={`/${event.slug}/sign-out`} method="post">
@@ -1622,6 +1630,10 @@ export function SiteBody({
           canShare={resolveEffectiveVisibility(event) === 'public'}
           reportTargetId={event.event_id}
           shareTitle={event.display_name}
+          aboveMenuBar={siteMenuEnabled({
+            flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+            isSample: Boolean(event.is_sample),
+          })}
         />
       )}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}

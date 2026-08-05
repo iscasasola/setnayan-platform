@@ -31,7 +31,9 @@ export default async function VenuePage({
   const admin = createAdminClient();
   const [{ data, error }, paletteRow] = await Promise.all([
     admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
-    admin.from('events').select('event_id, event_type, role_palette').eq('slug', slug).maybeSingle(),
+    // `.ilike` like the main page and the other guest sub-routes — `.eq` made
+    // `/Cale-Ice/venue` a dead end while `/Cale-Ice` opened fine.
+    admin.from('events').select('event_id, event_type, role_palette').ilike('slug', slug).maybeSingle(),
   ]);
   // THE ONE CHECK THIS PAGE NEVER MADE: DOES THE EVENT EXIST?
   //

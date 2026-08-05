@@ -21,12 +21,24 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: event } = await admin
+  const { data: event, error: eventError } = await admin
     .from('events')
     .select('event_id, public_id, display_name, event_date, venue_name, slug')
-    .eq('slug', slug)
+    // `.ilike`, NOT `.eq` — the main invitation page matches the slug
+    // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
+    // and the 3D venue did not, so `/Cale-Ice` opened fine while
+    // `/Cale-Ice/invite` said the link was invalid. This route is where the
+    // menu's "Join" tab sends a visitor with no invitation — the one door
+    // offered to a relative who wants to add themselves — so a capital letter
+    // in a forwarded link closed it.
+    .ilike('slug', slug)
     .maybeSingle();
 
+  if (eventError) {
+    // A failed read is not a bad link. Saying "invalid" because a query
+    // stumbled sends someone to ask the couple for a new one.
+    throw new Error(`invite: could not read the event for "${slug}": ${eventError.message}`);
+  }
   if (!event) {
     return <InvalidTokenScreen />;
   }

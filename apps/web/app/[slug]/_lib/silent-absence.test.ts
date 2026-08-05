@@ -37,7 +37,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -134,5 +134,35 @@ test('the vendor doorway keeps its soft failure', () => {
       'guests. A failed read hides a doorway from one supplier; a throw would ' +
       'blank the invitation for every guest at the wedding because a vendor ' +
       'table hiccuped. Wrong, but the cheaper wrong — left deliberately.',
+  );
+});
+
+// ── every guest sub-route must find the event the same way ──────────────────
+
+test('no guest sub-route matches the slug more strictly than the invitation itself', () => {
+  // `loadEventShell` uses `.ilike`, so `/Cale-Ice` opens. Two sub-routes used
+  // `.eq`, so the SAME capital letter that worked on the invitation made
+  // `/Cale-Ice/invite` say "invalid link" and `/Cale-Ice/venue` a dead end.
+  //
+  // `invite` is where the menu's "Join" tab sends a visitor with no invitation
+  // — the one door offered to a relative who wants to add themselves. A
+  // forwarded link with a capital in it closed that door and told them the link
+  // was bad.
+  const routes = readdirSync(join(HERE, '..'), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
+    .map((d) => join(HERE, '..', d.name, 'page.tsx'))
+    .filter((f) => existsSync(f));
+
+  const strict: string[] = [];
+  for (const file of routes) {
+    const src = readFileSync(file, 'utf8');
+    if (/\.eq\('slug',/.test(src)) strict.push(file.split('/').slice(-2).join('/'));
+  }
+  assert.deepEqual(
+    strict,
+    [],
+    `These guest routes match the slug case-SENSITIVELY while the invitation ` +
+      `itself does not, so the same link works on one and fails on the other: ` +
+      `${strict.join(', ')}. Use .ilike.`,
   );
 });

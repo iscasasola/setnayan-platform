@@ -35,3 +35,11 @@ deliberate soft failures so a later sweep does not "fix" them: the seat lookup
 ("Not yet assigned" is a normal state on most events, and neutral), and the
 vendor doorway (a throw would blank the invitation for every guest because a
 vendor table hiccuped). All five assertions mutation-verified.
+
+**4 · A capital letter closed the one door offered to a relative.** 8 of the 10
+guest sub-routes match the slug with `.ilike`, like the invitation itself. Two
+used `.eq` — `invite` and `venue` — so the same forwarded link that opened
+`/Cale-Ice` made `/Cale-Ice/invite` say the link was invalid and `/Cale-Ice/venue`
+a dead end. `invite` is exactly where the menu's **Join** tab sends a visitor
+with no invitation. Both now match like everything else, and the test sweeps the
+whole route folder so a new sub-route cannot reintroduce it.

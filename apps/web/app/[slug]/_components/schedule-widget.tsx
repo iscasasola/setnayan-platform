@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
+import { eventDateToEpoch } from '@/lib/day-of-mode';
 import { MapPin } from 'lucide-react';
 import {
   SCHEDULE_BLOCK_LABEL,
@@ -76,10 +78,36 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
   // otherwise the start_at of the next block (so "happening now" doesn't
   // require couples to fill in end times).
   const ordered = [...blocks].sort((a, b) => toInstant(a.start_at) - toInstant(b.start_at));
+  // 🔴 THE LAST BLOCK USED TO NEVER END. A block's virtual end is its own
+  // `end_at`, else the next block's start — and for the FINAL block there is no
+  // next, so this returned `null`, which the loop below reads as "still
+  // running" (`end === null || nowMs < end`). If a couple left the last item's
+  // end time blank, their page said "Happening now · Send-off" with a pulsing
+  // dot FOR THE REST OF THE SITE'S LIFE — weeks and months after the wedding,
+  // to every guest who ever opened it again.
+  //
+  // An open-ended block is capped at the end of its own day in the VENUE's
+  // clock. That is not an arbitrary duration: a send-off does not continue into
+  // next week, and the couple's own calendar day is the only boundary the data
+  // actually gives us. A block that genuinely runs past midnight has an
+  // `end_at` — that is what the field is for, and it still wins here.
+  const endOfEventDay = (startMs: number): number => {
+    const dayStart = new Date(startMs);
+    // The venue's own date for that instant, then midnight of the NEXT day.
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: eventTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(dayStart);
+    return eventDateToEpoch(parts, eventTz) + 86_400_000;
+  };
+
   const ends: (number | null)[] = ordered.map((b, i) => {
     if (b.end_at) return toInstant(b.end_at);
     const next = ordered[i + 1];
-    return next ? toInstant(next.start_at) : null;
+    if (next) return toInstant(next.start_at);
+    return endOfEventDay(toInstant(b.start_at));
   });
 
   const nowMs = now?.getTime() ?? 0;

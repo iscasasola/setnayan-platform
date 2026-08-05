@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCentavosPhp } from '@/lib/payouts';
+import { getQueueSource } from '@/lib/admin/queue-counts';
 
 /**
  * QUEUE PEEK — the actual items behind a work-list row, so an admin can see and
@@ -74,6 +75,13 @@ export type PeekItem = {
   id: string;
   title: string;
   detail: string;
+  /**
+   * Why this particular row has no control, when the queue normally has one.
+   * Rendered where the button would be. 🔑 Silence reads as an unfinished
+   * feature; a sentence teaches the rule — the same reason a judgement queue
+   * explains itself instead of showing nothing.
+   */
+  note?: string;
   /** Present only for FACT queues. Absent ⇒ the row offers the case file only. */
   action?: PeekAction;
   /** Present when the decision needs details the admin must supply. */
@@ -84,6 +92,17 @@ export type PeekItem = {
 
 export type QueuePeek = {
   items: PeekItem[];
+  /**
+   * The read FAILED — this is not an empty queue.
+   *
+   * 🪤 THE BUG THIS NAMES: peekQueue swallows errors and returned the same
+   * shape as a genuine zero, so the drawer said "Nothing waiting here" with a
+   * green tick. That is a POSITIVE CLAIM, not a blank — an admin is told the
+   * queue is clear when the truth is we could not look. Same shape as the
+   * house rule that an RLS denial and an empty read are the same value: if you
+   * cannot prove you saw the rows, do not report that there are none.
+   */
+  unreadable?: boolean;
   /** Total open, so the drawer can say "N more". */
   total: number;
   /** Set when the queue is deliberately case-file-only. Rendered as the reason. */
@@ -118,28 +137,68 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
  * rendering. A failed read degrades to "no peek", exactly as a failed count
  * degrades to no badge.
  */
-export async function peekQueue(key: string): Promise<QueuePeek | null> {
+/**
+ * The queues a work-list row is allowed to EXPAND.
+ *
+ * 🪤 WHY THIS EXISTS: the feed cannot ask "does this row have a peek?" before
+ * fetching one, and only the OPEN row is ever fetched. Without a list, the feed
+ * handed every row an expand link — and five queues with no peek became DEAD
+ * TAPS: the URL changed, nothing rendered, the page redrew identically, and on
+ * a phone it jumped back to the top. Those rows used to open their queue page.
+ *
+ * 🔑 A CONTROL THAT CANNOT SUCCEED MUST NOT BE OFFERED.
+ *
+ * ⚠ THIS IS A LIST THAT COULD DRIFT FROM THE BRANCHES BELOW, which is exactly
+ * the "two hand-typed things are not a guard" failure. So it is NOT trusted on
+ * its own: queue-peek-coverage.test.ts READS THIS FILE'S SOURCE, extracts every
+ * `key === '…'` the function actually branches on, and fails if the two differ.
+ * The guard compares the list against the CODE, not against another list.
+ */
+const PEEK_QUEUES = ['payments', 'verify', 'approvals', 'reviews', 'payouts'] as const;
+
+export const EXPANDABLE_QUEUES: ReadonlySet<string> = new Set<string>([
+  ...PEEK_QUEUES,
+  ...Object.keys(JUDGEMENT_QUEUES),
+]);
+
+export async function peekQueue(
+  key: string,
+  /**
+   * The admin LOOKING at the list. Needed because some rows must not offer a
+   * control to this particular person: the four-eyes rule forbids agreeing to
+   * your own request, and the approvals PAGE already says so kindly. Without
+   * this the drawer showed a live "I agree" on your own request that threw an
+   * unexplained error every time it was pressed.
+   */
+  viewerUserId?: string,
+): Promise<QueuePeek | null> {
   const note = JUDGEMENT_QUEUES[key];
+
+  // Build the query from the SAME table + filter the badge counted with. Never
+  // re-type a predicate here: see getQueueSource() for the payouts mismatch
+  // this prevents.
+  // Returns an untyped PostgREST builder (the shared filter is duck-typed), so
+  // every consumer below narrows its own row with an explicit cast — the same
+  // discipline the file already used.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const open = (cols: string): any => {
+    const src = getQueueSource(key);
+    if (!src) return null;
+    const q = createAdminClient()
+      .from(src.table)
+      .select(cols, { count: 'exact' });
+    return src.filter(q, { nowIso: new Date().toISOString() });
+  };
 
   try {
     if (key === 'payments') {
-      const admin = createAdminClient();
-      const { data, count } = await admin
-        .from('payments')
-        // Column names verified against the migration, not guessed: payments
-        // carries amount_PHP (pesos, not centavos), `channel` (not `method`)
-        // and `reference_number` (not `reference_code`). All three of those
-        // guesses were caught by lib/security/select-column-scan.test.ts — a
-        // Supabase select naming a phantom column returns an error, not a
-        // crash, so it would have degraded to an empty drawer in silence.
-        .select('payment_id, amount_php, channel, reference_number, created_at', {
-          count: 'exact',
-        })
-        .eq('status', 'pending')
+      const q = open('payment_id, amount_php, channel, reference_number, created_at');
+      if (!q) return null;
+      const { data, count } = await q
         .order('created_at', { ascending: true })
         .limit(PEEK_LIMIT);
 
-      const items: PeekItem[] = (data ?? []).map((r) => {
+      const items: PeekItem[] = (data ?? []).map((r: unknown) => {
         const row = r as {
           payment_id: string;
           amount_php: number | null;
@@ -165,16 +224,14 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
     }
 
     if (key === 'verify') {
-      const admin = createAdminClient();
-      const { data, count } = await admin
-        .from('vendor_verification_applications')
-        .select('application_id, application_type, docs_complete, submitted_at', { count: 'exact' })
-        .eq('status', 'pending_review')
+      const q = open('application_id, application_type, docs_complete, submitted_at');
+      if (!q) return null;
+      const { data, count } = await q
         .order('submitted_at', { ascending: true })
         .limit(PEEK_LIMIT);
       return {
         total: count ?? 0,
-        items: (data ?? []).map((r) => {
+        items: (data ?? []).map((r: unknown) => {
           const row = r as {
             application_id: string;
             application_type: string | null;
@@ -200,22 +257,28 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
     }
 
     if (key === 'approvals') {
-      const admin = createAdminClient();
-      const { data, count } = await admin
-        .from('admin_approval_requests')
-        .select('approval_id, action_type, rationale, expires_at', { count: 'exact' })
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
+      const q = open('approval_id, action_type, rationale, expires_at, initiated_by');
+      if (!q) return null;
+      const { data, count } = await q
         .order('expires_at', { ascending: true })
         .limit(PEEK_LIMIT);
       return {
         total: count ?? 0,
-        items: (data ?? []).map((r) => {
+        items: (data ?? []).map((r: unknown) => {
           const row = r as {
             approval_id: string;
             action_type: string | null;
             rationale: string | null;
+            initiated_by: string | null;
           };
+          // 🔑 FOUR EYES: you may not agree to your own request. The DATABASE
+          // already refuses (decided_by <> initiated_by) and the approvals PAGE
+          // says so kindly — it swaps the button for a line. The drawer did not
+          // know who was looking, so it showed a live "I agree" on your own
+          // request that threw an unexplained error every single press. Nothing
+          // unsafe could slip through; it was simply a control that could never
+          // succeed, which on a one- or two-person admin team is most of them.
+          const mine = viewerUserId != null && row.initiated_by === viewerUserId;
           return {
             id: row.approval_id,
             title: (row.action_type ?? 'Approval').replace(/_/g, ' '),
@@ -224,7 +287,10 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
             detail: row.rationale?.slice(0, 90) ?? 'No reason given',
             // "I agree", never "Approve" — this is the SECOND signature on a
             // colleague's decision, not the decision itself.
-            action: { kind: 'agree-request', label: 'I agree', id: row.approval_id },
+            action: mine
+              ? undefined
+              : { kind: 'agree-request', label: 'I agree', id: row.approval_id },
+            note: mine ? 'You started this — a different admin has to agree.' : undefined,
             href: '/admin/approvals',
           };
         }),
@@ -232,29 +298,39 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
     }
 
     if (key === 'reviews') {
-      const admin = createAdminClient();
-      const { data, count } = await admin
-        .from('vendor_review_appeals')
-        .select('appeal_id, matched_signal, appeal_reason, submitted_at', { count: 'exact' })
-        .is('decided_at', null)
+      const q = open('appeal_id, matched_signal, appeal_reason, submitted_at');
+      if (!q) return null;
+      const { data, count } = await q
         .order('submitted_at', { ascending: true })
         .limit(PEEK_LIMIT);
       return {
         total: count ?? 0,
-        items: (data ?? []).map((r) => {
+        items: (data ?? []).map((r: unknown) => {
           const row = r as {
             appeal_id: string;
             matched_signal: string | null;
             appeal_reason: string | null;
           };
+          const refused =
+            row.matched_signal === 'owner_self' || row.matched_signal === 'team_member';
           return {
             id: row.appeal_id,
             title: (row.matched_signal ?? 'Review appeal').replace(/_/g, ' '),
             detail: row.appeal_reason?.slice(0, 90) ?? 'No reason given',
-            // NOT a button: overridePublishReview REFUSES without a reason.
+            // 🔑 TWO SEPARATE REFUSALS, AND ONLY ONE OF THEM IS A FORM.
+            // (1) owner_self / team_member — a shop owner or their own staff
+            //     reviewing their own shop. The database trigger refuses these
+            //     even with bypass, so publishing is IMPOSSIBLE, not merely
+            //     gated. The reviews page shows a red panel explaining it and
+            //     offers Reject or Escalate instead; the drawer copied the rows
+            //     but not the rule, so it offered a Publish that always errored.
+            // (2) everything else — publishable, but overridePublishReview
+            //     REFUSES without a reason.
             // Publishing over a couple's review is on the record, and the
             // record needs the why.
-            form: {
+            form: refused
+              ? undefined
+              : {
               kind: 'publish-review',
               id: row.appeal_id,
               submitLabel: 'Publish',
@@ -267,6 +343,9 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
                 },
               ],
             },
+            note: refused
+              ? 'This one can never be published — a shop reviewing itself. Open it to reject or escalate.'
+              : undefined,
             href: '/admin/reviews',
           };
         }),
@@ -274,20 +353,18 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
     }
 
     if (key === 'payouts') {
-      const admin = createAdminClient();
-      const { data, count } = await admin
-        .from('vendor_payouts')
+      const q = open('payout_id, amount_centavos, stage, trigger_date');
+      if (!q) return null;
+      const { data, count } = await q
         // Real columns, read out of the migration: `stage` (not payout_stage),
         // `amount_centavos` (not net_centavos), `trigger_date` (not
         // scheduled_at), and pending is `released_at IS NULL` — the table has
         // no `status`. Four guesses, four wrong; the column guard caught them.
-        .select('payout_id, amount_centavos, stage, trigger_date', { count: 'exact' })
-        .is('released_at', null)
         .order('trigger_date', { ascending: true })
         .limit(PEEK_LIMIT);
       return {
         total: count ?? 0,
-        items: (data ?? []).map((r) => {
+        items: (data ?? []).map((r: unknown) => {
           const row = r as {
             payout_id: string;
             amount_centavos: number | null;
@@ -323,6 +400,10 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
 
     return null;
   } catch {
-    return note ? { items: [], total: 0, judgementNote: note } : null;
+    // Report the FAILURE, never a clear queue. A judgement queue still shows
+    // its sentence — that text is a rule, not a reading of the data.
+    return note
+      ? { items: [], total: 0, judgementNote: note }
+      : { items: [], total: 0, unreadable: true };
   }
 }

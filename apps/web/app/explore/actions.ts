@@ -264,6 +264,7 @@ function venueDirectoryTypeToCategory(venueType: string): VendorCategory {
     case 'temple':
       return 'religious_venue';
     case 'hotel_ballroom':
+    case 'restaurant':
     case 'garden':
     case 'beach':
     case 'destination_resort':

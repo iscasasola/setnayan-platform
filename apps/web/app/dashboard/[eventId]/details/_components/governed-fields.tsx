@@ -61,6 +61,7 @@ const CHINESE_SECONDARY_KEY = 'chinese';
 
 const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'banquet_hall', label: 'Banquet hall' },
+  { value: 'restaurant', label: 'Restaurant' },
   { value: 'garden', label: 'Garden' },
   { value: 'beach', label: 'Beach' },
   { value: 'destination', label: 'Destination' },

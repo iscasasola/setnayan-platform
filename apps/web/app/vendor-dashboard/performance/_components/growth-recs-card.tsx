@@ -3,6 +3,7 @@ import {
   Zap,
   ImagePlus,
   Star,
+  Handshake,
   CalendarDays,
   ArrowRight,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
   reply_faster: <Zap className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   add_photos: <ImagePlus className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   ask_reviews: <Star className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  build_partnerships: <Handshake className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   open_saturdays: <CalendarDays className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
 };
 

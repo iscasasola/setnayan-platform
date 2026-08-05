@@ -25,6 +25,13 @@ import { formatCentavosPhp } from '@/lib/payouts';
  * does not expand — adding a peek is opt-in, so a new queue can never acquire a
  * half-built action surface by default.
  *
+ * ⚠ SEEING IS NOT ACTING, AND THE GAP IS DELIBERATE. verify / approvals /
+ * reviews are FACT queues and will earn one-click buttons — but each needs its
+ * real server action traced first, and inventing three at once is how a wrong
+ * one ships. They peek now (which removes the hunt) and act later. Payments is
+ * the only one wired end to end, because its non-redirecting core already
+ * existed.
+ *
  * PEEK_LIMIT is small on purpose: this is a glance before acting, not a second
  * copy of the queue page. "N more · see all" always routes to the real surface.
  */
@@ -129,6 +136,89 @@ export async function peekQueue(key: string): Promise<QueuePeek | null> {
       });
 
       return { items, total: count ?? items.length };
+    }
+
+    if (key === 'verify') {
+      const admin = createAdminClient();
+      const { data, count } = await admin
+        .from('vendor_verification_applications')
+        .select('application_id, application_type, docs_complete, submitted_at', { count: 'exact' })
+        .eq('status', 'pending_review')
+        .order('submitted_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      return {
+        total: count ?? 0,
+        items: (data ?? []).map((r) => {
+          const row = r as {
+            application_id: string;
+            application_type: string | null;
+            docs_complete: boolean | null;
+          };
+          return {
+            id: row.application_id,
+            title: row.application_type ?? 'Verification',
+            // `docs_complete` is the one fact that decides whether this is even
+            // reviewable yet, so it is what the glance should show.
+            detail: row.docs_complete ? 'Documents complete' : 'Waiting on documents',
+            href: '/admin/verify',
+          };
+        }),
+      };
+    }
+
+    if (key === 'approvals') {
+      const admin = createAdminClient();
+      const { data, count } = await admin
+        .from('admin_approval_requests')
+        .select('approval_id, action_type, rationale, expires_at', { count: 'exact' })
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .order('expires_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      return {
+        total: count ?? 0,
+        items: (data ?? []).map((r) => {
+          const row = r as {
+            approval_id: string;
+            action_type: string | null;
+            rationale: string | null;
+          };
+          return {
+            id: row.approval_id,
+            title: (row.action_type ?? 'Approval').replace(/_/g, ' '),
+            // A second admin is being asked to agree to something; their
+            // colleague's REASON is the whole content of the decision.
+            detail: row.rationale?.slice(0, 90) ?? 'No reason given',
+            href: '/admin/approvals',
+          };
+        }),
+      };
+    }
+
+    if (key === 'reviews') {
+      const admin = createAdminClient();
+      const { data, count } = await admin
+        .from('vendor_review_appeals')
+        .select('appeal_id, matched_signal, appeal_reason, submitted_at', { count: 'exact' })
+        .is('decided_at', null)
+        .order('submitted_at', { ascending: true })
+        .limit(PEEK_LIMIT);
+      return {
+        total: count ?? 0,
+        items: (data ?? []).map((r) => {
+          const row = r as {
+            appeal_id: string;
+            matched_signal: string | null;
+            appeal_reason: string | null;
+          };
+          return {
+            id: row.appeal_id,
+            title: (row.matched_signal ?? 'Review appeal').replace(/_/g, ' '),
+            detail: row.appeal_reason?.slice(0, 90) ?? 'No reason given',
+            href: '/admin/reviews',
+          };
+        }),
+      };
     }
 
     if (note) {

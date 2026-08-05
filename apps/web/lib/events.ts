@@ -293,6 +293,42 @@ export function sortEventsForSwitcher<T extends EventRow>(events: T[]): T[] {
 }
 
 /**
+ * ANY calendar date (a DATE column), rendered without a timezone anywhere near it.
+ *
+ * ── THE RULE, ONCE, FOR ALL 61 OF THEM ──────────────────────────────────────
+ * A DATE column is a day on a calendar: no time, no zone. `new Date('2026-12-12')`
+ * turns it into midnight UTC, which is the EVENING OF THE 11th anywhere west of
+ * Greenwich — so a due date, a wedding day or a proposal expiry reads a day early
+ * to a reader in the Americas or Europe. Filipino weddings have exactly those
+ * readers: the relatives booking flights.
+ *
+ * This parses the digits and renders them. There is no instant involved at any
+ * point, so there is nothing for a timezone to shift.
+ *
+ * ⚠ Do NOT use this for a timestamp (`timestamptz`). A real instant SHOULD move
+ * with the reader — that is what it is for. This is only for a value that names
+ * a day.
+ *
+ * `new Date(`${iso}T00:00:00`)` is the other correct idiom and several surfaces
+ * already use it — it pins the value to local midnight, so the calendar day
+ * survives. Both work; this one is preferred because it cannot be written
+ * half-right.
+ */
+export function formatCalendarDate(
+  iso: string | null | undefined,
+  opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' },
+  locale = 'en-PH',
+): string {
+  if (typeof iso !== 'string' || iso.length === 0) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return '';
+  const [, y, mo, d] = m;
+  // A LOCAL date built from the parts — the day the value names, whatever zone
+  // the reader is in.
+  return new Date(Number(y), Number(mo) - 1, Number(d)).toLocaleDateString(locale, opts);
+}
+
+/**
  * The event's date, as a long form ("December 12, 2026").
  *
  * ── WHY THE PARTS ARE PARSED BY HAND ────────────────────────────────────────

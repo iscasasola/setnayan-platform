@@ -5,6 +5,7 @@ import type { ScanFlag } from '@/lib/editorial-scan';
 import { resolveFlag, unlockForCouple, triggerRescan } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCalendarDate } from '@/lib/events';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewDetailPage({
@@ -51,7 +52,7 @@ export default async function EditorialReviewDetailPage({
           </h1>
           {event?.event_date && (
             <p className="text-sm text-[--m-ink-secondary] mt-0.5">
-              {new Date(event.event_date).toLocaleDateString('en-PH', {
+              {formatCalendarDate(event.event_date, {
                 month: 'long', day: 'numeric', year: 'numeric',
               })}
             </p>

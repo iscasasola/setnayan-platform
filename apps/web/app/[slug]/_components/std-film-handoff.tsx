@@ -35,10 +35,15 @@ export const STD_FILM_RETURN_EVENT = 'std:film-return';
  * from the film module so the name cannot drift. This mirrors the shipped
  * `papic:out-of-shots` pattern.
  *
- * ── OPEN BROWSE ONLY ────────────────────────────────────────────────────────
- * site-body only wraps with this when `plan.openBrowse` is true. With open
- * browse off the film keeps its takeover exactly as today — this component is
- * never mounted, so the flag-off path is byte-identical.
+ * ── EVERY EVENT, NOT ONLY OPEN-BROWSE ONES (changed 2026-08-05) ─────────────
+ * site-body used to wrap with this only when `plan.openBrowse` was true. On the
+ * one real wedding site that flag is FALSE, so the takeover above was not a
+ * historical footnote — it was the live experience, and the exit could not
+ * reach it. A guest could not RSVP at all.
+ *
+ * The gate conflated two questions: "may this visitor browse the new open
+ * site?" (what `openBrowse` decides) and "may this visitor LEAVE a full-screen
+ * takeover?" (never a flag's business). This is now mounted unconditionally.
  */
 export function StdFilmHandoff({
   film,

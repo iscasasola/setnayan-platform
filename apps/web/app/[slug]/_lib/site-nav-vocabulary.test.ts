@@ -161,27 +161,21 @@ test('the live anchor ids and the resolver hrefs point at the same sections', ()
   );
 });
 
-test('RECORDED DIFFERENCE: the resolver renames home by phase; the live bar does not', () => {
-  // Not a defect — a capability the live bar has not been given yet, pinned so
-  // the connection step knows it is a real behaviour change and not a rename
-  // to "fix". A guest on the day should see "Now", and after it "Recap".
-  const homeLabel = (phase: NavInput['phase']) =>
-    slotsAt({ phase }).find((s) => s.key === 'home')?.label;
-
-  assert.equal(homeLabel('before'), 'Home');
-  assert.equal(homeLabel('day'), 'Now', 'on the day the home tab is meant to read "Now"');
-  assert.equal(homeLabel('after'), 'Recap', 'after the wedding it is meant to read "Recap"');
-
-  // The live bar is fixed — one spelling, every phase.
-  const barHome = siteMenuTabs({ details: true, story: true, gallery: true }).find(
-    (t) => t.key === 'home',
-  );
-  assert.equal(
-    barHome?.label,
-    'Home',
-    'if the live bar has become phase-aware, delete this test — the drift it records is closed',
-  );
-});
+/*
+ * ── A TEST WAS DELETED HERE, ON PURPOSE (2026-08-05) ───────────────────────
+ * It pinned "the resolver renames the home tab by phase; the live bar does
+ * not", and it carried its own instruction: *"if the live bar has become
+ * phase-aware, delete this test — the drift it records is closed."*
+ *
+ * The bar became phase-aware the same day it was written (#4089): SiteMenuBar
+ * now takes resolved slots, and `siteMenuTabs` — the module the test called
+ * "LIVE" — has ZERO production consumers. So the test was asking a dead module
+ * and could never fail, whatever the real bar did. A guard pointed at
+ * something nothing uses is worse than no guard: it reads as coverage.
+ *
+ * The vocabulary checks above still earn their place — the two modules must not
+ * drift while `site-menu.ts` still owns SITE_MENU_ANCHORS.
+ */
 
 test('the comparison is not vacuous — both modules actually produced slots', () => {
   // Every assertion above passes trivially if either side returns an empty

@@ -92,12 +92,37 @@ test('handoff · the site is always in the tree, so leaving costs no fetch', () 
   );
 });
 
-test('handoff · the flag-off path cannot mount the wrapper', () => {
+test('handoff · EVERY save-the-date event mounts the wrapper — no flag gates the way out', () => {
+  // ⚠ THIS TEST WAS INVERTED ON 2026-08-05, and the reason is the point.
+  // It used to assert the opposite: that ONLY `plan.openBrowse` wrapped, and
+  // that `canExit={plan.openBrowse}`. That gate was real, and on the one real
+  // wedding site (`/cale-ice`, open-browse FALSE) it meant the film was the
+  // ENTIRE guest experience — `stdFilmView()` alone renders no RSVP, no
+  // details, no seat. They were not covered by the film; they were never
+  // mounted. And because the exit carried the same flag, the way out shipped in
+  // #4096 could not reach a real event either. Verified on the live page: the
+  // whole served text was film beats plus "Add to calendar".
+  //
+  // The gate conflated two questions. "May this visitor browse the new open
+  // site?" is what `openBrowse` decides. "May this visitor LEAVE a full-screen
+  // takeover?" was never a flag's business.
   const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
-  // Open browse is the only branch that wraps; without it the film keeps its
-  // takeover byte-identically.
-  assert.match(SITE, /plan\.openBrowse \? \(\s*<StdFilmHandoff/);
-  assert.match(SITE, /canExit=\{plan\.openBrowse\}/);
+  assert.match(
+    SITE,
+    /<StdFilmHandoff film=\{stdFilmView\(\)\}>\{normalBody\(\)\}<\/StdFilmHandoff>/,
+    'the save-the-date body no longer mounts the handoff — a guest is walled in again',
+  );
+  assert.ok(
+    !/plan\.openBrowse \? \(\s*<StdFilmHandoff/.test(SITE),
+    'the handoff has been re-gated on openBrowse — that is the defect, not a config',
+  );
+  assert.ok(
+    !/canExit=\{plan\.openBrowse\}/.test(SITE),
+    'the film exit has been re-gated on openBrowse — it then cannot reach a real event',
+  );
+  // And the body must be the event's OWN body, so no site reshapes: this is why
+  // the change does not touch the 2026-07-22 no-backfill verdict.
+  assert.match(SITE, /\{normalBody\(\)\}<\/StdFilmHandoff>/);
 });
 
 // ── The way out must exist THROUGHOUT the film, not only at its end ──────────

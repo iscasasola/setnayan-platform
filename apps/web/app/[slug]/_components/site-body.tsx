@@ -490,16 +490,30 @@ export function SiteBody({
         <EditorialContent eventId={event.event_id} />
       )
     ) : plan.body === 'save_the_date' ? (
-      // OPEN BROWSE: the film stops being a wall. It still plays first and in
-      // full — nothing bought is skipped — but once its closing beat is reached
-      // the visitor can step into the site, and step back to the film whenever
-      // they like. Flag-off keeps the takeover exactly as today: the wrapper is
-      // not mounted at all, so that path is byte-identical.
-      plan.openBrowse ? (
-        <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
-      ) : (
-        stdFilmView()
-      )
+      // The film stops being a wall — for EVERY event, not only open-browse ones.
+      // It still plays first and in full (nothing bought is skipped), but once
+      // its closing beat is reached the visitor can step into the site and step
+      // back whenever they like.
+      //
+      // ⚠ WHY THIS IS NO LONGER GATED ON `openBrowse` (2026-08-05).
+      // It was, and on the one real wedding site that meant the film was the
+      // ENTIRE guest experience: `stdFilmView()` alone renders no RSVP, no
+      // details, no seat — they were not covered by the film, they were never
+      // mounted. Both exit controls were gated on the same flag, so the exit
+      // shipped in #4096 could not reach a real event either. Verified live on
+      // /cale-ice: the whole served page was film beats + "Add to calendar".
+      //
+      // The gate conflated two different questions — "may this visitor browse
+      // the new open site?" and "may this visitor LEAVE a full-screen takeover?"
+      // Only the first is what `openBrowse` decides. This is also what the owner
+      // asked for on 2026-08-03, in this wrapper's own docblock: *"we want them
+      // to navigate around right away"*.
+      //
+      // It does NOT reshape anyone's site and so does not touch the 2026-07-22
+      // no-backfill verdict: `normalBody()` is that event's OWN body, the same
+      // one it renders inside 90 days. The only change is that it now exists to
+      // step into.
+      <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
     ) : (
       normalBody()
     );
@@ -544,7 +558,8 @@ export function SiteBody({
         launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
         themeId={event.std_theme}
         accentHex={stdAccentColor(event)}
-        canExit={plan.openBrowse}
+        // Always escapable. See the handoff note above.
+        canExit
       />
   );
 

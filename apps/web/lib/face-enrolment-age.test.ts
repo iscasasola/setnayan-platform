@@ -90,11 +90,12 @@ test('the minimum age is 18, not a softer number', () => {
 });
 
 test('BOTH enrolment writers apply the refusal — a guard on one path is a guard on neither', () => {
-  for (const [label, file] of [
-    ['RSVP', ['..', 'app', '[slug]', 'actions.ts']],
-    ['day-of / custom QR', ['..', 'app', 'papic', 'face-enroll-actions.ts']],
-  ] as const) {
-    const code = strip(read(...(file as string[])));
+  const writers: Array<{ label: string; file: string[] }> = [
+    { label: 'RSVP', file: ['..', 'app', '[slug]', 'actions.ts'] },
+    { label: 'day-of / custom QR', file: ['..', 'app', 'papic', 'face-enroll-actions.ts'] },
+  ];
+  for (const { label, file } of writers) {
+    const code = strip(read(...file));
     assert.match(code, /isKnownMinorGuest\(/, `${label} writer does not check`);
   }
 });

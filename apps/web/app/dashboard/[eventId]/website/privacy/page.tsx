@@ -9,12 +9,17 @@ import {
   Heart,
   CalendarClock,
   Rocket,
+  Radio,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { updateLandingPageVisibility, setShowcaseConsent } from './actions';
+import {
+  updateLandingPageVisibility,
+  setShowcaseConsent,
+  setLiveMediaAudience,
+} from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 
@@ -59,7 +64,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
+      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -86,6 +91,7 @@ export default async function PrivacyEditorPage({
   // The question a couple is asking is "can my guests open this?", so it is now
   // answered by the predicate the guest page itself renders from.
   const reach = resolveSiteReachability(event);
+  const liveMediaOpen = Boolean(event.live_media_public);
   const launched = reach.reachable;
   const scheduledAt =
     typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
@@ -258,6 +264,58 @@ export default async function PrivacyEditorPage({
         Changes apply right away. Anyone with your URL who already opened the page
         may see the previous view for up to a minute while their browser refreshes.
       </footer>
+
+      {/* ── Live media audience ───────────────────────────────────────────
+          🔴 THE COLUMN BEHIND THIS HAD NO CONTROL. `live_media_public` shipped
+          as "the couple's opt-in for anonymous live media" and nothing anywhere
+          wrote it — all five events in production sit at the default, FALSE.
+          The guest site reads `guest OR live_media_public`, so a visitor with no
+          invitation never saw the broadcast or the live photo wall on ANY event.
+          That visitor is the relative overseas who opened the link someone
+          forwarded — the person a wedding livestream is for. */}
+      <div className="space-y-4 sn-tile p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="sn-eye flex items-center gap-2">
+            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Watching from far away
+          </p>
+          <h2 className="font-serif text-2xl italic tracking-tight">
+            Who can watch on the day
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            Your invited guests can always watch your livestream and see the photo
+            wall. This decides whether someone <em>without</em> an invitation can
+            too &mdash; a relative abroad who was sent your link, or a friend
+            watching from home. Turn it on when you&rsquo;re ready to go live, and
+            off again afterwards.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              liveMediaOpen ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/60'
+            }`}
+          >
+            {liveMediaOpen
+              ? 'Open — anyone with your link can watch'
+              : 'Closed — only your invited guests can watch'}
+          </span>
+          <form action={setLiveMediaAudience}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="open" value={liveMediaOpen ? '0' : '1'} />
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              {liveMediaOpen ? 'Close it to guests only' : 'Let anyone with the link watch'}
+            </SubmitButton>
+          </form>
+        </div>
+
+        <p className="text-xs text-ink/50">
+          This only affects the livestream and the live photo wall. It doesn&rsquo;t
+          change who can open your page, and it never shares anything before the
+          day itself.
+        </p>
+      </div>
 
       {/* Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
       <div className="space-y-4 sn-tile p-5 sm:p-6">

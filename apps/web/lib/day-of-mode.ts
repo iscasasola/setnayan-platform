@@ -96,7 +96,20 @@ function offsetFor(tz: string, atUtcMs: number): number {
  * `tz` omitted keeps the previous runtime-local behaviour, so no caller changes
  * meaning by accident; every guest-facing caller passes the venue's zone.
  */
-function eventDateToEpoch(eventDate: string | Date, tz?: string): number {
+/**
+ * The instant a calendar date STARTS, in the venue's own clock.
+ *
+ * Exported 2026-08-05 for the countdown, which was doing `new Date(eventDate)`
+ * on a bare `YYYY-MM-DD` — that parses as midnight UTC, so in Manila the
+ * countdown expired at 08:00 on the wedding morning and simply vanished, on the
+ * one day everybody opens the page. West of Greenwich it is worse: midnight UTC
+ * is the previous evening, so it vanished a whole day early.
+ *
+ * The same shape as the date-is-not-an-instant family fixed 2026-08-04. Reused
+ * rather than re-derived — a second copy of this arithmetic is how the two
+ * halves drift into agreeing with each other and disagreeing with the venue.
+ */
+export function eventDateToEpoch(eventDate: string | Date, tz?: string): number {
   if (eventDate instanceof Date) return eventDate.getTime();
   const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(eventDate);
   if (dateOnlyMatch) {

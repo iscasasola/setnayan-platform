@@ -14,7 +14,6 @@
 import {
   BadgeCheck,
   Banknote,
-  Wallet,
   ShoppingBag,
   Crown,
   CreditCard,
@@ -45,7 +44,17 @@ export type BaseRow = {
 export const BASE_ROWS: BaseRow[] = [
   { key: 'verify', label: 'Verify', href: '/admin/verify', icon: BadgeCheck, description: 'Vendors awaiting the verification badge.' },
   { key: 'payments', label: 'Payments', href: '/admin/payments', icon: Banknote, description: 'Order payments awaiting reconciliation.' },
-  { key: 'payouts', label: 'Payouts', href: '/admin/payouts', icon: Wallet, description: 'Vendor payouts ready to release.' },
+  // 'payouts' REMOVED from the work list 2026-08-04 — it can never accrue new
+  // work. The payout dispatcher's own call site records the 2026-05-28 V2
+  // cutover: "Setnayan is now a software publisher, not a marketplace
+  // intermediary… new V2 orders won't route through it"
+  // (app/admin/payments/actions.ts). It fires only for pre-V2 orders still
+  // carrying vendor_profile_id. Couples pay vendors directly, off-platform.
+  //
+  // A ranked list of "what needs me today" cannot carry a lane that is
+  // permanently empty by construction — it costs a row and a glance every day
+  // forever. /admin/payouts itself STAYS, reachable from the Money menu, because
+  // legacy orders may still need it. This removes the daily prompt, not the page.
   { key: 'token-purchases', label: 'Token sales', href: '/admin/token-purchases', icon: ShoppingBag, description: 'Vendor token-pack purchases awaiting confirmation.' },
   { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.' },
   { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Vendor payment destinations awaiting a fraud screen.' },
@@ -65,7 +74,20 @@ export const BASE_ROWS: BaseRow[] = [
  * Queues DELIBERATELY absent from the worklist despite being in ADMIN_QUEUE_META.
  * Encoded explicitly so the completeness test (work-rows.test.ts) can subtract
  * them — a genuinely-excluded queue is opt-in here, an accidentally-dropped one
- * (the integrity-watch bug this list was born from) fails the test. Currently
- * every metadata queue has a worklist row, so this is empty.
+ * (the integrity-watch bug this list was born from) fails the test.
  */
-export const WORKLIST_EXCLUDED_KEYS: readonly string[] = [];
+export const WORKLIST_EXCLUDED_KEYS: readonly string[] = [
+  // 'payouts' — permanently empty by construction, not merely quiet today.
+  // The dispatcher's own call site records the 2026-05-28 V2 cutover:
+  // "Setnayan is now a software publisher, not a marketplace intermediary…
+  // new V2 orders won't route through it" (app/admin/payments/actions.ts).
+  // Couples pay vendors directly, off-platform; only pre-V2 orders carrying
+  // vendor_profile_id can ever reach it.
+  //
+  // It keeps its ADMIN_QUEUE_META entry on purpose: the Money menu still links
+  // /admin/payouts for those legacy rows, and the badge should still light if
+  // one ever surfaces. What it loses is a permanent row in the ranked list of
+  // "what needs me today" — a lane that can never fill costs a glance every
+  // morning forever.
+  'payouts',
+];

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
+import { ADMIN_NAV_DESCRIPTIONS } from './admin-nav-descriptions';
 
 /**
  * AdminCommandPalette — ⌘K / Ctrl-K, type three letters, go.
@@ -27,7 +28,48 @@ import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
  * href are read here; the icons are never touched.
  */
 
-type Dest = { label: string; href: string; group: string };
+type Dest = { label: string; href: string; group: string; hay: string };
+
+/**
+ * Words an admin TYPES that are in no page's name.
+ *
+ * The owner searched "pending" and got nothing — because matching was on the
+ * label alone and no page is called Pending. People search for the JOB, not the
+ * menu word. Descriptions close most of that gap for free ("reconcil" → Payments,
+ * "badge" → Verify); these are the concept words that appear in neither.
+ *
+ * Deliberately small and hand-picked. A synonym list that tries to be complete
+ * becomes a second vocabulary to maintain — and this project already has one
+ * pair of vocabularies that drifted apart and made a whole surface unreachable.
+ * Add a word here only after someone actually typed it and found nothing.
+ */
+const ALIASES: Record<string, string> = {
+  payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money',
+  payouts: 'release transfer send money vendor owed',
+  verify: 'pending id identity dti sec documents badge legit',
+  disputes: 'complaint refund argument conflict problem',
+  fraud: 'scam suspicious fake abuse',
+  'user-reports': 'report flag complaint abuse takedown',
+  'account-deletions': 'erasure delete privacy gdpr ra10173 right to be forgotten',
+  'data-privacy': 'npc privacy dpo consent ra10173 filing',
+  approvals: 'pending sign off second admin two admin',
+  subscriptions: 'pro plan upgrade billing recurring',
+  'token-purchases': 'tokens packs credits',
+  pricing: 'price cost sku catalog catalogue amount',
+  'price-bands': 'market range benchmark',
+  secrets: 'keys api credentials rotate env',
+  integrations: 'connect services resend openai gcash maya switches',
+  compliance: 'npc bir legal privacy dpo',
+  taxonomy: 'categories services vocabulary tags event types',
+  menus: 'labels icons rename nav navigation',
+  users: 'accounts people customers couples',
+  vendors: 'suppliers shops businesses',
+  venues: 'places locations',
+  events: 'weddings bookings',
+  help: 'support tickets questions',
+  seo: 'search google ranking llms',
+  receipts: 'invoice or bir official receipt',
+};
 
 /** Flatten the menu into one searchable list. Single source — never a second
  *  hand-typed roster, which is how the two drift and one goes stale. */
@@ -36,20 +78,40 @@ function destinations(): Dest[] {
   for (const g of ADMIN_NAV_GROUPS) {
     for (const item of g.items) {
       if (!item.href) continue;
-      out.push({ label: item.label, href: item.href, group: g.label });
+      // One haystack per destination: its name, its menu, its own description,
+      // and the words people type for it. Built once at module load.
+      out.push({
+        label: item.label,
+        href: item.href,
+        group: g.label,
+        hay: [
+          item.label,
+          g.label,
+          ADMIN_NAV_DESCRIPTIONS[item.key] ?? '',
+          ALIASES[item.key] ?? '',
+        ]
+          .join(' ')
+          .toLowerCase(),
+      });
     }
   }
   return out;
 }
 
-/** 100 = starts with · 60− = contains · 8 = letters in order · 0 = no match. */
+/**
+ * The NAME always wins, then the meaning.
+ *   100 name starts with · 60− name contains · 15 description/alias hit
+ *   · 8 letters of the name in order · 0 no match
+ * Ordering matters as much as matching: typing "pay" must land on Payments
+ * before every page whose description happens to mention paying.
+ */
 function score(d: Dest, needle: string): number {
   if (!needle) return 1;
   const l = d.label.toLowerCase();
   const i = l.indexOf(needle);
   if (i === 0) return 100;
   if (i > 0) return Math.max(20, 60 - i);
-  if (d.group.toLowerCase().includes(needle)) return 15;
+  if (d.hay.includes(needle)) return 15;
   let p = 0;
   for (let c = 0; c < l.length && p < needle.length; c++) if (l[c] === needle[p]) p++;
   return p === needle.length ? 8 : 0;
@@ -161,7 +223,8 @@ export function AdminCommandPalette() {
         <div className="max-h-[min(58vh,430px)] overflow-auto p-1.5">
           {hits.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
-              Nothing called “{q}”.
+              Nothing matches “{q}”. Everything is also browsable under{' '}
+              <span className="whitespace-nowrap">All surfaces</span>.
             </p>
           ) : (
             hits.map((d, i) => {

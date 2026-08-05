@@ -458,37 +458,34 @@ export function SiteBody({
     memento: React.ReactNode = null,
   ): React.ReactNode =>
     plan.body === 'editorial' ? (
-      plan.openBrowse ? (
-        // Open-browse PR8 (council §5.1/§5.2 — "editorial leads an ARCHIVE"):
-        // the editorial cover keeps its body-replacing takeover, then the
-        // browsable site persists BELOW it so Story/Details/Photos stay
-        // reachable and the guest's QR survives in Me (today's editorial phase
-        // strips the whole site). Precedent: GuestHubBar already persists below
-        // the guest editorial. `plan.openBrowse` is FALSE for every prod event
-        // (DEFAULT FALSE), so the flag-off editorial is byte-identical — the
-        // takeover alone, exactly as today.
-        <>
-          <EditorialContent eventId={event.event_id} />
-          {memento}
-          <div
-            aria-hidden
-            className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15"
-          />
-          {normalBody()}
-        </>
-      ) : memento ? (
-        // Guest, After-Event, present at the wedding: the cover essay, then
-        // their own ticket back. Both are direct children of the fragment, so
-        // both land as direct children of `<article data-pahina-chapters>` and
-        // the §6 observer reveals the memento as its own chapter — it is
-        // content, not chrome.
-        <>
-          <EditorialContent eventId={event.event_id} />
-          {memento}
-        </>
-      ) : (
+      // AFTER THE WEDDING: the editorial cover leads, then the site persists
+      // BELOW it — so Story, Details, the gallery and the guest's own QR stay
+      // reachable instead of the whole site being stripped.
+      //
+      // ⚠ WHY THIS IS NO LONGER GATED ON `openBrowse` (2026-08-05).
+      // It was, and the comment that used to live here said the quiet part
+      // plainly: "today's editorial phase strips the whole site." With the flag
+      // FALSE — every real event — that stripping WAS the shipped behaviour,
+      // and it silently disabled four things the couple had set up:
+      //   · the guest's tagged-photo gallery, which the loader deliberately
+      //     keeps alive after the day so they can save their pictures;
+      //   · the notice warning an account-less guest that their photo access is
+      //     about to close — it could NEVER render, because its only mount is
+      //     here and its condition is exactly this phase;
+      //   · five widget types the couple can switch on FOR after the wedding
+      //     (your_photos · our_photos · special_message · our_love_story ·
+      //     tier_comparison) — configurable, and shown to nobody;
+      //   · a thank-you message written for the people who came.
+      //
+      // Same shape as the Save-the-Date wall fixed earlier today: one flag was
+      // answering both "may this visitor browse the new open site?" and "does
+      // this visitor get a site at all?". Only the first is what it decides.
+      <>
         <EditorialContent eventId={event.event_id} />
-      )
+        {memento}
+        <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
+        {normalBody()}
+      </>
     ) : plan.body === 'save_the_date' ? (
       // The film stops being a wall — for EVERY event, not only open-browse ones.
       // It still plays first and in full (nothing bought is skipped), but once

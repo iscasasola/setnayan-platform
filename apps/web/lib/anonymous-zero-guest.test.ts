@@ -189,7 +189,7 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
   ]);
 });
 
-test('guestIdentity() output carries exactly the fifteen guest keys', () => {
+test('guestIdentity() output carries exactly the guest keys, and no more', () => {
   const identity = guestIdentity(guestInput());
   assert.deepEqual(Object.keys(identity).sort(), [
     'accountlessPhotosClosed',
@@ -204,6 +204,7 @@ test('guestIdentity() output carries exactly the fifteen guest keys', () => {
     'pabati',
     'papicGuest',
     'qrSvg',
+    'rsvpFlash',
     'saveFlash',
     'seatMap',
     'seatPassActive',

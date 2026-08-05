@@ -812,6 +812,7 @@ type GovernedFieldResult =
 // violate the CHECK on write.
 const ALLOWED_VENUE_SETTINGS = [
   'banquet_hall',
+  'restaurant',
   'garden',
   'beach',
   'destination',

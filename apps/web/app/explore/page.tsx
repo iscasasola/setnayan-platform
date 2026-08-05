@@ -350,7 +350,9 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 const PAGE_SIZE = 24;
 
-// Task #48 — couple-facing labels for the 7 venue_setting enum values.
+// Task #48 — couple-facing labels for the venue_setting enum values.
+// ⚠ The list itself is lib/venue-settings.ts; venue-settings.test.ts fails if
+// this map drifts from it. `restaurant` was added 2026-08-05 (owner).
 // Source of truth lives in migration 20260521000000_iteration_0043 's
 // events_venue_setting_check constraint. Re-used by both the catalog
 // Reception facet chips AND the vendor-grid VenueFilterBanner so the
@@ -363,6 +365,7 @@ const PAGE_SIZE = 24;
 // readonly-of-{key,label,combined} shape.
 const VENUE_SETTING_LABEL = {
   banquet_hall: 'Hotel Ballroom / Banquet Hall',
+  restaurant: 'Restaurant',
   garden: 'Garden Estate',
   beach: 'Beach',
   destination: 'Destination Resort',
@@ -376,6 +379,7 @@ const VENUE_SETTING_LABEL = {
 // against undefined.
 const VENUE_SETTING_SHORT_LABEL = {
   banquet_hall: 'Banquet hall',
+  restaurant: 'Restaurant',
   garden: 'Garden',
   beach: 'Beach',
   destination: 'Destination resort',

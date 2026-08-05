@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
-import { ADMIN_NAV_DESCRIPTIONS } from './admin-nav-descriptions';
+import { ADMIN_NAV_DESCRIPTIONS, ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 
 /**
  * AdminCommandPalette — ⌘K / Ctrl-K, type three letters, go.
@@ -43,33 +43,6 @@ type Dest = { label: string; href: string; group: string; hay: string };
  * pair of vocabularies that drifted apart and made a whole surface unreachable.
  * Add a word here only after someone actually typed it and found nothing.
  */
-const ALIASES: Record<string, string> = {
-  payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money',
-  payouts: 'release transfer send money vendor owed',
-  verify: 'pending id identity dti sec documents badge legit',
-  disputes: 'complaint refund argument conflict problem',
-  fraud: 'scam suspicious fake abuse',
-  'user-reports': 'report flag complaint abuse takedown',
-  'account-deletions': 'erasure delete privacy gdpr ra10173 right to be forgotten',
-  'data-privacy': 'npc privacy dpo consent ra10173 filing',
-  approvals: 'pending sign off second admin two admin',
-  subscriptions: 'pro plan upgrade billing recurring',
-  'token-purchases': 'tokens packs credits',
-  pricing: 'price cost sku catalog catalogue amount',
-  'price-bands': 'market range benchmark',
-  secrets: 'keys api credentials rotate env',
-  integrations: 'connect services resend openai gcash maya switches',
-  compliance: 'npc bir legal privacy dpo',
-  taxonomy: 'categories services vocabulary tags event types',
-  menus: 'labels icons rename nav navigation',
-  users: 'accounts people customers couples',
-  vendors: 'suppliers shops businesses',
-  venues: 'places locations',
-  events: 'weddings bookings',
-  help: 'support tickets questions',
-  seo: 'search google ranking llms',
-  receipts: 'invoice or bir official receipt',
-};
 
 /** Flatten the menu into one searchable list. Single source — never a second
  *  hand-typed roster, which is how the two drift and one goes stale. */
@@ -88,7 +61,7 @@ function destinations(): Dest[] {
           item.label,
           g.label,
           ADMIN_NAV_DESCRIPTIONS[item.key] ?? '',
-          ALIASES[item.key] ?? '',
+          ADMIN_NAV_ALIASES[item.key] ?? '',
         ]
           .join(' ')
           .toLowerCase(),

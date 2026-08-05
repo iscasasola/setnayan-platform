@@ -15,6 +15,7 @@ export function RsvpWidget({
   eventPublicId,
   limited,
   faceMode,
+  flash = null,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -22,11 +23,27 @@ export function RsvpWidget({
   limited: boolean;
   /** Effective face-tag mode — passed to the selfie so mode_b skips the embedder. */
   faceMode: PapicFaceMode;
+  /** Did the last attempt land? Rendered at the TOP of the form, because an
+   *  error at the bottom is below the fold on a phone and the whole point is
+   *  that the guest must not walk away thinking they replied. */
+  flash?: { tone: 'ok' | 'error'; text: string } | null;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
 
   return (
     <form action={action} className="rsvp-form pahina-deckle space-y-6 sm:p-8">
+      {flash ? (
+        <p
+          role={flash.tone === 'error' ? 'alert' : 'status'}
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            flash.tone === 'error'
+              ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-700'
+              : 'border-success-700/30 bg-success-50 text-success-800'
+          }`}
+        >
+          {flash.text}
+        </p>
+      ) : null}
       {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
           below, so this stays a server component with no client state. */}

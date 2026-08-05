@@ -137,6 +137,7 @@ const ALLOWED_CEREMONY_TYPES: ReadonlySet<string> = new Set([
 ]);
 const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
   'banquet_hall',
+  'restaurant',
   'garden',
   'beach',
   'destination',

@@ -811,6 +811,20 @@ export function archetypeFor(venueSetting: string | null | undefined): VenueArch
     case 'banquet_hall':
     case 'ballroom':
     case 'hotel':
+    // RESTAURANT — mapped EXPLICITLY, not left to `default` (2026-08-05).
+    //
+    // A restaurant reception is an indoor room with tables, so the banquet
+    // archetype is right in KIND, and a guest walking the plan sees a correct
+    // room rather than a garden. It is NOT right in character — a restaurant
+    // is smaller, closer-packed and usually bar-led — and a bespoke look is an
+    // open design question, not something to infer here.
+    //
+    // Listing it deliberately is the point: `default` already sent it here, so
+    // this line changes no pixels. It changes whether the next person can tell
+    // that a restaurant was CONSIDERED and mapped, or merely fell through with
+    // heritage, destination and civil_registrar — which did fall through, and
+    // are wrong for it.
+    case 'restaurant':
     default:
       return 'banquet_hall';
   }

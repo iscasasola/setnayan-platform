@@ -88,6 +88,7 @@ import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicOneCard } from './_components/papic-one-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
+import { FaceTaggingChoice } from './_components/face-tagging-choice';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -797,6 +798,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       {/* Gallery. */}
       <GalleryPreviewCard eventId={eventId} />
+
+      {/* The couple's own say over face tagging. Renders nothing when it is not
+          available for this event — "turn it on" is not something a couple can
+          do, and a control that cannot enable anything is an empty promise. */}
+      <FaceTaggingChoice eventId={eventId} />
 
       {/* Moderation — a slim, real action. */}
       <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">

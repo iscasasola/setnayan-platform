@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
+import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
 import type {
   AdminQueueLane,
@@ -305,6 +306,17 @@ export function QueuesTriageFeed({
   // The strip + chips read the FULL list; only the rows below are filtered.
   // Opening a row keeps the lane filter; closing drops only `open`. Built here
   // rather than in the row so the row stays presentational.
+  // 🪤 A ROW WITH NO PEEK MUST KEEP ITS PLAIN LINK — this is the dead-tap bug
+  // (found by audit 2026-08-05). Handing every row a `?open=` href made five of
+  // them do NOTHING when tapped: the URL changed, no drawer existed to render,
+  // the page redrew identically, and on a phone it just jumped back to the top.
+  // Before the expand-in-place work those rows at least opened their queue page.
+  // 🔑 A CONTROL THAT CANNOT SUCCEED MUST NOT BE OFFERED. Expansion is opt-in
+  // per queue, so the toggle has to be opt-in too — otherwise adding a queue
+  // silently adds a dead tap.
+  const canExpand = (key: string) =>
+    items.some((i) => i.key === key && (i.peek != null || EXPANDABLE_QUEUES.has(key)));
+
   const toggleFor = (key: string) => {
     const p = new URLSearchParams();
     if (lane) p.set('lane', lane);
@@ -362,7 +374,11 @@ export function QueuesTriageFeed({
           </h2>
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {overdue.map((item) => (
-              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
+              <TriageRow
+                key={item.key}
+                item={item}
+                toggleHref={canExpand(item.key) ? toggleFor(item.key) : undefined}
+              />
             ))}
           </ul>
         </section>
@@ -373,7 +389,11 @@ export function QueuesTriageFeed({
           {overdue.length > 0 && <h2 className="sn-eye mb-3">Also waiting</h2>}
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {waiting.map((item) => (
-              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
+              <TriageRow
+                key={item.key}
+                item={item}
+                toggleHref={canExpand(item.key) ? toggleFor(item.key) : undefined}
+              />
             ))}
           </ul>
         </section>
@@ -400,7 +420,11 @@ export function QueuesTriageFeed({
           </summary>
           <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
             {clear.map((item) => (
-              <TriageRow key={item.key} item={item} toggleHref={toggleFor(item.key)} />
+              <TriageRow
+                key={item.key}
+                item={item}
+                toggleHref={canExpand(item.key) ? toggleFor(item.key) : undefined}
+              />
             ))}
           </ul>
         </details>

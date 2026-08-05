@@ -408,6 +408,8 @@ export function venueSettingToDirectoryType(setting: string): string | null {
   switch (setting) {
     case 'banquet_hall':
       return 'hotel_ballroom';
+    case 'restaurant':
+      return 'restaurant';
     case 'garden':
       return 'garden';
     case 'beach':
@@ -661,6 +663,8 @@ export function venueTypeToSetting(venueType: string): string | null {
   switch (venueType) {
     case 'hotel_ballroom':
       return 'banquet_hall';
+    case 'restaurant':
+      return 'restaurant';
     case 'garden':
       return 'garden';
     case 'beach':

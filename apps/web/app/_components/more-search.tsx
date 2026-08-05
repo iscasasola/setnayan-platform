@@ -25,8 +25,16 @@ export function MoreSearch({ placeholder = 'Search' }: { placeholder?: string })
     const query = q.trim().toLowerCase();
     let anyVisible = false;
     root.querySelectorAll<HTMLElement>('[data-more-card]').forEach((card) => {
-      const label = (card.dataset.moreLabel ?? '').toLowerCase();
-      const match = query === '' || label.includes(query);
+      // Prefer the full haystack (name + section + description + aliases) and
+      // fall back to the label, so a card from a grid that has not adopted
+      // `data-more-hay` still filters exactly as it did before rather than
+      // silently matching nothing.
+      const hay = (
+        card.dataset.moreHay ??
+        card.dataset.moreLabel ??
+        ''
+      ).toLowerCase();
+      const match = query === '' || hay.includes(query);
       card.hidden = !match;
       if (match) anyVisible = true;
     });

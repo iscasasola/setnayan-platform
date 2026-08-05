@@ -185,3 +185,43 @@ test('nav · every label is one word — a wrapped label tilts the whole bar', (
           assert.ok(slot.label.length <= 9, `"${slot.label}" is too long for a 70px slot`);
         }
 });
+
+// ── Tabs that do nothing when tapped ────────────────────────────────────────
+// Both of these shipped: the bar drew them, and tapping did not move the page.
+// They are the same defect in two places — a slot emitted without asking
+// whether its destination exists.
+
+test('no Details tab when the page has no details section', () => {
+  const slots = at({ phase: 'before', hasDetails: false } as Partial<NavInput>);
+  assert.ok(
+    !slots.some((s) => s.key === 'details'),
+    'the bar offers Details on a page with no details section — tapping it does nothing',
+  );
+  const withIt = at({ phase: 'before', hasDetails: true } as Partial<NavInput>);
+  assert.ok(withIt.some((s) => s.key === 'details'), 'Details vanished when it should render');
+});
+
+test("a stranger's Join LEAVES for the invite page, and locks if it cannot", () => {
+  // `ANCHOR.me` is an in-page anchor. For a visitor with no invite that section
+  // is an empty aria-hidden div, so Join did nothing — while /[slug]/invite,
+  // which actually adds them, was linked from nowhere.
+  const withDest = at({
+    viewer: { kind: 'public' },
+    destinations: { join: '/maria-and-jose/invite' },
+  } as Partial<NavInput>);
+  const join = withDest.find((s) => s.key === 'me');
+  assert.equal(join?.label, 'Join');
+  assert.equal(join?.href, '/maria-and-jose/invite', 'Join still points at a dead in-page anchor');
+
+  const noDest = at({ viewer: { kind: 'public' }, destinations: {} } as Partial<NavInput>);
+  const locked = noDest.find((s) => s.key === 'me');
+  assert.equal(locked?.state, 'locked', 'Join with no destination must LOCK, not point at nothing');
+});
+
+test('a guest, couple and vendor keep their own in-page Me slot', () => {
+  for (const viewer of [{ kind: 'guest' }, { kind: 'couple' }] as const) {
+    const me = at({ viewer } as Partial<NavInput>).find((s) => s.key === 'me');
+    assert.equal(me?.state, 'live');
+    assert.ok(me?.href.startsWith('#'), `${viewer.kind}'s Me should stay an in-page anchor`);
+  }
+});

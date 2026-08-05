@@ -89,8 +89,18 @@ export type DuplicateVerdict =
    */
   | { kind: 'warn'; message: string; priorPaymentId: string; otherOrderId: string; match: ReferenceMatch };
 
-/** Statuses that mean this row is being counted as received money. */
-const COUNTS_AS_MONEY = new Set(['matched', 'paid']);
+/**
+ * Statuses that mean this row is being counted as received money.
+ *
+ * 🚨 EXACTLY THE ENUM, NOTHING INVENTED. `payments.status` is
+ * pending / matched / rejected — there is **no 'paid'**. Listing one made
+ * Postgres reject the entire duplicate lookup, so the guard silently found
+ * nothing on every payment from the hour it shipped. Exported so the query and
+ * the rule cannot drift, and so a test can compare it against the migration.
+ */
+export const MONEY_STATUSES = ['matched'] as const;
+
+const COUNTS_AS_MONEY = new Set<string>(MONEY_STATUSES);
 
 /**
  * Decide what to do about a reference that already exists somewhere.

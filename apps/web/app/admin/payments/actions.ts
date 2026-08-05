@@ -13,7 +13,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { classifyDuplicate, normalizeReference } from '@/lib/payment-reference-match';
+import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   formatPhp,
@@ -182,11 +182,39 @@ export async function approvePaymentCore(args: {
     if (mine && normalizeReference(mine.reference_number) !== '') {
       // Cast a wide net and let the pure rule narrow it: an exact SQL match
       // would miss the BDO shape entirely, which is most large transfers.
-      const { data: others } = await admin
+      // 🚨 'paid' IS NOT A PAYMENT STATUS. The enum is pending / matched /
+      // rejected (migration 20260513150000). Shipping `.in('status',
+      // ['matched','paid'])` made Postgres reject the WHOLE query — so `data`
+      // came back null, the loop saw zero priors, and this guard concluded
+      // "no duplicates" on every payment, forever, from the hour it merged.
+      // Its seven tests passed because they read the source and exercised the
+      // pure comparison; neither runs the query.
+      //
+      // 🔑 THE HOUSE RULE I ALREADY KNEW, APPLIED ONE LEVEL TOO SHALLOW: a
+      // Supabase call naming something the schema does not have returns an
+      // ERROR, not a crash. I had internalised that for COLUMN names and
+      // missed it for ENUM VALUES, which fail exactly the same way.
+      const { data: others, error: othersErr } = await admin
         .from('payments')
         .select('payment_id, order_id, reference_number, status')
         .neq('payment_id', paymentId)
-        .in('status', ['matched', 'paid']);
+        .in('status', MONEY_STATUSES);
+
+      // 🔑 A MONEY GUARD THAT CANNOT READ MUST NOT PASS. Swallowing this is
+      // what made the bug above invisible: "the check found nothing" and "the
+      // check could not run" produced identical, reassuring behaviour. Refuse
+      // instead, so a schema change is loud on the first payment rather than
+      // silent for a month.
+      if (othersErr) {
+        return {
+          ok: false,
+          duplicate: true,
+          blocking: true,
+          message:
+            'Could not check this reference against previous payments, so it is not safe ' +
+            'to confirm yet. This is a fault on our side — the check itself failed.',
+        };
+      }
       const verdict = classifyDuplicate({
         reference: mine.reference_number,
         orderId: mine.order_id,

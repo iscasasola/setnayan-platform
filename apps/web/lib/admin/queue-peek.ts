@@ -195,9 +195,14 @@ export async function peekQueue(
     if (key === 'payments') {
       const q = open('payment_id, amount_php, channel, reference_number, screenshot_url, created_at');
       if (!q) return null;
-      const { data, count } = await q
+      const { data, count, error } = await q
         .order('created_at', { ascending: true })
         .limit(PEEK_LIMIT);
+      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
+      // try/catch below could never fire and `unreadable` was unreachable —
+      // a renamed column or a permission change still produced a green tick
+      // and \"Nothing waiting here\" over work that was genuinely sitting there.
+      if (error) return { items: [], total: 0, unreadable: true };
 
       const items: PeekItem[] = (data ?? []).map((r: unknown) => {
         const row = r as {
@@ -251,9 +256,14 @@ export async function peekQueue(
     if (key === 'verify') {
       const q = open('application_id, application_type, docs_complete, submitted_at');
       if (!q) return null;
-      const { data, count } = await q
+      const { data, count, error } = await q
         .order('submitted_at', { ascending: true })
         .limit(PEEK_LIMIT);
+      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
+      // try/catch below could never fire and `unreadable` was unreachable —
+      // a renamed column or a permission change still produced a green tick
+      // and \"Nothing waiting here\" over work that was genuinely sitting there.
+      if (error) return { items: [], total: 0, unreadable: true };
       return {
         total: count ?? 0,
         items: (data ?? []).map((r: unknown) => {
@@ -284,9 +294,14 @@ export async function peekQueue(
     if (key === 'approvals') {
       const q = open('approval_id, action_type, rationale, expires_at, initiated_by');
       if (!q) return null;
-      const { data, count } = await q
+      const { data, count, error } = await q
         .order('expires_at', { ascending: true })
         .limit(PEEK_LIMIT);
+      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
+      // try/catch below could never fire and `unreadable` was unreachable —
+      // a renamed column or a permission change still produced a green tick
+      // and \"Nothing waiting here\" over work that was genuinely sitting there.
+      if (error) return { items: [], total: 0, unreadable: true };
       return {
         total: count ?? 0,
         items: (data ?? []).map((r: unknown) => {
@@ -325,9 +340,14 @@ export async function peekQueue(
     if (key === 'reviews') {
       const q = open('appeal_id, matched_signal, appeal_reason, submitted_at');
       if (!q) return null;
-      const { data, count } = await q
+      const { data, count, error } = await q
         .order('submitted_at', { ascending: true })
         .limit(PEEK_LIMIT);
+      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
+      // try/catch below could never fire and `unreadable` was unreachable —
+      // a renamed column or a permission change still produced a green tick
+      // and \"Nothing waiting here\" over work that was genuinely sitting there.
+      if (error) return { items: [], total: 0, unreadable: true };
       return {
         total: count ?? 0,
         items: (data ?? []).map((r: unknown) => {
@@ -380,13 +400,18 @@ export async function peekQueue(
     if (key === 'payouts') {
       const q = open('payout_id, amount_centavos, stage, trigger_date');
       if (!q) return null;
-      const { data, count } = await q
+      const { data, count, error } = await q
         // Real columns, read out of the migration: `stage` (not payout_stage),
         // `amount_centavos` (not net_centavos), `trigger_date` (not
         // scheduled_at), and pending is `released_at IS NULL` — the table has
         // no `status`. Four guesses, four wrong; the column guard caught them.
         .order('trigger_date', { ascending: true })
         .limit(PEEK_LIMIT);
+      // 🪤 SUPABASE DOES NOT THROW. It answers politely with { error }, so the
+      // try/catch below could never fire and `unreadable` was unreachable —
+      // a renamed column or a permission change still produced a green tick
+      // and \"Nothing waiting here\" over work that was genuinely sitting there.
+      if (error) return { items: [], total: 0, unreadable: true };
       return {
         total: count ?? 0,
         items: (data ?? []).map((r: unknown) => {

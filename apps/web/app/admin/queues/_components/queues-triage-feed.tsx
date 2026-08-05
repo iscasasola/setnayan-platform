@@ -16,7 +16,7 @@
  */
 
 import Link from 'next/link';
-import { Check, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Check, ChevronRight, ShieldAlert, type LucideIcon } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
@@ -290,6 +290,22 @@ function LaneChips({
   );
 }
 
+/**
+ * What each refusal means, in the admin's words rather than the code's.
+ *
+ * 🔑 A SHORT PAYMENT AND A DUPLICATE REFERENCE MUST NOT BE ANNOUNCED THE SAME
+ * WAY. One means "wait for the rest of the money"; the other means "someone may
+ * be claiming a transfer twice". Collapsing them into a generic "couldn't do
+ * that" throws away the only part an admin can act on.
+ */
+const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> = {
+  shortfall: { tone: 'warn', headline: 'Not enough money to finish this order' },
+  duplicate: { tone: 'warn', headline: 'This reference has been used before' },
+  refused: { tone: 'warn', headline: 'That could not be done' },
+  missing: { tone: 'warn', headline: 'Nothing was sent — try again' },
+  published: { tone: 'ok', headline: 'Published' },
+};
+
 export function QueuesTriageFeed({
   items,
   totalOpen,
@@ -297,7 +313,9 @@ export function QueuesTriageFeed({
   lane,
   basePath = '/admin/work',
   openKey,
-}: Props) {
+  settle,
+  why,
+}: Props & { settle?: string; why?: string }) {
   const subtitle =
     totalOpen === 0
       ? "You're all caught up — nothing is waiting on you right now."
@@ -335,6 +353,39 @@ export function QueuesTriageFeed({
         <h1 className="sn-h1">{title}</h1>
         <p className="text-sm text-[color:var(--sn-ink-500)]">{subtitle}</p>
       </header>
+
+      {settle && SETTLE_NOTICES[settle] ? (
+        (() => {
+          const n = SETTLE_NOTICES[settle]!;
+          const warn = n.tone === 'warn';
+          return (
+            <div
+              role="status"
+              className="sn-tile mb-4 flex items-start gap-3 p-4"
+              style={{ borderColor: warn ? '#B54708' : undefined }}
+            >
+              {warn ? (
+                <ShieldAlert
+                  aria-hidden
+                  className="mt-0.5 h-5 w-5 shrink-0"
+                  strokeWidth={1.75}
+                  style={{ color: '#B54708' }}
+                />
+              ) : (
+                <Check aria-hidden className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+              )}
+              <span className="text-sm">
+                <strong style={{ color: warn ? '#B54708' : 'var(--sn-ink-900)' }}>
+                  {n.headline}
+                </strong>
+                {why ? (
+                  <span className="mt-0.5 block text-[color:var(--sn-ink-500)]">{why}</span>
+                ) : null}
+              </span>
+            </div>
+          );
+        })()
+      ) : null}
 
       <TriageStrip items={items} />
       <LaneChips items={items} lane={lane} basePath={basePath} />

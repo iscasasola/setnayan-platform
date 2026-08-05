@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
 import { InvalidTokenScreen } from '@/app/join/[eventId]/_components/join-shell';
@@ -40,7 +41,20 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     throw new Error(`invite: could not read the event for "${slug}": ${eventError.message}`);
   }
   if (!event) {
-    return <InvalidTokenScreen />;
+    // NO SUCH EVENT IS NOT A STALE LINK (2026-08-05, found by walking the live
+    // site rather than by any test).
+    //
+    // This returned `<InvalidTokenScreen />` — an HTTP **200** telling someone
+    // who mistyped an address that their invitation link had expired and to ask
+    // for a fresh one. They would go back to whoever sent it and ask them to
+    // re-send a link that was never broken.
+    //
+    // It is also a soft-404: a 200 on every junk `/anything/invite` URL, which
+    // is indexable, and exactly the bug `04c03063d` fixed at the route root.
+    //
+    // The screen is still right for its real case — the event EXISTS and its
+    // join token is missing, revoked or expired, which is checked below.
+    notFound();
   }
 
   // Resolve the event's current join token server-side (it never appears in the

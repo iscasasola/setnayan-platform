@@ -166,3 +166,38 @@ test('no guest sub-route matches the slug more strictly than the invitation itse
       `${strict.join(', ')}. Use .ilike.`,
   );
 });
+
+
+test('a slug that matches no event 404s, on every sub-route that answers for one', () => {
+  // FOUND BY WALKING THE LIVE SITE, not by any test — `/nonexistent/invite`
+  // answered HTTP **200** with "your link may be stale, ask for a fresh one".
+  // Someone who mistyped an address would go back to whoever sent it and ask
+  // them to re-send a link that was never broken. It is also a soft-404: an
+  // indexable 200 on every junk `/anything/invite` URL, the same bug 04c03063d
+  // fixed at the route root.
+  //
+  // The plate is still right for its REAL case — the event exists and its join
+  // token is missing, revoked or expired.
+  const INVITE = readFileSync(join(HERE, '..', 'invite', 'page.tsx'), 'utf8');
+  const missingEvent = INVITE.indexOf('if (!event) {');
+  assert.notEqual(missingEvent, -1, 'the missing-event branch is gone');
+  const branch = INVITE.slice(missingEvent, missingEvent + 1200);
+  assert.ok(
+    /notFound\(\);/.test(branch),
+    'A slug that matches no event must 404. Rendering a plate for it tells a ' +
+      'person their link is stale when no such event ever existed, and returns ' +
+      'an indexable 200 for every junk URL.',
+  );
+  assert.ok(
+    !/return <InvalidTokenScreen \/>;/.test(branch),
+    'The stale-token plate is back on the no-such-event path — it answers a ' +
+      'different question.',
+  );
+  // …and it must SURVIVE for the case it was written for.
+  assert.match(
+    INVITE,
+    /<InvalidTokenScreen \/>/,
+    'The stale-token screen was deleted entirely. An event that exists with a ' +
+      'revoked or expired join token still needs it — that is not a 404.',
+  );
+});

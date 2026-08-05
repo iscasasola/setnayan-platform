@@ -68,3 +68,43 @@ test('omitting the timezone keeps the old behaviour, so no caller changed by acc
     assert.equal(typeof getDayOfPhase(DATE), 'string');
   });
 });
+
+// ── The window itself (owner 2026-08-05: "12 hours before and 12 hours after")
+// T is MIDNIGHT on the wedding day, in the venue's zone. The window is 12 hours
+// either side of the DAY — noon-before to noon-after — not ±12h from T, which
+// would be noon-to-noon and would still end before an evening reception.
+
+test('a 7pm Filipino reception IS live — the case the old window never covered', () => {
+  // 18 Dec 2026, 19:00 Manila = 11:00 UTC.
+  at(Date.UTC(2026, 11, 18, 11, 0, 0), () => {
+    assert.equal(
+      getDayOfPhase(DATE, MANILA),
+      'live',
+      'day-of mode is off during the reception — the photo wall, the banner and ' +
+        'the announcements all stay dark while the wedding is actually happening',
+    );
+  });
+});
+
+test('the whole wedding day is live, morning to midnight', () => {
+  const off: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    // hour h Manila on the wedding day = (h - 8) UTC.
+    at(Date.UTC(2026, 11, 18, h - 8, 0, 0), () => {
+      if (getDayOfPhase(DATE, MANILA) !== 'live') off.push(`${h}:00`);
+    });
+  }
+  assert.deepEqual(off, [], `these hours of the wedding day are not live: ${off.join(', ')}`);
+});
+
+test('it starts noon the day before and ends noon the day after', () => {
+  const phaseAt = (utc: number) => { let p = ''; at(utc, () => { p = getDayOfPhase(DATE, MANILA); }); return p; };
+  // 11:00 Manila the day before = 03:00 UTC — one hour early, not yet live.
+  assert.notEqual(phaseAt(Date.UTC(2026, 11, 17, 3, 0, 0)), 'live');
+  // 13:00 Manila the day before = 05:00 UTC — inside.
+  assert.equal(phaseAt(Date.UTC(2026, 11, 17, 5, 0, 0)), 'live');
+  // 11:00 Manila the day after = 03:00 UTC on the 19th — still inside.
+  assert.equal(phaseAt(Date.UTC(2026, 11, 19, 3, 0, 0)), 'live');
+  // 13:00 Manila the day after — over.
+  assert.notEqual(phaseAt(Date.UTC(2026, 11, 19, 5, 0, 0)), 'live');
+});

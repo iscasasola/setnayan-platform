@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { siteOrigin } from '@/lib/site-origin';
 import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
@@ -246,10 +247,9 @@ function OverviewTab({
   isOrganizer: boolean;
   memberCount: number;
 }) {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    'https://www.setnayan.com';
+  // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
+  // so a preview deploy handed testers a PRODUCTION invite link.
+  const siteUrl = siteOrigin();
   const inviteUrl = inviteToken ? `${siteUrl}/samahan/join/${inviteToken}` : null;
 
   return (

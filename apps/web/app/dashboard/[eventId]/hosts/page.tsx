@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { siteOrigin } from '@/lib/site-origin';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -185,10 +186,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    'https://www.setnayan.com';
+  // One resolver (lib/site-origin.ts). Same preview-points-at-production bug
+  // as the Samahan invite link.
+  const siteUrl = siteOrigin();
   const shareUrl = sentToken ? `${siteUrl}/host/accept/${sentToken}` : null;
 
   return (

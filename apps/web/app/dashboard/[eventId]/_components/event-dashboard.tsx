@@ -43,6 +43,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -711,7 +712,14 @@ export async function EventDashboard({
   const viewerIsInternal =
     (viewerRes.data as { is_internal?: boolean | null } | null)?.is_internal === true;
   const suriPreview = suriPreviewParam === 'preview' && viewerIsInternal;
-  const aiActive = aiEntitled || suriPreview;
+  // cockpitEnabled() is the owner's kill switch for this whole surface. It had
+  // ZERO importers until 2026-08-06 — its own docblock claimed "the cockpit
+  // renders ONLY when this returns true" while nothing consulted it, so the
+  // owner held a lever connected at neither end. It ANDs in last and can only
+  // ever remove the surface, never grant it: entitlement still decides who is
+  // allowed, this decides whether it may render at all. Defaults ON, so this
+  // line changes nothing until someone sets the variable to '0'.
+  const aiActive = (aiEntitled || suriPreview) && cockpitEnabled();
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const remindersEnabled =

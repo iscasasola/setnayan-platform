@@ -30,6 +30,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { siteOrigin } from '@/lib/site-origin';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMayaConfig } from '@/lib/integration-config';
@@ -300,7 +301,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const returnBase = process.env.NEXT_PUBLIC_SETNAYAN_BASE_URL ?? 'https://www.setnayan.com';
+    // One resolver (lib/site-origin.ts). NEXT_PUBLIC_SETNAYAN_BASE_URL is
+    // undeclared in .env.example and had this single reader, so in practice the
+    // return URL was the hardcoded production constant — including on preview.
+    // siteOrigin() still honours that variable if a deploy sets it.
+    // (Safe to change today: every setnayan_pay_methods row is is_active=false,
+    // so this gateway is dormant and charges nothing in V1.)
+    const returnBase = siteOrigin();
 
     const mayaPayload = {
       totalAmount: { value: finalCalculatedTotal.toFixed(2), currency: 'PHP' },

@@ -28,7 +28,9 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
-import { resolveSiteNav, type NavPhase } from '../_lib/site-nav';
+import { resolveSiteNav, navPhaseFor } from '../_lib/site-nav';
+import { loadEditorialData } from './editorial/data';
+import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { VendorDoorway } from './vendor-doorway';
 import { StdFilmHandoff } from './std-film-handoff';
@@ -44,17 +46,11 @@ import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './our-story';
 
-/**
- * `dayOfPhase` is the site's own three-state clock; `NavPhase` is the resolver's.
- * Same three moments, two vocabularies — mapped in ONE place so the bar and the
- * rules can never disagree about which moment it is (they did, twice, in two
- * days). 'live' is the wedding happening; 'post' is after it.
- */
-function navPhaseOf(dayOfPhase: DayOfPhase | null | undefined): NavPhase {
-  if (dayOfPhase === 'live') return 'day';
-  if (dayOfPhase === 'post') return 'after';
-  return 'before';
-}
+/* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
+   `navPhaseFor`, because it needed a SECOND input (whether the page is showing
+   the post-event recap) and because the rule it encodes is a nav ruling, not a
+   layout detail — it belongs beside the rules it feeds and under their test.
+   See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -345,7 +341,7 @@ type SiteBodyProps = {
   vendorCapability?: VendorCapability | null;
 };
 
-export function SiteBody({
+export async function SiteBody({
   event,
   identity,
   monogram,
@@ -429,6 +425,58 @@ export function SiteBody({
     content: openBrowseContent,
   });
 
+  // ── THE GALLERY, AFTER THE WEDDING ────────────────────────────────────────
+  //
+  // On the day the Gallery tab lands on the Live Photo Wall. The wall is a
+  // live-window surface and the guest's own "photos of you" strip closes with
+  // the post-event grace — so a week later neither exists, and the tab used to
+  // simply stop coming back. What DOES exist by then is the recap, and the
+  // recap is where the photographs are.
+  //
+  // 🔑 THE TAB IS DRAWN ONLY IF THE RECAP ACTUALLY DREW PHOTOGRAPHS. A recap
+  // with prose and no pictures is an ordinary outcome (nothing uploaded, no
+  // Papic captures, or the couple switched the photo blocks off), and pointing
+  // a tab at it would both dead-end the tap and ANNOUNCE that pictures exist —
+  // the exact thing the resolver's rule 3 says never to do.
+  //
+  // The recap answers for itself: same loader, same pure block resolver the
+  // recap uses to decide what to render, memoised per request so asking costs
+  // nothing. Best-effort — the recap's own contract is that it never throws,
+  // and a failed read here must cost a tab, never the page.
+  const recapBody = plan.body === 'editorial';
+  let recapHasPhotos = false;
+  if (recapBody) {
+    try {
+      const recap = await loadEditorialData(event.event_id);
+      recapHasPhotos = recap
+        ? editorialShowsPhotos(
+            editorialPhotoBlocks({
+              sections: recap.sections,
+              dayChapters: recap.dayChapters.length,
+              essayPhotos: recap.essayPhotos.length,
+              galleryPhotos: recap.galleryPhotos.length,
+              photoWallActive: recap.photoWallActive,
+              photoWallPhotos: recap.photoWallPhotos.length,
+            }),
+          )
+        : false;
+    } catch {
+      recapHasPhotos = false;
+    }
+  }
+  // The id the recap stamps on its first photo block. Null unless the bar is
+  // there to aim at it, so a menu-less page keeps its markup unchanged.
+  const recapGalleryAnchorId =
+    recapHasPhotos &&
+    siteMenuEnabled({
+      flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+      isSample: Boolean(event.is_sample),
+    })
+      ? SITE_MENU_ANCHORS.gallery
+      : null;
+  /** Which moment the bar is in. Both trees resolve it from the same pair. */
+  const navPhase = navPhaseFor({ dayOfPhase, isRecapBody: recapBody });
+
   /**
    * The 3-way phased body — the single computation site for the editorial
    * takeover and the Save-the-Date view (each was previously written twice).
@@ -481,7 +529,7 @@ export function SiteBody({
       // answering both "may this visitor browse the new open site?" and "does
       // this visitor get a site at all?". Only the first is what it decides.
       <>
-        <EditorialContent eventId={event.event_id} />
+        <EditorialContent eventId={event.event_id} galleryAnchorId={recapGalleryAnchorId} />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
         {normalBody()}
@@ -583,8 +631,14 @@ export function SiteBody({
     const menuSections = {
       details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
       story: bodyRenders && (plan.openBrowse || Boolean(event.love_story)),
-      // "Gallery" = the live photo wall (the livestream is a separate concern).
-      gallery: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(liveWall),
+      // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
+      // concern) and the recap's own photo run AFTER it. Two different sections
+      // in two different phases, one tab — which is what a guest coming back the
+      // week after is looking for.
+      gallery:
+        dayOfPhase === 'live'
+          ? plan.liveMediaVisible && Boolean(liveWall)
+          : recapHasPhotos,
     };
     // The public widget nodes, factored so both the flag-off and open-browse
     // Details branches render the identical set (no duplication).
@@ -825,7 +879,7 @@ export function SiteBody({
           <SiteMenuBar
             slots={resolveSiteNav({
               viewer: { kind: 'public' },
-              phase: navPhaseOf(dayOfPhase),
+              phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
@@ -898,8 +952,13 @@ export function SiteBody({
     const menuSections = {
       details: guestBodyRenders && plan.hideableInOrder.length > 0,
       story: guestBodyRenders && Boolean(event.love_story),
-      // "Gallery" = the live photo wall (mirrors the LiveWallBlock gate below).
-      gallery: isLive && Boolean(liveWall),
+      // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
+      // gate below), the recap's photo run after it. A guest's own "photos of
+      // you" strip is deliberately NOT a third answer: it closes with the
+      // post-event grace (~a day after the wedding, by design — an account
+      // keeps them forever in the Collection hub), so it cannot be what the tab
+      // promises a week later.
+      gallery: isLive ? Boolean(liveWall) : recapHasPhotos,
     };
 
     // AFTER-EVENT MEMENTO (design §11). The RSVPed keepsake returns as proof of
@@ -1610,7 +1669,7 @@ export function SiteBody({
           <SiteMenuBar
             slots={resolveSiteNav({
               viewer: { kind: 'guest' },
-              phase: navPhaseOf(dayOfPhase),
+              phase: navPhase,
               // `papicGuest` is the guest's own roll (an object), not a flag —
               // coerce it, or the resolver receives a truthy non-boolean.
               hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,

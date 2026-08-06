@@ -25,6 +25,11 @@ import {
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
+import {
+  editorialPhotoBlocks,
+  editorialGalleryAnchorKey,
+  type EditorialPhotoKey,
+} from './gallery-anchor';
 import { LivingMoments, KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -49,12 +54,20 @@ const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
 export async function EditorialContent({
   eventId,
   share,
+  galleryAnchorId = null,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
    *  real editorial and it falls back to the couple's own /[slug]; the sample
    *  detail passes its /realstories/[slug] target. */
   share?: { url: string; title: string; image: string } | null;
+  /**
+   * The id the event site's Gallery tab scrolls to, stamped on whichever photo
+   * block this edition draws FIRST (see `gallery-anchor.ts`). Passed only by the
+   * event site, which owns that bar; the /realstories sample and the print view
+   * have no bar and leave it null, so their markup is unchanged.
+   */
+  galleryAnchorId?: string | null;
 }): Promise<ReactElement> {
   let data: EditorialData | null = null;
   try {
@@ -117,6 +130,32 @@ export async function EditorialContent({
   // and the colophon link that points at it. Deriving it twice is how a footer
   // link ends up scrolling to nothing.
   const watchFilmShown = isOn('watchFilm') && Boolean(data.watchFilmEmbedUrl);
+
+  // The three photo blocks, resolved ONCE — for the same reason `watchFilmShown`
+  // is: the bottom bar's Gallery slot and the block that carries its anchor must
+  // be the same answer. See `gallery-anchor.ts` for why they cannot be typed out
+  // twice. The nodes below read `photo.*` instead of re-deriving their gates.
+  const photo = editorialPhotoBlocks({
+    sections: data.sections,
+    dayChapters: data.dayChapters.length,
+    essayPhotos: data.essayPhotos.length,
+    galleryPhotos: data.galleryPhotos.length,
+    photoWallActive: data.photoWallActive,
+    photoWallPhotos: data.photoWallPhotos.length,
+  });
+  const sectionOrder = resolveSectionOrder(data.sectionOrder);
+  const galleryAnchorOn: EditorialPhotoKey | null = galleryAnchorId
+    ? editorialGalleryAnchorKey(photo, sectionOrder)
+    : null;
+  /**
+   * The anchor id + its scroll margin, on the ONE block that carries it. Every
+   * other block (and every caller with no bar — the /realstories sample, the
+   * print view) spreads an empty object, so their markup is unchanged.
+   */
+  const anchorProps = (key: EditorialPhotoKey): { id?: string; className?: string } =>
+    galleryAnchorOn === key && galleryAnchorId
+      ? { id: galleryAnchorId, className: 'scroll-mt-6' }
+      : {};
 
   // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
   // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
@@ -303,16 +342,16 @@ export async function EditorialContent({
             // "As the Day Unfolded" (living chapters) or the legacy "Moments"
             // essay fallback — one block, gated by the `gallery` toggle.
             chapters:
-              isOn('gallery') && data.dayChapters.length ? (
-                <div key="chapters">
+              photo.chapters === 'living' ? (
+                <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="As the Day Unfolded" />
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
                     photos and living moments, in the order they happened
                   </p>
                   <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
                 </div>
-              ) : isOn('gallery') && data.essayPhotos.length ? (
-                <div key="chapters">
+              ) : photo.chapters === 'essay' ? (
+                <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="Moments" />
                   <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
                 </div>
@@ -341,13 +380,12 @@ export async function EditorialContent({
                 </div>
               ) : null,
             // Shared photos from the day ("From the Day").
-            gallery:
-              isOn('gallery') && data.galleryPhotos.length ? (
-                <div key="gallery">
-                  <SectionRule title="From the Day" />
-                  <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
-                </div>
-              ) : null,
+            gallery: photo.gallery ? (
+              <div key="gallery" {...anchorProps('gallery')}>
+                <SectionRule title="From the Day" />
+                <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+              </div>
+            ) : null,
             // From your vendors — day-of media from the recommended vendor.
             fromVendors:
               isOn('fromVendors') && data.vendorMedia.length ? (
@@ -357,13 +395,12 @@ export async function EditorialContent({
                 </div>
               ) : null,
             // Live Photo Wall (LIVE_WALL SKU).
-            liveWall:
-              isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
-                <div key="liveWall">
-                  <SectionRule title="Live Photo Wall" />
-                  <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
-                </div>
-              ) : null,
+            liveWall: photo.liveWall ? (
+              <div key="liveWall" {...anchorProps('liveWall')}>
+                <SectionRule title="Live Photo Wall" />
+                <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
+              </div>
+            ) : null,
             // Video guestbook (PABATI SKU) — fails closed.
             videoGuestbook:
               isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
@@ -408,7 +445,7 @@ export async function EditorialContent({
                 </div>
               ) : null,
           };
-          return resolveSectionOrder(data.sectionOrder).map((k) => nodes[k]);
+          return sectionOrder.map((k) => nodes[k]);
         })()}
 
         {/* LOCKED CLOSE — always the last two content sections, in this order

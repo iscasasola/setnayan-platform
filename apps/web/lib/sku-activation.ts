@@ -22,10 +22,6 @@ import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from '@/lib/papic-one';
 import {
-  provisionPanoodCamerasAdmin,
-  panoodCameraCapForSku,
-} from '@/lib/panood-camera-seats';
-import {
   VENDOR_AI_ADDON_SKU_CODE,
   isVendorAiAddonActive,
   nextVendorAiAddonExpiry,
@@ -891,45 +887,43 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   [PAPIC_ONE_50_SKU]: grantPapicCameraPoints,
   [PAPIC_ONE_100_SKU]: grantPapicCameraPoints,
 
-  // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
-  // controller. On approval, PROVISION the tier's camera-operator seats so the
-  // couple's control room is READY with no manual step (mirrors PAPIC_SEATS · the
-  // approval IS the activation). The provisioned count is the HARD camera cap:
-  // Desktop = 8, Mobile = 3 (panoodCameraCapForSku · owner-locked 2026-07-08), and
-  // the panood_claim_camera() RPC only binds operators to EXISTING cameras, so no
-  // more than `cap` can go live. provisionPanoodCamerasAdmin is a top-up
-  // (idempotent) + best-effort (never throws). The FREE single-cam livestream
-  // provisions nothing (couple's own device → YouTube).
-  PANOOD_SYSTEM: async (ctx) => {
-    if (!ctx.eventId) return;
-    try {
-      await provisionPanoodCamerasAdmin(
-        ctx.admin,
-        ctx.eventId,
-        panoodCameraCapForSku('PANOOD_SYSTEM'),
-      );
-    } catch (e) {
-      console.error('[sku-activation] PANOOD_SYSTEM camera provisioning threw (non-fatal):', e);
-      reportActivationFault('activate:PANOOD_SYSTEM', ctx, e);
-    }
-  },
-
-  PANOOD_SYSTEM_MOBILE: async (ctx) => {
-    if (!ctx.eventId) return;
-    try {
-      await provisionPanoodCamerasAdmin(
-        ctx.admin,
-        ctx.eventId,
-        panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE'),
-      );
-    } catch (e) {
-      console.error(
-        '[sku-activation] PANOOD_SYSTEM_MOBILE camera provisioning threw (non-fatal):',
-        e,
-      );
-      reportActivationFault('activate:PANOOD_SYSTEM_MOBILE', ctx, e);
-    }
-  },
+  // ── NO LIVE-STUDIO CAMERA HOOK, on purpose (2026-08-06) ─────────────────────
+  //
+  // There used to be two: PANOOD_SYSTEM (Cast · Desktop) and PANOOD_SYSTEM_MOBILE,
+  // each calling provisionPanoodCamerasAdmin with panoodCameraCapForSku(). Both are
+  // gone, and LIVE_STUDIO — the SKU that is actually on sale — deliberately does not
+  // get a replacement. Three facts, each checked against production, not inferred:
+  //
+  //   1. THE TWO HOOKS COULD ONLY EVER FIRE FOR A DEAD SKU. Cast was folded into
+  //      the unified Live Studio on 2026-07-25; both catalog rows have been
+  //      is_active=false since (PANOOD_SYSTEM ₱2,500 · _MOBILE ₱1,500), checkout
+  //      refuses a retired SKU, and no buy surface has ever posted _MOBILE at all.
+  //      `orders` holds zero rows for either code (zero rows for ANY code — the
+  //      platform is pre-launch). The Cast retirement itself shipped in #4170.
+  //
+  //   2. SEATS ARE MINTED ON DEMAND, so nothing is lost by dropping them. Every
+  //      camera surface tops up on RENDER against the tier it resolves right then —
+  //      studio/panood/{cameras,cameras/print,broadcast} each call
+  //      provisionPanoodCamerasAdmin(admin, eventId, cap) before their first read,
+  //      precisely so a first visit shows seats instead of an empty page. That is
+  //      also the ONLY path that has ever created one: prod holds 16
+  //      panood_camera_operators rows against zero orders. An approval-time hook
+  //      changed WHEN a seat appeared, never WHETHER.
+  //
+  //      This still holds for the one reachable caller — MEDIA_PACK lists
+  //      PANOOD_SYSTEM as a bundle child, so activateBundleChildren() used to fan
+  //      out to the hook. A MEDIA_PACK buyer still resolves 'paid' through
+  //      resolvePanoodTier (bundle ownership is read off eventSkuActive, untouched
+  //      here) and still gets the full 8-camera cap on first visit.
+  //
+  //   3. LIVE_STUDIO NEEDS NO HOOK AT ALL. The unified controller mints a seat PER
+  //      CHANNEL as the host adds one (bindChannelCamera → one fresh
+  //      panood_camera_operators row + its join QR, idempotent by refusal). Pre-
+  //      provisioning a fixed 8 would create seats no channel is bound to and QR
+  //      tokens nobody was handed.
+  //
+  // ⚠ panoodCameraCapForSku() is NOT dead — panoodCameraCapForTier() still calls it
+  // to resolve the render-time cap. Only these hooks are gone.
 
   // Seat-pass activation (seat-finding PR4). The seat pass (/[slug]/seat)
   // resolves + gates on CUSTOM_QR_GUEST — the SKU whose branded per-guest /

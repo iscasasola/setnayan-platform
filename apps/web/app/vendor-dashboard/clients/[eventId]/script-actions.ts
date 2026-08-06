@@ -50,7 +50,18 @@ function err(message: string): ScriptActionState {
   return { status: 'error', message };
 }
 
-const BOOKED_STATUSES = ['contracted', 'booked', 'confirmed', 'completed'];
+// The committed-booking set, exactly as the other 14 call sites spell it.
+//
+// ⚠ This line previously read ['contracted', 'booked', 'confirmed', 'completed'].
+// Three of those four are NOT members of the `vendor_status` enum, which is
+// (considering, shortlisted, contracted, deposit_paid, delivered, complete).
+// Postgres rejects the WHOLE `.in()` predicate on an unknown enum label — 22P02,
+// not a filter that quietly matches nothing — so `bookingError` was truthy on
+// EVERY call and saveBlockScript() returned "Could not confirm your booking on
+// this event" to every emcee, on every event, since the day it shipped. The
+// docblock above claims this is "the same check the rest of the Customer Card
+// uses"; it never was.
+const BOOKED_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'];
 
 export async function saveBlockScript(
   _prev: ScriptActionState,

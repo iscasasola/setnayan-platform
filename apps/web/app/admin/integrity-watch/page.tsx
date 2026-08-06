@@ -555,7 +555,10 @@ export default async function AdminIntegrityWatchPage({
                       </button>
                     </form>
                     <Link
-                      href={`/admin/vendors/${r.subject_vendor_id}`}
+                      // `/admin/vendors/<id>` has no page.tsx — the segment only
+                      // serves /edit, /team and /tokens — so this 404'd on every
+                      // click. /edit is the admin's vendor detail view.
+                      href={`/admin/vendors/${r.subject_vendor_id}/edit`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
                       Open vendor →

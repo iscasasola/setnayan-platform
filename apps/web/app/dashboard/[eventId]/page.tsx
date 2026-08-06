@@ -11,6 +11,7 @@ import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventSkuActive } from '@/lib/entitlements';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
@@ -169,6 +170,10 @@ export default async function EventHomePage({
   let dayOfPabatiClips: PabatiClipThumb[] = [];
   let dayOfPabatiUsed = 0;
   let dayOfPabatiTotal = 0;
+  // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
+  // /wall/[eventId] gates on, so the card and the destination can never disagree.
+  // Fails closed: any read error leaves this false and the card simply hides.
+  let dayOfLiveWallActive = false;
   let dayOfBroadcast: BroadcastCardData | undefined;
   if (dayOfActive) {
     const [blocksRes, tablesRes, sameDayRes] = await Promise.all([
@@ -191,6 +196,14 @@ export default async function EventHomePage({
     // a single "head table" by picking the first family_head_* row found.
     dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
     dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
+
+    // LIVE_WALL — same shape as PABATI below: resolve ownership server-side so
+    // the client grid can hide the card. Best-effort; a throw leaves it false.
+    try {
+      dayOfLiveWallActive = await eventSkuActive(adminClient, eventId, 'LIVE_WALL');
+    } catch {
+      dayOfLiveWallActive = false;
+    }
 
     // PABATI — gate first; only fetch clips + quota when the pack is active so a
     // non-owner pays no query cost. Best-effort: any read error leaves the card
@@ -503,6 +516,7 @@ export default async function EventHomePage({
           pabatiClips={dayOfPabatiClips}
           pabatiUsed={dayOfPabatiUsed}
           pabatiTotal={dayOfPabatiTotal}
+          liveWallActive={dayOfLiveWallActive}
           broadcast={dayOfBroadcast}
         />
       ) : null}

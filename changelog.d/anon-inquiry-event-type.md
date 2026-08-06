@@ -68,3 +68,32 @@ of Get in touch."*
   learns the wrong name.
 
 SPEC IMPACT: None — copy only, no decision or price changes.
+
+## 2026-08-06 · fix(vendor-page): a top-plan shop showed TWO Inquire buttons
+
+Owner, on seeing the page: *"why is there 2 inquire buttons?"* He was right, and
+it is the shipped page, not the mockup.
+
+When the **cinematic hero** renders (Enterprise + a chosen hero photo) it carries
+its own Inquire. The action row a few centimetres below carried a second,
+identical one. The block between them already suppresses the **name and tagline**
+when that hero renders — precisely because the hero shows them — and the BUTTON
+was simply missed when that suppression was written.
+
+So the shops paying the MOST were the only ones with a duplicated call to action,
+and nothing failed: both buttons worked and scrolled to the same place.
+
+- The action-row Inquire is now dropped when the cinematic hero renders.
+- 🔑 **Share is deliberately NOT dropped with it.** The hero has no Share button,
+  so suppressing the whole row would leave a top-plan shop with no way to be
+  shared at all — trading a cosmetic duplicate for a lost feature.
+
+🛡 `one-inquire-button.test.ts` — pins the count at exactly three (hero · action
+row · desktop sticky rail), pins the mutual exclusion, and pins Share OUTSIDE the
+guard. **Both failure modes were reproduced on purpose to prove it fires:**
+ungating the duplicate fails 2 of 3; widening the guard to swallow Share fails 1.
+
+A visual duplicate has no natural detector — CI cannot look at a page — which is
+why this one survived to be caught by eye.
+
+SPEC IMPACT: None — a rendering fix, no decision or price changes.

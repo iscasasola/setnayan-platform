@@ -2007,17 +2007,28 @@ export async function renderVendorBySlug({
             </div>
             {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
-                On desktop the sticky Inquire rail carries these too. */}
+                On desktop the sticky Inquire rail carries these too.
+
+                🔑 The cinematic hero ALREADY carries its own Inquire, so this
+                one is dropped when that hero renders — otherwise an Enterprise
+                shop with a hero photo showed TWO identical Inquire buttons a
+                few centimetres apart (owner spotted it 2026-08-06). The block
+                just above suppresses only the name + tagline for the same
+                reason, and the button was missed. Share is NOT dropped: the
+                hero has no Share, so removing the whole row would leave an
+                Enterprise shop with no way to share it at all. */}
             {bookable ? (
               <div
                 className={`flex flex-wrap items-center gap-2 pt-4 ${
                   premiumLayout ? 'lg:hidden' : ''
                 }`}
               >
-                <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
-                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire
-                </a>
+                {cinematicHero ? null : (
+                  <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Inquire
+                  </a>
+                )}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {canShowBooth ? (
                   <Link

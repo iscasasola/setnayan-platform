@@ -198,6 +198,36 @@ jobs:
       - name: Lint nav icon source
         run: node apps/web/scripts/lint-nav-icon-source.mjs
 
+  lint-port-no-lost-controls:
+    name: lint port keeps every control
+    runs-on: ubuntu-latest
+    # THE DESIGN PORT MAY NOT SILENTLY DELETE A CONTROL.
+    #
+    # On 2026-08-06 two real controls were deleted from the couple's guest page
+    # ("Invite guests" + "Arrange the room") on a clean origin/main, and all
+    # twelve existing lint scripts, typecheck AND Lighthouse passed
+    # byte-identically. That is structural: this repo has no render harness, ~14%
+    # of pages are named in any test, and every other guard fires on a wrong
+    # thing ADDED while a port REMOVES. It has already cost us the YouTube API
+    # Services disclosure on the /panood port, caught by a manual diff.
+    #
+    # This job compares every route's destinations + bound actions against a
+    # GENERATED baseline (apps/web/scripts/port-control-baseline.json). Missing
+    # fails; added passes. A deliberate removal is handled by regenerating the
+    # baseline in the SAME PR, which puts it in the diff as one readable line.
+    #
+    # DELETE THIS JOB, the two scripts and the baseline when the port is done —
+    # a guard kept past its purpose becomes noise.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint port keeps every control
+        run: node apps/web/scripts/lint-port-no-lost-controls.mjs
+
   lint-email-links:
     name: lint email template links
     runs-on: ubuntu-latest

@@ -31,6 +31,7 @@
  * Overview redesigns dropped its tile); Hosts from the Home tiles grid.)
  */
 
+import { isEventDayActive } from '@/lib/day-of-mode';
 import {
   PencilLine,
   Send,
@@ -108,18 +109,32 @@ export function isGuestJourneyPath(pathname: string, eventId: string): boolean {
 }
 
 /**
- * Day-of "live mode" window: from the eve of the event through the day after.
- * `now` is injected so callers stay deterministic (and so a client component can
- * defer the read to an effect, avoiding an SSR/client hydration mismatch).
+ * Is the event's day-of live window open?
+ *
+ * 🔴 THIS USED TO BE A SECOND, DISAGREEING DEFINITION OF "the wedding day".
+ * It computed `new Date(eventDate) ± 24h` — two bugs in three lines:
+ *
+ *   1. `new Date('2026-12-12')` is midnight **UTC**, so in Manila the window was
+ *      already 8 hours out. That is the date-is-not-an-instant defect this
+ *      codebase fixed in 41 other places on 2026-08-04; this copy was missed.
+ *   2. ±24h is not the product's window. `lib/day-of-mode.ts` has always used
+ *      −12h .. +36h (live) and .. +60h (post), timezone-aware.
+ *
+ * The two were consumed **in the same component**: `customer-section-subnav.tsx`
+ * computed `dayOfOpen` from here and received `phase` from day-of-mode, then
+ * passed BOTH into `buildCustomerMenuTree`. They disagreed by 12h at the start
+ * and 36h at the end — so for about a day and a half after a wedding the bottom
+ * nav swapped to the day-of menu (Now / Check-in / Seats / …) while the Guests
+ * "Day-of" stage it points at stayed MUTED. Late check-ins happen exactly there.
+ *
+ * ✅ Now one definition. This delegates; it does not restate. `now` is still
+ * injectable for the same reason as before — a client component defers the read
+ * to an effect so SSR and first paint agree.
  */
 export function isDayOfOpen(
   eventDate: string | null | undefined,
   now: Date,
 ): boolean {
   if (!eventDate) return false;
-  const d = new Date(eventDate);
-  if (Number.isNaN(d.getTime())) return false;
-  const dayMs = 24 * 60 * 60 * 1000;
-  const t = now.getTime();
-  return t >= d.getTime() - dayMs && t <= d.getTime() + dayMs;
+  return isEventDayActive(eventDate, undefined, now.getTime());
 }

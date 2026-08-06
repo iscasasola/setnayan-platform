@@ -1,8 +1,22 @@
 /**
- * Server queries for the Hiring Predictive Guide dashboard. All queries are
- * owner-only by RLS — anon/authenticated reads are filtered to admins +
- * internal users via the policies defined in
- * `supabase/migrations/20260523000000_hiring_guide_owner_alerts.sql`.
+ * Server queries for the Hiring Predictive Guide dashboard.
+ *
+ * ⚠ THE OLD HEADER HERE SAID "all queries are owner-only by RLS". That was true
+ * of the three TABLES (`owner_alerts`, `founder_time_log`, `hiring_roadmap`) and
+ * FALSE of `bottleneck_signals_current`, which is a MATERIALIZED VIEW —
+ * materialized views do not honour row-level security, so there was no policy on
+ * it and none was possible. Its defining migration
+ * (`20260523000000_hiring_guide_owner_alerts.sql`) granted SELECT to
+ * `authenticated`, which on Supabase means every signed-in couple, vendor, guest
+ * or coordinator could read the vendor-verification backlog, support response
+ * times, weekly signup counts and the open-dispute total straight off PostgREST.
+ *
+ * Closed by `20271116295515_revoke_bottleneck_signals_matview_from_authenticated`
+ * — the GRANT is the whole access control for a matview, so revoking it IS the
+ * fix. Guarded by `apps/web/tests/db/bottleneck-signals-internal-only.db.test.ts`.
+ *
+ * Every function below uses `createAdminClient()` (service_role), which is
+ * unaffected by that revoke — the revoke cost this file nothing.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -57,14 +71,29 @@ export async function refreshBottleneckSignalsIfStale(): Promise<void> {
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
   if (!lastRefresh || lastRefresh < hourAgo) {
-    // The CONCURRENT refresh requires the unique index on refreshed_at;
-    // safe to call even if a refresh is in progress.
-    // Supabase's PostgrestBuilder is thenable-like but not a real Promise,
-    // so `.catch()` doesn't exist on it — wrap in try/catch instead.
-    try {
-      await supabase.rpc('refresh_bottleneck_signals' as never);
-    } catch (err) {
-      console.warn('[hiring-guide] materialized view refresh RPC missing; falling back to next caller', err);
+    // ⚠ `refresh_bottleneck_signals` DOES NOT EXIST — verified against the live
+    // database on 2026-08-06: no migration creates it and prod's `pg_proc` has
+    // no such name. So this sweep has never refreshed anything, and the single
+    // row in the view still carries `refreshed_at = 2026-05-20`, the moment
+    // `CREATE MATERIALIZED VIEW` populated it.
+    //
+    // The old shape hid that completely: a missing RPC does not THROW through
+    // postgrest-js, it RESOLVES with `{ error }`, so the try/catch below could
+    // never fire and the warning it guarded has never once printed. A silent
+    // no-op wearing a handled-error comment. Read the error instead.
+    //
+    // Not fixed here on purpose: creating the function is a database change with
+    // its own decisions (CONCURRENTLY cannot run inside PostgREST's transaction;
+    // a plain REFRESH takes an exclusive lock) and this file is the reader, not
+    // the owner of that call.
+    const { error } = await supabase.rpc('refresh_bottleneck_signals' as never);
+    if (error) {
+      console.error(
+        '[hiring-guide] refresh_bottleneck_signals RPC failed — the bottleneck numbers on ' +
+          '/admin/app-performance are STALE, not live. The function does not exist in the ' +
+          'database; nothing has refreshed this view since it was created.',
+        error.message,
+      );
     }
   }
 }

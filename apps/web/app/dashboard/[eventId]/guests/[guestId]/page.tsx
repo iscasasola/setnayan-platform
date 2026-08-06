@@ -34,7 +34,12 @@ import {
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
-import { inviteGuestByEmailAction, softDeleteGuest, updateGuest } from './actions';
+import {
+  inviteGuestByEmailAction,
+  releaseGuestClaim,
+  softDeleteGuest,
+  updateGuest,
+} from './actions';
 
 export const metadata = { title: 'Guest detail' };
 
@@ -207,6 +212,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   const updateAction = updateGuest.bind(null, eventId, guestId);
   const deleteAction = softDeleteGuest.bind(null, eventId, guestId);
+  const releaseAction = releaseGuestClaim.bind(null, eventId, guestId);
   const inviteAction = inviteGuestByEmailAction.bind(null, eventId, guestId);
 
   // Host-initiated email-invite feedback (Invite/Join v2).
@@ -687,14 +693,35 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 Foundation of the event — can&rsquo;t be removed
               </span>
             ) : (
-              <SubmitButton
-                formAction={deleteAction}
-                className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                aria-label={`Remove ${guestDisplayName(guest)}`}
-                pendingLabel="Removing…"
-              >
-                Remove guest
-              </SubmitButton>
+              <div className="flex items-center gap-4">
+                <SubmitButton
+                  formAction={deleteAction}
+                  className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                  aria-label={`Remove ${guestDisplayName(guest)}`}
+                  pendingLabel="Removing…"
+                >
+                  Remove guest
+                </SubmitButton>
+                {/* Owner ruling 2026-08-06: "the couple has full control of
+                    their guests." A personal invitation link is a bearer
+                    credential — forward it and the first person through can
+                    attach the seat to their own account. Re-issuing the QR does
+                    NOT undo that: rotation writes qr_token and never person_id
+                    or email, so the link dies while the account keeps the seat.
+                    This does both, rotation FIRST — detaching without rotating
+                    hands the seat straight back to whoever still holds the old
+                    link, which is the Papic-seat bug already in DECISION_LOG.
+                    A formAction on the shared form, not a nested <form>, which
+                    the repo lints against. */}
+                <SubmitButton
+                  formAction={releaseAction}
+                  className="text-sm font-medium text-ink/70 underline-offset-4 hover:underline hover:text-ink disabled:opacity-60"
+                  aria-label={`Take back ${guestDisplayName(guest)}'s seat — new QR and unlink their account`}
+                  pendingLabel="Taking back…"
+                >
+                  Take this seat back
+                </SubmitButton>
+              </div>
             )}
             <div className="flex items-center gap-2">
               <Link

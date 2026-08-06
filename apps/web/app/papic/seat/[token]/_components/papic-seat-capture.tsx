@@ -70,7 +70,11 @@ import {
 
 const CLIP_MAX_MS = 10_000; // 10-second clip cap (owner 2026-07-22 · §0 · not configurable)
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
-const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+// NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
+// This file hardcoded 10 while the DATABASE had allowed 20 since 2026-07-23, so a
+// paparazzo was cut off at half the real limit and told "that's the max". Both
+// numbers are gone: the server no longer refuses on count, so there is no tally
+// to show and no ceiling to announce — only how many are tagged so far.
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
 
 // Server cap codes — the presign route and recordSeatCapture both signal
@@ -123,7 +127,7 @@ function tagErrorMessage(error: string): string {
     case 'table_not_found':
       return 'That table QR isn’t on this event’s seating plan.';
     case 'cap_reached':
-      return `This photo already has all ${TAG_CAP} tags.`;
+      return 'That tag didn’t go through. Try scanning again.';
     case 'unavailable':
       return 'Tagging isn’t ready yet — your photo’s saved either way.';
     default:
@@ -1050,7 +1054,7 @@ export function PapicSeatCapture({
           setTagNotice(`No one’s seated at ${result.tableLabel ?? 'that table'} yet.`);
         } else if (result.truncated) {
           setTagNotice(
-            `${result.tableLabel ?? 'Table'}: added ${result.added}, but this photo hit the ${TAG_CAP}-tag limit.`,
+            `${result.tableLabel ?? 'Table'}: added ${result.added}.`,
           );
         } else if (result.added === 0) {
           setTagNotice(`Everyone at ${result.tableLabel ?? 'that table'} is already tagged.`);
@@ -1293,7 +1297,7 @@ export function PapicSeatCapture({
             </div>
             <div className="absolute left-1/2 top-4 -translate-x-1/2">
               <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-semibold text-cream">
-                Scanning · {tagCount}/{TAG_CAP} tagged
+                  Scanning · {tagCount} tagged
               </span>
             </div>
           </>
@@ -1385,7 +1389,7 @@ export function PapicSeatCapture({
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-cream">Tag who&rsquo;s in this shot</p>
               <span className="rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/80">
-                {tagCount}/{TAG_CAP}
+                {tagCount}
               </span>
             </div>
             {taggedNames.length > 0 && (
@@ -1401,9 +1405,7 @@ export function PapicSeatCapture({
               </div>
             )}
             <p className="text-center text-xs text-cream/60">
-              {tagCount >= TAG_CAP
-                ? `This photo has all ${TAG_CAP} tags.`
-                : 'Point at a guest’s place-card QR — or a table sign to tag the whole table.'}
+              {'Point at a guest’s place-card QR — or a table sign to tag the whole table.'}
             </p>
             {tagNotice && (
               <p className="text-center text-xs text-cream/80">{tagNotice}</p>
@@ -1411,7 +1413,7 @@ export function PapicSeatCapture({
             {/* Persistent live region — announces notices + the running tag
                 count to screen readers without affecting the visual layout. */}
             <span aria-live="polite" role="status" className="sr-only">
-              {tagNotice ?? `${tagCount} of ${TAG_CAP} tagged`}
+              {tagNotice ?? `${tagCount} tagged`}
             </span>
             <button
               type="button"

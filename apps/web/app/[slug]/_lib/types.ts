@@ -315,7 +315,10 @@ export type GuestRow = {
   rsvp_status: 'pending' | 'attending' | 'declined' | 'maybe';
   meal_preference: string | null;
   dietary_restrictions: string | null;
-  notes: string | null;
+  /** The GUEST's own message to the couple. NOT `guests.notes`, which is the
+   *  couple's PRIVATE note about this guest and must never reach this type —
+   *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */
+  guest_note: string | null;
   custom_tags: string[];
   qr_token: string;
   photo_url: string | null;

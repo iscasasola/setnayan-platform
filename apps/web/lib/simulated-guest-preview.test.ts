@@ -188,7 +188,7 @@ test('no real-guest-derived value can appear on the simulated identity', () => {
   // rationale in the module doc — all null, none fetched.
   assert.equal(identity.guest.meal_preference, null);
   assert.equal(identity.guest.dietary_restrictions, null);
-  assert.equal(identity.guest.notes, null);
+  assert.equal(identity.guest.guest_note, null);
   assert.equal(identity.guestHubData.mealPreference, null);
   assert.equal(identity.guestHubData.dietaryRestrictions, null);
   // No photo of anybody.

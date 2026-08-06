@@ -159,7 +159,12 @@ export type GuestRow = {
   photo_updated_at: string | null;
   invited_to_blocks: string[];
   rsvp_status: RsvpStatus;
+  /** COUPLE-PRIVATE note ABOUT this guest. Never render on a guest-facing
+   *  surface — it used to be, via the RSVP form, which also overwrote it. */
   notes: string | null;
+  /** The GUEST's own message to the couple, written on their invitation page.
+   *  Read-only to the couple. Added 2026-08-06. */
+  guest_note: string | null;
   qr_token: string;
   custom_tags: string[];
   // Explicit seating-priority tier override (1–4); null = derive from role +
@@ -349,7 +354,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

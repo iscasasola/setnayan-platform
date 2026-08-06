@@ -65,6 +65,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     invited_to_blocks: [],
     rsvp_status: 'attending',
     notes: null,
+    guest_note: null,
     qr_token: 'q',
     custom_tags: [],
     seating_priority: null,

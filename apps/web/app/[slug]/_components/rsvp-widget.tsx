@@ -150,14 +150,19 @@ export function RsvpWidget({
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="notes" className="block text-sm font-medium text-ink">
+        <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
           A note to the couple (optional)
         </label>
+        {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
+            `guests.notes` — the COUPLE'S PRIVATE note about this guest — so it
+            displayed to them whatever the couple had written ("seat away from
+            Tita"), and submitting the RSVP overwrote it. Never bind a
+            guest-facing field to `notes`. */}
         <textarea
-          id="notes"
-          name="notes"
+          id="guest_note"
+          name="guest_note"
           rows={3}
-          defaultValue={guest.notes ?? ''}
+          defaultValue={guest.guest_note ?? ''}
           className="input-field min-h-[88px] resize-y py-2"
           placeholder="Anything you'd like Maria &amp; Juan to know."
         />

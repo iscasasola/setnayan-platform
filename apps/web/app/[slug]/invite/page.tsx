@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
 import { InvalidTokenScreen } from '@/app/join/[eventId]/_components/join-shell';
@@ -24,7 +25,9 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select('event_id, public_id, display_name, event_date, venue_name, slug')
+    .select(
+      'event_id, public_id, display_name, event_date, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
+    )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
     // and the 3D venue did not, so `/Cale-Ice` opened fine while
@@ -54,6 +57,29 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     //
     // The screen is still right for its real case — the event EXISTS and its
     // join token is missing, revoked or expired, which is checked below.
+    notFound();
+  }
+
+  // 🔒 A PRIVATE EVENT IS PRIVATE HERE TOO (added 2026-08-06).
+  //
+  // This door had NO visibility check at all. `/[slug]` correctly showed a
+  // stranger the lock screen — "This wedding's page is private" — while
+  // `/[slug]/invite` let that same stranger type any name, join the guest list,
+  // and receive a guest session that then OPENS the lock screen. Confirmed on
+  // two live private events. The couple could not close it either: re-issuing
+  // the join QR mints a new token but does not make the door refuse anyone.
+  //
+  // Two owner decisions were colliding — "private until we launch" and "anyone
+  // can add themselves with just a name". Private wins: an event the couple has
+  // not launched should not be joinable by a stranger who guessed the address.
+  //
+  // notFound(), matching the branch above — a private event must be
+  // indistinguishable from an event that does not exist. Anything softer
+  // confirms the wedding is real to someone who should not know.
+  //
+  // ⚠ REVERSIBLE AND DELIBERATE: if self-join should work on private events,
+  // delete this block. Nothing else depends on it.
+  if (resolveEffectiveVisibility(event) === 'private') {
     notFound();
   }
 

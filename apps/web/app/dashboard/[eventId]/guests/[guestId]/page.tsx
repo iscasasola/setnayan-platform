@@ -636,7 +636,30 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 defaultValue={guest.notes ?? ''}
                 className="input-field min-h-[88px] resize-y py-2"
               />
+              {/* Said out loud, because until 2026-08-06 it was the opposite of
+                  true: this box was rendered on the guest's own invitation page
+                  and their RSVP overwrote whatever was here. */}
+              <p className="text-xs text-ink/50">
+                Only you and your co-hosts can see this. {guest.first_name} never sees it.
+              </p>
             </div>
+
+            {/* The guest's OWN message, read-only — it is theirs, not yours to
+                edit. Separate column (`guest_note`) precisely so that saving
+                your private note cannot erase what they wrote, and vice versa. */}
+            {guest.guest_note?.trim() ? (
+              <div className="space-y-1.5">
+                <span className="block text-sm font-medium text-ink">
+                  A note from {guest.first_name}
+                </span>
+                <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
+                  {guest.guest_note}
+                </p>
+                <p className="text-xs text-ink/50">
+                  They wrote this when they replied. Only they can change it.
+                </p>
+              </div>
+            ) : null}
           </div>
         </details>
 

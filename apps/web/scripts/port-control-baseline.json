@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "d09ad366a",
+  "generatedFromRef": "0805addb8",
   "routeCount": 403,
   "destinations": 679,
   "actions": 515,
@@ -2109,7 +2109,6 @@
     },
     "/dashboard/[eventId]/date-selection": {
       "files": [
-        "dashboard/[eventId]/date-selection/_components/auspicious-card.tsx",
         "dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx",
         "dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx",
         "dashboard/[eventId]/date-selection/_components/date-picker.tsx",
@@ -2392,7 +2391,8 @@
         "inviteHost",
         "removeHost",
         "revokeHostInvite",
-        "setDelegateBudget"
+        "setDelegateBudget",
+        "setDelegatePhotos"
       ]
     },
     "/dashboard/[eventId]/invitation": {
@@ -3116,6 +3116,7 @@
     },
     "/dashboard/[eventId]/studio/playlist": {
       "files": [
+        "dashboard/[eventId]/studio/playlist/_components/host-setlist-panel.tsx",
         "dashboard/[eventId]/studio/playlist/_components/playlist-pick-row.tsx",
         "dashboard/[eventId]/studio/playlist/_components/playlist-slot-section.tsx",
         "dashboard/[eventId]/studio/playlist/_components/unsorted-tray.tsx",
@@ -3132,7 +3133,6 @@
       "files": [
         "dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx",
         "dashboard/[eventId]/studio/save-the-date/_components/launch-std-button.tsx",
-        "dashboard/[eventId]/studio/save-the-date/_components/soundtrack-row.tsx",
         "dashboard/[eventId]/studio/save-the-date/actions.ts",
         "dashboard/[eventId]/studio/save-the-date/loading.tsx",
         "dashboard/[eventId]/studio/save-the-date/page.tsx",
@@ -3148,9 +3148,7 @@
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website/site-chrome"
       ],
-      "actions": [
-        "saveSoundtrack"
-      ]
+      "actions": []
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
       "files": [
@@ -3255,7 +3253,6 @@
         "dashboard/[eventId]/vendors/build-actions.ts",
         "dashboard/[eventId]/vendors/build-pick-actions.ts",
         "dashboard/[eventId]/vendors/category-decision-actions.ts",
-        "dashboard/[eventId]/vendors/invite-modal.tsx",
         "dashboard/[eventId]/vendors/loading.tsx",
         "dashboard/[eventId]/vendors/page.tsx",
         "dashboard/[eventId]/vendors/requirements-actions.ts"

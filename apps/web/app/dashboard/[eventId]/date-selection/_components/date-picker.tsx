@@ -4,8 +4,9 @@
  * Phase 0 Date Selection — calendar picker (client component).
  *
  * Wraps a native HTML date input with calm brand styling + a Preview step
- * that swaps the calendar for the AuspiciousCard once a date is chosen.
- * The host can refine the date or proceed to lock.
+ * that swaps the calendar for this file's own inline reasons preview once a
+ * date is chosen (computeAuspiciousReasons, below). The host can refine the
+ * date or proceed to lock.
  *
  * Per CLAUDE.md 2026-05-22 Phase 0 lock — direct-pick path (the "I have a
  * date in mind" entry). The 4-question guided flow is a separate component.
@@ -34,7 +35,8 @@ type Props = {
   /**
    * Host's secondary ceremony type — carries the church-primary + Chinese-
    * overlay (Tsinoy) case. With ceremonyType this drives the Chinese advisory
-   * lines in the preview so it matches the locked AuspiciousCard.
+   * lines in the preview so it matches the locked view rendered by
+   * date-selection/page.tsx, which computes the same reasons.
    */
   secondaryCeremonyType?: string | null;
   /** Meaningful dates flagged by host — surfaces personal resonance. */

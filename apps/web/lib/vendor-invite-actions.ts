@@ -53,6 +53,22 @@ function computeExpiresAt(): string {
 // ---------------------------------------------------------------------------
 // Couple-side: send a fresh invite (or short-circuit to Connect if the
 // invited email already runs a Setnayan vendor account).
+//
+// ⚠ NO CALLER TODAY (2026-08-06). Their only UI was vendors/invite-modal.tsx,
+// deleted as redundant: the live "Add a contact" modal
+// (_components/new-manual-vendor-modal.tsx, mounted from plan-budget-accordion
+// and shortlist-categories) covers inviting a supplier via
+// createManualVendorInvite, which returns a claim URL + QR the couple copies or
+// shares themselves — the right shape for PH couples, who send these over
+// Messenger and Viber, not email.
+//
+// These two are KEPT rather than deleted because emailing the invite directly
+// is a capability nothing else provides — createManualVendorInvite does not
+// send mail. If email invites are ever wanted again, mount these; do not
+// rebuild them.
+//
+// ⚠ They have NO test coverage either (checked 2026-08-06), so nothing will
+// tell you if they rot. Anyone re-mounting them should exercise them first.
 // ---------------------------------------------------------------------------
 
 export async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {

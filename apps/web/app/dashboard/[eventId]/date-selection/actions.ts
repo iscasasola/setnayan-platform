@@ -7,7 +7,7 @@
  * lifecycle:
  *   - lockEventDate: host clicks "Lock this date and start planning".
  *     Sets events.event_date + events.event_date_precision (defaults to
- *     'day' since the auspicious-card flow requires a specific date) +
+ *     'day' since the date-selection flow requires a specific date) +
  *     events.date_status='locked' + computes & persists
  *     events.auspicious_reasons. Enforces the existing Task #37 vendor-
  *     lock gate as defense-in-depth even though Phase 0 is typically a

@@ -86,34 +86,56 @@ test('checkout REFUSES a retired SKU, and does so before any charge resolver', (
 
 /* ── 2 · NO FAKE DOOR ───────────────────────────────────────────────────────── */
 
-test('the Cast studio page gates its BUY control on live sellability', () => {
+/**
+ * ⭐ SUPERSEDED 2026-08-06 — THE DOOR IS GONE, NOT GUARDED.
+ *
+ * These two tests used to describe the CONDITIONAL guard on the Cast App Store page:
+ * ask the catalog whether the SKU is sellable, drop the buy CTA and the price row
+ * when it isn't, but keep the owner's "Open control room" chip. That guard was
+ * right for the window in which the SKU might have come back.
+ *
+ * It didn't. The row has been is_active=false since 2026-07-26, it has never had a
+ * single order, and the couple's Studio was left showing TWO live-streaming tiles —
+ * the retired Cast one and the live ₱2,999 one — for the same product. So
+ * /studio/panood is retired outright and forwards to the Live Studio that exists.
+ *
+ * The property these tests hold is unchanged and now stronger: no fake door. A page
+ * that cannot render a buy control cannot render a fake one. What still has to be
+ * proved is the OTHER half of the old pair — that retiring the surface did not take
+ * a real owner's way in with it.
+ */
+test('NO FAKE DOOR — the Cast page cannot offer a purchase, because it is not a page', () => {
   const src = read('../app/dashboard/[eventId]/studio/panood/page.tsx');
-  assert.ok(
-    src.includes('resolveServiceSellability(PANOOD_SKU_CODE)'),
-    'the page must ask the catalog, not hardcode the retirement (so it self-heals and reverses)',
-  );
-  assert.match(
-    src,
-    /const multicamSellable = sellability === 'sellable'/,
-    "only 'sellable' may show a buy path — 'retired' / 'error' / 'unknown' must not",
-  );
-  assert.match(
-    src,
-    /secondary: showMulticamCta \? multicamCta : undefined/,
-    'the hero must drop the upgrade control when it is not sellable',
-  );
-  // The price table is a buy surface too — quoting ₱/day for something checkout
-  // refuses is the same fake door minus the click.
-  assert.match(src, /plans: multicamSellable \? \[freePlanRow, multicamPlanRow\] : \[freePlanRow\]/);
+  assert.match(src, /\bredirect\(/, '/studio/panood no longer forwards anywhere');
+  for (const buyMachinery of [
+    'PANOOD_SKU_CODE',
+    'resolveServiceSellability',
+    'AddOnStateCta',
+    'choosePlan',
+    'formatV2Sku',
+  ]) {
+    assert.ok(
+      !src.includes(buyMachinery),
+      `${buyMachinery} is still on the retired Cast page — it can still quote or sell`,
+    );
+  }
 });
 
-test('⚠ it hides the BUY, never the LAUNCH — an existing Cast buyer keeps their room', () => {
-  const src = read('../app/dashboard/[eventId]/studio/panood/page.tsx');
+test('⚠ it removed the BUY, never the LAUNCH — a Cast buyer keeps their room', () => {
+  // The alias is what carries them: a historical Cast order still resolves LIVE_STUDIO
+  // ownership (section 3 below proves that against a stubbed client), so the surviving
+  // Live Studio surface resolves to the 'launch' state and opens the controller for
+  // them. Nothing about their access ran through the page that was retired.
+  assert.deepEqual(
+    [...(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO ?? [])].sort(),
+    [...PANOOD_PAID_SKUS].sort(),
+    'a Cast buyer must still resolve as a Live Studio owner after the page is gone',
+  );
+  const live = read('../app/dashboard/[eventId]/studio/live-studio-control/page.tsx');
   assert.match(
-    src,
-    /const showMulticamCta = stateCtx\.state !== 'add' \|\| multicamSellable/,
-    'AddOnStateCta is both the buy sheet AND the owner\'s "Open control room" chip; '
-      + 'only the add (buy) state may be gated, or a paying buyer is stranded',
+    live,
+    /launchLabel="Open controller"/,
+    'the surviving Live Studio surface no longer offers an owner a way into the room',
   );
 });
 

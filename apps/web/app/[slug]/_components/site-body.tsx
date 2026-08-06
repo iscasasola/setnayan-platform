@@ -28,7 +28,14 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
-import { resolveSiteNav, navPhaseFor } from '../_lib/site-nav';
+import {
+  resolveSiteNav,
+  navPhaseFor,
+  resolveGuestDoorways,
+  showBroadcastNotice,
+  type DoorwayFacts,
+} from '../_lib/site-nav';
+import { GuestDoorwayStrip } from './guest-doorway-strip';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
@@ -313,6 +320,15 @@ type SiteBodyProps = {
   liveWall?: LiveWallData | null;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
+  /** Has the couple staged a broadcast worth ANNOUNCING before the day? The
+   *  player above is live-window-only; this is the one fact the "we'll be
+   *  streaming" notice needs, and the loader reads it in every phase that
+   *  notice can appear in. */
+  broadcastPlanned?: boolean;
+  /** Facts for the two non-slot guest doorways (the 3D room · the money gift),
+   *  each read the way the DESTINATION reads it. Absent → both doors stay shut,
+   *  which is the honest default for a caller that did not resolve them. */
+  doorwayFacts?: DoorwayFacts | null;
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
@@ -369,6 +385,8 @@ export async function SiteBody({
   backdrop,
   liveWall,
   watchLive,
+  broadcastPlanned = false,
+  doorwayFacts = null,
   proWatermarkHidden,
   siteColorVars,
   editorMode = false,
@@ -476,6 +494,33 @@ export async function SiteBody({
       : null;
   /** Which moment the bar is in. Both trees resolve it from the same pair. */
   const navPhase = navPhaseFor({ dayOfPhase, isRecapBody: recapBody });
+
+  // ── THE DOORWAY STRIP — resolved ONCE, above the identity fork. ────────────
+  //
+  // Two finished guest pages and one sentence about the broadcast, all three of
+  // which belong to the invited cousin AND the cookie-less relative who opened
+  // a shared link. Resolving them here rather than inside a tree is what makes
+  // "both tiers get the same answer" a fact rather than a promise — the only
+  // thing that differs is the personal token, which is what makes the 3D room
+  // light up THIS guest's seat instead of an anonymised one.
+  //
+  // Every rule lives in `_lib/site-nav.ts`; nothing is decided here.
+  const guestToken = identity.kind === 'guest' ? identity.guest.qr_token : null;
+  const doorways = doorwayFacts
+    ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
+    : { venueWalk: null, pabuya: null };
+  // Is the real player already on this page? Both trees mount it under the same
+  // three conditions (the guest tree's `liveMediaVisible` is always true by
+  // construction — see resolveSiteBodyPlan), so one expression covers both.
+  const broadcastNotice = showBroadcastNotice({
+    broadcastPlanned,
+    liveMediaVisible: plan.liveMediaVisible,
+    dayOfPhase,
+    playerOnPage: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(watchLive),
+    // `inactive` is BOTH "months before" and "the week after" — see the note on
+    // the field. Without the date this notice comes back after the wedding.
+    eventDate: event.event_date,
+  });
 
   /**
    * The 3-way phased body — the single computation site for the editorial
@@ -1753,6 +1798,40 @@ export async function SiteBody({
           `vendorCapability` is null for everyone else, so nothing renders. */}
       {vendorCapability ? <VendorDoorway capability={vendorCapability} /> : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
+      {/* THE GUEST DOORWAY STRIP — two finished pages and one sentence about the
+          broadcast, on the page every guest already has.
+
+          ── WHY IT IS OUTSIDE BOTH TREES ────────────────────────────────────
+          The relative watching from abroad almost always arrives with a SHARED
+          link and no cookie, so they render through the anonymous tree; the
+          invited cousin renders through the guest tree. All three of these
+          belong to both, and gating inside one tree would hide them from half
+          the people who need them. Same reasoning as `VendorDoorway`.
+
+          ── WHY BELOW THE BODY AND NOT ABOVE IT ─────────────────────────────
+          The supplier doorway sits ABOVE the fork, before the hero, because it
+          is addressed to someone who is not a guest and is not here for the
+          invitation. These are for guests, and an invitation has to open with
+          the invitation — a stack of utility cards before the couple's names
+          would be the first thing every visitor saw on every wedding page. At
+          the foot they land where a reader has finished the invitation and the
+          practical part of the page begins, right where the bottom bar already
+          is. They clear the fixed bar: the shell's sign-off footer renders
+          below them and is taller than the bar it stands in.
+
+          ⛔ NOT on the full-bleed Save-the-Date film, which owns the whole
+          screen. Cards under it would be debris, and the film runs months
+          ahead — the seating plan is not published and nothing here is what a
+          guest came for at that moment. */}
+      {plan.fullBleed ? null : (
+        <GuestDoorwayStrip
+          venueWalk={doorways.venueWalk}
+          pabuya={doorways.pabuya}
+          broadcast={broadcastNotice}
+          personalised={identity.kind === 'guest'}
+          dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+        />
+      )}
       {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders

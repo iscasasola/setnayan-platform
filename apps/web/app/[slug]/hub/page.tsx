@@ -455,6 +455,18 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const enabledEgiftCount = pabuyaRouteEnabled
     ? (await fetchEgiftMethods(admin, event.event_id, { enabledOnly: true })).length
     : 0;
+  // 🚨 THE MONEY-GIFT PAGE DOES NOT ASK THE VISIBILITY QUESTION THIS HUB ASKED.
+  // The gate above ran `canViewSlugEvent(effectiveVisibility)`, which reports
+  // 'public' the instant a SCHEDULED launch falls due — before anything has
+  // written the column. `/[slug]/pabuya` runs the same helper against the RAW
+  // column, so in that window it redirects a viewer this hub just admitted. Ask
+  // the destination's own question; when the two visibilities agree the gate
+  // above has already proved the answer, so the ordinary path costs nothing.
+  const rawVisibility = event.landing_page_visibility ?? 'private';
+  const pabuyaViewerAllowed =
+    rawVisibility === effectiveVisibility
+      ? true
+      : await canViewSlugEvent(event.event_id, rawVisibility);
   const doorways = resolveGuestDoorways({
     slug: event.slug ?? slug,
     // The personal token is what makes the 3D room light up THIS guest's seat.
@@ -463,6 +475,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     seatingPublished,
     pabuyaRouteEnabled,
     enabledEgiftCount,
+    pabuyaViewerAllowed,
   });
 
   // ── Directions availability. ───────────────────────────────────────────────

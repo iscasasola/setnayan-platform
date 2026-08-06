@@ -311,6 +311,20 @@ function vendorSlotLabel(kits: readonly VendorKit[]): string {
  * next to the slot rules, because they are the same kind of thing: a decision
  * about whether a door is honest to show.
  *
+ * ── WHERE THE CARDS ARE, AND WHY IT CHANGED ─────────────────────────────────
+ * They were first mounted on the day-of hub — and the hub's own link only
+ * appears once the wedding is live or over. So the 3D room's card said "Look
+ * around the reception BEFORE YOU ARRIVE" on a surface no one could reach
+ * until they had arrived. Both cards now also mount on the event page itself
+ * (`site-body.tsx`, above the identity fork), which is the page every guest
+ * already has: one mount serves the invited guest and the cookie-less relative
+ * alike, in every phase.
+ *
+ * ⚠ NEITHER PAGE IS TIME-GATED — checked, not assumed. `/venue` asks only
+ * whether the plan is published; `/pabuya` asks only its flag, its surface,
+ * its visibility and its destinations. Nothing in either refuses a visitor for
+ * being early, so nothing here needs a phase.
+ *
  * ── THE ONE RULE BOTH OBEY ──────────────────────────────────────────────────
  * 🔑 A DOORWAY MUST BE GATED ON WHAT THE DESTINATION ITSELF DEMANDS, NOT ON
  * WHETHER THE ROUTE EXISTS. Both pages are reachable-but-refusing in ordinary
@@ -350,7 +364,42 @@ export type DoorwayInput = {
    * renders its empty state, so the card would be a door onto an apology.
    */
   enabledEgiftCount: number;
+  /**
+   * MAY THIS VIEWER OPEN THE MONEY-GIFT PAGE AT ALL?
+   *
+   * 🚨 THE ONE PLACE THE DOOR AND THE DESTINATION CAN DISAGREE, AND IT IS NOT
+   * HYPOTHETICAL. `/[slug]/pabuya` runs `canViewSlugEvent` against the RAW
+   * `events.landing_page_visibility` column. Both surfaces that draw this card
+   * — the event page and the hub — decide what THEY show from
+   * `resolveEffectiveVisibility`, which additionally reports 'public' the
+   * instant a SCHEDULED launch falls due, before anything has written the
+   * column (the write is deferred to an `after()` task that is allowed to
+   * fail). So in that window a stranger reads a fully public wedding page,
+   * taps "Send a blessing", and is redirected straight back to where they
+   * started with no explanation.
+   *
+   * The caller answers the destination's own question — the raw column, not
+   * the effective one — and a `false` here removes the card. A door must never
+   * be drawn by a rule laxer than the one at the other end of it.
+   */
+  pabuyaViewerAllowed: boolean;
 };
+
+/**
+ * Everything a doorway decision needs EXCEPT who is holding the phone — the
+ * facts about the event, resolved once by the server and handed down. The slug
+ * and the personal token are added at the render site, because the same page
+ * serves an invited guest (who has one) and a cookie-less relative (who does
+ * not) from ONE resolution of these facts.
+ */
+export type DoorwayFacts = Pick<
+  DoorwayInput,
+  | 'seatingSurfaceEnabled'
+  | 'seatingPublished'
+  | 'pabuyaRouteEnabled'
+  | 'enabledEgiftCount'
+  | 'pabuyaViewerAllowed'
+>;
 
 export type GuestDoorways = {
   /** `/[slug]/venue`, with the personal token when we have one. */
@@ -376,9 +425,116 @@ export function resolveGuestDoorways(input: DoorwayInput): GuestDoorways {
       : null;
 
   // The money-gift page. The flag is the route's own switch; the count is the
-  // difference between a page and an apology.
+  // difference between a page and an apology; the third is the visibility rule
+  // the page itself applies, which is NOT the one this page was drawn under.
   const pabuya =
-    input.pabuyaRouteEnabled && input.enabledEgiftCount > 0 ? `${base}/pabuya` : null;
+    input.pabuyaRouteEnabled && input.enabledEgiftCount > 0 && input.pabuyaViewerAllowed
+      ? `${base}/pabuya`
+      : null;
 
   return { venueWalk, pabuya };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * "WE'LL BE STREAMING" — the sentence that was only ever said too late.
+ *
+ * The broadcast block (`watch-live-block.tsx`) is loaded and rendered ONLY
+ * while `dayOfPhase === 'live'`. Everything before that — the months when a
+ * relative in Dubai or Riyadh is deciding whether to take the day off, and the
+ * morning when they are wondering whether to stay up — says nothing at all.
+ * The couple has saved their broadcast link; the page simply keeps it to
+ * itself until the window opens, which is the one moment the information is no
+ * longer useful.
+ *
+ * ── WHY IT IS A NOTICE AND NOT A DOOR ───────────────────────────────────────
+ * 🔑 THE SAME RULE AS THE CARDS ABOVE, AND IT LANDS THE OTHER WAY HERE. A
+ * doorway is only honest if the destination would let this viewer in — and a
+ * YouTube or Facebook link saved weeks ahead CANNOT be known to be open. A
+ * scheduled premiere shows a countdown; a link typed for a stream not yet
+ * created shows "video unavailable"; and there is no way to tell the two apart
+ * from here, because the Google account that could answer is suspended (appeal
+ * 73857927). The live block already carries an apology for exactly this, and
+ * it is there because on the day the player is unavoidable. Before the day it
+ * is entirely avoidable.
+ *
+ * So this draws NO outbound link. It says one true thing — there will be a
+ * stream, and it will appear on the page they are already looking at — which
+ * is a promise about a page they have open, and therefore the only promise
+ * here that cannot dead-end.
+ *
+ * ── THE FOUR FACTS ──────────────────────────────────────────────────────────
+ * `liveMediaVisible` is load-bearing and easy to miss: a couple may keep the
+ * livestream to invited guests only (`events.live_media_public` FALSE), and
+ * announcing it to a cookie-less stranger would leak the existence of the very
+ * thing they fenced. Rule 3 again — announce features, hide content.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export type BroadcastNoticeInput = {
+  /**
+   * Has the couple saved at least one USABLE destination? Read through
+   * `resolveWatchLinks`, the same reducer the player is built from, so a
+   * forged or malformed stored URL is "no broadcast" here exactly as it is
+   * there. A saved link the player would refuse must not become a promise.
+   */
+  broadcastPlanned: boolean;
+  /**
+   * May THIS viewer tier see the couple's live media at all? Guests always;
+   * a cookie-less visitor only when the couple opted `live_media_public`.
+   * (`resolveSiteBodyPlan().liveMediaVisible` is exactly this value.)
+   */
+  liveMediaVisible: boolean;
+  /** The window this page is rendering in. */
+  dayOfPhase: DayOfPhase | null | undefined;
+  /**
+   * Is the real player already mounted on this page? Two claims about one
+   * broadcast, one of them stale, is worse than the silence this replaces.
+   */
+  playerOnPage: boolean;
+  /**
+   * 🚨 THE SECOND INPUT, AND THE REASON IT EXISTS. `dayOfPhase` CANNOT tell
+   * "before" from "after" on its own: `inactive` is EVERYTHING outside the
+   * day-of window — the months before the wedding AND the Thursday after it.
+   * `post` runs out about two and a half days past the event, and then the
+   * clock says `inactive` again forever. Gating this notice on `post` alone
+   * therefore brings it BACK the following week, telling the guests of a
+   * wedding that already happened that it "will be streamed live" on a date in
+   * the past.
+   *
+   * This is the same trap `navPhaseFor` above documents, one surface over: the
+   * bar had it twice in two days. The honest second input here is the calendar
+   * — `events.event_date`, compared by DATE. Absent/unparseable never
+   * suppresses: an event with no date has not happened.
+   */
+  eventDate: string | null | undefined;
+};
+
+/** Should the "we'll be streaming" notice be drawn? */
+export function showBroadcastNotice(
+  input: BroadcastNoticeInput,
+  now: Date = new Date(),
+): boolean {
+  if (!input.broadcastPlanned) return false;
+  if (!input.liveMediaVisible) return false;
+  if (input.playerOnPage) return false;
+  // Inside the day-of window's tail the phase is enough and is exact.
+  if (input.dayOfPhase === 'post') return false;
+  // Outside it, only the calendar knows which side of the wedding we are on.
+  if (eventDayIsBehindUs(input.eventDate, now)) return false;
+  return true;
+}
+
+/**
+ * Is the event's calendar day strictly before today? Compared as DATES, not
+ * instants, and in UTC — deliberately the crude comparison, because the only
+ * job here is to tell "next March" from "last Saturday". The hours around the
+ * wedding itself are owned by `dayOfPhase`, which is timezone-exact; this
+ * closes the long tail after `post` expires, where the phase stops helping.
+ */
+function eventDayIsBehindUs(eventDate: string | null | undefined, now: Date): boolean {
+  const raw = (eventDate ?? '').trim();
+  if (!raw) return false;
+  const day = raw.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const today = now.toISOString().slice(0, 10);
+  return day < today;
 }

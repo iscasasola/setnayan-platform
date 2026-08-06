@@ -28,16 +28,23 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.0"
   },
+  "comments": {
+    "overrides": "This project is EXCLUDED from the root pnpm workspace (see pnpm-workspace.yaml) — Capacitor needs a flat node_modules — so it carries its own npm overrides. Everything here is devDependency-only asset tooling (@capacitor/assets generates the app icons + splash screens from assets/, run by hand); nothing below ships in the app.",
+    "tar-hoisted": "`tar` was scoped under @capacitor/assets > @capacitor/cli. That left a SECOND copy at the tree root still on 7.5.16, which GHSA-w8wr-v893-vjvp covers (<=7.5.17). Hoisted to a plain top-level override so both resolve to the patched line; still a patch bump inside tar 7.x.",
+    "sharp-and-uuid-left-alone": "sharp@0.32.6 (GHSA-f88m-g3jw-g9cj) and uuid@7.0.3 (GHSA-w5hq-g745-h8pq) stay as they are. Both are patched only across MAJOR/minor lines @capacitor/assets@3.0.5 was never built against (sharp 0.32 -> 0.35 crosses three release lines that removed APIs and repackaged the prebuilt binaries; uuid 7 -> 11 is four majors), and neither is reachable: this tooling runs on the maintainer's own machine over the repo's own icon files, never in CI, never at app runtime. Revisit when @capacitor/assets itself updates.",
+    "seen-and-not-taken": "Do not add an @opentelemetry/core or a web-app sharp entry here — those live in the ROOT package.json's pnpm.overrides and are documented there."
+  },
   "overrides": {
     "@capacitor/assets": {
-      "@capacitor/cli": {
-        "tar": "^7.5.16"
-      },
       "@trapezedev/project": {
         "replace": {
           "minimatch": "3.1.5"
         }
       }
-    }
+    },
+    "brace-expansion@1": "^1.1.18",
+    "brace-expansion@2": "^2.1.4",
+    "brace-expansion@5": "^5.0.9",
+    "tar": "^7.5.18"
   }
 }

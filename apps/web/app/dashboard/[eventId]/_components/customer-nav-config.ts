@@ -78,6 +78,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+import { customerGuestsBadge } from '@/lib/nav-badges';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -117,6 +118,11 @@ export function buildCustomerNavGroups(
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
+
+  // The Guests head-count badge, built ONCE by the shared helper that the
+  // phone's bottom bar also calls — see lib/nav-badges.ts for why the two must
+  // not each derive it.
+  const guestsBadge = customerGuestsBadge(opts?.guestCount);
 
   // Launch = the couple's website control surface. It lives in its OWN "Go live"
   // section (design: setnayan-overview-energy.html), not among the Plan items.
@@ -172,10 +178,9 @@ export function buildCustomerNavGroups(
           icon: Users,
           matchPrefix: `${base}/guests`,
           // Guest-count badge — real head-count resolved in layout.tsx. 0/absent
-          // → no badge (never fabricated).
-          ...(opts?.guestCount && opts.guestCount > 0
-            ? { badge: { count: opts.guestCount, tone: 'neutral' as const } }
-            : {}),
+          // → no badge (never fabricated). The phone's bottom bar renders the
+          // IDENTICAL badge from the same helper.
+          ...(guestsBadge ? { badge: guestsBadge } : {}),
         },
         {
           // 3 · Merkado — vendor marketplace. PLAIN LEAF (owner 2026-07-15:

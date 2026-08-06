@@ -28,16 +28,25 @@ import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
+import { customerGuestsBadge } from '@/lib/nav-badges';
 
 export function CustomerBottomNav({
   eventId,
   phase = 'plan',
   navSlots,
   hideKeys,
+  guestCount,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
   navSlots?: Record<string, NavSlotLite>;
+  /**
+   * Live guest head-count → the Guests tab's badge, identical to the one the
+   * desktop sidebar has always shown. Resolved server-side in layout.tsx and
+   * fail-soft there, so 0/null means "none or could not tell" and the shared
+   * helper renders nothing rather than a badge claiming zero.
+   */
+  guestCount?: number | null;
   /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
   hideKeys?: string[];
@@ -58,7 +67,22 @@ export function CustomerBottomNav({
         : m.key === 'now' || m.key === 'home'
           ? (SetnayanMark as unknown as LucideIcon)
           : m.icon;
-    return [{ key: m.key, label, icon, href: m.href, activeMatch: m.activeMatch, activeMatchExact: m.activeMatchExact }];
+    // Live badge — the SAME helper the desktop sidebar's Guests row uses, so
+    // the phone and the laptop can never show different numbers for the same
+    // thing. Only tabs whose sidebar twin already carries a badge get one;
+    // inventing a count for a tab is a product decision, not a port detail.
+    const badge = m.key === 'guests' ? customerGuestsBadge(guestCount) : undefined;
+    return [
+      {
+        key: m.key,
+        label,
+        icon,
+        href: m.href,
+        activeMatch: m.activeMatch,
+        activeMatchExact: m.activeMatchExact,
+        ...(badge ? { badge } : {}),
+      },
+    ];
   });
 
   return <BottomNav items={items} />;

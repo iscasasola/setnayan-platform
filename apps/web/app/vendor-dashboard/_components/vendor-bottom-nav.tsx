@@ -70,6 +70,7 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import { vendorCustomersBadge } from '@/lib/nav-badges';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -181,9 +182,20 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 export function VendorBottomNav({
   role,
   navSlots,
+  bookingsBadge,
+  threadsBadge,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
+  /**
+   * Inquiries still awaiting Accept/Decline, and unread chat threads. Both are
+   * already fetched in layout.tsx for the desktop sidebar; they are passed here
+   * so the phone shows the SAME badge rather than a second, separately-derived
+   * one. Fail-soft to 0 upstream, so 0 means "none or could not tell" and the
+   * shared helper renders nothing — never a dot claiming zero.
+   */
+  bookingsBadge?: number | null;
+  threadsBadge?: number | null;
 }) {
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
@@ -199,7 +211,7 @@ export function VendorBottomNav({
   // slot (the Home tab keeps key 'profile' for localStorage continuity but maps
   // to the 'home' slot). Fallback = the hardcoded default; hidden slot drops the
   // tab; href/activeMatch stay in code. No-op when navSlots is absent.
-  const items = navSlots
+  const labelled = navSlots
     ? base.flatMap((item) => {
         const slot = navSlots[`vendor.bottom-nav.${item.key === 'profile' ? 'home' : item.key}`];
         if (!slot) return [item];
@@ -207,5 +219,16 @@ export function VendorBottomNav({
         return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
       })
     : base;
+
+  // Live badge, applied AFTER the registry overlay so an admin relabelling a tab
+  // cannot drop its count. Same helper as the desktop sidebar — one rule for
+  // what the number means, in one place.
+  const customersBadge = vendorCustomersBadge(bookingsBadge, threadsBadge);
+  const items = customersBadge
+    ? labelled.map((item) =>
+        item.key === 'customers' ? { ...item, badge: customersBadge } : item,
+      )
+    : labelled;
+
   return <BottomNav items={items} />;
 }

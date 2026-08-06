@@ -74,3 +74,33 @@ public, but its only consumers are `/prototype/mesh-call`. Worth closing when
 that prototype ships.
 
 SPEC IMPACT: None — closes an exposure, changes no product behaviour.
+
+
+---
+
+### 🚨 A NEAR-MISS CAUGHT BEFORE MERGE — this PR would have killed every call
+
+`joinCall` builds its channel as `call:${room}`. The room component was passing
+`room: \`call:${threadId}\`` — so the **live topic was `call:call:{threadId}`**,
+double-prefixed.
+
+On a **public** channel that is invisible: any topic string is accepted, and both
+parties built the same wrong one. It becomes total the moment the channel goes
+**private** — the predicate reads the id after `call:`, gets `call:{uuid}`, fails
+the uuid cast, and returns FALSE for **every call**.
+
+So the security fix, shipped alone, would have taken calling down completely.
+
+Found by accident, one PR later, while fixing unrelated relay copy — with this PR
+already armed to auto-merge. Auto-merge was disarmed, the one-line fix moved into
+**this** PR (where the topic shape becomes load-bearing), and re-armed.
+
+🔑 **Same shape as everything else found today:** two files, each correct about
+itself, wrong about each other. The transport owns the prefix; the caller added
+one too. Neither is wrong alone.
+
+A sixth test now asserts the client's topic and the predicate's parse offset
+agree — **sabotage-verified**: restoring the double prefix fails it by name.
+Its first cut used a fixed-width regex window and broke on a comment between
+`joinCall({` and `room:`; it parses by line now, because a magic character budget
+would break again the next time someone explains something.

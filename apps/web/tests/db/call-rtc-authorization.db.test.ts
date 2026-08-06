@@ -134,3 +134,63 @@ test('the client opens the channel PRIVATE — the half that arms the policies',
     'call-webrtc.ts must open `call:{room}` with private: true',
   );
 });
+
+test('the topic the CLIENT builds is the topic the PREDICATE parses', async () => {
+  // 🔴 THE NEAR-MISS THIS EXISTS FOR.
+  // `joinCall` builds the channel as `call:${room}`. The room component passed
+  // `call:${threadId}`, so the live topic was `call:call:{threadId}` —
+  // double-prefixed. On a PUBLIC channel that is invisible: any topic string is
+  // accepted and both parties build the same wrong one. On a PRIVATE channel it
+  // is total: the predicate reads the id after `call:`, gets `call:{uuid}`,
+  // fails the cast, and denies EVERY call.
+  //
+  // Two files, each correct about itself, wrong about each other — the same
+  // shape as the nav overlap and the tag cap. This asserts they agree.
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const here = path.dirname(new URL(import.meta.url).pathname);
+  const web = path.resolve(here, '../..');
+
+  const transport = fs.readFileSync(path.join(web, 'lib/call-webrtc.ts'), 'utf8');
+  assert.match(
+    transport,
+    /supabase\.channel\(`call:\$\{room\}`/,
+    'the transport must own the `call:` prefix',
+  );
+
+  const room = fs.readFileSync(
+    path.join(web, 'app/_components/thread-call-room.tsx'),
+    'utf8',
+  );
+  // Line-based, not a fixed-width window: a comment between `joinCall({` and
+  // `room:` is exactly what broke the first cut of this assertion, and a magic
+  // character budget would break again the next time someone explains something.
+  const lines = room.split('\n');
+  const start = lines.findIndex((l) => l.includes('joinCall({'));
+  assert.ok(start >= 0, 'could not find the joinCall( call site');
+  const roomLine = lines
+    .slice(start, start + 40)
+    .find((l) => /^\s*room:\s*\S/.test(l));
+  assert.ok(roomLine, 'could not find what the room passes as `room`');
+  const passedValue = roomLine!.replace(/^\s*room:\s*/, '').replace(/,\s*$/, '');
+  assert.equal(
+    passedValue.trim(),
+    'threadId',
+    'The room must pass the BARE thread id. Passing `call:${threadId}` double-' +
+      'prefixes the topic to `call:call:{id}`, which this migration’s predicate ' +
+      'cannot parse — every call would be denied.',
+  );
+
+  // And the predicate must slice at exactly the prefix length: 'call:' is 5.
+  const { MIGRATIONS_DIR } = await import('./replay-migrations');
+  const file = fs
+    .readdirSync(MIGRATIONS_DIR)
+    .find((f) => f.includes('call_rtc_channel_authorization'))!;
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+  assert.match(
+    sql,
+    /substring\(p_topic FROM 6\)/,
+    "'call:' is 5 chars, so the id starts at 6 — if the prefix ever changes, this " +
+      'offset must change with it.',
+  );
+});

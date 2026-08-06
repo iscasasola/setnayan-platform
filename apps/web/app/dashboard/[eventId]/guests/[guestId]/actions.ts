@@ -459,3 +459,89 @@ export async function softDeleteGuest(
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(`/dashboard/${eventId}/guests?removed=1`);
 }
+
+
+/**
+ * RELEASE A CLAIMED SEAT — the couple's undo for a forwarded invitation.
+ *
+ * Owner ruling 2026-08-06: *"the couple has full control of their guests."*
+ *
+ * THE PROBLEM. A personal invitation link is a bearer credential: whoever opens
+ * it IS that guest. Forward it to the family group chat and the first person
+ * through can attach that seat to their own email account permanently. Before
+ * this action there was no undo anywhere in the product, and re-issuing the QR
+ * did not help — see below, which is the whole point of this function.
+ *
+ * 🔑 NEVER SEPARATE THE UNCLAIM FROM THE ROTATION.
+ * This repo has already paid for this lesson once, on Papic seats: nulling the
+ * claimer WITHOUT rotating the token hands the seat straight back to whoever is
+ * still holding the old link — they simply open it again and re-claim. Rotation
+ * is the PRECONDITION, not a tidy-up afterwards. So the rotation happens FIRST
+ * and its failure ABORTS the release; there is no path through this function
+ * that detaches a person while leaving the old QR live.
+ *
+ * What it does, in this order:
+ *   1. rotate `qr_token` (via the existing rotate_guest_qr_token RPC — the same
+ *      one the guest's own self-rotate uses; not a second mechanism)
+ *   2. detach `person_id`, which is what carries the claim
+ *   3. clear `email`, because the claimer overwrote the couple's own record of
+ *      how to reach that guest
+ *
+ * What it deliberately does NOT do: delete the guest, their RSVP, their seat or
+ * their photos. The seat is the couple's; the person who wrongly claimed it just
+ * stops owning it.
+ */
+export async function releaseGuestClaim(
+  eventId: string,
+  guestId: string,
+  _formData: FormData,
+): Promise<void> {
+  // Authorisation is RLS, exactly as softDeleteGuest does it: read the guest
+  // through the SESSION client first. A caller who is not a host of this event
+  // reads nothing and we stop. Only then does the admin client write.
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (readErr || !row) {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent('release_failed')}`,
+    );
+  }
+
+  const admin = createAdminClient();
+
+  // 1. ROTATE FIRST. If this fails we stop — a detached seat whose old QR still
+  //    works is worse than no change at all.
+  const { data: rpcData, error: rpcError } = await admin.rpc('rotate_guest_qr_token', {
+    p_guest_id: guestId,
+  });
+  const rotated = rpcData as { ok?: boolean; qr_token?: string } | null;
+  if (rpcError || !rotated?.ok || typeof rotated.qr_token !== 'string') {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent('release_failed')}`,
+    );
+  }
+
+  // 2 + 3. Only now detach the claim. One statement, scoped to this event.
+  const { error } = await admin
+    .from('guests')
+    .update({ person_id: null, email: null, updated_at: new Date().toISOString() })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent('release_failed')}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(`/dashboard/${eventId}/guests/${guestId}?released=1`);
+}

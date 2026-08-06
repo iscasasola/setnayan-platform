@@ -89,6 +89,37 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
     ],
     confirmWith: 'your local civil registrar',
   },
+  // Added 2026-08-06 — `born_again` and `jewish` were in the events.ceremony_type
+  // CHECK and missing from every guide, so both couples fell to the 'unknown'
+  // entry. Both follow the file's existing posture: a starting point, and an
+  // explicit "confirm with your own clergy" — the app does not presume to
+  // instruct anyone on their own rite.
+  born_again: {
+    label: 'Born Again',
+    overview:
+      'A pastor-led ceremony in a born-again congregation — praise and worship, the Word, and vows before the church.',
+    items: [
+      { dimension: 'officiant', label: 'Pastor', note: 'From your local church; for the marriage to be legal the officiant must be a solemnizing officer registered with the civil registrar.' },
+      { dimension: 'ceremonial', label: 'Praise and worship', note: 'Most services open with a worship set before the message and the vows; the order varies by church.' },
+      { dimension: 'custom', label: 'Premarital counseling', note: 'Commonly required by the church before a date is confirmed — ask early, it can run several weeks.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license still applies (tracked below).' },
+      { dimension: 'food', label: 'Reception', note: 'No restriction (many congregations prefer an alcohol-free program — confirm with your church).' },
+    ],
+    confirmWith: 'your pastor',
+  },
+  jewish: {
+    label: 'Jewish',
+    overview:
+      'A rabbi-led ceremony under the chuppah — the ketubah, the seven blessings, and the breaking of the glass.',
+    items: [
+      { dimension: 'officiant', label: 'Rabbi', note: 'For the marriage to be legal in the Philippines the officiant must also be a solemnizing officer registered with the civil registrar — confirm this early, it is not automatic.' },
+      { dimension: 'ceremonial', label: 'Chuppah and ketubah', note: 'The couple stands beneath the chuppah; the ketubah is signed before or during the ceremony. Details vary considerably between Orthodox, Conservative and Reform.' },
+      { dimension: 'custom', label: 'Choosing the date', note: 'Weddings are traditionally not held on Shabbat or major festivals — your rabbi will help you find dates that work.' },
+      { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license still applies (tracked below).' },
+      { dimension: 'food', label: 'Kashrut', note: 'Many families require kosher catering or a kosher-supervised kitchen — settle this with your caterer before booking.' },
+    ],
+    confirmWith: 'your rabbi',
+  },
   christian: {
     label: 'Christian',
     overview:

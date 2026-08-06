@@ -44,6 +44,7 @@ export type PlatformSettingsRow = {
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
+  onboarding_bg_music_r2_keys: string[];
   /** Master toggle — onboarding music plays only when TRUE AND a track is set. */
   onboarding_bg_music_enabled: boolean;
   /** Ops digest email toggle — OFF by default. See lib/admin/digest-flush.ts. */
@@ -82,7 +83,7 @@ export type PlatformSettingsRow = {
 };
 
 const SELECT =
-  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
+  'id,business_name,business_tin,business_address,business_email,bdo_account_name,bdo_account_number,bdo_qr_url,gcash_account_name,gcash_number,gcash_qr_url,default_vat_rate_pct,onboarding_bg_music_r2_key,onboarding_bg_music_r2_keys,onboarding_bg_music_enabled,admin_digest_enabled,brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version,repost_watch_hamming_threshold,spotlight_homepage_enabled,referral_program_enabled,updated_at';
 
 const FALLBACK: PlatformSettingsRow = {
   id: 1,
@@ -111,6 +112,7 @@ const FALLBACK: PlatformSettingsRow = {
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
+  onboarding_bg_music_r2_keys: [],
   onboarding_bg_music_enabled: true,
   admin_digest_enabled: false,
   brand_icon_master_url: null,
@@ -298,6 +300,48 @@ export async function fetchOnboardingBgMusicUrl(): Promise<string | null> {
     return await displayUrlForStoredAsset(key);
   } catch {
     return null;
+  }
+}
+
+/**
+ * The onboarding background PLAYLIST, in author order.
+ *
+ * Same contract as `fetchOnboardingBgMusicUrl` above — admin client (the
+ * onboarding flow is anonymous), presigned refs, and it swallows every error so
+ * the player simply never mounts rather than breaking sign-up.
+ *
+ * ⚠ FALLS BACK TO THE SINGULAR COLUMN, deliberately. `onboarding_bg_music_r2_keys`
+ * arrived via the 2026-10-11 schema-drift reconcile and sat EMPTY with no writer
+ * and no reader — prod today still has the real track in
+ * `onboarding_bg_music_r2_key` and `[]` in the array. Reading the array alone
+ * would silence the music that is playing right now. The fallback is what makes
+ * this deployable before anyone re-saves in the admin.
+ *
+ * One `onboarding_bg_music_enabled` gate governs both, as before.
+ */
+export async function fetchOnboardingBgMusicUrls(): Promise<string[]> {
+  try {
+    const { createAdminClient } = await import('./supabase/admin');
+    const { displayUrlForStoredAsset } = await import('./uploads');
+    const admin = createAdminClient();
+    const s = await fetchPlatformSettings(admin);
+    if (!s.onboarding_bg_music_enabled) return [];
+
+    const many = (s.onboarding_bg_music_r2_keys ?? []).filter(
+      (k): k is string => typeof k === 'string' && k.startsWith('r2://'),
+    );
+    const refs = many.length > 0
+      ? many
+      : s.onboarding_bg_music_r2_key?.startsWith('r2://')
+        ? [s.onboarding_bg_music_r2_key]
+        : [];
+    if (refs.length === 0) return [];
+
+    const urls = await Promise.all(refs.map((r) => displayUrlForStoredAsset(r)));
+    // A ref that fails to presign is dropped, not rendered as an empty <audio>.
+    return urls.filter((u): u is string => typeof u === 'string' && u.length > 0);
+  } catch {
+    return [];
   }
 }
 

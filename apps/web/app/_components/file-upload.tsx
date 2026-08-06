@@ -186,6 +186,10 @@ function isVideo(contentType: string): boolean {
   return contentType.startsWith('video/');
 }
 
+function isAudio(contentType: string): boolean {
+  return contentType.startsWith('audio/');
+}
+
 function bytesToHuman(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -238,6 +242,15 @@ function contentTypeFromRef(value: string): string {
   if (lower.endsWith('.mp4')) return 'video/mp4';
   if (lower.endsWith('.mov')) return 'video/quicktime';
   if (lower.endsWith('.webm')) return 'video/webm';
+  // Audio has the SAME defect video had, and it was live: an .mp3 fell through
+  // to the JPEG default, isImage() passed, and Thumbnail rendered
+  // <img src="…mp3"> — a broken-image glyph next to the onboarding track on
+  // /admin/ugat?tab=onboarding. Found 2026-08-05.
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.m4a')) return 'audio/mp4';
+  if (lower.endsWith('.aac')) return 'audio/aac';
+  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
   // Default to JPEG — most legacy logos are JPEG/PNG; misclassifying lets
   // the thumbnail still render through the <img> tag.
   return 'image/jpeg';
@@ -889,6 +902,17 @@ function Thumbnail({
           alt={alt}
           className="h-full w-full object-cover"
         />
+      </span>
+    );
+  }
+  // Audio gets a real player, not an icon. The whole point of the admin surface
+  // is knowing WHICH track is set — a filename does not tell you that, and
+  // there was previously no way to hear it without downloading the file.
+  if (isAudio(contentType) && displayUrl) {
+    return (
+      <span className="inline-flex shrink-0 items-center">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- operator preview of an instrumental track */}
+        <audio src={displayUrl} controls preload="none" className="h-9 max-w-[15rem]" />
       </span>
     );
   }

@@ -25,7 +25,10 @@ import { safeNext } from '@/lib/auth';
 import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
-import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
+import {
+  fetchOnboardingBgMusicUrl,
+  fetchOnboardingBgMusicUrls,
+} from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
@@ -89,7 +92,7 @@ export default async function OnboardingWeddingPage({
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, bgMusicUrls, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
@@ -97,6 +100,7 @@ export default async function OnboardingWeddingPage({
     // Owner-uploaded onboarding background music (owner 2026-06-08). Null when
     // unset/disabled/no service-role env → the shell's player never mounts.
     fetchOnboardingBgMusicUrl(),
+    fetchOnboardingBgMusicUrls(),
     // DB-backed refinement catalogue (owner 2026-06-08, items 8 + 9). DB-first,
     // falls back to the static REFINEMENTS_DATA module on any read error/empty.
     getOnboardingRefinements('wedding'),
@@ -165,6 +169,7 @@ export default async function OnboardingWeddingPage({
       religionDefault={religionDefault}
       pricing={pricing}
       bgMusicUrl={bgMusicUrl}
+      bgMusicUrls={bgMusicUrls}
       refinements={refinements}
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}

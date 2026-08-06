@@ -74,6 +74,12 @@ export function hashViewer(id: string): string {
 
 /**
  * Minimum-N gate — TS mirror of the shipped SQL public.min_n_ok(count, floor).
+ *
+ * ⚠ It was NOT a mirror until 2026-08-06. This default is 5; the SQL floor sat
+ * at 1, so the same rule gave different answers on either side of the wire by a
+ * factor of five. Migration 20271119501642 set the SQL operating value to 5 and
+ * added a CHECK >= 3, so the two now agree. If you change FUNNEL_MIN_N, change
+ * platform_settings.radar_min_n_floor with it — or this sentence lies again.
  * Returns true when `count` clears the floor (so the aggregate may be shown).
  */
 export function minNOk(count: number | null | undefined, floor = FUNNEL_MIN_N): boolean {

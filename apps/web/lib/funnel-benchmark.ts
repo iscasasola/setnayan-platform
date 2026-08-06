@@ -10,7 +10,10 @@
  *   • Every band is quantiles-only (p25/p50/p75) + a distinct-peer sample_n. No
  *     peer identity by construction.
  *   • A band only surfaces if it clears the admin-managed min-N floor
- *     (platform_settings.radar_min_n_floor, held >= 3) via public.min_n_ok().
+ *     platform_settings.radar_min_n_floor) via public.min_n_ok(). That floor is a
+ *     PRIVACY CONTROL: its CHECK enforces >= 3 (below which a vendor is readable
+ *     out of a quantile) and the operating value is 5. It said "held >= 3" here
+ *     while prod sat at **1** — see migration 20271119501642.
  *     The band TABLE is RLS-locked with zero policies; the ONLY door is
  *     funnel_benchmark_for_vendor(), which applies the gate — so there is no
  *     path to un-suppressed rows from the client.

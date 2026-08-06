@@ -55,6 +55,7 @@ import {
   AnonInquiryComposer,
   type AnonComposerService,
 } from './_components/anon-inquiry-composer';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import {
   ServicesGallery,
   type ServiceCard,
@@ -1235,6 +1236,22 @@ export async function renderVendorBySlug({
   // onboarding. Signed-out / anonymous → route through signup for a real account.
   const signedInNoEvent =
     user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
+
+  // The event-type question in the anon composer (owner 2026-08-06: "for what
+  // type of event? then onboarding"). Fed from the LIVE vocab so the offered
+  // types can never drift from what create-event will accept — it validates
+  // ?event_type against this very same list and drops anything it doesn't know.
+  // Only fetched when the composer will actually render; getCreatableEventTypes
+  // is request-cached and falls back to the constant roster if the read fails,
+  // so an empty list here means "don't ask", never "silently offer nothing".
+  const anonComposerEventTypes =
+    anonComposerServices.length > 0
+      ? (await getCreatableEventTypes()).map((t) => ({
+          key: t.key,
+          label: t.label,
+          emoji: t.emoji,
+        }))
+      : [];
 
   // Pre-quote blindside #2 (Adaptive Pax Pricing Phase 3): startServiceInquiry
   // silently snapshots this live pax onto chat_threads.pax_at_inquiry, but the
@@ -2566,6 +2583,7 @@ export async function renderVendorBySlug({
               vendorLabel={displayLabel}
               services={anonComposerServices}
               signedInNoEvent={signedInNoEvent}
+              eventTypes={anonComposerEventTypes}
             />
           ) : null}
 

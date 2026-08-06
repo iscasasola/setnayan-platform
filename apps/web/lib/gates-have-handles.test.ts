@@ -135,3 +135,73 @@ test('the writer detector does not pass on a mere mention', () => {
       'are meaningless.',
   );
 });
+
+// ── The same disease one level up: a GATE FUNCTION nobody calls ─────────────
+//
+// 🔴 THIRD INSTANCE, found 2026-08-06. `lib/setnayan-ai-cockpit-flag.ts` exported
+// `cockpitEnabled()` whose own docblock read: "The cockpit renders ONLY when this
+// returns true. Default OFF, so prod today keeps the R3 status board
+// byte-for-byte." Every word false — the function had ZERO IMPORTERS, so it
+// neither held the surface back nor could take it down. The owner believed they
+// held a lever that was connected at neither end.
+//
+// 🔑 A column with no writer and a gate function with no caller are the SAME
+// BUG. The tests above trace the WRITE; this one traces the CALL. Both ask the
+// question an ordinary test cannot: not "is the logic right?" but "does anything
+// reach this at all?"
+//
+// ⚠ ALLOWLIST, NOT A BAN. Parking a flag ahead of its consumers is legitimate and
+// this repo does it deliberately. What is NOT legitimate is a parked flag that
+// CLAIMS to be gating something. Each entry below was read and is genuinely
+// pre-wired, with an accurate docblock. A NEW inert flag fails until it is either
+// wired or added here with a reason — which puts it in the diff, where a reviewer
+// can disagree.
+test('every feature-flag module has at least one non-test importer', () => {
+  const PARKED_ON_PURPOSE = new Map([
+    ['public-api-flag', 'V1 lock: "no public API endpoints" — 0033 plumbs the gateway only.'],
+    ['slot-seat-reservations-flag', 'Owner-parked 2026-08-01; docblock states it is not yet wired.'],
+    ['vendor-free-tier-booking-cap-flag', 'Built ahead of its consumer; docblock says so.'],
+    ['vendor-launch-free-window-flag', 'Built ahead of its consumer; docblock says so.'],
+  ]);
+
+  const dir = join(WEB, 'lib');
+  const flagFiles = readdirSync(dir).filter((f) => f.endsWith('-flag.ts'));
+  assert.ok(
+    flagFiles.length > 20,
+    `only ${flagFiles.length} *-flag.ts modules found — the glob is wrong, and a ` +
+      'guard that inspects nothing passes for the wrong reason.',
+  );
+
+  const inert: string[] = [];
+  for (const file of flagFiles) {
+    const base = file.replace(/\.ts$/, '');
+    let importers = 0;
+    const scan = (d: string) => {
+      for (const n of readdirSync(d)) {
+        if (n === 'node_modules' || n === '.next') continue;
+        const p = join(d, n);
+        if (statSync(p).isDirectory()) scan(p);
+        else if (/\.tsx?$/.test(n) && !/\.test\./.test(n) && !p.endsWith(file)) {
+          if (readFileSync(p, 'utf8').includes(`@/lib/${base}`)) importers++;
+        }
+      }
+    };
+    for (const root of ['app', 'lib', 'components']) {
+      try {
+        scan(join(WEB, root));
+      } catch {
+        /* dir may not exist */
+      }
+    }
+    if (importers === 0 && !PARKED_ON_PURPOSE.has(base)) inert.push(base);
+  }
+
+  assert.deepEqual(
+    inert,
+    [],
+    'These flag modules are imported by nothing, so they gate nothing — a switch ' +
+      'connected at neither end:\n  ' +
+      inert.join('\n  ') +
+      '\n\nWire it, delete it, or add it to PARKED_ON_PURPOSE with a reason.',
+  );
+});

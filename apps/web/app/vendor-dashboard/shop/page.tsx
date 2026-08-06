@@ -1093,35 +1093,54 @@ function HeroCard({
           </p>
         ) : null}
         {publicPath ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p
-              className="inline-flex items-center gap-1.5 font-mono text-xs"
-              style={{ color: 'var(--m-orange-2)' }}
-            >
-              <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              <span className="truncate">
-                {DISPLAY_HOST}
-                {publicPath}
-              </span>
-            </p>
-            <CopyButton
-              value={`${DISPLAY_HOST}${publicPath}`}
-              label="Copy link"
-              copiedLabel="Copied"
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-[color:var(--m-orange-2)] hover:bg-[color:var(--m-orange-3)]"
-            />
-          </div>
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <p
+                className="inline-flex items-center gap-1.5 font-mono text-xs"
+                style={{ color: 'var(--m-orange-2)' }}
+              >
+                <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                <span className="truncate">
+                  {DISPLAY_HOST}
+                  {publicPath}
+                </span>
+              </p>
+              <CopyButton
+                value={`${DISPLAY_HOST}${publicPath}`}
+                label="Copy link"
+                copiedLabel="Copied"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-[color:var(--m-orange-2)] hover:bg-[color:var(--m-orange-3)]"
+              />
+            </div>
+            {/* HOLDING AN ADDRESS IS NOT BEING LISTED. Every shop now gets one
+                the moment it is named (migration 20271117527966), but the page
+                behind it 404s for the public until an admin approves the shop —
+                `public_visibility` is admin-only by owner ruling 2026-07-27
+                ("we only show shops that are ready"). Showing the address with
+                no status attached would read as "you are live", and the vendor
+                would hand the link out to a 404. */}
+            {!data.websiteLive ? (
+              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                This is your address for good — it goes live to couples once
+                Setnayan approves your shop.
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            No public address yet — a custom address is a Pro feature you set in
-            Website.
+            Add your shop name and we&rsquo;ll give you your web address.
           </p>
         )}
       </div>
 
       <CompletenessRing pct={data.completionPct} />
 
-      {publicPath ? (
+      {/* Only offer the outbound preview when the page really renders. A hidden
+          shop's own page 404s for everybody (app/v/[slug]/page.tsx checks
+          `isPubliclyVisible` before the owner-preview carve-out), so linking a
+          not-yet-approved vendor at their own address sends them to a 404 and
+          reads as a broken product. */}
+      {publicPath && data.websiteLive ? (
         <a
           href={publicPath}
           target="_blank"
@@ -1137,8 +1156,8 @@ function HeroCard({
           // The primary CTA must track the vendor's REAL next step, never
           // contradict a 100% ring. Only an actually-unfinished profile says
           // "Finish profile"; a complete-but-unverified shop points at the
-          // verification stage; a complete-and-verified shop (public address is
-          // a separate Pro/Website step) points back into the manage tiles.
+          // verification stage; a complete-and-verified shop points back into
+          // the manage tiles.
           const cta =
             data.completionPct < 100
               ? { href: '#manage-shop', label: 'Finish profile' }

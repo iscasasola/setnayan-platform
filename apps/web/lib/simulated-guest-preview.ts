@@ -153,7 +153,7 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
   rsvp_status: 'attending',
   meal_preference: null,
   dietary_restrictions: null,
-  notes: null,
+  guest_note: null,
   custom_tags: [],
   // Empty, not invented: a fake token that LOOKED real could be pasted into a
   // scanner. Empty makes every token-gated affordance (seat pass, hub QR) fall

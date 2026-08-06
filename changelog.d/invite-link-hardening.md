@@ -78,3 +78,22 @@ Rate-limiting the join door · hiding invite links from search engines · an und
 (a product decision) · giving the guest-session seal its own key. Listed for the owner separately.
 
 SPEC IMPACT: None — no pricing, SKU or scope change.
+
+### Follow-up: the rename had four more consumers, and the local typecheck DOES work
+
+CI's `typecheck + lint` went red after the first push. `notes` → `guest_note` on the guest-facing
+type had four consumers my unit tests could not see: `simulated-guest-preview.ts` and its test,
+`rsvp-projection.test.ts`, and `emcee-script.test.ts`. Every one of those suites passed while the
+build was broken — `tsx --test` strips types and never typechecks.
+
+**Two mistakes worth recording, both mine:**
+1. A blanket find-replace also renamed a **schedule block's** `notes` — a different type entirely
+   that happened to share the field name. Reverted.
+2. The couple-side `Guest` type carries **both** `notes` and `guest_note`; I replaced one with the
+   other instead of adding, so two fixtures went from complete to missing a field.
+
+🔑 **`pnpm --filter @setnayan/web typecheck` runs fine locally with
+`NODE_OPTIONS=--max-old-space-size=12288`.** The standing note that it cannot run locally (~7 GB
+heap → SIGTERM 143) is true only at the DEFAULT heap. Raising it typechecks the whole app and
+returns **0 errors** in a couple of minutes. That turns CI from the only detector into the second
+one — worth knowing before the next rename, because this class of break is invisible to the tests.

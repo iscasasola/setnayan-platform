@@ -4,6 +4,7 @@ import {
   type OwnGuestColumn,
   type GuestColumnStatus,
   type PublishedGuestColumn,
+  bylineFor,
 } from '@/lib/guest-columns';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { GuestColumnForm } from './guest-column-form';
@@ -56,7 +57,7 @@ export async function GuestColumnCard({
         .maybeSingle(),
       admin
         .from('guest_columns')
-        .select('title, body_text, guest_id')
+        .select('title, body_text, guest_id, author_named_publicly')
         .eq('event_id', eventId)
         .eq('status', 'approved')
         .eq('moderation_state', 'clean')
@@ -107,7 +108,7 @@ export async function GuestColumnCard({
         published.push({
           title: r.title,
           body: r.body_text,
-          author: nameOf.get(r.guest_id) ?? null,
+          author: bylineFor(r, nameOf),
         });
       }
     }

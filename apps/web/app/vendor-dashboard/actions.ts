@@ -41,6 +41,7 @@ import {
   parseVideoRef,
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
+import { parseVendorSlug } from '@/lib/vendor-slug';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -53,16 +54,14 @@ function nonBlank(raw: FormDataEntryValue | null, max = 128): string {
   return raw.trim().slice(0, max);
 }
 
-const SLUG_RE = /^[a-z0-9-]{3,32}$/;
-
+/**
+ * Shop address parsing moved to `lib/vendor-slug.ts` so the shape AND the
+ * reserved-word refusal live in one place — the database's own generator
+ * (`public.business_slug_is_reserved`, migration 20271117527966) refuses the
+ * same words, and a reserved address is a dead address, not a shadowed route.
+ */
 function parseSlug(raw: FormDataEntryValue | null): string | null {
-  if (typeof raw !== 'string') return null;
-  const lowered = raw.trim().toLowerCase();
-  if (lowered.length === 0) return null;
-  if (!SLUG_RE.test(lowered)) {
-    throw new Error('Slug must be 3–32 chars: lowercase letters, numbers, hyphens.');
-  }
-  return lowered;
+  return parseVendorSlug(raw);
 }
 
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);

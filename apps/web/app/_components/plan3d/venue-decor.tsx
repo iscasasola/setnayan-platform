@@ -786,7 +786,10 @@ export type VenueArchetype =
   | 'beach'
   | 'chapel'
   | 'barn'
-  | 'rooftop';
+  | 'rooftop'
+  | 'restaurant'
+  | 'heritage'
+  | 'civic';
 
 /** Map the stored `events.venue_setting` (or any prop override) to an archetype.
  *  Unknown / null → banquet_hall (the DB default). */
@@ -808,23 +811,31 @@ export function archetypeFor(venueSetting: string | null | undefined): VenueArch
     case 'rooftop':
     case 'rooftop_bar':
       return 'rooftop';
+    // RESTAURANT now has its own look (owner: "build it", 2026-08-06). It used
+    // to share the `default:` line with everything unknown, which drew it as a
+    // hotel ballroom — right in kind, wrong in character.
+    case 'restaurant':
+      return 'restaurant';
+    // HERITAGE / HACIENDA — adobe walls and an arcade, not a ballroom.
+    case 'heritage':
+    case 'hacienda':
+      return 'heritage';
+    // CIVIL REGISTRAR — a small plain civic room. The defect being fixed is that
+    // it read as GRAND: a registrar's office is the least grand room a couple
+    // will stand in, and drawing it as a ballroom set the wrong expectation.
+    case 'civil_registrar':
+      return 'civic';
+    // DESTINATION → the beach shell. ⚠ A JUDGEMENT CALL, and the corpus flagged
+    // it as genuinely ambiguous: "destination" means AWAY FROM HOME, not a room
+    // shape, and defaulting it to a ballroom was defensible. In the Philippines
+    // a destination resort is overwhelmingly beachfront — Boracay, Palawan,
+    // Bohol — so sand and water is the likelier truth for most couples, and it
+    // costs no new drawing. Reversing it is one line if the owner disagrees.
+    case 'destination':
+      return 'beach';
     case 'banquet_hall':
     case 'ballroom':
     case 'hotel':
-    // RESTAURANT — mapped EXPLICITLY, not left to `default` (2026-08-05).
-    //
-    // A restaurant reception is an indoor room with tables, so the banquet
-    // archetype is right in KIND, and a guest walking the plan sees a correct
-    // room rather than a garden. It is NOT right in character — a restaurant
-    // is smaller, closer-packed and usually bar-led — and a bespoke look is an
-    // open design question, not something to infer here.
-    //
-    // Listing it deliberately is the point: `default` already sent it here, so
-    // this line changes no pixels. It changes whether the next person can tell
-    // that a restaurant was CONSIDERED and mapped, or merely fell through with
-    // heritage, destination and civil_registrar — which did fall through, and
-    // are wrong for it.
-    case 'restaurant':
     default:
       return 'banquet_hall';
   }
@@ -843,6 +854,15 @@ export function archetypeFloorColor(archetype: VenueArchetype, palette: Lab3DPal
       return mix('#c8b090', palette.floor, 0.4); // warm timber floor
     case 'rooftop':
       return mix('#c9cdd3', palette.floor, 0.45); // pale deck
+    // ⚠ These three MUST be listed. Every branch here ends in `default:`, so a
+    // new archetype type-checks with zero edits and silently inherits the
+    // ballroom's floor — compiling green while looking wrong.
+    case 'restaurant':
+      return mix('#8f7a63', palette.floor, 0.35); // dark timber / parquet
+    case 'heritage':
+      return mix('#b9a184', palette.floor, 0.4); // worn terracotta tile
+    case 'civic':
+      return mix('#c4c6c9', palette.floor, 0.4); // plain municipal vinyl
     default:
       return palette.floor;
   }
@@ -862,6 +882,12 @@ export function archetypeBackground(archetype: VenueArchetype): string {
       return '#141118'; // warm dark
     case 'barn':
       return '#171410';
+    case 'restaurant':
+      return '#191512'; // warm, low-lit interior
+    case 'heritage':
+      return '#1b1611'; // candle-warm stone
+    case 'civic':
+      return '#171a1e'; // cool, plain, daylight-lit
     default:
       return '#13151c';
   }
@@ -897,6 +923,12 @@ export function VenueShell({
       return <BarnShell room={room} palette={palette} />;
     case 'rooftop':
       return <RooftopShell room={room} palette={palette} />;
+    case 'restaurant':
+      return <RestaurantShell room={room} palette={palette} />;
+    case 'heritage':
+      return <HeritageShell room={room} palette={palette} />;
+    case 'civic':
+      return <CivicShell room={room} palette={palette} />;
     case 'banquet_hall':
     default:
       return <BanquetShell room={room} palette={palette} />;
@@ -918,6 +950,97 @@ function BanquetShell({ room, palette }: { room: Room; palette: Lab3DPalette }) 
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
         <planeGeometry args={[room.w, room.d]} />
         <meshStandardMaterial color={mix(palette.wall, '#ffffff', 0.3)} roughness={0.95} side={THREE.FrontSide} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Restaurant — an enclosed room that is SMALLER and LOWER than a ballroom, with
+ *  a bar counter along one wall and a warm window band. The character is the
+ *  whole point: a restaurant reception is close-packed and bar-led, and drawing
+ *  it as a hotel ballroom told a couple their venue was something it is not. */
+function RestaurantShell({ room, palette }: { room: Room; palette: Lab3DPalette }) {
+  const wallColor = mix(palette.wall, '#7a4f33', 0.22); // warmer than the ballroom
+  const h = CEILING_Y - 0.6; // lower ceiling — the main cue that this is not a hall
+  const barLen = Math.min(room.w * 0.5, 6);
+  return (
+    <group>
+      <PerimeterWalls room={room} height={h} color={wallColor} opacity={0.94} />
+      {/* Bar counter along the far wall — the one piece of furniture that reads
+          "restaurant" instantly from across the room. */}
+      <mesh position={[0, 0.55, -room.d / 2 + 0.45]}>
+        <boxGeometry args={[barLen, 1.1, 0.6]} />
+        <meshStandardMaterial color={mix('#4a3325', palette.wall, 0.25)} roughness={0.7} />
+      </mesh>
+      {/* Warm window band on the long wall. */}
+      <mesh position={[room.w / 2 - 0.06, h * 0.62, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[room.d * 0.75, 0.85]} />
+        <meshStandardMaterial color="#f0c98a" emissive="#f0c98a" emissiveIntensity={0.45} roughness={1} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
+        <planeGeometry args={[room.w, room.d]} />
+        <meshStandardMaterial color={mix(wallColor, '#000000', 0.35)} roughness={0.95} side={THREE.FrontSide} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Heritage / hacienda — adobe walls, a run of arcade columns, capiz-warm
+ *  windows and a HIGHER ceiling. Ancestral houses and restored haciendas are the
+ *  Philippine heritage venue, and their signature is the arcade. */
+function HeritageShell({ room, palette }: { room: Room; palette: Lab3DPalette }) {
+  const adobe = mix(palette.wall, '#c2a887', 0.45);
+  const h = CEILING_Y + 0.8; // taller than a ballroom — these rooms are lofty
+  const columns = useMemo(() => {
+    const out: [number, number][] = [];
+    const n = Math.max(3, Math.min(6, Math.round(room.d / 3)));
+    for (let i = 0; i < n; i++) {
+      const z = -room.d / 2 + ((i + 1) * room.d) / (n + 1);
+      out.push([-room.w / 2 + 1.1, z]);
+      out.push([room.w / 2 - 1.1, z]);
+    }
+    return out;
+  }, [room]);
+  return (
+    <group>
+      <PerimeterWalls room={room} height={h} color={adobe} opacity={0.95} />
+      {columns.map(([x, z], i) => (
+        <mesh key={i} position={[x, h / 2, z]}>
+          <cylinderGeometry args={[0.22, 0.26, h, 10]} />
+          <meshStandardMaterial color={mix(adobe, '#ffffff', 0.22)} roughness={0.9} />
+        </mesh>
+      ))}
+      {/* Capiz-tone window band — the warm shell light of an ancestral house. */}
+      <mesh position={[0, h * 0.66, -room.d / 2 + 0.06]}>
+        <planeGeometry args={[room.w * 0.7, 1.1]} />
+        <meshStandardMaterial color="#f3e3c0" emissive="#f3e3c0" emissiveIntensity={0.4} roughness={1} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
+        <planeGeometry args={[room.w, room.d]} />
+        <meshStandardMaterial color={mix(adobe, '#000000', 0.3)} roughness={0.95} side={THREE.FrontSide} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Civil registrar — a small, plain, cool civic room with a LOW ceiling.
+ *  Deliberately modest: the defect being fixed is that this read as grand, and a
+ *  registrar's office is the least grand room a couple will ever stand in.
+ *  Showing it as a ballroom set an expectation the day cannot meet. */
+function CivicShell({ room, palette }: { room: Room; palette: Lab3DPalette }) {
+  const wallColor = mix(palette.wall, '#dfe3e8', 0.5); // cool, plain
+  const h = CEILING_Y - 0.8; // the lowest ceiling of any archetype
+  return (
+    <group>
+      <PerimeterWalls room={room} height={h} color={wallColor} opacity={0.96} />
+      <mesh position={[room.w / 2 - 0.06, h * 0.6, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[room.d * 0.5, 0.9]} />
+        <meshStandardMaterial color="#dceaf5" emissive="#dceaf5" emissiveIntensity={0.3} roughness={1} />
+      </mesh>
+      {/* Flat ceiling, NO wash — the wash is what makes the ballroom feel grand. */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
+        <planeGeometry args={[room.w, room.d]} />
+        <meshStandardMaterial color={mix(wallColor, '#000000', 0.12)} roughness={0.98} side={THREE.FrontSide} />
       </mesh>
     </group>
   );

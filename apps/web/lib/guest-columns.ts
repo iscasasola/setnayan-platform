@@ -42,3 +42,35 @@ export type PublishedGuestColumn = {
   body: string;
   author: string | null;
 };
+
+/**
+ * DPO RULING 2026-08-06 — a guest's name is published only if they asked for it.
+ *
+ * The byline is the guest's roster name, typed by the COUPLE. Publishing it on
+ * the open web beside the guest's words is a disclosure the guest never made
+ * about themselves, so the default is no byline and `author_named_publicly` is
+ * the opt-in.
+ *
+ * ⚠ DO NOT "FIX" THIS BY FLIPPING `author_publicly_hidden`. Despite its name it
+ * is not a byline switch: every read path filters `author_publicly_hidden =
+ * false`, so setting it removes the WHOLE MESSAGE from publication. Changing
+ * its default would have silently unpublished every guest message rather than
+ * anonymising it. The two columns answer different questions.
+ *
+ * This helper exists so the rule lives in ONE place. Four separate surfaces
+ * resolve guest bylines, each with its own hand-rolled name lookup; if each also
+ * decided the opt-in for itself, one of them would eventually decide it
+ * differently and publish a name nobody agreed to. `guest-columns-byline.test.ts`
+ * fails if a surface resolves a byline without coming through here.
+ */
+export function bylineFor(row: {
+  author_named_publicly?: boolean | null;
+  guest_id?: string | null;
+}, nameOf: Map<string, string>): string | null {
+  // Fail closed on a pre-migration read: `undefined` means the column is not
+  // there yet, which must read as "not opted in", never as "publish the name".
+  if (row.author_named_publicly !== true) return null;
+  const id = row.guest_id;
+  if (!id) return null;
+  return nameOf.get(id) ?? null;
+}

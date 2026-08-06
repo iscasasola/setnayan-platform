@@ -22,7 +22,7 @@ import {
   fetchPlatformSettings,
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
-import {
+import { bookingFeeErrorCopy,
   isVendorBookingFeeServiceKey,
   isFeeOrderPayable,
   VENDOR_BOOKING_FEES_PATH,
@@ -101,12 +101,18 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           to paid — no action needed on your end.
         </p>
       ) : null}
-      {search.error ? (
+      {/* 🚨 WAS `decodeURIComponent(search.error)` RENDERED DIRECTLY. Harmless
+          only because nothing ever wrote the parameter — a dead reader. Now that
+          it HAS a writer, a fixed code lookup is the difference between showing
+          our own sentence and showing whatever a stranger put in a link, inside
+          our red warning styling, on the screen where a vendor sends us money.
+          An unknown code renders nothing at all. */}
+      {bookingFeeErrorCopy(search.error) ? (
         <p
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {decodeURIComponent(search.error)}
+          {bookingFeeErrorCopy(search.error)}
         </p>
       ) : null}
 
@@ -259,9 +265,9 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         <section className="sn-tile space-y-3 p-5">
           <h2 className="sn-eye">Log your payment</h2>
           <p className="text-xs text-ink/55">
-            Optional but speeds things up — attach your GCash/BDO reference number
-            and a screenshot so our team can match it faster. Logging does not
-            mark the fee paid; our team confirms it.
+            We need the reference number from your GCash or BDO confirmation so
+            our team can match your payment — a screenshot helps but is optional.
+            Logging does not mark the fee paid; our team confirms it.
           </p>
           <form action={logBookingFeePayment} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input type="hidden" name="order_id" value={orderId} />
@@ -284,9 +290,17 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
               <input name="channel" required placeholder="BDO, GCash, etc." className="input-field" />
             </label>
             <label className="space-y-1">
-              <span className="block text-xs font-medium text-ink">Reference number</span>
+              <span className="block text-xs font-medium text-ink">
+                Reference number <span aria-hidden="true">*</span>
+                <span className="sr-only">(required)</span>
+              </span>
+              {/* `required` is a convenience only — the browser accepts a single
+                  space, and a server action can be posted without this page at
+                  all. The rule lives in the action. */}
               <input
                 name="reference_number"
+                required
+                aria-required="true"
                 placeholder="From the bank confirmation"
                 className="input-field"
               />

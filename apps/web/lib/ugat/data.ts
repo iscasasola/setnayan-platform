@@ -296,34 +296,19 @@ export const getUgatCounts = cache(loadUgatCountsCached);
 export const UGAT_PAGE_SIZE = 25;
 
 /**
- * The Ugat console's entity tables — ONE list, and the type derives from it.
+ * The single table list lives in `./data-pure` — see the long note there.
  *
- * 🔴 There used to be three hand-typed copies of these nine keys: this union,
- * `TABLE_META` in ugat-console.tsx (which renders the tabs), and `VALID_TABLES`
- * in ugat/actions.ts (which authorises the fetch). **`VALID_TABLES` had eight.**
- * `communities` was missing, so the Samahan tab rendered, and clicking it threw
- * `Unknown table` — or left the previous table's rows sitting under the Samahan
- * heading, which is worse, because it looks like data.
- *
- * A runtime tuple is the fix: the type is now DERIVED from the array, so adding a
- * table in one place is the only way to add it at all. Two lists that must agree
- * eventually disagree — this repo has paid for that with a status vocabulary
- * spelled 15 times under 6 names, and a ceremony list that reached the database
- * and not the schedule.
+ * It CANNOT live in this file: `ugat-console.tsx` is a `'use client'` component
+ * and needs the tuple at runtime to render its tabs, but this module opens with
+ * `import 'server-only'`, so importing a value from here into the client fails
+ * the production build. Re-exported so every server-side caller keeps its
+ * existing `@/lib/ugat/data` import path.
  */
-export const UGAT_TABLE_KEYS = [
-  'users',
-  'events',
-  'guests',
-  'vendors',
-  'services',
-  'orders',
-  'threads',
-  'billing',
-  'communities',
-] as const;
-
-export type UgatTableKey = (typeof UGAT_TABLE_KEYS)[number];
+export { UGAT_TABLE_KEYS, type UgatTableKey } from './data-pure';
+// A re-export does NOT bind the name locally, and this module uses the type in
+// six of its own signatures — so it is imported as well as re-exported.
+import type { UgatTableKey as UgatTableKeyLocal } from './data-pure';
+type UgatTableKey = UgatTableKeyLocal;
 
 /** A generic display row. `cells` are pre-formatted strings the table renders. */
 export interface UgatRow {

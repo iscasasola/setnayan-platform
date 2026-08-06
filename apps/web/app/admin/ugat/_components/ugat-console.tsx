@@ -37,7 +37,10 @@ import type {
   UgatTablePage,
   UgatSearchGroup,
 } from '@/lib/ugat/data';
-import { UGAT_TABLE_KEYS } from '@/lib/ugat/data';
+// VALUE import (the block above is type-only, and types are erased). It must come
+// from data-pure: `@/lib/ugat/data` is `server-only`, and pulling a value from it
+// into a 'use client' file fails the production build.
+import { UGAT_TABLE_KEYS } from '@/lib/ugat/data-pure';
 import {
   fetchUgatTable,
   fetchUgatSearch,

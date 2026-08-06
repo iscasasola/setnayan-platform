@@ -206,6 +206,23 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-changelog-dir.mjs
 
+      # Fails when a 'use client' file reaches a `server-only` module through a
+      # VALUE import, at any depth. That is a hard `next build` failure —
+      # "You're importing a component that needs server-only" — and NOTHING
+      # else in the toolchain can see it: `tsc` is not a bundler and does not
+      # know what 'use client' means, and the node test runner resolves
+      # `server-only` happily. `next build` is the sole detector, it costs
+      # minutes, and it cannot run on the dev machine (7 GB heap → SIGTERM), so
+      # the only feedback loop was "open a PR and wait". It cost PR #4201 five
+      # red checks and ~20 minutes for a one-line import. This runs in ~1s.
+      # The walk STOPS at 'use server' modules — a client importing an action
+      # is the correct pattern, and following that edge reported 157 false
+      # positives on the first run. See apps/web/scripts/lint-server-only-boundary.mjs.
+      - name: Lint server-only boundary
+        id: guard_server_only
+        continue-on-error: true
+        run: cd apps/web && node scripts/lint-server-only-boundary.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
@@ -281,6 +298,7 @@ jobs:
           DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
+          SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
         run: |
           failed=0
           check() {
@@ -303,6 +321,7 @@ jobs:
           check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
+          check 'lint server-only boundary'   "$SERVER_ONLY"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'

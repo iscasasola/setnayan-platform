@@ -36,7 +36,8 @@
     "ugat:code-map": "tsx scripts/gen-ugat-code-map.ts",
     "schema:snapshot": "tsx scripts/gen-schema-snapshot.ts",
     "typecheck": "NODE_OPTIONS=--max-old-space-size=7168 tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint:server-only": "node scripts/lint-server-only-boundary.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

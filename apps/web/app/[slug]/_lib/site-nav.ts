@@ -249,3 +249,94 @@ function vendorSlotLabel(kits: readonly VendorKit[]): string {
   const only = kits[0];
   return only ? KIT_SLOT_LABEL[only] : 'Tools';
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE DOORS THAT ARE NOT SLOTS.
+ *
+ * A feature audit found two FINISHED, WORKING guest pages that nothing in the
+ * product linked to: the 3D walk-through of the reception (`/[slug]/venue`) and
+ * the money-gift page (`/[slug]/pabuya`). Both shipped, both render — and the
+ * only way to reach either was to type the address by hand.
+ *
+ * ── WHY THEY ARE NOT TABS ───────────────────────────────────────────────────
+ * The bar above holds FIVE slots and both the pre-day and the live-broadcast
+ * bars are already full (Home · Details · Story · Camera · Me, and Now · Watch ·
+ * Camera · Gallery · Me). A sixth tab is not a small addition — it is a redesign
+ * of an owner-locked shape, and a tab that appears only when the bar happens to
+ * have room teaches people the bar is unreliable, which is the exact failure
+ * this file's rulings exist to prevent. So these two are CARDS on a surface a
+ * guest is already reading, and the rules for whether to draw them live HERE,
+ * next to the slot rules, because they are the same kind of thing: a decision
+ * about whether a door is honest to show.
+ *
+ * ── THE ONE RULE BOTH OBEY ──────────────────────────────────────────────────
+ * 🔑 A DOORWAY MUST BE GATED ON WHAT THE DESTINATION ITSELF DEMANDS, NOT ON
+ * WHETHER THE ROUTE EXISTS. Both pages are reachable-but-refusing in ordinary
+ * conditions: `/venue` answers "the 3D venue isn't ready yet" until the couple
+ * PUBLISHES the floor plan, and `/pabuya` answers "hasn't set up e-gifts yet"
+ * until at least one destination is enabled. Linking to either without the
+ * matching check trades an invisible page for a visible dead end, which is
+ * worse — a guest who is turned away once stops tapping.
+ *
+ * Unlike the slots, these NEVER draw locked. A locked tab announces a feature
+ * the invitation promises; a locked card would announce that this couple has a
+ * money-gift page they have not filled in, which is theirs to disclose.
+ * Announce features, hide content — rule 3 above, applied one layer out.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export type DoorwayInput = {
+  /** The event's own slug. Absent → no doors: we cannot build an address. */
+  slug: string | null | undefined;
+  /**
+   * The viewer's personal invitation token, when they hold one. It is what
+   * makes the 3D room show THEIR seat and their tablemates' names; without it
+   * the walk-through still opens, just anonymised.
+   */
+  guestToken?: string | null;
+  /**
+   * Does this event TYPE have seating at all? `public_venue_scene` asks
+   * `event_type_profiles` the same question and answers "not published" when
+   * the answer is no.
+   */
+  seatingSurfaceEnabled: boolean;
+  /** `event_floor_plan.published_at IS NOT NULL` — the RPC's own gate. */
+  seatingPublished: boolean;
+  /** `PABUYA_PUBLIC_ROUTE_ENABLED`. Off ⇒ the route 404s, so no door. */
+  pabuyaRouteEnabled: boolean;
+  /**
+   * How many e-gift destinations the couple has ENABLED. Zero ⇒ the page
+   * renders its empty state, so the card would be a door onto an apology.
+   */
+  enabledEgiftCount: number;
+};
+
+export type GuestDoorways = {
+  /** `/[slug]/venue`, with the personal token when we have one. */
+  venueWalk: string | null;
+  /** `/[slug]/pabuya`. */
+  pabuya: string | null;
+};
+
+/** Resolve the two non-slot doors. `null` means DO NOT DRAW IT. */
+export function resolveGuestDoorways(input: DoorwayInput): GuestDoorways {
+  const slug = (input.slug ?? '').trim();
+  if (!slug) return { venueWalk: null, pabuya: null };
+  const base = `/${encodeURIComponent(slug)}`;
+
+  // The 3D walk-through. Both conditions are the RPC's, restated — if it would
+  // answer `{published:false}`, we do not offer the door.
+  const token = (input.guestToken ?? '').trim();
+  const venueWalk =
+    input.seatingSurfaceEnabled && input.seatingPublished
+      ? token
+        ? `${base}/venue?t=${encodeURIComponent(token)}`
+        : `${base}/venue`
+      : null;
+
+  // The money-gift page. The flag is the route's own switch; the count is the
+  // difference between a page and an apology.
+  const pabuya =
+    input.pabuyaRouteEnabled && input.enabledEgiftCount > 0 ? `${base}/pabuya` : null;
+
+  return { venueWalk, pabuya };
+}

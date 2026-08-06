@@ -44,9 +44,10 @@ import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
-// Coordinator P2 — filtered run-of-show (flag-gated: every ros-p2 surface
-// renders only when NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true', so
-// flag-off/absent keeps this page byte-identical to today).
+// Coordinator P2 — filtered run-of-show. Gated by the Data Privacy board
+// control 'coordinator_run_of_show', NOT by an env var. This comment claimed
+// NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED was the gate; nothing reads it. The
+// control is `active` in prod, so these surfaces render today.
 import {
   EMPTY_ROS_META,
   fetchBlockRosMeta,

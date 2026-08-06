@@ -324,6 +324,28 @@ jobs:
       - name: Lint radius tokens
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+  lint-no-engineering-notes-in-ui:
+    name: lint no engineering notes in ui
+    runs-on: ubuntu-latest
+    # Fails when TODO / FIXME / HACK / WIP survives in rendered UI text under
+    # apps/web/app (comments are stripped first, so a marker where it BELONGS is
+    # always fine). The copy rule — "no TODO, no skeleton, no placeholder text
+    # user-visible" — was already written down in two files and shipped anyway:
+    # the Patiktok booth dashboard rendered "TODO(0017-phase5.2)" and
+    # "TODO(0017-phase4.2)" as on-screen text to couples who had PAID for the
+    # booth and are redirected straight onto that page (2026-08-06). Prose is not
+    # a safety mechanism. Escape hatch: `ui-note-allow: <reason>` on the line.
+    # See apps/web/scripts/lint-no-engineering-notes-in-ui.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint engineering notes in UI
+        run: cd apps/web && node scripts/lint-no-engineering-notes-in-ui.mjs
+
   lint-nested-forms:
     name: lint nested forms
     runs-on: ubuntu-latest

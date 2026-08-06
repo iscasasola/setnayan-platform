@@ -16,22 +16,25 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 type FeatureMeta = {
   Icon: LucideIcon;
-  iteration: string;
   visual: React.ReactNode;
 };
 
 type FeatureCopy = { title: string; oneLiner: string; body: string };
 
-// Language-neutral structural data (icon + iteration tag + the micro-mock
-// illustration). Zips with COPY[locale].features by index — keep both arrays
-// the same length + order. The mocks below stay shared: they're reassurance
-// illustrations (product-screenshot style), not translated prose.
+// Language-neutral structural data (icon + the micro-mock illustration). Zips
+// with COPY[locale].features by index — keep both arrays the same length +
+// order. The mocks below stay shared: they're reassurance illustrations
+// (product-screenshot style), not translated prose.
+//
+// The `iteration` tag was removed 2026-08-06 — it rendered on the PUBLIC
+// features page, in both locales, to anonymous visitors and to Google. Removed
+// as a field, not merely unrendered, so it cannot be re-surfaced by a later edit.
 const FEATURE_META: FeatureMeta[] = [
-  { Icon: Users, iteration: 'Iteration 0001', visual: <GuestListMock /> },
-  { Icon: Armchair, iteration: 'Iteration 0008', visual: <SeatingMock /> },
-  { Icon: Wallet, iteration: 'Iteration 0007', visual: <BudgetMock /> },
-  { Icon: Palette, iteration: 'Iteration 0010', visual: <MoodBoardMock /> },
-  { Icon: CalendarDays, iteration: 'Iteration 0008', visual: <ScheduleMock /> },
+  { Icon: Users, visual: <GuestListMock /> },
+  { Icon: Armchair, visual: <SeatingMock /> },
+  { Icon: Wallet, visual: <BudgetMock /> },
+  { Icon: Palette, visual: <MoodBoardMock /> },
+  { Icon: CalendarDays, visual: <ScheduleMock /> },
 ];
 
 const COPY: Record<
@@ -170,8 +173,13 @@ function FeatureRow({
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
+          {/* The internal spec code that used to prefix this ("Iteration 0001 ·")
+              was visible to every anonymous visitor and to Google, on a page whose
+              job is to make the product look finished. It read as a version number
+              or a beta warning. The pillar label is the part that means something
+              to a couple. */}
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
-            {meta.iteration} · {pillarLabel}
+            {pillarLabel}
           </span>
         </div>
         <h3 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">

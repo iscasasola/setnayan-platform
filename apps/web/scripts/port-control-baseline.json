@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "2bff71107",
-  "routeCount": 404,
-  "destinations": 677,
-  "actions": 513,
+  "generatedFromRef": "3fc488d0d",
+  "routeCount": 403,
+  "destinations": 679,
+  "actions": 514,
   "routes": {
     "/": {
       "files": [
@@ -46,6 +46,7 @@
         "[slug]/_components/editorial/data.ts",
         "[slug]/_components/editorial/editorial-content.tsx",
         "[slug]/_components/editorial/editorial-order.ts",
+        "[slug]/_components/editorial/gallery-anchor.ts",
         "[slug]/_components/editorial/living-moments.tsx",
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/face-data-notice.tsx",
@@ -825,7 +826,7 @@
         "/admin/integrity-watch?tab=listings",
         "/admin/integrity-watch?tab=prices",
         "/admin/integrity-watch?tab=reviews",
-        "/admin/vendors/[seg]"
+        "/admin/vendors/[seg]/edit"
       ],
       "actions": [
         "rescanAction",
@@ -1105,7 +1106,7 @@
       ],
       "destinations": [
         "/admin/repost-watch?status=[seg]",
-        "/admin/vendors/[seg]"
+        "/admin/vendors/[seg]/edit"
       ],
       "actions": [
         "rescanAllRepostWatch",
@@ -1994,7 +1995,8 @@
         "/dashboard/[seg]/website/dress-code",
         "/dashboard/notifications",
         "/help",
-        "/v/[seg]"
+        "/v/[seg]",
+        "/wall/[seg]"
       ],
       "actions": [
         "addLineItem",
@@ -2272,6 +2274,7 @@
       "actions": [
         "deleteAction",
         "inviteAction",
+        "releaseAction",
         "updateAction"
       ]
     },
@@ -2824,7 +2827,10 @@
       "files": [
         "dashboard/[eventId]/studio/live-studio-control/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/api/oauth/youtube/start?event_id=[seg]",
+        "/privacy"
+      ],
       "actions": []
     },
     "/dashboard/[eventId]/studio/live-studio-control/setup": {
@@ -2910,16 +2916,6 @@
         "dashboard/[eventId]/studio/panood/cameras/print/page.tsx"
       ],
       "destinations": [],
-      "actions": []
-    },
-    "/dashboard/[eventId]/studio/panood/reviews": {
-      "files": [
-        "dashboard/[eventId]/studio/panood/reviews/loading.tsx",
-        "dashboard/[eventId]/studio/panood/reviews/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio/panood"
-      ],
       "actions": []
     },
     "/dashboard/[eventId]/studio/panood/setup": {

@@ -11,7 +11,11 @@ export type PapicMissionType =
   | 'vendor_booth'
   | 'face_verified';
 
-export type PapicMissionSource = 'auto' | 'couple' | 'vendor';
+// §9 adds the 'setnayan' lane (the 40-library auto-fill). Never rename/drop the
+// existing three — the DB `source` CHECK was widened to a superset (never-rename lock).
+export type PapicMissionSource = 'auto' | 'couple' | 'vendor' | 'setnayan';
+
+export type CaptureKind = 'photo' | 'clip' | 'pabati';
 
 export type PapicMissionRow = {
   mission_id: string;
@@ -41,6 +45,13 @@ export type GuestMissionRow = {
   target_role: string | null;
   completed: boolean;
   consent_shared: boolean;
+  // §9 board fields (from the papic_guest_missions v4 reader). source/capture_kind
+  // drive the lane badge + the Pabati branch; board_slot is the materialized order
+  // (null = off-board completed archive, or pre-board fail-soft).
+  source: PapicMissionSource;
+  capture_kind: CaptureKind | null;
+  library_id: number | null;
+  board_slot: number | null;
 };
 
 export const MISSION_TYPE_LABELS: Record<PapicMissionType, string> = {
@@ -78,11 +89,127 @@ export function missionProgress(
   return { done, total, allDone: total > 0 && done === total };
 }
 
-// Order for the guest list: not-yet-done first (there's always something to do
-// at the top), then completed. Stable within each group — Array.sort is stable,
-// and the RPC already returns created_at ASC — so ordering stays deterministic.
+// Order for the guest list: not-yet-done first (there's always something to do at
+// the top), then completed. Within each group, by §9 board_slot (the order the
+// resolver assigned; NULLS last for off-board completed rows and the pre-board
+// fail-soft path). Stable + deterministic — mirrors the v4 reader's ORDER BY, so a
+// client re-sort can't disagree with the server board.
 export function sortGuestMissions(missions: readonly GuestMissionRow[]): GuestMissionRow[] {
-  return [...missions].sort((a, b) => Number(a.completed) - Number(b.completed));
+  return [...missions].sort((a, b) => {
+    if (a.completed !== b.completed) return Number(a.completed) - Number(b.completed);
+    const as = a.board_slot ?? Number.POSITIVE_INFINITY;
+    const bs = b.board_slot ?? Number.POSITIVE_INFINITY;
+    return as - bs;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// §9 — the 20-slot 3-lane board resolver (couple ≤10 + vendor ≤5 + Setnayan
+// backfill to 20).
+//
+// ⚠ NON-AUTHORITATIVE. The DB function `ensure_papic_board` is the ONE source of
+// truth (it writes board_slot; the guest reader is a dumb ORDER BY board_slot).
+// This mirror exists ONLY for unit tests + the couple-side preview. It must model
+// the SAME algorithm so a divergence is a test failure, but it MUST NOT become a
+// second selector on a live path — the preview reads materialized board_slot rows.
+// ---------------------------------------------------------------------------
+
+export const BOARD_SIZE = 20;
+export const COUPLE_SLOTS = 10;
+export const VENDOR_SLOTS = 5;
+
+// A library challenge as the resolver sees it (a papic_challenge_library row).
+export type ChallengeLibraryItem = {
+  libraryId: number;
+  priorityRank: number | null; // §9.4 Top-10 (1..10); null = not a guaranteed hero.
+  captureKind: CaptureKind;
+  missionType: PapicMissionType;
+  isActive: boolean;
+};
+
+// A live couple-lane pick (source='couple'). libraryId null = create-your-own.
+// Caller pre-orders by created_at,id (mirrors the SQL couple-lane ordering).
+export type CouplePick = { key: string; libraryId: number | null };
+
+// A vendor-lane mission: paid=source'vendor' (approved) vs booth=source'auto'.
+// Caller passes only LIVE + currently-BOOKED ones, pre-ordered by created_at,id.
+export type VendorLaneMission = { key: string; paid: boolean };
+
+export type BoardResolverInput = {
+  couplePicks: readonly CouplePick[];
+  vendorMissions: readonly VendorLaneMission[];
+  library: readonly ChallengeLibraryItem[];
+  vetoedLibraryIds?: readonly number[]; // couple-hidden Setnayan tombstones (veto wins → backfill).
+  pabatiActive?: boolean; // server-computed; default false = fail-closed (skip Pabati, backfill).
+};
+
+export type BoardEntry =
+  | { slot: number; lane: 'couple'; key: string; libraryId: number | null }
+  | { slot: number; lane: 'vendor'; key: string }
+  | { slot: number; lane: 'setnayan'; libraryId: number };
+
+function rankKey(r: number | null): number {
+  return r == null ? Number.POSITIVE_INFINITY : r; // NULLS LAST, mirroring the SQL ORDER BY.
+}
+
+export function resolveChallengeBoard(input: BoardResolverInput): BoardEntry[] {
+  const pabatiActive = input.pabatiActive ?? false;
+  const vetoed = new Set(input.vetoedLibraryIds ?? []);
+
+  // 1) Couple lane — cap at COUPLE_SLOTS (input already ordered created_at,id).
+  const coupleUsedList = input.couplePicks.slice(0, COUPLE_SLOTS);
+
+  // Taken = EVERY live couple pick's library id (even off-board ones), mirroring
+  // the SQL NOT EXISTS over all couple rows — a Setnayan fill never duplicates a
+  // couple pick.
+  const taken = new Set<number>();
+  for (const p of input.couplePicks) if (p.libraryId != null) taken.add(p.libraryId);
+
+  // 2) Vendor lane — PAID (source='vendor') before FREE booth (source='auto'),
+  // stable within each group, cap at VENDOR_SLOTS. A free booth can never evict a
+  // ₱400-paid slot.
+  const paid = input.vendorMissions.filter((v) => v.paid);
+  const booth = input.vendorMissions.filter((v) => !v.paid);
+  const vendorUsedList = [...paid, ...booth].slice(0, VENDOR_SLOTS);
+
+  // 3) Setnayan lane — backfill the remainder to BOARD_SIZE by priority_rank then
+  // library order, skipping taken/vetoed/inactive, Pabati only when active.
+  const target = BOARD_SIZE - coupleUsedList.length - vendorUsedList.length;
+  const setnayanUsedList =
+    target > 0
+      ? input.library
+          .filter(
+            (l) =>
+              l.isActive &&
+              l.missionType !== 'face_verified' &&
+              (l.captureKind !== 'pabati' || pabatiActive) &&
+              !taken.has(l.libraryId) &&
+              !vetoed.has(l.libraryId),
+          )
+          .slice()
+          .sort((a, b) => rankKey(a.priorityRank) - rankKey(b.priorityRank) || a.libraryId - b.libraryId)
+          .slice(0, target)
+      : [];
+
+  // Assign sequential slots: couple → vendor → Setnayan.
+  const board: BoardEntry[] = [];
+  let slot = 0;
+  for (const p of coupleUsedList) board.push({ slot: ++slot, lane: 'couple', key: p.key, libraryId: p.libraryId });
+  for (const v of vendorUsedList) board.push({ slot: ++slot, lane: 'vendor', key: v.key });
+  for (const l of setnayanUsedList) board.push({ slot: ++slot, lane: 'setnayan', libraryId: l.libraryId });
+  return board;
+}
+
+// §2.2 minor-safety UX pre-check — mirrors the authoritative DB trigger
+// (papic_missions_prompt_guard). Returns true if the free-text prompt is BLOCKED
+// (drinking dares / unsafe prompts). Defense-in-depth: the DB trigger is the real
+// gate; this only spares the couple a round-trip. Not a complete solution (owner
+// accepted the residual 2026-07-23).
+const BLOCKED_PROMPT_RE =
+  /\b(alcohol|tequila|vodka|whiskey|whisky|rum|gin|brandy|beer|liquor|shots?|chug|booze|drunk|strip)\b|get\s+drunk|body\s+shot|down\s+your\s+drink|take\s+(it|them)\s+off|remove\s+your\s+(clothes|top|shirt)|kiss\s+a\s+stranger/i;
+
+export function isChallengePromptBlocked(prompt: string): boolean {
+  return BLOCKED_PROMPT_RE.test(prompt);
 }
 
 // A vendor's own custom challenge for an event (from the papic_vendor_challenges

@@ -8,13 +8,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { papicGamesEnabled } from './papic-games-flag';
 import type {
   GuestMissionRow,
-  PapicMissionRow,
   VendorChallengeRow,
   VendorChallengePhotoRow,
 } from './papic-missions';
 
 // Idempotently generate the FREE booth missions for an event's booked vendors
 // (spec §3.1). Returns the number created. No-op (0) when the flag is off.
+// NOTE: on the guest path this is now called INTERNALLY by ensure_papic_board;
+// couple/coordinator surfaces may still call it directly.
 export async function ensureAutoMissions(
   supabase: SupabaseClient,
   eventId: string,
@@ -28,23 +29,26 @@ export async function ensureAutoMissions(
   return typeof data === 'number' ? data : 0;
 }
 
-// Read an event's LIVE missions (RLS-scoped to the caller). Returns [] when the flag is off.
-export async function fetchEventMissions(
+// Idempotently materialize + rank the §9 20-slot board (couple ≤10 + vendor ≤5 +
+// Setnayan backfill). Supersedes ensureAutoMissions on the guest path —
+// ensure_papic_board calls ensure_papic_auto_missions internally, then fills the
+// Setnayan lane and assigns board_slot. pabatiActive is computed SERVER-SIDE by
+// the caller (eventPabatiActive) and passed in: the resolver is trusted-role-only
+// (never anon), so this value is never client-spoofable, and it defaults fail-closed
+// (false → Pabati #5 is skipped + backfilled). Returns the number of live slots.
+// No-op (0) when the flag is off.
+export async function ensurePapicBoard(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<PapicMissionRow[]> {
-  if (!papicGamesEnabled()) return [];
-  const { data, error } = await supabase
-    .from('papic_missions')
-    .select(
-      'mission_id,event_id,mission_type,source,vendor_id,prompt,target_guest_id,target_role,approved,is_active,created_at',
-    )
-    .eq('event_id', eventId)
-    .eq('is_active', true)
-    .eq('approved', true)
-    .order('created_at', { ascending: true });
-  if (error || !data) return [];
-  return data as unknown as PapicMissionRow[];
+  pabatiActive: boolean,
+): Promise<number> {
+  if (!papicGamesEnabled()) return 0;
+  const { data, error } = await supabase.rpc('ensure_papic_board' as never, {
+    p_event_id: eventId,
+    p_pabati_active: pabatiActive,
+  } as never);
+  if (error) return 0; // fail-soft: a board hiccup must never break the capture surface
+  return typeof data === 'number' ? data : 0;
 }
 
 // A guest reads their OWN event's live missions + own completion flags (anon RPC,

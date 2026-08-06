@@ -12,6 +12,7 @@ import {
   type UgatSavedSearch,
   type UgatSavedSearchKey,
   type UgatCounts,
+  UGAT_TABLE_KEYS,
 } from '@/lib/ugat/data';
 
 /**
@@ -26,16 +27,10 @@ import {
  * audit-log entry to make.
  */
 
-const VALID_TABLES: readonly UgatTableKey[] = [
-  'users',
-  'events',
-  'guests',
-  'vendors',
-  'services',
-  'orders',
-  'threads',
-  'billing',
-];
+// DERIVED — never re-typed. This list held EIGHT of the nine keys: `communities`
+// was missing, so the Samahan tab in the console threw `Unknown table` on every
+// click. Deriving from UGAT_TABLE_KEYS makes that class of drift impossible.
+const VALID_TABLES: readonly UgatTableKey[] = UGAT_TABLE_KEYS;
 
 /**
  * Re-read the nine-plus type-node counts.

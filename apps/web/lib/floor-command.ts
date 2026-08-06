@@ -187,6 +187,14 @@ export const FLOOR_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   invitations: 'Invitations',
   mood_board: 'Mood board',
   budget: 'Budget',
+  // Required by the exhaustive Record — TypeScript refused the build without it,
+  // which is the type system doing its job. NOT added to
+  // FLOOR_REQUESTABLE_AREAS above: that list is what a vendor-coordinator may
+  // ASK FOR mid-event from the floor console, and whether photo access should be
+  // requestable in the middle of someone's wedding is a separate question the
+  // owner has not been asked. The label exists so the area can be NAMED wherever
+  // it is granted.
+  photos: 'Event photos',
 };
 
 export type AreaVerdict = 'granted' | 'declined';

@@ -1,3 +1,60 @@
+# ============================================================================
+# ⚠ THIS REPOSITORY IS CHECKED OUT AT THE USER'S HOME DIRECTORY.
+#
+# That means ~/Documents, ~/Pictures, ~/Downloads, ~/Library, ~/.ssh, ~/.aws,
+# ~/.bash_history, ~/.claude.json and every other personal file physically sits
+# inside this repo's working tree. A single `git add -A` would stage shell
+# history and credential files into a shared repository.
+#
+# So the root is an ALLOWLIST, not a denylist: everything at the top level is
+# ignored, and only the real project paths are added back. This fails CLOSED —
+# a new personal file in the home directory is invisible to git by default.
+#
+# ⚠ CONSEQUENCE: a genuinely NEW top-level project file must be added to the
+# allowlist below, or git will silently ignore it. Nested files are unaffected
+# (anything under apps/, packages/, supabase/, etc. behaves normally).
+# Already-tracked files are never affected by ignore rules.
+# ============================================================================
+/*
+
+# --- project source ---
+!/apps/
+!/packages/
+!/supabase/
+!/scripts/
+!/src-tauri/
+!/changelog.d/
+
+# --- build + tooling config at the root ---
+!/package.json
+!/pnpm-lock.yaml
+!/pnpm-workspace.yaml
+!/turbo.json
+!/tsconfig.base.json
+!/serve-vis.cjs
+!/visual.html
+
+# --- dotfile config that belongs to the project ---
+!/.gitignore
+!/.gitattributes
+!/.gitleaksignore
+!/.editorconfig
+!/.prettierrc
+!/.nvmrc
+!/.env.example
+!/.lighthouserc.json
+!/.github/
+!/.githooks/
+# .claude holds per-session personal state; only the committed launch config
+# is part of the project.
+!/.claude/
+/.claude/*
+!/.claude/launch.json
+
+# --- project documentation at the root ---
+!/*.md
+!/LICENSE
+
 # Dependencies
 node_modules/
 node_modules

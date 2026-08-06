@@ -42,8 +42,10 @@ import {
 } from '@/lib/playlist';
 import { fetchEventSongRequests } from '@/lib/songs';
 import { buildUnsortedTray } from '@/lib/song-desk';
+import { fetchEventSetsForHost, buildVendorSets } from '@/lib/vendor-sets';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
 import { UnsortedTray } from './_components/unsorted-tray';
+import { HostSetlistPanel } from './_components/host-setlist-panel';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -61,7 +63,8 @@ export default async function PlaylistPage({ params }: Props) {
   // Fetch event + booked Music vendor (if any) in parallel with picks.
   // Music vendor detection: scan event_vendors for confirmed bookings
   // matching the four Music canonical categories.
-  const [picksRaw, vibes, flatPicks, eventRow, musicVendorRow] = await Promise.all([
+  const [picksRaw, vibes, flatPicks, eventRow, musicVendorRow, hostSets, actNameRows] =
+    await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
     // The feel per moment (PR 4) — same event scope, so it joins the batch.
     fetchSlotVibes(supabase, eventId),
@@ -87,6 +90,18 @@ export default async function PlaylistPage({ params }: Props) {
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle(),
+    // The band's set lists for THIS event, plus the names to head each block.
+    //
+    // 🚨 DELIBERATELY NOT REUSING `musicVendorRow` ABOVE. That query is capped at
+    // ONE row and filtered by a hand-kept category list ('band_dj', 'host_emcee',
+    // 'choir', 'string_quartet'); an act filed under any other category has built
+    // real sets that would never render. Names come from an unfiltered lookup.
+    fetchEventSetsForHost(supabase, eventId),
+    supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id,vendor_name')
+      .eq('event_id', eventId)
+      .not('marketplace_vendor_id', 'is', null),
   ]);
 
   if (!eventRow.data) redirect('/dashboard');
@@ -98,6 +113,29 @@ export default async function PlaylistPage({ params }: Props) {
   // read into a claim about what the couple did.
   const unsorted = buildUnsortedTray({ flatPicks, placed: picksRaw.rows });
   const grouped = groupPicksBySlot(picksRaw.rows);
+
+  // One block per ACT. `buildVendorSets` groups by SET and never by vendor, and
+  // the uniqueness rule is per act — so two booked acts may BOTH legitimately
+  // have a "Set 1". Feeding the builder everything at once would merge two
+  // bands' running orders into one list.
+  const actNameOf = new Map<string, string>();
+  for (const r of (actNameRows.data ?? []) as { marketplace_vendor_id: string | null; vendor_name: string | null }[]) {
+    const id = r.marketplace_vendor_id;
+    const name = r.vendor_name?.trim();
+    if (id && name) actNameOf.set(id, name);
+  }
+  const setsByAct = new Map<string, typeof hostSets.sets>();
+  for (const set of hostSets.sets) {
+    const bucket = setsByAct.get(set.vendor_profile_id);
+    if (bucket) bucket.push(set);
+    else setsByAct.set(set.vendor_profile_id, [set]);
+  }
+  const hostActs = [...setsByAct.entries()].map(([vendorProfileId, sets]) => ({
+    // The name join legitimately misses — an act can hold a day-of grant with no
+    // booking row at all. A nameless heading is worse than a plain one.
+    actName: actNameOf.get(vendorProfileId) ?? 'Your band',
+    sets: buildVendorSets({ sets, setSongs: hostSets.songs, hostPicksBySlot: grouped }),
+  }));
   const positiveCount = countPositivePicks(picksRaw.rows);
   const bookedMusic = musicVendorRow.data;
 
@@ -178,6 +216,9 @@ export default async function PlaylistPage({ params }: Props) {
       {/* The tray answers "where did my songs go?", which is asked before any
           other question on this page — so it sits above the moments. It renders
           nothing once everything is placed. */}
+      {/* What they're playing reads before what's still unfiled. */}
+      <HostSetlistPanel acts={hostActs} failed={hostSets.failed} />
+
       <UnsortedTray eventId={eventId} entries={unsorted} />
 
       <div className="space-y-5">

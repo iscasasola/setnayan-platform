@@ -239,3 +239,87 @@ export async function fetchVendorEventSets(
 
   return { sets, songs };
 }
+
+/**
+ * The same set list, read by the COUPLE for their own event (owner 2026-08-06).
+ *
+ * Two deliberate differences from `fetchVendorEventSets` above, and both matter:
+ *
+ * 1 · NO `vendor_profile_id` FILTER, and the column is SELECTED. A couple has no
+ *     vendor id, and with several acts booked the caller must be able to tell
+ *     whose set is whose — the vendor reader omits that column because a vendor
+ *     is only ever reading their own.
+ *
+ * 2 · 🚨 IT REPORTS FAILURE INSTEAD OF SWALLOWING IT. `fetchVendorEventSets`
+ *     returns `{sets:[],songs:[]}` on error by design, justified in its own
+ *     docblock by "the vendor is reading their own". That justification does not
+ *     transfer. Here a refused read and an empty set list are the SAME VALUE, and
+ *     rendering the empty one would tell the couple "your band hasn't built a set
+ *     list yet" — a confident, false claim about someone else's work, on the day
+ *     they might be checking it. So `failed` comes back and the caller says
+ *     "we couldn't load this" instead. Same contract as `fetchPlaylistPicks`.
+ */
+export async function fetchEventSetsForHost(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{
+  sets: (VendorSetRow & { vendor_profile_id: string })[];
+  songs: (SetSong & { setId: string })[];
+  failed: boolean;
+}> {
+  const { data: setRows, error } = await supabase
+    .from('vendor_event_sets')
+    .select('set_id, position, name, slot_type, vendor_profile_id')
+    .eq('event_id', eventId)
+    .order('position', { ascending: true });
+
+  if (error) {
+    console.error('fetchEventSetsForHost failed:', error.message);
+    return { sets: [], songs: [], failed: true };
+  }
+  const sets = (setRows ?? []) as (VendorSetRow & { vendor_profile_id: string })[];
+  if (sets.length === 0) return { sets: [], songs: [], failed: false };
+
+  const { data: songRows, error: songError } = await supabase
+    .from('vendor_event_set_songs')
+    .select('set_song_id, set_id, position, song_id, songs(song_id, title, artist)')
+    .in(
+      'set_id',
+      sets.map((s) => s.set_id),
+    )
+    .order('position', { ascending: true });
+
+  if (songError) {
+    // The sets read but their songs did not. Showing set names with no songs
+    // would read as "the band made empty sets", which is worse than saying so.
+    console.error('fetchEventSetsForHost songs failed:', songError.message);
+    return { sets: [], songs: [], failed: true };
+  }
+
+  const songs = ((songRows ?? []) as unknown[]).flatMap((row) => {
+    const r = row as {
+      set_song_id: string;
+      set_id: string;
+      position: number;
+      song_id: number;
+      songs: unknown;
+    };
+    const s = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as
+      | { title?: string; artist?: string }
+      | undefined;
+    const title = s?.title?.trim();
+    if (!title) return []; // a set song whose catalogue row vanished is not renderable
+    return [
+      {
+        setId: r.set_id,
+        setSongId: r.set_song_id,
+        songId: r.song_id,
+        title,
+        artist: s?.artist?.trim() ?? '',
+        position: r.position,
+      },
+    ];
+  });
+
+  return { sets, songs, failed: false };
+}

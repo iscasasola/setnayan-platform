@@ -1,16 +1,31 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Video, ArrowRight } from 'lucide-react';
+import {
+  Video,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Lock,
+  Tv,
+  Unlink2,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
 import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/state-cta';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
+import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
+import {
+  liveStudioPoolOnly,
+  POOL_ONLY_CONNECT_NOTICE,
+} from '@/lib/live-studio-pool-only';
 import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
@@ -38,15 +53,32 @@ import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 
 export const metadata = { title: 'Live Studio · Setnayan' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  // The OAuth routes (api/oauth/youtube/{callback,disconnect}) bounce the host back
+  // with one of these. They used to land on the retired Cast page; that page now
+  // forwards them here, so this is where they have to be acknowledged.
+  searchParams?: Promise<{
+    youtube_connected?: string;
+    youtube_disconnected?: string;
+    youtube_error?: string;
+  }>;
+};
+
+type YoutubeGrant = {
+  external_account_id: string | null;
+  external_account_display: string | null;
+  granted_at: string;
+};
 
 const LIVE_STUDIO_SKU_CODE = 'LIVE_STUDIO';
 const FEATURE_KEY = 'live-studio-roam';
 
-export default async function LiveStudioPage({ params }: Props) {
+export default async function LiveStudioPage({ params, searchParams }: Props) {
   if (!liveStudioRoamEnabled()) notFound();
 
   const { eventId } = await params;
+  const sp = searchParams ? await searchParams : {};
 
   const supabase = await createClient();
   const {
@@ -60,6 +92,32 @@ export default async function LiveStudioPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
+
+  // ⭐ THE REVOKE CONTROL'S NEW HOME (2026-08-06).
+  //
+  // Until this page carried it, the ONLY way a host could disconnect their Google
+  // account was a `<form action="/api/oauth/youtube/disconnect">` on the LEGACY Cast
+  // setup screen — a page reached through a tile for a SKU that has been
+  // is_active=false since 2026-07-26. The unified controller
+  // (/panood/control/[eventId]) connects but never disconnects, and
+  // /admin/live-studio-channels revokes SETNAYAN's own pool channels, not a couple's.
+  // /privacy states, to the public, that this control exists.
+  //
+  // So it lives here now: the surface the SURVIVING Live Studio tile opens, which
+  // cannot be retired without retiring the product. RLS scopes oauth_grants by
+  // event_id IN current_event_ids(), so the user-session client is the right reader.
+  const [oauthConfig, { data: grantRaw }] = await Promise.all([
+    getYoutubeOAuthConfig(),
+    supabase
+      .from('oauth_grants')
+      .select('external_account_id, external_account_display, granted_at')
+      .eq('event_id', eventId)
+      .eq('provider', 'youtube')
+      .is('revoked_at', null)
+      .maybeSingle(),
+  ]);
+  const oauthReady = oauthConfig.ready;
+  const youtubeGrant = (grantRaw ?? null) as YoutubeGrant | null;
 
   // ⭐ WAVE 8: the controller moved out of /dashboard (chrome-less, § 4g) — resolve
   // it through the shared helper so this doorway can never point at the old URL.
@@ -172,46 +230,248 @@ export default async function LiveStudioPage({ params }: Props) {
     </div>
   );
 
+  const youtubeError = sp.youtube_error;
+
   return (
-    <AppStoreLayout
-      back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to add-ons' }}
-      hero={{
-        Icon: Video,
-        eyebrow: 'Live Studio',
-        title: 'Stream it live — your way.',
-        tagline:
-          'Give the people you love a front-row seat from anywhere. Direct a Main Stage between your cameras with a tap, or let each guest choose the angle they want to watch — every corner of your day, live.',
-        statusPill: statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
-        cta,
-      }}
-      stats={stats4}
-      justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
-      highlights={{
-        title: "What you'll have",
-        items: [
-          'One directed Main Stage you cut between cameras with a tap',
-          'Multiple cameras — one per angle, room, or venue',
-          'Guests can pick their own view and switch live',
-          'Cameras join as phones via the event QR — no install, no per-camera fee',
-          'Plays right on your event page, in your colors',
-          'One price, per event — the free single-camera livestream stays free',
-        ],
-      }}
-      description={{
-        paragraphs: [
-          'A celebration happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Studio lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
-          `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
-          'Live Studio merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Studio is the multi-camera upgrade.',
-        ],
-        plans: [planRow],
-        notIncluded: [
-          'Your camera people are friends or family with phones — not a hired crew.',
-          'The free single-camera livestream is a separate, always-free service — Live Studio is the paid multi-camera upgrade.',
-          'No compositing in this version — picture-in-picture, split-screen, and graphics overlays are a later Pro layer. Live Studio cuts cleanly between whole cameras.',
-          'A Setnayan-provided camera kit is an optional add-on, not included in this price.',
-          'Build state: the switching controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',
-        ],
-      }}
-    />
+    <div className="space-y-8">
+      {sp.youtube_connected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          YouTube connected
+          {youtubeGrant?.external_account_display
+            ? ` — ${youtubeGrant.external_account_display}`
+            : ''}
+          . Your broadcast will go live on this channel.
+        </p>
+      ) : null}
+
+      {sp.youtube_disconnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          YouTube disconnected. Reconnect any time to re-enable the broadcast.
+        </p>
+      ) : null}
+
+      {/* `pool_only` is NOT an error — Setnayan supplies the channel, so the couple
+          reached a door that was never theirs to open. Nothing failed and retrying
+          cannot help, so it renders as a STATUS, using the same shared constant the
+          closed door and the controller use. Checked BEFORE the generic branch, or
+          the couple reads "connection failed · contact support" about a non-event. */}
+      {youtubeError === 'pool_only' ? (
+        <p
+          role="status"
+          className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+        </p>
+      ) : youtubeError ? (
+        <p
+          role="alert"
+          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>
+            YouTube connection failed (
+            <span className="font-mono text-xs">{youtubeError}</span>
+            ). Try again, or contact support if this persists.
+          </span>
+        </p>
+      ) : null}
+
+      <AppStoreLayout
+        back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to add-ons' }}
+        hero={{
+          Icon: Video,
+          eyebrow: 'Live Studio',
+          title: 'Stream it live — your way.',
+          tagline:
+            'Give the people you love a front-row seat from anywhere. Direct a Main Stage between your cameras with a tap, or let each guest choose the angle they want to watch — every corner of your day, live.',
+          statusPill: statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
+          cta,
+        }}
+        stats={stats4}
+        justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
+        highlights={{
+          title: "What you'll have",
+          items: [
+            'One directed Main Stage you cut between cameras with a tap',
+            'Multiple cameras — one per angle, room, or venue',
+            'Guests can pick their own view and switch live',
+            'Cameras join as phones via the event QR — no install, no per-camera fee',
+            'Plays right on your event page, in your colors',
+            'One price, per event — the free single-camera livestream stays free',
+          ],
+        }}
+        description={{
+          paragraphs: [
+            'A celebration happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Studio lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
+            `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
+            'Live Studio merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Studio is the multi-camera upgrade.',
+          ],
+          plans: [planRow],
+          notIncluded: [
+            'Your camera people are friends or family with phones — not a hired crew.',
+            'The free single-camera livestream is a separate, always-free service — Live Studio is the paid multi-camera upgrade.',
+            'No compositing in this version — picture-in-picture, split-screen, and graphics overlays are a later Pro layer. Live Studio cuts cleanly between whole cameras.',
+            'A Setnayan-provided camera kit is an optional add-on, not included in this price.',
+            'Build state: the switching controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',
+          ],
+        }}
+      />
+
+      <YoutubeChannelPanel
+        eventId={eventId}
+        oauthReady={oauthReady}
+        grant={youtubeGrant}
+      />
+    </div>
+  );
+}
+
+/**
+ * "Your YouTube channel" — connect, and (the part that matters) DISCONNECT.
+ *
+ * Four states, in the order the couple can be in:
+ *   1. Setnayan supplies the channel (pool-only) → nothing to connect, and
+ *      /api/oauth/youtube/start answers 409, so a button here would be a fake door.
+ *   2. OAuth not configured yet → an honest "not available yet", never a dead button.
+ *   3. Connected → who it is, when, and the way OUT.
+ *   4. Otherwise → Connect.
+ *
+ * Pool-only is checked FIRST on purpose: it is a compliance boundary (an
+ * Internal-audience OAuth client would refuse these users anyway), not a fallback.
+ */
+function YoutubeChannelPanel({
+  eventId,
+  oauthReady,
+  grant,
+}: {
+  eventId: string;
+  oauthReady: boolean;
+  grant: YoutubeGrant | null;
+}) {
+  const poolOnly = liveStudioPoolOnly();
+  const grantedDate = grant
+    ? new Date(grant.granted_at).toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+
+  return (
+    <section
+      aria-labelledby="live-studio-youtube-heading"
+      className="sn-tile space-y-4 p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <p className="sn-eye">Your channel</p>
+        <h2
+          id="live-studio-youtube-heading"
+          className="flex items-center gap-2 text-xl font-semibold tracking-tight"
+        >
+          <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          Your YouTube channel
+        </h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          Connect a channel and your broadcast goes out on <em>your</em> YouTube — the
+          watch link and the recording stay yours. We ask for one permission, the
+          narrowest one that can start a live broadcast: no upload access, and nothing
+          about your email, profile, other videos, subscribers or comments.
+        </p>
+      </div>
+
+      {poolOnly ? (
+        <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
+          {POOL_ONLY_CONNECT_NOTICE}
+        </p>
+      ) : !oauthReady ? (
+        <div className="sn-row p-5">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/55"
+            >
+              <Lock className="h-4 w-4" strokeWidth={1.75} />
+            </span>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-ink/85">Not available yet</p>
+              <p className="max-w-prose text-xs text-ink/60">
+                Setnayan&rsquo;s YouTube app review is still with Google. We&rsquo;ll email
+                you the moment the Connect button lights up — everything else on this page
+                works in the meantime.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : grant ? (
+        <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-success-100 text-success-700"
+              >
+                <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-ink">
+                  Connected to YouTube:{' '}
+                  {grant.external_account_display ?? 'Connected channel'}
+                </p>
+                <p className="font-mono text-[11px] text-ink/55">
+                  {grant.external_account_id ? `Channel id ${grant.external_account_id} · ` : ''}
+                  Connected {grantedDate}
+                </p>
+              </div>
+            </div>
+            {/* ⭐ THE ONE CONTROL THIS PAGE EXISTS TO KEEP ALIVE. Guarded by
+                lib/live-studio-cast-retirement.test.ts — do not remove it without
+                putting it somewhere a couple can still reach. */}
+            <form action="/api/oauth/youtube/disconnect" method="post">
+              <input type="hidden" name="event_id" value={eventId} />
+              <SubmitButton
+                pendingLabel="Disconnecting…"
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+              >
+                <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Disconnect
+              </SubmitButton>
+            </form>
+          </div>
+          <p className="text-xs text-ink/65">
+            Disconnecting stops Setnayan using this channel and deletes the key we hold
+            for it, and we ask Google to cancel our access. That last step is
+            best-effort — remove Setnayan from your Google account permissions if you
+            want to be certain.{' '}
+            <Link href="/privacy" className="text-terracotta hover:underline">
+              How we handle Google data
+            </Link>
+            .
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
+          <Link
+            href={`/api/oauth/youtube/start?event_id=${eventId}`}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+          >
+            <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Connect YouTube
+          </Link>
+          <p className="text-xs text-ink/55">
+            You&rsquo;ll go to Google to grant access, then come straight back here. About
+            20 seconds — and you can disconnect from this page any time.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

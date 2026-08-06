@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
-import { liveStudioControllerHref } from '@/lib/live-studio-control';
+import { liveStudioControllerHref, LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   fetchPanoodCameras,
   panoodCameraClaimUrl,
@@ -57,12 +58,29 @@ export default async function PanoodCamerasPage({ params }: Props) {
   const isMember = await requirePanoodControlRoomMember(eventId, user.id);
   if (!isMember) redirect(`/dashboard/${eventId}`);
 
-  const tier = await resolvePanoodTier(supabase, eventId);
-  const cap = panoodCameraCapForTier(tier);
+  const admin = createAdminClient();
+
+  // ⭐ ASK BOTH QUESTIONS (2026-08-06). `resolvePanoodTier` answers only "did this
+  // event buy Cast?" — and both Cast SKUs are retired (is_active=false, zero orders
+  // ever). The SKU that replaced them is LIVE_STUDIO (₱2,999), and the ownership
+  // alias in lib/entitlements.ts is deliberately ONE-DIRECTIONAL: a Cast buyer owns
+  // Live Studio, a Live Studio buyer does NOT own Cast. So a couple who had just paid
+  // ₱2,999 resolved to 'free' here and read "you have 3 cameras free to test with…
+  // until you unlock Live Studio" — about the thing they had already unlocked.
+  //
+  // ADMIN CLIENT for the ownership read: `orders` RLS is PURCHASER-scoped, so a
+  // co-host who did not place the order would read 'free' under their own session and
+  // see the same false sentence. This page is already gated on control-room
+  // membership above, which is the authorization boundary.
+  const [castTier, liveStudioOwned] = await Promise.all([
+    resolvePanoodTier(supabase, eventId),
+    eventSkuActive(admin, eventId, LIVE_STUDIO_SKU).catch(() => false),
+  ]);
+  const unlocked = castTier !== 'free' || liveStudioOwned;
+  const cap = panoodCameraCapForTier(unlocked ? 'paid' : 'free');
 
   // Provision before reading, so a first visit on the free tier shows seats immediately rather
   // than an empty page that self-heals on reload. Idempotent top-up; never destructive.
-  const admin = createAdminClient();
   await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
   const cameras = await fetchPanoodCameras(admin, eventId).catch(() => []);
 
@@ -113,7 +131,7 @@ export default async function PanoodCamerasPage({ params }: Props) {
         <p className="max-w-prose text-sm text-ink/65">
           Send one link per camera to whoever is holding that phone. They open it, tap once, and
           their camera appears in your control room — no app to install, no account to make.
-          {tier === 'free' && (
+          {unlocked ? null : (
             <>
               {' '}
               You have <strong>{PANOOD_FREE_CAMERA_COUNT} cameras free</strong> to test with. Every

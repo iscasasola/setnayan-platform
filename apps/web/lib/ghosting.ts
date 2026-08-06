@@ -133,7 +133,16 @@ export async function runLoginGhostingCheck(
         const { data: confirmed, error: confirmedError } = await admin
           .from('event_vendors')
           .select(
-            'event_id, marketplace_vendor_id, status, event:events!inner(event_id, event_date)',
+            // ⚠ THE FOREIGN KEY IS NAMED ON PURPOSE. A bare `events!inner`
+            // is AMBIGUOUS: PostgREST finds two ways to reach `events` from
+            // `event_vendors` — the direct `event_vendors_event_id_fkey`, and a
+            // many-to-many through `event_build_picks` — and refuses the whole
+            // query with PGRST201 rather than guessing. `confirmed` then came
+            // back null and the T-7-days "confirm you're ready" email sent to
+            // NOBODY. That is the SECOND time this exact query has been killed
+            // by a silent query error (see the 42703 note above), and both times
+            // the only symptom was an email that never arrived.
+            'event_id, marketplace_vendor_id, status, event:events!event_vendors_event_id_fkey!inner(event_id, event_date)',
           )
           .in('marketplace_vendor_id', vpIds)
           .in('status', ['contracted', 'deposit_paid'])

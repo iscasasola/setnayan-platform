@@ -1,0 +1,133 @@
+-- 20271116688263_sec_close_four_anon_rpcs_from_2026_08_01_review.sql
+--
+-- SEC · The five NEEDS_REVIEW lines the 2026-08-01 anon-RPC sweep left open.
+-- Four are closed here. The fifth was a FALSE FLAG and nothing is revoked for
+-- it — see § 4, which matters more than the revokes: a security file that
+-- records a non-issue as an issue spends every future reader's attention on it.
+--
+-- Follows migration 20271028837115 exactly: signatures verified against
+-- pg_get_function_identity_arguments (a REVOKE on a signature that does not
+-- exist ERRORS and takes the whole migration with it), and every caller located
+-- by its actual `.rpc(...)` call site rather than by a name grep — a grep
+-- cannot tell a service-role client from a session one, and that distinction IS
+-- the decision here.
+--
+-- ⚠ REVOKE ... FROM anon, authenticated IS NOT ENOUGH ON ITS OWN. Every one of
+-- these carries `=X/postgres` in proacl — EXECUTE granted to PUBLIC — so anon
+-- would keep inheriting it through PUBLIC. FROM PUBLIC is load-bearing, not
+-- decoration.
+--
+-- ── 1 · refresh_vendor_fraud_scores() — off anon AND authenticated ─────────
+-- The clearest of the five, and the only one that is not a read. It takes NO
+-- arguments, performs NO identity check, and its body is
+-- `REFRESH MATERIALIZED VIEW CONCURRENTLY public.vendor_fraud_scores` — real
+-- write work over the vendor tables. It then swallows EVERY error (the inner
+-- handler downgrades to RAISE WARNING), so an anonymous caller holding nothing
+-- but the publishable key that ships in the public JavaScript bundle gets a
+-- 200 back on every call and can loop without ever learning it is failing.
+-- That is a denial-of-service shape, not a disclosure one, which is why a
+-- read-oriented sweep filtered it as low risk.
+--   Callers, all admin/service-role:
+--     app/admin/fraud/actions.ts:127        admin.rpc(...)
+--     app/admin/fraud/actions.ts:342        admin.rpc(...)  (in the wipe loop)
+--     lib/fraud-detection-runner.ts:345     admin.rpc(...)
+--     lib/fraud-detection-runner.ts:394     admin.rpc(...)
+REVOKE ALL ON FUNCTION public.refresh_vendor_fraud_scores()
+  FROM PUBLIC, anon, authenticated;
+
+-- ── 2 · papic_event_points_remaining(uuid) — off anon AND authenticated ────
+-- The wrapper the 2026-08-01 pass missed. That migration revoked
+-- papic_event_pool_status(p_event_id uuid) from PUBLIC, anon, authenticated —
+-- and this function is a SECURITY DEFINER wrapper whose entire body is
+-- `SELECT ... FROM public.papic_event_pool_status(p_event_id)`. Closing the
+-- reader while leaving an anon-callable definer wrapper over it left the room
+-- locked and the window open.
+--
+-- Every other member of the Papic pool family was already postgres+service_role
+-- only — papic_reserve_event_points, papic_seat_dedicated_points,
+-- papic_event_points_remaining_for_seat. This was the odd one out, not a
+-- deliberate guest surface.
+--   Only caller: papicEventPoolPreCheckExhausted (lib/papic-event-pool-gate.ts:30),
+--   `admin.rpc(...)`, reached from app/api/papic/guest-capture/route.ts:334.
+-- ⚠ The GUEST CAPTURE PATH IS NOT AFFECTED. It runs on the service-role client,
+-- and the seat variant that guests meter against
+-- (papic_event_points_remaining_for_seat) calls this one from INSIDE a SECURITY
+-- DEFINER body, which executes as the owner. Asserted end-to-end in
+-- tests/db/anon-rpc-2026-08-01-review-closures.db.test.ts.
+REVOKE ALL ON FUNCTION public.papic_event_points_remaining(p_event_id uuid)
+  FROM PUBLIC, anon, authenticated;
+
+-- ── 3 · Off anon; `authenticated` is REQUIRED and deliberately kept ────────
+-- Both are the id-as-credential shape the baseline header names: an event id is
+-- not a secret, it sits in guest-facing URLs. But neither can lose
+-- `authenticated`, because both are read by server code running on the SIGNED-IN
+-- USER'S OWN client, and BOTH WRAPPERS SWALLOW THE ERROR — so over-revoking
+-- would not throw, it would silently change what the product believes:
+--
+--   event_host_is_internal(uuid)
+--     eventHostIsInternal (lib/entitlements.ts:103) returns false on ANY rpc
+--     error, and eventSkuActive ORs it in last. Revoking `authenticated` would
+--     silently strip the §10a internal-host permanent grant on every surface
+--     that passes a session client (dashboard/[eventId]/live, .../launch,
+--     .../studio/panood/setup, panood/control/[eventId]) — the exact defect
+--     migration 20270806100000 was written to fix, re-introduced invisibly.
+--     Every PUBLIC/guest surface (wall/[eventId], [slug]/*, [slug]/live-wall)
+--     already passes a service-role admin client, so anon loses nothing real.
+--
+--   review_is_booked_through_setnayan(uuid, uuid)
+--     resolveBookedThroughSetnayan (lib/reviews.ts:358) runs on the couple's own
+--     session client inside createReview, behind an event_members couple/
+--     coordinator gate (app/dashboard/[eventId]/vendors/[vendorId]/review/
+--     actions.ts:220). The authoritative re-derivation happens in the
+--     stamp_review_provenance BEFORE trigger, which is SECURITY DEFINER and
+--     therefore executes as the owner — the trigger is unaffected by this
+--     revoke. No RLS policy references either function (checked against
+--     pg_policies).
+--
+-- ⚠ RESIDUAL, STATED RATHER THAN HIDDEN: a signed-in account can still ask
+-- review_is_booked_through_setnayan about ANY (event, vendor) pair and learn
+-- whether that event booked that vendor. Narrowing it further means adding a
+-- membership check INSIDE the body, and the body is also on the write path via
+-- stamp_review_provenance — where a service-role insert has a NULL auth.uid()
+-- and would silently start recording the WRONG provenance. That is a guard that
+-- fails open and quiet, so it is not being bolted on here. Recorded in the
+-- baseline note instead of being quietly dropped.
+REVOKE ALL ON FUNCTION public.event_host_is_internal(p_event_id uuid)
+  FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)
+  FROM PUBLIC, anon;
+
+-- ── 4 · reveal_vendor_name_on_first_reply() — NOT A FINDING, NOT REVOKED ───
+-- Deliberately no statement here. The flag said it "branches on client-supplied
+-- NEW.sender_role", which describes the TRIGGER, not the grant: the function
+-- RETURNS trigger, so PostgreSQL refuses a direct invocation ("trigger
+-- functions can only be called as triggers") and PostgREST never exposes it.
+-- The anon EXECUTE bit on it is inert.
+--
+-- Two independent corroborations, not just a reading:
+--   · ~25 sibling entries in the same baseline are already CORRECTLY_FILTERED
+--     for precisely this reason — including its own twin,
+--     reveal_vendor_name_on_accept.
+--   · The repo's OTHER derived guard already agrees: the exposure-surface
+--     collector excludes `prorettype = 'pg_catalog.trigger'` outright, which is
+--     why this function appears in the anon-RPC baseline and NOT in
+--     supabase/security/exposure-surface.baseline.txt. The two guards disagreed,
+--     and the anon-RPC one was the one that was wrong.
+-- The baseline note is corrected in the same PR; the grant is left alone,
+-- because revoking to make a file look tidy teaches the next reader that the
+-- file's verdicts are decoration.
+--
+-- ⚠ THERE *IS* A REAL RESIDUAL HERE, AND IT IS NOT THIS FUNCTION'S GRANT.
+-- chat_messages' INSERT policy (`chat_messages_member_insert`) lets a couple
+-- insert into their own event with a caller-chosen `sender_role`, and THREE
+-- AFTER INSERT triggers branch on `NEW.sender_role = 'vendor'`:
+-- reveal_vendor_name_on_first_reply (vendor_profiles.name_revealed_at),
+-- tg_chat_messages_unlock_vendor_name (vendor_profiles.real_name_unlocked_at)
+-- and stamp_vendor_first_reply (chat_threads.vendor_first_reply_at). So a
+-- forged "vendor" message unmasks a vendor's real name before the vendor ever
+-- replied. That is a policy + product change on the live messaging path
+-- affecting three triggers and the service-role bot inserts — it needs its own
+-- PR and its own tests, exactly like `papic_grant_camera_points` was carved out
+-- of 20271028837115. Named here so it cannot be lost.
+--
+-- IDEMPOTENT — REVOKE is naturally so.

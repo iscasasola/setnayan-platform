@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6227
+# facts: 6225
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4497
 #   policy    835
 #   view      9
-#   func      211
+#   func      209
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6096,7 +6096,7 @@ func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,a
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
-func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
+func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6143,7 +6143,6 @@ func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated se
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_points_remaining(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6163,7 +6162,6 @@ func	public.recompute_market_price_bands()	secdef=yes exec=anon,authenticated se
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.refresh_vendor_fraud_scores()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refund_displaced_inquiry_unlock(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.register_guest_claim_otp_attempt(p_claim_id uuid)	secdef=yes exec=anon search_path=public
 func	public.reject_vendor_deposit(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
@@ -6181,7 +6179,7 @@ func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.respond_vendor_proposal(p_proposal_id uuid, p_response text, p_coarse_category text)	secdef=yes exec=authenticated search_path=public
-func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
+func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog

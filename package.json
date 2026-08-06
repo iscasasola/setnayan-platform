@@ -32,19 +32,27 @@
   },
   "pnpm": {
     "comments": {
-      "overrides": "Security patches for transitive (+ direct postcss) CVEs surfaced by `pnpm audit` (2026-06-25). Each key is scoped to the vulnerable range WITHIN its major and bumped to the patched floor in the SAME major (caret), so no parent gets a breaking major bump. Drop an entry once the upstream parent bumps past it."
+      "overrides": "Security patches for transitive (+ direct postcss) CVEs surfaced by `pnpm audit` (2026-06-25). Each key is scoped to the vulnerable range WITHIN its major and bumped to the patched floor in the SAME major (caret), so no parent gets a breaking major bump. Drop an entry once the upstream parent bumps past it.",
+      "uuid-9-exception": "`uuid@>=9.0.0 <10.0.0` is the ONE cross-major entry (2026-08-06). GHSA-w5hq-g745-h8pq has no patched 9.x line — the fix only exists at 11.1.1 — and the sole consumer of uuid 9 in this tree is @sentry/webpack-plugin, a BUILD-TIME plugin that does `import { v4 } from 'uuid'` / `require('uuid').v4`. uuid 11's export surface is a strict superset of uuid 9's (NIL, parse, stringify, v1, v3, v4, v5, validate, version all present), so the named import resolves identically. Verified by diffing `Object.keys()` of both packages, not by reading release notes.",
+      "opentelemetry-core-1x-left-alone": "@opentelemetry/core@1.30.1 stays VULNERABLE on purpose (GHSA-8988-4f7v-96qf, medium). The advisory's only patched version is 2.8.0 and there is no 1.x line. Forcing 1.30.1 -> 2.8.0 removes 20 exports, two of which @sentry/node@8.55.2 imports by name — `VERSION` and `isWrapped` — so the override would break Sentry server-side instrumentation at import time. Verified by diffing the two packages' exports. The real fix is a @sentry/nextjs major upgrade (v9+ ships OTel 2.x); that is its own PR, not a lockfile bump.",
+      "sharp-next-copy": "`sharp@>=0.34.0 <0.35.0` collapses next@15.5.21's own optionalDependency copy (declared `^0.34.3`) onto the same 0.35.3 the web app uses. Without it pnpm keeps a SECOND sharp at 0.34.5 carrying the vulnerable libvips (GHSA-f88m-g3jw-g9cj), and it is reachable: next/image optimizes R2-hosted user uploads through that copy. Verified by calling next/dist/server/image-optimizer.js `optimizeImage()` directly for webp/avif/jpeg/png before and after the override — same dimensions, same formats, no API removed in 0.35 is used (the optimizer calls only concurrency/timeout/rotate/resize/avif/webp/png/jpeg/toBuffer). Drop this entry once Next widens its own range."
     },
     "overrides": {
       "rollup@>=3.0.0 <3.30.0": "^3.30.0",
       "form-data@>=4.0.0 <4.0.6": "^4.0.6",
-      "protobufjs@>=7.0.0 <=7.6.2": "^7.6.3",
+      "protobufjs@>=7.0.0 <=7.6.4": "^7.6.5",
       "postcss@>=8.0.0 <8.5.10": "^8.5.10",
+      "uuid@>=9.0.0 <10.0.0": "^11.1.1",
       "uuid@>=11.0.0 <11.1.1": "^11.1.1",
-      "dompurify@>=3.0.0 <=3.4.10": "^3.4.11",
+      "dompurify@>=3.0.0 <=3.4.11": "^3.4.12",
       "@opentelemetry/core@>=2.0.0 <2.8.0": "^2.8.0",
       "@babel/core@>=7.0.0 <=7.29.0": "^7.29.6",
       "js-yaml@>=4.0.0 <4.2.0": "^4.2.0",
-      "esbuild@>=0.27.3 <0.28.1": "^0.28.1"
+      "esbuild@>=0.27.3 <0.28.1": "^0.28.1",
+      "brace-expansion@>=1.0.0 <1.1.18": "^1.1.18",
+      "brace-expansion@>=2.0.0 <2.1.4": "^2.1.4",
+      "brace-expansion@>=5.0.0 <5.0.9": "^5.0.9",
+      "sharp@>=0.34.0 <0.35.0": "^0.35.3"
     }
   }
 }

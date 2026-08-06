@@ -42,6 +42,11 @@ const FRIENDLY: Record<string, { status: number; error: string }> = {
   'gcol:invalid_title': { status: 400, error: 'bad_title' },
   'gcol:invalid_body': { status: 400, error: 'bad_message' },
   'gcol:unknown_guest': { status: 401, error: 'unauthorized' },
+  // DPO ruling 2026-08-06 — a guest we already know to be a child may not
+  // publish a message to the open web. Enforced by a trigger on the table,
+  // so it holds for any writer; this only gives the refusal a name the
+  // screen can show instead of a bare 500.
+  'gcol:minor': { status: 403, error: 'not_available_for_you' },
 };
 
 export async function POST(req: Request) {
@@ -51,7 +56,7 @@ export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  let body: { title?: string; body?: string; consent?: boolean };
+  let body: { title?: string; body?: string; consent?: boolean; nameMe?: boolean };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -86,6 +91,11 @@ export async function POST(req: Request) {
     p_body: text,
     p_moderation_state: verdict.state,
     p_moderation_labels: verdict.labels.length ? { labels: verdict.labels } : null,
+    // DPO ruling 2026-08-06 — the guest's own opt-in to a public byline.
+    // `=== true` on purpose: anything else from a hand-rolled client (a
+    // string, a 1, an absent field) must read as NOT named. Publishing a
+    // real person's name is the one direction that cannot be undone.
+    p_name_me: body.nameMe === true,
   });
 
   if (error) {

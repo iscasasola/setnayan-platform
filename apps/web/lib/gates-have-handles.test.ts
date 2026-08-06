@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
+const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 
 /**
  * Columns whose whole purpose is to be TURNED ON by somebody. Each needs a
@@ -45,7 +46,13 @@ const WEB = join(HERE, '..'); // apps/web
  * than erroring. Do NOT add columns that are stamped as a side effect (a
  * timestamp, a counter); those have writers by construction.
  */
-const SWITCHES: { column: string; whoFlips: string; whatBreaksWhenStuck: string }[] = [
+const SWITCHES: {
+  column: string;
+  whoFlips: string;
+  whatBreaksWhenStuck: string;
+  /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
+  writtenViaRpcParam?: string;
+}[] = [
   {
     column: 'live_media_public',
     whoFlips: 'the couple, on the website privacy page',
@@ -57,6 +64,18 @@ const SWITCHES: { column: string; whoFlips: string; whatBreaksWhenStuck: string 
     column: 'papic_face_mode',
     whoFlips: 'an admin / the DPO, per event',
     whatBreaksWhenStuck: 'face auto-tagging stores nothing, on a feature that was paid for',
+  },
+  {
+    // 🚨 REGISTERED AFTER SHIPPING IT BROKEN, 2026-08-06. The column was added
+    // with six readers and NO writer, in the same day three other instances of
+    // this shape were being fixed. The guard existed and never looked, because
+    // nobody registered the switch with it.
+    column: 'author_named_publicly',
+    whoFlips: 'the guest, on the message form on the event page',
+    whatBreaksWhenStuck:
+      'a guest can never choose to be named beside their own published words — ' +
+      'the safe half of the ruling works and the half that gives them a say does not',
+    writtenViaRpcParam: 'p_name_me',
   },
 ];
 
@@ -95,7 +114,54 @@ function writersOf(column: string): string[] {
     if (!src.includes(column)) continue;
     if (pattern.test(src)) found.push(file.slice(WEB.length + 1));
   }
-  return found;
+  if (found.length > 0) return found;
+  return rpcWritersOf(column);
+}
+
+/**
+ * A write spelled as an RPC PARAMETER, which the pattern above cannot see.
+ *
+ * ⚠ THIS WAS A REAL BLIND SPOT, found 2026-08-06. A GUEST has no `auth.uid()`,
+ * so a guest can never write a row directly — EVERY guest-side write in this
+ * codebase goes through a `SECURITY DEFINER` RPC and arrives as a named
+ * parameter, never as an `.insert({...})` key. The detector was therefore blind
+ * to an entire class of writers, and would have reported "nothing writes this"
+ * about a column with a perfectly good control on it.
+ *
+ * The mapping cannot be derived from TypeScript — the parameter is named in the
+ * app (`p_name_me`) and the column in SQL (`author_named_publicly`) — so a
+ * switch written this way declares its own parameter, and we then require BOTH
+ * that some caller passes it AND that a migration assigns it to the column.
+ * Two halves: a caller alone proves nothing, and SQL alone is unreachable.
+ */
+function rpcWritersOf(column: string): string[] {
+  const sw = SWITCHES.find((s) => s.column === column);
+  const param = sw?.writtenViaRpcParam;
+  if (!param) return [];
+
+  const callers = FILES.filter((f) => {
+    const src = readFileSync(f, 'utf8');
+    return new RegExp(`\\.rpc\\(\\s*['"\`][^'"\`]+['"\`][\\s\\S]{0,900}?\\b${param}\\b\\s*:`).test(src);
+  }).map((f) => f.slice(WEB.length + 1));
+  if (callers.length === 0) return [];
+
+  // ⚠ COMMENTS STRIPPED. A `--` line has no statement terminator, so a pattern
+  // spanning `[^;]` runs straight through one — and the first cut of this check
+  // was satisfied by the migration's own PROSE about the column and the
+  // parameter, passing while the SQL assigned neither. Fourth time in one day a
+  // guard here matched a comment instead of code.
+  const sql = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => readFileSync(join(MIGRATIONS, f), 'utf8'))
+    .join('\n')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  // Require a REAL assignment of the parameter into the column. The earlier
+  // fallback ("both names appear somewhere, and some INSERT exists") is exactly
+  // the mere-mention test this file was written to reject.
+  const assigns = new RegExp(`\\b${column}\\b\\s*=\\s*[^,;]*\\b${param}\\b`).test(sql);
+  return assigns ? callers : [];
 }
 
 for (const sw of SWITCHES) {

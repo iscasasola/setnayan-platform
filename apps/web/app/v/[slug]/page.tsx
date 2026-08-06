@@ -1074,7 +1074,7 @@ export async function renderVendorBySlug({
   }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
-     once at the page level so the hero, "Get in touch" copy,
+     once at the page level so the hero, "Inquire" copy,
      LocalBusiness JSON-LD's `name` field, BreadcrumbList's leaf
      label, and the FollowGate vendorName all surface the same
      display label. Real business_name when the column says revealed,
@@ -1817,7 +1817,7 @@ export async function renderVendorBySlug({
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cream px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-white"
                 >
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
+                  Inquire
                 </a>
               ) : null}
             </div>
@@ -2005,7 +2005,7 @@ export async function renderVendorBySlug({
                 </a>
               ) : null}
             </div>
-            {/* Primary actions (2026-07-02): Inquire Now (scrolls to the
+            {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
                 On desktop the sticky Inquire rail carries these too. */}
             {bookable ? (
@@ -2016,7 +2016,7 @@ export async function renderVendorBySlug({
               >
                 <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
+                  Inquire
                 </a>
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {canShowBooth ? (
@@ -2454,11 +2454,11 @@ export async function renderVendorBySlug({
 
         <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {bookable ? 'Get in touch' : 'Not yet bookable'}
+            {bookable ? 'Inquire' : 'Not yet bookable'}
           </h2>
           <p className="max-w-2xl text-sm text-ink/65">
             {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
-                "Get in touch" copy uses displayLabel so a hidden
+                "Inquire" copy uses displayLabel so a hidden
                 vendor surfaces as e.g. "Manila Wedding Photographer"
                 instead of leaking the real name through the
                 contact-info section. */}
@@ -2653,7 +2653,7 @@ export async function renderVendorBySlug({
           </div>
 
           {/* Sticky Inquire rail — Pro/Enterprise, desktop only. Rating + the
-              primary Inquire Now / Share CTAs + at-a-glance, following the
+              primary Inquire / Share CTAs + at-a-glance, following the
               scroll. (Free/Solo use the inline Inquire actions above.) */}
           {premiumLayout && bookable ? (
             <aside className="hidden lg:block">
@@ -2678,7 +2678,7 @@ export async function renderVendorBySlug({
                   className="button-primary flex w-full items-center justify-center gap-2"
                 >
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
+                  Inquire
                 </a>
                 <ShareButton
                   title={displayLabel}

@@ -50,3 +50,21 @@ follow up.
 SPEC IMPACT: DECISION_LOG.md — new row 2026-08-06 recording the owner's
 account-required flow and the event-type question replacing the wedding
 assumption.
+
+## 2026-08-06 · fix(vendor-page): the CTA is "Inquire" — one word, matching Share
+
+Owner, verbatim: *"inquire and share buttons are the buttons CTA. Inquire instead
+of Get in touch."*
+
+- The three CTA buttons read **Inquire** (were "Inquire Now") so they sit level
+  with **Share** — two one-word actions, not one verb phrase and one word.
+- The section they scroll to is headed **Inquire** (was "Get in touch"). The
+  "Not yet bookable" alternate heading is unchanged.
+- The `#get-in-touch` anchor id is deliberately UNCHANGED — five places link to
+  it and it is never read by a visitor, so renaming it would risk five dead
+  in-page jumps to change nothing anyone can see.
+- Three stale comments describing the old label were corrected in the same pass;
+  a comment that names a button that no longer exists is how the next reader
+  learns the wrong name.
+
+SPEC IMPACT: None — copy only, no decision or price changes.

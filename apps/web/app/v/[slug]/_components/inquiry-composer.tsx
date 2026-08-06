@@ -760,7 +760,7 @@ export function InquiryComposer({
   // ── Main CTA (no existing thread) ─────────────────────────────────────────
   return (
     <>
-      {/* Trigger button — shown inline on the vendor profile "Get in touch" section */}
+      {/* Trigger button — shown inline on the vendor profile "Inquire" section */}
       <button
         type="button"
         onClick={onInquireClick}

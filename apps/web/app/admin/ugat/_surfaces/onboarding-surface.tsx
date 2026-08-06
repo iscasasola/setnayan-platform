@@ -16,10 +16,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  updateOnboardingMusic,
-  ONBOARDING_MUSIC_MAX_TRACKS,
-} from '@/app/admin/onboarding/actions';
+import { updateOnboardingMusic } from '@/app/admin/onboarding/actions';
+import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 

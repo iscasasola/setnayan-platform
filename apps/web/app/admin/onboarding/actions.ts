@@ -18,6 +18,7 @@
  * platform_settings columns are its store.
  */
 
+import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -39,9 +40,6 @@ async function requireAdmin(): Promise<void> {
     throw new Error('Forbidden');
   }
 }
-
-/** Playlist cap. The admin form and the save action must agree on one number. */
-export const ONBOARDING_MUSIC_MAX_TRACKS = 8;
 
 function r2RefOrNull(v: FormDataEntryValue | null): string | null {
   return typeof v === 'string' && v.startsWith('r2://') ? v : null;

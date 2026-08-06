@@ -42,3 +42,28 @@ Tests: 6 new, pinning the resolution ORDER (the only part that fails silently), 
 exact prod shape today. 6/6 pass; 54 pass across the neighbouring media/settings suites.
 
 SPEC IMPACT: None — no pricing, SKU or scope change.
+
+### Follow-up: a constant in a `'use server'` file broke the production build
+
+CI went red on `bundle size check`, `lighthouse` and `playwright` — all three downstream of the
+same failure:
+
+```
+Only async functions are allowed to be exported in a "use server" file.
+```
+
+`ONBOARDING_MUSIC_MAX_TRACKS` was a plain `export const` in
+`app/admin/onboarding/actions.ts`, which carries `'use server'`. Moved to
+`lib/onboarding-music-limits.ts` and imported back by both consumers, so the save action and the
+admin form still agree on one number.
+
+🔑 **Nothing available on a dev machine could see this.** `tsc --noEmit` was clean, every unit
+suite passed, the DB suites passed — none of them compile the app. Only `next build` catches it,
+and `next build` cannot run here (~7 GB heap), so CI was the sole detector. This is the
+server-side twin of the standing rule about never exporting plain data from a `'use client'`
+module.
+
+Added `lib/use-server-exports-only-functions.test.ts`: it scans every `'use server'` file and
+fails on any export that is not an async function. **Watched failing** — reintroducing the exact
+line turns 2 of its 3 red. It opens with a non-vacuity check so an empty scan cannot pass silently.
+Cheap to run, and it moves this class of break from "CI only" to "caught locally in a second".

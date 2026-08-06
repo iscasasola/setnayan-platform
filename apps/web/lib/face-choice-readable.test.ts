@@ -42,8 +42,12 @@ test('every column the card selects is granted to the signed-in role', () => {
     'utf8',
   );
   const select = src.match(/\.select\(\s*'([^']+)'/);
-  assert.ok(select, 'the card no longer selects anything');
-  const cols = select[1].split(',').map((c) => c.trim());
+  // CI's typechecker runs with `noUncheckedIndexedAccess`, so `select[1]` is
+  // `string | undefined` even after asserting the match is truthy — a capture
+  // group can legitimately be absent. Narrow the group itself.
+  const captured = select?.[1];
+  assert.ok(captured, 'the card no longer selects anything');
+  const cols = captured.split(',').map((c) => c.trim());
   assert.ok(cols.includes('face_tagging_declined_by_couple'), 'the opt-out column left the query');
 
   const s = sql();

@@ -29,10 +29,16 @@ import { inquirySourceLabel } from '@/lib/inquiry-source';
  * the set the vendor activity stats + booking surfaces treat as a finalized
  * booking. Kept here so both funnel surfaces agree on the definition.
  */
+// ⚠ 'paid' was a member here and is NOT in the `vendor_status` enum
+// (considering · shortlisted · contracted · deposit_paid · delivered · complete).
+// Postgres rejects the entire `.in()` on an unknown label — 22P02 — so all FOUR
+// event_vendors queries fed by this array errored and returned null, and every
+// booked-count they compute has read zero since it shipped. The
+// `as unknown as string[]` casts at those call sites are what kept the compiler
+// from ever noticing; the `as const` here would otherwise have typed them.
 export const BOOKED_EVENT_VENDOR_STATUSES = [
   'contracted',
   'deposit_paid',
-  'paid',
   'delivered',
   'complete',
 ] as const;

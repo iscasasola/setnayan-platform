@@ -33,6 +33,10 @@ type Props = {
   pabatiClips?: PabatiClipThumb[];
   pabatiUsed?: number;
   pabatiTotal?: number;
+  /** LIVE_WALL ownership — resolved server-side (eventSkuActive), same predicate
+   *  /wall/[eventId] gates on. When false the card hides. Defaults false so a
+   *  caller that forgets it shows nothing rather than a dead advertisement. */
+  liveWallActive?: boolean;
   /** Coordinator P3 — resolved server-side when NEXT_PUBLIC_COORDINATOR_P3_ENABLED
    *  is on. Absent (flag off) = the card renders its pre-P3 stub exactly. */
   broadcast?: BroadcastCardData;
@@ -48,6 +52,7 @@ export function DayOfModeGrid({
   pabatiClips = [],
   pabatiUsed = 0,
   pabatiTotal = 0,
+  liveWallActive = false,
   broadcast,
 }: Props) {
   return (
@@ -64,7 +69,7 @@ export function DayOfModeGrid({
           headTable={headTable}
           nearbyTables={nearbyTables}
         />
-        <LivePhotoWallCard />
+        {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
         {pabatiActive ? (
           <VideoGuestbookCard
             pabatiActive

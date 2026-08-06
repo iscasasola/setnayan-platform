@@ -877,7 +877,7 @@ export const loadGuestContext = cache(
     const { data: guest, error: guestError } = await admin
       .from('guests')
       .select(
-        'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token, photo_url, photo_source',
+        'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source',
       )
       .eq('guest_id', session.guest_id)
       .is('deleted_at', null)

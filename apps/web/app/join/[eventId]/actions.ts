@@ -1,5 +1,6 @@
 'use server';
 
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -238,6 +239,27 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
 
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
+  //
+  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
+  // event, but a server action can be invoked directly with a valid join token,
+  // so the same rule has to hold HERE — where the write actually happens and
+  // where the comment below already noted the session "opens the personal page
+  // of a `private` event".
+  //
+  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
+  // launch that has come due counts as public in both places. Two hand-written
+  // copies of one rule is how they drift apart.
+  const { data: visRow } = await admin
+    .from('events')
+    .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
   // 2. Auth check.
   const supabase = await createClient();
   const {
@@ -398,6 +420,27 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
   if (!tokenValid) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
+  //
+  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
+  // event, but a server action can be invoked directly with a valid join token,
+  // so the same rule has to hold HERE — where the write actually happens and
+  // where the comment below already noted the session "opens the personal page
+  // of a `private` event".
+  //
+  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
+  // launch that has come due counts as public in both places. Two hand-written
+  // copies of one rule is how they drift apart.
+  const { data: visRow } = await admin
+    .from('events')
+    .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
 

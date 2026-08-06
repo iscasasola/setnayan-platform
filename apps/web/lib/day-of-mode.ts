@@ -153,8 +153,12 @@ export function isInDayOfWindow(eventDate: string | Date, tz?: string): boolean 
  * // evening reception, 6pm on the wedding day → delta ≈ +18h → 'post'
  * isEventDayActive(today); // true (post phase still counts)
  */
-export function isEventDayActive(eventDate: string | Date): boolean {
-  const phase = getDayOfPhase(eventDate);
+export function isEventDayActive(
+  eventDate: string | Date,
+  tz?: string,
+  nowMs?: number,
+): boolean {
+  const phase = getDayOfPhase(eventDate, tz, nowMs);
   return phase === 'live' || phase === 'post';
 }
 
@@ -195,10 +199,19 @@ export function getMenuLifecyclePhase(
 /**
  * Returns the current day-of phase for the given event date.
  *
- * - `pre`      : T - 3 days   .. T - 1 hour
- * - `live`     : T - 1 hour   .. T + 8 hours
- * - `post`     : T + 8 hours  .. T + 24 hours
+ * ⚠ These bounds are DERIVED from the constants at the top of this file, not
+ * re-typed. The list below said `live: T-1h .. T+8h` and `post: T+8h .. T+24h`
+ * while the code has used 12h / 36h / 60h — a docblock describing a different
+ * function than the one beneath it. Corrected 2026-08-06.
+ *
+ * - `pre`      : T − PRE_WINDOW_START_MS  .. T − 12h
+ * - `live`     : T − 12h                  .. T + 36h  (noon before → noon after)
+ * - `post`     : T + 36h                  .. T + 60h  (a further day to look back)
  * - `inactive` : otherwise
+ *
+ * `now` is injectable so a client component can defer the read to an effect and
+ * avoid an SSR/hydration mismatch — the reason lib/guest-journey.ts once carried
+ * its own naive copy of this window.
  *
  * @example
  * // 2 hours after the wedding day midnight anchor
@@ -212,10 +225,14 @@ export function getMenuLifecyclePhase(
  * // 5 days before the wedding
  * getDayOfPhase(fiveDaysOut); // 'inactive'
  */
-export function getDayOfPhase(eventDate: string | Date, tz?: string): DayOfPhase {
+export function getDayOfPhase(
+  eventDate: string | Date,
+  tz?: string,
+  nowMs?: number,
+): DayOfPhase {
   const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return 'inactive';
-  const now = Date.now();
+  const now = nowMs ?? Date.now();
   const delta = now - eventMs; // positive = past anchor
 
   if (delta >= -LIVE_WINDOW_START_MS && delta <= LIVE_WINDOW_END_MS) return 'live';

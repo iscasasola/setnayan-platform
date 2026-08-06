@@ -25,7 +25,8 @@ import {
   type ModeratorPermissions,
 } from './delegate-areas';
 
-const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations');
+const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
+const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 const sql = () =>
   readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith('.sql'))
@@ -72,6 +73,41 @@ test('the area is a first-class one, not a special case', () => {
   assert.equal(resolveAreaLevel(FULL, 'guest_list'), 'edit');
   assert.equal(resolveAreaLevel(FULL, 'mood_board'), 'view');
   assert.equal(resolveAreaLevel(FULL, 'budget'), 'view');
+});
+
+test('the couple has a CONTROL that grants it — a permission needs a handle', () => {
+  // 🚨 THE SHAPE THIS CODEBASE KEEPS RE-DISCOVERING. Four times in a week a
+  // column shipped with readers and no writer — face mode, the livestream
+  // audience, the vendor venue picker, and the guest byline I built myself the
+  // same day. A permission the couple holds and cannot exercise is the same
+  // defect wearing different clothes.
+  const actions = readFileSync(
+    join(WEB, 'app/dashboard/[eventId]/hosts/actions.ts'),
+    'utf8',
+  );
+  assert.ok(
+    // \b or a rename to `setDelegatePhotosX` satisfies the prefix and the guard
+    // passes on a function that no longer exists under that name.
+    /export async function setDelegatePhotos\b/.test(actions),
+    'Nothing can grant the photos area. The policies exist, the default refuses, ' +
+      'and the couple has no way to say yes.',
+  );
+  assert.ok(
+    /areas\.photos = grant === 'view' \? 'view' : null/.test(actions),
+    'The grant no longer writes an explicit null on withdrawal. Deleting the key ' +
+      'instead would fall through to the resolver tail, which FAILS OPEN for a ' +
+      'delegate with edit_all — withdrawal must be written down, not implied.',
+  );
+  assert.ok(
+    /requireCoupleMembership/.test(actions.slice(actions.indexOf('setDelegatePhotos'), actions.indexOf('setDelegatePhotos') + 900)),
+    'The grant is not couple-gated — a coordinator could widen their own access.',
+  );
+
+  const page = readFileSync(join(WEB, 'app/dashboard/[eventId]/hosts/page.tsx'), 'utf8');
+  assert.ok(
+    /action=\{setDelegatePhotos\}/.test(page),
+    'The action exists but no screen calls it — a handle nobody can reach.',
+  );
 });
 
 test('both photo tables gained a read policy routed through the one gate', () => {

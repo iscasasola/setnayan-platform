@@ -38,8 +38,18 @@ import { VENUE_SETTINGS, VENUE_SETTING_LABEL } from './venue-settings';
  */
 export const COMPATIBLE_VENUE_SETTINGS = VENUE_SETTINGS;
 
-/** Long-form venue labels — the same words the couple saw when they chose. */
-export const COMPATIBLE_VENUE_SETTING_LABEL = VENUE_SETTING_LABEL;
+/**
+ * Long-form venue labels — the same words the couple saw when they chose.
+ *
+ * Typed with a STRING key, not the `VenueSetting` union, and that is deliberate.
+ * The consumers look up whatever the database actually holds, which may include
+ * a value retired before the union was narrowed — that is exactly why every call
+ * site carries a `?? raw` fallback. A union-keyed record refuses a `string`
+ * index outright (TS7053), which would push callers into a cast and throw the
+ * fallback away.
+ */
+export const COMPATIBLE_VENUE_SETTING_LABEL: Readonly<Record<string, string>> =
+  VENUE_SETTING_LABEL;
 
 /**
  * Every ceremony a shop may declare: all 16 registry faiths plus the two

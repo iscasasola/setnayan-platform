@@ -51,6 +51,8 @@
  * slot and tilts the whole bar.
  */
 
+import type { DayOfPhase } from '@/lib/day-of-mode';
+
 /** Who is holding the phone. */
 export type NavViewer =
   | { kind: 'public' }
@@ -64,6 +66,46 @@ export type VendorKit = 'floor_command' | 'song_desk' | 'stage_script';
 
 /** How close the wedding is. */
 export type NavPhase = 'before' | 'day' | 'after';
+
+/**
+ * WHICH MOMENT IS IT? — the one mapping from the site's clock to the bar's.
+ *
+ * 🚨 WHY THIS IS NOT `dayOfPhase` ALONE, WHICH IS WHAT IT USED TO BE.
+ *
+ * `DayOfPhase` is a WINDOW, not a timeline. Its four values are:
+ *
+ *     pre   T-3d .. T-12h
+ *     live  T-12h .. T+36h
+ *     post  T+36h .. T+60h        ← two and a half days, then it stops
+ *     inactive  EVERYTHING ELSE   ← both "months before" AND "the week after"
+ *
+ * The bar used to read `live → day`, `post → after`, everything else `before`.
+ * So on the Thursday after a Saturday wedding the site flipped back to
+ * `before`: the Gallery slot — the one thing a guest opens the page for now —
+ * was not drawn, Home stopped saying "Recap", and the run-up tabs (Details,
+ * Story) came back on a page that is a memorial. Nothing failed; the bar simply
+ * believed the wedding had not happened yet.
+ *
+ * 🔑 THE SECOND INPUT IS THE BODY THE PAGE IS ACTUALLY RENDERING. When the site
+ * has entered its post-event recap, the wedding is behind us — by definition,
+ * because that is the same verdict that put the recap on the screen. Deriving
+ * the bar's moment from the page's own moment is what stops the two disagreeing
+ * a third time (they have already done so twice in two days).
+ *
+ * ⚠ `post` is kept as an independent `after` trigger rather than being folded
+ * into `isRecapBody`: the recap body additionally requires the website-phases
+ * switch, and a wedding that ended yesterday is over whether or not that switch
+ * is on.
+ */
+export function navPhaseFor(input: {
+  dayOfPhase: DayOfPhase | null | undefined;
+  /** Is the page rendering the post-event editorial recap right now? */
+  isRecapBody: boolean;
+}): NavPhase {
+  if (input.dayOfPhase === 'live') return 'day';
+  if (input.dayOfPhase === 'post' || input.isRecapBody) return 'after';
+  return 'before';
+}
 
 export type NavSlotKey = 'home' | 'details' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
 

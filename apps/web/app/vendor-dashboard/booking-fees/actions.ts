@@ -7,7 +7,11 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { isVendorBookingFeeServiceKey, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import {
+  isVendorBookingFeeServiceKey,
+  requireBookingFeeReference,
+  vendorBookingFeePayPath,
+} from '@/lib/vendor-booking-fees';
 
 /**
  * Vendor-scoped "log a payment against my booking-fee order." This is the
@@ -126,13 +130,28 @@ export async function logBookingFeePayment(formData: FormData) {
   //
   // Promotion to paid is untouched: it stays the admin-only /admin/payments
   // approve path (approvePaymentCore → activateOrderSku → the settle bridge).
+  // The reference is REQUIRED on this form (owner 2026-08-06) — and enforced
+  // HERE, not by the input's `required` attribute. A server action is a POST
+  // endpoint: it is reachable without the page, and the browser's own check
+  // accepts a single space anyway.
+  //
+  // ⚠ ORDER MATTERS. This sits AFTER the ownership + booking-fee-order guard
+  // above, so someone probing a stranger's order id still gets "not found"
+  // and never learns that the id was real.
+  //
+  // ⚠ REDIRECT, NOT THROW. The lane's older style is `throw new Error(...)`,
+  // but production redacts the message and the vendor sees a generic console
+  // error page — no idea what to fix, on the screen where they are paying us.
+  const ref = requireBookingFeeReference(formData.get('reference_number'));
+  if (!ref.ok) redirect(`${vendorBookingFeePayPath(orderId)}?error=${ref.code}`);
+
   const { error } = await createMoneyWriterClient().from('payments').insert(
     paymentRowFor(
       { userId: user.id, verifiedOrderId: orderId },
       {
         amount_php: Math.round(amount * 100) / 100,
         channel: trimmedChannel,
-        reference_number: nullIfBlank(formData.get('reference_number')),
+        reference_number: ref.reference,
         screenshot_url: screenshotUrl,
         paid_at: paidAt,
         client_idempotency_key: idempotencyKey,

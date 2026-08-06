@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "a0fde579d",
+  "generatedFromRef": "c92df0b72",
   "routeCount": 403,
   "destinations": 679,
   "actions": 514,
@@ -1558,7 +1558,6 @@
     },
     "/admin/wedding-types": {
       "files": [
-        "admin/wedding-types/actions.ts",
         "admin/wedding-types/loading.tsx",
         "admin/wedding-types/page.tsx"
       ],
@@ -2483,12 +2482,10 @@
     },
     "/dashboard/[eventId]/monogram": {
       "files": [
-        "dashboard/[eventId]/monogram/actions.ts",
         "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
         "dashboard/[eventId]/monogram/draft-restore.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
-        "dashboard/[eventId]/monogram/monogram-maker-shared.ts",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
@@ -5359,7 +5356,6 @@
     },
     "/vendor-dashboard/tax-documents": {
       "files": [
-        "vendor-dashboard/tax-documents/actions.ts",
         "vendor-dashboard/tax-documents/loading.tsx",
         "vendor-dashboard/tax-documents/page.tsx"
       ],
@@ -5396,10 +5392,6 @@
       "files": [
         "vendor-dashboard/tokens/_components/balance-card.tsx",
         "vendor-dashboard/tokens/_components/buy-tokens-cta.tsx",
-        "vendor-dashboard/tokens/_components/pending-purchases.tsx",
-        "vendor-dashboard/tokens/_components/purchase-history.tsx",
-        "vendor-dashboard/tokens/_components/recent-history.tsx",
-        "vendor-dashboard/tokens/_components/voucher-list.tsx",
         "vendor-dashboard/tokens/actions.ts",
         "vendor-dashboard/tokens/loading.tsx",
         "vendor-dashboard/tokens/page.tsx"
@@ -5526,7 +5518,6 @@
     },
     "/waitlist": {
       "files": [
-        "waitlist/actions.ts",
         "waitlist/page.tsx"
       ],
       "destinations": [

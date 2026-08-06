@@ -275,11 +275,21 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   let orderedSummary:
     | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
     | null = null;
-  // A standalone token top-up (TKN-) already gets its full apply-then-pay panel
-  // from <PendingPurchases> inside <TokenWalletSection>; flag it so we DON'T also
-  // render the plan-level "How to pay" tile below (that was two BDO+GCash QR
-  // blocks on one page after a token order).
-  let orderedIsToken = false;
+  // ⚠ `orderedIsToken` REMOVED 2026-08-06. It suppressed the "How to pay" tile
+  // for a standalone token top-up (TKN-) on the stated grounds that
+  // <PendingPurchases> inside <TokenWalletSection> "already gets its full
+  // apply-then-pay panel". FALSE: token-wallet-section.tsx imports only
+  // <BalanceCard>, and <PendingPurchases> had zero importers anywhere — it was
+  // deleted in this change. So a vendor who ordered a top-up was shown NO
+  // payment instructions at all, on the one screen that exists to give them.
+  //
+  // Latent rather than live, because a top-up is not purchasable today: the only
+  // caller of startTokenPurchase is <BuyTokensCta>, whose component export is
+  // itself unreferenced (the file stays — two type-only TokenPack imports need
+  // it). But the premise had to go with the component, or the false claim would
+  // outlive the thing it named and be unrecoverable by grep.
+  //
+  // One payment tile now serves every order shape.
   if (search.ordered) {
     const { data: subRow } = await supabase
       .from('vendor_subscriptions')
@@ -302,7 +312,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         .eq('reference_code', search.ordered)
         .maybeSingle();
       if (tknRow) {
-        orderedIsToken = true;
         orderedSummary = {
           amount: Number(tknRow.amount_php ?? 0),
           planAmount: 0,
@@ -554,7 +563,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           started. Token-only (TKN-) top-ups are intentionally excluded — their
           instructions render once inside <TokenWalletSection> below, so showing
           this tile too would double the BDO+GCash QR blocks. */}
-      {search.ordered && !orderedIsToken && (
+      {search.ordered && (
         <div className="sn-tile mt-6 p-6">
           <p className="sn-eye">How to pay</p>
           {orderedSummary && orderedSummary.amount > 0 && (
@@ -642,8 +651,10 @@ function PayBox({
               style={{ borderColor: 'var(--m-line)' }}
             >
               {/* External URL · plain <img> (QR assets live on Supabase
-                  storage, not in next/image's whitelisted domains) — mirrors
-                  the token-purchase PendingPurchases QR pattern. */}
+                  storage, not in next/image's whitelisted domains). This used to
+                  say it "mirrors the token-purchase PendingPurchases QR
+                  pattern"; that component had zero importers and was deleted
+                  2026-08-06, so this tile is now the only QR pattern. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrUrl as string}

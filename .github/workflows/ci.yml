@@ -10,6 +10,24 @@ jobs:
   typecheck-lint:
     name: typecheck + lint
     runs-on: ubuntu-latest
+    # ═══ THIS JOB IS THE ONLY BLOCKING SURFACE A GUARD CAN BE ADDED TO ═══
+    #
+    # Auto-merge waits on REQUIRED contexts only. A guard in a job of its own
+    # goes red on the PR page and the PR merges anyway — the red tick is
+    # decoration. That is not hypothetical: nine guards below had been running
+    # on every PR while blocking nothing, one of them written two days after
+    # two working controls ("Invite guests" / "Arrange the room") were deleted
+    # from the couple's guest page with every other check green.
+    #
+    # Promoting a job to required needs a branch-protection edit, which is a
+    # settings change nobody remembers to make. Adding a STEP to a job that is
+    # already required needs nothing but this file. So: a new single-file guard
+    # belongs HERE, as a step, not as a new job. Only give a guard its own job
+    # when the owner is going to add its name to branch protection in the same
+    # breath.
+    #
+    # The blocking-guards block below is `continue-on-error: true` + a single
+    # aggregator, so that one failing guard cannot hide the other eight.
     steps:
       - uses: actions/checkout@v4
 
@@ -19,6 +37,147 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      # ══ BLOCKING GUARDS ══════════════════════════════════════════════════
+      # Pure node, no node_modules — they run BEFORE install so a guard breach
+      # is reported in seconds rather than after a five-minute typecheck.
+      #
+      # Every one carries `continue-on-error: true` so the whole set runs on
+      # every PR and each keeps its own named step and its own log. The
+      # "Every blocking guard must pass" step at the bottom is what turns them
+      # red. Do not delete the continue-on-error without deleting the
+      # aggregator too — on its own it means "this guard does not block".
+
+      # Fails when a NEW page hand-rolls a masthead (an .sn-eye inside a <header>).
+      # Until 2026-07-21 there was no shared page-header component, so ~80 dashboard pages each
+      # hand-rolled the same block and a CARD token drifted onto all of them — `.sn-eye`'s own spec
+      # comment in globals.css reads "Tile eyebrow". Nothing caught it because nothing was watching.
+      # A RATCHET, not a wall: the existing files are baselined in
+      # apps/web/scripts/page-masthead-baseline.json, so this only fails on NEW drift. Delete a line
+      # from the baseline when you migrate a page to <PageMasthead>; never add one.
+      - name: Lint page masthead
+        id: guard_page_masthead
+        continue-on-error: true
+        working-directory: apps/web
+        run: node scripts/lint-page-masthead.mjs
+
+      # THE DESIGN PORT MAY NOT SILENTLY DELETE A CONTROL.
+      #
+      # On 2026-08-06 two real controls were deleted from the couple's guest page
+      # ("Invite guests" + "Arrange the room") on a clean origin/main, and all
+      # twelve existing lint scripts, typecheck AND Lighthouse passed
+      # byte-identically. That is structural: this repo has no render harness, ~14%
+      # of pages are named in any test, and every other guard fires on a wrong
+      # thing ADDED while a port REMOVES. It has already cost us the YouTube API
+      # Services disclosure on the /panood port, caught by a manual diff.
+      #
+      # Compares every route's destinations + bound actions against a GENERATED
+      # baseline (apps/web/scripts/port-control-baseline.json). Missing fails;
+      # added passes. A deliberate removal is handled by regenerating the
+      # baseline in the SAME PR, which puts it in the diff as one readable line.
+      #
+      # DELETE THIS STEP, the two scripts and the baseline when the port is done —
+      # a guard kept past its purpose becomes noise.
+      - name: Lint port keeps every control
+        id: guard_port_controls
+        continue-on-error: true
+        run: node apps/web/scripts/lint-port-no-lost-controls.mjs
+
+      # Task #20 of the 2026-05-22 audit verified that every emitNotification
+      # `relatedUrl` resolves to a real route under apps/web/app/**. This guard
+      # keeps it that way — a broken `relatedUrl` ships a 404 link to the user's
+      # inbox via Resend, and the owner won't see it until pilot. See
+      # apps/web/scripts/lint-email-links.mjs for the matcher logic.
+      - name: Lint email template links
+        id: guard_email_links
+        continue-on-error: true
+        run: node apps/web/scripts/lint-email-links.mjs
+
+      # Privacy invariant (admin account-access model, 2026-06-22): the admin
+      # surface may NEVER read couple↔vendor chat bodies, thread attachments, or
+      # raw face vectors. Chat RLS is participant-only; the service-role admin
+      # client bypasses it, so this guard fails the build if any app/admin/** file
+      # (outside the demo-vendors allow-list) reads chat content or face vectors.
+      # Backs the published trust promise. See apps/web/scripts/lint-admin-chat-guard.mjs.
+      - name: Lint admin chat-guard
+        id: guard_admin_chat
+        continue-on-error: true
+        run: node apps/web/scripts/lint-admin-chat-guard.mjs
+
+      # Keeps corner radii on the single --m-r-* token scale (owner-locked
+      # "softer corners" 2026-06-20). Fails on any ad-hoc rounded-[Npx] /
+      # border-radius:Npx / borderRadius:N that bypasses the tokens.
+      # See apps/web/scripts/lint-radius.mjs.
+      - name: Lint radius tokens
+        id: guard_radius
+        continue-on-error: true
+        run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
+
+      # Fails when the 3D booth poster stand's position is hardcoded in
+      # venue-objects.tsx instead of read from boothPosterLocalOffset, or when
+      # BoothPoster re-declares the frame dimensions the placement maths depends
+      # on. PR #3437 shipped `w / 2 + 0.42` measured off the shared 2.0 m
+      # footprint — wrong body (the chassis is 1.8–3.4 m) and a gap smaller than
+      # the stand's own 0.45 m half-width, so the banner sat inside the booth on
+      # nine of ten chassis. A unit test CANNOT catch this: templateBoothObstacles
+      # calls the helper internally, so "renderer and obstacle agree" compares the
+      # module to itself and passes even when the renderer is hardcoded, and the
+      # renderer is JSX with no render harness in the unit suite.
+      # See apps/web/scripts/lint-booth-poster-placement.mjs.
+      - name: Lint booth poster placement
+        id: guard_booth_poster
+        continue-on-error: true
+        run: node apps/web/scripts/lint-booth-poster-placement.mjs
+
+      # Structural half of the duplicated-rule ratchet. The real comparison —
+      # scan vs committed baseline — is the "Duplicated-rule guards" step below,
+      # because it needs the TypeScript scanners. THIS one needs nothing but the
+      # files, so it runs install-free and closes the two ways a file-based guard
+      # dies quietly:
+      #   1. the baseline gets truncated, emptied or hand-sorted, so the differ
+      #      compares nothing against nothing and reports "no widenings";
+      #   2. the guard gets unwired — runner deleted, package.json script dropped,
+      #      CI step removed — and the build still goes green. That is the worst
+      #      failure mode available, because it manufactures confidence.
+      # It asserts: header fact-counts match the body, per-kind floors are met,
+      # ordering is canonical, keys are unique and correctly shaped, the mirrored
+      # DUP_RULE_KINDS constant has not drifted, the "adding a line is a widening"
+      # sentence is still in the header, and both the runner and its CI steps are
+      # still in place. ⚠ Its wiring check matches a single-line `run:` naming
+      # `lint-dup-rule-baseline.mjs` — keep this step's `run:` on one line.
+      # See scripts/lint-dup-rule-baseline.mjs.
+      - name: Lint duplicated-rule baseline
+        id: guard_dup_rule_baseline
+        continue-on-error: true
+        run: node scripts/lint-dup-rule-baseline.mjs
+
+      # Protects the 2026-07-01 vendor-dashboard perf work (PRs #2529/#2533/#2543/
+      # #2546). The layout re-renders server-side on every navigation, so a broad
+      # `revalidatePath('/vendor-dashboard', 'layout')` (or global `'/', 'layout'`)
+      # silently re-inflates it by busting the client Router-Cache window for the
+      # whole subtree. This guard fails when a NEW broad layout-wide bust appears
+      # beyond the committed baseline (a few intentional admin/tour uses).
+      # See apps/web/scripts/lint-vendor-layout-revalidate.mjs.
+      - name: Lint vendor layout revalidate
+        id: guard_vendor_revalidate
+        continue-on-error: true
+        run: node apps/web/scripts/lint-vendor-layout-revalidate.mjs
+
+      # Fails when a `changelog.d/` directory exists anywhere but the repo root.
+      # scripts/changelog-collect.mjs reads ONLY <repoRoot>/changelog.d, so a
+      # fragment written to any other one is never folded into CHANGELOG.md and
+      # never deleted — it just sits there looking like a healthy pending
+      # fragment. The failure mode is pure silence, which is why it ran unnoticed
+      # for months: by 2026-07-25 two orphan dirs held 172 stranded fragments
+      # (167 in apps/web/changelog.d, 5 in apps/changelog.d) whose content never
+      # reached the changelog. Both were migrated with `git mv`; this guard stops
+      # a third from forming. Docs alone can't — changelog.d/README.md and
+      # CLAUDE.md already said "put it in the root dir" the entire time the 172
+      # piled up. See apps/web/scripts/lint-changelog-dir.mjs.
+      - name: Lint changelog fragment dir
+        id: guard_changelog_dir
+        continue-on-error: true
+        run: node apps/web/scripts/lint-changelog-dir.mjs
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
@@ -64,6 +223,63 @@ jobs:
       # See apps/web/scripts/lint-dup-rule.ts.
       - name: Duplicated-rule guards
         run: pnpm --filter @setnayan/web lint:dup-rule
+
+      # ══ THE AGGREGATOR — this is what makes the guards above BLOCK ═══════
+      #
+      # Each guard step is `continue-on-error: true`, which rewrites its
+      # `conclusion` to success but leaves its `outcome` truthful. So the guards
+      # all run (one failure cannot hide another), and this single step reads
+      # every outcome and fails the required job. One ::error:: annotation is
+      # emitted per failing guard, so the PR page names each by its own title
+      # without anyone opening a log.
+      #
+      # `!cancelled()` — not `success()` — so a typecheck failure earlier in the
+      # job cannot swallow a guard breach either.
+      #
+      # FAIL-CLOSED: anything that is not exactly `success` counts as a failure,
+      # including `skipped`, which is what a mis-edited `if:` produces. A guard
+      # that did not run is worse than no guard, because it manufactures
+      # confidence.
+      - name: Every blocking guard must pass
+        if: ${{ !cancelled() }}
+        env:
+          PAGE_MASTHEAD: ${{ steps.guard_page_masthead.outcome }}
+          PORT_CONTROLS: ${{ steps.guard_port_controls.outcome }}
+          EMAIL_LINKS: ${{ steps.guard_email_links.outcome }}
+          ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
+          RADIUS: ${{ steps.guard_radius.outcome }}
+          BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
+          DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
+          VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
+          CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
+        run: |
+          failed=0
+          check() {
+            if [ "$2" = "success" ]; then
+              printf '  PASS  %s\n' "$1"
+            else
+              printf '  FAIL  %s (outcome: %s)\n' "$1" "${2:-missing}"
+              printf '::error title=%s::%s failed. Open the "%s" step in this job for its own message.\n' "$1" "$1" "$1"
+              failed=1
+            fi
+          }
+          check 'lint page masthead'          "$PAGE_MASTHEAD"
+          check 'lint port keeps every control' "$PORT_CONTROLS"
+          check 'lint email template links'   "$EMAIL_LINKS"
+          check 'lint admin chat-guard'       "$ADMIN_CHAT"
+          check 'lint radius tokens'          "$RADIUS"
+          check 'lint booth poster placement' "$BOOTH_POSTER"
+          check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
+          check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"
+          check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
+          if [ "$failed" -ne 0 ]; then
+            echo
+            echo 'One or more blocking guards failed. Every failure is listed above with its'
+            echo 'own annotation — fix them all; the first is not necessarily the only one.'
+            exit 1
+          fi
+          echo
+          echo 'All blocking guards passed.'
 
   build:
     name: production build
@@ -138,27 +354,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  lint-page-masthead:
-    name: lint page masthead
-    runs-on: ubuntu-latest
-    # Fails when a NEW page hand-rolls a masthead (an .sn-eye inside a <header>).
-    # Until 2026-07-21 there was no shared page-header component, so ~80 dashboard pages each
-    # hand-rolled the same block and a CARD token drifted onto all of them — `.sn-eye`'s own spec
-    # comment in globals.css reads "Tile eyebrow". Nothing caught it because nothing was watching.
-    # A RATCHET, not a wall: the 115 existing files are baselined in
-    # apps/web/scripts/page-masthead-baseline.json, so this only fails on NEW drift. Delete a line
-    # from the baseline when you migrate a page to <PageMasthead>; never add one.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint page masthead
-        working-directory: apps/web
-        run: node scripts/lint-page-masthead.mjs
-
   lint-bottom-nav:
     name: lint bottom-nav template
     runs-on: ubuntu-latest
@@ -198,54 +393,6 @@ jobs:
       - name: Lint nav icon source
         run: node apps/web/scripts/lint-nav-icon-source.mjs
 
-  lint-port-no-lost-controls:
-    name: lint port keeps every control
-    runs-on: ubuntu-latest
-    # THE DESIGN PORT MAY NOT SILENTLY DELETE A CONTROL.
-    #
-    # On 2026-08-06 two real controls were deleted from the couple's guest page
-    # ("Invite guests" + "Arrange the room") on a clean origin/main, and all
-    # twelve existing lint scripts, typecheck AND Lighthouse passed
-    # byte-identically. That is structural: this repo has no render harness, ~14%
-    # of pages are named in any test, and every other guard fires on a wrong
-    # thing ADDED while a port REMOVES. It has already cost us the YouTube API
-    # Services disclosure on the /panood port, caught by a manual diff.
-    #
-    # This job compares every route's destinations + bound actions against a
-    # GENERATED baseline (apps/web/scripts/port-control-baseline.json). Missing
-    # fails; added passes. A deliberate removal is handled by regenerating the
-    # baseline in the SAME PR, which puts it in the diff as one readable line.
-    #
-    # DELETE THIS JOB, the two scripts and the baseline when the port is done —
-    # a guard kept past its purpose becomes noise.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint port keeps every control
-        run: node apps/web/scripts/lint-port-no-lost-controls.mjs
-
-  lint-email-links:
-    name: lint email template links
-    runs-on: ubuntu-latest
-    # Task #20 of the 2026-05-22 audit verified that every emitNotification
-    # `relatedUrl` resolves to a real route under apps/web/app/**. This guard
-    # keeps it that way — a broken `relatedUrl` ships a 404 link to the user's
-    # inbox via Resend, and the owner won't see it until pilot. See
-    # apps/web/scripts/lint-email-links.mjs for the matcher logic.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint email template links
-        run: node apps/web/scripts/lint-email-links.mjs
-
   lint-entitlement-gates:
     name: lint entitlement gates
     runs-on: ubuntu-latest
@@ -267,25 +414,6 @@ jobs:
       - name: Lint entitlement gates
         run: node apps/web/scripts/lint-entitlement-gates.mjs
 
-  lint-admin-chat-guard:
-    name: lint admin chat-guard
-    runs-on: ubuntu-latest
-    # Privacy invariant (admin account-access model, 2026-06-22): the admin
-    # surface may NEVER read couple↔vendor chat bodies, thread attachments, or
-    # raw face vectors. Chat RLS is participant-only; the service-role admin
-    # client bypasses it, so this guard fails the build if any app/admin/** file
-    # (outside the demo-vendors allow-list) reads chat content or face vectors.
-    # Backs the published trust promise. See apps/web/scripts/lint-admin-chat-guard.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint admin chat-guard
-        run: node apps/web/scripts/lint-admin-chat-guard.mjs
-
   lint-guest-legibility:
     name: lint guest legibility
     runs-on: ubuntu-latest
@@ -305,24 +433,6 @@ jobs:
 
       - name: Lint guest legibility
         run: node apps/web/scripts/lint-guest-legibility.mjs
-
-  lint-radius:
-    name: lint radius tokens
-    runs-on: ubuntu-latest
-    # Keeps corner radii on the single --m-r-* token scale (owner-locked
-    # "softer corners" 2026-06-20). Fails on any ad-hoc rounded-[Npx] /
-    # border-radius:Npx / borderRadius:N that bypasses the tokens. Tree is
-    # clean at landing; this blocks NEW drift. Not yet a required check —
-    # owner promotes via branch protection. See apps/web/scripts/lint-radius.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint radius tokens
-        run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
   lint-nested-forms:
     name: lint nested forms
@@ -344,31 +454,6 @@ jobs:
 
       - name: Lint nested forms
         run: node apps/web/scripts/lint-nested-forms.mjs
-
-  lint-booth-poster-placement:
-    name: lint booth poster placement
-    runs-on: ubuntu-latest
-    # Fails when the 3D booth poster stand's position is hardcoded in
-    # venue-objects.tsx instead of read from boothPosterLocalOffset, or when
-    # BoothPoster re-declares the frame dimensions the placement maths depends
-    # on. PR #3437 shipped `w / 2 + 0.42` measured off the shared 2.0 m
-    # footprint — wrong body (the chassis is 1.8–3.4 m) and a gap smaller than
-    # the stand's own 0.45 m half-width, so the banner sat inside the booth on
-    # nine of ten chassis. A unit test CANNOT catch this: templateBoothObstacles
-    # calls the helper internally, so "renderer and obstacle agree" compares the
-    # module to itself and passes even when the renderer is hardcoded, and the
-    # renderer is JSX with no render harness in the unit suite. Not yet a
-    # required check — owner promotes via branch protection once proven quiet.
-    # See apps/web/scripts/lint-booth-poster-placement.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint booth poster placement
-        run: node apps/web/scripts/lint-booth-poster-placement.mjs
 
   migration-timestamp-guard:
     name: migration timestamp guard
@@ -435,75 +520,3 @@ jobs:
       - name: Lint exposure baseline
         run: node scripts/lint-exposure-baseline.mjs
 
-  lint-dup-rule-baseline:
-    name: lint duplicated-rule baseline
-    runs-on: ubuntu-latest
-    # Structural half of the duplicated-rule ratchet. The real comparison —
-    # scan vs committed baseline — runs inside the "typecheck + lint" job,
-    # because it needs the TypeScript scanners. THIS job needs nothing but the
-    # files, so it runs install-free and closes the two ways a file-based guard
-    # dies quietly:
-    #   1. the baseline gets truncated, emptied or hand-sorted, so the differ
-    #      compares nothing against nothing and reports "no widenings";
-    #   2. the guard gets unwired — runner deleted, package.json script dropped,
-    #      CI step removed — and the build still goes green. That is the worst
-    #      failure mode available, because it manufactures confidence.
-    # So it asserts: header fact-counts match the body, per-kind floors are met,
-    # ordering is canonical, keys are unique and correctly shaped, the mirrored
-    # DUP_RULE_KINDS constant has not drifted, the "adding a line is a widening"
-    # sentence is still in the header, and both the runner and its CI steps are
-    # still in place. Pure node, no install. See scripts/lint-dup-rule-baseline.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint duplicated-rule baseline
-        run: node scripts/lint-dup-rule-baseline.mjs
-
-  lint-vendor-layout-revalidate:
-    name: lint vendor layout revalidate
-    runs-on: ubuntu-latest
-    # Protects the 2026-07-01 vendor-dashboard perf work (PRs #2529/#2533/#2543/
-    # #2546). The layout re-renders server-side on every navigation, so a broad
-    # `revalidatePath('/vendor-dashboard', 'layout')` (or global `'/', 'layout'`)
-    # silently re-inflates it by busting the client Router-Cache window for the
-    # whole subtree. This guard fails when a NEW broad layout-wide bust appears
-    # beyond the committed baseline (a few intentional admin/tour uses). Not yet
-    # a required check — owner promotes via branch protection. Pure node, no
-    # install. See apps/web/scripts/lint-vendor-layout-revalidate.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint vendor layout revalidate
-        run: node apps/web/scripts/lint-vendor-layout-revalidate.mjs
-
-  lint-changelog-dir:
-    name: lint changelog fragment dir
-    runs-on: ubuntu-latest
-    # Fails when a `changelog.d/` directory exists anywhere but the repo root.
-    # scripts/changelog-collect.mjs reads ONLY <repoRoot>/changelog.d, so a
-    # fragment written to any other one is never folded into CHANGELOG.md and
-    # never deleted — it just sits there looking like a healthy pending
-    # fragment. The failure mode is pure silence, which is why it ran unnoticed
-    # for months: by 2026-07-25 two orphan dirs held 172 stranded fragments
-    # (167 in apps/web/changelog.d, 5 in apps/changelog.d) whose content never
-    # reached the changelog. Both were migrated with `git mv`; this guard stops
-    # a third from forming. Docs alone can't — changelog.d/README.md and
-    # CLAUDE.md already said "put it in the root dir" the entire time the 172
-    # piled up. Pure node, no install. See apps/web/scripts/lint-changelog-dir.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint changelog fragment dir
-        run: node apps/web/scripts/lint-changelog-dir.mjs

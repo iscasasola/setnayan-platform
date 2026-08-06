@@ -20,6 +20,8 @@ import {
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import { canViewSlugEvent } from '@/lib/slug-access';
+import type { DoorwayFacts } from './_lib/site-nav';
 import {
   resolveEffectiveVisibility,
   isScheduledLaunchDue,
@@ -44,6 +46,7 @@ import {
   loadVendorBooking,
   loadDayOfBroadcast,
   loadLiveLayer,
+  loadDoorwayFacts,
   loadMedia,
   loadWidgets,
   type EventShellRow,
@@ -526,6 +529,7 @@ async function InvitationBody({
     backdropConfig,
     liveWall,
     watchLive,
+    broadcastPlanned,
     publicCandidCameraActive,
     hostCameraOpen,
     publicAlbumHref,
@@ -573,6 +577,40 @@ async function InvitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkVendorBooking: (userId) => loadVendorBooking(admin, event.event_id, userId),
   });
+  // ── THE TWO DOORS, BEFORE THE DAY. ───────────────────────────────────────
+  //
+  // The 3D walk-through of the reception and the money-gift page already have
+  // cards — on the day-of hub. But the hub's own link only surfaces once the
+  // wedding is LIVE or OVER, so the 3D card's copy ("Look around the reception
+  // before you arrive") sat on a surface nobody could reach until they had
+  // arrived. The same two cards mount on THIS page, which every guest already
+  // has, in every phase.
+  //
+  // The facts each door needs are read the way the DESTINATION reads them —
+  // see `loadDoorwayFacts`. One of them cannot live in a cached loader:
+  //
+  // 🚨 THE MONEY-GIFT PAGE AND THIS PAGE DO NOT ASK THE SAME VISIBILITY
+  // QUESTION. `/[slug]/pabuya` runs `canViewSlugEvent` against the RAW
+  // `landing_page_visibility` column; this page decides what it renders from
+  // `resolveEffectiveVisibility`, which ALSO reports 'public' the instant a
+  // scheduled launch falls due — before anything has written the column (the
+  // write is deferred to the `after()` task above, which is allowed to fail).
+  // In that window a stranger reads a fully public wedding page, taps "Send a
+  // blessing", and is redirected straight back with no explanation. So the
+  // door asks the destination's own question.
+  //
+  // It costs nothing on the ordinary path: when the two visibilities agree, the
+  // gate at the top of this function has ALREADY proved the answer is yes.
+  const rawVisibility = event.landing_page_visibility ?? 'private';
+  const pabuyaViewerAllowed =
+    rawVisibility === visibility
+      ? true
+      : await canViewSlugEvent(event.event_id, rawVisibility);
+  const doorwayFacts: DoorwayFacts = {
+    ...(await loadDoorwayFacts(admin, event.event_id, event.event_type ?? null)),
+    pabuyaViewerAllowed,
+  };
+
   // The coordinator's announcement for the guests in the room. Live window
   // only — the loader returns null outside it, so nothing stale survives the
   // day. Guests only; see the render site in site-body.
@@ -609,6 +647,8 @@ async function InvitationBody({
     backdrop,
     liveWall,
     watchLive,
+    broadcastPlanned,
+    doorwayFacts,
     proWatermarkHidden,
     siteColorVars,
     editorMode,

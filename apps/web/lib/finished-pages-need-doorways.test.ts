@@ -60,6 +60,9 @@ function bothOpen(over: Partial<DoorwayInput> = {}): DoorwayInput {
     seatingPublished: true,
     pabuyaRouteEnabled: true,
     enabledEgiftCount: 2,
+    // The money-gift page's OWN visibility gate, which is not the one the
+    // surfaces drawing this card apply. See doorways-before-the-day.test.ts.
+    pabuyaViewerAllowed: true,
     ...over,
   };
 }

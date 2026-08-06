@@ -58,7 +58,12 @@ export const PILLAR_HEROES: PillarHero[] = [
     name: 'Ala ala',
     role: 'Memory Hub',
     head: 'Some days are too beautiful to live only once.',
-    desc: 'Every photo, every clip, every story of your day, waiting for you to step back into whenever you miss it. Yours for life.',
+    // OWNER-APPROVED VERBATIM — `03_Strategy/Claude_Design_Brief_2026-07-31.md`
+    // § 5, "Pillar 01 — Ala ala · Memory Hub" (2026-07-31). It re-frames the
+    // album as the whole samahan's rather than one family's; the tail from
+    // "every photo" on is the sentence this replaced, kept word-for-word.
+    // Pinned by lib/home-front-copy.test.ts.
+    desc: 'Not one family’s album. The whole samahan’s — every photo, every clip, every story of your day, gathered from everyone who was there, waiting for you to step back into whenever you miss it. Yours for life.',
     photo:
       'radial-gradient(120% 85% at 50% 25%, #B0ABA4 0%, #847d74 42%, #524c44 78%, #34302b 100%)',
   },

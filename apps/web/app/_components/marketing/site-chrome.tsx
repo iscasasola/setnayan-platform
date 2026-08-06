@@ -105,11 +105,26 @@ const NAV_ROUTES = new Set<string>([
 // its immersive edition design ships zero old-site chrome already.
 const FOOTER_ONLY_PREFIXES = ['/blog/', '/help/', '/tour'];
 
-// Routes whose OWN sticky header owns the viewport top (the /explore
-// marketplace search bar): the glass nav renders in-flow there (scrolls away
-// with the page) instead of fixed, so two pinned bars never stack — preserves
-// the prior `sticky={false}` intent.
-const UNFIXED_ROUTES = new Set<string>(['/explore']);
+// Routes whose OWN sticky header owns the viewport top: the glass nav renders
+// in-flow there (scrolls away with the page) instead of fixed, so two pinned
+// bars never stack — preserves the prior `sticky={false}` intent.
+//
+// 🔴 /features and /tl/features were MISSING here (reported by the owner from a
+// phone, 2026-08-06 — the only way it was ever going to be found). Both render
+// <FeaturesPageBody>, whose <AnchorNav> is `sticky top-0 z-30`, so the floating
+// glass nav sat directly ON TOP of the section tabs: "Vendors & budget" and
+// "Outsourcing & pacing" were unreadable behind Prices / Download / Vendors /
+// Sign in, and the page's own h1 was sliced in half.
+//
+// ⚠ AnchorNav's own line 46 comment says "Top margin allows for the sticky
+// header + this anchor nav (~120px combined)" — the author KNEW a pinned header
+// sat above and still pinned to top-0. Two components each correct about
+// themselves, wrong about each other. This set is the only place that knows.
+//
+// 🛡 A guard now enforces it: scripts/lint-no-stacked-pinned-bars.mjs fails the
+// build if a NAV_ROUTE's page tree pins anything to the viewport top without
+// being listed here.
+const UNFIXED_ROUTES = new Set<string>(['/explore', '/features', '/tl/features']);
 
 /** Routes that render the floating glass NAV (+ overlays + footer). */
 export function isNavRoute(pathname: string | null): pathname is string {

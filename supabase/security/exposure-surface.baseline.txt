@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6234
+# facts: 6236
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     673
 #   col       4503
-#   policy    836
+#   policy    838
 #   view      9
 #   func      209
 #
@@ -5635,6 +5635,7 @@ policy	public.paparazzi_seats|paparazzi_seats_couple_full	mode=PERMISSIVE cmd=AL
 policy	public.papic_event_pool_config|papic_event_pool_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.papic_guest_captures|papic_guest_captures_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_guest_captures|papic_guest_captures_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_guest_captures.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
+policy	public.papic_guest_captures|papic_guest_captures_moderator_photos_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'photos'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
 policy	public.papic_limited_snapshots|papic_limited_snapshots_couple_full	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_limited_snapshots.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_limited_snapshots.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
 policy	public.papic_mission_completions|papic_mission_completions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_mission_completions|papic_mission_completions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_mission_completions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
@@ -5646,6 +5647,7 @@ policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorsh
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.papic_photos|papic_photos_claimer_own	mode=PERMISSIVE cmd=ALL roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.event_id = papic_photos.event_id)))) check=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_photos.paparazzi_seat_id) AND (ps.claimer_user_id = auth.uid()) AND (ps.revoked_at IS NULL) AND (ps.event_id = papic_photos.event_id))))
 policy	public.papic_photos|papic_photos_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
+policy	public.papic_photos|papic_photos_moderator_photos_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'photos'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
 policy	public.papic_seat_day_usage|papic_seat_day_usage_claimer_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_seat_day_usage.seat_id) AND (ps.claimer_user_id = auth.uid())))) check=NULL
 policy	public.papic_seat_day_usage|papic_seat_day_usage_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_seat_day_usage.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_seat_day_usage.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
 policy	public.papic_tier_config|papic_tier_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL

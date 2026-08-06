@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ModeratorPermissions as _ModeratorPermissions } from './delegate-areas';
 
 // Iteration 0048 — V1 multi-host invite system.
 //
@@ -75,79 +76,19 @@ export const ROLE_SUBTYPE_HINT: Readonly<Record<RoleSubtype, string>> = {
 // edit_all/checkout flags. Resolution lives in SQL
 // (public.moderator_area_level, migration 20261129000000) — keep
 // resolveAreaLevel below in lockstep with it.
-export type DelegateArea =
-  | 'guest_list'
-  | 'seat_plan'
-  | 'schedule'
-  | 'vendors'
-  | 'invitations'
-  | 'mood_board'
-  | 'budget';
+// The delegate-area model lives in `./delegate-areas` — a module with NO
+// imports, so the permission rule can be unit-tested. This file starts with
+// `import 'server-only'`, which makes anything defined here unreachable from a
+// test. Re-exported so every existing caller keeps its import path.
+export type { DelegateArea, AreaLevel, ModeratorPermissions } from './delegate-areas';
+export {
+  DELEGATE_AREAS,
+  DELEGATE_AREA_LABEL,
+  COORDINATOR_AREAS,
+  resolveAreaLevel,
+} from './delegate-areas';
 
-export type AreaLevel = 'edit' | 'view' | null;
-
-export type ModeratorPermissions = {
-  edit_all: boolean;
-  checkout: boolean;
-  invite_hosts: boolean;
-  remove_hosts: boolean;
-  areas?: Partial<Record<DelegateArea, AreaLevel>>;
-};
-
-export const DELEGATE_AREAS: readonly DelegateArea[] = [
-  'guest_list',
-  'seat_plan',
-  'schedule',
-  'vendors',
-  'invitations',
-  'mood_board',
-  'budget',
-] as const;
-
-export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
-  guest_list: 'Guest list',
-  seat_plan: 'Seat plan',
-  schedule: 'Schedule',
-  vendors: 'Vendors',
-  invitations: 'Invitations',
-  mood_board: 'Mood board',
-  budget: 'Budget',
-};
-
-// The coordinator's default grants — locked § 3 table: planning areas Edit,
-// mood board View (aesthetic direction stays the couple's), budget OFF
-// (locked D1 — couple-raiseable to View, never Edit in V1). Seat-plan
-// publish + first invitation deploy remain couple-confirmed regardless
-// (DB trigger + locked D4).
-export const COORDINATOR_AREAS: Readonly<Partial<Record<DelegateArea, AreaLevel>>> = {
-  guest_list: 'edit',
-  seat_plan: 'edit',
-  schedule: 'edit',
-  vendors: 'edit',
-  invitations: 'edit',
-  mood_board: 'view',
-  budget: null,
-};
-
-/**
- * TS mirror of public.moderator_area_level (migration 20261129000000).
- * areas[k] wins when the key is present; legacy flags fall back. Budget
- * never exceeds 'view' in V1 (locked D1).
- */
-export function resolveAreaLevel(
-  perms: ModeratorPermissions | null | undefined,
-  area: DelegateArea,
-): AreaLevel {
-  if (!perms) return null;
-  if (perms.areas && area in perms.areas) {
-    return perms.areas[area] ?? null;
-  }
-  if (area === 'budget') return perms.checkout ? 'view' : null;
-  if (area === 'mood_board') return 'view';
-  return perms.edit_all ? 'edit' : 'view';
-}
-
-export const PERMISSION_TEMPLATES: Readonly<Record<RoleSubtype, ModeratorPermissions>> = {
+export const PERMISSION_TEMPLATES: Readonly<Record<RoleSubtype, _ModeratorPermissions>> = {
   bride: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
   groom: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
   partner1: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },

@@ -121,3 +121,61 @@ export function bookingFeeNotificationCopy(args: {
     )} Setnayan booking fee for ${name} is due. Pay it on the manual GCash/BDO rail — it clears once our team confirms your payment (within 24 hours).`,
   };
 }
+
+/** Longest reference we store. Bank/e-wallet ids are far shorter; this is a cap, not a shape. */
+export const BOOKING_FEE_REFERENCE_MAX = 64;
+
+export type FeeReferenceResult =
+  | { ok: true; reference: string }
+  | { ok: false; code: 'ref_required' };
+
+/**
+ * The vendor MUST give a reference when logging their booking-fee payment
+ * (owner, 2026-08-06). Deliberately required HERE only — the three
+ * customer-facing payment forms stay optional, because a guest blocked at the
+ * last step of buying photos simply leaves.
+ *
+ * Without it an admin matches a payment by amount, sender and screenshot, which
+ * holds until two vendors pay the same amount on the same day. Then it is
+ * guesswork, on money.
+ *
+ * ⚠ NO FORMAT CHECK, ON PURPOSE. The 8-character code in our own records is
+ * SETNAYAN'S reference, minted by us for the vendor to quote. What the vendor
+ * types here is their BANK'S id — a GCash reference, an InstaPay invoice, a BDO
+ * confirmation number — and those have no common shape. A regex here would
+ * reject real payments.
+ *
+ * ⚠ NO MINIMUM LENGTH either. Six characters is a downstream MATCHING
+ * heuristic; a shorter entry is merely harder to match, not invalid, and
+ * refusing it would block a vendor whose bank really did give them a short id.
+ *
+ * Non-empty AFTER TRIM — the same definition of "proof" the admin fees queue
+ * uses, because a single space satisfies the browser's own `required`.
+ */
+export function requireBookingFeeReference(raw: unknown): FeeReferenceResult {
+  const t = typeof raw === 'string' ? raw.trim() : '';
+  if (t.length === 0) return { ok: false, code: 'ref_required' };
+  return { ok: true, reference: t.slice(0, BOOKING_FEE_REFERENCE_MAX) };
+}
+
+/**
+ * Every refusal this lane can produce, mapped to what the vendor reads.
+ *
+ * 🚨 THE PAGE USED TO RENDER `decodeURIComponent(search.error)` DIRECTLY into an
+ * alert box. That was harmless only because nothing ever wrote the parameter —
+ * a dead reader. The moment it has a writer, anybody can hand a vendor a link
+ * that shows them any sentence they like, inside our own red warning styling,
+ * on the page where they are about to send money. A fixed map is the fix: an
+ * unknown code renders NOTHING.
+ */
+export const BOOKING_FEE_ERRORS = {
+  ref_required:
+    'Add the reference number from your BDO or GCash confirmation — we need it to match your payment.',
+} as const;
+
+export type BookingFeeErrorCode = keyof typeof BOOKING_FEE_ERRORS;
+
+export function bookingFeeErrorCopy(code: string | undefined): string | null {
+  if (!code) return null;
+  return (BOOKING_FEE_ERRORS as Record<string, string>)[code] ?? null;
+}

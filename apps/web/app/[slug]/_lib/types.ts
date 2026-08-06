@@ -246,6 +246,12 @@ export type LiveLayerData = {
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;
+  /** Has the couple staged a broadcast the page can ANNOUNCE before the day?
+   *  `watchLive` is the player and exists only inside the live window; this is
+   *  the single fact the "we'll be streaming" notice needs, and it is read in
+   *  every phase the notice can be drawn in. FALSE during and after the day —
+   *  the player, and then the recap, say it better. */
+  broadcastPlanned: boolean;
   publicCandidCameraActive: boolean;
   /** The host's Papic switch, read on ANY day — the menu's camera slot follows
    *  the SWITCH, not the calendar (owner 2026-08-03). Distinct from
@@ -315,7 +321,10 @@ export type GuestRow = {
   rsvp_status: 'pending' | 'attending' | 'declined' | 'maybe';
   meal_preference: string | null;
   dietary_restrictions: string | null;
-  notes: string | null;
+  /** The GUEST's own message to the couple. NOT `guests.notes`, which is the
+   *  couple's PRIVATE note about this guest and must never reach this type —
+   *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */
+  guest_note: string | null;
   custom_tags: string[];
   qr_token: string;
   photo_url: string | null;

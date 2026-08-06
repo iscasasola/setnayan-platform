@@ -48,11 +48,154 @@ const sessionTokenMatchesDb = cache(
   },
 );
 
+/**
+ * ── The signing seal ─────────────────────────────────────────────────────────
+ *
+ * Guest-session cookies are HS256-signed with the raw bytes of ONE env var. The
+ * value that resolves here IS the seal, so every rule below exists to serve two
+ * goals that pull against each other:
+ *
+ *   FAIL CLOSED — never sign or verify with a seal that isn't a real secret.
+ *   DON'T MOVE THE BYTES — the seal prod signs with today must keep working, or
+ *   every guest holding a live cookie is signed out. That happens mid-wedding,
+ *   and their only way back in is re-scanning a QR they may no longer have.
+ *
+ * ⚠ THE SERVICE-ROLE FALLBACK IS DELIBERATELY KEPT. Two unrelated secrets
+ * sharing one value is poor hygiene and it should end — but ending it HERE, in
+ * code, is the wrong lever. Production has no dedicated GUEST_SESSION_SECRET
+ * today, so deleting the fallback would not "improve" anything; it would sign
+ * out every live guest the moment the deploy landed. The correct order is:
+ * set GUEST_SESSION_SECRET in Vercel first, accept the one-time sign-out at a
+ * moment of the owner's choosing, and only then retire the fallback.
+ *
+ * 🔑 THE REAL COST OF THE SHARED VALUE, stated plainly so it isn't rediscovered:
+ * while the fallback is in use, ROTATING THE DATABASE KEY SILENTLY SIGNS OUT
+ * EVERY GUEST. Nothing in the rotation runbook says so, because nothing about a
+ * database credential suggests it is also a cookie seal.
+ *
+ * ── What the old guard missed ────────────────────────────────────────────────
+ * The previous resolver was `A ?? B ?? ''` followed by `if (!secret) throw`.
+ * Probed rather than read, it did three surprising things:
+ *
+ *   • `GUEST_SESSION_SECRET=''` + a valid service-role key → THREW. `??` is
+ *     nullish coalescing, so a present-but-empty variable counts as a value and
+ *     short-circuits the fallback standing right behind it. Not hypothetical:
+ *     `.env.example` ships that line blank, and `vercel env pull` writes
+ *     `NAME=` with no value.
+ *   • `GUEST_SESSION_SECRET='   '` → signed, with three spaces as the key.
+ *   • `GUEST_SESSION_SECRET='x'`   → signed, with one byte as the key.
+ *
+ * `if (!secret)` is a PRESENCE check doing the job of a STRENGTH check. Blank
+ * and whitespace now read as ABSENT (so the fallback is reached), and anything
+ * too short to be a secret is REFUSED outright rather than quietly used.
+ *
+ * ⚠ Trimming informs the JUDGEMENT ONLY — never the material. A value pasted
+ * with a stray newline is still the seal prod is signing with right now, so the
+ * signer always receives the original bytes.
+ */
+
+/**
+ * Below this, a value cannot be a real secret — it is a typo, a placeholder, or
+ * a shell artifact. Chosen to sit under every legitimate value: a
+ * `openssl rand -hex 32` secret is 64 chars, a Supabase `sb_secret_…` key ~50,
+ * a legacy service-role JWT ~200. Nothing valid is anywhere near this floor.
+ */
+const MIN_SECRET_CHARS = 32;
+
+type SecretSource = 'dedicated' | 'service_role';
+
+export type GuestSessionSecretResolution =
+  | { ok: true; material: string; source: SecretSource }
+  | { ok: false; reason: string };
+
+/**
+ * An index signature, not named optional fields: `process.env` is typed
+ * `Dict<string>` with no declared properties, so a weak type of named optionals
+ * fails to accept it ("no properties in common").
+ */
+type SecretEnv = { readonly [key: string]: string | undefined };
+
+/** Blank or whitespace-only is ABSENT, not a value. */
+function presentValue(raw: string | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  return raw.trim().length > 0 ? raw : null;
+}
+
+/**
+ * Resolve the seal without touching cookies or throwing — so callers (and the
+ * tests, and any future health surface) can ask "is this configured?" and get
+ * an answer instead of an exception.
+ */
+export function resolveGuestSessionSecret(
+  env: SecretEnv = process.env,
+): GuestSessionSecretResolution {
+  const dedicated = presentValue(env.GUEST_SESSION_SECRET);
+  const serviceRole = presentValue(env.SUPABASE_SERVICE_ROLE_KEY);
+
+  const picked: { material: string; source: SecretSource } | null = dedicated
+    ? { material: dedicated, source: 'dedicated' }
+    : serviceRole
+      ? { material: serviceRole, source: 'service_role' }
+      : null;
+
+  if (!picked) {
+    return {
+      ok: false,
+      reason:
+        'GUEST_SESSION_SECRET is not configured and no SUPABASE_SERVICE_ROLE_KEY is available to fall back to',
+    };
+  }
+
+  // Judged on a trimmed copy; the material handed back stays untrimmed.
+  if (picked.material.trim().length < MIN_SECRET_CHARS) {
+    const which =
+      picked.source === 'dedicated' ? 'GUEST_SESSION_SECRET' : 'SUPABASE_SERVICE_ROLE_KEY';
+    return {
+      ok: false,
+      reason: `${which} is too short to be a signing secret (under ${MIN_SECRET_CHARS} characters) — refusing to sign or verify with it`,
+    };
+  }
+
+  return { ok: true, material: picked.material, source: picked.source };
+}
+
+/**
+ * One line per process, not one per request — a seal problem is a deploy-wide
+ * condition, and repeating it on every guest page render would bury it.
+ */
+let warnedSource: SecretSource | 'unusable' | null = null;
+
+function warnOnce(resolution: GuestSessionSecretResolution): void {
+  const key = resolution.ok ? resolution.source : 'unusable';
+  if (warnedSource === key) return;
+  warnedSource = key;
+
+  if (!resolution.ok) {
+    // Loud on purpose. Without this, a missing seal is indistinguishable from a
+    // forged cookie: readGuestSession() returns null either way, so an entire
+    // deploy can sign out every guest with nothing in the logs to say why.
+    console.error(
+      `[guest-session] NO USABLE SIGNING SECRET — every guest is signed out. ${resolution.reason}. ` +
+        'Set GUEST_SESSION_SECRET in the Vercel project env (openssl rand -hex 32) and redeploy.',
+    );
+    return;
+  }
+
+  if (resolution.source === 'service_role') {
+    console.warn(
+      '[guest-session] signing guest cookies with SUPABASE_SERVICE_ROLE_KEY because ' +
+        'GUEST_SESSION_SECRET is unset. Two unrelated secrets are sharing one value: ' +
+        'rotating the database key will sign out every guest. Set a dedicated ' +
+        'GUEST_SESSION_SECRET (openssl rand -hex 32) when a sign-out is acceptable.',
+    );
+  }
+}
+
 function getSecret(): Uint8Array {
-  const secret =
-    process.env.GUEST_SESSION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!secret) throw new Error('GUEST_SESSION_SECRET (or fallback) not configured');
-  return new TextEncoder().encode(secret);
+  const resolution = resolveGuestSessionSecret();
+  warnOnce(resolution);
+  if (!resolution.ok) throw new Error(`[guest-session] ${resolution.reason}`);
+  return new TextEncoder().encode(resolution.material);
 }
 
 export type GuestSessionPayload = {
@@ -73,8 +216,21 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
   if (!cookie?.value) return null;
+
+  // Resolve the seal OUTSIDE the catch-all below. A misconfigured seal and a
+  // forged cookie both end in "signed out", but they are not the same event and
+  // must not look the same to whoever is reading the logs at the time. Left
+  // inside the try, a missing secret was swallowed by `catch { return null }` —
+  // silence, on every request, for a deploy-wide fault.
+  const resolution = resolveGuestSessionSecret();
+  warnOnce(resolution);
+  if (!resolution.ok) return null; // fail closed, but now it is on the record
+
   try {
-    const { payload } = await jwtVerify(cookie.value, getSecret());
+    const { payload } = await jwtVerify(
+      cookie.value,
+      new TextEncoder().encode(resolution.material),
+    );
     if (
       typeof payload.guest_id !== 'string' ||
       typeof payload.event_id !== 'string' ||

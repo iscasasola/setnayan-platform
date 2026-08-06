@@ -363,7 +363,12 @@ export default async function VendorDashboardLayout({
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <VendorBottomNav role={vendorRole} navSlots={navSlots} />
+      <VendorBottomNav
+        role={vendorRole}
+        navSlots={navSlots}
+        bookingsBadge={bookingsPending}
+        threadsBadge={threadsUnread}
+      />
       {/* NAV-2 broken-out action — Check inquiries (a sibling of the pill,
           never a tab). Hides itself when a docked SubNav is up. */}
       <VendorNavFab />

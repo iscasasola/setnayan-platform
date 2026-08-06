@@ -1287,15 +1287,31 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // a link to the live /explore/compare tool, which reads `?ids=<uuid>,<uuid>`.
   // Enabled only at ≥2 saved vendors; links the two earliest saves. Null when
   // anonymous / <2 saved → CompareShortlistBanner renders nothing.
+  // ⚠ This filter used to read `.neq('status', 'declined')`. There is no
+  // 'declined' in the `vendor_status` enum (considering · shortlisted ·
+  // contracted · deposit_paid · delivered · complete), so Postgres rejected the
+  // whole query with 22P02 and `data` came back null on every render — the
+  // banner has never once appeared. The intent (skip vendors the couple dropped)
+  // is real, and `archived_at` is where the product actually records it, the
+  // same way the dashboard's own saved-vendor reads do.
   let compareHref: string | null = null;
   if (coupleEventId) {
-    const { data: savedForCompare } = await supabase
+    const { data: savedForCompare, error: savedForCompareError } = await supabase
       .from('event_vendors')
       .select('marketplace_vendor_id')
       .eq('event_id', coupleEventId)
       .not('marketplace_vendor_id', 'is', null)
-      .neq('status', 'declined')
+      .is('archived_at', null)
       .order('vendor_id', { ascending: true });
+    // A failed read and an empty shortlist both yield zero ids, and both hide
+    // the banner — indistinguishable in the UI, which is exactly how the broken
+    // predicate above survived. Surface the failure so the next one is visible.
+    if (savedForCompareError) {
+      console.error(
+        '[explore] compare-shortlist read failed',
+        savedForCompareError,
+      );
+    }
     const savedIds = Array.from(
       new Set(
         (savedForCompare ?? [])

@@ -11,14 +11,19 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // calendar export (.ics), contract uploads. Mirrors the homepage
 // "Vendors" tab on the four-tab walkthrough but unpacked.
 //
-// Bilingual (EN + Taglish). META (icon + iteration tag) is language-neutral
-// and zips with COPY[locale].items by index — keep both arrays in lockstep.
+// Bilingual (EN + Taglish). META (icon) is language-neutral and zips with
+// COPY[locale].items by index — keep both arrays in lockstep.
+//
+// The `iteration` tag ('Iteration 0006' …) was removed 2026-08-06: it rendered
+// on the PUBLIC features page, in both locales, to anonymous visitors and to
+// Google. The field is gone rather than merely unrendered so it cannot be
+// re-surfaced by a later edit.
 
-const META: { Icon: LucideIcon; iteration: string }[] = [
-  { Icon: Briefcase, iteration: 'Iteration 0006' },
-  { Icon: ListChecks, iteration: 'Iteration 0007' },
-  { Icon: CalendarPlus, iteration: 'Iteration 0008' },
-  { Icon: FileText, iteration: 'Iteration 0006' },
+const META: { Icon: LucideIcon }[] = [
+  { Icon: Briefcase },
+  { Icon: ListChecks },
+  { Icon: CalendarPlus },
+  { Icon: FileText },
 ];
 
 const COPY: Record<
@@ -101,18 +106,18 @@ export function VendorsLedger({ locale }: { locale: MarketingLocale }) {
 
         <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {c.items.map((item, i) => {
-            const { Icon, iteration } = META[i]!;
+            const { Icon } = META[i]!;
             return (
               <li
                 key={item.title}
                 className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
               >
-                <div className="flex items-center justify-between">
+                {/* The internal spec code ("Iteration 0006") used to sit opposite
+                    the icon, public to every visitor. Removed — the icon carries
+                    the row on its own. */}
+                <div className="flex items-center">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                     <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
-                    {iteration}
                   </span>
                 </div>
                 <h3 className="text-base font-semibold tracking-tight text-ink">

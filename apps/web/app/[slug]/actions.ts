@@ -111,7 +111,11 @@ export async function submitRsvp(
   const meal_raw = clean(formData.get('meal_preference'));
   const meal = (meal_raw || 'no_preference') as MealPreference;
   const dietary = clean(formData.get('dietary_restrictions')) || null;
-  const notes = clean(formData.get('notes')) || null;
+  // ⚠ `guest_note`, NOT `notes`. `guests.notes` is the COUPLE'S private note
+  // about this guest; this action runs as the GUEST. Until 2026-08-06 it read
+  // `notes` from the form and wrote it straight back, so every RSVP erased what
+  // the couple had written about that person.
+  const guestNote = clean(formData.get('guest_note')) || null;
 
   if (!RSVP_VALUES.includes(status)) {
     return;
@@ -127,7 +131,7 @@ export async function submitRsvp(
       rsvp_status: status,
       meal_preference: meal,
       dietary_restrictions: dietary,
-      notes,
+      guest_note: guestNote,
       rsvp_responded_at:
         status === 'attending' || status === 'declined'
           ? new Date().toISOString()

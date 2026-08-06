@@ -54,3 +54,21 @@ export function rateLimit(
   b.count += 1;
   return { ok: true, remaining: limit - b.count, retryAfterMs: 0 };
 }
+
+/**
+ * READ-ONLY view of a key's budget. Does NOT consume a slot and does NOT create
+ * a bucket, so it is safe to call on a GET render that a real guest may reload
+ * any number of times.
+ *
+ * ⚠ L1 only — this reads the CURRENT INSTANCE's memory, so it can say "fine"
+ * for a key another instance has already exhausted. It is a courtesy read for
+ * UI ("you're going too fast"), never an authorization decision: the
+ * authoritative call is `rateLimit` / `enforceRateLimit`, which consume.
+ */
+export function peekRateLimit(key: string, limit: number): RateLimitResult {
+  const now = Date.now();
+  const b = buckets.get(key);
+  if (!b || now >= b.resetAt) return { ok: true, remaining: limit, retryAfterMs: 0 };
+  if (b.count >= limit) return { ok: false, remaining: 0, retryAfterMs: b.resetAt - now };
+  return { ok: true, remaining: limit - b.count, retryAfterMs: 0 };
+}

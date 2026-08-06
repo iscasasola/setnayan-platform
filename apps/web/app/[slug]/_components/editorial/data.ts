@@ -14,6 +14,7 @@
 // yet" card.
 // ============================================================================
 
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -610,7 +611,23 @@ function computeArchetype(guests: number, perGuestSpend: number | null): Archety
 
 // ── Main loader ──────────────────────────────────────────────────────────────
 
-export async function loadEditorialData(eventId: string): Promise<EditorialData | null> {
+/**
+ * The recap's data, resolved ONCE PER REQUEST.
+ *
+ * ⚠ WHY THE `cache()` WRAPPER (2026-08-06). The event site's bottom bar now has
+ * to know whether the recap put any PHOTOGRAPHS on the page before it can decide
+ * whether to draw the Gallery slot (see `editorial/gallery-anchor.ts`) — so
+ * `site-body.tsx` asks this loader the same question `EditorialContent` is about
+ * to ask it, on the same render. Unwrapped that is a second full pass of every
+ * query in this file on every after-the-wedding page view.
+ *
+ * React's per-request memo makes the second caller free. It is scoped to one
+ * request, so nothing is shared between visitors and no presigned URL outlives
+ * the response it was minted for.
+ */
+export const loadEditorialData = cache(loadEditorialDataUncached);
+
+async function loadEditorialDataUncached(eventId: string): Promise<EditorialData | null> {
   // Sample editorial (iteration 0046 Real Weddings) — the curated Maria & Juan
   // fixture renders through THIS exact component (via the /realstories sample page),
   // so the sample always tracks the live editorial format. Returns without

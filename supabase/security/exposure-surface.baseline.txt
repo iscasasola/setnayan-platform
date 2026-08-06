@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6224
+# facts: 6225
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     671
-#   col       4496
+#   col       4497
 #   policy    835
-#   view      10
-#   func      208
+#   view      9
+#   func      209
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2346,6 +2346,7 @@ col	public.guests.faceblock_enabled	anon=SIU authenticated=SIU
 col	public.guests.first_name	anon=SIU authenticated=SIU
 col	public.guests.group_category	anon=SIU authenticated=SIU
 col	public.guests.guest_id	anon=SIU authenticated=SIU
+col	public.guests.guest_note	anon=SIU authenticated=SIU
 col	public.guests.id	anon=SIU authenticated=SIU
 col	public.guests.invitation_sent_at	anon=SIU authenticated=SIU
 col	public.guests.invited_to_blocks	anon=SIU authenticated=SIU
@@ -6025,7 +6026,6 @@ policy	public.wedding_type_launch_status|wedding_type_launch_status_read_all	mod
 policy	storage.objects|moodboard_library_storage_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((bucket_id = 'moodboard-library'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))) check=((bucket_id = 'moodboard-library'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))))
 policy	storage.objects|moodboard_library_storage_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(bucket_id = 'moodboard-library'::text) check=NULL
 policy	storage.objects|moodboard_library_storage_vendor_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text))) check=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text)))
-view	public.bottleneck_signals_current	type=matview owner=postgres honours_rls=NO select=authenticated
 view	public.events_host	type=view owner=postgres honours_rls=NO select=authenticated
 view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_active_tools	type=view owner=postgres honours_rls=yes select=anon,authenticated
@@ -6062,6 +6062,7 @@ func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=a
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.confirm_guest_delivery(p_event_vendor_id uuid, p_qr_token text, p_method text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.confirm_vendor_payment(p_payment_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.consume_vendor_assets(p_vendor_id uuid, p_spend_amount integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
@@ -6095,7 +6096,7 @@ func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,a
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
-func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
+func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6110,6 +6111,7 @@ func	public.get_vendor_booked_service_categories(p_event_id uuid)	secdef=yes exe
 func	public.get_vendor_catering_metrics(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_cocktail_editor(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.get_vendor_event_brief(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.get_vendor_mood_board(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.get_vendor_seat_plan(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_thread_summaries(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.godchildren_with_birthday_soon(p_today date, p_within integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
@@ -6123,6 +6125,7 @@ func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=pu
 func	public.is_couple_member(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_event_member(p_event_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.list_vendor_delivery_bookings()	secdef=yes exec=anon,authenticated search_path=public
 func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6140,14 +6143,11 @@ func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated se
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_event_points_remaining(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_grant_camera_points(p_event_id uuid, p_order_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_reserve_camera_capture(p_seat_id uuid, p_event_id uuid, p_kind text, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_set_completion_consent(p_guest_id uuid, p_mission_id uuid, p_consent boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_tag_capture(p_token text, p_photo_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6162,7 +6162,6 @@ func	public.recompute_market_price_bands()	secdef=yes exec=anon,authenticated se
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.refresh_vendor_fraud_scores()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refund_displaced_inquiry_unlock(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.register_guest_claim_otp_attempt(p_claim_id uuid)	secdef=yes exec=anon search_path=public
 func	public.reject_vendor_deposit(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
@@ -6180,9 +6179,10 @@ func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.respond_vendor_proposal(p_proposal_id uuid, p_response text, p_coarse_category text)	secdef=yes exec=authenticated search_path=public
-func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
+func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
@@ -6193,6 +6193,7 @@ func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uui
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.sweep_vendor_tier_expiry(p_vendor_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.trusted_circle_vendor_signal(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.undo_guest_delivery(p_event_vendor_id uuid, p_qr_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event_free(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, p_thread_id uuid)	secdef=yes exec=anon,authenticated search_path=public

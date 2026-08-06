@@ -158,6 +158,12 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+// The compatibility-badge labels — DERIVED, never re-typed here. See the note
+// at their former hand-typed definitions further down this file.
+import {
+  COMPATIBLE_CEREMONY_TYPE_LABEL as CEREMONY_TYPE_LABELS,
+  COMPATIBLE_VENUE_SETTING_LABEL as VENUE_SETTING_LABELS,
+} from '@/lib/vendor-compatibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -273,35 +279,25 @@ type PublicVendorRow = {
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
-// the public vendor profile. Mirror the vendor-dashboard editor labels so
-// the badge text matches what the vendor saw when they ticked the box.
-const CEREMONY_TYPE_LABELS: Readonly<Record<string, string>> = {
-  catholic: 'Catholic',
-  civil: 'Civil',
-  inc: 'INC',
-  christian: 'Christian',
-  muslim: 'Muslim',
-  cultural: 'Cultural',
-  aglipayan: 'Aglipayan (IFI)',
-  lds: 'LDS (Latter-day Saints)',
-  sda: 'Seventh-day Adventist',
-  jw: "Jehovah's Witnesses",
-  hindu: 'Hindu',
-  sikh: 'Sikh',
-  buddhist: 'Buddhist',
-  orthodox: 'Orthodox Christian',
-  mixed: 'Mixed / interfaith',
-};
-
-const VENUE_SETTING_LABELS: Readonly<Record<string, string>> = {
-  banquet_hall: 'Banquet hall',
-  garden: 'Garden',
-  beach: 'Beach',
-  destination: 'Destination',
-  heritage: 'Heritage',
-  outdoor_tent: 'Outdoor tent',
-  civil_registrar: 'Civil registrar',
-};
+// the public vendor profile.
+//
+// ⚠ THESE WERE HAND-TYPED COPIES AND BOTH HAD DRIFTED (fixed 2026-08-05, in the
+// PR that finally gave vendors a form to set these columns). The old comment
+// here said "mirror the vendor-dashboard editor labels" — a mirror nothing
+// enforced, so:
+//   · the venue map never gained `restaurant` (added 2026-08-05), and
+//   · the ceremony map was missing `chinese`, `jewish` and `born_again` —
+//     three of the eighteen values the server has accepted since the faith
+//     worldwide expansion.
+// The fallbacks are silent: a missing key prints the raw database word, so a
+// couple would have read "born_again" on a public page. Nothing errors, nothing
+// logs, and until this PR no vendor could tick the affected boxes, so nobody
+// ever saw it — the defect was waiting for the writer to exist.
+//
+// They are now DERIVED (imported at the top of this file as
+// CEREMONY_TYPE_LABELS / VENUE_SETTING_LABELS) from the same vocabulary the
+// vendor's own picker renders, so a badge cannot say something different from
+// the box that was ticked. Guarded by `vendor-compatibility.test.ts`.
 
 /**
  * Resolve whether the current request belongs to an admin session that

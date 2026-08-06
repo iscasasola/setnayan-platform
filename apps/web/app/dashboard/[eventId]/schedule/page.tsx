@@ -36,6 +36,13 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
 import { EmceePicks } from './_components/emcee-picks';
+// "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
+// channel and its send box already shipped, but only inside the supplier floor
+// console; the couple's own floor-runner (an aunt, a planner they invited) has
+// no supplier account and so could not reach the thing built for her. Same
+// table, same INSERT policy, no permission widened.
+import { TellTheHost } from './_components/tell-the-host';
+import { parseNoteFlash } from './_components/note-flash';
 import { PreparationAgendaView } from './_components/preparation-agenda';
 // Journey mode — the full event-lifecycle arc (creation → the day →
 // editorial), a phase-grouped read-only view over the same agenda data plus
@@ -44,9 +51,10 @@ import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
-// Coordinator P2 — filtered run-of-show (flag-gated: every ros-p2 surface
-// renders only when NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true', so
-// flag-off/absent keeps this page byte-identical to today).
+// Coordinator P2 — filtered run-of-show. Gated by the Data Privacy board
+// control 'coordinator_run_of_show', NOT by an env var. This comment claimed
+// NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED was the gate; nothing reads it. The
+// control is `active` in prod, so these surfaces render today.
 import {
   EMPTY_ROS_META,
   fetchBlockRosMeta,
@@ -87,12 +95,15 @@ type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string; ros?: string }>;
+  searchParams: Promise<{ view?: string; ros?: string; note?: string }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { view: viewParam, ros: rosParam } = await searchParams;
+  const { view: viewParam, ros: rosParam, note: noteParam } = await searchParams;
+  // Result of a "Tell the host" send. Anything we did not write ourselves is
+  // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
+  const noteFlash = parseNoteFlash(noteParam);
   const supabase = await createClient();
   const {
     data: { user },
@@ -451,6 +462,19 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
            *  because picking and reading the resulting script are the same job.
            *  Placement logic is pure in lib/vendor-activities. */}
           <EmceePicks supabase={supabase} eventId={eventId} />
+          {/* A line to the host, mid-service. Sits with the host's own section
+           *  because a note is nearly always "change what happens next".
+           *  `canSend` is deliberately the SAME value as the run-of-show
+           *  advance gate: `event_stage_notes_event_insert` admits exactly the
+           *  people that gate admits — the couple, and a delegate holding
+           *  schedule:'edit'. Reusing the value is what stops the screen and
+           *  the policy drifting apart into a button that 42501s on tap. */}
+          <TellTheHost
+            supabase={supabase}
+            eventId={eventId}
+            canSend={canAdvanceRunOfShow}
+            flash={noteFlash}
+          />
           {/* Emcee script — compiles this timeline + the wedding-party names
            *  into a clean host script (copy / download). Read-only over the
            *  saved program; pure compiler in lib/emcee-script. */}

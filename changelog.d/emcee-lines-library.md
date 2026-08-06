@@ -123,7 +123,7 @@ library is working, and a quiet line explaining the automatic save when it is st
 Two things kept this PR red/dirty while it sat open since 2026-08-01.
 
 **1 · The migration prefix had fallen below the applied head.** It shipped as
-`20271029051678`; prod's head is `20271102113000` with **16 migrations already applied above
+`20271029051678` (superseded → `20271102810371`); prod's head is `20271102113000` with **16 migrations already applied above
 it**, and this one was not among them. Migrations apply once, in prefix order — so it would
 have merged with green CI and created **nothing**: no `vendor_lines` table, and every screen
 in this PR reading a relation that does not exist. Re-allocated to `20271102810371` via the
@@ -154,3 +154,16 @@ timeline. A real node needs joints with REQUIRED claims to `vendor_profiles`,
 `event_activity_picks` and the schedule blocks, and that is its own modelling pass rather than
 a side effect of the PR that happened to add the second reference. The guard stays at full
 strength — nothing weakened, nothing deleted.
+
+> ⛔ **CORRECTED 2026-08-05 — the migration-prefix reasoning above is WRONG.** This fragment claims a
+> prefix below prod's applied head would have "merged green and created nothing". **False.**
+> `deploy-prod.yml:184` and `supabase-migrations.yml:203` both run `supabase db push --include-all
+> --yes`, and `--include-all` applies out-of-order migrations. Verified 13 ways: 12 historically
+> out-of-order migrations are all applied in prod, and `20271102765509` applied on 2026-08-04 while
+> sitting two prefixes below the head. The error came from reading `count(*) = 0` on an **unmerged**
+> PR as "it will be skipped" — it was 0 because the PR had not merged.
+> What a low prefix ACTUALLY costs is the **PGlite replay**, which applies in FILENAME order
+> (`tests/db/replay-migrations.ts:268-271`), so it breaks `*.db.test.ts`, never prod. The
+> re-allocation was harmless and mildly useful — for replay order and the UNIQUE rule — but not the
+> safety fix described here. Authoritative correction: corpus `CLAUDE.md`.
+

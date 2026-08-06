@@ -134,6 +134,7 @@ import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups, canManageVendor } from '@/lib/vendor-role';
 import { TIER_LABEL, asVendorTier, type VendorTier } from '@/lib/vendor-tier-caps';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import { vendorCustomersBadge } from '@/lib/nav-badges';
 
 /**
  * Canonical vendor NavGroup[] export. Phases 1-3 of nav refactor each own
@@ -363,13 +364,12 @@ export function VendorSidebar({
     {
       // Both live counts land on My Customers — the hub that now contains
       // the booking pipeline AND the message threads (5-page IA 2026-07-12).
-      customers: bookingsBadge + threadsBadge > 0
-        ? {
-            count: bookingsBadge + threadsBadge,
-            tone: 'orange',
-            label: `${bookingsBadge} new inquiries · ${threadsBadge} unread threads`,
-          }
-        : undefined,
+      //
+      // Built by the SHARED helper, which the mobile bottom bar now calls too.
+      // Until 2026-08-06 this rule lived only here, so a vendor on a laptop saw
+      // "3 new inquiries · 2 unread threads" and the same vendor on a phone saw
+      // five plain tabs — on the device they actually work from.
+      customers: vendorCustomersBadge(bookingsBadge, threadsBadge),
     },
   );
 

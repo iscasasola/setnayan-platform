@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
+import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   fetchPanoodCameras,
   panoodCameraClaimUrl,
@@ -53,8 +55,17 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
 
   // Provision before reading so a first visit shows the seats immediately (idempotent top-up).
   const admin = createAdminClient();
-  const tier = await resolvePanoodTier(supabase, eventId);
-  const cap = panoodCameraCapForTier(tier);
+
+  // Same two-question tier as the cameras page — see the long note there. If only one
+  // of these two surfaces learns about LIVE_STUDIO, a paid host sees 8 seats on screen
+  // and prints 3 cards to hand out at the venue.
+  const [castTier, liveStudioOwned] = await Promise.all([
+    resolvePanoodTier(supabase, eventId),
+    eventSkuActive(admin, eventId, LIVE_STUDIO_SKU).catch(() => false),
+  ]);
+  const cap = panoodCameraCapForTier(
+    castTier !== 'free' || liveStudioOwned ? 'paid' : 'free',
+  );
   await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
   const cameras = await fetchPanoodCameras(admin, eventId).catch(() => []);
 

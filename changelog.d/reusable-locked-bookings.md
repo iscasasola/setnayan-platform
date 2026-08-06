@@ -54,10 +54,10 @@ The exposure baseline is what caught it, regenerating as `tpriv … |anon SIUD` 
 and decline reasons. Now `REVOKE ALL … FROM PUBLIC, anon, authenticated` +
 `GRANT … TO authenticated`; the baseline reads `anon=-` on every column.
 
-**2 · The migration would have created nothing.** Prefix `20270929330649` had fallen below
+**2 · The migration would have created nothing.** Prefix `20270929330649` (superseded → `20271103100614`) had fallen below
 main's applied head (`20271102113000`). Migrations apply once, in prefix order — it would have
 merged green and created no table, while the flag comment told the owner to *"flip on AFTER
-pushing migration 20270929330649"*. Re-allocated to `20271103100614`.
+pushing migration 20270929330649 (superseded → 20271103100614)"*. Re-allocated to `20271103100614`.
 
 **3 · `.env.example` conflicted** because both sides appended a new block. Kept both.
 
@@ -105,3 +105,16 @@ their own data, not the vendor's private figure. `scope_snapshot` is the sanitiz
 PII-free inclusions list the migration already guarantees carries no source-couple data.
 
 14/14 export guardrail · 55/55 across the erasure + export suites.
+
+> ⛔ **CORRECTED 2026-08-05 — the migration-prefix reasoning above is WRONG.** This fragment claims a
+> prefix below prod's applied head would have "merged green and created nothing". **False.**
+> `deploy-prod.yml:184` and `supabase-migrations.yml:203` both run `supabase db push --include-all
+> --yes`, and `--include-all` applies out-of-order migrations. Verified 13 ways: 12 historically
+> out-of-order migrations are all applied in prod, and `20271102765509` applied on 2026-08-04 while
+> sitting two prefixes below the head. The error came from reading `count(*) = 0` on an **unmerged**
+> PR as "it will be skipped" — it was 0 because the PR had not merged.
+> What a low prefix ACTUALLY costs is the **PGlite replay**, which applies in FILENAME order
+> (`tests/db/replay-migrations.ts:268-271`), so it breaks `*.db.test.ts`, never prod. The
+> re-allocation was harmless and mildly useful — for replay order and the UNIQUE rule — but not the
+> safety fix described here. Authoritative correction: corpus `CLAUDE.md`.
+

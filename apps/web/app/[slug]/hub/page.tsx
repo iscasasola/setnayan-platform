@@ -32,8 +32,10 @@ import Link from 'next/link';
 import {
   Activity,
   ArrowLeft,
+  Boxes,
   Camera as CameraIcon,
   CheckCircle2,
+  Gift,
   Images,
   MapPin,
   PartyPopper,
@@ -74,6 +76,9 @@ import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { WatchLiveBlock } from '../_components/watch-live-block';
 import { HubShell } from '../_components/hub/hub-shell';
+import { eventSeatingPublished } from '@/lib/seat-pass';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { resolveGuestDoorways } from '../_lib/site-nav';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -418,6 +423,61 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const recapHref = isPost ? `/${event.slug}/recap` : null;
   const hasPhotos = Boolean(guest) || Boolean(liveWall) || Boolean(recapHref);
 
+  // ── THE TWO DOORS NOTHING IN THE PRODUCT USED TO OPEN. ─────────────────────
+  //
+  // `/[slug]/venue` (the 3D walk-through of the reception) had NO inbound link
+  // anywhere; `/[slug]/pabuya` (the money-gift page) had exactly one, inside the
+  // couple's own dashboard, where no guest will ever be. Both are finished and
+  // both render. The rules for whether to DRAW each door live in site-nav.ts
+  // next to the slot rules; this block only supplies the facts they need, and
+  // every fact is read the way the DESTINATION reads it — a door is only honest
+  // if the page behind it would let this viewer in.
+  //
+  // The hub has already applied the two gates both pages share (the 'website'
+  // surface and canViewSlugEvent), so what is left is each page's own:
+  //
+  //   · the 3D room → the event type has seating AND the couple has PUBLISHED
+  //     the floor plan. Those are the two questions `public_venue_scene` asks
+  //     before it answers `{published:false}`; asking them here is what stops us
+  //     handing a guest a link to "the 3D venue isn't ready yet".
+  //   · the money gift → the rollout switch is on AND at least one destination
+  //     is enabled. Read through fetchEgiftMethods — the SAME function, the SAME
+  //     service-role client and the SAME enabled-only filter the public page
+  //     uses — because "is there anything behind this door" must be answered by
+  //     the reader that will actually stand there, not by a cheaper query that
+  //     might be permitted differently. It is skipped entirely while the switch
+  //     is off, so a dark flag costs nothing.
+  const seatingSurfaceOn = surfaceEnabled(eventTypeProfile, 'seating');
+  const seatingPublished = seatingSurfaceOn
+    ? await eventSeatingPublished(admin, event.event_id)
+    : false;
+  const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
+  const enabledEgiftCount = pabuyaRouteEnabled
+    ? (await fetchEgiftMethods(admin, event.event_id, { enabledOnly: true })).length
+    : 0;
+  // 🚨 THE MONEY-GIFT PAGE DOES NOT ASK THE VISIBILITY QUESTION THIS HUB ASKED.
+  // The gate above ran `canViewSlugEvent(effectiveVisibility)`, which reports
+  // 'public' the instant a SCHEDULED launch falls due — before anything has
+  // written the column. `/[slug]/pabuya` runs the same helper against the RAW
+  // column, so in that window it redirects a viewer this hub just admitted. Ask
+  // the destination's own question; when the two visibilities agree the gate
+  // above has already proved the answer, so the ordinary path costs nothing.
+  const rawVisibility = event.landing_page_visibility ?? 'private';
+  const pabuyaViewerAllowed =
+    rawVisibility === effectiveVisibility
+      ? true
+      : await canViewSlugEvent(event.event_id, rawVisibility);
+  const doorways = resolveGuestDoorways({
+    slug: event.slug ?? slug,
+    // The personal token is what makes the 3D room light up THIS guest's seat.
+    guestToken: guest?.qr_token ?? null,
+    seatingSurfaceEnabled: seatingSurfaceOn,
+    seatingPublished,
+    pabuyaRouteEnabled,
+    enabledEgiftCount,
+    pabuyaViewerAllowed,
+  });
+
   // ── Directions availability. ───────────────────────────────────────────────
   const hasCoords =
     event.venue_latitude != null &&
@@ -543,6 +603,59 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           </p>
         </article>
       )}
+
+      {/* ── The 3D walk-through of the room. ────────────────────────────────
+          It sits directly under the seat card because that is the question it
+          answers — a guest who has just read a table name wants to know where
+          that table IS. It is the FIRST panel of the hub, so this is one tap
+          from opening it, not two behind "More". Drawn only when the couple has
+          published the plan (see the doorway block above). */}
+      {doorways.venueWalk ? (
+        <Link
+          href={doorways.venueWalk}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream p-5 transition hover:border-terracotta"
+        >
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-sm font-medium text-ink">
+              <Boxes aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+              Walk the room in 3D
+            </span>
+            <span className="mt-0.5 block text-xs text-ink/55">
+              {guest
+                ? 'Look around the reception and find your table.'
+                : 'Look around the reception before you arrive.'}
+            </span>
+          </span>
+          <span aria-hidden className="text-ink/40">
+            →
+          </span>
+        </Link>
+      ) : null}
+
+      {/* ── The pabuya (digital money dance). ───────────────────────────────
+          A guest anywhere in the world can send straight to the couple's own
+          account. Its only link used to live in the couple's dashboard, which
+          no guest ever opens. Drawn only when the route is switched on AND the
+          couple has at least one destination enabled. */}
+      {doorways.pabuya ? (
+        <Link
+          href={doorways.pabuya}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream p-5 transition hover:border-terracotta"
+        >
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-sm font-medium text-ink">
+              <Gift aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+              Send a blessing
+            </span>
+            <span className="mt-0.5 block text-xs text-ink/55">
+              The digital money dance — straight to the couple.
+            </span>
+          </span>
+          <span aria-hidden className="text-ink/40">
+            →
+          </span>
+        </Link>
+      ) : null}
     </div>
   );
 

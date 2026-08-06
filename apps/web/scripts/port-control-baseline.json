@@ -1,0 +1,5552 @@
+{
+  "generatedFromRef": "c92df0b72",
+  "routeCount": 403,
+  "destinations": 679,
+  "actions": 514,
+  "routes": {
+    "/": {
+      "files": [
+        "error.tsx",
+        "global-error.tsx",
+        "layout.tsx",
+        "not-found.tsx",
+        "page.tsx",
+        "providers.tsx",
+        "robots.ts"
+      ],
+      "destinations": [
+        "/",
+        "/explore",
+        "/favicon.ico?v=N"
+      ],
+      "actions": []
+    },
+    "/3d_plan/demo/[token]": {
+      "files": [
+        "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
+        "3d_plan/demo/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": []
+    },
+    "/[slug]": {
+      "files": [
+        "[slug]/_components/arrival-greeting.tsx",
+        "[slug]/_components/background-music.tsx",
+        "[slug]/_components/countdown.tsx",
+        "[slug]/_components/day-of-announcement.tsx",
+        "[slug]/_components/day-of-banner.tsx",
+        "[slug]/_components/day-of-face-enroll.tsx",
+        "[slug]/_components/dress-code-widget.tsx",
+        "[slug]/_components/editor-bridge.tsx",
+        "[slug]/_components/editorial/compose.ts",
+        "[slug]/_components/editorial/consent-veto.ts",
+        "[slug]/_components/editorial/data.ts",
+        "[slug]/_components/editorial/editorial-content.tsx",
+        "[slug]/_components/editorial/editorial-order.ts",
+        "[slug]/_components/editorial/gallery-anchor.ts",
+        "[slug]/_components/editorial/living-moments.tsx",
+        "[slug]/_components/empty-states.tsx",
+        "[slug]/_components/face-data-notice.tsx",
+        "[slug]/_components/guest-camera-player.tsx",
+        "[slug]/_components/guest-column-card.tsx",
+        "[slug]/_components/guest-column-form.tsx",
+        "[slug]/_components/guest-hub-bar.tsx",
+        "[slug]/_components/guest-hub-card.tsx",
+        "[slug]/_components/guest-preload.tsx",
+        "[slug]/_components/hero-background-media.tsx",
+        "[slug]/_components/hideable-widget-render.tsx",
+        "[slug]/_components/hub/hub-shell.tsx",
+        "[slug]/_components/invitation-shell.tsx",
+        "[slug]/_components/invitation-skeleton.tsx",
+        "[slug]/_components/live-wall-block.tsx",
+        "[slug]/_components/our-love-story-widget.tsx",
+        "[slug]/_components/our-photos-widget.tsx",
+        "[slug]/_components/our-story.tsx",
+        "[slug]/_components/owner-ribbon.tsx",
+        "[slug]/_components/pabati-prompt.tsx",
+        "[slug]/_components/pahina-keepsake.tsx",
+        "[slug]/_components/pahina-masthead.tsx",
+        "[slug]/_components/pahina-motion.tsx",
+        "[slug]/_components/photo-moments-widget.tsx",
+        "[slug]/_components/private-landing.tsx",
+        "[slug]/_components/public-event-day-bar.tsx",
+        "[slug]/_components/public-hideable-widget.tsx",
+        "[slug]/_components/reveal/four-flap.tsx",
+        "[slug]/_components/reveal/reveal-overlay-server.tsx",
+        "[slug]/_components/reveal/reveal-overlay.tsx",
+        "[slug]/_components/reveal/reveal-particles.tsx",
+        "[slug]/_components/reveal/reveal-templates.ts",
+        "[slug]/_components/reveal/reveal-textures.ts",
+        "[slug]/_components/reveal/rigid-flaps.tsx",
+        "[slug]/_components/reveal/rigid-reveal.tsx",
+        "[slug]/_components/reveal/rigid-stage.tsx",
+        "[slug]/_components/reveal/rigid-webgl.tsx",
+        "[slug]/_components/reveal/std-touch-glow.tsx",
+        "[slug]/_components/reveal/veil-reveal.tsx",
+        "[slug]/_components/reveal/veil-shared.ts",
+        "[slug]/_components/reveal/wax-seal.tsx",
+        "[slug]/_components/roam-watch-picker.tsx",
+        "[slug]/_components/rsvp-widget.tsx",
+        "[slug]/_components/save-the-date-film.tsx",
+        "[slug]/_components/save-the-date.tsx",
+        "[slug]/_components/schedule-widget.tsx",
+        "[slug]/_components/selfie-capture.tsx",
+        "[slug]/_components/site-body.tsx",
+        "[slug]/_components/site-menu-bar.tsx",
+        "[slug]/_components/special-message-widget.tsx",
+        "[slug]/_components/spotlight-card.tsx",
+        "[slug]/_components/std-background-layer.tsx",
+        "[slug]/_components/std-film-handoff.tsx",
+        "[slug]/_components/std-view-beacon.tsx",
+        "[slug]/_components/tea-ceremony-card.tsx",
+        "[slug]/_components/tier-comparison-widget.tsx",
+        "[slug]/_components/vendor-doorway.tsx",
+        "[slug]/_components/venue-widget.tsx",
+        "[slug]/_components/watch-live-block.tsx",
+        "[slug]/_components/what-to-bring-widget.tsx",
+        "[slug]/_components/your-photos-widget.tsx",
+        "[slug]/_components/your-seat-block.tsx",
+        "[slug]/_lib/event-noun.ts",
+        "[slug]/_lib/host-scope.ts",
+        "[slug]/_lib/loaders.ts",
+        "[slug]/_lib/site-identity.ts",
+        "[slug]/_lib/site-menu.ts",
+        "[slug]/_lib/site-nav.ts",
+        "[slug]/_lib/types.ts",
+        "[slug]/actions.ts",
+        "[slug]/announcement-actions.ts",
+        "[slug]/error.tsx",
+        "[slug]/layout.tsx",
+        "[slug]/not-found.tsx",
+        "[slug]/page.tsx",
+        "[slug]/rotate-qr-actions.ts"
+      ],
+      "destinations": [
+        "/",
+        "/[seg]",
+        "/[seg]/find-my-table",
+        "/[seg]/find-seat",
+        "/[seg]/hub",
+        "/[seg]/invite",
+        "/[seg]/print",
+        "/[seg]/seat/claim?t=[seg]",
+        "/[seg]/welcome",
+        "/dashboard/profile",
+        "/login",
+        "/papic/guest",
+        "/signup",
+        "/v/[seg]",
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": [
+        "action",
+        "submit"
+      ]
+    },
+    "/[slug]/find-my-table": {
+      "files": [
+        "[slug]/find-my-table/loading.tsx",
+        "[slug]/find-my-table/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/find-seat": {
+      "files": [
+        "[slug]/find-seat/_components/name-search.tsx",
+        "[slug]/find-seat/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/hub": {
+      "files": [
+        "[slug]/hub/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/[seg]/find-my-table",
+        "/papic/me/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/invite": {
+      "files": [
+        "[slug]/invite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/[slug]/pabuya": {
+      "files": [
+        "[slug]/pabuya/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/print": {
+      "files": [
+        "[slug]/print/keepsake-layout.ts",
+        "[slug]/print/keepsake.css.ts",
+        "[slug]/print/page.tsx",
+        "[slug]/print/print-sheet.tsx",
+        "[slug]/print/print-toolbar.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/[slug]/recap": {
+      "files": [
+        "[slug]/recap/_components/save-story-card-button.tsx",
+        "[slug]/recap/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/seat": {
+      "files": [
+        "[slug]/seat/_components/arrival-bloom.tsx",
+        "[slug]/seat/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/[slug]/venue": {
+      "files": [
+        "[slug]/venue/_components/guest-venue-3d.tsx",
+        "[slug]/venue/_components/guest-venue-loader.tsx",
+        "[slug]/venue/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/[seg]/venue"
+      ],
+      "actions": []
+    },
+    "/[slug]/welcome": {
+      "files": [
+        "[slug]/welcome/actions.ts",
+        "[slug]/welcome/loading.tsx",
+        "[slug]/welcome/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "abandonAction",
+        "confirmAction"
+      ]
+    },
+    "/about": {
+      "files": [
+        "about/_about-motion.tsx",
+        "about/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/explore",
+        "/help",
+        "/how-it-works",
+        "/pricing",
+        "/signup",
+        "/tl/about"
+      ],
+      "actions": []
+    },
+    "/acceptable-use": {
+      "files": [
+        "acceptable-use/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/privacy",
+        "/terms"
+      ],
+      "actions": []
+    },
+    "/admin": {
+      "files": [
+        "admin/_apple-secret-reminder.tsx",
+        "admin/_components/admin-bottom-nav.tsx",
+        "admin/_components/admin-command-palette.tsx",
+        "admin/_components/admin-nav-descriptions.ts",
+        "admin/_components/admin-nav-fab.tsx",
+        "admin/_components/admin-nav-groups.tsx",
+        "admin/_components/admin-sidebar-menu.tsx",
+        "admin/_components/admin-sidebar.tsx",
+        "admin/_components/kpi-stat-card.tsx",
+        "admin/_components/mobile-landing-accordion.tsx",
+        "admin/_components/mobile-landing-grid.tsx",
+        "admin/_overview-tile.tsx",
+        "admin/error.tsx",
+        "admin/layout.tsx",
+        "admin/loading.tsx",
+        "admin/page.tsx",
+        "admin/template.tsx"
+      ],
+      "destinations": [
+        "/admin",
+        "/admin/app-performance",
+        "/admin/completions",
+        "/admin/corrections",
+        "/admin/data-privacy",
+        "/admin/editorial-review",
+        "/admin/events",
+        "/admin/fraud",
+        "/admin/integrations",
+        "/admin/moodboard-library",
+        "/admin/pakanta",
+        "/admin/patiktok",
+        "/admin/pax-changes",
+        "/admin/payments",
+        "/admin/payouts",
+        "/admin/repost-watch",
+        "/admin/secrets",
+        "/admin/settings?tab=notifications",
+        "/admin/users",
+        "/admin/vendors",
+        "/admin/verify",
+        "/admin/website",
+        "/admin/work"
+      ],
+      "actions": []
+    },
+    "/admin/account-deletions": {
+      "files": [
+        "admin/account-deletions/actions.ts",
+        "admin/account-deletions/loading.tsx",
+        "admin/account-deletions/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "approveAndBlacklist",
+        "approveAndDelete",
+        "rejectRequest"
+      ]
+    },
+    "/admin/accounts": {
+      "files": [
+        "admin/accounts/loading.tsx",
+        "admin/accounts/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/addons": {
+      "files": [
+        "admin/addons/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/app-performance": {
+      "files": [
+        "admin/app-performance/_components/action-center.tsx",
+        "admin/app-performance/_components/charts.tsx",
+        "admin/app-performance/_components/expenses.tsx",
+        "admin/app-performance/_components/fx.tsx",
+        "admin/app-performance/_components/health-now.tsx",
+        "admin/app-performance/_components/won-lost-admin-card.tsx",
+        "admin/app-performance/actions.ts",
+        "admin/app-performance/loading.tsx",
+        "admin/app-performance/page.tsx"
+      ],
+      "destinations": [
+        "/admin/[seg]",
+        "/admin/app-performance?tab=[seg]"
+      ],
+      "actions": [
+        "addExpense",
+        "attachReceipt",
+        "viewReceipt"
+      ]
+    },
+    "/admin/approvals": {
+      "files": [
+        "admin/approvals/actions.ts",
+        "admin/approvals/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "approveRequest",
+        "rejectRequest",
+        "requestPrivilegedGrant"
+      ]
+    },
+    "/admin/background-videos": {
+      "files": [
+        "admin/background-videos/actions.ts",
+        "admin/background-videos/background-videos-manager.tsx",
+        "admin/background-videos/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/booking-fees": {
+      "files": [
+        "admin/booking-fees/page.tsx"
+      ],
+      "destinations": [
+        "/admin/payments"
+      ],
+      "actions": []
+    },
+    "/admin/brain": {
+      "files": [
+        "admin/brain/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/budget-planner": {
+      "files": [
+        "admin/budget-planner/actions.ts",
+        "admin/budget-planner/loading.tsx",
+        "admin/budget-planner/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/chat-flags": {
+      "files": [
+        "admin/chat-flags/actions.ts",
+        "admin/chat-flags/page.tsx"
+      ],
+      "destinations": [
+        "/admin/chat-flags?status=[seg]"
+      ],
+      "actions": [
+        "resolveChatFlag"
+      ]
+    },
+    "/admin/completions": {
+      "files": [
+        "admin/completions/actions.ts",
+        "admin/completions/loading.tsx",
+        "admin/completions/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "forceCompleteVendor",
+        "upholdNonDelivery"
+      ]
+    },
+    "/admin/compliance": {
+      "files": [
+        "admin/compliance/_components/compliance-form.tsx",
+        "admin/compliance/actions.ts",
+        "admin/compliance/page.tsx"
+      ],
+      "destinations": [
+        "/admin/compliance/data-sheet"
+      ],
+      "actions": []
+    },
+    "/admin/compliance/data-sheet": {
+      "files": [
+        "admin/compliance/data-sheet/page.tsx"
+      ],
+      "destinations": [
+        "/admin/settings?tab=compliance"
+      ],
+      "actions": []
+    },
+    "/admin/concierge-abuse": {
+      "files": [
+        "admin/concierge-abuse/actions.ts",
+        "admin/concierge-abuse/loading.tsx",
+        "admin/concierge-abuse/page.tsx"
+      ],
+      "destinations": [
+        "/admin/concierge-abuse?tab=enforcement",
+        "/admin/concierge-abuse?tab=queue"
+      ],
+      "actions": [
+        "adminClearConciergeFlag",
+        "adminConfirmConciergeAbuse",
+        "adminLiftConciergeEnforcement"
+      ]
+    },
+    "/admin/connection-logs": {
+      "files": [
+        "admin/connection-logs/actions.ts",
+        "admin/connection-logs/connection-logs-client.tsx",
+        "admin/connection-logs/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/corrections": {
+      "files": [
+        "admin/corrections/actions.ts",
+        "admin/corrections/page.tsx"
+      ],
+      "destinations": [
+        "/admin/corrections?status=[seg]"
+      ],
+      "actions": [
+        "applyCorrectionRequest",
+        "declineCorrectionRequest"
+      ]
+    },
+    "/admin/custom-plans": {
+      "files": [
+        "admin/custom-plans/_components/custom-composer.tsx",
+        "admin/custom-plans/actions.ts",
+        "admin/custom-plans/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "activateAction",
+        "formAction"
+      ]
+    },
+    "/admin/data-privacy": {
+      "files": [
+        "admin/data-privacy/_components/control-actions.tsx",
+        "admin/data-privacy/_components/coverage-panel.tsx",
+        "admin/data-privacy/_components/npc-checklist.tsx",
+        "admin/data-privacy/_components/task-actions.tsx",
+        "admin/data-privacy/actions.ts",
+        "admin/data-privacy/page.tsx"
+      ],
+      "destinations": [
+        "/admin/data-privacy/documents/[seg]",
+        "/admin/data-privacy?tab=controls"
+      ],
+      "actions": [
+        "formAction"
+      ]
+    },
+    "/admin/demand": {
+      "files": [
+        "admin/demand/actions.ts",
+        "admin/demand/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "runDemandRadarRefresh"
+      ]
+    },
+    "/admin/demo-vendors": {
+      "files": [
+        "admin/demo-vendors/_components/demo-vendor-actions.tsx",
+        "admin/demo-vendors/loading.tsx",
+        "admin/demo-vendors/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/demo-vendors/inquiries": {
+      "files": [
+        "admin/demo-vendors/inquiries/actions.ts",
+        "admin/demo-vendors/inquiries/loading.tsx",
+        "admin/demo-vendors/inquiries/page.tsx"
+      ],
+      "destinations": [
+        "/admin/demo-vendors",
+        "/admin/demo-vendors/inquiries/[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/demo-vendors/inquiries/[threadId]": {
+      "files": [
+        "admin/demo-vendors/inquiries/[threadId]/loading.tsx",
+        "admin/demo-vendors/inquiries/[threadId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/demo-vendors/inquiries"
+      ],
+      "actions": [
+        "adminAcceptInquiry",
+        "adminDeclineInquiry",
+        "adminReplyAsVendor"
+      ]
+    },
+    "/admin/directory": {
+      "files": [
+        "admin/directory/loading.tsx",
+        "admin/directory/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/discount-codes": {
+      "files": [
+        "admin/discount-codes/_components/eligibility-section.tsx",
+        "admin/discount-codes/_components/voucher-form.tsx",
+        "admin/discount-codes/actions.ts",
+        "admin/discount-codes/loading.tsx",
+        "admin/discount-codes/page.tsx"
+      ],
+      "destinations": [
+        "/admin/discount-codes",
+        "/admin/users"
+      ],
+      "actions": [
+        "action",
+        "addEligibleUser",
+        "removeEligibleUser"
+      ]
+    },
+    "/admin/discount-codes/[id]/edit": {
+      "files": [
+        "admin/discount-codes/[id]/edit/loading.tsx",
+        "admin/discount-codes/[id]/edit/page.tsx"
+      ],
+      "destinations": [
+        "/admin/discount-codes"
+      ],
+      "actions": [
+        "updateDiscountCode"
+      ]
+    },
+    "/admin/discount-codes/new": {
+      "files": [
+        "admin/discount-codes/new/loading.tsx",
+        "admin/discount-codes/new/page.tsx"
+      ],
+      "destinations": [
+        "/admin/discount-codes"
+      ],
+      "actions": [
+        "createDiscountCode"
+      ]
+    },
+    "/admin/disputes": {
+      "files": [
+        "admin/disputes/actions.ts",
+        "admin/disputes/loading.tsx",
+        "admin/disputes/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "resolveDispute"
+      ]
+    },
+    "/admin/editorial-review": {
+      "files": [
+        "admin/editorial-review/page.tsx"
+      ],
+      "destinations": [
+        "/admin/editorial-review/[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/editorial-review/[editorialId]": {
+      "files": [
+        "admin/editorial-review/[editorialId]/actions.ts",
+        "admin/editorial-review/[editorialId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/event-types": {
+      "files": [
+        "admin/event-types/actions.ts",
+        "admin/event-types/loading.tsx",
+        "admin/event-types/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/event-types/[eventType]/categories": {
+      "files": [
+        "admin/event-types/[eventType]/categories/page.tsx"
+      ],
+      "destinations": [
+        "/admin/taxonomy?view=vocab-event"
+      ],
+      "actions": [
+        "setFolderEventTypeOffered",
+        "setTileEventTypeOffered"
+      ]
+    },
+    "/admin/event-types/[eventType]/onboarding": {
+      "files": [
+        "admin/event-types/[eventType]/onboarding/_components/onboarding-editor.tsx",
+        "admin/event-types/[eventType]/onboarding/page.tsx"
+      ],
+      "destinations": [
+        "/admin/event-types/wedding/profile",
+        "/admin/taxonomy?view=vocab-event",
+        "/onboarding/[seg]"
+      ],
+      "actions": [
+        "resetOnboardingSpec",
+        "upsertOnboardingSpec"
+      ]
+    },
+    "/admin/event-types/[eventType]/profile": {
+      "files": [
+        "admin/event-types/[eventType]/profile/page.tsx"
+      ],
+      "destinations": [
+        "/admin/taxonomy?view=vocab-event"
+      ],
+      "actions": [
+        "upsertEventTypeProfile"
+      ]
+    },
+    "/admin/events": {
+      "files": [
+        "admin/events/actions.ts",
+        "admin/events/loading.tsx",
+        "admin/events/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/force-majeure": {
+      "files": [
+        "admin/force-majeure/actions.ts",
+        "admin/force-majeure/loading.tsx",
+        "admin/force-majeure/page.tsx"
+      ],
+      "destinations": [
+        "/admin/force-majeure/[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/force-majeure/[flagId]": {
+      "files": [
+        "admin/force-majeure/[flagId]/loading.tsx",
+        "admin/force-majeure/[flagId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/force-majeure"
+      ],
+      "actions": [
+        "resolveFlag",
+        "takeOwnership"
+      ]
+    },
+    "/admin/founder-seats": {
+      "files": [
+        "admin/founder-seats/actions.ts",
+        "admin/founder-seats/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "grantFounderSeat",
+        "revokeFounderSeat"
+      ]
+    },
+    "/admin/fraud": {
+      "files": [
+        "admin/fraud/_components/wipe-ban-dialog.tsx",
+        "admin/fraud/actions.ts",
+        "admin/fraud/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "dismissVendorSignals",
+        "initiateFraudWipeBan",
+        "unsuspendVendor"
+      ]
+    },
+    "/admin/funnels": {
+      "files": [
+        "admin/funnels/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/growth": {
+      "files": [
+        "admin/growth/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/help": {
+      "files": [
+        "admin/help/actions.ts",
+        "admin/help/loading.tsx",
+        "admin/help/page.tsx"
+      ],
+      "destinations": [
+        "/admin/help?status=[seg]"
+      ],
+      "actions": [
+        "setHelpMessageStatus"
+      ]
+    },
+    "/admin/insights": {
+      "files": [
+        "admin/insights/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/integrations": {
+      "files": [
+        "admin/integrations/_components/build-time-status.tsx",
+        "admin/integrations/_components/maya-card.tsx",
+        "admin/integrations/_components/oauth-card.tsx",
+        "admin/integrations/_components/secret-card.tsx",
+        "admin/integrations/_components/test-resend-button.tsx",
+        "admin/integrations/actions.ts",
+        "admin/integrations/page.tsx"
+      ],
+      "destinations": [
+        "/admin/more"
+      ],
+      "actions": [
+        "clearIntegrationSecret",
+        "clearMayaSecrets",
+        "clearOAuthSecret",
+        "clearResendKey",
+        "saveIntegrationSecret",
+        "saveMayaConfig",
+        "saveOAuthConfig",
+        "saveResendConfig",
+        "setAiPaywall"
+      ]
+    },
+    "/admin/integrity-watch": {
+      "files": [
+        "admin/integrity-watch/actions.ts",
+        "admin/integrity-watch/page.tsx"
+      ],
+      "destinations": [
+        "/admin/integrity-watch?tab=[seg]&status=[seg]",
+        "/admin/integrity-watch?tab=inquiries",
+        "/admin/integrity-watch?tab=listings",
+        "/admin/integrity-watch?tab=prices",
+        "/admin/integrity-watch?tab=reviews",
+        "/admin/vendors/[seg]/edit"
+      ],
+      "actions": [
+        "rescanAction",
+        "resolveIntegrityFlag"
+      ]
+    },
+    "/admin/intelligence": {
+      "files": [
+        "admin/intelligence/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/journal-spotlights": {
+      "files": [
+        "admin/journal-spotlights/actions.ts",
+        "admin/journal-spotlights/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/live-studio-channels": {
+      "files": [
+        "admin/live-studio-channels/actions.ts",
+        "admin/live-studio-channels/page.tsx"
+      ],
+      "destinations": [
+        "/api/oauth/youtube/pool/start",
+        "/api/oauth/youtube/pool/start?channel_pool_id=[seg]"
+      ],
+      "actions": [
+        "disconnectChannel",
+        "releaseChannel",
+        "setChannelCap",
+        "setChannelLabel",
+        "setChannelStatus",
+        "setChannelVerified"
+      ]
+    },
+    "/admin/marketing": {
+      "files": [
+        "admin/marketing/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/menus": {
+      "files": [
+        "admin/menus/_components/menu-registry-editor.tsx",
+        "admin/menus/actions.ts",
+        "admin/menus/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "uploadSlotIcon"
+      ]
+    },
+    "/admin/money": {
+      "files": [
+        "admin/money/loading.tsx",
+        "admin/money/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/moodboard-library": {
+      "files": [
+        "admin/moodboard-library/_components/color-range-manipulator.tsx",
+        "admin/moodboard-library/_components/library-editor.tsx",
+        "admin/moodboard-library/actions.ts",
+        "admin/moodboard-library/loading.tsx",
+        "admin/moodboard-library/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/more": {
+      "files": [
+        "admin/more/loading.tsx",
+        "admin/more/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/notifications": {
+      "files": [
+        "admin/notifications/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/npc-readiness": {
+      "files": [
+        "admin/npc-readiness/actions.ts",
+        "admin/npc-readiness/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/offline": {
+      "files": [
+        "admin/offline/_components/offline-diagnostic-loader.tsx",
+        "admin/offline/_components/offline-diagnostic.tsx",
+        "admin/offline/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/onboarding": {
+      "files": [
+        "admin/onboarding/actions.ts",
+        "admin/onboarding/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/operations-hiring": {
+      "files": [
+        "admin/operations-hiring/_components/smoke-test-panel.tsx",
+        "admin/operations-hiring/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/pakanta": {
+      "files": [
+        "admin/pakanta/actions.ts",
+        "admin/pakanta/page.tsx",
+        "admin/pakanta/pakanta-deliver.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/papic-storage": {
+      "files": [
+        "admin/papic-storage/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/patiktok": {
+      "files": [
+        "admin/patiktok/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/pax-changes": {
+      "files": [
+        "admin/pax-changes/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/payment-options": {
+      "files": [
+        "admin/payment-options/actions.ts",
+        "admin/payment-options/loading.tsx",
+        "admin/payment-options/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "approvePaymentMethod",
+        "holdPaymentMethod",
+        "removePaymentMethod"
+      ]
+    },
+    "/admin/payments": {
+      "files": [
+        "admin/payments/_components/batch-approve-controls.tsx",
+        "admin/payments/_components/inbox-matcher.tsx",
+        "admin/payments/actions.ts",
+        "admin/payments/loading.tsx",
+        "admin/payments/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "action",
+        "approvePayment",
+        "batchApprovePayments",
+        "confirmOrderTotal",
+        "refundOrder",
+        "rejectPayment",
+        "requestPaymentResubmit"
+      ]
+    },
+    "/admin/payouts": {
+      "files": [
+        "admin/payouts/actions.ts",
+        "admin/payouts/loading.tsx",
+        "admin/payouts/page.tsx"
+      ],
+      "destinations": [
+        "/admin/payments"
+      ],
+      "actions": [
+        "holdPayoutAction",
+        "markPayoutPaidAction"
+      ]
+    },
+    "/admin/price-bands": {
+      "files": [
+        "admin/price-bands/actions.ts",
+        "admin/price-bands/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/pricing": {
+      "files": [
+        "admin/pricing/_components/catalog-editor.tsx",
+        "admin/pricing/_components/grids.ts",
+        "admin/pricing/actions.ts",
+        "admin/pricing/loading.tsx",
+        "admin/pricing/page.tsx"
+      ],
+      "destinations": [
+        "/admin/pricing?tab=[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/queues": {
+      "files": [
+        "admin/queues/_components/queue-drawer.tsx",
+        "admin/queues/_components/queues-triage-feed.tsx",
+        "admin/queues/loading.tsx",
+        "admin/queues/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/real-stories": {
+      "files": [
+        "admin/real-stories/actions.ts",
+        "admin/real-stories/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/recaps": {
+      "files": [
+        "admin/recaps/actions.ts",
+        "admin/recaps/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/receipts": {
+      "files": [
+        "admin/receipts/loading.tsx",
+        "admin/receipts/page.tsx"
+      ],
+      "destinations": [
+        "/receipts/[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/referrals": {
+      "files": [
+        "admin/referrals/actions.ts",
+        "admin/referrals/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/refinements": {
+      "files": [
+        "admin/refinements/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/repost-watch": {
+      "files": [
+        "admin/repost-watch/actions.ts",
+        "admin/repost-watch/page.tsx"
+      ],
+      "destinations": [
+        "/admin/repost-watch?status=[seg]",
+        "/admin/vendors/[seg]/edit"
+      ],
+      "actions": [
+        "rescanAllRepostWatch",
+        "resolveQrMediaFlag",
+        "resolveRepostFlag",
+        "scanQrMediaGuard"
+      ]
+    },
+    "/admin/reveal-studio": {
+      "files": [
+        "admin/reveal-studio/actions.ts",
+        "admin/reveal-studio/page.tsx",
+        "admin/reveal-studio/std-video-moderation.tsx",
+        "admin/reveal-studio/studio.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/reviews": {
+      "files": [
+        "admin/reviews/actions.ts",
+        "admin/reviews/loading.tsx",
+        "admin/reviews/page.tsx"
+      ],
+      "destinations": [
+        "/admin/reviews?filter=[seg]"
+      ],
+      "actions": [
+        "dismissReviewFlag",
+        "escalateAppeal",
+        "overridePublishReview",
+        "rejectAppeal"
+      ]
+    },
+    "/admin/secrets": {
+      "files": [
+        "admin/secrets/_components/encryption-key-card.tsx",
+        "admin/secrets/_components/reencrypt-panel.tsx",
+        "admin/secrets/_components/secret-row.tsx",
+        "admin/secrets/_components/secret-value-input.tsx",
+        "admin/secrets/actions.ts",
+        "admin/secrets/page.tsx"
+      ],
+      "destinations": [
+        "/admin/more"
+      ],
+      "actions": [
+        "clearDbSecret",
+        "markRotated",
+        "redeployProduction",
+        "updateDbSecret",
+        "updateVercelSecret"
+      ]
+    },
+    "/admin/seo": {
+      "files": [
+        "admin/seo/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/settings": {
+      "files": [
+        "admin/settings/_components/brand-icon-form.tsx",
+        "admin/settings/_components/loader-appearance-card.tsx",
+        "admin/settings/_components/qr-upload-form.tsx",
+        "admin/settings/_components/sentry-smoke-test-button.tsx",
+        "admin/settings/_components/tin-input.tsx",
+        "admin/settings/actions.ts",
+        "admin/settings/loading.tsx",
+        "admin/settings/page.tsx"
+      ],
+      "destinations": [
+        "/admin/settings?tab=[seg]"
+      ],
+      "actions": [
+        "saveLoaderAppearance",
+        "uploadBrandIcon"
+      ]
+    },
+    "/admin/settings/demo-mode": {
+      "files": [
+        "admin/settings/demo-mode/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/settings/payment-methods": {
+      "files": [
+        "admin/settings/payment-methods/loading.tsx",
+        "admin/settings/payment-methods/page.tsx"
+      ],
+      "destinations": [
+        "/admin/settings"
+      ],
+      "actions": [
+        "removeMerchantQr",
+        "savePaymentInstruments"
+      ]
+    },
+    "/admin/social-queue": {
+      "files": [
+        "admin/social-queue/actions.ts",
+        "admin/social-queue/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/songs": {
+      "files": [
+        "admin/songs/actions.ts",
+        "admin/songs/loading.tsx",
+        "admin/songs/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/spotlight-awards": {
+      "files": [
+        "admin/spotlight-awards/_components/spotlight-actions.tsx",
+        "admin/spotlight-awards/actions.ts",
+        "admin/spotlight-awards/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/studio": {
+      "files": [
+        "admin/studio/loading.tsx",
+        "admin/studio/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/subscriptions": {
+      "files": [
+        "admin/subscriptions/actions.ts",
+        "admin/subscriptions/page.tsx"
+      ],
+      "destinations": [
+        "/admin/pricing",
+        "/admin/token-purchases"
+      ],
+      "actions": [
+        "approveSubscription",
+        "rejectSubscription"
+      ]
+    },
+    "/admin/taxonomy": {
+      "files": [
+        "admin/taxonomy/_components/taxonomy-studio.tsx",
+        "admin/taxonomy/actions.ts",
+        "admin/taxonomy/loading.tsx",
+        "admin/taxonomy/page.tsx"
+      ],
+      "destinations": [
+        "/admin/event-types/[seg]/categories",
+        "/admin/event-types/[seg]/onboarding",
+        "/admin/event-types/[seg]/profile"
+      ],
+      "actions": [
+        "action",
+        "addLeafAttributeFieldAction",
+        "addLeafAttributeOptionAction",
+        "clearLastMinuteStart",
+        "createCanonicalLeaf",
+        "createEventTypeRoster",
+        "createFaithVocab",
+        "mapCategoryRequest",
+        "promoteCategoryRequest",
+        "relabelEventTypeVocab",
+        "relabelFaithVocab",
+        "relabelLeafAttributeFieldAction",
+        "remapCanonical",
+        "renameTaxonomyNode",
+        "reorderEventTypeVocab",
+        "reorderFaithVocab",
+        "resolveCategoryRequest",
+        "retireEventTypeVocab",
+        "retireLeafAttributeFieldAction",
+        "retireLeafAttributeOptionAction",
+        "setCategoryEventTypes",
+        "setCategoryHidden",
+        "setCategoryIcon",
+        "setCategoryPhoto",
+        "setEventTypeLaunch",
+        "setEventTypeVocabStatus",
+        "setFaithLaunchStatus",
+        "setFaithLaunchThreshold",
+        "setFaithVocabStatus",
+        "setLastMinuteStart",
+        "setServiceFaith",
+        "setServiceFlag",
+        "setServiceSecondaryTiles",
+        "unretireEventTypeVocab",
+        "updateEventTypePresentation",
+        "updatePlanningDeadline"
+      ]
+    },
+    "/admin/token-bands": {
+      "files": [
+        "admin/token-bands/actions.ts",
+        "admin/token-bands/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/token-purchases": {
+      "files": [
+        "admin/token-purchases/actions.ts",
+        "admin/token-purchases/page.tsx"
+      ],
+      "destinations": [
+        "/admin/pricing",
+        "/admin/pricing?tab=token-bands"
+      ],
+      "actions": [
+        "approveTokenPurchase",
+        "rejectTokenPurchase"
+      ]
+    },
+    "/admin/ugat": {
+      "files": [
+        "admin/ugat/_components/ugat-console.tsx",
+        "admin/ugat/actions.ts",
+        "admin/ugat/loading.tsx",
+        "admin/ugat/page.tsx"
+      ],
+      "destinations": [
+        "/admin/ugat/map",
+        "/admin/ugat?tab=[seg]"
+      ],
+      "actions": []
+    },
+    "/admin/ugat/map": {
+      "files": [
+        "admin/ugat/map/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/user-reports": {
+      "files": [
+        "admin/user-reports/actions.ts",
+        "admin/user-reports/page.tsx"
+      ],
+      "destinations": [
+        "/admin/user-reports?status=[seg]"
+      ],
+      "actions": [
+        "resolveReport"
+      ]
+    },
+    "/admin/users": {
+      "files": [
+        "admin/users/actions.ts",
+        "admin/users/loading.tsx",
+        "admin/users/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/users/[userId]": {
+      "files": [
+        "admin/users/[userId]/_components/account-card-nav.tsx",
+        "admin/users/[userId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/concierge-abuse",
+        "/admin/disputes",
+        "/admin/help",
+        "/admin/payments",
+        "/admin/user-reports",
+        "/admin/users"
+      ],
+      "actions": []
+    },
+    "/admin/vendor-partnerships": {
+      "files": [
+        "admin/vendor-partnerships/actions.ts",
+        "admin/vendor-partnerships/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "createPartnershipHq",
+        "rejectPartnership"
+      ]
+    },
+    "/admin/vendor-recommendations": {
+      "files": [
+        "admin/vendor-recommendations/_editor.tsx",
+        "admin/vendor-recommendations/actions.ts",
+        "admin/vendor-recommendations/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "addRecommendation",
+        "deleteRecommendation",
+        "resolveFeedback",
+        "updateRecommendation"
+      ]
+    },
+    "/admin/vendors": {
+      "files": [
+        "admin/vendors/_components/invite-vendor-form.tsx",
+        "admin/vendors/actions.ts",
+        "admin/vendors/loading.tsx",
+        "admin/vendors/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/vendors/[vendorProfileId]/edit": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/edit/loading.tsx",
+        "admin/vendors/[vendorProfileId]/edit/page.tsx"
+      ],
+      "destinations": [
+        "/admin/vendors"
+      ],
+      "actions": []
+    },
+    "/admin/vendors/[vendorProfileId]/team": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/team/page.tsx"
+      ],
+      "destinations": [
+        "/admin/vendors",
+        "/admin/vendors/[seg]/tokens"
+      ],
+      "actions": []
+    },
+    "/admin/vendors/[vendorProfileId]/tokens": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/tokens/loading.tsx",
+        "admin/vendors/[vendorProfileId]/tokens/page.tsx"
+      ],
+      "destinations": [
+        "/admin/vendors"
+      ],
+      "actions": [
+        "grantTokensToVendor",
+        "setVendorTier"
+      ]
+    },
+    "/admin/venues": {
+      "files": [
+        "admin/venues/_components/venue-form.tsx",
+        "admin/venues/_constants.ts",
+        "admin/venues/actions.ts",
+        "admin/venues/loading.tsx",
+        "admin/venues/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "action"
+      ]
+    },
+    "/admin/venues/[id]": {
+      "files": [
+        "admin/venues/[id]/loading.tsx",
+        "admin/venues/[id]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/venues"
+      ],
+      "actions": [
+        "deleteVenue",
+        "updateBound"
+      ]
+    },
+    "/admin/venues/new": {
+      "files": [
+        "admin/venues/new/loading.tsx",
+        "admin/venues/new/page.tsx"
+      ],
+      "destinations": [
+        "/admin/venues"
+      ],
+      "actions": [
+        "createVenue"
+      ]
+    },
+    "/admin/verification-docs": {
+      "files": [
+        "admin/verification-docs/actions.ts",
+        "admin/verification-docs/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "deleteVerificationDoc",
+        "viewVerificationDoc"
+      ]
+    },
+    "/admin/verify": {
+      "files": [
+        "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/actions.ts",
+        "admin/verify/loading.tsx",
+        "admin/verify/page.tsx"
+      ],
+      "destinations": [
+        "/admin/verify?surface=[seg]",
+        "/admin/verify?surface=applications&status=[seg]",
+        "/admin/verify?surface=visibility&status=[seg]"
+      ],
+      "actions": [
+        "approveApplication",
+        "approveVendor",
+        "archiveVendor",
+        "demoteVendor",
+        "markVendorContactConfirmed",
+        "rejectApplication",
+        "rejectVendor",
+        "runVendorDeepSearchAction",
+        "saveManualDossierAction",
+        "setApplicationInReview",
+        "verifyVendorExperience"
+      ]
+    },
+    "/admin/website": {
+      "files": [
+        "admin/website/loading.tsx",
+        "admin/website/page.tsx",
+        "admin/website/widget-list.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/website-media": {
+      "files": [
+        "admin/website-media/actions.ts",
+        "admin/website-media/clear-folder-button.tsx",
+        "admin/website-media/media-table.tsx",
+        "admin/website-media/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/wedding-traditions": {
+      "files": [
+        "admin/wedding-traditions/actions.ts",
+        "admin/wedding-traditions/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/wedding-types": {
+      "files": [
+        "admin/wedding-types/loading.tsx",
+        "admin/wedding-types/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/admin/work": {
+      "files": [
+        "admin/work/actions.ts",
+        "admin/work/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/alaala": {
+      "files": [
+        "alaala/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=alaala",
+        "/our-story",
+        "/pricing"
+      ],
+      "actions": []
+    },
+    "/api/v1": {
+      "files": [
+        "api/v1/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/api-keys"
+      ],
+      "actions": []
+    },
+    "/blog": {
+      "files": [
+        "blog/page.tsx"
+      ],
+      "destinations": [
+        "/blog",
+        "/blog/[seg]",
+        "/blog?category=[seg]",
+        "/signup"
+      ],
+      "actions": []
+    },
+    "/blog/[slug]": {
+      "files": [
+        "blog/[slug]/_components/journal-partner-credit.tsx",
+        "blog/[slug]/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/blog",
+        "/blog/[seg]",
+        "/blog?category=[seg]",
+        "/signup"
+      ],
+      "actions": []
+    },
+    "/claim/[token]": {
+      "files": [
+        "claim/[token]/actions.ts",
+        "claim/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/people"
+      ],
+      "actions": [
+        "claimAlaga"
+      ]
+    },
+    "/cookies": {
+      "files": [
+        "cookies/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": []
+    },
+    "/creators": {
+      "files": [
+        "creators/_components/creator-story-hero.tsx",
+        "creators/_components/creator-story-sections.tsx",
+        "creators/_components/creators-motion.tsx",
+        "creators/page.tsx"
+      ],
+      "destinations": [
+        "/creators",
+        "/realstories",
+        "/signup"
+      ],
+      "actions": []
+    },
+    "/dashboard/(account)/api-keys": {
+      "files": [
+        "dashboard/(account)/api-keys/actions.ts",
+        "dashboard/(account)/api-keys/loading.tsx",
+        "dashboard/(account)/api-keys/page.tsx"
+      ],
+      "destinations": [
+        "/api/v1",
+        "/dashboard/profile",
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": [
+        "createApiKey",
+        "revokeApiKey"
+      ]
+    },
+    "/dashboard/(account)/create-event": {
+      "files": [
+        "dashboard/(account)/create-event/_components/create-date-picker.tsx",
+        "dashboard/(account)/create-event/_components/create-location-picker.tsx",
+        "dashboard/(account)/create-event/_components/event-type-carousel.tsx",
+        "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
+        "dashboard/(account)/create-event/_components/event-type-picker.tsx",
+        "dashboard/(account)/create-event/_components/event-types.ts",
+        "dashboard/(account)/create-event/actions.ts",
+        "dashboard/(account)/create-event/life-event-guard.ts",
+        "dashboard/(account)/create-event/loading.tsx",
+        "dashboard/(account)/create-event/page.tsx",
+        "dashboard/(account)/create-event/wedding-guard.ts"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/[seg]"
+      ],
+      "actions": [
+        "createWeddingEvent"
+      ]
+    },
+    "/dashboard/(account)/creator": {
+      "files": [
+        "dashboard/(account)/creator/_components/chapter-embed-frame.tsx",
+        "dashboard/(account)/creator/_components/teaser-generator.tsx",
+        "dashboard/(account)/creator/actions.ts",
+        "dashboard/(account)/creator/offer-actions.ts",
+        "dashboard/(account)/creator/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/u/[seg]",
+        "/v/[seg]"
+      ],
+      "actions": [
+        "acceptCreatorOffer",
+        "createChapter",
+        "declineCreatorOffer",
+        "deleteChapter",
+        "linkCreatorOfferDeliverable",
+        "publishChapter",
+        "setCreatorAcceptsOffers",
+        "unpublishChapter",
+        "updateChapter"
+      ]
+    },
+    "/dashboard/(account)/library": {
+      "files": [
+        "dashboard/(account)/library/_components/editorials-tab.tsx",
+        "dashboard/(account)/library/_components/photos-tab.tsx",
+        "dashboard/(account)/library/_components/saved-vendor-card.tsx",
+        "dashboard/(account)/library/_components/vendors-tab.tsx",
+        "dashboard/(account)/library/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/[seg]/studio/papic",
+        "/dashboard/create-event",
+        "/dashboard/library?tab=[seg]",
+        "/dashboard/library?tab=attended",
+        "/dashboard/life-flash",
+        "/dashboard/people",
+        "/dashboard/profile",
+        "/explore",
+        "/v/[seg]",
+        "/v/[seg]?src=favorites"
+      ],
+      "actions": []
+    },
+    "/dashboard/(account)/life-flash": {
+      "files": [
+        "dashboard/(account)/life-flash/_components/flash.tsx",
+        "dashboard/(account)/life-flash/_components/life-flash-analytics.ts",
+        "dashboard/(account)/life-flash/_components/placeholder.ts",
+        "dashboard/(account)/life-flash/_components/scroll-reel.tsx",
+        "dashboard/(account)/life-flash/_components/story-people.tsx",
+        "dashboard/(account)/life-flash/_components/use-flash-timeline.ts",
+        "dashboard/(account)/life-flash/actions.ts",
+        "dashboard/(account)/life-flash/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/create-event"
+      ],
+      "actions": []
+    },
+    "/dashboard/(account)/notifications": {
+      "files": [
+        "dashboard/(account)/notifications/loading.tsx",
+        "dashboard/(account)/notifications/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard"
+      ],
+      "actions": [
+        "markAllNotificationsRead"
+      ]
+    },
+    "/dashboard/(account)/people": {
+      "files": [
+        "dashboard/(account)/people/_components/connections-panel.tsx",
+        "dashboard/(account)/people/_components/dependents-section.tsx",
+        "dashboard/(account)/people/_components/samahan-people-section.tsx",
+        "dashboard/(account)/people/actions.ts",
+        "dashboard/(account)/people/dependent-actions.ts",
+        "dashboard/(account)/people/life-stories.ts",
+        "dashboard/(account)/people/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/samahan/[seg]",
+        "/dashboard/samahan/new",
+        "/onboarding/debut"
+      ],
+      "actions": [
+        "addDependent",
+        "addGodparent",
+        "createHandoverLink",
+        "deleteDependent",
+        "deleteGodparent",
+        "emailHandoverLink",
+        "proposeSamahanConnection",
+        "revokeHandoverLink",
+        "setDependentSharing"
+      ]
+    },
+    "/dashboard/(account)/profile": {
+      "files": [
+        "dashboard/(account)/profile/_components/haptics-toggle.tsx",
+        "dashboard/(account)/profile/_components/push-toggle.tsx",
+        "dashboard/(account)/profile/actions.ts",
+        "dashboard/(account)/profile/face-profile-actions.ts",
+        "dashboard/(account)/profile/loading.tsx",
+        "dashboard/(account)/profile/page.tsx"
+      ],
+      "destinations": [
+        "/admin",
+        "/api/profile/export",
+        "/dashboard/api-keys",
+        "/dashboard/profile/concierge",
+        "/help",
+        "/signup?next=%2Fdashboard%2Fprofile",
+        "/u/[seg]"
+      ],
+      "actions": [
+        "cancelAccountDeletionRequest",
+        "changePassword",
+        "forgetMyFaceEverywhere",
+        "requestAccountDeletion",
+        "restartTour",
+        "revokeShareConsent",
+        "setAccountFaceProfileConsent",
+        "signOutOtherDevices",
+        "updateLocalePreference",
+        "updatePersonalInfo",
+        "updatePlannerMode",
+        "updatePublicProfileEnabled",
+        "updateRemindersEnabled",
+        "updateUserSlug"
+      ]
+    },
+    "/dashboard/(account)/profile/concierge": {
+      "files": [
+        "dashboard/(account)/profile/concierge/actions.ts",
+        "dashboard/(account)/profile/concierge/loading.tsx",
+        "dashboard/(account)/profile/concierge/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/profile",
+        "/dashboard/profile/concierge?event=[seg]",
+        "/pricing"
+      ],
+      "actions": []
+    },
+    "/dashboard/(account)/samahan": {
+      "files": [
+        "dashboard/(account)/samahan/actions.ts",
+        "dashboard/(account)/samahan/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/samahan/[seg]",
+        "/dashboard/samahan/new"
+      ],
+      "actions": []
+    },
+    "/dashboard/(account)/samahan/[communityId]": {
+      "files": [
+        "dashboard/(account)/samahan/[communityId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/samahan"
+      ],
+      "actions": [
+        "archiveCommunity",
+        "demoteMember",
+        "leaveCommunity",
+        "promoteMember",
+        "removeMember",
+        "rotateInviteToken"
+      ]
+    },
+    "/dashboard/(account)/samahan/new": {
+      "files": [
+        "dashboard/(account)/samahan/new/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/samahan"
+      ],
+      "actions": [
+        "createCommunity"
+      ]
+    },
+    "/dashboard/(account)/year": {
+      "files": [
+        "dashboard/(account)/year/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard"
+      ],
+      "actions": []
+    },
+    "/dashboard/(launcher)": {
+      "files": [
+        "dashboard/(launcher)/_components/account-inline.tsx",
+        "dashboard/(launcher)/_components/alaala-lenses.tsx",
+        "dashboard/(launcher)/_components/alaala-tile.tsx",
+        "dashboard/(launcher)/_components/creator-benefits.tsx",
+        "dashboard/(launcher)/_components/event-scene.tsx",
+        "dashboard/(launcher)/_components/expandable.tsx",
+        "dashboard/(launcher)/_components/home-board.tsx",
+        "dashboard/(launcher)/_components/home-command-bar.tsx",
+        "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/home-rail.tsx",
+        "dashboard/(launcher)/_components/shop-logo.tsx",
+        "dashboard/(launcher)/_components/year-moments-list.tsx",
+        "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/layout.tsx",
+        "dashboard/(launcher)/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/[seg]",
+        "/dashboard/create-event",
+        "/dashboard/creator",
+        "/dashboard/library",
+        "/dashboard/library?tab=vendors",
+        "/dashboard/life-flash",
+        "/dashboard/notifications",
+        "/dashboard/people",
+        "/dashboard/samahan/new",
+        "/dashboard/year",
+        "/v/[seg]"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]": {
+      "files": [
+        "dashboard/[eventId]/_components/access-requests-doorway.tsx",
+        "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
+        "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
+        "dashboard/[eventId]/_components/customer-nav-config.ts",
+        "dashboard/[eventId]/_components/customer-nav-fab.tsx",
+        "dashboard/[eventId]/_components/customer-section-subnav.tsx",
+        "dashboard/[eventId]/_components/customer-sidebar.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/banner.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/grid.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/live-photo-wall-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/live-schedule-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/video-guestbook-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx",
+        "dashboard/[eventId]/_components/device-frame.tsx",
+        "dashboard/[eventId]/_components/event-dashboard.tsx",
+        "dashboard/[eventId]/_components/expand-card.tsx",
+        "dashboard/[eventId]/_components/feature-us-card.tsx",
+        "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
+        "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
+        "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
+        "dashboard/[eventId]/_components/overview-inspector-body.tsx",
+        "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
+        "dashboard/[eventId]/_components/payment-under-review.tsx",
+        "dashboard/[eventId]/_components/placeholder.tsx",
+        "dashboard/[eventId]/_components/reveal-preview-card.tsx",
+        "dashboard/[eventId]/_components/reveal-preview.tsx",
+        "dashboard/[eventId]/_components/set-date-nudge.tsx",
+        "dashboard/[eventId]/_components/std-background-picker.tsx",
+        "dashboard/[eventId]/_components/std-media-picker.tsx",
+        "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
+        "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
+        "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
+        "dashboard/[eventId]/actions.ts",
+        "dashboard/[eventId]/checklist-actions.ts",
+        "dashboard/[eventId]/layout.tsx",
+        "dashboard/[eventId]/loading.tsx",
+        "dashboard/[eventId]/nikah-actions.ts",
+        "dashboard/[eventId]/page.tsx",
+        "dashboard/[eventId]/pakanta-actions.ts",
+        "dashboard/[eventId]/template.tsx",
+        "dashboard/[eventId]/wizard-actions.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/clearance",
+        "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/galleries",
+        "/dashboard/[seg]/guests/new",
+        "/dashboard/[seg]/guests/tea-ceremony",
+        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/messages?vendor=[seg]",
+        "/dashboard/[seg]/more",
+        "/dashboard/[seg]/orders/[seg]",
+        "/dashboard/[seg]/schedule",
+        "/dashboard/[seg]/seating",
+        "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/vendors?tab=shortlist",
+        "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
+        "/dashboard/[seg]/website/dress-code",
+        "/dashboard/notifications",
+        "/help",
+        "/v/[seg]",
+        "/wall/[seg]"
+      ],
+      "actions": [
+        "addLineItem",
+        "deleteLineItem",
+        "deletePayment",
+        "grantShareConsent",
+        "logPayment",
+        "planNextYearEvent",
+        "routes.dashboard.accessRequests",
+        "toggleChecklistItem"
+      ]
+    },
+    "/dashboard/[eventId]/access-requests": {
+      "files": [
+        "dashboard/[eventId]/access-requests/_components/request-card.tsx",
+        "dashboard/[eventId]/access-requests/actions.ts",
+        "dashboard/[eventId]/access-requests/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/activity": {
+      "files": [
+        "dashboard/[eventId]/activity/loading.tsx",
+        "dashboard/[eventId]/activity/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/alaala": {
+      "files": [
+        "dashboard/[eventId]/alaala/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/alaala/assignments",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/papic/moderation"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/alaala/assignments": {
+      "files": [
+        "dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx",
+        "dashboard/[eventId]/alaala/assignments/actions.ts",
+        "dashboard/[eventId]/alaala/assignments/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/alaala"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/budget": {
+      "files": [
+        "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
+        "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
+        "dashboard/[eventId]/budget/_components/budget-setter.tsx",
+        "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
+        "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
+        "dashboard/[eventId]/budget/actions.ts",
+        "dashboard/[eventId]/budget/allocation-actions.ts",
+        "dashboard/[eventId]/budget/loading.tsx",
+        "dashboard/[eventId]/budget/page.tsx"
+      ],
+      "destinations": [
+        "/api/budget/[seg]/ics",
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [
+        "formAction"
+      ]
+    },
+    "/dashboard/[eventId]/checklist": {
+      "files": [
+        "dashboard/[eventId]/checklist/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/clearance": {
+      "files": [
+        "dashboard/[eventId]/clearance/actions.ts",
+        "dashboard/[eventId]/clearance/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/contracts": {
+      "files": [
+        "dashboard/[eventId]/contracts/loading.tsx",
+        "dashboard/[eventId]/contracts/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/contracts/[seg]",
+        "/dashboard/[seg]/documents"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/contracts/[contractId]": {
+      "files": [
+        "dashboard/[eventId]/contracts/[contractId]/loading.tsx",
+        "dashboard/[eventId]/contracts/[contractId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/contracts"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/date-selection": {
+      "files": [
+        "dashboard/[eventId]/date-selection/_components/auspicious-card.tsx",
+        "dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx",
+        "dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx",
+        "dashboard/[eventId]/date-selection/_components/date-picker.tsx",
+        "dashboard/[eventId]/date-selection/_components/four-question-flow.tsx",
+        "dashboard/[eventId]/date-selection/actions.ts",
+        "dashboard/[eventId]/date-selection/loading.tsx",
+        "dashboard/[eventId]/date-selection/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/date-selection?path=direct",
+        "/dashboard/[seg]/date-selection?path=guided",
+        "/explore?category=date_fengshui_consultant"
+      ],
+      "actions": [
+        "lockEventDate",
+        "markDateUndecided"
+      ]
+    },
+    "/dashboard/[eventId]/design": {
+      "files": [
+        "dashboard/[eventId]/design/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/details": {
+      "files": [
+        "dashboard/[eventId]/details/_components/details-form.tsx",
+        "dashboard/[eventId]/details/_components/governed-fields.tsx",
+        "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
+        "dashboard/[eventId]/details/loading.tsx",
+        "dashboard/[eventId]/details/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/date-selection",
+        "/help"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/disputes": {
+      "files": [
+        "dashboard/[eventId]/disputes/actions.ts",
+        "dashboard/[eventId]/disputes/loading.tsx",
+        "dashboard/[eventId]/disputes/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "fileForceMajeureFlag"
+      ]
+    },
+    "/dashboard/[eventId]/documents": {
+      "files": [
+        "dashboard/[eventId]/documents/loading.tsx",
+        "dashboard/[eventId]/documents/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/contracts",
+        "/dashboard/[seg]/contracts/[seg]",
+        "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/orders",
+        "/dashboard/[seg]/paperwork",
+        "/dashboard/[seg]/studio",
+        "/receipts/[seg]"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/event-page": {
+      "files": [
+        "dashboard/[eventId]/event-page/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/event-qr": {
+      "files": [
+        "dashboard/[eventId]/event-qr/actions.ts",
+        "dashboard/[eventId]/event-qr/loading.tsx",
+        "dashboard/[eventId]/event-qr/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/find-date": {
+      "files": [
+        "dashboard/[eventId]/find-date/_components/find-your-date.tsx",
+        "dashboard/[eventId]/find-date/loading.tsx",
+        "dashboard/[eventId]/find-date/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/for-you": {
+      "files": [
+        "dashboard/[eventId]/for-you/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/galleries": {
+      "files": [
+        "dashboard/[eventId]/galleries/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests": {
+      "files": [
+        "dashboard/[eventId]/guests/_components/active-filters.tsx",
+        "dashboard/[eventId]/guests/_components/capture-bar.tsx",
+        "dashboard/[eventId]/guests/_components/chip-editors.tsx",
+        "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
+        "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
+        "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
+        "dashboard/[eventId]/guests/_components/guest-mind-map.tsx",
+        "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
+        "dashboard/[eventId]/guests/_components/guest-optimistic-store.ts",
+        "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
+        "dashboard/[eventId]/guests/_components/guests-search.tsx",
+        "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
+        "dashboard/[eventId]/guests/_components/live-search.tsx",
+        "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
+        "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
+        "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
+        "dashboard/[eventId]/guests/_components/seat-chip.tsx",
+        "dashboard/[eventId]/guests/_components/sort-select.tsx",
+        "dashboard/[eventId]/guests/_components/undo-toast.tsx",
+        "dashboard/[eventId]/guests/_components/view-switcher.tsx",
+        "dashboard/[eventId]/guests/groups-actions.ts",
+        "dashboard/[eventId]/guests/inline-actions.ts",
+        "dashboard/[eventId]/guests/loading.tsx",
+        "dashboard/[eventId]/guests/map-actions.ts",
+        "dashboard/[eventId]/guests/page.tsx",
+        "dashboard/[eventId]/guests/quick-add-actions.ts"
+      ],
+      "destinations": [
+        "/api/website/qr/guest/[seg]",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/[seg]",
+        "/dashboard/[seg]/guests/checkin",
+        "/dashboard/[seg]/guests/claims",
+        "/dashboard/[seg]/guests/import",
+        "/dashboard/[seg]/guests/invite",
+        "/dashboard/[seg]/guests/new",
+        "/dashboard/[seg]/guests/quick",
+        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/seating",
+        "/dashboard/[seg]/studio/custom-qr-guest"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests/[guestId]": {
+      "files": [
+        "dashboard/[eventId]/guests/[guestId]/actions.ts",
+        "dashboard/[eventId]/guests/[guestId]/loading.tsx",
+        "dashboard/[eventId]/guests/[guestId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/[seg]"
+      ],
+      "actions": [
+        "deleteAction",
+        "inviteAction",
+        "releaseAction",
+        "updateAction"
+      ]
+    },
+    "/dashboard/[eventId]/guests/checkin": {
+      "files": [
+        "dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx",
+        "dashboard/[eventId]/guests/checkin/actions.ts",
+        "dashboard/[eventId]/guests/checkin/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/souvenirs"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests/claims": {
+      "files": [
+        "dashboard/[eventId]/guests/claims/actions.ts",
+        "dashboard/[eventId]/guests/claims/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests/import": {
+      "files": [
+        "dashboard/[eventId]/guests/import/actions.ts",
+        "dashboard/[eventId]/guests/import/loading.tsx",
+        "dashboard/[eventId]/guests/import/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests"
+      ],
+      "actions": [
+        "action"
+      ]
+    },
+    "/dashboard/[eventId]/guests/invite": {
+      "files": [
+        "dashboard/[eventId]/guests/invite/_components/invite-link.tsx",
+        "dashboard/[eventId]/guests/invite/_components/regenerate-qr-button.tsx",
+        "dashboard/[eventId]/guests/invite/actions.ts",
+        "dashboard/[eventId]/guests/invite/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/event-qr",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/claims"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests/new": {
+      "files": [
+        "dashboard/[eventId]/guests/new/actions.ts",
+        "dashboard/[eventId]/guests/new/loading.tsx",
+        "dashboard/[eventId]/guests/new/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests"
+      ],
+      "actions": [
+        "action"
+      ]
+    },
+    "/dashboard/[eventId]/guests/quick": {
+      "files": [
+        "dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx",
+        "dashboard/[eventId]/guests/quick/actions.ts",
+        "dashboard/[eventId]/guests/quick/loading.tsx",
+        "dashboard/[eventId]/guests/quick/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/import",
+        "/dashboard/[seg]/guests/new"
+      ],
+      "actions": [
+        "action"
+      ]
+    },
+    "/dashboard/[eventId]/guests/souvenirs": {
+      "files": [
+        "dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx",
+        "dashboard/[eventId]/guests/souvenirs/actions.ts",
+        "dashboard/[eventId]/guests/souvenirs/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/guests/tea-ceremony": {
+      "files": [
+        "dashboard/[eventId]/guests/tea-ceremony/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/[seg]",
+        "/dashboard/[seg]/guests/new"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/hosts": {
+      "files": [
+        "dashboard/[eventId]/hosts/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/hosts/actions.ts",
+        "dashboard/[eventId]/hosts/loading.tsx",
+        "dashboard/[eventId]/hosts/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
+      "actions": [
+        "inviteHost",
+        "removeHost",
+        "revokeHostInvite",
+        "setDelegateBudget"
+      ]
+    },
+    "/dashboard/[eventId]/invitation": {
+      "files": [
+        "dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx",
+        "dashboard/[eventId]/invitation/_components/slug-field.tsx",
+        "dashboard/[eventId]/invitation/actions.ts",
+        "dashboard/[eventId]/invitation/loading.tsx",
+        "dashboard/[eventId]/invitation/page.tsx"
+      ],
+      "destinations": [
+        "/api/website/qr/guest/[seg]",
+        "/dashboard/[seg]/guests/[seg]"
+      ],
+      "actions": [
+        "monoAction",
+        "reissueAction"
+      ]
+    },
+    "/dashboard/[eventId]/invitation/print": {
+      "files": [
+        "dashboard/[eventId]/invitation/print/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/launch": {
+      "files": [
+        "dashboard/[eventId]/launch/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/live": {
+      "files": [
+        "dashboard/[eventId]/live/_components/flash-auto-wall-toggle.tsx",
+        "dashboard/[eventId]/live/_components/mode-control.tsx",
+        "dashboard/[eventId]/live/actions.ts",
+        "dashboard/[eventId]/live/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/manpower": {
+      "files": [
+        "dashboard/[eventId]/manpower/_components/post-gig-drawer.tsx",
+        "dashboard/[eventId]/manpower/host-actions.ts",
+        "dashboard/[eventId]/manpower/loading.tsx",
+        "dashboard/[eventId]/manpower/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
+      "actions": [
+        "cancelGigFromHost",
+        "postManpowerGig"
+      ]
+    },
+    "/dashboard/[eventId]/messages": {
+      "files": [
+        "dashboard/[eventId]/messages/actions.ts",
+        "dashboard/[eventId]/messages/loading.tsx",
+        "dashboard/[eventId]/messages/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages/[seg]",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [
+        "startThreadByVendorEmail"
+      ]
+    },
+    "/dashboard/[eventId]/messages/[threadId]": {
+      "files": [
+        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
+        "dashboard/[eventId]/messages/[threadId]/loading.tsx",
+        "dashboard/[eventId]/messages/[threadId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages",
+        "/proposals/[seg]"
+      ],
+      "actions": [
+        "withdrawInquiry"
+      ]
+    },
+    "/dashboard/[eventId]/monogram": {
+      "files": [
+        "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
+        "dashboard/[eventId]/monogram/draft-restore.tsx",
+        "dashboard/[eventId]/monogram/loading.tsx",
+        "dashboard/[eventId]/monogram/mark-everywhere.tsx",
+        "dashboard/[eventId]/monogram/page.tsx",
+        "dashboard/[eventId]/monogram/studio-actions.ts",
+        "dashboard/[eventId]/monogram/studio.tsx",
+        "dashboard/[eventId]/monogram/upload-actions.ts",
+        "dashboard/[eventId]/monogram/upload-mark.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": [
+        "clearStudioAction",
+        "clearUploadedMarkAction",
+        "saveStudioAction",
+        "saveUploadedMarkAction"
+      ]
+    },
+    "/dashboard/[eventId]/more": {
+      "files": [
+        "dashboard/[eventId]/more/loading.tsx",
+        "dashboard/[eventId]/more/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/orders": {
+      "files": [
+        "dashboard/[eventId]/orders/actions.ts",
+        "dashboard/[eventId]/orders/loading.tsx",
+        "dashboard/[eventId]/orders/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/orders/[seg]",
+        "/dashboard/[seg]/orders/new"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/orders/[orderId]": {
+      "files": [
+        "dashboard/[eventId]/orders/[orderId]/loading.tsx",
+        "dashboard/[eventId]/orders/[orderId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/orders",
+        "/receipts/[seg]"
+      ],
+      "actions": [
+        "cancelOrder",
+        "logPayment"
+      ]
+    },
+    "/dashboard/[eventId]/orders/new": {
+      "files": [
+        "dashboard/[eventId]/orders/new/loading.tsx",
+        "dashboard/[eventId]/orders/new/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/pabuya": {
+      "files": [
+        "dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx",
+        "dashboard/[eventId]/pabuya/actions.ts",
+        "dashboard/[eventId]/pabuya/loading.tsx",
+        "dashboard/[eventId]/pabuya/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/paperwork": {
+      "files": [
+        "dashboard/[eventId]/paperwork/actions.ts",
+        "dashboard/[eventId]/paperwork/loading.tsx",
+        "dashboard/[eventId]/paperwork/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/documents"
+      ],
+      "actions": [
+        "markPaperworkReceived",
+        "markPaperworkRequested",
+        "seedPaperworkForEvent",
+        "setPaperworkNotes",
+        "setPaperworkStatus",
+        "uploadPaperworkScan"
+      ]
+    },
+    "/dashboard/[eventId]/progress": {
+      "files": [
+        "dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx",
+        "dashboard/[eventId]/progress/_components/journey-rail.tsx",
+        "dashboard/[eventId]/progress/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/refer": {
+      "files": [
+        "dashboard/[eventId]/refer/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/schedule": {
+      "files": [
+        "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
+        "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
+        "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
+        "dashboard/[eventId]/schedule/_components/journey-view.tsx",
+        "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
+        "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
+        "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
+        "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
+        "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
+        "dashboard/[eventId]/schedule/_components/vendor-meetings-section.tsx",
+        "dashboard/[eventId]/schedule/actions.ts",
+        "dashboard/[eventId]/schedule/activity-picks-actions.ts",
+        "dashboard/[eventId]/schedule/loading.tsx",
+        "dashboard/[eventId]/schedule/page.tsx",
+        "dashboard/[eventId]/schedule/prep-actions.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/messages/[seg]",
+        "/dashboard/[seg]/paperwork",
+        "/dashboard/[seg]/schedule?view=preparation",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [
+        "applyActivityPicks",
+        "bulkRetimeScheduleBlocks",
+        "createScheduleBlock",
+        "deleteScheduleBlock",
+        "loadScheduleTemplate",
+        "resolveScheduleSuggestion",
+        "setBlockPrepVisibility",
+        "setBlockResponsibleParty",
+        "toggleActivityPick",
+        "toggleBlockVisibility"
+      ]
+    },
+    "/dashboard/[eventId]/seating": {
+      "files": [
+        "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
+        "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seating-context-dock.tsx",
+        "dashboard/[eventId]/seating/_components/seating-editor.tsx",
+        "dashboard/[eventId]/seating/_components/seating-frame.tsx",
+        "dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts",
+        "dashboard/[eventId]/seating/_components/use-seating-lock.ts",
+        "dashboard/[eventId]/seating/_components/use-seating-presence.ts",
+        "dashboard/[eventId]/seating/actions.ts",
+        "dashboard/[eventId]/seating/error.tsx",
+        "dashboard/[eventId]/seating/loading.tsx",
+        "dashboard/[eventId]/seating/page.tsx",
+        "dashboard/[eventId]/seating/seating-lock-error.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/seating/caterer",
+        "/dashboard/[seg]/seating/export?mode=blueprint",
+        "/dashboard/[seg]/seating/export?mode=moodboard",
+        "/dashboard/[seg]/seating/walkthrough",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [
+        "setSeatingAutoplace",
+        "setSeatingGroupAdjacency"
+      ]
+    },
+    "/dashboard/[eventId]/seating/lab": {
+      "files": [
+        "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-buy.tsx",
+        "dashboard/[eventId]/seating/lab/_components/couple-3d-plan-unlock-notice.tsx",
+        "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
+        "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
+        "dashboard/[eventId]/seating/lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "dismissGhostBooth",
+        "setGhostBoothsEnabled"
+      ]
+    },
+    "/dashboard/[eventId]/seating/walkthrough": {
+      "files": [
+        "dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx",
+        "dashboard/[eventId]/seating/walkthrough/actions.ts",
+        "dashboard/[eventId]/seating/walkthrough/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/seating"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/sponsors": {
+      "files": [
+        "dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx",
+        "dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx",
+        "dashboard/[eventId]/sponsors/_components/pair-target-picker.tsx",
+        "dashboard/[eventId]/sponsors/actions.ts",
+        "dashboard/[eventId]/sponsors/loading.tsx",
+        "dashboard/[eventId]/sponsors/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/[seg]"
+      ],
+      "actions": [
+        "addSponsor",
+        "formAction",
+        "markResponse",
+        "removeSponsor",
+        "sendInvitation"
+      ]
+    },
+    "/dashboard/[eventId]/studio": {
+      "files": [
+        "dashboard/[eventId]/studio/_components/addon-detail-view.tsx",
+        "dashboard/[eventId]/studio/_components/service-poster.tsx",
+        "dashboard/[eventId]/studio/_components/service-tags.tsx",
+        "dashboard/[eventId]/studio/_components/studio-app-row.tsx",
+        "dashboard/[eventId]/studio/_components/studio-featured-card.tsx",
+        "dashboard/[eventId]/studio/_components/studio-section-tabs.tsx",
+        "dashboard/[eventId]/studio/loading.tsx",
+        "dashboard/[eventId]/studio/page.tsx",
+        "dashboard/[eventId]/studio/recommend-actions.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/orders"
+      ],
+      "actions": [
+        "dismissRecommendation",
+        "dismissVendorRecommendation",
+        "recommendFeature"
+      ]
+    },
+    "/dashboard/[eventId]/studio/[addon]": {
+      "files": [
+        "dashboard/[eventId]/studio/[addon]/loading.tsx",
+        "dashboard/[eventId]/studio/[addon]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/about/[addon]": {
+      "files": [
+        "dashboard/[eventId]/studio/about/[addon]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/animated-monogram": {
+      "files": [
+        "dashboard/[eventId]/studio/animated-monogram/loading.tsx",
+        "dashboard/[eventId]/studio/animated-monogram/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/custom-qr-guest": {
+      "files": [
+        "dashboard/[eventId]/studio/custom-qr-guest/loading.tsx",
+        "dashboard/[eventId]/studio/custom-qr-guest/page.tsx"
+      ],
+      "destinations": [
+        "/api/website/qr/guest/[seg]",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/custom-qr-guest/print"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/custom-qr-guest/print": {
+      "files": [
+        "dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/custom-qr-guest"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/editorial-pro": {
+      "files": [
+        "dashboard/[eventId]/studio/editorial-pro/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/orders",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/guest-columns": {
+      "files": [
+        "dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx",
+        "dashboard/[eventId]/studio/guest-columns/actions.ts",
+        "dashboard/[eventId]/studio/guest-columns/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/indoor-blueprint": {
+      "files": [
+        "dashboard/[eventId]/studio/indoor-blueprint/_components/blueprint-studio.tsx",
+        "dashboard/[eventId]/studio/indoor-blueprint/actions.ts",
+        "dashboard/[eventId]/studio/indoor-blueprint/loading.tsx",
+        "dashboard/[eventId]/studio/indoor-blueprint/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]/find-my-table",
+        "/dashboard/[seg]/seating",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/led": {
+      "files": [
+        "dashboard/[eventId]/studio/led/_components/led-background-maker.tsx",
+        "dashboard/[eventId]/studio/led/loading.tsx",
+        "dashboard/[eventId]/studio/led/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/monogram",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/live-studio-control": {
+      "files": [
+        "dashboard/[eventId]/studio/live-studio-control/page.tsx"
+      ],
+      "destinations": [
+        "/api/oauth/youtube/start?event_id=[seg]",
+        "/privacy"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/live-studio-control/setup": {
+      "files": [
+        "dashboard/[eventId]/studio/live-studio-control/setup/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/mood-board": {
+      "files": [
+        "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/moodboard-chapters.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/palette-editor.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/reception-designer.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/wedding-attire-guide.tsx",
+        "dashboard/[eventId]/studio/mood-board/actions.ts",
+        "dashboard/[eventId]/studio/mood-board/loading.tsx",
+        "dashboard/[eventId]/studio/mood-board/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": [
+        "handleSubmit"
+      ]
+    },
+    "/dashboard/[eventId]/studio/pakanta": {
+      "files": [
+        "dashboard/[eventId]/studio/pakanta/_components/pakanta-music-form.tsx",
+        "dashboard/[eventId]/studio/pakanta/_components/use-song-button.tsx",
+        "dashboard/[eventId]/studio/pakanta/actions.ts",
+        "dashboard/[eventId]/studio/pakanta/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/details",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/panood": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/_components/copy-link.tsx",
+        "dashboard/[eventId]/studio/panood/loading.tsx",
+        "dashboard/[eventId]/studio/panood/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/panood/broadcast": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/broadcast/_components/setnayan-overlay.tsx",
+        "dashboard/[eventId]/studio/panood/broadcast/actions.ts",
+        "dashboard/[eventId]/studio/panood/broadcast/control-room.tsx",
+        "dashboard/[eventId]/studio/panood/broadcast/loading.tsx",
+        "dashboard/[eventId]/studio/panood/broadcast/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/panood",
+        "/dashboard/[seg]/studio/panood/cameras",
+        "/dashboard/[seg]/studio/panood/setup"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/panood/cameras": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/cameras/actions.ts",
+        "dashboard/[eventId]/studio/panood/cameras/page.tsx",
+        "dashboard/[eventId]/studio/panood/cameras/reissue-button.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/panood/cameras/print"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/panood/cameras/print": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/cameras/print/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/panood/setup": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/setup/actions.ts",
+        "dashboard/[eventId]/studio/panood/setup/go-live-card.tsx",
+        "dashboard/[eventId]/studio/panood/setup/loading.tsx",
+        "dashboard/[eventId]/studio/panood/setup/page.tsx"
+      ],
+      "destinations": [
+        "/api/oauth/youtube/start?event_id=[seg]",
+        "/dashboard/[seg]/studio/panood",
+        "/privacy"
+      ],
+      "actions": [
+        "clearPanoodWatchUrl",
+        "savePanoodWatchUrl"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
+        "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/live-wall-actions.ts",
+        "dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx",
+        "dashboard/[eventId]/studio/papic/_components/magazine-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-one-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
+        "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
+        "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
+        "dashboard/[eventId]/studio/papic/actions.ts",
+        "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
+        "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
+        "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
+        "dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx",
+        "dashboard/[eventId]/studio/papic/loading.tsx",
+        "dashboard/[eventId]/studio/papic/page.tsx",
+        "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
+        "dashboard/[eventId]/studio/papic/quality-picker.tsx",
+        "dashboard/[eventId]/studio/papic/style-picker.tsx",
+        "dashboard/[eventId]/studio/papic/vendor-challenges-approval.tsx",
+        "dashboard/[eventId]/studio/papic/vendor-visibility-actions.ts"
+      ],
+      "destinations": [
+        "/api/oauth/drive/start?event_id=[seg]",
+        "/api/oauth/drive/start?event_id=[seg]&slot=overflow",
+        "/api/oauth/drive/start?event_id=[seg]&switch=1",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/papic/crew",
+        "/dashboard/[seg]/studio/papic/crew/print",
+        "/dashboard/[seg]/studio/papic/gallery-zip",
+        "/dashboard/[seg]/studio/papic/magazine",
+        "/dashboard/[seg]/studio/papic/moderation",
+        "/dashboard/[seg]/studio/papic/recap"
+      ],
+      "actions": [
+        "action",
+        "activatePapicLimited",
+        "createCoupleChallengeAction",
+        "deleteCoupleChallengeAction",
+        "purchasePapicExtras",
+        "purchasePapicOneCamera",
+        "purchasePapicPoolTopUp",
+        "reviewVendorChallengeAction",
+        "setCoupleChallengeActiveAction",
+        "setCoupleFaceTaggingDeclined",
+        "setPapicQualityTier",
+        "setPapicStorageDrive",
+        "setPapicStorageR2",
+        "setPapicStyle",
+        "setPapicWindow",
+        "setVendorCapturesHidden"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic/crew": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/crew/_components/copy-button.tsx",
+        "dashboard/[eventId]/studio/papic/crew/loading.tsx",
+        "dashboard/[eventId]/studio/papic/crew/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "provisionPapicSeats",
+        "reissuePapicSeat"
+      ]
+    },
+    "/dashboard/[eventId]/studio/papic/crew/poster": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/crew/poster/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/papic/crew/print": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/crew/print/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/papic/moderation": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue-controls.tsx",
+        "dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx",
+        "dashboard/[eventId]/studio/papic/moderation/actions.ts",
+        "dashboard/[eventId]/studio/papic/moderation/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/papic"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/papic/recap": {
+      "files": [
+        "dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx",
+        "dashboard/[eventId]/studio/papic/recap/_components/recap-social-feature-toggle.tsx",
+        "dashboard/[eventId]/studio/papic/recap/actions.ts",
+        "dashboard/[eventId]/studio/papic/recap/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]/recap",
+        "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/studio/papic/magazine"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/patiktok": {
+      "files": [
+        "dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx",
+        "dashboard/[eventId]/studio/patiktok/_components/reel-renderer.tsx",
+        "dashboard/[eventId]/studio/patiktok/_components/render-form.tsx",
+        "dashboard/[eventId]/studio/patiktok/_components/tag-sheet.tsx",
+        "dashboard/[eventId]/studio/patiktok/actions.ts",
+        "dashboard/[eventId]/studio/patiktok/loading.tsx",
+        "dashboard/[eventId]/studio/patiktok/page.tsx"
+      ],
+      "destinations": [
+        "/api/tiktok/auth/start?event_id=[seg]",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/patiktok/[seg]",
+        "/dashboard/[seg]/studio/patiktok/booth",
+        "/help"
+      ],
+      "actions": [
+        "disconnectPatiktokTiktok",
+        "submitPatiktokRender"
+      ]
+    },
+    "/dashboard/[eventId]/studio/patiktok/[templateId]": {
+      "files": [
+        "dashboard/[eventId]/studio/patiktok/[templateId]/loading.tsx",
+        "dashboard/[eventId]/studio/patiktok/[templateId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/patiktok"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/patiktok/booth": {
+      "files": [
+        "dashboard/[eventId]/studio/patiktok/booth/loading.tsx",
+        "dashboard/[eventId]/studio/patiktok/booth/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/patiktok",
+        "/dashboard/[seg]/studio/patiktok/[seg]"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/photo-delivery": {
+      "files": [
+        "dashboard/[eventId]/studio/photo-delivery/_components/photo-delivery-panel.tsx",
+        "dashboard/[eventId]/studio/photo-delivery/_components/release-progress-poller.tsx",
+        "dashboard/[eventId]/studio/photo-delivery/actions.ts",
+        "dashboard/[eventId]/studio/photo-delivery/loading.tsx",
+        "dashboard/[eventId]/studio/photo-delivery/page.tsx"
+      ],
+      "destinations": [
+        "/api/oauth/photo-delivery/start?event_id=[seg]&switch=1",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": [
+        "action",
+        "disconnectPhotoDelivery",
+        "releasePhotoDelivery",
+        "setPhotoDeliverySyncModeAuto",
+        "setPhotoDeliverySyncModeManual"
+      ]
+    },
+    "/dashboard/[eventId]/studio/playlist": {
+      "files": [
+        "dashboard/[eventId]/studio/playlist/_components/playlist-pick-row.tsx",
+        "dashboard/[eventId]/studio/playlist/_components/playlist-slot-section.tsx",
+        "dashboard/[eventId]/studio/playlist/_components/unsorted-tray.tsx",
+        "dashboard/[eventId]/studio/playlist/actions.ts",
+        "dashboard/[eventId]/studio/playlist/loading.tsx",
+        "dashboard/[eventId]/studio/playlist/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/save-the-date": {
+      "files": [
+        "dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx",
+        "dashboard/[eventId]/studio/save-the-date/_components/launch-std-button.tsx",
+        "dashboard/[eventId]/studio/save-the-date/_components/soundtrack-row.tsx",
+        "dashboard/[eventId]/studio/save-the-date/actions.ts",
+        "dashboard/[eventId]/studio/save-the-date/loading.tsx",
+        "dashboard/[eventId]/studio/save-the-date/page.tsx",
+        "dashboard/[eventId]/studio/save-the-date/wax-actions.ts"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/pakanta",
+        "/dashboard/[seg]/studio/save-the-date/stamp",
+        "/dashboard/[seg]/studio/website-pro",
+        "/dashboard/[seg]/website/site-chrome"
+      ],
+      "actions": [
+        "saveSoundtrack"
+      ]
+    },
+    "/dashboard/[eventId]/studio/save-the-date/stamp": {
+      "files": [
+        "dashboard/[eventId]/studio/save-the-date/stamp/page.tsx",
+        "dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/save-the-date"
+      ],
+      "actions": [
+        "saveWaxSeal"
+      ]
+    },
+    "/dashboard/[eventId]/studio/setnayan-ai": {
+      "files": [
+        "dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value-copy.ts",
+        "dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx",
+        "dashboard/[eventId]/studio/setnayan-ai/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/supplies-marketplace": {
+      "files": [
+        "dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx",
+        "dashboard/[eventId]/studio/supplies-marketplace/loading.tsx",
+        "dashboard/[eventId]/studio/supplies-marketplace/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio",
+        "/help"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/studio/website-pro": {
+      "files": [
+        "dashboard/[eventId]/studio/website-pro/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/orders",
+        "/dashboard/[seg]/studio"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/suite": {
+      "files": [
+        "dashboard/[eventId]/suite/_components/suite-search.tsx",
+        "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
+        "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
+        "dashboard/[eventId]/suite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "routes.dashboard.budget",
+        "routes.dashboard.checklist",
+        "routes.dashboard.findDate",
+        "routes.dashboard.guests.index",
+        "routes.dashboard.schedule",
+        "routes.explore.compare",
+        "routes.explore.index"
+      ]
+    },
+    "/dashboard/[eventId]/today": {
+      "files": [
+        "dashboard/[eventId]/today/loading.tsx",
+        "dashboard/[eventId]/today/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/vendors": {
+      "files": [
+        "dashboard/[eventId]/vendors/_components/accordion-build.tsx",
+        "dashboard/[eventId]/vendors/_components/accordion-lock.tsx",
+        "dashboard/[eventId]/vendors/_components/bench-vendor-actions.tsx",
+        "dashboard/[eventId]/vendors/_components/build-compare.tsx",
+        "dashboard/[eventId]/vendors/_components/build-locked.tsx",
+        "dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx",
+        "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
+        "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
+        "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
+        "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
+        "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
+        "dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx",
+        "dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx",
+        "dashboard/[eventId]/vendors/_components/quote-fill.tsx",
+        "dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx",
+        "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
+        "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
+        "dashboard/[eventId]/vendors/_components/team-controls.tsx",
+        "dashboard/[eventId]/vendors/_components/team-summary-chip.tsx",
+        "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
+        "dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx",
+        "dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx",
+        "dashboard/[eventId]/vendors/actions.ts",
+        "dashboard/[eventId]/vendors/build-3state-actions.ts",
+        "dashboard/[eventId]/vendors/build-3state-fallback-actions.ts",
+        "dashboard/[eventId]/vendors/build-actions.ts",
+        "dashboard/[eventId]/vendors/build-pick-actions.ts",
+        "dashboard/[eventId]/vendors/category-decision-actions.ts",
+        "dashboard/[eventId]/vendors/invite-modal.tsx",
+        "dashboard/[eventId]/vendors/loading.tsx",
+        "dashboard/[eventId]/vendors/page.tsx",
+        "dashboard/[eventId]/vendors/requirements-actions.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/disputes",
+        "/dashboard/[seg]/messages/[seg]",
+        "/dashboard/[seg]/studio/setnayan-ai",
+        "/dashboard/[seg]/vendors/[seg]/review",
+        "/dashboard/[seg]/vendors/categories",
+        "/explore?q=[seg]"
+      ],
+      "actions": [
+        "acceptVendorReuseForm",
+        "cancelVendorReuseForm",
+        "deleteVendor",
+        "requestVendorReuseForm"
+      ]
+    },
+    "/dashboard/[eventId]/vendors/[vendorId]": {
+      "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/vendors/[vendorId]/review": {
+      "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/actions.ts",
+        "dashboard/[eventId]/vendors/[vendorId]/review/loading.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors",
+        "/v/[seg]"
+      ],
+      "actions": [
+        "coupleConfirmReceived",
+        "coupleReportNonDelivery",
+        "recommendVendor",
+        "submitCoupleReview",
+        "submitReviewAppeal",
+        "withdrawRecommendation"
+      ]
+    },
+    "/dashboard/[eventId]/vendors/[vendorId]/workspace": {
+      "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/loading.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/package-sections.ts",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/contracts",
+        "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=chat",
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=payments",
+        "/proposals/[seg]"
+      ],
+      "actions": [
+        "addWorkingNoteAction",
+        "coupleConfirmReceived",
+        "coupleReportNonDelivery",
+        "createAutoShareInviteAction",
+        "deleteWorkingNoteAction",
+        "updateVendorCosts",
+        "withdrawInquiry"
+      ]
+    },
+    "/dashboard/[eventId]/vendors/categories": {
+      "files": [
+        "dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx",
+        "dashboard/[eventId]/vendors/categories/loading.tsx",
+        "dashboard/[eventId]/vendors/categories/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/vendors/packages/[bookingId]": {
+      "files": [
+        "dashboard/[eventId]/vendors/packages/[bookingId]/loading.tsx",
+        "dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx",
+        "dashboard/[eventId]/vendors/packages/[bookingId]/receipt-sections.ts"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/contracts",
+        "/dashboard/[seg]/messages"
+      ],
+      "actions": [
+        "releasePackage",
+        "removeItemFromPackage"
+      ]
+    },
+    "/dashboard/[eventId]/website": {
+      "files": [
+        "dashboard/[eventId]/website/_components/website-pro-lock.tsx",
+        "dashboard/[eventId]/website/loading.tsx",
+        "dashboard/[eventId]/website/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/studio/guest-columns",
+        "/dashboard/[seg]/website/editor",
+        "/dashboard/[seg]/website/editorial",
+        "/dashboard/[seg]/website/our-story",
+        "/dashboard/[seg]/website/privacy"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/colors": {
+      "files": [
+        "dashboard/[eventId]/website/colors/actions.ts",
+        "dashboard/[eventId]/website/colors/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/dress-code": {
+      "files": [
+        "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
+        "dashboard/[eventId]/website/dress-code/actions.ts",
+        "dashboard/[eventId]/website/dress-code/loading.tsx",
+        "dashboard/[eventId]/website/dress-code/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/dashboard/[seg]/website"
+      ],
+      "actions": [
+        "updateAction"
+      ]
+    },
+    "/dashboard/[eventId]/website/editor": {
+      "files": [
+        "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
+        "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
+        "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
+        "dashboard/[eventId]/website/editor/actions.ts",
+        "dashboard/[eventId]/website/editor/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/schedule?view=event-day",
+        "/dashboard/[seg]/studio/save-the-date",
+        "/dashboard/[seg]/website/editorial"
+      ],
+      "actions": [
+        "action",
+        "moveDownAction",
+        "moveUpAction",
+        "serverAction",
+        "setModeAction",
+        "setOpenBrowse",
+        "toggleAction",
+        "updateLandingPageVisibility",
+        "uploadHeroPhoto"
+      ]
+    },
+    "/dashboard/[eventId]/website/editorial": {
+      "files": [
+        "dashboard/[eventId]/website/editorial/_components/editorial-editor.tsx",
+        "dashboard/[eventId]/website/editorial/actions.ts",
+        "dashboard/[eventId]/website/editorial/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]?phase=editorial",
+        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/website/privacy"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/hero-photo": {
+      "files": [
+        "dashboard/[eventId]/website/hero-photo/actions.ts",
+        "dashboard/[eventId]/website/hero-photo/loading.tsx",
+        "dashboard/[eventId]/website/hero-photo/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/website/living-hero"
+      ],
+      "actions": [
+        "removeHeroPhoto",
+        "uploadHeroPhoto"
+      ]
+    },
+    "/dashboard/[eventId]/website/launch": {
+      "files": [
+        "dashboard/[eventId]/website/launch/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/living-hero": {
+      "files": [
+        "dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx",
+        "dashboard/[eventId]/website/living-hero/actions.ts",
+        "dashboard/[eventId]/website/living-hero/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website/hero-photo"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/our-photos": {
+      "files": [
+        "dashboard/[eventId]/website/our-photos/actions.ts",
+        "dashboard/[eventId]/website/our-photos/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
+      "actions": [
+        "updateAction"
+      ]
+    },
+    "/dashboard/[eventId]/website/our-story": {
+      "files": [
+        "dashboard/[eventId]/website/our-story/_components/story-fields.tsx",
+        "dashboard/[eventId]/website/our-story/actions.ts",
+        "dashboard/[eventId]/website/our-story/milestones-field.tsx",
+        "dashboard/[eventId]/website/our-story/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
+      "actions": [
+        "updateAction"
+      ]
+    },
+    "/dashboard/[eventId]/website/photo-moments": {
+      "files": [
+        "dashboard/[eventId]/website/photo-moments/_components/photo-moments-editor.tsx",
+        "dashboard/[eventId]/website/photo-moments/actions.ts",
+        "dashboard/[eventId]/website/photo-moments/config.ts",
+        "dashboard/[eventId]/website/photo-moments/loading.tsx",
+        "dashboard/[eventId]/website/photo-moments/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/privacy": {
+      "files": [
+        "dashboard/[eventId]/website/privacy/actions.ts",
+        "dashboard/[eventId]/website/privacy/loading.tsx",
+        "dashboard/[eventId]/website/privacy/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/website/editor",
+        "/realstories"
+      ],
+      "actions": [
+        "setLiveMediaAudience",
+        "setShowcaseConsent",
+        "updateLandingPageVisibility"
+      ]
+    },
+    "/dashboard/[eventId]/website/site-chrome": {
+      "files": [
+        "dashboard/[eventId]/website/site-chrome/actions.ts",
+        "dashboard/[eventId]/website/site-chrome/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
+      "actions": [
+        "updateAction"
+      ]
+    },
+    "/dashboard/[eventId]/website/special-message": {
+      "files": [
+        "dashboard/[eventId]/website/special-message/actions.ts",
+        "dashboard/[eventId]/website/special-message/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/what-to-bring": {
+      "files": [
+        "dashboard/[eventId]/website/what-to-bring/actions.ts",
+        "dashboard/[eventId]/website/what-to-bring/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dashboard/[eventId]/website/widgets": {
+      "files": [
+        "dashboard/[eventId]/website/widgets/actions.ts",
+        "dashboard/[eventId]/website/widgets/loading.tsx",
+        "dashboard/[eventId]/website/widgets/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/guests/new",
+        "/dashboard/[seg]/website"
+      ],
+      "actions": [
+        "moveWidgetDown",
+        "moveWidgetUp",
+        "setSectionMode",
+        "toggleWidgetVisibility"
+      ]
+    },
+    "/demo-capture/[slug]": {
+      "files": [
+        "demo-capture/[slug]/page.tsx",
+        "demo-capture/[slug]/reel.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/dev/booth-lab": {
+      "files": [
+        "dev/booth-lab/booth-lab-client.tsx",
+        "dev/booth-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/download": {
+      "files": [
+        "download/_download-motion.tsx",
+        "download/page.tsx"
+      ],
+      "destinations": [
+        "/api/download/mac"
+      ],
+      "actions": []
+    },
+    "/explore": {
+      "files": [
+        "explore/_components/category-tile.tsx",
+        "explore/_components/event-type-notify-form.tsx",
+        "explore/_components/explore-search-hero.tsx",
+        "explore/_components/filter-drawer.tsx",
+        "explore/_components/folder-vendors-section.tsx",
+        "explore/_components/icon-tile-folder-strip.tsx",
+        "explore/_components/mega-column-tabs.tsx",
+        "explore/_components/review-carousel.tsx",
+        "explore/_components/save-vendor-button.tsx",
+        "explore/_components/sticky-marketplace-header.tsx",
+        "explore/_components/taxonomy-search.tsx",
+        "explore/_components/vendor-badge-row.tsx",
+        "explore/_components/vendor-card.tsx",
+        "explore/_components/vendors-availability-banner.tsx",
+        "explore/actions.ts",
+        "explore/loading.tsx",
+        "explore/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/dashboard",
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/vendors",
+        "/explore",
+        "/explore?browse=1",
+        "/explore?match=0",
+        "/signup",
+        "/tour",
+        "/vendors"
+      ],
+      "actions": [
+        "formAction"
+      ]
+    },
+    "/explore/categories": {
+      "files": [
+        "explore/categories/loading.tsx",
+        "explore/categories/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/explore/compare": {
+      "files": [
+        "explore/compare/loading.tsx",
+        "explore/compare/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/explore",
+        "/v/[seg]?src=explore"
+      ],
+      "actions": []
+    },
+    "/features": {
+      "files": [
+        "features/_PageBody.tsx",
+        "features/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/forgot-password": {
+      "files": [
+        "forgot-password/actions.ts",
+        "forgot-password/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/login"
+      ],
+      "actions": [
+        "requestPasswordReset"
+      ]
+    },
+    "/help": {
+      "files": [
+        "help/_components/help-search.tsx",
+        "help/actions.ts",
+        "help/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/help/[seg]"
+      ],
+      "actions": [
+        "submitHelpMessage"
+      ]
+    },
+    "/help/[slug]": {
+      "files": [
+        "help/[slug]/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/help",
+        "/help/[seg]"
+      ],
+      "actions": []
+    },
+    "/host/accept/[token]": {
+      "files": [
+        "host/accept/[token]/actions.ts",
+        "host/accept/[token]/loading.tsx",
+        "host/accept/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/login?next=[seg]",
+        "/signup?next=[seg]&email=[seg]"
+      ],
+      "actions": [
+        "acceptHostInvite",
+        "declineHostInvite"
+      ]
+    },
+    "/how-it-works": {
+      "files": [
+        "how-it-works/_how-it-works-motion.tsx",
+        "how-it-works/page.tsx"
+      ],
+      "destinations": [
+        "/signup",
+        "/signup?as=vendor",
+        "/tl/how-it-works",
+        "/vendors"
+      ],
+      "actions": []
+    },
+    "/join/[eventId]": {
+      "files": [
+        "join/[eventId]/_components/join-flow.tsx",
+        "join/[eventId]/_components/join-shell.tsx",
+        "join/[eventId]/actions.ts",
+        "join/[eventId]/loading.tsx",
+        "join/[eventId]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [
+        "action",
+        "selfAction"
+      ]
+    },
+    "/join/[eventId]/check-email": {
+      "files": [
+        "join/[eventId]/check-email/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/join/[eventId]/set-password": {
+      "files": [
+        "join/[eventId]/set-password/actions.ts",
+        "join/[eventId]/set-password/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "action"
+      ]
+    },
+    "/join/[eventId]/success": {
+      "files": [
+        "join/[eventId]/success/loading.tsx",
+        "join/[eventId]/success/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard"
+      ],
+      "actions": []
+    },
+    "/login": {
+      "files": [
+        "login/_components/login-data.ts",
+        "login/_components/sign-in-card-modal.tsx",
+        "login/_components/sign-in-card.tsx",
+        "login/actions.ts",
+        "login/page.tsx"
+      ],
+      "destinations": [
+        "/forgot-password"
+      ],
+      "actions": [
+        "signInWithPassword"
+      ]
+    },
+    "/monogram": {
+      "files": [
+        "monogram/_monogram-motion.tsx",
+        "monogram/page.tsx",
+        "monogram/public-monogram-studio.tsx"
+      ],
+      "destinations": [
+        "/login?next=/monogram",
+        "/onboarding/wedding?from=monogram",
+        "/signup?next=/monogram"
+      ],
+      "actions": []
+    },
+    "/onboarding/[type]": {
+      "files": [
+        "onboarding/[type]/_components/generic-onboarding.tsx",
+        "onboarding/[type]/_components/specialty-fields.tsx",
+        "onboarding/[type]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/onboarding/simple": {
+      "files": [
+        "onboarding/simple/actions.ts",
+        "onboarding/simple/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard",
+        "/dashboard/create-event"
+      ],
+      "actions": [
+        "commitSimpleEvent"
+      ]
+    },
+    "/onboarding/wedding": {
+      "files": [
+        "onboarding/wedding/_components/location-step.tsx",
+        "onboarding/wedding/_components/mono-lockup.tsx",
+        "onboarding/wedding/_components/onboarding-music.tsx",
+        "onboarding/wedding/_components/onboarding-pricing.ts",
+        "onboarding/wedding/_components/onboarding-shell.tsx",
+        "onboarding/wedding/_components/song-bank-step.tsx",
+        "onboarding/wedding/_components/song-preview-list.tsx",
+        "onboarding/wedding/_components/weave-story.ts",
+        "onboarding/wedding/_components/welcome-moments.tsx",
+        "onboarding/wedding/_components/welcome-parallax.tsx",
+        "onboarding/wedding/actions.ts",
+        "onboarding/wedding/loading.tsx",
+        "onboarding/wedding/page.tsx",
+        "onboarding/wedding/types.ts"
+      ],
+      "destinations": [
+        "/login?next=[seg]"
+      ],
+      "actions": [
+        "signInWithGoogle",
+        "signUp"
+      ]
+    },
+    "/open-shop": {
+      "files": [
+        "open-shop/_components/open-shop-wizard.tsx",
+        "open-shop/actions.ts",
+        "open-shop/page.tsx"
+      ],
+      "destinations": [
+        "/vendors"
+      ],
+      "actions": [
+        "becomeVendor"
+      ]
+    },
+    "/our-story": {
+      "files": [
+        "our-story/_pivot-line.tsx",
+        "our-story/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": []
+    },
+    "/pa3d": {
+      "files": [
+        "pa3d/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/pabati/[eventId]": {
+      "files": [
+        "pabati/[eventId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/palogo": {
+      "files": [
+        "palogo/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/panood": {
+      "files": [
+        "panood/actions.ts",
+        "panood/guest-pick-actions.ts",
+        "panood/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": []
+    },
+    "/panood/cam/[token]": {
+      "files": [
+        "panood/cam/[token]/_components/panood-camera-publish.tsx",
+        "panood/cam/[token]/loading.tsx",
+        "panood/cam/[token]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "claimPanoodCamera"
+      ]
+    },
+    "/panood/control/[eventId]": {
+      "files": [
+        "panood/control/[eventId]/_components/broadcast-window-strip.tsx",
+        "panood/control/[eventId]/_components/camera-feeds.tsx",
+        "panood/control/[eventId]/_components/program-bridge.tsx",
+        "panood/control/[eventId]/_components/setup-sheet.tsx",
+        "panood/control/[eventId]/_components/toast-layer.tsx",
+        "panood/control/[eventId]/_components/viewport-lock.tsx",
+        "panood/control/[eventId]/actions.ts",
+        "panood/control/[eventId]/page.tsx",
+        "panood/control/[eventId]/transport-row.tsx"
+      ],
+      "destinations": [
+        "/api/oauth/youtube/start?event_id=[seg]"
+      ],
+      "actions": [
+        "action",
+        "addADay",
+        "addRoamZone",
+        "clearControlWatchUrl",
+        "clearMainStage",
+        "createChannelJoinLink",
+        "cutToMainStage",
+        "deleteHighlight",
+        "deleteRoamZone",
+        "markHighlight",
+        "reissueChannelJoinLink",
+        "renameRoamZone",
+        "saveControlWatchUrl",
+        "setEventQrOverlay",
+        "setFeaturedRoamZone",
+        "setGuestPick",
+        "setLowerThird",
+        "setMonogramOverlay"
+      ]
+    },
+    "/panood/demo/[token]": {
+      "files": [
+        "panood/demo/[token]/_components/cam-join-flow.tsx",
+        "panood/demo/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": []
+    },
+    "/panood/program/[eventId]": {
+      "files": [
+        "panood/program/[eventId]/page.tsx",
+        "panood/program/[eventId]/program-surface.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/papic": {
+      "files": [
+        "papic/_components/camera-controls.tsx",
+        "papic/_components/papic-buy-shell.tsx",
+        "papic/_components/papic-guest-buy-panel.tsx",
+        "papic/_papic-motion.tsx",
+        "papic/actions.ts",
+        "papic/face-enroll-actions.ts",
+        "papic/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=papic",
+        "/pricing"
+      ],
+      "actions": [
+        "startPapicGuestPurchase"
+      ]
+    },
+    "/papic/claim/[token]": {
+      "files": [
+        "papic/claim/[token]/loading.tsx",
+        "papic/claim/[token]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "claimPapicSeat"
+      ]
+    },
+    "/papic/decorate": {
+      "files": [
+        "papic/decorate/_components/kwento-decorator.tsx",
+        "papic/decorate/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/papic/demo/[token]": {
+      "files": [
+        "papic/demo/[token]/_components/demo-join-flow.tsx",
+        "papic/demo/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": []
+    },
+    "/papic/guest": {
+      "files": [
+        "papic/guest/_components/papic-challenge-panel.tsx",
+        "papic/guest/_components/papic-guest-capture.tsx",
+        "papic/guest/loading.tsx",
+        "papic/guest/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/terms"
+      ],
+      "actions": []
+    },
+    "/papic/join/[token]": {
+      "files": [
+        "papic/join/[token]/_components/app-install-banner.tsx",
+        "papic/join/[token]/_components/join-forwarder.tsx",
+        "papic/join/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": []
+    },
+    "/papic/lightcheck": {
+      "files": [
+        "papic/lightcheck/_components/lightcheck-client.tsx",
+        "papic/lightcheck/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/papic/me/[token]": {
+      "files": [
+        "papic/me/[token]/_components/guest-story-maker.tsx",
+        "papic/me/[token]/actions.ts",
+        "papic/me/[token]/loading.tsx",
+        "papic/me/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/papic/me/[seg]/download",
+        "/papic/me/[seg]/photo?id=[seg]&src=[seg]",
+        "/papic/me/[seg]/session",
+        "/papic/me/[seg]/session?next=pool",
+        "/papic/seat/[seg]"
+      ],
+      "actions": []
+    },
+    "/papic/order/[token]": {
+      "files": [
+        "papic/order/[token]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "submitPapicGuestPayment"
+      ]
+    },
+    "/papic/pool": {
+      "files": [
+        "papic/pool/_components/pool-grid.tsx",
+        "papic/pool/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/papic/seat/[token]": {
+      "files": [
+        "papic/seat/[token]/_components/camera-bridge-panel.tsx",
+        "papic/seat/[token]/_components/papic-seat-capture.tsx",
+        "papic/seat/[token]/loading.tsx",
+        "papic/seat/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": []
+    },
+    "/patiktok": {
+      "files": [
+        "patiktok/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/pawebsite": {
+      "files": [
+        "pawebsite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/pricing": {
+      "files": [
+        "pricing/_papic-estimator.tsx",
+        "pricing/_pricing-motion.tsx",
+        "pricing/page.tsx"
+      ],
+      "destinations": [
+        "/creators",
+        "/onboarding/wedding?from=pricing",
+        "/vendors"
+      ],
+      "actions": []
+    },
+    "/privacy": {
+      "files": [
+        "privacy/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/profile",
+        "/help"
+      ],
+      "actions": []
+    },
+    "/proposals/[publicId]": {
+      "files": [
+        "proposals/[publicId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "deleteDraftProposal",
+        "respondToProposal",
+        "sendProposal"
+      ]
+    },
+    "/prototype/mesh-call": {
+      "files": [
+        "prototype/mesh-call/_components/mesh-room.tsx",
+        "prototype/mesh-call/page.tsx"
+      ],
+      "destinations": [
+        "/prototype/mesh-call?room=[seg]"
+      ],
+      "actions": []
+    },
+    "/realstories": {
+      "files": [
+        "realstories/_components/gallery.tsx",
+        "realstories/_components/share-buttons.tsx",
+        "realstories/_components/stories-search.tsx",
+        "realstories/_components/storytellers-shelf.tsx",
+        "realstories/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/signup"
+      ],
+      "actions": []
+    },
+    "/realstories/[slug]": {
+      "files": [
+        "realstories/[slug]/page.tsx"
+      ],
+      "destinations": [
+        "/realstories"
+      ],
+      "actions": []
+    },
+    "/receipts/[receiptId]": {
+      "files": [
+        "receipts/[receiptId]/loading.tsx",
+        "receipts/[receiptId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/refunds": {
+      "files": [
+        "refunds/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/terms"
+      ],
+      "actions": []
+    },
+    "/reset-password": {
+      "files": [
+        "reset-password/actions.ts",
+        "reset-password/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/forgot-password",
+        "/login"
+      ],
+      "actions": [
+        "completePasswordReset"
+      ]
+    },
+    "/samahan/join/[token]": {
+      "files": [
+        "samahan/join/[token]/actions.ts",
+        "samahan/join/[token]/loading.tsx",
+        "samahan/join/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/dashboard",
+        "/login?next=[seg]",
+        "/signup?next=[seg]"
+      ],
+      "actions": [
+        "acceptCommunityInvite"
+      ]
+    },
+    "/setnayan-ai": {
+      "files": [
+        "setnayan-ai/_setnayan-ai-motion.tsx",
+        "setnayan-ai/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=setnayan-ai",
+        "/pricing"
+      ],
+      "actions": []
+    },
+    "/signup": {
+      "files": [
+        "signup/actions.ts",
+        "signup/loading.tsx",
+        "signup/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/privacy",
+        "/terms"
+      ],
+      "actions": [
+        "signUp"
+      ]
+    },
+    "/site-editor/[eventId]": {
+      "files": [
+        "site-editor/[eventId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/site-editor/[eventId]/editorial": {
+      "files": [
+        "site-editor/[eventId]/editorial/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/site-editor/[eventId]/event": {
+      "files": [
+        "site-editor/[eventId]/event/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/site-editor/[eventId]/rsvp": {
+      "files": [
+        "site-editor/[eventId]/rsvp/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/terms": {
+      "files": [
+        "terms/page.tsx"
+      ],
+      "destinations": [
+        "/acceptable-use",
+        "/help",
+        "/privacy",
+        "/refunds"
+      ],
+      "actions": []
+    },
+    "/tl/about": {
+      "files": [
+        "tl/about/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/about",
+        "/explore",
+        "/help",
+        "/how-it-works",
+        "/pricing",
+        "/signup"
+      ],
+      "actions": []
+    },
+    "/tl/features": {
+      "files": [
+        "tl/features/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/tl/how-it-works": {
+      "files": [
+        "tl/how-it-works/page.tsx"
+      ],
+      "destinations": [
+        "/how-it-works",
+        "/signup",
+        "/signup?as=vendor",
+        "/vendors"
+      ],
+      "actions": []
+    },
+    "/tour": {
+      "files": [
+        "tour/_components/tour-chat-thread.tsx",
+        "tour/_lib/sample-event.ts",
+        "tour/layout.tsx",
+        "tour/page.tsx"
+      ],
+      "destinations": [
+        "/maria-and-jose",
+        "/onboarding/wedding?from=tour"
+      ],
+      "actions": []
+    },
+    "/tour/budget": {
+      "files": [
+        "tour/budget/_components/tour-budget-planner.tsx",
+        "tour/budget/_components/tour-vendor-itemization.tsx",
+        "tour/budget/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=tour",
+        "/tour",
+        "/tour/gallery"
+      ],
+      "actions": []
+    },
+    "/tour/gallery": {
+      "files": [
+        "tour/gallery/_components/tour-live-wall.tsx",
+        "tour/gallery/_components/tour-palette-preview.tsx",
+        "tour/gallery/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=tour",
+        "/tour",
+        "/tour/budget"
+      ],
+      "actions": []
+    },
+    "/tour/seating": {
+      "files": [
+        "tour/seating/_components/find-your-seat.tsx",
+        "tour/seating/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=tour",
+        "/tour",
+        "/tour/vendors"
+      ],
+      "actions": []
+    },
+    "/tour/vendors": {
+      "files": [
+        "tour/vendors/_components/tour-shortlist.tsx",
+        "tour/vendors/page.tsx"
+      ],
+      "destinations": [
+        "/maria-and-jose",
+        "/onboarding/wedding?from=tour",
+        "/tour"
+      ],
+      "actions": []
+    },
+    "/u/[userSlug]": {
+      "files": [
+        "u/[userSlug]/page.tsx"
+      ],
+      "destinations": [
+        "/u/[seg]/[seg]",
+        "/u/[seg]/c/[seg]",
+        "/v/[seg]"
+      ],
+      "actions": []
+    },
+    "/u/[userSlug]/c/[chapterId]": {
+      "files": [
+        "u/[userSlug]/c/[chapterId]/page.tsx"
+      ],
+      "destinations": [
+        "/u/[seg]",
+        "/v/[seg]",
+        "/v/[seg]?ref_chapter=[seg]"
+      ],
+      "actions": []
+    },
+    "/v/[slug]": {
+      "files": [
+        "v/[slug]/_components/anon-inquiry-composer.tsx",
+        "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/service-details-sheet.tsx",
+        "v/[slug]/_components/services-gallery.tsx",
+        "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/venue-matched-events.tsx",
+        "v/[slug]/_components/verified-price-card.tsx",
+        "v/[slug]/inquiry-actions.ts",
+        "v/[slug]/loading.tsx",
+        "v/[slug]/page.tsx",
+        "v/[slug]/waitlist-actions.ts"
+      ],
+      "destinations": [
+        "/",
+        "/[seg]",
+        "/[seg]?reviewsPage=[seg]",
+        "/dashboard",
+        "/login",
+        "/signup",
+        "/v/[seg]/booth"
+      ],
+      "actions": [
+        "joinVendorWaitlist"
+      ]
+    },
+    "/v/[slug]/booth": {
+      "files": [
+        "v/[slug]/booth/booth-showcase-client.tsx",
+        "v/[slug]/booth/booth-showcase-loader.tsx",
+        "v/[slug]/booth/page.tsx"
+      ],
+      "destinations": [
+        "/v/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard": {
+      "files": [
+        "vendor-dashboard/_components/branch-manager.tsx",
+        "vendor-dashboard/_components/branch-pin-map.tsx",
+        "vendor-dashboard/_components/collapsible.tsx",
+        "vendor-dashboard/_components/eager-disclosure.tsx",
+        "vendor-dashboard/_components/feature-accordion.tsx",
+        "vendor-dashboard/_components/instagram-connect-card.tsx",
+        "vendor-dashboard/_components/overview-sections.tsx",
+        "vendor-dashboard/_components/push-notification-registrar.tsx",
+        "vendor-dashboard/_components/qr-card.tsx",
+        "vendor-dashboard/_components/qr-section.tsx",
+        "vendor-dashboard/_components/source-breakdown.tsx",
+        "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/tier-gate.tsx",
+        "vendor-dashboard/_components/vendor-bottom-nav.tsx",
+        "vendor-dashboard/_components/vendor-nav-fab.tsx",
+        "vendor-dashboard/_components/vendor-sidebar.tsx",
+        "vendor-dashboard/_components/vendor-track-record-panel.tsx",
+        "vendor-dashboard/_components/video-links-editor.tsx",
+        "vendor-dashboard/_components/web-nudge-banner.tsx",
+        "vendor-dashboard/actions.ts",
+        "vendor-dashboard/error.tsx",
+        "vendor-dashboard/instagram-actions.ts",
+        "vendor-dashboard/layout.tsx",
+        "vendor-dashboard/loading.tsx",
+        "vendor-dashboard/page.tsx",
+        "vendor-dashboard/template.tsx"
+      ],
+      "destinations": [
+        "/api/vendor/instagram/connect",
+        "/dashboard",
+        "/explore",
+        "/signup?as=vendor",
+        "/vendor-dashboard/bookings",
+        "/vendor-dashboard/calendar",
+        "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/customers",
+        "/vendor-dashboard/earnings",
+        "/vendor-dashboard/locked-qr",
+        "/vendor-dashboard/notifications",
+        "/vendor-dashboard/reviews",
+        "/vendor-dashboard/shop",
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": [
+        "acceptInquiry",
+        "cancelAction",
+        "confirmLock",
+        "declineInquiry",
+        "disconnectInstagram",
+        "formAction",
+        "renewAction",
+        "toggleInstagramMediaVisibility"
+      ]
+    },
+    "/vendor-dashboard/activities": {
+      "files": [
+        "vendor-dashboard/activities/actions.ts",
+        "vendor-dashboard/activities/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "addActivity",
+        "reorderActivity",
+        "toggleActivityOffered",
+        "updateActivity"
+      ]
+    },
+    "/vendor-dashboard/attributes": {
+      "files": [
+        "vendor-dashboard/attributes/_components/attribute-field-renderer.tsx",
+        "vendor-dashboard/attributes/actions.ts",
+        "vendor-dashboard/attributes/loading.tsx",
+        "vendor-dashboard/attributes/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [
+        "removeVendorServiceAttribute",
+        "saveVendorServiceAttribute"
+      ]
+    },
+    "/vendor-dashboard/booking-fees": {
+      "files": [
+        "vendor-dashboard/booking-fees/actions.ts",
+        "vendor-dashboard/booking-fees/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/booking-fees/[orderId]": {
+      "files": [
+        "vendor-dashboard/booking-fees/[orderId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "logBookingFeePayment"
+      ]
+    },
+    "/vendor-dashboard/bookings": {
+      "files": [
+        "vendor-dashboard/bookings/_components/vendor-prep-add.tsx",
+        "vendor-dashboard/bookings/actions.ts",
+        "vendor-dashboard/bookings/loading.tsx",
+        "vendor-dashboard/bookings/page.tsx",
+        "vendor-dashboard/bookings/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/messages/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/branches": {
+      "files": [
+        "vendor-dashboard/branches/actions.ts",
+        "vendor-dashboard/branches/branch-types.ts",
+        "vendor-dashboard/branches/loading.tsx",
+        "vendor-dashboard/branches/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/calendar": {
+      "files": [
+        "vendor-dashboard/calendar/actions.ts",
+        "vendor-dashboard/calendar/page.tsx",
+        "vendor-dashboard/calendar/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/calendar/[seg]?pool=[seg]",
+        "/vendor-dashboard/calendar?pool=[seg]&m=[seg]",
+        "/vendor-dashboard/calendar?pool=all&m=[seg]",
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/services"
+      ],
+      "actions": [
+        "addManualBlock",
+        "createCalendar",
+        "editCalendar",
+        "importExternalClient",
+        "notifyWaitlistSlot",
+        "pickWaitlistCouple",
+        "reassignCategoryPool",
+        "removeBlock",
+        "updatePoolCapacity",
+        "updateWaitlistSettings"
+      ]
+    },
+    "/vendor-dashboard/calendar/[date]": {
+      "files": [
+        "vendor-dashboard/calendar/[date]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/messages/[seg]"
+      ],
+      "actions": [
+        "notifyWaitlistSlot",
+        "setCalendarDayState"
+      ]
+    },
+    "/vendor-dashboard/clients": {
+      "files": [
+        "vendor-dashboard/clients/page.tsx",
+        "vendor-dashboard/clients/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/bookings",
+        "/vendor-dashboard/calendar",
+        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/messages/[seg]"
+      ],
+      "actions": [
+        "importExternalClient",
+        "removeBlock"
+      ]
+    },
+    "/vendor-dashboard/clients/[eventId]": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/photo-challenge-buy.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-button.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/vendor-3d-plan-unlock-section.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
+        "vendor-dashboard/clients/[eventId]/actions.ts",
+        "vendor-dashboard/clients/[eventId]/page.tsx",
+        "vendor-dashboard/clients/[eventId]/photo-challenge-actions.ts",
+        "vendor-dashboard/clients/[eventId]/script-actions.ts",
+        "vendor-dashboard/clients/[eventId]/vendor-3d-plan-unlock-actions.ts"
+      ],
+      "destinations": [
+        "/proposals/[seg]",
+        "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]/calendar.ics[seg]",
+        "/vendor-dashboard/clients/[seg]/challenge-photos",
+        "/vendor-dashboard/clients/[seg]/cocktail",
+        "/vendor-dashboard/clients/[seg]/editorial-media",
+        "/vendor-dashboard/clients/[seg]/mood-board",
+        "/vendor-dashboard/clients/[seg]/production-sheet",
+        "/vendor-dashboard/clients/[seg]/seat-plan",
+        "/vendor-dashboard/clients/[seg]?tab=chat",
+        "/vendor-dashboard/clients/[seg]?tab=files",
+        "/vendor-dashboard/clients/[seg]?tab=payments",
+        "/vendor-dashboard/clients/[seg]?tab=schedule",
+        "/vendor-dashboard/clients/[seg]?tab=schedule&lens=mine",
+        "/vendor-dashboard/lines",
+        "/vendor-dashboard/messages",
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/proposals"
+      ],
+      "actions": [
+        "acceptInquiry",
+        "createClientNote",
+        "createVendorChallengeAction",
+        "declineInquiry",
+        "deleteClientNote",
+        "formAction",
+        "suggestScheduleChange",
+        "toggleClientNoteDone",
+        "vendorAcknowledgeDeposit",
+        "vendorMarkServiceComplete",
+        "vendorPostHandover",
+        "vendorRaiseChangeOrder",
+        "vendorRejectDeposit",
+        "vendorRespondChangeOrder",
+        "vendorWithdrawChangeOrder"
+      ]
+    },
+    "/vendor-dashboard/clients/[eventId]/challenge-photos": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/clients/[eventId]/cocktail": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/cocktail/actions.ts",
+        "vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx",
+        "vendor-dashboard/clients/[eventId]/cocktail/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/clients/[eventId]/editorial-media": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx",
+        "vendor-dashboard/clients/[eventId]/editorial-media/actions.ts",
+        "vendor-dashboard/clients/[eventId]/editorial-media/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/clients/[eventId]/mood-board": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/mood-board/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/clients/[eventId]/production-sheet": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/production-sheet/actions.ts",
+        "vendor-dashboard/clients/[eventId]/production-sheet/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": [
+        "addPortionRule",
+        "deletePortionRule"
+      ]
+    },
+    "/vendor-dashboard/clients/[eventId]/seat-plan": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/seat-plan/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/contracts": {
+      "files": [
+        "vendor-dashboard/contracts/actions.ts",
+        "vendor-dashboard/contracts/loading.tsx",
+        "vendor-dashboard/contracts/page.tsx",
+        "vendor-dashboard/contracts/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/contracts/[seg]",
+        "/vendor-dashboard/contracts/new"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/contracts/[contractId]": {
+      "files": [
+        "vendor-dashboard/contracts/[contractId]/loading.tsx",
+        "vendor-dashboard/contracts/[contractId]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/contracts"
+      ],
+      "actions": [
+        "cancelContract",
+        "publishContractToCouple"
+      ]
+    },
+    "/vendor-dashboard/contracts/new": {
+      "files": [
+        "vendor-dashboard/contracts/new/loading.tsx",
+        "vendor-dashboard/contracts/new/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/contracts",
+        "/vendor-dashboard/messages"
+      ],
+      "actions": [
+        "uploadVendorContract"
+      ]
+    },
+    "/vendor-dashboard/creators": {
+      "files": [
+        "vendor-dashboard/creators/actions.ts",
+        "vendor-dashboard/creators/page.tsx"
+      ],
+      "destinations": [
+        "/u/[seg]",
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [
+        "sendCreatorOffer"
+      ]
+    },
+    "/vendor-dashboard/customers": {
+      "files": [
+        "vendor-dashboard/customers/_components/customers-calendar.tsx",
+        "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
+        "vendor-dashboard/customers/actions.ts",
+        "vendor-dashboard/customers/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/services"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/deep-search": {
+      "files": [
+        "vendor-dashboard/deep-search/_components/deep-search-runner.tsx",
+        "vendor-dashboard/deep-search/_components/dossier-view.tsx",
+        "vendor-dashboard/deep-search/actions.ts",
+        "vendor-dashboard/deep-search/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ]
+    },
+    "/vendor-dashboard/demand": {
+      "files": [
+        "vendor-dashboard/demand/_components/demand-radar-card.tsx",
+        "vendor-dashboard/demand/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/disputes": {
+      "files": [
+        "vendor-dashboard/disputes/actions.ts",
+        "vendor-dashboard/disputes/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "submitDisputeContest"
+      ]
+    },
+    "/vendor-dashboard/earnings": {
+      "files": [
+        "vendor-dashboard/earnings/loading.tsx",
+        "vendor-dashboard/earnings/page.tsx",
+        "vendor-dashboard/earnings/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/earnings?page=[seg]",
+        "/vendor-dashboard/services",
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/funnel": {
+      "files": [
+        "vendor-dashboard/funnel/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/invite": {
+      "files": [
+        "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
+        "vendor-dashboard/invite/actions.ts",
+        "vendor-dashboard/invite/date-status-actions.ts",
+        "vendor-dashboard/invite/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/invite?mode=locked",
+        "/vendor-dashboard/invite?mode=shortlist",
+        "/vendor-dashboard/locked-qr",
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [
+        "issueLockedQr"
+      ]
+    },
+    "/vendor-dashboard/lines": {
+      "files": [
+        "vendor-dashboard/lines/actions.ts",
+        "vendor-dashboard/lines/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients"
+      ],
+      "actions": [
+        "attachLineToActivity",
+        "deleteLine",
+        "updateLine"
+      ]
+    },
+    "/vendor-dashboard/locked-qr": {
+      "files": [
+        "vendor-dashboard/locked-qr/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/invite?mode=locked",
+        "/vendor-dashboard/invite?mode=locked&issued=[seg]",
+        "/vendor-dashboard/shop"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/manpower": {
+      "files": [
+        "vendor-dashboard/manpower/_components/gig-card.tsx",
+        "vendor-dashboard/manpower/actions.ts",
+        "vendor-dashboard/manpower/loading.tsx",
+        "vendor-dashboard/manpower/page.tsx",
+        "vendor-dashboard/manpower/surface.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/messages": {
+      "files": [
+        "vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx",
+        "vendor-dashboard/messages/loading.tsx",
+        "vendor-dashboard/messages/page.tsx",
+        "vendor-dashboard/messages/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard",
+        "/vendor-dashboard/messages/[seg]"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/messages/[threadId]": {
+      "files": [
+        "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
+        "vendor-dashboard/messages/[threadId]/actions.ts",
+        "vendor-dashboard/messages/[threadId]/loading.tsx",
+        "vendor-dashboard/messages/[threadId]/outcome-actions.ts",
+        "vendor-dashboard/messages/[threadId]/page.tsx",
+        "vendor-dashboard/messages/[threadId]/pax-actions.ts",
+        "vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts",
+        "vendor-dashboard/messages/[threadId]/proposal-actions.ts"
+      ],
+      "destinations": [
+        "/u/[seg]",
+        "/u/[seg]/c/[seg]",
+        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=schedule",
+        "/vendor-dashboard/messages",
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/proposals"
+      ],
+      "actions": [
+        "acceptInquiry",
+        "acceptPaxSurcharge",
+        "clearVendorPaymentPlan",
+        "confirmVendorPayment",
+        "declineInquiry",
+        "declinePaxSurcharge",
+        "recordInquiryOutcome",
+        "sendProposalFromChat"
+      ]
+    },
+    "/vendor-dashboard/moodboard-library": {
+      "files": [
+        "vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx",
+        "vendor-dashboard/moodboard-library/actions.ts",
+        "vendor-dashboard/moodboard-library/loading.tsx",
+        "vendor-dashboard/moodboard-library/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/more": {
+      "files": [
+        "vendor-dashboard/more/loading.tsx",
+        "vendor-dashboard/more/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/notifications": {
+      "files": [
+        "vendor-dashboard/notifications/loading.tsx",
+        "vendor-dashboard/notifications/page.tsx",
+        "vendor-dashboard/notifications/push-toggle.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [
+        "markAllNotificationsRead"
+      ]
+    },
+    "/vendor-dashboard/on-the-day": {
+      "files": [
+        "vendor-dashboard/on-the-day/_components/access-grants.tsx",
+        "vendor-dashboard/on-the-day/_components/event-picker.tsx",
+        "vendor-dashboard/on-the-day/_components/guest-review-qr.tsx",
+        "vendor-dashboard/on-the-day/_components/issues-log.tsx",
+        "vendor-dashboard/on-the-day/_components/live-reviews.tsx",
+        "vendor-dashboard/on-the-day/_components/module-configurator.tsx",
+        "vendor-dashboard/on-the-day/_components/pahina-console.tsx",
+        "vendor-dashboard/on-the-day/_components/requests-inbox.tsx",
+        "vendor-dashboard/on-the-day/_components/shot-list.tsx",
+        "vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx",
+        "vendor-dashboard/on-the-day/actions.ts",
+        "vendor-dashboard/on-the-day/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/customers",
+        "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/on-the-day/live/[seg]",
+        "/vendor-dashboard/on-the-day?event=[seg]",
+        "/vendor-dashboard/on-the-day?preview=1",
+        "/vendor-dashboard/verify"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/on-the-day/live/[eventId]": {
+      "files": [
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/requests-inbox.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/specialization-registry.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/specialization-slot.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-note-compose.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-actions.ts",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]/seat-plan",
+        "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/repertoire"
+      ],
+      "actions": [
+        "markStageNoteSeen",
+        "sendStageNote"
+      ]
+    },
+    "/vendor-dashboard/on-the-day/live/[eventId]/papic": {
+      "files": [
+        "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/packages": {
+      "files": [
+        "vendor-dashboard/packages/_components/package-editor.tsx",
+        "vendor-dashboard/packages/actions.ts",
+        "vendor-dashboard/packages/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/packages/[seg]",
+        "/vendor-dashboard/packages/new"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/packages/[packageId]": {
+      "files": [
+        "vendor-dashboard/packages/[packageId]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/packages"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/partnerships": {
+      "files": [
+        "vendor-dashboard/partnerships/actions.ts",
+        "vendor-dashboard/partnerships/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "acceptPartnership",
+        "changePartnershipKind",
+        "declinePartnership",
+        "proposePartnership",
+        "withdrawPartnership"
+      ]
+    },
+    "/vendor-dashboard/payday": {
+      "files": [
+        "vendor-dashboard/payday/_components/payday-installment-row.tsx",
+        "vendor-dashboard/payday/_components/payday-summary.tsx",
+        "vendor-dashboard/payday/page.tsx",
+        "vendor-dashboard/payday/surface.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/bookings"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/payment-options": {
+      "files": [
+        "vendor-dashboard/payment-options/_components/add-payment-method.tsx",
+        "vendor-dashboard/payment-options/actions.ts",
+        "vendor-dashboard/payment-options/loading.tsx",
+        "vendor-dashboard/payment-options/page.tsx",
+        "vendor-dashboard/payment-options/surface.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "addPaymentMethod",
+        "deletePaymentMethod",
+        "setPrimaryPaymentMethod",
+        "togglePaymentMethodShown"
+      ]
+    },
+    "/vendor-dashboard/performance": {
+      "files": [
+        "vendor-dashboard/performance/_components/capacity-card.tsx",
+        "vendor-dashboard/performance/_components/conversion-deals-card.tsx",
+        "vendor-dashboard/performance/_components/count-up.tsx",
+        "vendor-dashboard/performance/_components/funnel-preview-card.tsx",
+        "vendor-dashboard/performance/_components/growth-recs-card.tsx",
+        "vendor-dashboard/performance/_components/health-composite-card.tsx",
+        "vendor-dashboard/performance/_components/inquiry-handling-card.tsx",
+        "vendor-dashboard/performance/_components/momentum-card.tsx",
+        "vendor-dashboard/performance/_components/momentum-chart.tsx",
+        "vendor-dashboard/performance/_components/momentum-window-toggle.tsx",
+        "vendor-dashboard/performance/_components/perf-links.ts",
+        "vendor-dashboard/performance/_components/performance-controls.tsx",
+        "vendor-dashboard/performance/_components/reanimate.tsx",
+        "vendor-dashboard/performance/_components/reputation-card.tsx",
+        "vendor-dashboard/performance/_components/roi-attribution-card.tsx",
+        "vendor-dashboard/performance/_components/scope-note.tsx",
+        "vendor-dashboard/performance/_components/service-scope-select-client.tsx",
+        "vendor-dashboard/performance/_components/service-scope-selector.tsx",
+        "vendor-dashboard/performance/_components/verified-median-card.tsx",
+        "vendor-dashboard/performance/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/profile": {
+      "files": [
+        "vendor-dashboard/profile/loading.tsx",
+        "vendor-dashboard/profile/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/proposals": {
+      "files": [
+        "vendor-dashboard/proposals/_components/reuse-inbox.tsx",
+        "vendor-dashboard/proposals/actions.ts",
+        "vendor-dashboard/proposals/page.tsx",
+        "vendor-dashboard/proposals/reuse-actions.ts",
+        "vendor-dashboard/proposals/surface.tsx"
+      ],
+      "destinations": [
+        "/proposals/[seg]"
+      ],
+      "actions": [
+        "createProposal",
+        "deleteTemplate",
+        "saveTemplate",
+        "vendorDeclineReuseForm",
+        "vendorQuoteReuseForm"
+      ]
+    },
+    "/vendor-dashboard/real-stories": {
+      "files": [
+        "vendor-dashboard/real-stories/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/realstories"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/recaps": {
+      "files": [
+        "vendor-dashboard/recaps/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]/recap"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/recommendations": {
+      "files": [
+        "vendor-dashboard/recommendations/_panel.tsx",
+        "vendor-dashboard/recommendations/actions.ts",
+        "vendor-dashboard/recommendations/page.tsx",
+        "vendor-dashboard/recommendations/share-actions.ts"
+      ],
+      "destinations": [],
+      "actions": [
+        "flagFeedback",
+        "setOptIn",
+        "suggestToCouple"
+      ]
+    },
+    "/vendor-dashboard/repertoire": {
+      "files": [
+        "vendor-dashboard/repertoire/actions.ts",
+        "vendor-dashboard/repertoire/loading.tsx",
+        "vendor-dashboard/repertoire/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services"
+      ],
+      "actions": [
+        "addRepertoireSong",
+        "removeRepertoireSong"
+      ]
+    },
+    "/vendor-dashboard/reviews": {
+      "files": [
+        "vendor-dashboard/reviews/actions.ts",
+        "vendor-dashboard/reviews/loading.tsx",
+        "vendor-dashboard/reviews/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "postVendorReply",
+        "submitFlagAsFake"
+      ]
+    },
+    "/vendor-dashboard/services": {
+      "files": [
+        "vendor-dashboard/services/_components/addons-editor.tsx",
+        "vendor-dashboard/services/_components/canvas-maker.tsx",
+        "vendor-dashboard/services/_components/coverage-panel.tsx",
+        "vendor-dashboard/services/_components/customization-step.tsx",
+        "vendor-dashboard/services/_components/manager-tabs.tsx",
+        "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
+        "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
+        "vendor-dashboard/services/_components/refinements-editor.tsx",
+        "vendor-dashboard/services/_components/service-card-live-preview.tsx",
+        "vendor-dashboard/services/_components/service-list-editors.tsx",
+        "vendor-dashboard/services/_components/service-wizard.tsx",
+        "vendor-dashboard/services/_components/services-manager.tsx",
+        "vendor-dashboard/services/_components/showcase-media-fields.tsx",
+        "vendor-dashboard/services/actions.ts",
+        "vendor-dashboard/services/addon-actions.ts",
+        "vendor-dashboard/services/coverage-actions.ts",
+        "vendor-dashboard/services/loading.tsx",
+        "vendor-dashboard/services/page.tsx",
+        "vendor-dashboard/services/refinement-actions.ts"
+      ],
+      "destinations": [
+        "/vendor-dashboard/attributes"
+      ],
+      "actions": [
+        "addServiceTimeSlot",
+        "commitVendorService",
+        "createCoverage",
+        "createVendorService",
+        "deleteCoverage",
+        "deleteServiceTimeSlot",
+        "deleteVendorService",
+        "proposeCategory",
+        "saveServiceRefinements",
+        "setServiceAddons",
+        "setServiceLinks",
+        "setServicePaymentSchedule",
+        "toggleVendorServiceActive",
+        "updateCoverageServes",
+        "updateVendorService"
+      ]
+    },
+    "/vendor-dashboard/services/new/[category]": {
+      "files": [
+        "vendor-dashboard/services/new/[category]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/shop": {
+      "files": [
+        "vendor-dashboard/shop/_components/autoreply-card.tsx",
+        "vendor-dashboard/shop/_components/docs-body.tsx",
+        "vendor-dashboard/shop/_components/editable-row.tsx",
+        "vendor-dashboard/shop/_components/manage-tiles.tsx",
+        "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
+        "vendor-dashboard/shop/_components/reach-map.tsx",
+        "vendor-dashboard/shop/_components/service-radius-fields.tsx",
+        "vendor-dashboard/shop/_components/services-disclosure.tsx",
+        "vendor-dashboard/shop/_components/venue-match-card.tsx",
+        "vendor-dashboard/shop/_components/verify-section.tsx",
+        "vendor-dashboard/shop/_components/voice-match-card.tsx",
+        "vendor-dashboard/shop/_components/voice-match-section.tsx",
+        "vendor-dashboard/shop/_components/website-editor.tsx",
+        "vendor-dashboard/shop/autoreply-actions.ts",
+        "vendor-dashboard/shop/inline-docs-actions.ts",
+        "vendor-dashboard/shop/page.tsx",
+        "vendor-dashboard/shop/radius-actions.ts",
+        "vendor-dashboard/shop/venue-match-actions.ts"
+      ],
+      "destinations": [
+        "/open-shop",
+        "/vendor-dashboard/packages",
+        "/vendor-dashboard/services",
+        "/vendor-dashboard/subscription",
+        "/vendor-dashboard/website"
+      ],
+      "actions": [
+        "formAction",
+        "inviteVendorTeamMember",
+        "updateBusinessStartDate"
+      ]
+    },
+    "/vendor-dashboard/subscription": {
+      "files": [
+        "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
+        "vendor-dashboard/subscription/_components/price-position-card.tsx",
+        "vendor-dashboard/subscription/_components/subscription-cards.tsx",
+        "vendor-dashboard/subscription/_components/token-wallet-section.tsx",
+        "vendor-dashboard/subscription/actions.ts",
+        "vendor-dashboard/subscription/ai-addon-actions.ts",
+        "vendor-dashboard/subscription/booth-addon-actions.ts",
+        "vendor-dashboard/subscription/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/deep-search",
+        "/vendor-dashboard/subscription/custom",
+        "/vendor-dashboard/subscription?cycle=[seg]"
+      ],
+      "actions": [
+        "formAction",
+        "startSubscriptionPurchase"
+      ]
+    },
+    "/vendor-dashboard/subscription/custom": {
+      "files": [
+        "vendor-dashboard/subscription/custom/_components/custom-configurator.tsx",
+        "vendor-dashboard/subscription/custom/actions.ts",
+        "vendor-dashboard/subscription/custom/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": [
+        "requestCustomPlan"
+      ]
+    },
+    "/vendor-dashboard/tax-documents": {
+      "files": [
+        "vendor-dashboard/tax-documents/loading.tsx",
+        "vendor-dashboard/tax-documents/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/team": {
+      "files": [
+        "vendor-dashboard/team/actions.ts",
+        "vendor-dashboard/team/loading.tsx",
+        "vendor-dashboard/team/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "buyExtraSeat",
+        "cancelAdminMotion",
+        "inviteVendorTeamMember",
+        "proposeAdminMotion",
+        "removeVendorTeamMember",
+        "setVendorAgentServices",
+        "stepDownSelf",
+        "updateVendorTeamMember",
+        "voteAdminMotion"
+      ]
+    },
+    "/vendor-dashboard/theft-watch": {
+      "files": [
+        "vendor-dashboard/theft-watch/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/vendor-dashboard/tokens": {
+      "files": [
+        "vendor-dashboard/tokens/_components/balance-card.tsx",
+        "vendor-dashboard/tokens/_components/buy-tokens-cta.tsx",
+        "vendor-dashboard/tokens/actions.ts",
+        "vendor-dashboard/tokens/loading.tsx",
+        "vendor-dashboard/tokens/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "startTokenPurchase"
+      ]
+    },
+    "/vendor-dashboard/track-record": {
+      "files": [
+        "vendor-dashboard/track-record/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/shop"
+      ],
+      "actions": []
+    },
+    "/vendor-dashboard/verify": {
+      "files": [
+        "vendor-dashboard/verify/actions.ts",
+        "vendor-dashboard/verify/loading.tsx",
+        "vendor-dashboard/verify/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "ensureDraftApplication",
+        "submitApplication",
+        "updateDocUpload",
+        "withdrawApplication"
+      ]
+    },
+    "/vendor-dashboard/website": {
+      "files": [
+        "vendor-dashboard/website/_domain-manager.tsx",
+        "vendor-dashboard/website/actions.ts",
+        "vendor-dashboard/website/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/shop"
+      ],
+      "actions": []
+    },
+    "/vendor-invite/[slug]": {
+      "files": [
+        "vendor-invite/[slug]/actions.ts",
+        "vendor-invite/[slug]/loading.tsx",
+        "vendor-invite/[slug]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/create-event?next=[seg]",
+        "/login?next=[seg]",
+        "/signup?as=couple&next=[seg]"
+      ],
+      "actions": [
+        "claimVendorInviteToEvent"
+      ]
+    },
+    "/vendor/claim/[token]": {
+      "files": [
+        "vendor/claim/[token]/loading.tsx",
+        "vendor/claim/[token]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "declineVendorInviteByToken"
+      ]
+    },
+    "/vendor/claim/[token]/finalize": {
+      "files": [
+        "vendor/claim/[token]/finalize/loading.tsx",
+        "vendor/claim/[token]/finalize/page.tsx"
+      ],
+      "destinations": [
+        "/login"
+      ],
+      "actions": []
+    },
+    "/vendor/fit/[ref]": {
+      "files": [
+        "vendor/fit/[ref]/actions.ts",
+        "vendor/fit/[ref]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/create-event?next=[seg]",
+        "/login?next=[seg]",
+        "/signup?as=couple&next=[seg]"
+      ],
+      "actions": [
+        "addVendorFromFit"
+      ]
+    },
+    "/vendor/lock/[token]": {
+      "files": [
+        "vendor/lock/[token]/actions.ts",
+        "vendor/lock/[token]/loading.tsx",
+        "vendor/lock/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors",
+        "/dashboard/create-event?event_type=[seg]&next=[seg]",
+        "/login?next=[seg]",
+        "/signup?as=couple&next=[seg]"
+      ],
+      "actions": [
+        "claimLockedQr"
+      ]
+    },
+    "/vendors": {
+      "files": [
+        "vendors/_components/for-vendors-motion.tsx",
+        "vendors/_components/vendor-grow-hero.tsx",
+        "vendors/_components/vendor-grow-sections.tsx",
+        "vendors/_components/vendor-hero-gate.tsx",
+        "vendors/_components/vendor-tier-matrix.tsx",
+        "vendors/page.tsx"
+      ],
+      "destinations": [
+        "/help",
+        "/open-shop",
+        "/vendors"
+      ],
+      "actions": []
+    },
+    "/waitlist": {
+      "files": [
+        "waitlist/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/onboarding/wedding",
+        "/vendors"
+      ],
+      "actions": []
+    },
+    "/wall/[eventId]": {
+      "files": [
+        "wall/[eventId]/_components/wall-claim.tsx",
+        "wall/[eventId]/_components/wall-projection.tsx",
+        "wall/[eventId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": []
+    },
+    "/why-setnayan": {
+      "files": [
+        "why-setnayan/_why-motion.tsx",
+        "why-setnayan/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding?from=why-setnayan",
+        "/papic",
+        "/setnayan-ai"
+      ],
+      "actions": []
+    }
+  }
+}

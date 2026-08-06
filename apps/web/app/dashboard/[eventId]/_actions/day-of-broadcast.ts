@@ -23,9 +23,10 @@ import {
  * Both run under the CALLER's authenticated client: the coordinator_broadcasts
  * INSERT policies (couple / schedule-'edit' delegate, migration 20270825364600)
  * are the real gate on the write, and every read (blocks, ros meta, vendors)
- * is RLS-scoped. The flag check makes the actions inert while
- * NEXT_PUBLIC_COORDINATOR_P3_ENABLED is off — flag-off = today's behavior
- * exactly (nothing renders a form at them either).
+ * is RLS-scoped. The gate is the Data Privacy board control
+ * 'coordinator_day_of_broadcast' (isCoordinatorP3Enabled), NOT an env var —
+ * this line used to name NEXT_PUBLIC_COORDINATOR_P3_ENABLED, which nothing
+ * reads. That control is `active` in prod, so these actions are LIVE.
  *
  * Call-time sends are EMAIL-ONLY (no-SMS V1 lock) and ride lib/email.ts'
  * central gate: RESEND_API_KEY absent → sendEmail() no-ops with

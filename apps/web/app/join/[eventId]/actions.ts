@@ -1,5 +1,7 @@
 'use server';
 
+import { allowGuestSelfJoinAttempt } from '@/lib/join-door-throttle';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -238,6 +240,27 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
 
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
+  //
+  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
+  // event, but a server action can be invoked directly with a valid join token,
+  // so the same rule has to hold HERE — where the write actually happens and
+  // where the comment below already noted the session "opens the personal page
+  // of a `private` event".
+  //
+  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
+  // launch that has come due counts as public in both places. Two hand-written
+  // copies of one rule is how they drift apart.
+  const { data: visRow } = await admin
+    .from('events')
+    .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
   // 2. Auth check.
   const supabase = await createClient();
   const {
@@ -398,6 +421,46 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
   if (!tokenValid) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
+  // 🚦 THE THROTTLE, ADOPTED (2026-08-06). PR #4160 built and tested this helper
+  // but could not wire it: THIS file was owned by an open PR at the time, so the
+  // guard shipped DARK — present, green, and protecting nothing. A reviewer
+  // caught the gap between "built" and "in force". This is the three lines that
+  // close it.
+  //
+  // Placed AFTER token validation so a junk token cannot spend a real guest's
+  // budget, and BEFORE the mint so a script cannot create rows. What it protects
+  // is not the token — that is 128 random bits — but SELF_JOIN_CEILING: 1,000
+  // self-added rows per event, shared by everyone. Fill it and the door closes
+  // for every later visitor, with no in-product way for the couple to reopen it.
+  // A real guest at the reception would be told the event is full.
+  const throttle = await allowGuestSelfJoinAttempt(eventId, await headers());
+  if (!throttle.allowed) {
+    return redirect(
+      `/join/${eventId}?token=${encodeURIComponent(token)}&error=too_many_attempts`,
+    );
+  }
+
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
+  //
+  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
+  // event, but a server action can be invoked directly with a valid join token,
+  // so the same rule has to hold HERE — where the write actually happens and
+  // where the comment below already noted the session "opens the personal page
+  // of a `private` event".
+  //
+  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
+  // launch that has come due counts as public in both places. Two hand-written
+  // copies of one rule is how they drift apart.
+  const { data: visRow } = await admin
+    .from('events')
+    .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
 

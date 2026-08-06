@@ -34,7 +34,12 @@ import {
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
-import { inviteGuestByEmailAction, softDeleteGuest, updateGuest } from './actions';
+import {
+  inviteGuestByEmailAction,
+  releaseGuestClaim,
+  softDeleteGuest,
+  updateGuest,
+} from './actions';
 
 export const metadata = { title: 'Guest detail' };
 
@@ -207,6 +212,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   const updateAction = updateGuest.bind(null, eventId, guestId);
   const deleteAction = softDeleteGuest.bind(null, eventId, guestId);
+  const releaseAction = releaseGuestClaim.bind(null, eventId, guestId);
   const inviteAction = inviteGuestByEmailAction.bind(null, eventId, guestId);
 
   // Host-initiated email-invite feedback (Invite/Join v2).
@@ -636,7 +642,30 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 defaultValue={guest.notes ?? ''}
                 className="input-field min-h-[88px] resize-y py-2"
               />
+              {/* Said out loud, because until 2026-08-06 it was the opposite of
+                  true: this box was rendered on the guest's own invitation page
+                  and their RSVP overwrote whatever was here. */}
+              <p className="text-xs text-ink/50">
+                Only you and your co-hosts can see this. {guest.first_name} never sees it.
+              </p>
             </div>
+
+            {/* The guest's OWN message, read-only — it is theirs, not yours to
+                edit. Separate column (`guest_note`) precisely so that saving
+                your private note cannot erase what they wrote, and vice versa. */}
+            {guest.guest_note?.trim() ? (
+              <div className="space-y-1.5">
+                <span className="block text-sm font-medium text-ink">
+                  A note from {guest.first_name}
+                </span>
+                <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
+                  {guest.guest_note}
+                </p>
+                <p className="text-xs text-ink/50">
+                  They wrote this when they replied. Only they can change it.
+                </p>
+              </div>
+            ) : null}
           </div>
         </details>
 
@@ -664,14 +693,35 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 Foundation of the event — can&rsquo;t be removed
               </span>
             ) : (
-              <SubmitButton
-                formAction={deleteAction}
-                className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                aria-label={`Remove ${guestDisplayName(guest)}`}
-                pendingLabel="Removing…"
-              >
-                Remove guest
-              </SubmitButton>
+              <div className="flex items-center gap-4">
+                <SubmitButton
+                  formAction={deleteAction}
+                  className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                  aria-label={`Remove ${guestDisplayName(guest)}`}
+                  pendingLabel="Removing…"
+                >
+                  Remove guest
+                </SubmitButton>
+                {/* Owner ruling 2026-08-06: "the couple has full control of
+                    their guests." A personal invitation link is a bearer
+                    credential — forward it and the first person through can
+                    attach the seat to their own account. Re-issuing the QR does
+                    NOT undo that: rotation writes qr_token and never person_id
+                    or email, so the link dies while the account keeps the seat.
+                    This does both, rotation FIRST — detaching without rotating
+                    hands the seat straight back to whoever still holds the old
+                    link, which is the Papic-seat bug already in DECISION_LOG.
+                    A formAction on the shared form, not a nested <form>, which
+                    the repo lints against. */}
+                <SubmitButton
+                  formAction={releaseAction}
+                  className="text-sm font-medium text-ink/70 underline-offset-4 hover:underline hover:text-ink disabled:opacity-60"
+                  aria-label={`Take back ${guestDisplayName(guest)}'s seat — new QR and unlink their account`}
+                  pendingLabel="Taking back…"
+                >
+                  Take this seat back
+                </SubmitButton>
+              </div>
             )}
             <div className="flex items-center gap-2">
               <Link

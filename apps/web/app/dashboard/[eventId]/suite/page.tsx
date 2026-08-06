@@ -259,12 +259,19 @@ export default async function SuitePage({ params }: Props) {
     // batch (identical query to /explore's compare-shortlist banner) so the free
     // card can jump straight to a rendered comparison instead of the bare
     // /explore/compare, which redirects away without ?ids= (audit 2026-07-22).
+    //
+    // ⚠ "Identical to /explore's" was true in the worst way: both copies filtered
+    // `.neq('status', 'declined')`, and 'declined' is not a `vendor_status`
+    // member, so both errored with 22P02 and returned null. The 2026-07-22 audit
+    // fix above was therefore inert from the hour it merged — the Compare tile
+    // has always fallen through to the bare vendor list it was written to avoid.
+    // `archived_at` is where a dropped vendor is actually recorded.
     supabase
       .from('event_vendors')
       .select('marketplace_vendor_id')
       .eq('event_id', eventId)
       .not('marketplace_vendor_id', 'is', null)
-      .neq('status', 'declined')
+      .is('archived_at', null)
       .order('vendor_id', { ascending: true }),
   ]);
 

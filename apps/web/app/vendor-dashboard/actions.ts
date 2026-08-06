@@ -26,6 +26,11 @@ import { geocodeNominatim } from '@/lib/geo';
 import { parseVideoLink } from '@/lib/video-embed';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
+  ALLOWED_CEREMONY_TYPES,
+  ALLOWED_VENUE_SETTINGS,
+  parseCompatibility,
+} from '@/lib/vendor-compatibility';
+import {
   MICROSITE_ABOUT_MAX,
   MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
@@ -106,67 +111,20 @@ async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
   }
 }
 
-// Iteration 0043 — wedding-type compatibility tags. Allowed values mirror
-// the live events.ceremony_type CHECK constraint AND the CEREMONY_TYPES
-// picker rendered in app/vendor-dashboard/profile/page.tsx (both 18-wide).
-// The canonical list is migration 20261120000000_faith_worldwide_expansion
-// (the latest to widen events_ceremony_type_check). Previously this set held
-// only the original 7 keys, so Save silently dropped the 11 faith expansions
-// (chinese, jewish, born_again, aglipayan, lds, sda, jw, hindu, sikh,
-// buddhist, orthodox) — a false-success bug. Validation still rejects truly
-// unknown values; we just stop dropping the valid ones.
-const ALLOWED_CEREMONY_TYPES: ReadonlySet<string> = new Set([
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-  'aglipayan',
-  'lds',
-  'sda',
-  'jw',
-  'hindu',
-  'sikh',
-  'buddhist',
-  'orthodox',
-  'mixed',
-]);
-const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
-  'banquet_hall',
-  'restaurant',
-  'garden',
-  'beach',
-  'destination',
-  'heritage',
-  'outdoor_tent',
-  'civil_registrar',
-]);
-
-/**
- * Parse a repeated set of checkbox values into a clean compatibility array.
- * Returns NULL (not `[]`) when nothing is selected so the marketplace
- * filter treats this vendor as "open to all" rather than "compatible with
- * none". Drops anything not in the allowed set as a cheap defense against
- * a hostile client posting arbitrary strings.
- */
-function parseCompatibilityArray(
-  raw: FormDataEntryValue[],
-  allowed: ReadonlySet<string>,
-): string[] | null {
-  const out: string[] = [];
-  for (const item of raw) {
-    if (typeof item !== 'string') continue;
-    const trimmed = item.trim();
-    if (!allowed.has(trimmed)) continue;
-    if (out.includes(trimmed)) continue;
-    out.push(trimmed);
-  }
-  return out.length > 0 ? out : null;
-}
+// Iteration 0043 — wedding-type compatibility tags.
+//
+// The vocabulary and the parse MOVED to `lib/vendor-compatibility.ts` on
+// 2026-08-05, when a form that actually posts these two columns was finally
+// built (My Shop → Business Profile → "Weddings you're a fit for"). They used
+// to be hand-typed here AND, in different words, on the public vendor page —
+// and the public copy had silently drifted three ceremony values and one venue
+// behind this one. One source now feeds the picker, this allowlist and the
+// badge, so a shop cannot tick a box whose value the public page can't name.
+//
+// `ALLOWED_CEREMONY_TYPES` derives from the faith registry, which is itself
+// locked to the `events_ceremony_type_check` DB constraint (migration
+// 20261120000000_faith_worldwide_expansion). `ALLOWED_VENUE_SETTINGS` derives
+// from `lib/venue-settings.ts`, the couple's own list.
 
 /**
  * Parses the repeated hidden inputs the <FileUpload> widget emits for the
@@ -434,14 +392,42 @@ export async function saveVendorProfile(formData: FormData) {
     gallery_video_links: parseVideoLinks(
       formData.getAll('gallery_video_links'),
     ),
-    compatible_ceremony_types: parseCompatibilityArray(
-      formData.getAll('compatible_ceremony_types'),
-      ALLOWED_CEREMONY_TYPES,
-    ),
-    compatible_venue_settings: parseCompatibilityArray(
-      formData.getAll('compatible_venue_settings'),
-      ALLOWED_VENUE_SETTINGS,
-    ),
+    // ── COMPATIBILITY: ABSENT ≠ EMPTY (hazard closed 2026-08-05) ────────────
+    // These two are the only fields on this payload whose editor does NOT live
+    // in this action's own form any more — a shop sets them on the dedicated
+    // "Weddings you're a fit for" card (`shop/venue-match-actions.ts`).
+    //
+    // `parseCompatibility` maps "nothing ticked" to NULL, and the marketplace
+    // reads NULL as OPEN TO ALL. So a submission that simply does not CARRY
+    // these checkboxes — which is every form that could ever call this
+    // orphaned full-form action again — would not clear the shop's answer, it
+    // would silently REPLACE it with "we take every venue and every ceremony".
+    // A shop that had narrowed itself to beach weddings would quietly start
+    // matching ballrooms, with a save that reported success.
+    //
+    // So: write these ONLY when the form declares that it ASKED. Omitting a key
+    // from the patch leaves the column untouched, which is the honest reading
+    // of a form that never put the question on screen.
+    //
+    // The declaration is an explicit hidden marker, NOT `formData.has(…)` on
+    // the checkboxes themselves: an unticked checkbox posts NOTHING, so "the
+    // form had the boxes and the vendor cleared them all" and "the form never
+    // had the boxes" are the identical FormData. Keying on the checkboxes would
+    // therefore make CLEARING impossible — the opposite failure, equally quiet.
+    // A future form that renders these fields must post
+    // `compatible_fields_present`.
+    ...(formData.get('compatible_fields_present')
+      ? {
+          compatible_ceremony_types: parseCompatibility(
+            formData.getAll('compatible_ceremony_types'),
+            ALLOWED_CEREMONY_TYPES,
+          ),
+          compatible_venue_settings: parseCompatibility(
+            formData.getAll('compatible_venue_settings'),
+            ALLOWED_VENUE_SETTINGS,
+          ),
+        }
+      : {}),
     // event_types is NOT written here anymore — coverage is the source
     // (owner-locked 2026-07-02). It's recomputed as the union across the
     // vendor's coverages by syncProfileEventTypes in services/coverage-actions.ts.

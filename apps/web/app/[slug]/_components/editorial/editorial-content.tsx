@@ -25,6 +25,11 @@ import {
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
+import {
+  editorialPhotoBlocks,
+  editorialGalleryAnchorKey,
+  type EditorialPhotoKey,
+} from './gallery-anchor';
 import { LivingMoments, KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -42,15 +47,27 @@ const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
+/** The "Watch the Film" section's anchor. Named once so the section that OWNS it
+ *  and the colophon link that AIMS at it cannot drift apart. */
+const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
+
 export async function EditorialContent({
   eventId,
   share,
+  galleryAnchorId = null,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
    *  real editorial and it falls back to the couple's own /[slug]; the sample
    *  detail passes its /realstories/[slug] target. */
   share?: { url: string; title: string; image: string } | null;
+  /**
+   * The id the event site's Gallery tab scrolls to, stamped on whichever photo
+   * block this edition draws FIRST (see `gallery-anchor.ts`). Passed only by the
+   * event site, which owns that bar; the /realstories sample and the print view
+   * have no bar and leave it null, so their markup is unchanged.
+   */
+  galleryAnchorId?: string | null;
 }): Promise<ReactElement> {
   let data: EditorialData | null = null;
   try {
@@ -108,6 +125,38 @@ export async function EditorialContent({
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
 
+  // Does the "Watch the Film" section actually render on this edition? Resolved
+  // ONCE, because two things now depend on the same answer: the section itself,
+  // and the colophon link that points at it. Deriving it twice is how a footer
+  // link ends up scrolling to nothing.
+  const watchFilmShown = isOn('watchFilm') && Boolean(data.watchFilmEmbedUrl);
+
+  // The three photo blocks, resolved ONCE — for the same reason `watchFilmShown`
+  // is: the bottom bar's Gallery slot and the block that carries its anchor must
+  // be the same answer. See `gallery-anchor.ts` for why they cannot be typed out
+  // twice. The nodes below read `photo.*` instead of re-deriving their gates.
+  const photo = editorialPhotoBlocks({
+    sections: data.sections,
+    dayChapters: data.dayChapters.length,
+    essayPhotos: data.essayPhotos.length,
+    galleryPhotos: data.galleryPhotos.length,
+    photoWallActive: data.photoWallActive,
+    photoWallPhotos: data.photoWallPhotos.length,
+  });
+  const sectionOrder = resolveSectionOrder(data.sectionOrder);
+  const galleryAnchorOn: EditorialPhotoKey | null = galleryAnchorId
+    ? editorialGalleryAnchorKey(photo, sectionOrder)
+    : null;
+  /**
+   * The anchor id + its scroll margin, on the ONE block that carries it. Every
+   * other block (and every caller with no bar — the /realstories sample, the
+   * print view) spreads an empty object, so their markup is unchanged.
+   */
+  const anchorProps = (key: EditorialPhotoKey): { id?: string; className?: string } =>
+    galleryAnchorOn === key && galleryAnchorId
+      ? { id: galleryAnchorId, className: 'scroll-mt-6' }
+      : {};
+
   // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
   // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
   // wedding's number within that cycle.
@@ -149,7 +198,7 @@ export async function EditorialContent({
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
       <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
-        <PhaseRibbon />
+        <PhaseRibbon slug={data.slug} />
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -293,16 +342,16 @@ export async function EditorialContent({
             // "As the Day Unfolded" (living chapters) or the legacy "Moments"
             // essay fallback — one block, gated by the `gallery` toggle.
             chapters:
-              isOn('gallery') && data.dayChapters.length ? (
-                <div key="chapters">
+              photo.chapters === 'living' ? (
+                <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="As the Day Unfolded" />
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
                     photos and living moments, in the order they happened
                   </p>
                   <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
                 </div>
-              ) : isOn('gallery') && data.essayPhotos.length ? (
-                <div key="chapters">
+              ) : photo.chapters === 'essay' ? (
+                <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="Moments" />
                   <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
                 </div>
@@ -331,13 +380,12 @@ export async function EditorialContent({
                 </div>
               ) : null,
             // Shared photos from the day ("From the Day").
-            gallery:
-              isOn('gallery') && data.galleryPhotos.length ? (
-                <div key="gallery">
-                  <SectionRule title="From the Day" />
-                  <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
-                </div>
-              ) : null,
+            gallery: photo.gallery ? (
+              <div key="gallery" {...anchorProps('gallery')}>
+                <SectionRule title="From the Day" />
+                <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+              </div>
+            ) : null,
             // From your vendors — day-of media from the recommended vendor.
             fromVendors:
               isOn('fromVendors') && data.vendorMedia.length ? (
@@ -347,13 +395,12 @@ export async function EditorialContent({
                 </div>
               ) : null,
             // Live Photo Wall (LIVE_WALL SKU).
-            liveWall:
-              isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
-                <div key="liveWall">
-                  <SectionRule title="Live Photo Wall" />
-                  <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
-                </div>
-              ) : null,
+            liveWall: photo.liveWall ? (
+              <div key="liveWall" {...anchorProps('liveWall')}>
+                <SectionRule title="Live Photo Wall" />
+                <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
+              </div>
+            ) : null,
             // Video guestbook (PABATI SKU) — fails closed.
             videoGuestbook:
               isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
@@ -363,9 +410,13 @@ export async function EditorialContent({
                 </div>
               ) : null,
             // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
+            // The `id` is what the colophon's "Watch the Film" link finally aims
+            // at. That link has been `href="#"` for as long as this section has
+            // existed: the destination was on the same page the whole time and
+            // simply had nothing to anchor to.
             watchFilm:
-              isOn('watchFilm') && data.watchFilmEmbedUrl ? (
-                <div key="watchFilm">
+              watchFilmShown && data.watchFilmEmbedUrl ? (
+                <div key="watchFilm" id={WATCH_FILM_ANCHOR_ID}>
                   <SectionRule title="Watch the Film" />
                   <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
                 </div>
@@ -394,7 +445,7 @@ export async function EditorialContent({
                 </div>
               ) : null,
           };
-          return resolveSectionOrder(data.sectionOrder).map((k) => nodes[k]);
+          return sectionOrder.map((k) => nodes[k]);
         })()}
 
         {/* LOCKED CLOSE — always the last two content sections, in this order
@@ -419,7 +470,8 @@ export async function EditorialContent({
           names={data.displayName}
           city={data.venueCity}
           hideWatermark={hideWatermark}
-          printSlug={data.slug}
+          slug={data.slug}
+          watchFilmShown={watchFilmShown}
         />
       </article>
     </div>
@@ -460,20 +512,40 @@ function Monogram({ text, color }: { text: string; color: string }): ReactElemen
   );
 }
 
-function PhaseRibbon(): ReactElement {
-  // Plain styled links — the engine task owns real phase navigation. We don't
-  // hardcode routes that need params; same-page anchors keep this safe.
+/**
+ * The cross-phase ribbon. Its links WERE `href="#"` — the original note said
+ * "the engine task owns real phase navigation. We don't hardcode routes that
+ * need params", and the param never arrived, so both anchors sat there looking
+ * live and doing nothing for anyone who tapped them. The param exists now: the
+ * couple's own slug is already threaded to this component's sibling (it feeds
+ * the print link), and both destinations are ordinary shipped routes.
+ *
+ * `slug` null means a CURATED SAMPLE — there is no real event behind it, so
+ * there is nowhere for these to go and they are simply not drawn. A phase
+ * marker with no phases is still honest; a link that goes nowhere is not.
+ */
+function PhaseRibbon({ slug }: { slug: string | null }): ReactElement {
   return (
     <nav
       aria-label="Site phases"
       className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60"
     >
-      <a href="#" className="border-b border-terracotta pb-0.5 text-ink/60 no-underline">
-        &larr; The Invitation (RSVP)
-      </a>
-      <a href="#" className="border-b border-terracotta pb-0.5 text-ink/60 no-underline">
-        The Wedding Day (Live) &uarr;
-      </a>
+      {slug ? (
+        <>
+          <a
+            href={`/${slug}`}
+            className="border-b border-terracotta pb-0.5 text-ink/60 no-underline"
+          >
+            &larr; The Invitation (RSVP)
+          </a>
+          <a
+            href={`/${slug}/hub`}
+            className="border-b border-terracotta pb-0.5 text-ink/60 no-underline"
+          >
+            The Wedding Day (Live) &uarr;
+          </a>
+        </>
+      ) : null}
       <span className="border-b border-mulberry pb-0.5 text-mulberry">The Editorial — Today</span>
     </nav>
   );
@@ -1342,7 +1414,8 @@ function Colophon({
   names,
   city,
   hideWatermark = false,
-  printSlug = null,
+  slug = null,
+  watchFilmShown = false,
 }: {
   names: string;
   city: string | null;
@@ -1350,30 +1423,64 @@ function Colophon({
    *  watermark when the event owns the active upgrade. The cross-phase links +
    *  couple names stay; only the freemium credit line goes. */
   hideWatermark?: boolean;
-  /** The couple's real slug → a quiet on-screen "Print the keepsake" link to the
-   *  A3 broadsheet route (/[slug]/print). Null for the curated samples (no real
-   *  event row), which have no print route; the link is then omitted. */
-  printSlug?: string | null;
+  /**
+   * The couple's real slug. Drives BOTH the cross-phase links below and the
+   * quiet "Print the keepsake" link into the A3 broadsheet route
+   * (/[slug]/print). Null for the curated samples (no real event row), which
+   * have neither; everything slug-dependent is then omitted.
+   */
+  slug?: string | null;
+  /** Did the "Watch the Film" section render on this edition? Only then is
+   *  there anything for its link to scroll to. */
+  watchFilmShown?: boolean;
 }): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
-      <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
-        <a href="#" className="border-b border-terracotta pb-0.5 text-ink no-underline">
-          The Invitation (RSVP)
-        </a>
-        <a href="#" className="border-b border-terracotta pb-0.5 text-ink no-underline">
-          The Wedding Day (Live)
-        </a>
-        <a href="#" className="border-b border-terracotta pb-0.5 text-ink no-underline">
-          Watch the Film
-        </a>
-      </div>
+      {/* ── THE THREE LINKS AT THE FOOT OF THE EDITORIAL THAT WENT NOWHERE. ──
+          All three were `href="#"`, and all three name something that exists:
+            · the couple's own site, which carries the RSVP           → /[slug]
+            · the event-day hub                                       → /[slug]/hub
+            · "Watch the Film" — the broadcast replay, which is a SECTION OF
+              THIS VERY PAGE. Its destination was never missing; the section
+              simply had no id to aim at. It has one now.
+          Each is drawn only when its destination is really there: no slug means
+          a curated sample with no event behind it, and an edition where the
+          couple never broadcast has no film section to scroll to. A footer that
+          quietly gets shorter is honest; a link that does nothing is not. */}
+      {slug || watchFilmShown ? (
+        <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
+          {slug ? (
+            <a
+              href={`/${slug}`}
+              className="border-b border-terracotta pb-0.5 text-ink no-underline"
+            >
+              The Invitation (RSVP)
+            </a>
+          ) : null}
+          {slug ? (
+            <a
+              href={`/${slug}/hub`}
+              className="border-b border-terracotta pb-0.5 text-ink no-underline"
+            >
+              The Wedding Day (Live)
+            </a>
+          ) : null}
+          {watchFilmShown ? (
+            <a
+              href={`#${WATCH_FILM_ANCHOR_ID}`}
+              className="border-b border-terracotta pb-0.5 text-ink no-underline"
+            >
+              Watch the Film
+            </a>
+          ) : null}
+        </div>
+      ) : null}
       {/* Print the keepsake — a quiet on-screen-only web affordance into the A3
           broadsheet route. `print:hidden` keeps it off the browser's own print
           of the editorial page. Omitted for samples (no real slug). */}
-      {printSlug ? (
+      {slug ? (
         <a
-          href={`/${printSlug}/print`}
+          href={`/${slug}/print`}
           className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta print:hidden"
         >
           <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

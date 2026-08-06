@@ -16,6 +16,8 @@
     "lint:radius": "node scripts/lint-radius.mjs",
     "lint:vendor-layout": "node scripts/lint-vendor-layout-revalidate.mjs",
     "lint:masthead": "node scripts/lint-page-masthead.mjs",
+    "lint:port-controls": "node scripts/lint-port-no-lost-controls.mjs",
+    "port:baseline": "node scripts/gen-port-baseline.mjs",
     "lint:changelog-dir": "node scripts/lint-changelog-dir.mjs",
     "lint:dup-rule": "tsx scripts/lint-dup-rule.ts",
     "dup-rule:baseline": "tsx scripts/lint-dup-rule.ts --write",
@@ -80,7 +82,7 @@
     "react-mobile-picker": "^1.2.0",
     "resend": "^6.12.3",
     "satori": "^0.26.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "three": "^0.184.0",
     "tz-lookup": "^6.1.25",
     "web-push": "^3.6.7"
@@ -99,7 +101,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
     "music-tempo": "^1.0.3",
-    "postcss": "^8.5.18",
+    "postcss": "^8.5.23",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.0"

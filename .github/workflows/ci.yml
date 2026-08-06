@@ -127,6 +127,19 @@ jobs:
         continue-on-error: true
         run: cd apps/web && node scripts/lint-no-engineering-notes-in-ui.mjs
 
+      # Fails when a marketing NAV_ROUTE pins something to the viewport top
+      # without being listed in UNFIXED_ROUTES — i.e. the floating glass nav and
+      # the page's own bar would overlap. /features and /tl/features shipped that
+      # way: the nav sat on top of the section tabs and sliced the headline in
+      # half, on the public page whose job is to look finished. Both components
+      # were individually correct; the defect existed only between them, and only
+      # at render. The OWNER found it on a phone.
+      # See apps/web/scripts/lint-no-stacked-pinned-bars.mjs.
+      - name: Lint stacked pinned bars
+        id: guard_pinned_bars
+        continue-on-error: true
+        run: cd apps/web && node scripts/lint-no-stacked-pinned-bars.mjs
+
       # Fails when the 3D booth poster stand's position is hardcoded in
       # venue-objects.tsx instead of read from boothPosterLocalOffset, or when
       # BoothPoster re-declares the frame dimensions the placement maths depends
@@ -263,6 +276,7 @@ jobs:
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
           UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
+          PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
           DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
@@ -284,6 +298,7 @@ jobs:
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
           check 'lint engineering notes in ui' "$UI_NOTES"
+          check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"
           check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"

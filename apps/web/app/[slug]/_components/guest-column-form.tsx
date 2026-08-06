@@ -51,6 +51,9 @@ export function GuestColumnForm({
   const [title, setTitle] = useState(own?.title ?? '');
   const [body, setBody] = useState(own?.body ?? '');
   const [consent, setConsent] = useState(false);
+  // DPO ruling 2026-08-06 — the guest's own opt-in to a public byline.
+  // Starts FALSE: not naming someone is the answer that cannot be undone later.
+  const [nameMe, setNameMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -63,7 +66,7 @@ export function GuestColumnForm({
         const res = await fetch('/api/guest-columns', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, body, consent }),
+          body: JSON.stringify({ title, body, consent, nameMe }),
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -210,9 +213,28 @@ export function GuestColumnForm({
               className="mt-0.5 h-3.5 w-3.5 accent-terracotta"
             />
             <span>
-              I agree that my name and these words may be shown on this event&rsquo;s
-              pages once the couple approves them (Data Privacy Act of 2012). You can
-              withdraw your column at any time.
+              I agree that these words may be shown on this event&rsquo;s pages once
+              the couple approves them (Data Privacy Act of 2012). You can withdraw
+              your column at any time.
+            </span>
+          </label>
+          {/* DPO ruling 2026-08-06 — the byline is the guest's ROSTER name, typed
+              by the COUPLE, so publishing it is a disclosure the guest never made
+              about themselves. Hidden unless they ask for it here.
+              ⚠ The consent line above used to read "my name and these words";
+              that became FALSE the moment the default flipped, and a tickbox that
+              promises something the product does not do is the same defect as the
+              face-consent copy that offered matching on events where none ran. */}
+          <label className="flex items-start gap-2 text-xs text-ink/60">
+            <input
+              type="checkbox"
+              checked={nameMe}
+              onChange={(e) => setNameMe(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 accent-terracotta"
+            />
+            <span>
+              Show my name with my message. Leave this unticked and your words are
+              published on their own.
             </span>
           </label>
           {error ? <p className="text-xs text-terracotta">{error}</p> : null}

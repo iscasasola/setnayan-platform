@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..'); // apps/web
+const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 
 /**
  * Columns whose whole purpose is to be TURNED ON by somebody. Each needs a
@@ -45,7 +46,13 @@ const WEB = join(HERE, '..'); // apps/web
  * than erroring. Do NOT add columns that are stamped as a side effect (a
  * timestamp, a counter); those have writers by construction.
  */
-const SWITCHES: { column: string; whoFlips: string; whatBreaksWhenStuck: string }[] = [
+const SWITCHES: {
+  column: string;
+  whoFlips: string;
+  whatBreaksWhenStuck: string;
+  /** Set when the ONLY writer is an RPC parameter — see rpcWritersOf. */
+  writtenViaRpcParam?: string;
+}[] = [
   {
     column: 'live_media_public',
     whoFlips: 'the couple, on the website privacy page',
@@ -57,6 +64,18 @@ const SWITCHES: { column: string; whoFlips: string; whatBreaksWhenStuck: string 
     column: 'papic_face_mode',
     whoFlips: 'an admin / the DPO, per event',
     whatBreaksWhenStuck: 'face auto-tagging stores nothing, on a feature that was paid for',
+  },
+  {
+    // 🚨 REGISTERED AFTER SHIPPING IT BROKEN, 2026-08-06. The column was added
+    // with six readers and NO writer, in the same day three other instances of
+    // this shape were being fixed. The guard existed and never looked, because
+    // nobody registered the switch with it.
+    column: 'author_named_publicly',
+    whoFlips: 'the guest, on the message form on the event page',
+    whatBreaksWhenStuck:
+      'a guest can never choose to be named beside their own published words — ' +
+      'the safe half of the ruling works and the half that gives them a say does not',
+    writtenViaRpcParam: 'p_name_me',
   },
 ];
 
@@ -95,7 +114,54 @@ function writersOf(column: string): string[] {
     if (!src.includes(column)) continue;
     if (pattern.test(src)) found.push(file.slice(WEB.length + 1));
   }
-  return found;
+  if (found.length > 0) return found;
+  return rpcWritersOf(column);
+}
+
+/**
+ * A write spelled as an RPC PARAMETER, which the pattern above cannot see.
+ *
+ * ⚠ THIS WAS A REAL BLIND SPOT, found 2026-08-06. A GUEST has no `auth.uid()`,
+ * so a guest can never write a row directly — EVERY guest-side write in this
+ * codebase goes through a `SECURITY DEFINER` RPC and arrives as a named
+ * parameter, never as an `.insert({...})` key. The detector was therefore blind
+ * to an entire class of writers, and would have reported "nothing writes this"
+ * about a column with a perfectly good control on it.
+ *
+ * The mapping cannot be derived from TypeScript — the parameter is named in the
+ * app (`p_name_me`) and the column in SQL (`author_named_publicly`) — so a
+ * switch written this way declares its own parameter, and we then require BOTH
+ * that some caller passes it AND that a migration assigns it to the column.
+ * Two halves: a caller alone proves nothing, and SQL alone is unreachable.
+ */
+function rpcWritersOf(column: string): string[] {
+  const sw = SWITCHES.find((s) => s.column === column);
+  const param = sw?.writtenViaRpcParam;
+  if (!param) return [];
+
+  const callers = FILES.filter((f) => {
+    const src = readFileSync(f, 'utf8');
+    return new RegExp(`\\.rpc\\(\\s*['"\`][^'"\`]+['"\`][\\s\\S]{0,900}?\\b${param}\\b\\s*:`).test(src);
+  }).map((f) => f.slice(WEB.length + 1));
+  if (callers.length === 0) return [];
+
+  // ⚠ COMMENTS STRIPPED. A `--` line has no statement terminator, so a pattern
+  // spanning `[^;]` runs straight through one — and the first cut of this check
+  // was satisfied by the migration's own PROSE about the column and the
+  // parameter, passing while the SQL assigned neither. Fourth time in one day a
+  // guard here matched a comment instead of code.
+  const sql = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => readFileSync(join(MIGRATIONS, f), 'utf8'))
+    .join('\n')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  // Require a REAL assignment of the parameter into the column. The earlier
+  // fallback ("both names appear somewhere, and some INSERT exists") is exactly
+  // the mere-mention test this file was written to reject.
+  const assigns = new RegExp(`\\b${column}\\b\\s*=\\s*[^,;]*\\b${param}\\b`).test(sql);
+  return assigns ? callers : [];
 }
 
 for (const sw of SWITCHES) {
@@ -133,5 +199,75 @@ test('the writer detector does not pass on a mere mention', () => {
     'landing_page_visibility is written by the privacy action; if the detector ' +
       'cannot see that write, it cannot see any write, and the assertions above ' +
       'are meaningless.',
+  );
+});
+
+// ── The same disease one level up: a GATE FUNCTION nobody calls ─────────────
+//
+// 🔴 THIRD INSTANCE, found 2026-08-06. `lib/setnayan-ai-cockpit-flag.ts` exported
+// `cockpitEnabled()` whose own docblock read: "The cockpit renders ONLY when this
+// returns true. Default OFF, so prod today keeps the R3 status board
+// byte-for-byte." Every word false — the function had ZERO IMPORTERS, so it
+// neither held the surface back nor could take it down. The owner believed they
+// held a lever that was connected at neither end.
+//
+// 🔑 A column with no writer and a gate function with no caller are the SAME
+// BUG. The tests above trace the WRITE; this one traces the CALL. Both ask the
+// question an ordinary test cannot: not "is the logic right?" but "does anything
+// reach this at all?"
+//
+// ⚠ ALLOWLIST, NOT A BAN. Parking a flag ahead of its consumers is legitimate and
+// this repo does it deliberately. What is NOT legitimate is a parked flag that
+// CLAIMS to be gating something. Each entry below was read and is genuinely
+// pre-wired, with an accurate docblock. A NEW inert flag fails until it is either
+// wired or added here with a reason — which puts it in the diff, where a reviewer
+// can disagree.
+test('every feature-flag module has at least one non-test importer', () => {
+  const PARKED_ON_PURPOSE = new Map([
+    ['public-api-flag', 'V1 lock: "no public API endpoints" — 0033 plumbs the gateway only.'],
+    ['slot-seat-reservations-flag', 'Owner-parked 2026-08-01; docblock states it is not yet wired.'],
+    ['vendor-free-tier-booking-cap-flag', 'Built ahead of its consumer; docblock says so.'],
+    ['vendor-launch-free-window-flag', 'Built ahead of its consumer; docblock says so.'],
+  ]);
+
+  const dir = join(WEB, 'lib');
+  const flagFiles = readdirSync(dir).filter((f) => f.endsWith('-flag.ts'));
+  assert.ok(
+    flagFiles.length > 20,
+    `only ${flagFiles.length} *-flag.ts modules found — the glob is wrong, and a ` +
+      'guard that inspects nothing passes for the wrong reason.',
+  );
+
+  const inert: string[] = [];
+  for (const file of flagFiles) {
+    const base = file.replace(/\.ts$/, '');
+    let importers = 0;
+    const scan = (d: string) => {
+      for (const n of readdirSync(d)) {
+        if (n === 'node_modules' || n === '.next') continue;
+        const p = join(d, n);
+        if (statSync(p).isDirectory()) scan(p);
+        else if (/\.tsx?$/.test(n) && !/\.test\./.test(n) && !p.endsWith(file)) {
+          if (readFileSync(p, 'utf8').includes(`@/lib/${base}`)) importers++;
+        }
+      }
+    };
+    for (const root of ['app', 'lib', 'components']) {
+      try {
+        scan(join(WEB, root));
+      } catch {
+        /* dir may not exist */
+      }
+    }
+    if (importers === 0 && !PARKED_ON_PURPOSE.has(base)) inert.push(base);
+  }
+
+  assert.deepEqual(
+    inert,
+    [],
+    'These flag modules are imported by nothing, so they gate nothing — a switch ' +
+      'connected at neither end:\n  ' +
+      inert.join('\n  ') +
+      '\n\nWire it, delete it, or add it to PARKED_ON_PURPOSE with a reason.',
   );
 });

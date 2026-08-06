@@ -6,13 +6,18 @@
  * endpoints pull this URL at publish time, so it must be absolute + reachable.
  */
 
-/** Absolute site origin — Vercel env, falling back to the production domain. */
+import { siteOrigin } from '@/lib/site-origin';
+
+/**
+ * Absolute site origin. Delegates to the single resolver in lib/site-origin.ts
+ * (2026-08-06) — this used to read NEXT_PUBLIC_SITE_URL / SITE_URL only, so on a
+ * Vercel PREVIEW deploy (where those are unset but NEXT_PUBLIC_APP_URL is set) it
+ * returned the PRODUCTION origin and the social pipeline published card URLs
+ * pointing at the live site. Kept as a re-export so the four existing importers
+ * are untouched.
+ */
 export function siteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    'https://www.setnayan.com'
-  );
+  return siteOrigin();
 }
 
 /** Card output format — see lib/social/card.ts `CardFormat`. */

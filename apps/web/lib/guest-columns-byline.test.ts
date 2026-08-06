@@ -170,3 +170,62 @@ test('the misleading column keeps a comment saying what it really does', () => {
       'is gone. That misreading is what nearly unpublished every guest message.',
   );
 });
+
+// ── RULING 03, THE OTHER HALF: the guest must be able to SAY YES ────────────
+
+test('the guest opt-in has a control, a caller and a write', () => {
+  // 🚨 SHIPPED BROKEN FIRST. PR #4180 added the column with six readers and NO
+  // writer — the fourth instance of that shape in one week, and the first I
+  // caused myself while fixing the other three. The default half worked, so the
+  // ruling LOOKED delivered; the half giving the guest a say was unreachable.
+  const form = read('app/[slug]/_components/guest-column-form.tsx');
+  assert.ok(
+    /useState\(false\)[\s\S]{0,80}nameMe|const \[nameMe, setNameMe\] = useState\(false\)/.test(form),
+    'The message form has no "show my name" control, or it does not start OFF. ' +
+      'Not naming someone is the answer that cannot be undone later.',
+  );
+  assert.ok(
+    /checked=\{nameMe\}/.test(form),
+    'The opt-in checkbox is not bound to its own state — it cannot be turned on, ' +
+      'or worse, it is forced on regardless of what the guest chose.',
+  );
+
+  const route = read('app/api/guest-columns/route.ts');
+  assert.ok(
+    /p_name_me:\s*body\.nameMe === true/.test(route),
+    'The route does not pass the opt-in through, or accepts a truthy value ' +
+      'instead of an exact true. A stray string or 1 from a hand-rolled client ' +
+      'must never publish a real person\u2019s name.',
+  );
+});
+
+test('the write path stores the opt-in on BOTH create and edit', () => {
+  const sql = readFileSync(
+    join(REPO, 'supabase', 'migrations', '20271117235684_guest_column_name_me_optin_writer.sql'),
+    'utf8',
+  )
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+  assert.ok(
+    /author_named_publicly\s*=\s*COALESCE\(p_name_me/.test(sql),
+    'An EDIT no longer writes the opt-in. A guest who asked to be named must be ' +
+      'able to take it back — the same reason withdrawal stays open to them.',
+  );
+  assert.ok(
+    /COALESCE\(p_name_me,\s*FALSE\)\)/.test(sql),
+    'The INSERT hardcodes the opt-in instead of taking the guest\u2019s answer, ' +
+      'so ticking the box on a first submission would do nothing.',
+  );
+});
+
+test('the consent line no longer promises a byline it will not print', () => {
+  const form = read('app/[slug]/_components/guest-column-form.tsx');
+  const consent = form.slice(form.indexOf('Data Privacy Act') - 400, form.indexOf('Data Privacy Act'));
+  assert.ok(
+    !/my name and these words/.test(consent),
+    'The consent tick still says "my name and these words may be shown". That ' +
+      'became FALSE the moment the default flipped — the same defect as the face ' +
+      'consent copy that offered matching on events where none ever ran.',
+  );
+});

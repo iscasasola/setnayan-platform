@@ -1,5 +1,6 @@
 'use server';
 
+import { allowGuestSelfJoinAttempt } from '@/lib/join-door-throttle';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -421,6 +422,25 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
 
   if (!tokenValid) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+
+  // 🚦 THE THROTTLE, ADOPTED (2026-08-06). PR #4160 built and tested this helper
+  // but could not wire it: THIS file was owned by an open PR at the time, so the
+  // guard shipped DARK — present, green, and protecting nothing. A reviewer
+  // caught the gap between "built" and "in force". This is the three lines that
+  // close it.
+  //
+  // Placed AFTER token validation so a junk token cannot spend a real guest's
+  // budget, and BEFORE the mint so a script cannot create rows. What it protects
+  // is not the token — that is 128 random bits — but SELF_JOIN_CEILING: 1,000
+  // self-added rows per event, shared by everyone. Fill it and the door closes
+  // for every later visitor, with no in-product way for the couple to reopen it.
+  // A real guest at the reception would be told the event is full.
+  const throttle = await allowGuestSelfJoinAttempt(eventId, await headers());
+  if (!throttle.allowed) {
+    return redirect(
+      `/join/${eventId}?token=${encodeURIComponent(token)}&error=too_many_attempts`,
+    );
   }
 
   // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).

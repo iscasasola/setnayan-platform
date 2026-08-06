@@ -10,7 +10,10 @@ import { endThreadCall } from '@/app/_actions/thread-call-actions';
  * PR 10). Embeds the free P2P WebRTC transport (lib/call-webrtc.ts) directly in
  * an accepted vendor↔couple thread. Both parties open the same thread and join
  * the same room (keyed by threadId), then connect peer-to-peer — media NEVER
- * touches a server; STUN-only, no TURN (so a rare hard-NAT pair fails cleanly).
+ * touches a server. A Cloudflare TURN relay is used WHEN CONFIGURED; whether one
+ * was actually minted for this call is reported as `relayAvailable`, and the
+ * failure copy is built from it rather than assuming. (This line used to state
+ * "STUN-only, no TURN" as a permanent fact.)
  *
  * Self-starting WebRTC call room (grew out of a since-removed prototype): the
  * caller already picked voice/video at launch) and wired to the thread_calls
@@ -21,9 +24,28 @@ const STATUS_LABEL: Record<CallState, string> = {
   waiting: 'Waiting for them to join…',
   connecting: 'Connecting…',
   connected: 'Connected',
-  failed: "Couldn't connect — try again, or get on the same Wi-Fi (no TURN yet).",
+  // `failed` is built at render from `relayAvailable` — see statusLabel() below.
+  // It used to be the fixed string "Couldn't connect — try again, or get on the
+  // same Wi-Fi (no TURN yet)": engineering jargon shown to a couple, and a claim
+  // that turns into a lie the moment the relay keys are set.
+  failed: "Couldn't connect — try again.",
   ended: 'Call ended.',
 };
+
+/**
+ * What to tell someone whose call would not connect.
+ *
+ * DERIVED from whether a relay actually came back for THIS call, never from a
+ * hardcoded belief about the deployment. With a relay, "try again" is the honest
+ * advice — a failure is a transient. Without one, the same-network hint is the
+ * only thing that will actually work, and saying so beats a shrug.
+ */
+function statusLabel(state: CallState, relayAvailable: boolean): string {
+  if (state === 'failed' && !relayAvailable) {
+    return "Couldn't connect — try again, or get on the same Wi-Fi as them.";
+  }
+  return STATUS_LABEL[state];
+}
 
 export function ThreadCallRoom({
   threadId,
@@ -43,6 +65,9 @@ export function ThreadCallRoom({
   const [camOn, setCamOn] = useState(kind === 'video');
   const [micOn, setMicOn] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Whether a relay actually came back for THIS call. Defaults true so a failed
+  // ICE fetch never accuses the deployment of a misconfiguration it may not have.
+  const [relayAvailable, setRelayAvailable] = useState(true);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -85,9 +110,13 @@ export function ThreadCallRoom({
         // Fetch ICE servers (STUN + a minted TURN relay when configured) before
         // joining, so a couple/coordinator on mobile data / an isolated venue
         // Wi-Fi can still connect. Falls back to the transport's STUN-only default.
-        const { iceServers } = await getCallIceServers(threadId).catch(() => ({
+        const { iceServers, relayAvailable: relay } = await getCallIceServers(
+          threadId,
+        ).catch(() => ({
           iceServers: undefined as RTCIceServer[] | undefined,
+          relayAvailable: true,
         }));
+        setRelayAvailable(relay);
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
           return;
@@ -139,7 +168,7 @@ export function ThreadCallRoom({
           {kind === 'video' ? 'Video call' : 'Voice call'}
         </p>
         <p className="text-xs text-ink/60" aria-live="polite">
-          {state ? STATUS_LABEL[state] : 'Starting…'}
+          {state ? statusLabel(state, relayAvailable) : 'Starting…'}
         </p>
       </div>
 
@@ -197,10 +226,10 @@ export function ThreadCallRoom({
         </button>
       </div>
 
-      {state === 'failed' ? (
+      {state === 'failed' && !relayAvailable ? (
         <p className="text-center text-[11px] text-ink/55">
-          Media is peer-to-peer with STUN only, so a small share of cross-network
-          pairs can&apos;t connect — a TURN relay later fixes those.
+          Calls connect your two phones directly. On some mobile networks that
+          isn&apos;t possible, and there is no relay set up to fall back on.
         </p>
       ) : null}
     </div>

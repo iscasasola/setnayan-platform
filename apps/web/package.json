@@ -16,6 +16,8 @@
     "lint:radius": "node scripts/lint-radius.mjs",
     "lint:vendor-layout": "node scripts/lint-vendor-layout-revalidate.mjs",
     "lint:masthead": "node scripts/lint-page-masthead.mjs",
+    "lint:port-controls": "node scripts/lint-port-no-lost-controls.mjs",
+    "port:baseline": "node scripts/gen-port-baseline.mjs",
     "lint:changelog-dir": "node scripts/lint-changelog-dir.mjs",
     "lint:dup-rule": "tsx scripts/lint-dup-rule.ts",
     "dup-rule:baseline": "tsx scripts/lint-dup-rule.ts --write",

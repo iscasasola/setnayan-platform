@@ -44,11 +44,18 @@ const WEB = join(HERE, '..');
 const REPO = join(WEB, '..', '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
-/** Every file that restates the list, and what shape it restates it in. */
+/**
+ * Every file that still RESTATES the list as literals.
+ *
+ * `app/vendor-dashboard/actions.ts` left this list on 2026-08-05: its copy now
+ * derives from `lib/vendor-compatibility.ts`, which re-exports VENUE_SETTINGS.
+ * A derived copy cannot drift, so checking it for literals would fail on
+ * correct code — the fastest way to get a guard deleted. The import itself is
+ * asserted below instead, so the file cannot quietly go back to hand-typing.
+ */
 const ALLOWLISTS = [
   'app/dashboard/(account)/create-event/actions.ts',
   'app/dashboard/[eventId]/actions.ts',
-  'app/vendor-dashboard/actions.ts',
 ];
 
 test('every server-side allowlist holds the whole vocabulary', () => {
@@ -62,6 +69,24 @@ test('every server-side allowlist holds the whole vocabulary', () => {
       );
     }
   }
+});
+
+test("the vendor allowlist derives the list, and hasn't gone back to typing it", () => {
+  const src = read('app/vendor-dashboard/actions.ts');
+  assert.ok(
+    /from '@\/lib\/vendor-compatibility'/.test(src),
+    'The vendor save action stopped importing the shared vocabulary. Whatever ' +
+      'replaced it is a second hand-typed list — the exact thing this file exists ' +
+      'to prevent.',
+  );
+  // A re-typed set beside the import is the realistic regression: someone adds
+  // `const ALLOWED_VENUE_SETTINGS = new Set([...])` back and the import lingers
+  // unused. Assert the file declares neither.
+  assert.ok(
+    !/const ALLOWED_VENUE_SETTINGS[^=]*=\s*new Set\(\[/.test(src),
+    'A local ALLOWED_VENUE_SETTINGS is declared again. Two lists, one of which ' +
+      'nobody will remember to update.',
+  );
 });
 
 test('the couple can actually choose every one of them', () => {

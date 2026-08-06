@@ -46,7 +46,16 @@ every item is something that told a **person** something untrue.
 
 `scripts/lint-no-engineering-notes-in-ui.mjs` fails the build when
 TODO / FIXME / HACK / WIP survives in rendered UI text under `app/**`. Comments
-are stripped first, so a marker where it belongs is always fine. Wired into CI.
+are stripped first, so a marker where it belongs is always fine.
+
+🔑 **It is wired into the REQUIRED `typecheck + lint` job, not a standalone one.**
+The first cut of this PR added it as its own job — which is exactly the pattern
+`3fcd42cef` ("nine guards ran on every PR and blocked nothing") deleted hours
+earlier, because auto-merge waits on *required* contexts only: a standalone guard
+goes red on the PR page while the PR merges anyway. Rebasing surfaced it. So the
+guard follows the established shape — `continue-on-error: true` + an `id`, its
+outcome read by the aggregator, and a `check` line so a failure actually blocks.
+**A guard that cannot block is the thing this whole PR is about.**
 
 ⚠ **Two bugs in the guard itself, both caught before it shipped:**
 - The comment stripper collapsed multi-line comments to one space, **shifting
@@ -61,21 +70,21 @@ are stripped first, so a marker where it belongs is always fine. Wired into CI.
 Verified by sabotage: re-inserting the booth TODO as visible text makes it fail
 at the correct line; a clean tree passes.
 
-### 🚨 A regression I shipped in #4172, fixed here
+### 🚨 A regression I shipped in #4172 — already fixed on main by #4178
 
-`lint-port-no-lost-controls` has been **FAILING on `main`** since #4172. Changing
-the two admin links from `/admin/vendors/[seg]` to `…/edit` changed a reachable
-destination, and that guard's baseline had to be regenerated **in the same PR**.
-I did not, and the PR merged anyway — the check is not required.
+`lint-port-no-lost-controls` was **failing on `main`** after #4172: changing the
+two admin links from `/admin/vendors/[seg]` to `…/edit` changed a reachable
+destination, and that guard's baseline must be regenerated **in the same PR**.
+I did not, and #4172 merged anyway because the check was not required at the time.
 
-Baseline regenerated. It also absorbed four drifts from OTHER merged PRs that
-skipped the same step, and the guard's whole purpose is that each one be a
-readable line, so they are named here rather than swallowed:
-- route `/dashboard/[eventId]/studio/panood/reviews` **deleted** (by `cbab1de05`,
-  the Live Studio Cast retirement — not this work); routeCount 404 → 403
-- `+ gallery-anchor.ts`, `+ releaseAction`, `+ /api/oauth/youtube/start`, `+ /privacy`
-- mine, intended: the two `…/edit` destinations and `+ /wall/[seg]` (the Live
-  Photo Wall card from #4172)
+`#4178` regenerated it before this PR landed, so **the baseline carries no change
+here** — this branch takes main's copy verbatim. Recorded because the mistake is
+worth not repeating, not because there is a diff to review.
+
+For the record, main's regenerated baseline also absorbed drift from other PRs
+that skipped the same step — including the route
+`/dashboard/[eventId]/studio/panood/reviews` being deleted by `cbab1de05` (the
+Live Studio Cast retirement), routeCount 404 → 403.
 
 ### Verification
 

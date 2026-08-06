@@ -131,6 +131,15 @@ See `STATUS.md` "What comes after Sprint 0" for the canonical iteration sequence
 
 ## Deployment surfaces (live now)
 
+- **DNS + registrar: GoDaddy** (`ns09/ns10.domaincontrol.com`) — verified 2026-08-05.
+  ⚠ **CLOUDFLARE IS STORAGE ONLY.** `setnayan.com` is NOT a Cloudflare zone and no traffic is
+  proxied through Cloudflare — the Domains list on that account is **empty**. Anything sold as a
+  "free Cloudflare feature" that works on proxied traffic (the CSAM Scanning Tool, WAF, Bot
+  Management, cache rules) is **UNAVAILABLE** without migrating DNS off GoDaddy, which is a real
+  infrastructure change and NOT worth doing for one feature.
+  🔑 **Storing files with a vendor is not routing traffic through them.** Assuming otherwise from
+  "media is on R2, R2 is Cloudflare" sent the owner into that dashboard twice looking for a page
+  that could never exist for us (2026-08-04/05).
 - **Web:** auto-deploys on push to `main` via Vercel · `https://setnayan-platform-web.vercel.app`
 - **Desktop:** `.github/workflows/build-desktop.yml` produces `.dmg` + `.msi` on push to `main`
 - **Database:** Supabase Singapore · migrations via `supabase db push --db-url "$SUPABASE_DB_URL"`

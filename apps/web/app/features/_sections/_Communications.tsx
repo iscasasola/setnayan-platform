@@ -18,12 +18,15 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // 2026-06-13: guest-microsite "EN / TL / CEB toggle" corrected to "EN / TL"
 // (Cebuano was dropped from the public locale set the same day).
 
-const META: { Icon: LucideIcon; iteration: string }[] = [
-  { Icon: Mail, iteration: 'Iteration 0002' },
-  { Icon: QrCode, iteration: 'Iteration 0002' },
-  { Icon: Globe, iteration: 'Iteration 0002' },
-  { Icon: Send, iteration: 'Iteration 0001' },
-  { Icon: Bell, iteration: 'Iteration 0028' },
+// The `iteration` tag was removed 2026-08-06 — it rendered on the PUBLIC
+// features page, in both locales, to anonymous visitors and to Google. Removed
+// as a field, not merely unrendered, so it cannot be re-surfaced by a later edit.
+const META: { Icon: LucideIcon }[] = [
+  { Icon: Mail },
+  { Icon: QrCode },
+  { Icon: Globe },
+  { Icon: Send },
+  { Icon: Bell },
 ];
 
 const COPY: Record<
@@ -114,18 +117,16 @@ export function Communications({ locale }: { locale: MarketingLocale }) {
 
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {c.items.map((item, i) => {
-            const { Icon, iteration } = META[i]!;
+            const { Icon } = META[i]!;
             return (
               <li
                 key={item.title}
                 className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
               >
-                <div className="flex items-center justify-between">
+                {/* Internal spec code removed — it was public on the live site. */}
+                <div className="flex items-center">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                     <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
-                    {iteration}
                   </span>
                 </div>
                 <h3

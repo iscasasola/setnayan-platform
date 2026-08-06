@@ -113,6 +113,20 @@ jobs:
         continue-on-error: true
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+      # Fails when TODO / FIXME / HACK / WIP survives in RENDERED UI text under
+      # apps/web/app (comments are stripped first, so a marker where it belongs
+      # is always fine). The copy rule — "no TODO, no skeleton, no placeholder
+      # text user-visible" — was already written in two files and shipped anyway:
+      # the Patiktok booth rendered "TODO(0017-phase5.2)" and "TODO(0017-phase4.2)"
+      # as on-screen text to couples who had PAID for the booth and are redirected
+      # straight onto that page (2026-08-06). Prose is not a safety mechanism.
+      # Escape hatch: `ui-note-allow: <reason>` on the line.
+      # See apps/web/scripts/lint-no-engineering-notes-in-ui.mjs.
+      - name: Lint engineering notes in UI
+        id: guard_ui_notes
+        continue-on-error: true
+        run: cd apps/web && node scripts/lint-no-engineering-notes-in-ui.mjs
+
       # Fails when the 3D booth poster stand's position is hardcoded in
       # venue-objects.tsx instead of read from boothPosterLocalOffset, or when
       # BoothPoster re-declares the frame dimensions the placement maths depends
@@ -248,6 +262,7 @@ jobs:
           EMAIL_LINKS: ${{ steps.guard_email_links.outcome }}
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
+          UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
           DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
@@ -268,6 +283,7 @@ jobs:
           check 'lint email template links'   "$EMAIL_LINKS"
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
+          check 'lint engineering notes in ui' "$UI_NOTES"
           check 'lint booth poster placement' "$BOOTH_POSTER"
           check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"

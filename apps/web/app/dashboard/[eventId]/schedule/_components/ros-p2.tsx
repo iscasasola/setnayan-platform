@@ -1,8 +1,9 @@
 /**
  * Coordinator P2 — filtered run-of-show chrome for the couple/coordinator
  * schedule page. Server components only (plain forms → server actions); every
- * piece here renders ONLY when NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true',
- * so flag-off is byte-identical to today's page.
+ * piece here renders when the Data Privacy board control
+ * 'coordinator_run_of_show' is active — which it is, in prod. The env var this
+ * line used to name (NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED) is read by no code.
  *
  *   • RosLensBar      — audience switcher: master / guest preview / per-vendor
  *                       slices. Views are FILTERS over the master (lib/

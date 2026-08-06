@@ -19,8 +19,9 @@ import {
  *
  * Data arrives as props resolved server-side by the day-of page (the grid's
  * existing read model: server fetch → props into cards). Without the
- * `broadcast` prop — flag NEXT_PUBLIC_COORDINATOR_P3_ENABLED off, or absent —
- * the card renders the pre-P3 "Coming soon" stub exactly as before.
+ * `broadcast` prop — Data Privacy control 'coordinator_day_of_broadcast'
+ * inactive, or the read failed — the card renders the pre-P3 "Coming soon"
+ * stub. (The env var previously named here is read by no code.)
  */
 
 const SENDER_LABEL: Record<BroadcastSenderRole, string> = {

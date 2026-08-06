@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Film,
-  QrCode,
   Sparkles,
   TriangleAlert,
 } from 'lucide-react';
@@ -351,9 +350,14 @@ function RecordCTA({
         <Film className="h-4 w-4" strokeWidth={1.75} />
         Preview template + queue render
       </Link>
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-        External display dual-view · TODO(0017-phase5.2) · Presentation API + split / PIP layouts for HDMI / AirPlay / Chromecast
-      </p>
+      {/* TODO(0017-phase5.2) — external display dual-view: Presentation API +
+          split / PIP layouts for HDMI / AirPlay / Chromecast.
+          ⚠ This was RENDERED TO THE COUPLE as on-screen text, literally including
+          the word TODO and the phase code. A paying Patiktok owner is redirected
+          straight onto this page, so they read an engineering note on a paid
+          product on the day of their party. The repo's own copy rule — stated in
+          two files — is: no "TODO", no "skeleton", no "placeholder" text
+          user-visible. A note about unbuilt work belongs in a comment. */}
     </div>
   );
 }
@@ -380,11 +384,9 @@ function OperatorTips() {
           recording, there&rsquo;s no hard stop and no overage charge.
         </li>
       </ul>
-      <p className="inline-flex items-center gap-1.5 text-[11px] text-warn-900/65">
-        <QrCode className="h-3 w-3" strokeWidth={1.75} />
-        Printable booth QR — TODO(0017-phase4.2): mint per-booth session
-        token + email a print-ready PDF.
-      </p>
+      {/* TODO(0017-phase4.2) — printable booth QR: mint a per-booth session token
+          and email a print-ready PDF. Same as above: this rendered to the couple
+          as visible text including the phase code. */}
     </section>
   );
 }

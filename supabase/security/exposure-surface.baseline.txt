@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6225
+# facts: 6233
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     671
-#   col       4497
-#   policy    835
+#   tpriv     673
+#   col       4502
+#   policy    836
 #   view      9
 #   func      209
 #
@@ -359,6 +359,8 @@ tpriv	public.papic_mission_completions|anon	SIUD
 tpriv	public.papic_mission_completions|authenticated	SIUD
 tpriv	public.papic_missions|anon	SIUD
 tpriv	public.papic_missions|authenticated	SIUD
+tpriv	public.papic_one_tiers|anon	S
+tpriv	public.papic_one_tiers|authenticated	S
 tpriv	public.papic_pass_tiers|anon	SIUD
 tpriv	public.papic_pass_tiers|authenticated	SIUD
 tpriv	public.papic_photo_challenge_sponsorships|anon	SIUD
@@ -2946,6 +2948,11 @@ col	public.papic_missions.target_guest_id	anon=SIU authenticated=SIU
 col	public.papic_missions.target_role	anon=SIU authenticated=SIU
 col	public.papic_missions.updated_at	anon=SIU authenticated=SIU
 col	public.papic_missions.vendor_id	anon=SIU authenticated=SIU
+col	public.papic_one_tiers.is_active	anon=S authenticated=S
+col	public.papic_one_tiers.points	anon=S authenticated=S
+col	public.papic_one_tiers.service_code	anon=S authenticated=S
+col	public.papic_one_tiers.sort_order	anon=S authenticated=S
+col	public.papic_one_tiers.updated_at	anon=S authenticated=S
 col	public.papic_pass_tiers.is_active	anon=SIU authenticated=SIU
 col	public.papic_pass_tiers.is_topup	anon=SIU authenticated=SIU
 col	public.papic_pass_tiers.points	anon=SIU authenticated=SIU
@@ -5631,6 +5638,7 @@ policy	public.papic_limited_snapshots|papic_limited_snapshots_couple_full	mode=P
 policy	public.papic_mission_completions|papic_mission_completions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_mission_completions|papic_mission_completions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_mission_completions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.papic_missions|papic_missions_member_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_missions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_missions.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))))
+policy	public.papic_one_tiers|papic_one_tiers_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.papic_pass_tiers|papic_pass_tiers_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_photo_challenge_sponsorships|papic_photo_challenge_sponsorships_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photo_challenge_sponsorships.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) check=NULL

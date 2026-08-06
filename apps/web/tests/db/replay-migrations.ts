@@ -13,7 +13,13 @@
  *   • schema storage: stub buckets/objects (bucket seeds + storage policies
  *     apply cleanly; object I/O is out of scope)
  *   • pg_cron / pg_net: bookkeeping stubs (cron.schedule records the job,
- *     net.http_post records the call; nothing executes / leaves the process)
+ *     net.http_post records the call into net._http_calls; nothing executes /
+ *     leaves the process). The http_post stub matches real pg_net's parameter
+ *     list and order, so a migration that passes timeout_milliseconds resolves.
+ *   • supabase_vault: vault.secrets + a vault.decrypted_secrets view whose
+ *     "decryption" is the identity function. Present because DB objects read
+ *     their credentials from Vault rather than embedding them; NOTHING here
+ *     holds a real secret, and tests seed their own rows.
  *   • pgvector: unavailable in this PGlite build — exactly one migration
  *     (20260518500000) declares two embedding columns as extensions.vector(384);
  *     they are shimmed to text (inert storage, not used by any tested path)
@@ -157,13 +163,52 @@ CREATE TABLE IF NOT EXISTS net._http_calls (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   url text, headers jsonb, body jsonb, called_at timestamptz DEFAULT now()
 );
-CREATE OR REPLACE FUNCTION net.http_post(url text, headers jsonb DEFAULT '{}'::jsonb, body jsonb DEFAULT '{}'::jsonb)
+-- Parameter LIST and ORDER match real pg_net 0.20 — (url, body, params, headers,
+-- timeout_milliseconds) — not a convenient subset. The stub used to be
+-- (url, headers, body), which was invisible while every caller lived inside a
+-- cron.schedule() string that the replay never executes. It stopped being
+-- invisible when notify_chat_message_webhook() was back-filled from prod
+-- (20271115531329): that one runs on a real INSERT, passes
+-- timeout_milliseconds, and got "function net.http_post(...) does not exist" —
+-- a failure that says nothing about the code under test. A shim that accepts
+-- fewer arguments than the thing it stands in for is a shim that fabricates
+-- errors, so match the real signature.
+CREATE OR REPLACE FUNCTION net.http_post(
+  url text,
+  body jsonb DEFAULT '{}'::jsonb,
+  params jsonb DEFAULT '{}'::jsonb,
+  headers jsonb DEFAULT '{"Content-Type": "application/json"}'::jsonb,
+  timeout_milliseconds integer DEFAULT 5000
+)
 RETURNS bigint LANGUAGE plpgsql AS $fn$
 DECLARE v_id bigint;
 BEGIN
   INSERT INTO net._http_calls (url, headers, body) VALUES (url, headers, body) RETURNING id INTO v_id;
   RETURN v_id;
 END $fn$;
+
+-- Supabase Vault. Migration 20270930270000 established Vault as the place a
+-- secret lives when a database object needs one (never the function body), and
+-- 20271115531329's chat webhook reads it on every message INSERT — so the
+-- replay needs somewhere for that read to land. decrypted_secrets is a view
+-- over secrets in the real extension too; here the "decryption" is identity,
+-- which is all a test needs and is why nothing in this file may ever hold a
+-- real secret. Tests seed a row to exercise the configured path and leave the
+-- table EMPTY to exercise the fail-closed path.
+CREATE SCHEMA IF NOT EXISTS vault;
+CREATE TABLE IF NOT EXISTS vault.secrets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text UNIQUE,
+  description text NOT NULL DEFAULT '',
+  secret text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE OR REPLACE VIEW vault.decrypted_secrets AS
+  SELECT s.id, s.name, s.description, s.secret,
+         s.secret AS decrypted_secret,
+         s.created_at, s.updated_at
+    FROM vault.secrets s;
 
 -- Early migrations call gen_random_bytes() unqualified (prod had pgcrypto on
 -- the search path); expose a public wrapper over extensions.gen_random_bytes.

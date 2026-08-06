@@ -42,6 +42,11 @@ const FRIENDLY: Record<string, { status: number; error: string }> = {
   'gcol:invalid_title': { status: 400, error: 'bad_title' },
   'gcol:invalid_body': { status: 400, error: 'bad_message' },
   'gcol:unknown_guest': { status: 401, error: 'unauthorized' },
+  // DPO ruling 2026-08-06 — a guest we already know to be a child may not
+  // publish a message to the open web. Enforced by a trigger on the table,
+  // so it holds for any writer; this only gives the refusal a name the
+  // screen can show instead of a bare 500.
+  'gcol:minor': { status: 403, error: 'not_available_for_you' },
 };
 
 export async function POST(req: Request) {

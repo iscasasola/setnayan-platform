@@ -29,6 +29,7 @@ import { loadConsentVetoedPapicIds } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
+import { bylineFor } from '@/lib/guest-columns';
 import {
   fetchEventRecommendations,
   type EventRecommendation,
@@ -2037,7 +2038,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     try {
       const { data: colRows, error } = await admin
         .from('guest_columns')
-        .select('title, body_text, guest_id')
+        .select('title, body_text, guest_id, author_named_publicly')
         .eq('event_id', eventId)
         .eq('status', 'approved')
         .eq('moderation_state', 'clean')
@@ -2073,7 +2074,15 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           const body = asString(r.body_text);
           if (!title || !body) continue;
           const gid = asString(r.guest_id);
-          guestColumns.push({ title, body, author: gid ? colNameByGuest.get(gid) ?? null : null });
+          guestColumns.push({
+            title,
+            body,
+            // DPO ruling 2026-08-06 — no byline unless the guest opted in.
+            author: bylineFor(
+              { author_named_publicly: r.author_named_publicly as boolean | null, guest_id: gid },
+              colNameByGuest,
+            ),
+          });
         }
       }
     } catch {

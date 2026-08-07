@@ -53,3 +53,26 @@ into a throw that stops a seating plan from opening.
 
 Mutation-verified: making it always suggest, renaming the venue category, or
 letting an enquiry count as a booking each turn it red.
+
+
+---
+
+## 🔴 THREE SHAPES OF ONE BUG, ALL SHIPPED IN THIS FEATURE BEFORE IT WAS DONE
+
+This PR is the whole day's lesson happening to me, three times, in the one change
+where I had written the rule down:
+
+1. **A reader with no caller.** The columns, the vendor action and
+   `venue-room-size.ts` went in — and nothing called it. The PR body said
+   "ships all three halves together, on purpose". It did not.
+2. **An action with no form.** `venue_size` was allowlisted and validated four
+   numbers, and no screen posted any of them, so a venue still could not state
+   its room.
+3. Which is the same defect as the **column with no writer** this feature exists
+   to fix — `capacity_min`/`capacity_max`, sitting unwritten for months.
+
+All three now have assertions rather than intentions: unwire the fetch, rename
+one input, or drop the columns from the profile select, and the suite goes red.
+
+**Both were caught by the owner asking a one-word question**, not by CI, and not
+by me re-reading my own claim.

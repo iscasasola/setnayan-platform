@@ -180,3 +180,55 @@ test('the editor seeds from it, and the couple can still override', async () => 
       'venue for a size the couple has since changed.',
   );
 });
+
+test('the vendor has a FORM, not just an action that would accept one', async () => {
+  // 🔴 THE SECOND HALF I SHIPPED BROKEN. The action allowlisted `venue_size` and
+  // validated four numbers — and no screen posted any of them, so a venue still
+  // could not state its room. An action with no form is the same defect as a
+  // reader with no caller and a column with no writer: three shapes, one bug,
+  // all three shipped in this one feature before it was done.
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const row = readFileSync(
+    join(here, '..', 'app', 'vendor-dashboard', 'shop', '_components', 'editable-row.tsx'),
+    'utf8',
+  );
+
+  // Every name the action reads must be posted by a real input.
+  for (const field of ['venue_width_m', 'venue_length_m', 'capacity_min', 'capacity_max']) {
+    assert.ok(
+      new RegExp(`name="${field}"`).test(row),
+      `No input posts '${field}', so the action can never receive it and the ` +
+        `vendor cannot state it.`,
+    );
+  }
+
+  // And the page must feed the saved values back in, or the form is write-only
+  // and a vendor loses their answer every time they reopen it.
+  const page = readFileSync(
+    join(here, '..', 'app', 'vendor-dashboard', 'shop', 'page.tsx'),
+    'utf8',
+  );
+  assert.match(
+    page,
+    /venue_width_m: profile\.venue_width_m != null \? String\(profile\.venue_width_m\) : ''/,
+    'The saved room size is not fed back to the form.',
+  );
+
+  // The row must only be offered to venues — an irrelevant row on every shop is
+  // how a checklist gets ignored.
+  const profileLib = readFileSync(join(here, 'vendor-profile.ts'), 'utf8');
+  assert.match(
+    profileLib,
+    /\(profile\?\.services \?\? \[\]\)\.includes\('venue'\)/,
+    'The room-size row is offered to every vendor, including florists.',
+  );
+  // …and the columns must be SELECTED, or every value reads back as undefined.
+  assert.ok(
+    profileLib.includes('venue_width_m,venue_length_m,capacity_min,capacity_max'),
+    'The profile select does not fetch the columns, so the form always renders ' +
+      'blank and the checklist never shows the row as done.',
+  );
+});

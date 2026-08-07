@@ -5,6 +5,10 @@
 > If something here contradicts `STATUS.md`, this doc wins (and `STATUS.md`
 > needs an update).
 
+> 🔴 **START WITH [`HANDOFF_RESUME_2026-08-07.md`](HANDOFF_RESUME_2026-08-07.md).**
+> This file is structurally sound but was last touched **2026-06-15** and does not
+> know what shipped since. Where the two disagree, the dated resume wins.
+
 **Last touched:** 2026-05-13
 **Owner's deadline anchor:** December 2026 wedding
 

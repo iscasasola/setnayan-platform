@@ -131,3 +131,62 @@ test('the decline-Drive button does not use the word "keep"', () => {
       'originals are dropped, so it must not promise to keep them',
   );
 });
+
+/* ── integration grants: no promised automation that does not exist ────────── */
+
+/**
+ * NOTHING MAY PROMISE THAT WE DELETE A CONNECTED ACCOUNT ON A SCHEDULE.
+ *
+ * WHY. The privacy notice told people in writing that their TikTok and Google
+ * Drive connections are thrown away "30 days after the event ends" and that
+ * "refresh tokens past their expiry are purged automatically". Neither happens.
+ * There is no scheduled deletion of `oauth_grants` or `patiktok_oauth_grants`
+ * anywhere: the retention sweep is chat-text only, and the refresh job only
+ * refreshes.
+ *
+ * 🔑 THE SAME SENTENCE WAS ALREADY REMOVED ONCE. On 2026-07-27 the YouTube
+ * section was rewritten and its own engineering note says, in capitals, "NEVER
+ * PROMISE AN AUTOMATION THAT DOES NOT EXIST". The two sections either side of
+ * that note kept the line for another eleven days. A note telling the next
+ * author what not to do is not a guard — this is.
+ *
+ * ⚠ WHAT IS TRUE, AND WHAT THE COPY NOW SAYS: on disconnect we erase the stored
+ * keys immediately (all four revoke paths, fixed 2026-08-07). That is a promise
+ * about YOUR action, not a timer, and it is honoured.
+ *
+ * Comment-stripped via code(), so the note explaining this removal cannot
+ * satisfy the guard it exists to enforce.
+ */
+const SCHEDULED_DELETION_PROMISES: ReadonlyArray<[RegExp, string]> = [
+  [
+    /purged automatically/i,
+    'claims stored tokens are purged automatically — nothing purges on a schedule',
+  ],
+  [
+    /30 days after the event ends/i,
+    'promises a connection is deleted 30 days after the event — no such job exists',
+  ],
+];
+
+test('no user-facing copy promises we delete a connected account on a timer', () => {
+  // Self-check: if the file list is empty the assertions below pass for free.
+  assert.ok(FILES.length >= 100, `scanned only ${FILES.length} sources — the roots are wrong`);
+
+  const offenders: string[] = [];
+  for (const file of FILES) {
+    const src = code(file);
+    for (const [pattern, why] of SCHEDULED_DELETION_PROMISES) {
+      if (pattern.test(src)) {
+        offenders.push(`${relative(WEB, file)} — ${why}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'Copy promising scheduled deletion of an integration grant. We delete on ' +
+      'DISCONNECT, immediately; we do not delete on a timer. Say what is ' +
+      'guaranteed, not what sounds reassuring:\n  ' + offenders.join('\n  '),
+  );
+});

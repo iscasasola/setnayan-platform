@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6238
+# facts: 6239
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4502
 #   policy    840
 #   view      9
-#   func      211
+#   func      212
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6239,6 +6239,7 @@ func	public.vendor_set_booth_poster(p_event_id uuid, p_poster_ref text)	secdef=y
 func	public.vendor_set_booth_studio_content(p_event_id uuid, p_content jsonb)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_set_cocktail_area(p_event_id uuid, p_x numeric, p_y numeric, p_w numeric, p_h numeric, p_label text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_source_attribution(p_vendor_profile_id uuid, p_since timestamp with time zone, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_tier_rank(p_tier vendor_tier_state)	secdef=no exec=anon,authenticated search_path=""
 func	public.vendor_token_efficiency(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_track_record_by_event_type(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_upcoming_load(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public

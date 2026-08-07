@@ -22,6 +22,11 @@ since what is DEPLOYED?"* Measured at the time of writing: `HEAD^..HEAD` showed
 **35 files, +939/−595**. Production was serving code from 10:39 while `main` had
 moved four merges on — including the four-path Google-credential fix.
 
+🪤 **The first attempt was rejected by Vercel's own schema:** *"`ignoreCommand`
+should NOT be longer than 256 characters."* An `if/then/fi` pushed it to 291. It
+is now folded into the existing `case` as one arm — `main) exit 1;;` — at 247.
+A good error message: it named the property, the rule and the limit.
+
 **Fix: `main` always builds.** Previews keep the fast path (and `claude/*`
 branches keep skipping entirely). A production deploy that silently does not
 happen is worth far more than the build minutes a doc-only merge to `main` costs.

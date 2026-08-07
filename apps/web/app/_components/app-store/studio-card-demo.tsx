@@ -554,7 +554,9 @@ const PHOTO_DELIVERY_SCENES: RichFrame[] = [
         <div className="rounded-lg bg-emerald-600/10 p-3">
           <p className="font-mono text-[7px] uppercase tracking-[0.18em] text-emerald-700">Delivery complete</p>
           <p className="mt-1 text-[13px] font-semibold text-emerald-900">All photos are in your Drive</p>
-          <p className="mt-0.5 text-[9px] text-emerald-800/80">1,372 files · 8.4 GB · 5-year backup kept.</p>
+          {/* ⚠ Was "5-year backup kept" — the same untrue promise as the real
+              panel. A demo that shows a promise we do not keep still teaches it. */}
+          <p className="mt-0.5 text-[9px] text-emerald-800/80">1,372 files · 8.4 GB · saved to your Drive.</p>
           <button type="button" className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">Open in Drive</button>
         </div>
         <div className="mt-2 rounded-lg border border-ink/10 bg-white p-2.5 text-[9px] text-ink/65" style={{ borderLeftColor: GOLD, borderLeftWidth: 3 }}>

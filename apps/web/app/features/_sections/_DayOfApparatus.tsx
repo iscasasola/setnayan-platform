@@ -79,7 +79,11 @@ const COPY: Record<
       },
       {
         tagline: 'Full-res handoff after the day',
-        body: 'Connect your photographer’s Google Drive. Setnayan pipes full-resolution albums into the couple’s gallery post-event, with a 30-day grace window before automated storage tiering compresses the originals. Keep your raws as long as you need.',
+        // ⚠ Ended "Keep your raws as long as you need." — a public promise we do
+        // not keep: full-resolution originals are dropped six months after the
+        // event's first capture. The Drive folder is what makes "as long as you
+        // need" true, so the sentence now points at the thing that delivers it.
+        body: 'Connect your photographer’s Google Drive. Setnayan pipes full-resolution albums into the couple’s gallery post-event. We hold the full-resolution originals for 6 months and keep the compressed gallery online for good — connect Drive and every original also lands in a folder you own, to keep.',
       },
       {
         tagline: 'Wedding-day supplies, one bill',

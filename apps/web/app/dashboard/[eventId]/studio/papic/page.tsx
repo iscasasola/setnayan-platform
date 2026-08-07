@@ -528,8 +528,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
               <h2 className="text-sm font-semibold text-ink">Keep your full-res forever</h2>
             </div>
+            {/* ⚠ Said "After 3 months" — the clock became SIX months on
+                2026-08-02 and this card was never updated. It is dormant today
+                (it renders only while the Keep Full-Res SKU is active, and that
+                is switched off), so nobody has read the wrong number — but a
+                dormant screen with a stale number is a landmine for whenever
+                the owner flips the SKU back on. */}
             <p className="text-xs text-ink/60">
-              Your online gallery stays free forever. After 3 months we keep a
+              Your online gallery stays free forever. After 6 months we keep a
               beautiful compressed copy, and your full-resolution originals live in
               your own Google Drive. Want us to keep every pristine original too?
             </p>

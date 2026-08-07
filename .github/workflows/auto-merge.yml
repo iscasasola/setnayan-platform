@@ -13,7 +13,12 @@ name: auto-enable-automerge
 #   1. Label it `do-not-auto-merge`  ← PREFERRED, and the only one that is safe
 #   2. Put `DO NOT AUTO-MERGE` in the title
 #   3. Open it as a DRAFT (this workflow skips drafts)
-# To pause an already-armed PR: `gh pr merge <#> --disable-auto`.
+#
+# The label works AT ANY TIME, including on a PR that is already armed: applying
+# it fires the `disarm-on-hold-label` job below, which actually runs
+# `gh pr merge --disable-auto`. Before 2026-08-07 that recovery step existed only
+# as a sentence in this comment, so labelling an already-armed PR did nothing —
+# which is precisely how #4186 and #4209 merged while wearing the label.
 #
 # 🚨 WHY 1 AND 2 EXIST (added 2026-08-07 after a near miss). The standing rule is
 # that public-facing LEGAL COPY is opened for the owner to read and merge in his
@@ -36,23 +41,66 @@ name: auto-enable-automerge
 
 on:
   pull_request:
-    # `labeled` is NOT here on purpose: adding the hold label must never be the
-    # thing that arms the PR. Removing the label does not re-arm either — that
-    # is deliberate, and `gh pr merge <#> --auto --merge` is the manual path.
-    types: [opened, reopened, ready_for_review]
+    # `labeled` IS here — but it only ever reaches the DISARM job below, never the
+    # arming job, which is gated on the event type. Adding the hold label must
+    # never be the thing that arms a PR; it must always be a thing that STOPS one.
+    # Removing the label does not re-arm — that is deliberate, and
+    # `gh pr merge <#> --auto --merge` is the manual path back.
+    types: [opened, reopened, ready_for_review, labeled]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
+  # ── THE HOLD LABEL DISARMS, AT ANY TIME ────────────────────────────────────
+  # 🚨 WHY THIS JOB EXISTS. The label hold added earlier on 2026-08-07 only ever
+  # protected a PR that already CARRIED the label at the moment it was opened —
+  # because `opened` is when the arming job runs, and nothing undid an arming
+  # afterwards. Measured, same day:
+  #
+  #   label `do-not-auto-merge` created ....... 04:17:20Z
+  #   #4186 opened ............................ 2026-08-06 11:46:40Z  (16h EARLIER)
+  #   #4209 opened ............................ 04:02:57Z             (14m EARLIER)
+  #   both labelled ........................... 04:17
+  #   both MERGED ............................. 04:28:43 / 04:28:46
+  #
+  # Neither could possibly have been opened with a label that did not exist yet.
+  # Both were armed at open, wore the hold label for eleven minutes, and merged
+  # anyway — one of them the PUBLIC PRIVACY NOTICE published in the owner's name
+  # as DPO, the exact document the hold was invented to protect.
+  #
+  # 🔑 THE FIX'S OWN LESSON, APPLIED ONE LEVEL DOWN. That PR's thesis was "a
+  # convention that lives in someone's head is not a control." Its remedy then
+  # documented the recovery step — `gh pr merge <#> --disable-auto` — in a
+  # COMMENT, and a comment is a convention. Until this job existed, `--disable-auto`
+  # appeared in this file exactly once, inside prose. Now it runs.
+  disarm-on-hold-label:
+    if: >-
+      github.event.action == 'labeled'
+      && github.event.label.name == 'do-not-auto-merge'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disable auto-merge (the hold label was applied)
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT || github.token }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --disable-auto \
+          || echo "Nothing to disarm (auto-merge was not armed, or the PR is already merged)."
+
   enable-automerge:
     # Three independent holds. The LABEL is the real control; the title check is
     # a belt-and-braces catch for a PR opened before anyone thought to label it
     # (both PRs that needed this on 2026-08-07 had the words in the title and no
     # label at all). Draft stays as it was.
+    #
+    # ⚠ `labeled` is in the trigger list for the disarm job above and MUST NOT
+    # reach this one — labelling a PR may never be what arms it.
     if: >-
-      github.event.pull_request.draft == false
+      github.event.action != 'labeled'
+      && github.event.pull_request.draft == false
       && !contains(github.event.pull_request.labels.*.name, 'do-not-auto-merge')
       && !contains(github.event.pull_request.title, 'DO NOT AUTO-MERGE')
     runs-on: ubuntu-latest

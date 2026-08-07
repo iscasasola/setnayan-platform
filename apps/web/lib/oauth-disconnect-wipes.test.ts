@@ -39,7 +39,17 @@ import { join } from 'node:path';
 // in will miss the copy that lives somewhere else — which is the same mistake
 // the bug itself is. Scan by TABLE NAME across the whole app + lib tree.
 const SCAN_DIRS = [join(process.cwd(), 'app'), join(process.cwd(), 'lib')];
-const CREDENTIAL_TABLES = ['oauth_grants', 'live_studio_channel_grants'];
+// ⚠ THIS LIST WAS TOO SHORT, TWICE. First the SCOPE was wrong (app/api/oauth
+// only), which hid two Google routes. Then the TABLE list was wrong: TikTok
+// stores its grant in `patiktok_oauth_grants`, so the fifth leaking disconnect
+// path was invisible to a guard written the same hour. A hand-typed list of
+// tables is silent about the table nobody typed into it — when a new credential
+// store appears, it MUST be added here or it is unguarded.
+const CREDENTIAL_TABLES = [
+  'oauth_grants',
+  'live_studio_channel_grants',
+  'patiktok_oauth_grants',
+];
 
 function walk(dir: string): string[] {
   let out: string[] = [];
@@ -109,7 +119,7 @@ test('a disconnect that revokes an OAuth grant also wipes the credential', () =>
   // Second self-check: if this found no revoking update at all, the matcher is
   // broken and its green means nothing.
   assert.ok(
-    checked >= 3,
+    checked >= 4,
     `matched only ${checked} credential-revoking updates — expected at least the drive, youtube and ` +
       `photo-delivery disconnect routes. The matcher has drifted; fix it rather than trusting this pass.`,
   );

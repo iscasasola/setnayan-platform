@@ -641,6 +641,17 @@ export async function disconnectPatiktokTiktok(formData: FormData) {
   const { error } = await admin
     .from('patiktok_oauth_grants')
     .update({
+      // ⚠ THE FIFTH LEAKING DISCONNECT PATH. The four Google routes were fixed
+      // on 2026-08-07 to erase the credential on disconnect; this TikTok one was
+      // missed, because the guard added alongside them scanned `oauth_grants`
+      // and `live_studio_channel_grants` and this table is neither. It set
+      // revoked_at alone, so we kept a live TikTok refresh token after the
+      // couple pressed Disconnect — and the privacy notice, corrected in the
+      // same breath, now tells them we erase it. That made the notice false for
+      // one provider.
+      // '' not null: the column is NOT NULL, matching the Google routes.
+      access_token: null,
+      refresh_token: '',
       revoked_at: new Date().toISOString(),
       revoked_reason: 'couple_disconnected',
       updated_at: new Date().toISOString(),

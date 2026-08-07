@@ -714,11 +714,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
   },
   {
-    table: 'homepage_hero_config',
-    column: 'updated_by_admin_id',
-    why: 'Same, for the singleton hero row.',
-  },
-  {
     table: 'manpower_gigs',
     column: 'posted_by_user_id',
     why: 'Who posted the gig. A host↔vendor business record read by both; only the poster’s identity goes.',

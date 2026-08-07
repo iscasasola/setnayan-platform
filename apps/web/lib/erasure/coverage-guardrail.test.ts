@@ -225,6 +225,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // (patiktok_*, panood_roam_*, telemetry_events, creator_applications) sit in
   // these lists for the same reason; teaching the parser about DROP TABLE would
   // prune them all at once and is deliberately NOT bundled into this change.
+  homepage_hero_config:
+    'Table DROPPED 2026-08-06 — the retired sign-in hero config; nothing left to erase.',
   user_ai_subscription: 'Table DROPPED 2026-08-01 — no rows ever existed; nothing to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',

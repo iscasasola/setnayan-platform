@@ -828,11 +828,25 @@ export default async function PricingPage() {
           >
             You apply, then pay. The money goes straight to the service.
           </LineRevealHeading>
+          {/* ⚠ "No commission on vendor bookings" is CORRECT and stays (owner
+              2026-08-06): the couple pays the vendor directly and Setnayan never
+              touches that money. But this page ALSO sells vendor plans, and
+              "no hidden fees" beside it read to a vendor as "Setnayan charges me
+              nothing" — which stops being true the moment the syncing fee is
+              switched on. The fee is charged to the VENDOR for the introduction
+              and the in-app sync; it is not a cut of the couple↔vendor deal, so
+              both sentences are true at once — but only if the second one is
+              actually said. Owner ruled a disclosure is owed; this is it.
+              It is written now, BEFORE the fee is on (zero charges exist), so a
+              vendor never reads "no hidden fees" on Monday and gets a fee on
+              Tuesday. */}
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
             Prices are in Philippine peso. Apply for a service, then pay by GCash
             or bank transfer against a unique reference. No commission on vendor
-            bookings, no hidden fees. Setnayan never sits between you and your
-            vendor at checkout.
+            bookings — couples pay their vendors directly and we never sit
+            between you at checkout. Vendors pay a booking fee to Setnayan on
+            clients we introduce them to; it is charged to the vendor, never
+            added to what a couple pays.
           </p>
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
             Prices render live from the Setnayan catalog and are admin-managed.

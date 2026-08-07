@@ -847,7 +847,33 @@ export default function PrivacyPage() {
             be disclosed, and we had already DECIDED every number below in
             `Data_Retention_Schedule_2026-07-11.md`; the notice simply never
             carried them. Every figure here is that schedule, verbatim — do not
-            edit one without editing the other. */}
+            edit one without editing the other.
+
+            🚨 CORRECTED 2026-08-07 — AND THIS COMMENT IS WHY IT WAS NEEDED.
+            "Verbatim, do not edit one without the other" is an instruction, not
+            a mechanism. The schedule's media row WAS corrected on 2026-08-02
+            (full-res 6 months → compressed copy retained indefinitely; window
+            3 mo → 6 mo). This notice was not, so for five days the live public
+            page told couples their photos were "kept for 5 years, then purged"
+            while the code dropped the originals at six months. Wrong in the
+            most dangerous direction: a couple reads it, relaxes, downloads
+            nothing, and loses the good version of their wedding.
+
+            ⚠ The anchor differs from the schedule and the CODE is authority:
+            the sweep runs 6 months from the event's FIRST CAPTURE (an
+            engagement shoot starts it), floored at 30 days after the event
+            date. The schedule row still says `event_date`. Stated here the way
+            it actually behaves.
+
+            ⚠ FACE DATA — the media correction silently broke the row beneath
+            it. Both the schedule and this notice said face vectors are "purged
+            with the media"; media is now retained indefinitely, so that
+            promised a purge that will never happen. Nothing in the codebase
+            deletes a face vector on a schedule — only erasure-on-request does
+            (lib/erasure/purge.ts). The bullet now says exactly that and claims
+            no automatic end date. Whether one is REQUIRED under the RA 10173
+            storage-limitation principle is a DPO question, flagged to the
+            owner, deliberately NOT answered in code. */}
         <Section title="How long we keep things">
           <p>
             Different kinds of data have different lifespans, and two of them are
@@ -855,17 +881,20 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc space-y-1.5 pt-2 pl-5">
             <li>
-              <strong>Photos and video</strong> — kept for{' '}
-              <strong>5 years</strong> after the event date, then purged. (They
-              stay instantly available for the first 90 days and move to cheaper
-              cold storage after that; the 5-year total is the same either way.)
-              Philippine wedding photographers keep originals for about that
-              long, and couples come back for them.
+              <strong>Photos and video</strong> — the{' '}
+              <strong>full-resolution originals</strong> are kept for{' '}
+              <strong>6 months</strong> from the event&rsquo;s first photo (never
+              less than 30 days after the event itself), and are then replaced by
+              a compressed copy. That <strong>compressed gallery stays online
+              indefinitely</strong> — we do not delete it. If you connect Google
+              Drive, every original is also saved to a folder you own, and that
+              copy is yours to keep for as long as you want it.
             </li>
             <li>
-              <strong>Face-recognition data</strong> — for the one event only.
-              Deleted the moment you withdraw, and in any case purged together
-              with that event&rsquo;s photos.
+              <strong>Face-recognition data</strong> — for the one event only,
+              and deleted the moment you withdraw your consent or ask us to
+              remove it. We do not currently put an automatic end date on it
+              beyond that.
             </li>
             <li>
               <strong>Messages between a couple and a vendor</strong> —{' '}

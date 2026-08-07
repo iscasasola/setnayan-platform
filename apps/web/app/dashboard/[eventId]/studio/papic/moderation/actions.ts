@@ -148,6 +148,49 @@ export async function setCaptureHidden(eventId: string, formData: FormData) {
 }
 
 /**
+ * Hide (or unhide) a SEAT photo — one taken on a camera seat by a paparazzo,
+ * which is how a vendor or a coordinator shoots too.
+ *
+ * ⚠ WHY THIS EXISTS. Owner-locked 2026-08-07: *"host can delete any photo and
+ * that's it."* The host could already hide any GUEST upload (setCaptureHidden),
+ * but seat photos — the main Papic captures — had no host-facing removal at
+ * all. `papic_photos.hidden_at` existed and EVERY reader already honoured it
+ * (the guest download route, the single-photo route and the couple's library
+ * all filter on it), but the only writer was the Setnayan admin acting on a
+ * user report. A column with no host-side writer is a control the host does not
+ * have, and "delete any photo" was therefore untrue for the majority of photos.
+ *
+ * Hiding sets hidden_at so the photo drops out of the couple's gallery and
+ * every public surface; unhide clears it. Deliberately the SAME reversible
+ * mechanism as the guest path — the file itself is retained until the six-month
+ * originals sweep, so a mis-click is recoverable.
+ */
+export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
+  await requireCouple(eventId);
+  const photoId = formData.get('photo_id');
+  const hide = formData.get('hide') === '1';
+
+  if (typeof photoId !== 'string' || photoId.length === 0) {
+    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+  }
+
+  const admin = createAdminClient();
+  // The event_id predicate is the tenancy binding: a photo id from another
+  // wedding matches nothing rather than being hidden by this couple.
+  const { error } = await admin
+    .from('papic_photos')
+    .update({ hidden_at: hide ? new Date().toISOString() : null })
+    .eq('photo_id', photoId)
+    .eq('event_id', eventId);
+  if (error) {
+    redirect(`${MODERATION_PATH(eventId)}?error=hide_failed`);
+  }
+
+  revalidatePath(MODERATION_PATH(eventId));
+  redirect(`${MODERATION_PATH(eventId)}?${hide ? 'hidden' : 'unhidden'}=1`);
+}
+
+/**
  * Block (event-scoped) the guest who uploaded a capture. The blocked guest can
  * no longer deposit photos into THIS event's gallery; the block never leaks to
  * other events (owner-locked). Idempotent via the (event_id, blocked_guest_id)

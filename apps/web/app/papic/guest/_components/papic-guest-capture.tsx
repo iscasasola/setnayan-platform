@@ -41,7 +41,11 @@ import {
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 
-const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
+// NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
+// This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
+// had allowed 20 since 2026-07-23, so guests were cut off at half the real limit
+// and told "that's the max". Both numbers are gone: the server no longer refuses
+// on count, so the camera never has a tally to display or a ceiling to announce.
 const MAX_CLIP_MS = 10000; // 10-SECOND CLIP CAP (owner 2026-07-22 · §0) — mirrored route + RPC.
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 
@@ -55,8 +59,11 @@ function tagErrorMessage(error: string): string {
       return 'That guest QR isn’t from this event.';
     case 'table_not_found':
       return 'That table sign isn’t from this event.';
+    // 'cap_reached' is retired — the server no longer refuses a tag on count.
+    // Kept as a case so an older server payload still gets friendly copy rather
+    // than falling through to the generic failure.
     case 'cap_reached':
-      return `This photo already has ${TAG_CAP} tags — that’s the max.`;
+      return 'That tag didn’t go through. Try scanning again.';
     case 'not_your_photo':
       return 'You can only tag your own photos.';
     case 'unavailable':
@@ -911,7 +918,9 @@ export function PapicGuestCapture({
         if (added === 0 && Number(r.total_at_table ?? 0) === 0) {
           setTagNotice(`No one’s seated at ${label} yet.`);
         } else if (r.truncated) {
-          setTagNotice(`${label}: added ${added}, but this photo hit the ${TAG_CAP}-tag limit.`);
+          // `truncated` can no longer be set — the server stopped capping. Kept
+          // so an older server payload still reads sensibly.
+          setTagNotice(`${label}: added ${added}.`);
         } else if (added === 0) {
           setTagNotice(`Everyone at ${label} is already tagged.`);
         } else {
@@ -1480,7 +1489,9 @@ export function PapicGuestCapture({
                 <ScanLine aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
                 Point at a place card or table sign
               </p>
-              <span className="font-mono text-[11px] text-cream/55">{tagCount}/{TAG_CAP}</span>
+              <span className="font-mono text-[11px] text-cream/55">
+                {tagCount} tagged
+              </span>
             </div>
             {taggedNames.length > 0 ? (
               <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tagged guests">

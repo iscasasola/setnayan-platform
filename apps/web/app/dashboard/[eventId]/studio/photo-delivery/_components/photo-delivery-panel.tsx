@@ -190,7 +190,11 @@ function IdleState({
           </>
         }
         deferHref={`/dashboard/${eventId}/studio`}
-        deferLabel="Not now — keep my photos in Setnayan"
+        /* ⚠ This said "Not now — keep my photos in Setnayan", which named the
+           OPPOSITE of what the branch does: declining Drive is exactly the path
+           where the full-resolution originals are dropped at six months. The
+           word "keep" on the decline button is the whole defect. */
+        deferLabel="Not now — I'll download them myself"
       />
 
       <ol className="grid gap-3 sm:grid-cols-3">
@@ -208,7 +212,13 @@ function IdleState({
           {
             n: 3,
             title: 'Own the archive',
-            body: 'Photos arrive in your Drive. Setnayan keeps a 5-year backup independently in case you need a re-delivery.',
+            /* ⚠ This promised "a 5-year backup". Setnayan holds the
+               full-resolution originals for SIX MONTHS from the event's first
+               capture and then drops them — and the drop sweep reads
+               photo_delivery_artifacts, so it covers these vendor-delivered
+               albums too, not only Papic captures. The Drive folder is what
+               lasts; our copy is not. */
+            body: 'Photos arrive in your Drive and stay there — that folder is yours. Setnayan holds the full-resolution originals for 6 months, then keeps the compressed gallery online for good.',
           },
         ].map((step) => (
           <li
@@ -415,7 +425,11 @@ function ConnectedState({
               {job
                 ? `${job.uploaded_files.toLocaleString('en-US')} files · ${formatBytes(job.uploaded_bytes)} delivered.`
                 : 'Your folder is ready.'}{' '}
-              Setnayan keeps a 5-year backup in case you need a re-delivery.
+              {/* ⚠ Was "Setnayan keeps a 5-year backup" — untrue. We hold the
+                  full-resolution originals for six months. Said here because
+                  this is the screen where a couple decides they are done. */}
+              Your Drive folder is the copy that lasts. Setnayan holds the
+              full-resolution originals for 6 months.
             </p>
           </header>
           <div className="flex flex-wrap gap-2">

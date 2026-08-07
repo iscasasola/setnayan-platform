@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6257
+# facts: 6238
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     675
-#   col       4517
-#   policy    841
+#   tpriv     672
+#   col       4502
+#   policy    840
 #   view      9
 #   func      211
 #
@@ -275,8 +275,6 @@ tpriv	public.hiring_roadmap|anon	SIUD
 tpriv	public.hiring_roadmap|authenticated	SIUD
 tpriv	public.homepage_background_videos|anon	SIUD
 tpriv	public.homepage_background_videos|authenticated	SIUD
-tpriv	public.homepage_hero_config|anon	SIUD
-tpriv	public.homepage_hero_config|authenticated	SIUD
 tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
 tpriv	public.inquiry_outcomes|anon	SIUD
@@ -349,8 +347,7 @@ tpriv	public.panood_screens|anon	SIUD
 tpriv	public.panood_screens|authenticated	SIUD
 tpriv	public.paparazzi_seats|anon	SIUD
 tpriv	public.paparazzi_seats|authenticated	SIUD
-tpriv	public.papic_challenge_library|anon	SIUD
-tpriv	public.papic_challenge_library|authenticated	SIUD
+tpriv	public.papic_challenge_library|authenticated	S
 tpriv	public.papic_event_pool_usage|anon	SIUD
 tpriv	public.papic_event_pool_usage|authenticated	SIUD
 tpriv	public.papic_guest_captures|anon	SIUD
@@ -2428,21 +2425,6 @@ col	public.homepage_background_videos.updated_by_admin_id	anon=SIU authenticated
 col	public.homepage_background_videos.video_mime_type	anon=SIU authenticated=SIU
 col	public.homepage_background_videos.video_r2_key	anon=SIU authenticated=SIU
 col	public.homepage_background_videos.video_url	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.created_at	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.cta_href	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.cta_text	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.frame_count	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.frame_height	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.frame_keys	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.frame_urls	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.frame_width	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.id	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.is_published	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.updated_at	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.updated_by_admin_id	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.video_mime_type	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.video_r2_key	anon=SIU authenticated=SIU
-col	public.homepage_hero_config.video_url	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.applies_to	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.created_at	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.is_active	anon=SIU authenticated=SIU
@@ -2883,15 +2865,15 @@ col	public.paparazzi_seats.tier	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.updated_at	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_from	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_until	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.capture_kind	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.category	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.is_active	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.library_id	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.mission_type	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.priority_rank	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.prompt	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.slug	anon=SIU authenticated=SIU
-col	public.papic_challenge_library.title	anon=SIU authenticated=SIU
+col	public.papic_challenge_library.capture_kind	anon=- authenticated=S
+col	public.papic_challenge_library.category	anon=- authenticated=S
+col	public.papic_challenge_library.is_active	anon=- authenticated=S
+col	public.papic_challenge_library.library_id	anon=- authenticated=S
+col	public.papic_challenge_library.mission_type	anon=- authenticated=S
+col	public.papic_challenge_library.priority_rank	anon=- authenticated=S
+col	public.papic_challenge_library.prompt	anon=- authenticated=S
+col	public.papic_challenge_library.slug	anon=- authenticated=S
+col	public.papic_challenge_library.title	anon=- authenticated=S
 col	public.papic_event_pool_usage.created_at	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.event_id	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.points_used	anon=SIU authenticated=SIU
@@ -5569,7 +5551,6 @@ policy	public.help_messages|help_messages_sender_read	mode=PERMISSIVE cmd=SELECT
 policy	public.hiring_roadmap|hiring_roadmap_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.hiring_roadmap|hiring_roadmap_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.homepage_background_videos|homepage_background_videos_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
-policy	public.homepage_hero_config|homepage_hero_config_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.inquiry_outcome_reason_codes|reason_codes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.inquiry_outcome_reason_codes|reason_codes_read_active	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_active = true) check=NULL
 policy	public.inquiry_outcomes|inquiry_outcomes_org_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL

@@ -45,10 +45,23 @@ COMMENT ON TABLE public.papic_challenge_library IS
   'Papic Challenges §9.2: the 40 generic Setnayan-supplied wedding challenges (category-level, never a named vendor). priority_rank 1..10 = the §9.4 Top-10 Must-Capture (⚠ PROVISIONAL). Read via ensure_papic_board / papic_guest_missions.';
 
 ALTER TABLE public.papic_challenge_library ENABLE ROW LEVEL SECURITY;
+
+-- 🔒 A NEW public TABLE SHIPS OPEN. Postgres hands the schema's default
+-- privileges to anon + authenticated at CREATE TABLE time, so without this
+-- REVOKE the exposure baseline records `anon SIUD` on a table anon must never
+-- write. RLS did block the writes here (there is no INSERT/UPDATE/DELETE
+-- policy), but a grant nobody intended is one policy edit away from being a
+-- real hole, and defence-in-depth is the locked rule: REVOKE ALL in the same
+-- migration that creates the table.
+REVOKE ALL ON TABLE public.papic_challenge_library FROM anon, authenticated;
+GRANT SELECT ON TABLE public.papic_challenge_library TO authenticated;
+
 DROP POLICY IF EXISTS papic_challenge_library_read ON public.papic_challenge_library;
 CREATE POLICY papic_challenge_library_read ON public.papic_challenge_library
   FOR SELECT TO authenticated USING (true);
 -- Writes are migration/admin-only (no INSERT/UPDATE/DELETE policy for authenticated).
+-- The catalogue is read through ensure_papic_board / papic_guest_missions, both
+-- SECURITY DEFINER, so anon reaching guest missions does not need a table grant.
 
 -- The 40 seed rows (idempotent). capture_kind: 25 photo / 14 clip / 1 pabati.
 -- "Drink" is deliberately "Toast — any drink counts" (§2.2 minor-safety, no age gate).

@@ -31,3 +31,31 @@ Two deltas, both mechanical:
   compiles under `noUncheckedIndexedAccess` (an index read is possibly
   undefined, and spreading it widens every field to optional). Asserted
   non-null, matching the repo's existing idiom. The branch predates the setting.
+
+## 2026-08-07 · fix(security): revoke the default grants on papic_challenge_library
+
+Merging current `main` surfaced a real finding in this PR's own migration. The
+new table shipped with the `public` schema's default privileges, so the exposure
+baseline recorded:
+
+    tpriv  public.papic_challenge_library|anon  SIUD
+
+`anon` held INSERT / UPDATE / DELETE on the challenge catalogue. RLS **did**
+block the writes — the table enables RLS and has only a SELECT policy — so
+nothing was ever exposed. But a grant nobody intended is one policy edit away
+from being a real hole, and the locked rule is `REVOKE ALL` in the same
+migration that creates the table.
+
+Now `REVOKE ALL … FROM anon, authenticated` + `GRANT SELECT … TO authenticated`.
+Baseline re-records it as `anon=-  authenticated=S`.
+
+**Verified safe before revoking:** both readers — `ensure_papic_board` and
+`papic_guest_missions` — are SECURITY DEFINER (migration lines 205 and 366), and
+the app reaches the catalogue only through those two RPCs. It never queries the
+table, so no caller loses anything. 21 papic tests + 6 exposure-freeze tests pass.
+
+The merge conflict that blocked this PR was `exposure-surface.baseline.txt`,
+which is GENERATED — resolved by regenerating from the full migration set rather
+than hand-merging two sides of a generated file.
+
+SPEC IMPACT: None.

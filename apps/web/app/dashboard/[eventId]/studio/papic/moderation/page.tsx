@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -20,7 +20,7 @@ import {
   blockUploader,
   unblockUploader,
   approveScreenedCapture,
-} from './actions';
+  setSeatPhotoHidden,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Photo moderation · Papic · Setnayan' };
@@ -105,6 +105,7 @@ export default async function PapicModerationPage({
     { data: reports },
     { data: screenedGuest },
     { data: screenedSeat },
+    { data: seatPhotos },
   ] = await Promise.all([
     admin
       .from('papic_guest_captures')
@@ -135,6 +136,17 @@ export default async function PapicModerationPage({
       .eq('moderation_state', 'nsfw_blocked')
       .order('captured_at', { ascending: false })
       .limit(100),
+    // ⚠ EVERY seat photo, not just the auto-screened ones. Owner-locked
+    // 2026-08-07: "host can delete any photo and that's it." The host could
+    // already hide any GUEST upload, but seat photos — the main Papic captures,
+    // and how a vendor or coordinator shoots — were only visible here when the
+    // NSFW filter had already flagged them, and could not be hidden at all.
+    admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, captured_at, photo_type, hidden_at')
+      .eq('event_id', eventId)
+      .order('captured_at', { ascending: false })
+      .limit(200),
   ]);
 
   const captureRows = captures ?? [];
@@ -202,6 +214,17 @@ export default async function PapicModerationPage({
   );
   const thumbUrl = new Map<string, string | null>();
   for (const [id, url] of thumbs) thumbUrl.set(id, url);
+
+  const seatRows = seatPhotos ?? [];
+  const seatThumbs = await Promise.all(
+    seatRows.map(async (r) => {
+      const ref = r.r2_object_key as string | null;
+      const url = ref ? await displayUrlForStoredAsset(ref) : null;
+      return [r.photo_id as string, url] as const;
+    }),
+  );
+  const seatThumbUrl = new Map<string, string | null>();
+  for (const [id, url] of seatThumbs) seatThumbUrl.set(id, url);
 
   const screenedThumbs = await Promise.all(
     screenedRows.map(async (s) => {
@@ -390,6 +413,77 @@ export default async function PapicModerationPage({
             );
           })}
         </ul>
+      )}
+
+      {/* SEAT PHOTOS — everything shot on a camera seat (your paparazzi, and how
+          a vendor or coordinator shoots). Owner-locked 2026-08-07: the host can
+          remove ANY photo. These were previously invisible here unless the NSFW
+          filter had flagged them. */}
+      {seatRows.length > 0 && (
+        <section className="space-y-3 sn-tile p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
+            <Camera className="h-4 w-4 text-ink/50" strokeWidth={1.75} />
+            Photos from your cameras
+          </h2>
+          <p className="text-xs text-ink/60">
+            Everything shot on a camera seat — your paparazzi, and any vendor or
+            coordinator shooting for you. Hiding takes a photo out of the gallery
+            and every shared link. You can put it back.
+          </p>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {seatRows.map((r) => {
+              const photoId = r.photo_id as string;
+              const hidden = Boolean(r.hidden_at);
+              const url = seatThumbUrl.get(photoId) ?? null;
+              const isClip = (r.photo_type as string | null) === 'clip';
+              return (
+                <li
+                  key={photoId}
+                  className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-3 shadow-sm"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-xl bg-ink/[0.04]">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt={isClip ? 'Clip from your cameras' : 'Photo from your cameras'}
+                        className={`h-full w-full object-cover ${hidden ? 'opacity-40 grayscale' : ''}`}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-ink/40">
+                        Preview unavailable
+                      </div>
+                    )}
+                    {hidden && (
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[10px] font-medium text-cream">
+                        <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} /> Hidden
+                      </span>
+                    )}
+                  </div>
+
+                  <form action={setSeatPhotoHidden.bind(null, eventId)}>
+                    <input type="hidden" name="photo_id" value={photoId} />
+                    <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
+                    <SubmitButton
+                      pendingLabel="Updating…"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                    >
+                      {hidden ? (
+                        <>
+                          <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Unhide
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from gallery
+                        </>
+                      )}
+                    </SubmitButton>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       {blockRows.length > 0 && (

@@ -13,8 +13,8 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 
 /**
  * /admin/price-bands — admin review of the computed Price-Position Meter bands
- * (Wave 6 vendor benefit, the last "Soon" one). Clones the /admin/token-bands
- * pattern: a read of the cached band table + a "recompute now" control.
+ * (Wave 6 vendor benefit, the last "Soon" one). A read of the cached band
+ * table + a "recompute now" control.
  *
  * The band values are ADMIN-MANAGED — recomputed from real PUBLISHED vendor
  * prices via recompute_market_price_bands(), never hardcoded. The rollup

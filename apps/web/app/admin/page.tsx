@@ -151,7 +151,6 @@ export default async function AdminOverview() {
       tiles: [
         queueTile('payments', 'Payments to confirm', 'Awaiting reconciliation', '/admin/payments?filter=pending'),
         queueTile('payouts', 'Payouts to release', 'Verified T+1 schedule', '/admin/payouts'),
-        queueTile('token-purchases', 'Token sales', 'Vendor packs to confirm', '/admin/token-purchases'),
         queueTile(
           'subscriptions',
           'Subscriptions',

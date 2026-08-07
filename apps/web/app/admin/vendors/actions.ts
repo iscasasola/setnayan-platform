@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { TIER_SUBSCRIPTION_BUNDLE_TOKENS } from '@/lib/vendor-tier-caps';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -302,150 +301,6 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
     .slice(0, 30);
 }
 
-/**
- * Admin direct token grant · credits a vendor's wallet with N expiring
- * tokens via the canonical helper grant_admin_direct_tokens (migration
- * 20260703500000 PART 2).
- *
- * WHY · Owner brief 2026-05-29: admin needs a way to manually drop tokens
- *       into a specific vendor's wallet without minting a voucher code.
- *       Use cases: rewarding referral leads, comping a verification snafu,
- *       seeding pilot family vendors beyond the auto-100 founder bonus.
- *
- * The helper function is idempotent via UNIQUE token_grants_log.idempotency_key
- * so admin double-clicking the button is a no-op (returns the existing
- * voucher_id). We synthesize a deterministic key per submit including the
- * admin_id + vendor_id + token_count + ttl_days + a 1-second timestamp
- * bucket — same logical click within the same second collapses, but the
- * SAME admin granting the SAME tokens a minute later mints a new grant
- * (the admin meant to grant twice).
- *
- * Form fields:
- *   • vendor_id      — vendor_profiles.vendor_profile_id (UUID)
- *   • token_count    — int 1-10000
- *   • ttl_days       — int 1-365 (default 45 to match founder convention)
- *   • grant_reason   — TEXT (optional, max 500 chars)
- *
- * Returns void; redirects back to the same /admin/vendors/[id]/tokens page
- * with ?granted= success param so the UI flashes the toast + the recent-grants
- * table re-renders the new row at the top.
- */
-export async function grantTokensToVendor(formData: FormData): Promise<void> {
-  const { adminUserId } = await requireAdmin();
-
-  const vendorId = String(formData.get('vendor_id') ?? '').trim();
-  if (vendorId.length === 0) {
-    throw new Error('Missing vendor_id.');
-  }
-
-  const rawCount = formData.get('token_count');
-  if (typeof rawCount !== 'string' || rawCount.trim().length === 0) {
-    throw new Error('Enter the number of tokens (1-10,000).');
-  }
-  const tokenCount = Number.parseInt(rawCount.trim(), 10);
-  if (!Number.isFinite(tokenCount) || tokenCount < 1 || tokenCount > 10000) {
-    throw new Error('Token count must be a whole number between 1 and 10,000.');
-  }
-
-  const rawTtl = formData.get('ttl_days');
-  let ttlDays = 45;
-  if (typeof rawTtl === 'string' && rawTtl.trim().length > 0) {
-    ttlDays = Number.parseInt(rawTtl.trim(), 10);
-    if (!Number.isFinite(ttlDays) || ttlDays < 1 || ttlDays > 365) {
-      throw new Error('Available-for days must be 1-365.');
-    }
-  }
-
-  const rawReason = formData.get('grant_reason');
-  let reason: string | null = null;
-  if (typeof rawReason === 'string' && rawReason.trim().length > 0) {
-    reason = rawReason.trim().slice(0, 500);
-  }
-
-  // Deterministic idempotency key. The 1-second bucket collapses
-  // accidental double-clicks but lets the SAME admin re-grant the SAME
-  // tokens a minute later (different bucket → different key → fresh grant).
-  const secondBucket = Math.floor(Date.now() / 1000);
-  const idempotencyKey = `admin_grant:${adminUserId}:${vendorId}:${tokenCount}:${ttlDays}:${secondBucket}`;
-
-  const admin = createAdminClient();
-
-  // Snapshot vendor for audit metadata + the founder id (the store-wallet owner).
-  const { data: vendor } = await admin
-    .from('vendor_profiles')
-    .select('business_name, public_id, user_id')
-    .eq('vendor_profile_id', vendorId)
-    .maybeSingle();
-  if (!vendor) {
-    throw new Error('Vendor not found.');
-  }
-
-  // Optional recipient (multi-admin org model). Blank or the founder → the
-  // store's earned-voucher wallet (existing path). A non-founder teammate →
-  // their personal purchased balance (never-expire, non-transferable).
-  const holderRaw = formData.get('holder_user_id');
-  const holder =
-    typeof holderRaw === 'string' && holderRaw.trim().length > 0
-      ? holderRaw.trim()
-      : null;
-  const toMember = holder !== null && holder !== vendor.user_id;
-
-  let voucherId: unknown = null;
-  if (toMember) {
-    const { error: memErr } = await admin.rpc('grant_member_purchased_tokens', {
-      p_vendor_id: vendorId,
-      p_member_user_id: holder,
-      p_token_count: tokenCount,
-      p_granted_by_admin_id: adminUserId,
-      p_rationale: reason ?? `Admin member grant · ${tokenCount} tokens`,
-      p_idempotency_key: idempotencyKey,
-    });
-    if (memErr) {
-      throw new Error(`Could not grant tokens: ${memErr.message}`);
-    }
-  } else {
-    // Founder / store wallet — expiring earned voucher. Returns voucher_id.
-    const { data: vId, error: rpcErr } = await admin.rpc('grant_admin_direct_tokens', {
-      p_vendor_id: vendorId,
-      p_token_count: tokenCount,
-      p_ttl_days: ttlDays,
-      p_grant_source: 'admin_grant',
-      p_granted_by_admin_id: adminUserId,
-      p_rationale: reason ?? `Admin direct grant · ${tokenCount} tokens`,
-      p_idempotency_key: idempotencyKey,
-    });
-    if (rpcErr) {
-      throw new Error(`Could not grant tokens: ${rpcErr.message}`);
-    }
-    voucherId = vId;
-  }
-
-  // Audit-log canonical pattern matches issueCompGrant.
-  const { error: auditErr } = await admin.from('admin_audit_log').insert({
-    action: 'vendor_token_grant',
-    target_id: vendorId,
-    actor_user_id: adminUserId,
-    metadata: {
-      business_name: vendor.business_name,
-      public_id: vendor.public_id,
-      token_count: tokenCount,
-      ttl_days: null, // tokens never expire (owner 2026-07-01)
-      grant_reason: reason,
-      voucher_id: voucherId,
-      recipient_user_id: toMember ? holder : vendor.user_id,
-      recipient_kind: toMember ? 'member_purchased' : 'founder_earned',
-      idempotency_key: idempotencyKey,
-    },
-  });
-  if (auditErr) {
-    console.error('[grantTokensToVendor] audit log insert failed', auditErr.message);
-  }
-
-  revalidatePath(`/admin/vendors/${vendorId}/tokens`);
-  revalidatePath('/admin/vendors');
-  redirect(`/admin/vendors/${vendorId}/tokens?granted=${tokenCount}`);
-}
-
 const VENDOR_TIER_VALUES = ['free', 'verified', 'pro', 'enterprise'] as const;
 
 /**
@@ -511,31 +366,15 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     console.error('[setVendorTier] audit log insert failed', auditErr.message);
   }
 
-  // Subscription token bundle on admin tier-set (comp / manual path; the paid
-  // self-serve flow grants its own via _apply_subscription_credit). LIFETIME
-  // tokens (owner 2026-06-09) — grant_vendor_lifetime_tokens credits the
-  // never-expire purchased_tokens bucket, available in full immediately.
-  // Idempotent per (vendor, tier) via the unique key, so re-setting the same
-  // tier never double-grants. Monthly amount (Pro 5 / Enterprise 10).
-  // Best-effort — never blocks the tier change.
-  if (tier === 'pro' || tier === 'enterprise') {
-    const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier].monthly;
-    if (bundle > 0) {
-      const { error: bundleErr } = await admin.rpc('grant_vendor_lifetime_tokens', {
-        p_vendor_id: vendorId,
-        p_token_count: bundle,
-        p_grant_source: 'admin_grant',
-        p_granted_by_admin_id: adminUserId,
-        p_rationale: `${tier === 'pro' ? 'Pro' : 'Enterprise'} subscription token bundle (admin-set · lifetime)`,
-        p_idempotency_key: `tier_bundle:${vendorId}:${tier}`,
-      });
-      if (bundleErr) {
-        console.error('[setVendorTier] bundle grant failed', bundleErr.message);
-      }
-    }
-  }
+  // ⚠ THE SUBSCRIPTION TOKEN BUNDLE WAS REMOVED HERE 2026-08-07. Setting a
+  // vendor to Pro/Enterprise used to also call grant_vendor_lifetime_tokens for
+  // 5/10 tokens. It was the LAST live writer of the currency in the app — the
+  // verification bonus had already been retired by migration 20270110320020 —
+  // so leaving it would have kept minting a currency that buys nothing (owner
+  // 2026-07-21: "token can retire, there should be nothing that needs token
+  // anymore"). The RPC still exists; nothing calls it.
 
-  revalidatePath(`/admin/vendors/${vendorId}/tokens`);
+  revalidatePath(`/admin/vendors/${vendorId}/plan`);
   revalidatePath('/admin/vendors');
-  redirect(`/admin/vendors/${vendorId}/tokens?tier=${tier}`);
+  redirect(`/admin/vendors/${vendorId}/plan?tier=${tier}`);
 }

@@ -110,7 +110,6 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/team',
       '/vendor-dashboard/branches',
       '/vendor-dashboard/subscription',
-      '/vendor-dashboard/tokens',
       // Overflow + topbar-reached surfaces bucket under Shop so they light a
       // tab instead of going unlit (there is no dedicated More tab now).
       '/vendor-dashboard/more',

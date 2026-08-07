@@ -3,7 +3,6 @@ import Link from 'next/link';
 import {
   DollarSign,
   BadgeCheck,
-  Coins,
   Gauge,
   Gift,
 } from 'lucide-react';
@@ -14,7 +13,6 @@ import {
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PricingSurface } from './_surfaces/pricing-surface';
 import { CustomPlansSurface } from './_surfaces/custom-plans-surface';
-import { TokenBandsSurface } from './_surfaces/token-bands-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
 import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
 
@@ -22,8 +20,13 @@ import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
  * Catalog Studio — the tabbed /admin/pricing shell that consolidates the Money
  * menu's pricing-config pages into ONE surface (owner: "yes" · Money split ·
  * 2026-07-10). Four tabs: Pricing (the shell/default tab) · Custom plans ·
- * Token bands · Price bands. Same pattern as the Accounts + Studio +
+ * Price bands · Free windows. Same pattern as the Accounts + Studio +
  * Insights studios (page shell + _surfaces/* + ?tab=).
+ *
+ * The Token bands tab was REMOVED 2026-08-07 with the rest of the token
+ * currency (owner 2026-07-21: "token can retire, there should be nothing that
+ * needs token anymore"). It edited the region → burn-band map for a burn that
+ * was already neutralised — answering an inquiry has been free since #3531.
  *
  * The Add-ons tab was REMOVED 2026-07-21 (owner: "we do not need the bundle
  * maker as well", following the pricing-cleanup audit). It was the last surface
@@ -53,7 +56,6 @@ export const dynamic = 'force-dynamic';
 const TABS = [
   'pricing',
   'custom-plans',
-  'token-bands',
   'price-bands',
   'free-windows',
 ] as const;
@@ -70,7 +72,6 @@ function coerceTab(v: string | undefined): Tab {
 const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'pricing', label: 'Pricing', icon: DollarSign },
   { key: 'custom-plans', label: 'Custom plans', icon: BadgeCheck },
-  { key: 'token-bands', label: 'Token bands', icon: Coins },
   { key: 'price-bands', label: 'Price bands', icon: Gauge },
   { key: 'free-windows', label: 'Free windows', icon: Gift },
 ];
@@ -78,13 +79,12 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
 const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
   'custom-plans': 'Custom plans',
-  'token-bands': 'Token bands',
   'price-bands': 'Price bands',
   'free-windows': 'Free windows',
 };
 
 function tabSkeleton(tab: Tab): ReactNode {
-  return tab === 'token-bands' || tab === 'price-bands' ? (
+  return tab === 'price-bands' ? (
     <GridPageSkeleton />
   ) : (
     <TablePageSkeleton />
@@ -115,8 +115,6 @@ function activeSurface(
           searchParams={Promise.resolve({ vendor: first(search.vendor) })}
         />
       );
-    case 'token-bands':
-      return <TokenBandsSurface />;
     case 'price-bands':
       return (
         <PriceBandsSurface

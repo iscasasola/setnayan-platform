@@ -12,9 +12,8 @@ import { emitNotification } from '@/lib/notification-emit';
  * 24-hr reconciliation SLA actually starts on submit, not on the next time
  * someone opens the queue.
  *
- * Mirrors lib/token-purchase-notify.ts (notifyAdminsTokenPurchasePending) +
- * lib/subscription-purchase-notify.ts (notifyAdminsSubscriptionPending): the
- * same admin OR-filter (is_internal / is_team_member / account_type='admin')
+ * Mirrors lib/subscription-purchase-notify.ts (notifyAdminsSubscriptionPending):
+ * the same admin OR-filter (is_internal / is_team_member / account_type='admin')
  * and the same fail-soft try/catch. Uses its OWN type
  * `order_awaiting_reconciliation` (added 2026-06-24) — NOT the borrowed
  * `vendor_token_purchase_pending`. The tray renders the TYPE as its badge, so

@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Coins, Gavel, Users } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Gavel, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -88,10 +88,10 @@ export default async function AdminVendorTeamPage({ params }: Props) {
           </div>
         </div>
         <Link
-          href={`/admin/vendors/${vendorProfileId}/tokens`}
+          href={`/admin/vendors/${vendorProfileId}/plan`}
           className="inline-flex items-center gap-1.5 text-sm text-sky-700 hover:text-sky-900"
         >
-          <Coins className="h-4 w-4" strokeWidth={1.75} /> Tokens &amp; tier
+          <BadgeCheck className="h-4 w-4" strokeWidth={1.75} /> Plan
         </Link>
       </header>
 

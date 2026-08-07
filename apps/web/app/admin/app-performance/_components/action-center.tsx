@@ -33,7 +33,6 @@ type QueueCardDef = { key: string; label: string; todo: string };
 const QUEUE_CARDS: QueueCardDef[] = [
   { key: 'payments', label: 'Payments to reconcile', todo: 'Verify BDO/GCash proof and activate the order.' },
   { key: 'payouts', label: 'Payouts', todo: 'A vendor is waiting for money — settle it.' },
-  { key: 'token-purchases', label: 'Token sales', todo: 'Confirm the pack payment and grant tokens.' },
   { key: 'subscriptions', label: 'Vendor subscriptions', todo: 'Confirm tier payment and activate the cycle.' },
   { key: 'verify', label: 'Vendor verification', todo: 'Review documents and award the badge.' },
   { key: 'vendor-partnerships', label: 'Partnerships', todo: 'Second-admin sign-off on the partnership claim.' },

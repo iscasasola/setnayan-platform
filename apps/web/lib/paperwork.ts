@@ -79,6 +79,10 @@ export type CeremonyType =
   | 'sikh'
   | 'buddhist'
   | 'orthodox'
+  // Added 2026-08-06. Both were in the events.ceremony_type CHECK and missing
+  // here, so a Born Again or Jewish couple's paperwork page fell to 'unknown'.
+  | 'born_again'
+  | 'jewish'
   | 'mixed';
 
 export type PaperworkRow = {
@@ -326,6 +330,23 @@ export const DOCUMENTS_BY_CEREMONY_TYPE: Record<
     'sharia_counseling_complete',
   ],
   christian: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  // PH civil law does not vary the DOCUMENTS by rite — the solemnizing officer
+  // changes, the paperwork does not. Both take the universal base, exactly as
+  // christian / cultural / chinese do.
+  born_again: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
+  jewish: [
     'psa_birth_cert_partner_1',
     'psa_birth_cert_partner_2',
     'cenomar_partner_1',
@@ -595,6 +616,8 @@ export function resolveCeremonyType(
     raw === 'sikh' ||
     raw === 'buddhist' ||
     raw === 'orthodox' ||
+    raw === 'born_again' ||
+    raw === 'jewish' ||
     raw === 'mixed'
   ) {
     return raw;

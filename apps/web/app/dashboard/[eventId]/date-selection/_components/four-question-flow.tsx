@@ -72,29 +72,57 @@ type MeaningfulDateDraft = {
 
 type IndoorOutdoor = 'indoor' | 'outdoor' | 'mixed' | 'undecided';
 
+/**
+ * Ceremony choices, keyed so TypeScript ENFORCES coverage.
+ *
+ * 🔴 This was a hand-typed array of 16 faiths while `CeremonyType` already had
+ * all 18. A SUBSET of a union is a perfectly legal `Array<{ value: CeremonyType }>`,
+ * so the compiler could not see the gap — the same blind spot the 2026-07-27
+ * ceremony-type guard exists for, one layer up: that guard pinned four runtime
+ * GUARDS and never looked at a UI list.
+ *
+ * A Born Again or Jewish couple reached the date wizard and their own faith was
+ * simply not offered. As a `Record<>`, a missing faith is a COMPILE ERROR.
+ */
+const CEREMONY_CHOICES: Record<
+  CeremonyType | 'undecided',
+  { label: string; hint: string }
+> = {
+  catholic: { label: 'Catholic', hint: 'Sacrament with parish paperwork' },
+  civil: { label: 'Civil', hint: 'Judge officiating, paperwork-first' },
+  inc: { label: 'INC', hint: 'Iglesia ni Cristo' },
+  christian: { label: 'Christian', hint: 'Born-again, evangelical, others' },
+  muslim: { label: 'Muslim', hint: 'Akad nikah with walimah' },
+  cultural: { label: 'Cultural', hint: 'Filipino tribal or other traditions' },
+  chinese: { label: 'Chinese', hint: 'Tea ceremony and Chinese customs, often with a church or civil rite' },
+  aglipayan: { label: 'Aglipayan (IFI)', hint: 'Aglipayan rite at an IFI parish' },
+  lds: { label: 'LDS (Latter-day Saints)', hint: 'Latter-day Saint chapel ceremony' },
+  sda: { label: 'Seventh-day Adventist', hint: 'Adventist ceremony with a pastor' },
+  jw: { label: 'Jehovah&apos;s Witnesses', hint: 'Kingdom Hall ceremony' },
+  hindu: { label: 'Hindu', hint: 'Pandit, mandap, and pheras' },
+  sikh: { label: 'Sikh', hint: 'Anand Karaj at the gurdwara' },
+  buddhist: { label: 'Buddhist', hint: 'Blessing ceremony with monks' },
+  orthodox: { label: 'Orthodox Christian', hint: 'Crowning rite at an Orthodox church' },
+  born_again: { label: 'Born Again', hint: 'Born-again Christian church, praise and worship led' },
+  jewish: { label: 'Jewish', hint: 'Ketubah, chuppah, and the seven blessings' },
+  mixed: { label: 'Mixed', hint: 'Two traditions woven together' },
+  undecided: { label: 'Skip for now', hint: 'We&apos;ll show you broad suggestions' },
+};
+
+/** Ordered for display; `undecided` always last. */
+const CEREMONY_ORDER: Array<CeremonyType | 'undecided'> = [
+  ...(Object.keys(CEREMONY_CHOICES) as Array<CeremonyType | 'undecided'>).filter(
+    (k) => k !== 'undecided',
+  ),
+  'undecided',
+];
+
+
 const CEREMONY_OPTIONS: Array<{
   value: CeremonyType | 'undecided';
   label: string;
   hint: string;
-}> = [
-  { value: 'catholic', label: 'Catholic', hint: 'Sacrament with parish paperwork' },
-  { value: 'civil', label: 'Civil', hint: 'Judge officiating, paperwork-first' },
-  { value: 'inc', label: 'INC', hint: 'Iglesia ni Cristo' },
-  { value: 'christian', label: 'Christian', hint: 'Born-again, evangelical, others' },
-  { value: 'muslim', label: 'Muslim', hint: 'Akad nikah with walimah' },
-  { value: 'cultural', label: 'Cultural', hint: 'Filipino tribal or other traditions' },
-  { value: 'chinese', label: 'Chinese', hint: 'Tea ceremony and Chinese customs, often with a church or civil rite' },
-  { value: 'aglipayan', label: 'Aglipayan (IFI)', hint: 'Aglipayan rite at an IFI parish' },
-  { value: 'lds', label: 'LDS (Latter-day Saints)', hint: 'Latter-day Saint chapel ceremony' },
-  { value: 'sda', label: 'Seventh-day Adventist', hint: 'Adventist ceremony with a pastor' },
-  { value: 'jw', label: 'Jehovah&apos;s Witnesses', hint: 'Kingdom Hall ceremony' },
-  { value: 'hindu', label: 'Hindu', hint: 'Pandit, mandap, and pheras' },
-  { value: 'sikh', label: 'Sikh', hint: 'Anand Karaj at the gurdwara' },
-  { value: 'buddhist', label: 'Buddhist', hint: 'Blessing ceremony with monks' },
-  { value: 'orthodox', label: 'Orthodox Christian', hint: 'Crowning rite at an Orthodox church' },
-  { value: 'mixed', label: 'Mixed', hint: 'Two traditions woven together' },
-  { value: 'undecided', label: 'Skip for now', hint: 'We&apos;ll show you broad suggestions' },
-];
+}> = CEREMONY_ORDER.map((value) => ({ value, ...CEREMONY_CHOICES[value] }));
 
 const INDOOR_OUTDOOR_OPTIONS: Array<{ value: IndoorOutdoor; label: string; hint: string }> = [
   { value: 'indoor', label: 'Indoor', hint: 'Hotel ballroom, hacienda, church-only' },

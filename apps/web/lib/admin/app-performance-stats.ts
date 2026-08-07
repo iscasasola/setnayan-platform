@@ -217,15 +217,14 @@ function emptyStream(key: StreamKey, label: string): MoneyStream {
 /**
  * Monetization — the 3-table union (plan § 3 Growth · G4):
  *   orders (couple/app SKUs · AI split by service_key)
- *   + vendor_subscriptions (tier subs) + vendor_token_purchases (packs),
- * both vendor tables folded into ONE 'vendor' stream. Realized only
+ *   + vendor_subscriptions (tier subs) as the 'vendor' stream. Realized only
  * (orders paid/fulfilled · vendor rows paid). Comp entitlements never create
  * paid orders, so no comp exclusion is needed on the realized set.
  */
 async function fetchMonetization(admin: Admin, w: Windows): Promise<Monetization> {
   const streams: Record<StreamKey, MoneyStream> = {
     ai: emptyStream('ai', 'Setnayan AI'),
-    vendor: emptyStream('vendor', 'Vendor subs & tokens'),
+    vendor: emptyStream('vendor', 'Vendor subscriptions'),
     other: emptyStream('other', 'All other purchases'),
   };
   let sampled = false;
@@ -263,7 +262,9 @@ async function fetchMonetization(admin: Admin, w: Windows): Promise<Monetization
 
   // Vendor-side streams — bucket on paid_at (falls back to created_at for
   // legacy rows that predate the paid_at stamp).
-  for (const table of ['vendor_subscriptions', 'vendor_token_purchases'] as const) {
+  // vendor_token_purchases was dropped from this union 2026-08-07 (token
+  // retirement): 0 rows ever, and packs are no longer sellable.
+  for (const table of ['vendor_subscriptions'] as const) {
     const { data, error } = await admin
       .from(table)
       .select('created_at, paid_at, amount_php, status')
@@ -488,7 +489,7 @@ export async function fetchAppPerformanceStats(
     monetization: {
       streams: [
         emptyStream('ai', 'Setnayan AI'),
-        emptyStream('vendor', 'Vendor subs & tokens'),
+        emptyStream('vendor', 'Vendor subscriptions'),
         emptyStream('other', 'All other purchases'),
       ],
       totalPhp: 0,

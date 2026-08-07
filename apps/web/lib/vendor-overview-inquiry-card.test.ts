@@ -58,8 +58,10 @@ test("What's-new inquiry card: masked facts stay non-identifying (city-level pla
   });
   // place is a city/area label, never a venue name/address.
   assert.equal(typeof card.place, 'string');
-  // tokenCost resolves to a real region burn band (1..3), never fabricated.
-  assert.ok(card.tokenCost >= 1 && card.tokenCost <= 3);
+  // `tokenCost` was dropped 2026-08-07 with the token retirement. It had been
+  // computed on every inquiry card and RENDERED NOWHERE since #4216 removed the
+  // Accept badge — so this assertion was pinning a number no vendor could see.
+  assert.ok(!('tokenCost' in card), 'inquiry cards must not carry a token cost');
   assert.equal(card.kind, 'inquiry');
   assert.equal(card.threadId, 'S89T-band');
 });

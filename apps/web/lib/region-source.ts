@@ -12,7 +12,6 @@
  *   V2 match-criteria underscore (lib/match-criteria.ts REGION_OPTIONS)        'central_visayas','northern_mindanao','outside_ph'
  *   V3 PSGC codes                (vendor_profiles.hq_region · lib/regions.ts)  'VII','X','NCR','BARMM'
  *   V4 wedding-cities rk         (_data/wedding-cities.ts)                     'cagayan-valley'
- *   + burn bands hand-maintained over three of those in lib/v2/region-token-burn.ts.
  *
  * The canonical key is the V1 onboarding hyphen slug (it's what actually lands
  * in events.region). `resolveRegion()` accepts ANY of the four vocabularies —

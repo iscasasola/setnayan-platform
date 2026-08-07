@@ -679,12 +679,30 @@ export default async function LauncherPage({
     );
     const shown = ranked.slice(0, MAX_SHOP_CARDS);
     const hidden = ranked.slice(MAX_SHOP_CARDS);
-    for (const vp of shown) {
+    // 🪤 `logo_url` DOES NOT HOLD A URL. It holds an `r2://bucket/key` reference
+    // by design, and a browser cannot load that scheme — so passing it straight
+    // to an <img> fails silently and the card falls back to the generic shop
+    // glyph. The owner uploaded a logo, saw the glyph, and reported it missing.
+    // Nothing errored: a broken <img> is not an exception.
+    //
+    // The event-hero block ~50 lines above already resolves the same way; the
+    // shop cards were simply missed. Resolved in ONE batch (at most 3 cards) so
+    // this stays a single await, matching that block. `.catch(() => null)`
+    // mirrors it too: a signing hiccup degrades to the glyph rather than
+    // breaking the whole launcher.
+    const shopLogoUrls = await Promise.all(
+      shown.map((vp) =>
+        vp.logo_url
+          ? displayUrlForStoredAsset(vp.logo_url).catch(() => null)
+          : Promise.resolve(null),
+      ),
+    );
+    for (const [i, vp] of shown.entries()) {
       spaces.push({
         id: vp.vendor_profile_id,
         href: '/vendor-dashboard',
         icon: Store,
-        logoUrl: vp.logo_url,
+        logoUrl: shopLogoUrls[i] ?? null,
         title: vp.business_name,
         subtitle: 'Vendor shop',
         tone: 'default',

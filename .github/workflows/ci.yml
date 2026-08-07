@@ -116,6 +116,14 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-automerge-hold.mjs
 
+      # A `*_url` column can hold an `r2://bucket/key` reference, which a browser
+      # cannot load — the picture silently never appears and no test catches a
+      # broken <img>. The owner reported his shop logo missing on 2026-08-07.
+      - name: Lint stored-asset refs
+        id: guard_stored_asset_refs
+        continue-on-error: true
+        run: node apps/web/scripts/lint-stored-asset-refs.mjs
+
       # Keeps corner radii on the single --m-r-* token scale (owner-locked
       # "softer corners" 2026-06-20). Fails on any ad-hoc rounded-[Npx] /
       # border-radius:Npx / borderRadius:N that bypasses the tokens.
@@ -330,6 +338,7 @@ jobs:
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
+          STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
         run: |
           failed=0
           check() {
@@ -355,6 +364,7 @@ jobs:
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"
+          check 'lint stored-asset refs'      "$STORED_ASSET_REFS"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'

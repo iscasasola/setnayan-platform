@@ -30,6 +30,15 @@ export type VendorProfileRow = {
    * Public profile shows "X years in business".
    */
   in_business_since_year: number | null;
+  /** Venue room size in metres, stated by the vendor. Seeds a couple's seating
+   *  plan when they book this venue and have not sized their room yet. NULL on
+   *  every vendor that is not a venue. Both or neither (DB CHECK). */
+  venue_width_m: number | null;
+  venue_length_m: number | null;
+  /** Smallest / largest party this venue seats. Existed for months with no
+   *  writer anywhere; picked up by the same form. */
+  capacity_min: number | null;
+  capacity_max: number | null;
   location_city: string | null;
   /** Free-text street address for the vendor's HQ. Optional. Used by
    *  the geocoder + the marketplace distance chip. Added 2026-05-21. */
@@ -105,7 +114,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,venue_width_m,venue_length_m,capacity_min,capacity_max,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*
@@ -453,6 +462,7 @@ export const BUSINESS_PROFILE_LABELS = {
   contact_email: 'Company email',
   services: 'Services covered',
   in_business_since_year: 'EST',
+  venue_size: 'Room size & capacity',
 } as const;
 
 export function businessProfileChecklist(
@@ -487,7 +497,25 @@ export function businessProfileChecklist(
     // completeness still reads services[] here; the row just lives at the end
     // and links out. Everything a vendor serves is admin-taxonomy-driven.
     { key: 'services', label: L.services, surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
+
   ];
+
+  // VENUE ROOM SIZE — offered ONLY to venues (owner 2026-08-07). A florist has
+  // no room, and an irrelevant row on every shop is how a checklist gets
+  // ignored. `capacity_min`/`capacity_max` ride along: they existed for months
+  // with no writer anywhere, and this is the same screen and audience.
+  //
+  // ⚠ Pushed AFTER the array closes, and the completion counts below read
+  // `items` — so a venue's profile is only "complete" once it has stated its
+  // room, while every other vendor's total is unchanged.
+  if ((profile?.services ?? []).includes('venue')) {
+    items.push({
+      key: 'venue_size',
+      label: L.venue_size,
+      surface: 'profile',
+      ok: profile?.venue_width_m != null && profile?.venue_length_m != null,
+    });
+  }
   const done = items.filter((i) => i.ok).length;
   return {
     items,

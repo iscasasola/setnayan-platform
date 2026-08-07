@@ -32,6 +32,12 @@ export type ProfileFieldData = {
   contact_phone: string;
   contact_email: string;
   in_business_since_year: string;
+  /** Venue room size + capacity, as strings for the inputs. Empty when unset
+   *  or when this vendor is not a venue (the row is not offered at all then). */
+  venue_width_m: string;
+  venue_length_m: string;
+  capacity_min: string;
+  capacity_max: string;
   logo_url: string | null;
   logoDisplayMap: Record<string, string>;
   services: string[];
@@ -468,6 +474,11 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
       return data.contact_email || null;
     case 'in_business_since_year':
       return data.in_business_since_year || null;
+    case 'venue_size':
+      return data.venue_width_m && data.venue_length_m
+        ? `${data.venue_width_m} × ${data.venue_length_m} m` +
+            (data.capacity_max ? ` · up to ${data.capacity_max} guests` : '')
+        : null;
     default:
       return null;
   }
@@ -555,7 +566,74 @@ function FieldControl({
           <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
         </Field>
       );
-    default:
+    case 'venue_size':
+      return (
+        <Field
+          label="Room size & capacity"
+          htmlFor="venue_width_m"
+          help="The rectangle that best fits your function room, in metres. A couple who books you gets their seating plan sized to it instead of guessing."
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs text-ink/60">
+              Width (m)
+              <input
+                type="number"
+                inputMode="decimal"
+                min={1}
+                max={500}
+                step="0.1"
+                id="venue_width_m"
+                name="venue_width_m"
+                defaultValue={data.venue_width_m}
+                onChange={onDirty}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink/60">
+              Length (m)
+              <input
+                type="number"
+                inputMode="decimal"
+                min={1}
+                max={500}
+                step="0.1"
+                name="venue_length_m"
+                defaultValue={data.venue_length_m}
+                onChange={onDirty}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink/60">
+              Seats from
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                name="capacity_min"
+                defaultValue={data.capacity_min}
+                onChange={onDirty}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink/60">
+              up to
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                name="capacity_max"
+                defaultValue={data.capacity_max}
+                onChange={onDirty}
+                className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-ink/50">
+            Leave the size blank if your space has no fixed room. Both width and
+            length, or neither.
+          </p>
+        </Field>
+      );    default:
       return null;
   }
 }

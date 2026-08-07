@@ -220,7 +220,7 @@ export function clipWebCopyCustodyOk(
 // An event with NO Google Drive pointed at it (`not_connected`) has its full-res
 // original in exactly ONE place — our R2. Dropping it is irreversible, so it must
 // NEVER happen silently: the couple gets a pre-drop nudge (the ~day-76 warning
-// email, WARN_LEAD_DAYS before the 90-day fuse) telling them to download their
+// email, WARN_LEAD_DAYS before the 183-day fuse) telling them to download their
 // originals or connect Drive. This gate refuses to drop a no-Drive original until
 // that warning was PROVABLY sent (`full_res_drop_warned_at` stamped) AND a lead-
 // time grace has elapsed — so a couple who never connected Drive can't lose an

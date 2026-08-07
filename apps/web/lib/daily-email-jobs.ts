@@ -14,6 +14,10 @@ import {
   buildGodchildReminderEmail,
   godchildReminderUnsubscribeHeaders,
 } from '@/lib/godchild-reminder-emails';
+import {
+  DEFAULT_FULL_RES_RETENTION_DAYS,
+  FULL_RES_POST_EVENT_GRACE_DAYS,
+} from '@/lib/papic-fullres-drop-core';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -366,9 +370,20 @@ const WARN_LEAD_DAYS = 14;
 // picked up on the next run with no double-send.
 const PAPIC_WARN_MAX_BATCH = 300;
 
+/**
+ * ⚠ THIS RETURNED A HAND-TYPED 90 WHILE THE DROP USED 183.
+ * `papic-fullres-drop.ts` falls back to DEFAULT_FULL_RES_RETENTION_DAYS; this
+ * copy was typed separately and the two drifted on 2026-08-02. The result: the
+ * one warning a couple ever gets — "download them soon" — fired at day 76 while
+ * the originals actually went at day 183. **107 days early**, so the warning
+ * arrived, nothing happened for three and a half months, and by the time it
+ * mattered they had every reason to ignore it.
+ *
+ * DERIVED NOW, NOT RE-TYPED. Same env var, same constant, one source.
+ */
 function retentionDays(): number {
   const n = Number(process.env.PAPIC_FULLRES_RETENTION_DAYS);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 90;
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_FULL_RES_RETENTION_DAYS;
 }
 
 // Papic storage PR-4 — warn about aging CLIPS too, but ONLY when the clip drop is
@@ -379,6 +394,37 @@ function retentionDays(): number {
 // warn prematurely when the clip drop is still off.
 function clipDropEnabled(): boolean {
   return process.env.PAPIC_CLIP_DROP_ENABLED === 'true';
+}
+
+/**
+ * Events whose full-res clock runs out within WARN_LEAD_DAYS.
+ *
+ * The SAME `papic_events_past_fullres_clock` the sweep uses
+ * (`papic-fullres-drop.ts`), with BOTH offsets pulled back by the lead time — so
+ * "will expire in 14 days" is computed by the identical rule that decides "has
+ * expired". Pulling back only ONE offset would give zero lead time on any event
+ * where the post-event term binds.
+ *
+ * Returns `null` on any error — the caller then warns nobody this pass. A missed
+ * nudge is recoverable next run; telling a couple their originals go in two
+ * weeks when they do not is not.
+ */
+async function eventsApproachingTheirClock(
+  admin: ReturnType<typeof createAdminClient>,
+  retentionDaysMinusLead: number,
+): Promise<string[] | null> {
+  try {
+    const { data, error } = await admin.rpc('papic_events_past_fullres_clock', {
+      p_retention_days: Math.max(0, retentionDaysMinusLead),
+      p_post_event_days: Math.max(0, FULL_RES_POST_EVENT_GRACE_DAYS - WARN_LEAD_DAYS),
+    });
+    if (error || !Array.isArray(data)) return null;
+    return data
+      .map((r) => String((r as { event_id?: unknown }).event_id ?? ''))
+      .filter((id) => id.length > 0);
+  } catch {
+    return null;
+  }
 }
 
 export async function runPapicDropWarning(): Promise<{ candidates: number; sent: number }> {
@@ -427,7 +473,7 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
           .limit(4000)
       : Promise.resolve({ data: [] as { event_id: string }[] }),
   ]);
-  const eventIds = [
+  const agingEventIds = [
     ...new Set(
       [
         ...(seat.data ?? []),
@@ -437,6 +483,21 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       ].map((r) => r.event_id as string),
     ),
   ];
+  if (agingEventIds.length === 0) return { candidates: 0, sent: 0 };
+
+  // ⚠ THE QUERIES ABOVE ONLY KNOW captured_at. The DROP's clock is
+  // `max(first_capture + retention, event_date + FULL_RES_POST_EVENT_GRACE_DAYS)`
+  // — so for an engagement shoot months before the wedding, the post-event term
+  // binds and the photo is NOT droppable when its own age says it is. Warning on
+  // age alone would still be early for exactly the case the owner asked about.
+  //
+  // Intersect with the SAME rpc the sweep uses, both offsets pulled back by the
+  // lead time. Fail-CLOSED on error: warning nobody this pass is recoverable
+  // next run; a false "your photos go in two weeks" is not.
+  const dueSoon = await eventsApproachingTheirClock(admin, days - WARN_LEAD_DAYS);
+  if (dueSoon === null) return { candidates: 0, sent: 0 };
+  const dueSet = new Set(dueSoon);
+  const eventIds = agingEventIds.filter((id) => dueSet.has(id));
   if (eventIds.length === 0) return { candidates: 0, sent: 0 };
 
   const { data: events } = await admin

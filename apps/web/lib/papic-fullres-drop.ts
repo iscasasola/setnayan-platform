@@ -27,7 +27,7 @@ import {
 import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
 // ============================================================================
-// 3-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
+// 6-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
 //
 // After the event's full-res clock runs out (6 months from its FIRST capture —
 // owner-locked 2026-08-02, NOT each photo's own age), delete OUR R2 copy of the
@@ -35,8 +35,14 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 // Google Drive copy (core invariant); the forever web copy (display/thumb AVIF)
 // is kept, so the gallery — which serves the web copy — is unaffected.
 //
-// ⚠ DESTRUCTIVE. Ships DRY-RUN by default: it deletes NOTHING unless
-// PAPIC_FULLRES_DROP_ENABLED='true'. Guards (belt + suspenders):
+// ⚠ DESTRUCTIVE, AND IT IS SWITCHED ON. This header used to say "Ships DRY-RUN
+// by default: it deletes NOTHING unless PAPIC_FULLRES_DROP_ENABLED='true'".
+// That was FALSE — the gate below is `!== 'false'`, i.e. ON unless explicitly
+// disabled, which is the owner's decision and correct. The HEADER was the
+// defect, and it is the first thing anyone reads before touching the one piece
+// of code that permanently deletes couples' originals.
+// KILL-SWITCH: set PAPIC_FULLRES_DROP_ENABLED='false'.
+// Guards (belt + suspenders):
 //   • PHOTOS: display_r2_key MUST exist — never drop a photo with no web copy.
 //   • CLIPS (Papic storage PR-2 · GATED OFF by default — only swept when
 //     PAPIC_CLIP_DROP_ENABLED='true'): a clip's r2_object_key is the raw video
@@ -172,9 +178,10 @@ function dropEnabled(): boolean {
   // Owner 2026-07-11 "enable the drop" — ON by default now that the model is
   // live (downloads fall back to the web copy, Keep Full-Res is the opt-out, and
   // the couple's Drive holds full-res). KILL-SWITCH: set PAPIC_FULLRES_DROP_ENABLED
-  // ='false' on Vercel to instantly turn all deletion back OFF. (Note: prod has
-  // only the excluded sample photos today, so nothing is drop-eligible yet — real
-  // couple photos only age into the 90-day window over time.)
+  // ='false' on Vercel to instantly turn all deletion back OFF. (Prod holds ZERO
+  // rows in papic_photos and papic_guest_captures today — not "only the excluded
+  // sample photos" — so nothing is drop-eligible yet; real couple photos age into
+  // the 183-day window over time.)
   return process.env.PAPIC_FULLRES_DROP_ENABLED !== 'false';
 }
 

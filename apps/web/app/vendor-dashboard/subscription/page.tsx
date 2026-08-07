@@ -431,8 +431,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </p>
           <p className="mt-0.5 text-sm text-ink/60">
             {currentTier === 'custom'
-              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings, photos and tokens.'
-              : 'Everything in Enterprise plus white-glove, then dial in exactly the branches, reach, seats, listings, photos and tokens you need.'}
+              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings and photos.'
+              : 'Everything in Enterprise plus white-glove, then dial in exactly the branches, reach, seats, listings and photos you need.'}
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">

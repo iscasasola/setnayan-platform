@@ -146,8 +146,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
 
       {search.done === 'approved' && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-          ✓ Payment confirmed, plan activated, and tokens credited (bundle + any
-          add-on pack).
+          ✓ Payment confirmed and the plan activated.
         </div>
       )}
       {search.done === 'rejected' && (

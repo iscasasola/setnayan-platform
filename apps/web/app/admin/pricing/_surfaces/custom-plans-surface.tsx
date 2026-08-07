@@ -48,7 +48,6 @@ function summarizeComposition(c: CustomComposition | null): string {
   if (Number(c.slotsPerCategory) > CUSTOM_BASE.slotsPerCategory)
     parts.push(`${Number(c.slotsPerCategory)} slots`);
   if (Number(c.photos) > CUSTOM_BASE.photos) parts.push(`${PESO.format(Number(c.photos))} photos`);
-  if (Number(c.tokensPerCycle) > 0) parts.push(`${Number(c.tokensPerCycle)} tokens/cycle`);
   if (c.domain) parts.push('own domain');
   return parts.length ? parts.join(' · ') : 'Base plan (no add-ons)';
 }

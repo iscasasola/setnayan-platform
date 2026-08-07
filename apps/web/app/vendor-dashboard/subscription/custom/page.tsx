@@ -84,7 +84,7 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-        Plans &amp; tokens
+        Plans
       </Link>
 
       <header className="mb-6 mt-3 sm:mb-8">
@@ -95,7 +95,7 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
           Everything in Enterprise plus white-glove support, then dial in exactly
-          the branches, reach, seats, listings, photos and tokens your business
+          the branches, reach, seats, listings and photos your business
           needs. Custom starts at{' '}
           <span className="font-semibold text-ink">
             ₱{NUMBER.format(unitPrices.base)}

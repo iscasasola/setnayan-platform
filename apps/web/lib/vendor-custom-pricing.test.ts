@@ -23,7 +23,6 @@ const PRICES: CustomUnitPrices = {
   seat: 250,
   slot: 499,
   photoPack: 99,
-  includedToken: 100,
   domain: 499,
 };
 
@@ -35,7 +34,6 @@ const BASE: CustomComposition = {
   seats: 10,
   slotsPerCategory: 8,
   photos: 300,
-  tokensPerCycle: 0,
   domain: false,
 };
 
@@ -83,13 +81,16 @@ test('5-branch nationwide = 15,499', () => {
   assert.equal(q.final28, 15499);
 });
 
-test('full-service (5-branch nationwide + domain + 100 tokens) = 25,999', () => {
+// The tokens axis (100 tokens = +10,000) was REMOVED 2026-08-07 with the token
+// retirement, so this case drops from 25,993/25,999 to 15,993/15,999. The
+// arithmetic below is re-derived, not adjusted to make the test pass.
+test('full-service (5-branch nationwide + domain) = 15,999', () => {
   const q = computeCustomQuote(
-    { ...BASE, branches: 5, nationwide: true, domain: true, tokensPerCycle: 100 },
+    { ...BASE, branches: 5, nationwide: true, domain: true },
     PRICES,
   );
-  assert.equal(q.raw, 25993); // 8999 + 3996 + 2499 + 499 + 10000
-  assert.equal(q.final28, 25999);
+  assert.equal(q.raw, 15993); // 8999 + 3996 + 2499 + 499
+  assert.equal(q.final28, 15999);
 });
 
 test('nationwide replaces per-step reach (no double-charge)', () => {

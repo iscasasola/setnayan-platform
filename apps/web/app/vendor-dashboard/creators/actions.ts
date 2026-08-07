@@ -3,16 +3,19 @@
 /**
  * /vendor-dashboard/creators · vendor-scoped server actions (Creator Economy P1).
  *
- * A vendor spends a REACH TOKEN to send a discount OFFER to a creator. The token
- * spend REUSES the existing per-voucher burn via `offer_creator_reach_hold`
- * (SECURITY DEFINER + answering-member gated inside the DB, exactly like
- * unlock_vendor_event_hold) — no fork of the token economy. ESCROW AT SEND
- * (migration 20270819350491, closing the readiness-verdict B1–B3 money bugs):
- * the send DEBITS the token immediately (tagged spend_source='creator_offer'
- * on the burn ledger); the creator's accept OR decline settles the spend; only
- * an unanswered offer past expires_at is REFUNDED (as purchased tokens) by the
- * cron-free sweep. The vendor_profile_id is resolved server-side from the
- * authed user, never trusted from the form.
+ * A vendor sends a discount OFFER to a creator. SENDING IS FREE.
+ *
+ * ⚠ It used to cost a reach token, escrowed at send and refunded if unanswered
+ * (migration 20270819350491). That was removed 2026-08-07 with the token
+ * retirement (owner: "tokens are already retired") — with packs gone there was
+ * no way to acquire one, so the first Pro vendor to press Send would have been
+ * told to "top up your tokens" at a shop that no longer exists.
+ * `offer_creator_reach_hold` keeps its name and signature (PostgREST resolves
+ * an RPC by its exact set of NAMED arguments) and keeps every gate — member,
+ * tier, eligibility, opt-out, one-outstanding. Only the debit is gone.
+ *
+ * The vendor_profile_id is resolved server-side from the authed user, never
+ * trusted from the form.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -53,9 +56,13 @@ function humanizeOfferError(message: string): string {
   if (message.includes('CREATOR_OFFERS_OFF'))
     return 'This creator isn’t accepting vendor offers right now.';
   if (message.includes('TIER_FREE_NO_REACH'))
-    return 'Free vendors can’t spend reach tokens. Upgrade your plan to offer discounts to creators.';
+    return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
+  // INSUFFICIENT_WALLET_BALANCES can no longer be raised — sending is free
+  // since 2026-08-07. Kept only for a stale-deploy window where the previous
+  // token-charging RPC is still live, and worded without naming a currency the
+  // vendor cannot buy.
   if (message.includes('INSUFFICIENT_WALLET_BALANCES'))
-    return 'Not enough reach tokens available (some may already be held). Top up your tokens and try again.';
+    return 'That offer could not be sent right now. Please try again.';
   if (message.includes('OFFER_PENDING'))
     return 'You already have an outstanding offer to this creator — wait for them to respond.';
   if (message.includes('NOT_A_CREATOR'))
@@ -79,10 +86,9 @@ export async function sendCreatorOffer(formData: FormData) {
   if (!creatorUserId) back('Pick a creator to offer to.');
   if (!creatorRate) back('Add the creator-rate discount you’re offering.');
 
-  // Token-gated send — DEBITS (escrows) a reach token up front. The RPC is
-  // SECURITY DEFINER + answering-member gated, so it runs on the RLS client.
-  // On any debit failure the RPC raises and the offer is rolled back — an offer
-  // can never exist unpaid.
+  // FREE send. The RPC is SECURITY DEFINER + answering-member gated, so it runs
+  // on the RLS client and still enforces tier, eligibility, opt-out and the
+  // one-outstanding-offer rule — those raise and roll the offer back.
   const { data, error } = await supabase.rpc('offer_creator_reach_hold', {
     p_vendor_profile_id: vendorProfileId,
     p_creator_user_id: creatorUserId,
@@ -93,8 +99,9 @@ export async function sendCreatorOffer(formData: FormData) {
   if (error) back(humanizeOfferError(error.message));
 
   // Notify the creator (reuses the notification pipeline). Best-effort.
-  // `tokens_charged` = what was ACTUALLY debited at send; refunded only if the
-  // offer expires unanswered.
+  // `escrowed` is now always false and `tokens_charged` always 0 — both are kept
+  // in the RPC's return shape so a caller reading them gets a truthful zero
+  // rather than a missing key.
   const result = data as {
     ok?: boolean;
     escrowed?: boolean;

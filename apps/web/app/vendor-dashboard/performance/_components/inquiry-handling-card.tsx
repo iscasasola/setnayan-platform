@@ -1,4 +1,4 @@
-import { Clock, Timer, Coins, Inbox } from 'lucide-react';
+import { Clock, Timer, Trophy, Inbox } from 'lucide-react';
 import {
   formatMinutes,
   type InquiryAnalytics,
@@ -81,8 +81,12 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
   const { grid, max } = buildGrid(heatmap);
   const hasHeat = max > 0;
 
-  const tokensPerWon =
-    tokens.tokensPerWon === null ? '—' : Math.round(tokens.tokensPerWon * 10) / 10 + '';
+  // ⚠ This tile used to read "Tokens / booking" — cost per won booking in the
+  // vendor token currency. Answering an inquiry has been FREE since #3531 and
+  // the currency itself was retired 2026-08-07, so it would have read "0 burned"
+  // forever while still teaching a vendor that bookings cost tokens. The two
+  // counts underneath it are real and survive.
+  const wonLabel = tokens.unlockedEvents > 0 ? `${tokens.wonEvents}` : '—';
 
   const missedItems = [
     { label: 'Declined', value: missed.declined },
@@ -120,13 +124,13 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
           }
         />
         <Tile
-          icon={<Coins className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-          label="Tokens / booking"
-          value={tokensPerWon}
+          icon={<Trophy className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
+          label="Bookings won"
+          value={wonLabel}
           sub={
             tokens.unlockedEvents > 0
-              ? `${Math.round(tokens.tokensBurned)} burned · ${tokens.wonEvents} won`
-              : 'No tokens spent in this window'
+              ? `from ${tokens.unlockedEvents} inquir${tokens.unlockedEvents === 1 ? 'y' : 'ies'} you answered`
+              : 'Answer an inquiry to start counting'
           }
         />
       </div>

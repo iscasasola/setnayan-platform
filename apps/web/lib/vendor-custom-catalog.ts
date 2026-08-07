@@ -26,7 +26,6 @@ export const CUSTOM_SKU_CODES = Object.freeze({
   seat: SEAT_SKU_CODE, // vendor_extra_seat
   slot: 'vendor_custom_event_slot',
   photoPack: 'vendor_custom_photo_pack',
-  includedToken: 'vendor_custom_included_token',
   domain: 'vendor_custom_domain',
 });
 
@@ -34,6 +33,16 @@ export const CUSTOM_SKU_CODES = Object.freeze({
  * Fallback unit prices — matches the seed rate card exactly (owner-signed
  * 2026-07-04). Only ever used per-axis when its catalog row is missing /
  * unreadable, so a partial catalog still quotes at the signed price.
+ *
+ * ⚠ THIS FALLBACK IS WHY DEACTIVATING A CATALOG ROW IS NOT A RETIREMENT.
+ * `fetchCustomUnitPrices` filters on `is_active`, so a deactivated row simply
+ * goes missing — and `read()` then substitutes the literal below. The axis
+ * keeps quoting, at the same price, with the catalog saying it is off.
+ * The `includedToken` axis (₱100/token per cycle) was retired 2026-08-07 by
+ * deleting it from the SKU map, this fallback, `CustomUnitPrices`, the quote
+ * math and both configurators — NOT by flipping `is_active`, which would have
+ * changed nothing while looking like it had.
+ * To retire any other axis: delete it here too, or it survives.
  */
 export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   base: 8999,
@@ -43,7 +52,6 @@ export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   seat: SEAT_FEE_PHP, // 250
   slot: 499,
   photoPack: 99,
-  includedToken: 100,
   domain: 499,
 });
 
@@ -93,7 +101,6 @@ export async function fetchCustomUnitPrices(
     seat: read(c.seat, f.seat),
     slot: read(c.slot, f.slot),
     photoPack: read(c.photoPack, f.photoPack),
-    includedToken: read(c.includedToken, f.includedToken),
     domain: read(c.domain, f.domain),
   };
 }

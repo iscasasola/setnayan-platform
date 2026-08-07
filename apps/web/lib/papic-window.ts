@@ -71,6 +71,42 @@ export function manilaEndOfDayIso(dateStr: string): string {
   return `${dateStr}T23:59:59${PAPIC_TZ_OFFSET}`;
 }
 
+/**
+ * Is a camera's capture window open right now?
+ *
+ * 🚨 THE BUG THIS EXISTS TO KILL. `paparazzi_seats.valid_from` / `valid_until`
+ * are **DATE** columns, so PostgREST hands back `"2026-09-19"`. Both call sites
+ * used to do `Date.parse(vf)` — which is midnight **UTC**, i.e. 08:00 Manila —
+ * and compare it to `Date.now()`. A one-day window stamps the SAME date into
+ * both columns, so start and end collapsed onto the SAME INSTANT: the window was
+ * open for about one millisecond, once, at 8 AM on the event day.
+ *
+ * Measured in prod 2026-08-07: SIX of thirteen seats carried
+ * `valid_from = valid_until`, and **both seats anyone had ever claimed were in
+ * that set**. Every shutter tap either of those photographers made was refused.
+ * That is the whole reason `papic_photos` had zero rows.
+ *
+ * A DATE means a whole Manila DAY: from 00:00:00 to 23:59:59.999 at +08:00.
+ *
+ * ⚠ TEST THIS UNDER Asia/Manila. In UTC the start bound looks correct — midnight
+ * UTC really is the start of that UTC day — so a UTC-only suite is blind to it,
+ * which is exactly how it shipped.
+ *
+ * Fails OPEN on null/absent/unparseable bounds: a legacy seat with no window
+ * must never be bricked by this check.
+ */
+export function captureWindowState(
+  validFrom: string | null | undefined,
+  validUntil: string | null | undefined,
+  nowMs: number = Date.now(),
+): 'open' | 'not_started' | 'closed' {
+  const startMs = validFrom ? Date.parse(`${validFrom}T00:00:00${PAPIC_TZ_OFFSET}`) : NaN;
+  const endMs = validUntil ? Date.parse(`${validUntil}T23:59:59.999${PAPIC_TZ_OFFSET}`) : NaN;
+  if (Number.isFinite(startMs) && nowMs < startMs) return 'not_started';
+  if (Number.isFinite(endMs) && nowMs > endMs) return 'closed';
+  return 'open';
+}
+
 /** Calendar-inclusive day count between two YYYY-MM-DD dates (≥ 1). Mon→Fri = 5. */
 export function inclusiveDays(
   startDate: string | null | undefined,

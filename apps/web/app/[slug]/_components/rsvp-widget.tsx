@@ -1,7 +1,6 @@
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
-import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { SelfieCapture } from './selfie-capture';
@@ -13,14 +12,12 @@ export function RsvpWidget({
   guest,
   eventId,
   eventPublicId,
-  limited,
   faceMode,
   flash = null,
 }: {
   guest: GuestRow;
   eventId: string;
   eventPublicId: string;
-  limited: boolean;
   /** Effective face-tag mode — passed to the selfie so mode_b skips the embedder. */
   faceMode: PapicFaceMode;
   /** Did the last attempt land? Rendered at the TOP of the form, because an
@@ -167,14 +164,6 @@ export function RsvpWidget({
           placeholder="Anything you'd like Maria &amp; Juan to know."
         />
       </div>
-
-      {limited ? null : (
-        <p className="text-xs text-ink/50">
-          You&rsquo;ll be able to add a song request and dance style
-          {papicGamesEnabled() ? ', plus a Papic Challenge opt-in,' : ''} when you sign
-          up for a free Setnayan account.
-        </p>
-      )}
 
       <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving RSVP…">
         Save RSVP

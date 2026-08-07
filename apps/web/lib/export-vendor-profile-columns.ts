@@ -91,6 +91,7 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'experience_verified_at, experience_verified_by, extra_agent_seats, fraud_banned_at, ' +
   'fraud_suspended_at, fraud_tombstoned, gallery_video_links, hq_address, hq_latitude, ' +
   'hq_longitude, hq_region, in_business_since_date, in_business_since_year, ' +
+  'venue_width_m, venue_length_m, ' +
   'inner_radius_km, is_demo, is_founder, is_published, is_supplier_vendor, ' +
   'last_demoted_at, last_verified_at, location_city, logo_url, max_soft_holds_per_date, ' +
   'max_waitlist_acceptances, microsite_about, microsite_accent, ' +

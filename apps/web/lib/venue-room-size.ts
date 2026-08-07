@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { BOOKED_VENDOR_STATUSES } from './vendors';
+
 /**
  * The room size a couple's BOOKED venue says it is.
  *
@@ -30,10 +32,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *  `RECEPTION_CATEGORY` in `lib/std-venues.ts` — one word, two readers. */
 const VENUE_CATEGORY = 'venue';
 
-/** Statuses that mean the couple has actually committed to this vendor. Kept
- *  narrow on purpose: an enquiry is not a booking, and sizing a plan from a
- *  venue the couple never books is worse than not sizing it at all. */
-const BOOKED_STATUSES = ['booked', 'confirmed', 'completed'] as const;
+/**
+ * Statuses that mean the couple has actually committed to this vendor.
+ *
+ * 🔴 THIS WAS THREE INVENTED VALUES — `booked · confirmed · completed`. NONE of
+ * them exist in the `vendor_status` enum (`considering · shortlisted ·
+ * contracted · deposit_paid · delivered · complete`), so the query matched
+ * NOTHING, EVER: the feature would have shipped silently doing nothing at all,
+ * with no error anywhere. Caught by the repo's own guard on status arrays.
+ *
+ * Reusing `BOOKED_VENDOR_STATUSES` rather than re-typing the real four — one
+ * list, and it is `satisfies ReadonlyArray<VendorStatus>`, so a future enum
+ * change breaks the build instead of silently emptying this query.
+ *
+ * `considering` and `shortlisted` are deliberately NOT booked: sizing a plan
+ * from a venue the couple never books is worse than not sizing it at all.
+ */
 
 export type VenueRoomSize = {
   widthM: number;
@@ -68,7 +82,7 @@ export async function fetchBookedVenueRoomSize(
       )
       .eq('event_id', eventId)
       .eq('category', VENUE_CATEGORY)
-      .in('status', BOOKED_STATUSES as unknown as string[])
+      .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
       .not('linked_vendor_profile_id', 'is', null)
       .limit(1);
 

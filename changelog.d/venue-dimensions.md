@@ -76,3 +76,24 @@ one input, or drop the columns from the profile select, and the suite goes red.
 
 **Both were caught by the owner asking a one-word question**, not by CI, and not
 by me re-reading my own claim.
+
+
+## 🔴 AND THE REPO'S OWN GUARDS CAUGHT TWO MORE
+
+Both on the first CI run, neither by me:
+
+1. **The three "booked" statuses were ALL INVENTED.** `booked · confirmed ·
+   completed` — none exist in the `vendor_status` enum (`considering ·
+   shortlisted · contracted · deposit_paid · delivered · complete`). **The query
+   matched nothing, ever.** The feature would have shipped silently doing
+   nothing, with no error anywhere, and my own test cheerfully confirmed that
+   none of those three were "shortlisted". *A test is only as real as the values
+   it checks.* Now reuses `BOOKED_VENDOR_STATUSES`, which is
+   `satisfies ReadonlyArray<VendorStatus>` — a phantom value breaks the build.
+2. **The RA 10173 subject-export projection silently dropped the new columns.** A
+   vendor exporting their own data would have been handed a file missing the
+   room they entered. Added.
+
+Four shapes of one bug in one feature, then: a reader with no caller · an action
+with no form · a column with no writer · **and a query filtered on values that
+do not exist.** Every one of them green on typecheck.

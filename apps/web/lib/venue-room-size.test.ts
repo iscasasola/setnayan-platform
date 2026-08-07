@@ -81,15 +81,31 @@ test('an enquiry is not a booking', async () => {
   const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
   const src = readFileSync(join(here, 'venue-room-size.ts'), 'utf8');
-  const m = /const BOOKED_STATUSES = \[([^\]]+)\]/.exec(src)?.[1] ?? '';
-  for (const loose of ['enquiry', 'inquiry', 'shortlisted', 'contacted', 'pending']) {
+  // 🔴 THIS ONCE ASSERTED AGAINST THREE INVENTED VALUES. The module used to
+  // declare its own `['booked','confirmed','completed']` — NONE of which exist
+  // in the `vendor_status` enum (`considering · shortlisted · contracted ·
+  // deposit_paid · delivered · complete`), so the query matched NOTHING, EVER,
+  // and this test happily confirmed that none of them were 'shortlisted'.
+  // A test can only be as real as the values it checks.
+  assert.match(
+    src,
+    /import \{ BOOKED_VENDOR_STATUSES \} from '\.\/vendors'/,
+    'The module declares its own status list again. Reuse the shared one — it ' +
+      'is `satisfies ReadonlyArray<VendorStatus>`, so a phantom value breaks ' +
+      'the build instead of silently emptying the query.',
+  );
+  assert.match(src, /\.in\('status', BOOKED_VENDOR_STATUSES/, 'the query stopped using it');
+
+  const vendors = readFileSync(join(here, 'vendors.ts'), 'utf8');
+  const real = /BOOKED_VENDOR_STATUSES = \[([^\]]+)\]/.exec(vendors)?.[1] ?? '';
+  for (const loose of ['considering', 'shortlisted']) {
     assert.ok(
-      !m.includes(loose),
+      !real.includes(`'${loose}'`),
       `'${loose}' counts as booked — a couple would have their room sized by a ` +
         `venue they have not committed to.`,
     );
   }
-  assert.ok(m.includes('booked'), 'nothing counts as booked at all');
+  assert.ok(real.includes('contracted'), 'nothing counts as booked at all');
 });
 
 test('the read fails toward silence, and says why that is safe here', async () => {

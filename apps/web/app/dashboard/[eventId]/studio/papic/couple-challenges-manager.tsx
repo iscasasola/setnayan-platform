@@ -9,6 +9,7 @@ import { Trophy, Eye, EyeOff, Trash2, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
+import type { PapicMissionSource } from '@/lib/papic-missions';
 import {
   createCoupleChallengeAction,
   setCoupleChallengeActiveAction,
@@ -17,15 +18,22 @@ import {
 
 type MissionRow = {
   mission_id: string;
-  source: 'auto' | 'couple' | 'vendor';
+  // ⚠ Reuse the shared union — do NOT restate it. This file used to declare its
+  // own ('auto' | 'couple' | 'vendor'). When the §9 library added a fourth
+  // source the database learned it and this screen did not, so every Setnayan
+  // recommendation rendered under the fallback badge and told the couple a
+  // vendor had written it. Keyed off the shared type, adding a source now fails
+  // the build here until it gets a badge.
+  source: PapicMissionSource;
   prompt: string;
   is_active: boolean;
 };
 
-const SOURCE_BADGE: Record<MissionRow['source'], { label: string; cls: string }> = {
+const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> = {
   couple: { label: 'Yours', cls: 'bg-mulberry/15 text-mulberry' },
   auto: { label: 'Booth', cls: 'bg-terracotta/15 text-terracotta' },
   vendor: { label: 'Vendor', cls: 'bg-ink/10 text-ink/60' },
+  setnayan: { label: 'Recommended', cls: 'bg-gold/15 text-gold-700' },
 };
 
 export async function CoupleChallengesManager({ eventId }: { eventId: string }) {
@@ -50,8 +58,9 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
         Papic Challenges
       </h3>
       <p className="mt-1 text-xs text-ink/60">
-        Little photo missions for your guests. Write your own, and hide any you
-        don&rsquo;t want — booth challenges appear here as you book vendors.
+        Little photo missions for your guests. We add a set of recommended ones;
+        write your own, and hide any you don&rsquo;t want — booth challenges
+        appear here as you book vendors.
       </p>
 
       {/* Author your own */}
@@ -79,7 +88,13 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
       {missions.length > 0 ? (
         <ul className="mt-4 space-y-2">
           {missions.map((m) => {
-            const badge = SOURCE_BADGE[m.source] ?? SOURCE_BADGE.vendor;
+            // The Record above is exhaustive over PapicMissionSource, so this
+            // only fires on a value the database allows and TypeScript has not
+            // heard of. It must NOT fall back to another source's badge —
+            // defaulting to `vendor` is exactly how Setnayan's own
+            // recommendations came to be labelled as a vendor's.
+            const badge =
+              SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/60' };
             return (
               <li
                 key={m.mission_id}

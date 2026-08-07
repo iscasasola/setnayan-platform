@@ -5,6 +5,12 @@
 > If something here contradicts `STATUS.md`, this doc wins (and `STATUS.md`
 > needs an update).
 
+> ⚠ **2026-08-07 — this document is from May and predates most of the product.**
+> For what is actually left, read **[`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md)**: 87
+> claims verified against shipped code and the live database, 58 still open, 15
+> of them waiting on the owner rather than on engineering. Use this file for
+> cold-start orientation only.
+
 **Last touched:** 2026-05-13
 **Owner's deadline anchor:** December 2026 wedding
 

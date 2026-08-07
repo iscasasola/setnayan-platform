@@ -1,15 +1,23 @@
 # Setnayan V1 — Pre-launch handoff
 
-> Single document for taking over the project cold — whether that's a future
-> Claude Code session, a teammate, or the owner returning after a break.
-> If something here contradicts `STATUS.md`, this doc wins (and `STATUS.md`
-> needs an update).
+> Background for taking over the project cold — a future Claude Code session, a
+> teammate, or the owner returning after a break. It used to say "if something
+> here contradicts `STATUS.md`, this doc wins"; that is no longer true and the
+> banner below says what does.
 
-> ⚠ **2026-08-07 — this document is from May and predates most of the product.**
-> For what is actually left, read **[`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md)**: 87
-> claims verified against shipped code and the live database, 58 still open, 15
-> of them waiting on the owner rather than on engineering. Use this file for
-> cold-start orientation only.
+> 🔴 **THIS FILE IS ORIENTATION ONLY — IT PREDATES MOST OF THE PRODUCT.** Two
+> dated documents supersede it, and they do different jobs:
+> - **[`HANDOFF_RESUME_2026-08-07.md`](HANDOFF_RESUME_2026-08-07.md)** — verified
+>   production state, the open URL decision, the logo debt, the retention model.
+>   Read this to know **where things stand**.
+> - **[`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md)** — 87 claims checked against shipped
+>   code and the live database; 58 still open, 15 of them waiting on the owner
+>   rather than on engineering. Read this to know **what to do next**.
+>
+> Where any of the three disagree, the dated ones win over this file. (Both
+> banners above were added the same day by different sessions, each naming only
+> its own document — kept together deliberately, because neither replaces the
+> other.)
 
 **Last touched:** 2026-05-13
 **Owner's deadline anchor:** December 2026 wedding

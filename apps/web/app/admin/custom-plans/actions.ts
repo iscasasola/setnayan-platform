@@ -80,7 +80,6 @@ function parseComposition(formData: FormData): CustomComposition {
     seats: Math.max(0, Math.floor(num(formData.get('seats'), 10))),
     slotsPerCategory: Math.max(0, Math.floor(num(formData.get('slotsPerCategory'), 8))),
     photos: Math.max(0, Math.floor(num(formData.get('photos'), 300))),
-    tokensPerCycle: Math.max(0, Math.floor(num(formData.get('tokensPerCycle'), 0))),
     domain: bool(formData.get('domain')),
     api_access: bool(formData.get('api_access')),
   };
@@ -114,7 +113,6 @@ async function parseUnitPrices(
     seat: over('unit_seat', catalog.seat),
     slot: over('unit_slot', catalog.slot),
     photoPack: over('unit_photoPack', catalog.photoPack),
-    includedToken: over('unit_includedToken', catalog.includedToken),
     domain: over('unit_domain', catalog.domain),
   };
 }

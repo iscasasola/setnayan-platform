@@ -3,12 +3,13 @@
 /**
  * Creator dashboard · discount-offer inbox actions (Creator Economy P1).
  *
- * A creator accepts or declines a vendor's discount offer. The vendor's reach
- * token was already DEBITED at send (escrow-at-send, migration 20270819350491
- * — closing the swallowed-consume leak, readiness verdict B1); both responses
- * merely SETTLE that spent token via `respond_creator_offer` (SECURITY DEFINER,
- * gated to the addressed creator inside the DB). Responding past the offer's
- * expires_at raises OFFER_EXPIRED — the expiry sweep refunds the vendor. On
+ * A creator accepts or declines a vendor's discount offer. SENDING IS FREE
+ * since 2026-08-07 (token retirement) — an offer costs the vendor nothing, so
+ * there is no charge to settle or refund. `respond_creator_offer` still records
+ * the response (SECURITY DEFINER, gated to the addressed creator inside the DB)
+ * and its legacy-settle branch is inert, because it only fires on
+ * `reach_tokens_held > 0` and new offers are written with 0. Responding past the
+ * offer's expires_at raises OFFER_EXPIRED — the sweep just marks it expired. On
  * accept, the creator may link a published chapter that credits the vendor as
  * the deliverable. No money moves here — Setnayan only records the collab; the
  * discount settles off-platform.
@@ -33,7 +34,7 @@ function back(msg: string): never {
 /** Map the DB RPC's RAISE codes to plain-language creator copy. */
 function humanizeRespondError(message: string): string {
   if (message.includes('OFFER_EXPIRED'))
-    return 'This offer expired before you responded — it can no longer be accepted or declined. The vendor’s token is returned automatically.';
+    return 'This offer expired before you responded — it can no longer be accepted or declined.';
   if (message.includes('FORBIDDEN')) return 'This offer isn’t addressed to your account.';
   if (message.includes('NOT_FOUND')) return 'That offer no longer exists.';
   return message;
@@ -62,8 +63,8 @@ async function respond(formData: FormData, response: 'accepted' | 'declined') {
   if (error) back(humanizeRespondError(error.message));
 
   // Tell the vendor their offer was answered (reuses the notification pipeline).
-  // `tokens_settled` = what was ACTUALLY debited at send (escrow) — the RPC no
-  // longer reports a charge that might not have happened.
+  // `tokens_settled` is always 0 now — kept in the shape so a caller reading it
+  // gets a truthful zero rather than a missing key.
   const result = data as {
     ok?: boolean;
     status?: string;
@@ -89,7 +90,7 @@ async function respond(formData: FormData, response: 'accepted' | 'declined') {
         body:
           response === 'accepted'
             ? 'They’ll credit your shop in a published chapter. See it under My Shop → Creators.'
-            : 'The reach token was spent on the outreach. See it under My Shop → Creators.',
+            : 'No charge — sending an offer is free. See it under My Shop → Creators.',
         relatedUrl: '/vendor-dashboard/creators',
       });
     }

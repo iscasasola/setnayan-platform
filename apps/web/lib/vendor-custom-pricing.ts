@@ -15,7 +15,6 @@
  *   - seats:           +seat per EXTRA team seat (beyond the base 10).
  *   - slots:           +slot per +1 event slot / category (beyond the base 8).
  *   - photos:          +photoPack per +100 portfolio photos (beyond the base 300).
- *   - tokens:          +includedToken each per cycle (flat face value).
  *   - domain:          +domain flat if a custom domain is included.
  *
  * CHARM: round UP to the next ‑99 (…x99). Floor at base (a plan can never quote
@@ -41,8 +40,6 @@ export interface CustomComposition {
   slotsPerCategory: number;
   /** TOTAL portfolio photos (base 300 included). */
   photos: number;
-  /** Included tokens granted per cycle (flat face value each). */
-  tokensPerCycle: number;
   /** Custom domain included. */
   domain: boolean;
   /**
@@ -74,8 +71,6 @@ export interface CustomUnitPrices {
   slot: number;
   /** Per +100 portfolio photos (beyond base 300). */
   photoPack: number;
-  /** Per included token / cycle (flat face value). */
-  includedToken: number;
   /** Flat custom-domain add-on. */
   domain: number;
 }
@@ -150,7 +145,6 @@ export function computeCustomQuote(
   const extraSeats = excess(c.seats, CUSTOM_BASE.seats);
   const extraSlots = excess(c.slotsPerCategory, CUSTOM_BASE.slotsPerCategory);
   const photoPacks = Math.ceil(excess(c.photos, CUSTOM_BASE.photos) / 100);
-  const tokens = Number.isFinite(c.tokensPerCycle) ? Math.max(0, Math.floor(c.tokensPerCycle)) : 0;
 
   const raw =
     p.base +
@@ -159,7 +153,6 @@ export function computeCustomQuote(
     extraSeats * p.seat +
     extraSlots * p.slot +
     photoPacks * p.photoPack +
-    tokens * p.includedToken +
     (c.domain ? p.domain : 0);
 
   // List price: charm-round, floored at base (a plan never quotes below base).

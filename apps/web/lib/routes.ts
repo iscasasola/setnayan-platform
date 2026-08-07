@@ -240,7 +240,6 @@ export const routes = {
       health: () => `/api/v1/health`,
       manpower: {
         syncDevice: () => `/api/v1/manpower/sync-device`,
-        verifyTelemetry: () => `/api/v1/manpower/verify-telemetry`,
       },
       me: () => `/api/v1/me`,
       reviews: () => `/api/v1/reviews`,
@@ -255,7 +254,6 @@ export const routes = {
     },
     webhooks: {
       persona: () => `/api/webhooks/persona`,
-      tokenPurchase: () => `/api/webhooks/token-purchase`,
       veriff: () => `/api/webhooks/veriff`,
     },
     website: {

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -40,7 +41,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -60,6 +61,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       resolveRoleSetForEvent(eventId),
       // Booth picker (decision #9): only BOOKED vendors are offered as booths.
       fetchBookedVendorsForBooths(supabase, eventId),
+      // The booked venue's own stated room size — a SUGGESTION only, used
+      // below when the couple has not sized their room yet.
+      fetchBookedVenueRoomSize(supabase, eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory only:
@@ -173,6 +177,15 @@ export default async function SeatingPage({ params, searchParams }: Props) {
           booths={booths}
           signs={signs}
           bookedVendors={bookedVendors}
+          // The venue's own size, offered ONLY when the couple has not set
+          // their room. Their number always wins, and a room they sized once
+          // and have been placing tables into ever since counts as set.
+          suggestedRoomSize={
+            venueRoomSize &&
+            shouldSuggestVenueSize(floorPlan?.venue_width_m, floorPlan?.venue_length_m)
+              ? venueRoomSize
+              : null
+          }
           constraints={constraints}
           eventDate={eventDate}
           genderSeparationNote={genderSeparationNote}

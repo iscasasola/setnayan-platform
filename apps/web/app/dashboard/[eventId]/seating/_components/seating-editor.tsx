@@ -238,6 +238,10 @@ type Props = {
   guests: SeatingGuest[];
   groups: SeatingGroup[];
   floorPlan: FloorPlanRow;
+  /** The booked venue's OWN stated room size, or null. Present only when the
+   *  couple has not sized their room yet — the page decides that, so this
+   *  component never has to reason about whose number wins. */
+  suggestedRoomSize?: { widthM: number; lengthM: number; vendorName: string } | null;
   booths: FloorBoothRow[];
   signs: FloorSignRow[];
   // Booth picker (decision #9): the event's BOOKED vendors — the only vendors
@@ -311,6 +315,7 @@ export function SeatingEditor({
   guests: guestsProp,
   groups,
   floorPlan,
+  suggestedRoomSize = null,
   booths: boothsProp,
   signs: signsProp,
   bookedVendors,
@@ -555,10 +560,18 @@ export function SeatingEditor({
   // move via setPositions, so the render below just reads the latest value.
   const guidesRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   // Venue dimensions (metres) → render the room + tables to scale.
+  // The couple's own room wins; the booked venue's stated size is the fallback,
+  // and the historical 20×30 is the fallback of last resort.
+  //
+  // ⚠ `suggestedRoomSize` is non-null ONLY when the page already established the
+  // couple has not sized their room — so there is no precedence to re-decide
+  // here, and no way for this component to overwrite work in progress.
   const [venue, setVenue] = useState({
-    enabled: floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null,
-    width: floorPlan.venue_width_m ?? 20,
-    length: floorPlan.venue_length_m ?? 30,
+    enabled:
+      (floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null) ||
+      suggestedRoomSize !== null,
+    width: floorPlan.venue_width_m ?? suggestedRoomSize?.widthM ?? 20,
+    length: floorPlan.venue_length_m ?? suggestedRoomSize?.lengthM ?? 30,
   });
   const [showRoomPanel, setShowRoomPanel] = useState(false);
   // Guest-photo visibility in the public 3D venue walk (owner 2026-07-03).
@@ -4982,6 +4995,19 @@ export function SeatingEditor({
                 className="w-24 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
               />
             </label>
+            {/* WHERE THE NUMBER CAME FROM (2026-08-07). A room that silently
+                resizes itself is alarming; one that says who sized it is a
+                helpful colleague. Shown only while the size still matches what
+                the venue stated — the moment the couple changes it, it is their
+                room and the note stops claiming otherwise. */}
+            {suggestedRoomSize &&
+            venue.width === suggestedRoomSize.widthM &&
+            venue.length === suggestedRoomSize.lengthM ? (
+              <p className="text-xs text-ink/60">
+                Sized from <span className="font-medium text-ink/80">{suggestedRoomSize.vendorName}</span> —
+                change it if your room is different.
+              </p>
+            ) : null}
             {/* Feature B — room-size presets: one tap sets a common footprint and
                 switches to-scale mode on (the typed inputs stay for fine-tuning). */}
             <div className="flex flex-col gap-1">

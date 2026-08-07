@@ -7,7 +7,6 @@ import {
   Users,
   CalendarClock,
   Images,
-  Coins,
   Globe,
   Minus,
   Plus,
@@ -61,7 +60,6 @@ const BASE_COMPOSITION: CustomComposition = {
   seats: CUSTOM_BASE.seats,
   slotsPerCategory: CUSTOM_BASE.slotsPerCategory,
   photos: CUSTOM_BASE.photos,
-  tokensPerCycle: 0,
   domain: false,
 };
 
@@ -132,11 +130,6 @@ export function CustomConfigurator({
       label: `${photoPacks} × +100 photos × ${peso(unitPrices.photoPack)}`,
       amount: photoPacks * unitPrices.photoPack,
     });
-  if (comp.tokensPerCycle > 0)
-    lines.push({
-      label: `${PESO.format(comp.tokensPerCycle)} tokens/cycle × ${peso(unitPrices.includedToken)}`,
-      amount: comp.tokensPerCycle * unitPrices.includedToken,
-    });
   if (comp.domain)
     lines.push({ label: 'Custom domain', amount: unitPrices.domain });
 
@@ -153,7 +146,6 @@ export function CustomConfigurator({
       <input type="hidden" name="seats" value={comp.seats} />
       <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
       <input type="hidden" name="photos" value={comp.photos} />
-      <input type="hidden" name="tokensPerCycle" value={comp.tokensPerCycle} />
       <input type="hidden" name="domain" value={comp.domain ? 'true' : 'false'} />
       <input type="hidden" name="channel" value={channel} />
 
@@ -230,18 +222,6 @@ export function CustomConfigurator({
           step={100}
           disabled={!editable}
           onChange={(v) => set('photos', v)}
-        />
-
-        <StepperControl
-          icon={<Coins className="h-4.5 w-4.5" strokeWidth={1.75} aria-hidden />}
-          label="Included tokens / cycle"
-          hint="Tokens granted to your wallet every 28-day cycle."
-          value={comp.tokensPerCycle}
-          min={0}
-          max={500}
-          step={25}
-          disabled={!editable}
-          onChange={(v) => set('tokensPerCycle', v)}
         />
 
         <ToggleControl

@@ -681,6 +681,14 @@ const INLINE_PROFILE_FIELDS = new Set([
   // post-verification — the verified-lock guard below allowlists them.
   'portfolio',
   'gallery_videos',
+  // VENUE SIZE + CAPACITY (owner 2026-08-07: "allowing vendors to set the sizes
+  // of their venues so customers can fillup the space").
+  //
+  // One field key carrying four numbers, because they are one answer about one
+  // room and a couple's plan cannot use half of it. `capacity_min`/`capacity_max`
+  // already existed with NO WRITER anywhere — same screen, same audience, so
+  // they are picked up here rather than left as one more setting nobody can set.
+  'venue_size',
 ]);
 
 /**
@@ -804,6 +812,53 @@ export async function updateVendorProfileField(
       }
       patch = { in_business_since_year: newYear };
       runYearExperienceReset = true;
+      break;
+    }
+    case 'venue_size': {
+      // Both dimensions or neither — the DB CHECK enforces the same pair, and
+      // the couple-side seeding cannot use a width with no length. Clearing the
+      // room (both blank) is legitimate and must stay possible: a vendor who
+      // stops offering a fixed room should be able to say so.
+      const dim = (key: string): number | null | 'bad' => {
+        const raw = formData.get(key);
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+        const n = Number(raw.trim());
+        // 500 m mirrors `parseDim` in the seating action, which already clamps
+        // the couple's own input — the two ends of one number must agree.
+        if (!Number.isFinite(n) || n <= 0 || n > 500) return 'bad';
+        return n;
+      };
+      const w = dim('venue_width_m');
+      const l = dim('venue_length_m');
+      if (w === 'bad' || l === 'bad') {
+        return { ok: false, error: 'Enter a room size in metres, up to 500.' };
+      }
+      if ((w === null) !== (l === null)) {
+        return { ok: false, error: 'Enter both the width and the length, or leave both blank.' };
+      }
+
+      const cap = (key: string): number | null | 'bad' => {
+        const raw = formData.get(key);
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+        const n = Number(raw.trim());
+        if (!Number.isInteger(n) || n <= 0 || n > 100_000) return 'bad';
+        return n;
+      };
+      const cmin = cap('capacity_min');
+      const cmax = cap('capacity_max');
+      if (cmin === 'bad' || cmax === 'bad') {
+        return { ok: false, error: 'Enter a guest count as a whole number.' };
+      }
+      if (cmin !== null && cmax !== null && cmin > cmax) {
+        return { ok: false, error: 'The smallest party cannot be larger than the largest.' };
+      }
+
+      patch = {
+        venue_width_m: w,
+        venue_length_m: l,
+        capacity_min: cmin,
+        capacity_max: cmax,
+      };
       break;
     }
     case 'portfolio': {

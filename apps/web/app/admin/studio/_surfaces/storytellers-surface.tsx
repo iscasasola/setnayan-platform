@@ -307,7 +307,6 @@ function InfluencerAnalyticsPanel({
 }: {
   analytics: InfluencerAnalytics;
 }) {
-  const totalInfluencerTokens = a.reachTokensSpent + a.leadUnlockTokensSpent;
   return (
     <section className="mb-8 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
       <header className="mb-4 space-y-1">
@@ -336,17 +335,17 @@ function InfluencerAnalyticsPanel({
           {/* Aggregate stat row — ledger facts only. */}
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <AdminStat label="Inquiries driven" value={a.totalInquiriesDriven} />
-            <AdminStat label="Influencer tokens spent" value={totalInfluencerTokens} />
             <AdminStat label="Participating vendors" value={a.participatingVendorCount} />
             <AdminStat label="Active storytellers" value={a.activeCreatorCount} />
           </dl>
+          {/* The fourth stat here was "Influencer tokens spent", split into
+              reach + lead-unlock. Both are ₱0 now: answering an inquiry has been
+              free since #3531 and creator outreach became free with the token
+              retirement (2026-08-07), so the figure could only ever read 0 while
+              implying outreach still costs something. */}
           <p className="text-xs text-ink/50">
-            Influencer token spend splits into{' '}
-            <strong className="text-ink/70">{a.reachTokensSpent}</strong> reach
-            (vendor→creator offers) +{' '}
-            <strong className="text-ink/70">{a.leadUnlockTokensSpent}</strong>{' '}
-            lead-unlock (unlocking a creator-referred inquiry). Discounts settle
-            off-platform and are never shown.
+            Reaching a storyteller and unlocking a creator-referred inquiry are
+            both free. Discounts settle off-platform and are never shown.
           </p>
 
           {/* Top creators by inquiries driven — aggregate names only. */}

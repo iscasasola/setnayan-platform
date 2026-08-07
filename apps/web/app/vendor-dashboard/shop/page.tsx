@@ -479,6 +479,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     in_business_since_year: profile.in_business_since_year
       ? String(profile.in_business_since_year)
       : '',
+    // Venue room size + capacity. Empty strings when unset — the inputs are
+    // plain text/number fields and `null` would render the string "null".
+    venue_width_m: profile.venue_width_m != null ? String(profile.venue_width_m) : '',
+    venue_length_m: profile.venue_length_m != null ? String(profile.venue_length_m) : '',
+    capacity_min: profile.capacity_min != null ? String(profile.capacity_min) : '',
+    capacity_max: profile.capacity_max != null ? String(profile.capacity_max) : '',
     logo_url: profile.logo_url ?? null,
     logoDisplayMap,
     services: (profile.services ?? []) as string[],

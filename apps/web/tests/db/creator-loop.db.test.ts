@@ -392,13 +392,24 @@ test('offer gates: FORBIDDEN / TIER_FREE / SELF_OFFER / MISSING_TERMS / NOT_A_CR
   await expectRaise(SEND, [F.vendor, F.hiddenCreator, '20% rate'], 'NOT_A_CREATOR');
 });
 
-// ─── (c) money: escrow-at-send walkthroughs ─────────────────────────────────
+// ─── (c) SENDING IS FREE ─────────────────────────────────────────────────────
+// These eight cases used to pin escrow-at-send: a token debited at send, settled
+// on accept/decline, refunded on expiry. The token currency was RETIRED
+// 2026-08-07 (owner: "tokens are already retired") and migration
+// 20271121043599 removed the debit. Every NON-money guarantee below is unchanged
+// and still asserted — one-outstanding, addressed-creator-only, deliverable
+// linkage, expiry semantics, no-double-sweep. Only the money is gone.
+//
+// 🔑 The most valuable case here is now the INVERSE of the old one: a vendor
+// with an EMPTY wallet must be able to send. That is the exact defect the
+// retirement fixed — with packs gone nobody can top up, so a balance check
+// would have blocked every send forever.
 
 let offer1: string; // accepted
 let offer2: string; // declined
 
-test('send ESCROWS: wallet debited at send, ledger tagged creator_offer', async () => {
-  assert.equal(await walletBalance(F.vendor), 3, 'fixture wallet');
+test('send is FREE: no debit, no escrow stamp, no ledger row', async () => {
+  const before = await walletBalance(F.vendor);
 
   await setAuthUid(db, F.founder);
   const r = await db.query<{ r: { ok: boolean; escrowed: boolean; offer_id: string; tokens_charged: number } }>(
@@ -407,34 +418,41 @@ test('send ESCROWS: wallet debited at send, ledger tagged creator_offer', async 
   );
   const out = r.rows[0]!.r;
   assert.equal(out.ok, true);
-  assert.equal(out.escrowed, true);
-  assert.equal(out.tokens_charged, 1);
+  assert.equal(out.escrowed, false, 'nothing is escrowed any more');
+  assert.equal(out.tokens_charged, 0, 'the send is free');
   offer1 = out.offer_id;
 
-  assert.equal(await walletBalance(F.vendor), 2, 'token LEFT the wallet at send');
+  assert.equal(await walletBalance(F.vendor), before, 'wallet untouched by a send');
 
-  const row = await db.query<{ status: string; escrowed_at: string; reach_token_ref: string }>(
-    `SELECT status, escrowed_at, reach_token_ref FROM public.vendor_creator_offers WHERE offer_id=$1`,
+  const row = await db.query<{ status: string; escrowed_at: string | null; reach_token_ref: string | null; reach_tokens_held: number }>(
+    `SELECT status, escrowed_at, reach_token_ref, reach_tokens_held FROM public.vendor_creator_offers WHERE offer_id=$1`,
     [offer1],
   );
   assert.equal(row.rows[0]!.status, 'pending');
-  assert.ok(row.rows[0]!.escrowed_at, 'escrowed_at stamped');
-  assert.equal(row.rows[0]!.reach_token_ref, `ESCROW:${offer1}`);
+  // These two are LOAD-BEARING, not cosmetic: the expiry sweep refunds only on
+  // `escrowed_at IS NOT NULL AND reach_tokens_held > 0`, and respond's
+  // legacy-settle fires only on `escrowed_at IS NULL AND reach_tokens_held > 0`.
+  // Leaving escrowed_at NULL *and* holding 0 is what makes BOTH skip. If a
+  // future change stamps escrowed_at without a debit, the sweep starts
+  // "refunding" tokens that were never taken.
+  assert.equal(row.rows[0]!.escrowed_at, null, 'escrowed_at stays NULL — nothing was escrowed');
+  assert.equal(row.rows[0]!.reach_token_ref, null, 'no escrow reference');
+  assert.equal(Number(row.rows[0]!.reach_tokens_held), 0, 'holds zero — the sweep must not refund');
 
-  const ledger = await db.query<{ spend_source: string; tokens_spent: number }>(
-    `SELECT spend_source, tokens_spent FROM public.token_redemptions_log
+  const ledger = await db.query(
+    `SELECT 1 FROM public.token_redemptions_log
       WHERE vendor_id=$1 AND service_code='CREATOR_REACH' AND metadata->>'offer_id'=$2`,
     [F.vendor, offer1],
   );
-  assert.equal(ledger.rows.length, 1, 'exactly one burn row');
-  assert.equal(ledger.rows[0]!.spend_source, 'creator_offer', 'influencer-spend tag stamped');
-  assert.equal(Number(ledger.rows[0]!.tokens_spent), 1);
+  assert.equal(ledger.rows.length, 0, 'a free send writes no burn row');
 });
 
 test('one outstanding offer per (vendor, creator): duplicate send refused', async () => {
+  // With the token cost gone this guard and the Pro-and-up gate are the ONLY
+  // things rationing sends. It matters more now than it did when it was backed
+  // by a price.
   await setAuthUid(db, F.founder);
   await expectRaise(SEND, [F.vendor, F.creator, 'second offer'], 'OFFER_PENDING');
-  assert.equal(await walletBalance(F.vendor), 2, 'refused send costs nothing');
 });
 
 test('only the addressed creator can respond', async () => {
@@ -446,15 +464,16 @@ test('only the addressed creator can respond', async () => {
   );
 });
 
-test('ACCEPT settles — no further debit (walkthrough a)', async () => {
+test('ACCEPT records the deliverable and charges nothing', async () => {
+  const before = await walletBalance(F.vendor);
   await setAuthUid(db, F.creator);
   const r = await db.query<{ r: { ok: boolean; status: string; tokens_settled: number } }>(
     `SELECT public.respond_creator_offer($1::uuid, 'accepted', $2::uuid) AS r`,
     [offer1, F.creatorChapterId],
   );
   assert.equal(r.rows[0]!.r.status, 'accepted');
-  assert.equal(r.rows[0]!.r.tokens_settled, 1, 'reports what was ACTUALLY debited at send');
-  assert.equal(await walletBalance(F.vendor), 2, 'accept touches no wallet');
+  assert.equal(r.rows[0]!.r.tokens_settled, 0, 'nothing to settle');
+  assert.equal(await walletBalance(F.vendor), before, 'accept touches no wallet');
 
   const row = await db.query<{ deliverable_chapter_id: string }>(
     `SELECT deliverable_chapter_id FROM public.vendor_creator_offers WHERE offer_id=$1`,
@@ -467,10 +486,11 @@ test('ACCEPT settles — no further debit (walkthrough a)', async () => {
       WHERE vendor_id=$1 AND service_code='CREATOR_REACH' AND metadata->>'offer_id'=$2`,
     [F.vendor, offer1],
   );
-  assert.equal(burns.rows.length, 1, 'still exactly one burn — respond consumed nothing');
+  assert.equal(burns.rows.length, 0, 'respond must never start charging — the legacy-settle branch stays inert');
 });
 
-test('DECLINE also settles — a “no” still costs the vendor the outreach', async () => {
+test('DECLINE records the no and charges nothing', async () => {
+  const before = await walletBalance(F.vendor);
   await setAuthUid(db, F.founder);
   const s = await db.query<{ r: { offer_id: string } }>(SEND, [
     F.vendor,
@@ -478,32 +498,27 @@ test('DECLINE also settles — a “no” still costs the vendor the outreach', 
     '15% rate, second campaign',
   ]);
   offer2 = s.rows[0]!.r.offer_id;
-  assert.equal(await walletBalance(F.vendor), 1, 'second send debited');
+  assert.equal(await walletBalance(F.vendor), before, 'second send is free too');
 
   await setAuthUid(db, F.creator);
-  const r = await db.query<{ r: { status: string; tokens_settled: number } }>(
+  const r = await db.query<{ r: { status: string } }>(
     `SELECT public.respond_creator_offer($1::uuid, 'declined') AS r`,
     [offer2],
   );
   assert.equal(r.rows[0]!.r.status, 'declined');
-  assert.equal(await walletBalance(F.vendor), 1, 'decline refunds nothing (owner lock)');
+  assert.equal(await walletBalance(F.vendor), before, 'a no costs nothing');
 });
 
-test('INSUFFICIENT balance refuses the send and leaves NO unpaid offer row (walkthrough b, serialized form)', async () => {
-  // Drain the wallet to 0 with a third offer to a fresh creator target.
-  const creator2 = await createUser('creator2@loop.test');
-  await setPublicProfile(creator2, true);
-  await db.query(
-    `INSERT INTO public.creator_chapters (user_id, title, kind, embed_url, embed_provider, status, published_at)
-     VALUES ($1, 'travel chapter', 'travel',
-             'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ', 'youtube', 'published', now())`,
-    [creator2],
-  );
-  await setAuthUid(db, F.founder);
-  await db.query(SEND, [F.vendor, creator2, 'drain offer']);
-  assert.equal(await walletBalance(F.vendor), 0);
+test('AN EMPTY WALLET CAN STILL SEND — the defect the retirement fixed', async () => {
+  // Before 2026-08-07 this raised INSUFFICIENT_WALLET_BALANCES. Token packs are
+  // retired, so a vendor can no longer top up — a balance check here would have
+  // blocked the FIRST Pro vendor who ever tried, permanently, and told them to
+  // "top up" at a page that no longer exists.
+  await db.query(`UPDATE public.vendor_wallets SET purchased_tokens = 0, earned_tokens = 0 WHERE vendor_id=$1`, [
+    F.vendor,
+  ]);
+  assert.equal(await walletBalance(F.vendor), 0, 'wallet drained');
 
-  // Now a fourth send (fresh target) must be REFUSED atomically.
   const creator3 = await createUser('creator3@loop.test');
   await setPublicProfile(creator3, true);
   await db.query(
@@ -513,23 +528,22 @@ test('INSUFFICIENT balance refuses the send and leaves NO unpaid offer row (walk
     [creator3],
   );
   await setAuthUid(db, F.founder);
-  await expectRaise(SEND, [F.vendor, creator3, 'broke offer'], 'INSUFFICIENT_WALLET_BALANCES');
+  const r = await db.query<{ r: { ok: boolean; tokens_charged: number } }>(SEND, [
+    F.vendor,
+    creator3,
+    'broke but allowed',
+  ]);
+  assert.equal(r.rows[0]!.r.ok, true, 'a zero balance no longer blocks the send');
+  assert.equal(r.rows[0]!.r.tokens_charged, 0);
 
-  const orphan = await db.query(
+  const row = await db.query(
     `SELECT 1 FROM public.vendor_creator_offers WHERE vendor_id=$1 AND creator_user_id=$2`,
     [F.vendor, creator3],
   );
-  assert.equal(orphan.rows.length, 0, 'offer row rolled back with the failed debit — no unpaid offer');
-  // Note: true two-connection concurrency is not exercisable in single-
-  // connection PGlite; the FOR UPDATE serialization this asserts is the
-  // post-lock balance re-read path of walkthrough (b).
+  assert.equal(row.rows.length, 1, 'the offer exists');
 });
 
-test('EXPIRY: sweep refunds the escrow exactly once (walkthroughs c + d)', async () => {
-  // Fund 1 token and send an offer that is ALREADY past its window.
-  await db.query(`UPDATE public.vendor_wallets SET purchased_tokens = 1 WHERE vendor_id=$1`, [
-    F.vendor,
-  ]);
+test('EXPIRY: sweep marks expired and refunds NOTHING', async () => {
   const creator4 = await createUser('creator4@loop.test');
   await setPublicProfile(creator4, true);
   await db.query(
@@ -544,9 +558,9 @@ test('EXPIRY: sweep refunds the escrow exactly once (walkthroughs c + d)', async
     [F.vendor, creator4, 'stale offer'],
   );
   const staleOffer = s.rows[0]!.r.offer_id;
-  assert.equal(await walletBalance(F.vendor), 0, 'escrowed at send');
+  const before = await walletBalance(F.vendor);
 
-  // (d) responding past expires_at cannot resolve the offer
+  // responding past expires_at cannot resolve the offer
   await setAuthUid(db, creator4);
   await expectRaise(
     `SELECT public.respond_creator_offer($1::uuid, 'accepted') AS r`,
@@ -554,21 +568,20 @@ test('EXPIRY: sweep refunds the escrow exactly once (walkthroughs c + d)', async
     'OFFER_EXPIRED',
   );
 
-  // (c) sweep → expired + refunded as purchased tokens, exactly once
   const sweep1 = await db.query(`SELECT * FROM public.sweep_expired_creator_offers()`);
   assert.equal(sweep1.rows.length, 1, 'sweep settles the stale offer');
-  assert.equal(await walletBalance(F.vendor), 1, 'escrow refunded to the payer wallet');
+  assert.equal(await walletBalance(F.vendor), before, 'NOTHING was taken, so nothing is given back');
 
-  const row = await db.query<{ status: string; refunded_at: string }>(
+  const row = await db.query<{ status: string; refunded_at: string | null }>(
     `SELECT status, refunded_at FROM public.vendor_creator_offers WHERE offer_id=$1`,
     [staleOffer],
   );
   assert.equal(row.rows[0]!.status, 'expired');
-  assert.ok(row.rows[0]!.refunded_at, 'refunded_at is the exactly-once guard');
+  assert.equal(row.rows[0]!.refunded_at, null, 'no refund stamp — there was no escrow');
 
   const sweep2 = await db.query(`SELECT * FROM public.sweep_expired_creator_offers()`);
   assert.equal(sweep2.rows.length, 0, 'second sweep finds nothing');
-  assert.equal(await walletBalance(F.vendor), 1, 'NO double refund');
+  assert.equal(await walletBalance(F.vendor), before, 'and still credits nothing');
 
   // a straggler response after the sweep is an idempotent no-op
   await setAuthUid(db, creator4);
@@ -580,7 +593,7 @@ test('EXPIRY: sweep refunds the escrow exactly once (walkthroughs c + d)', async
   assert.equal(late.rows[0]!.r.status, 'expired');
 });
 
-test('MEMBER draw: personal wallet debited at send, refunded on expiry', async () => {
+test('MEMBER draw: a teammate sends free too, and no personal wallet moves', async () => {
   const creator5 = await createUser('creator5@loop.test');
   await setPublicProfile(creator5, true);
   await db.query(
@@ -600,14 +613,15 @@ test('MEMBER draw: personal wallet debited at send, refunded on expiry', async (
       ).rows[0]!.b,
     );
 
-  assert.equal(await memberBal(), 1);
+  const before = await memberBal();
   await setAuthUid(db, F.memberUser);
   const s = await db.query<{ r: { offer_id: string } }>(
     `SELECT public.offer_creator_reach_hold($1::uuid, $2::uuid, 'member 10% rate', NULL, 1, now() - interval '1 minute') AS r`,
     [F.vendor, creator5],
   );
-  assert.equal(await memberBal(), 0, 'member personal wallet debited (not the store wallet)');
+  assert.equal(await memberBal(), before, 'member personal wallet untouched');
 
+  // is_founder_draw still records WHO sent it — that survives the retirement.
   const row = await db.query<{ is_founder_draw: boolean }>(
     `SELECT is_founder_draw FROM public.vendor_creator_offers WHERE offer_id=$1`,
     [s.rows[0]!.r.offer_id],
@@ -615,7 +629,7 @@ test('MEMBER draw: personal wallet debited at send, refunded on expiry', async (
   assert.equal(row.rows[0]!.is_founder_draw, false);
 
   await db.query(`SELECT * FROM public.sweep_expired_creator_offers()`);
-  assert.equal(await memberBal(), 1, 'expiry refund lands back in the member wallet');
+  assert.equal(await memberBal(), before, 'and the sweep credits nothing back');
 });
 
 test('ledger integrity: every reach debit is tagged creator_offer', async () => {

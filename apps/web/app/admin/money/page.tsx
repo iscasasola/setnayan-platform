@@ -30,7 +30,7 @@ export default function AdminMoneyHub() {
     <MobileLandingGrid
       desktopVisible
       title="Money & Settings"
-      subtitle="Pricing, catalog, and payout config — plus platform settings, integrations, and API keys (Secrets & Rotation). The act-now money queues (Payments · Payouts · Token sales) live in Overview."
+      subtitle="Pricing, catalog, and payout config — plus platform settings, integrations, and API keys (Secrets & Rotation). The act-now money queues (Payments · Payouts · Subscriptions) live in Overview."
       items={items}
     />
   );

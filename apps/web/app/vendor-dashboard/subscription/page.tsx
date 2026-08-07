@@ -10,7 +10,6 @@ import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   TIER_PRICE_PHP,
-  TIER_SUBSCRIPTION_BUNDLE_TOKENS,
   TIER_CAPS,
   asVendorTier,
   isTierAtLeast,
@@ -43,27 +42,26 @@ import {
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
-import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
 /**
- * /vendor-dashboard/subscription — the unified "Plan & tokens" hub. Self-serve
- * Pro / Enterprise upgrade + the vendor token wallet in ONE place (owner
- * 2026-07-01 "keep subscription and tokens in one place. so they can make 1
- * purchase for both").
+ * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
+ * Enterprise upgrade.
  *
- * Apply-then-pay: the vendor picks a plan + cycle (optionally folding a token
- * pack into the SAME order), starts it (create_vendor_subscription), pays our
- * BDO / GCash account with the reference code, and an admin confirms at
- * /admin/subscriptions — which activates the tier, grants the bundled tokens,
- * and credits any add-on tokens. Standalone token top-ups live in the token
- * wallet section below (TokenWalletSection). /vendor-dashboard/tokens redirects
- * here.
+ * Apply-then-pay: the vendor picks a plan + cycle, starts it
+ * (create_vendor_subscription), pays our BDO / GCash account with the reference
+ * code, and an admin confirms at /admin/subscriptions — which activates the
+ * tier.
  *
- * PRICING is DB-DRIVEN: the subscription + token_pack SKUs come from
+ * ⚠ THE TOKEN HALF IS GONE (2026-08-07). This page was the unified "Plan &
+ * tokens" hub: a wallet panel, a standalone top-up path, and a pack you could
+ * fold into the same order. All retired under the owner's 2026-07-21 lock —
+ * "token can retire, there should be nothing that needs token anymore". Prod
+ * never saw a pack bought or a token spent.
+ *
+ * PRICING is DB-DRIVEN: the subscription SKUs come from
  * vendor_billing_catalog. The cards show the catalog price; the form posts only
- * sku_code (+ optional add-on pack sku); the RPC re-reads authoritative prices.
- * Cap + bundled-token copy comes from the TIER_CAPS /
- * TIER_SUBSCRIPTION_BUNDLE_TOKENS matrix in code (the capability source).
+ * sku_code; the RPC re-reads authoritative prices. Cap copy comes from the
+ * TIER_CAPS matrix in code (the capability source).
  *
  * Current tier + renewal date are read via a soft-probe (tier_state /
  * tier_expires_at are not in FULL_VENDOR_PROFILE_SELECT).
@@ -256,68 +254,20 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     ? PAID_TIERS
     : PAID_TIERS.filter((t) => t !== 'solo');
 
-  // Token packs available to fold into a plan order as an optional add-on
-  // (one payment for plan + tokens). Cheapest first.
-  const addonPacks: TokenPack[] = vendorCatalog
-    .filter((r) => r.offering_type === 'token_pack' && (r.token_grant_count ?? 0) > 0)
-    .map((r) => ({
-      sku_code: r.sku_code,
-      token_count: r.token_grant_count as number,
-      price_php: r.price_php,
-    }))
-    .sort((a, b) => a.token_count - b.token_count);
-
-  // When an order was just started, look up its amount (+ add-on breakdown) so
-  // the pay panel can tell the vendor exactly how much to send. The reference is
-  // SUB- (plan / combined) or TKN- (standalone token top-up); check both tables
-  // (RLS scopes each read to the caller's own rows).
-  let orderedSummary:
-    | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
-    | null = null;
-  // ⚠ `orderedIsToken` REMOVED 2026-08-06. It suppressed the "How to pay" tile
-  // for a standalone token top-up (TKN-) on the stated grounds that
-  // <PendingPurchases> inside <TokenWalletSection> "already gets its full
-  // apply-then-pay panel". FALSE: token-wallet-section.tsx imports only
-  // <BalanceCard>, and <PendingPurchases> had zero importers anywhere — it was
-  // deleted in this change. So a vendor who ordered a top-up was shown NO
-  // payment instructions at all, on the one screen that exists to give them.
-  //
-  // Latent rather than live, because a top-up is not purchasable today: the only
-  // caller of startTokenPurchase is <BuyTokensCta>, whose component export is
-  // itself unreferenced (the file stays — two type-only TokenPack imports need
-  // it). But the premise had to go with the component, or the false claim would
-  // outlive the thing it named and be unrecoverable by grep.
-  //
-  // One payment tile now serves every order shape.
+  // When an order was just started, look up its amount so the pay panel can
+  // tell the vendor exactly how much to send. Every reference is now SUB- (a
+  // plan) — the TKN- standalone top-up lookup went with the token retirement
+  // (owner 2026-07-21), along with the plan/add-on split, because a plan order
+  // can no longer carry an add-on.
+  let orderedSummary: { amount: number } | null = null;
   if (search.ordered) {
     const { data: subRow } = await supabase
       .from('vendor_subscriptions')
-      .select('amount_php, addon_amount_php, addon_token_count')
+      .select('amount_php')
       .eq('reference_code', search.ordered)
       .maybeSingle();
     if (subRow) {
-      const total = Number(subRow.amount_php ?? 0);
-      const addonAmount = Number(subRow.addon_amount_php ?? 0);
-      orderedSummary = {
-        amount: total,
-        planAmount: total - addonAmount,
-        addonAmount,
-        addonTokens: Number(subRow.addon_token_count ?? 0),
-      };
-    } else {
-      const { data: tknRow } = await supabase
-        .from('vendor_token_purchases')
-        .select('amount_php, token_count')
-        .eq('reference_code', search.ordered)
-        .maybeSingle();
-      if (tknRow) {
-        orderedSummary = {
-          amount: Number(tknRow.amount_php ?? 0),
-          planAmount: 0,
-          addonAmount: Number(tknRow.amount_php ?? 0),
-          addonTokens: Number(tknRow.token_count ?? 0),
-        };
-      }
+      orderedSummary = { amount: Number(subRow.amount_php ?? 0) };
     }
   }
 
@@ -441,13 +391,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       <div className="mt-5">
         <SubscriptionCards
           cycle={cycle}
-          packs={addonPacks}
           cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
             // read failed (e.g. CI with no service-role key).
             const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
-            const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier][cycle];
             const isCurrent = currentTier === tier && currentCycle === cycle;
             return [
               {
@@ -456,7 +404,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
                 pitch: TIER_PITCH[tier],
                 price,
                 cycle,
-                bundleTokens: bundle,
                 capLines: keyCapLines(tier),
                 isCurrent,
                 isPaid,
@@ -557,10 +504,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </span>
       </Link>
 
-      {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
-          started. Token-only (TKN-) top-ups are intentionally excluded — their
-          instructions render once inside <TokenWalletSection> below, so showing
-          this tile too would double the BDO+GCash QR blocks. */}
+      {/* Apply-then-pay payment instructions when a plan order was just
+          started. This is the only payment tile on the screen — the token
+          top-up path it used to share the page with is retired. */}
       {search.ordered && (
         <div className="sn-tile mt-6 p-6">
           <p className="sn-eye">How to pay</p>
@@ -572,17 +518,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               <p className="font-mono text-2xl font-bold text-ink">
                 ₱{NUMBER.format(orderedSummary.amount)}
               </p>
-              {orderedSummary.addonTokens > 0 && orderedSummary.planAmount > 0 ? (
-                <p className="mt-0.5 text-xs text-ink/60">
-                  Plan ₱{NUMBER.format(orderedSummary.planAmount)} ＋{' '}
-                  {NUMBER.format(orderedSummary.addonTokens)} tokens ₱
-                  {NUMBER.format(orderedSummary.addonAmount)}
-                </p>
-              ) : orderedSummary.addonTokens > 0 ? (
-                <p className="mt-0.5 text-xs text-ink/60">
-                  {NUMBER.format(orderedSummary.addonTokens)} tokens
-                </p>
-              ) : null}
             </div>
           )}
           <p className="mt-3 text-sm text-ink/65">
@@ -614,9 +549,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </div>
       )}
 
-      {/* Token wallet — reduced to a dormant read-only balance panel (renders
-          only if a retained balance exists; token packs are retired, nothing
-          spends tokens). */}
     </main>
   );
 }
@@ -648,10 +580,8 @@ function PayBox({
               style={{ borderColor: 'var(--m-line)' }}
             >
               {/* External URL · plain <img> (QR assets live on Supabase
-                  storage, not in next/image's whitelisted domains). This used to
-                  say it "mirrors the token-purchase PendingPurchases QR
-                  pattern"; that component had zero importers and was deleted
-                  2026-08-06, so this tile is now the only QR pattern. */}
+                  storage, not in next/image's whitelisted domains). This tile
+                  is the only QR pattern on the screen. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrUrl as string}

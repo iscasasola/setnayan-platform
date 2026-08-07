@@ -306,10 +306,6 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
       </section>
 
       <p className="mt-8 text-center text-xs text-ink/40">
-        <Link href="/admin/token-purchases" className="underline hover:text-ink/60">
-          Token sales
-        </Link>{' '}
-        ·{' '}
         <Link href="/admin/pricing" className="underline hover:text-ink/60">
           Plan pricing
         </Link>

@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "0805addb8",
-  "routeCount": 403,
-  "destinations": 679,
-  "actions": 515,
+  "generatedFromRef": "b80bf6645",
+  "routeCount": 400,
+  "destinations": 676,
+  "actions": 511,
   "routes": {
     "/": {
       "files": [
@@ -794,6 +794,7 @@
     "/admin/integrations": {
       "files": [
         "admin/integrations/_components/build-time-status.tsx",
+        "admin/integrations/_components/known-hash-card.tsx",
         "admin/integrations/_components/maya-card.tsx",
         "admin/integrations/_components/oauth-card.tsx",
         "admin/integrations/_components/secret-card.tsx",
@@ -1250,8 +1251,7 @@
         "admin/subscriptions/page.tsx"
       ],
       "destinations": [
-        "/admin/pricing",
-        "/admin/token-purchases"
+        "/admin/pricing"
       ],
       "actions": [
         "approveSubscription",
@@ -1307,28 +1307,6 @@
         "unretireEventTypeVocab",
         "updateEventTypePresentation",
         "updatePlanningDeadline"
-      ]
-    },
-    "/admin/token-bands": {
-      "files": [
-        "admin/token-bands/actions.ts",
-        "admin/token-bands/page.tsx"
-      ],
-      "destinations": [],
-      "actions": []
-    },
-    "/admin/token-purchases": {
-      "files": [
-        "admin/token-purchases/actions.ts",
-        "admin/token-purchases/page.tsx"
-      ],
-      "destinations": [
-        "/admin/pricing",
-        "/admin/pricing?tab=token-bands"
-      ],
-      "actions": [
-        "approveTokenPurchase",
-        "rejectTokenPurchase"
       ]
     },
     "/admin/ugat": {
@@ -1432,28 +1410,26 @@
       ],
       "actions": []
     },
+    "/admin/vendors/[vendorProfileId]/plan": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/plan/page.tsx"
+      ],
+      "destinations": [
+        "/admin/vendors"
+      ],
+      "actions": [
+        "setVendorTier"
+      ]
+    },
     "/admin/vendors/[vendorProfileId]/team": {
       "files": [
         "admin/vendors/[vendorProfileId]/team/page.tsx"
       ],
       "destinations": [
         "/admin/vendors",
-        "/admin/vendors/[seg]/tokens"
+        "/admin/vendors/[seg]/plan"
       ],
       "actions": []
-    },
-    "/admin/vendors/[vendorProfileId]/tokens": {
-      "files": [
-        "admin/vendors/[vendorProfileId]/tokens/loading.tsx",
-        "admin/vendors/[vendorProfileId]/tokens/page.tsx"
-      ],
-      "destinations": [
-        "/admin/vendors"
-      ],
-      "actions": [
-        "grantTokensToVendor",
-        "setVendorTier"
-      ]
     },
     "/admin/venues": {
       "files": [
@@ -5327,7 +5303,6 @@
         "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
         "vendor-dashboard/subscription/_components/price-position-card.tsx",
         "vendor-dashboard/subscription/_components/subscription-cards.tsx",
-        "vendor-dashboard/subscription/_components/token-wallet-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -5389,19 +5364,6 @@
       ],
       "destinations": [],
       "actions": []
-    },
-    "/vendor-dashboard/tokens": {
-      "files": [
-        "vendor-dashboard/tokens/_components/balance-card.tsx",
-        "vendor-dashboard/tokens/_components/buy-tokens-cta.tsx",
-        "vendor-dashboard/tokens/actions.ts",
-        "vendor-dashboard/tokens/loading.tsx",
-        "vendor-dashboard/tokens/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [
-        "startTokenPurchase"
-      ]
     },
     "/vendor-dashboard/track-record": {
       "files": [

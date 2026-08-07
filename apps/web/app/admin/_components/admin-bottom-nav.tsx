@@ -84,7 +84,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/vendor-partnerships',
       '/admin/payments',
       '/admin/payouts',
-      '/admin/token-purchases',
       '/admin/subscriptions',
       '/admin/payment-options',
       '/admin/disputes',
@@ -199,7 +198,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // /admin/settings/demo-mode + /admin/settings/payment-methods)
       '/admin/pricing',
       '/admin/vendor-recommendations',
-      '/admin/token-bands',
       '/admin/price-bands',
       '/admin/budget-planner',
       '/admin/receipts',

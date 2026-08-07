@@ -95,3 +95,21 @@ SPEC IMPACT: Yes — `Data_Retention_Schedule_2026-07-11.md`, corpus `CLAUDE.md`
 `0012_papic/Papic_Pricing_Lock_2026-07-20.md` (still documents the retired 90-day
 model) and the public `/privacy` copy all carry the superseded 5-month / 30-day
 pair. Applied separately.
+
+### Same PR · the public privacy notice, and the guard that now ties it to the code
+
+Raising the floor 30 days → 3 months made the live `/privacy` notice **understate**
+what we hold. That is a breach in the quieter direction: RA 10173 storage
+limitation binds us to the period we **declare**, nobody complains about getting
+more than promised, and the notice is still false.
+
+New guard in `retention-copy-is-true.test.ts` **derives** the month figure from
+`FULL_RES_POST_EVENT_GRACE_DAYS` and asserts the notice states it. Moving either
+one alone now fails — sabotaged both directions. This is copy-vs-CODE, not two
+hand-typed strings agreeing with each other, which is how `llms.txt` drifted for
+three weeks with green CI.
+
+🪤 **The coupling is why this is not a separate PR.** Split out, the constant lands
+on `main` first and `main` sits with a notice that understates retention. The
+first draft *was* a separate branch and its CI went red immediately — the guard
+caught its own author.

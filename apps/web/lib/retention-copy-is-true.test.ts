@@ -190,3 +190,56 @@ test('no user-facing copy promises we delete a connected account on a timer', ()
       'guaranteed, not what sounds reassuring:\n  ' + offenders.join('\n  '),
   );
 });
+
+/**
+ * THE PUBLIC NOTICE'S POST-EVENT FLOOR MUST MATCH THE CONSTANT THAT ENFORCES IT.
+ *
+ * 🔑 THIS IS A COPY-vs-CODE CHECK, NOT TWO HAND-TYPED THINGS. The month figure in
+ * the privacy notice is DERIVED here from FULL_RES_POST_EVENT_GRACE_DAYS, so
+ * moving the constant without touching the notice fails, and vice versa. A guard
+ * comparing two hand-typed strings is not a guard — that is how `llms.txt`
+ * drifted for three weeks with green CI.
+ *
+ * ── WHY THIS ONE MATTERS MORE THAN IT LOOKS ─────────────────────────────────
+ * On 2026-08-07 the floor was raised 30 days → 3 months while shooting opened to
+ * 6 months before the event. Left alone, the notice would have said we replace
+ * originals after 30 days while the sweep actually held them for three months.
+ * **Understating retention is a breach in the quieter direction**: RA 10173
+ * storage limitation binds us to the period we DECLARE, nobody ever complains
+ * about getting more than promised, and the notice is still false.
+ *
+ * It is also now the load-bearing number. A camera may open six months before the
+ * event, so the earliest permitted photo's own six-month clock expires ON the
+ * event day — this floor is the only thing preserving anything afterwards.
+ */
+test('the privacy notice states the REAL post-event floor', async () => {
+  const { FULL_RES_POST_EVENT_GRACE_DAYS } = await import('./papic-fullres-drop-core');
+  const notice = code(join(WEB, 'app/privacy/page.tsx'));
+
+  // Self-check: an unreadable file would satisfy a "does not contain" assertion.
+  assert.ok(notice.length > 2000, 'self-check: the privacy notice read as near-empty');
+
+  const months = Math.round(FULL_RES_POST_EVENT_GRACE_DAYS / 30.44);
+  assert.ok(months >= 1, `a floor of ${FULL_RES_POST_EVENT_GRACE_DAYS} days is not a whole month`);
+
+  // Normalise the JSX: collapse whitespace and drop {' '} spacers so the phrase
+  // reads as one line however it happens to be wrapped.
+  const flat = notice.replace(/\{'\s*'\}/g, ' ').replace(/\s+/g, ' ');
+
+  // NOTE the tag placement: the copy is `<strong>3 months</strong>`, so the unit
+  // sits INSIDE the tag. A first draft put `months` after the closing tag and
+  // failed — which is the only reason we know this assertion can fail at all.
+  const stated = new RegExp(
+    `never less than\\s*(?:<strong>)?\\s*${months}\\s*months?\\s*(?:</strong>)?\\s*after the event`,
+    'i',
+  );
+  assert.match(
+    flat,
+    stated,
+    `the notice must say the originals are held at least ${months} months after ` +
+      `the event, because FULL_RES_POST_EVENT_GRACE_DAYS is ` +
+      `${FULL_RES_POST_EVENT_GRACE_DAYS}. If you changed the constant, change ` +
+      `the public notice in the SAME PR — holding data longer than the declared ` +
+      `period is the RA 10173 problem, and it is silent.`,
+  );
+});

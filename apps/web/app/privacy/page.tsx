@@ -861,9 +861,23 @@ export default function PrivacyPage() {
 
             ⚠ The anchor differs from the schedule and the CODE is authority:
             the sweep runs 6 months from the event's FIRST CAPTURE (an
-            engagement shoot starts it), floored at 30 days after the event
-            date. The schedule row still says `event_date`. Stated here the way
-            it actually behaves.
+            engagement shoot starts it), floored at 3 MONTHS after the event
+            date. Stated here the way it actually behaves.
+
+            ⚠ FLOOR RAISED 30 DAYS → 3 MONTHS (owner 2026-08-07: "still preserve
+            3 months all their photos in high res before we compress it"), in the
+            same sitting that opened shooting to 6 months before the event.
+            Updating this notice is NOT optional politeness: RA 10173 storage
+            limitation binds us to the period we DECLARE, and leaving "30 days"
+            here would have meant holding originals materially longer than the
+            public notice allowed. Understating retention is a breach in the
+            quieter direction — nobody complains, and the notice is still false.
+
+            🔑 It is also now the load-bearing number. Because a camera may open
+            six months before the event, a photo taken at the earliest permitted
+            moment has its own six-month clock expire ON the event day. This
+            floor is the only thing preserving anything afterwards; the "6
+            months" above does no work for an early shooter.
 
             ⚠ FACE DATA — the media correction silently broke the row beneath
             it. Both the schedule and this notice said face vectors are "purged
@@ -884,8 +898,8 @@ export default function PrivacyPage() {
               <strong>Photos and video</strong> — the{' '}
               <strong>full-resolution originals</strong> are kept for{' '}
               <strong>6 months</strong> from the event&rsquo;s first photo (never
-              less than 30 days after the event itself), and are then replaced by
-              a compressed copy. That <strong>compressed gallery stays online
+              less than <strong>3 months</strong> after the event itself), and are
+              then replaced by a compressed copy. That <strong>compressed gallery stays online
               indefinitely</strong> — we do not delete it. If you connect Google
               Drive, every original is also saved to a folder you own, and that
               copy is yours to keep for as long as you want it.

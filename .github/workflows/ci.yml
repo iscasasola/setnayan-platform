@@ -223,6 +223,23 @@ jobs:
         continue-on-error: true
         run: cd apps/web && node scripts/lint-server-only-boundary.mjs
 
+      # Fails when a `supabase/migrations/` directory exists anywhere but the
+      # repo root. `supabase db push` reads ONLY <repoRoot>/supabase/migrations,
+      # so a migration written elsewhere is never applied — and it looks exactly
+      # like a healthy pending migration sitting in the tree, which is worse than
+      # missing, because a reader counts it as done.
+      #
+      # Not hypothetical: apps/supabase/migrations/ hid photo_messages.voice_depth
+      # this way. Its route shipped and went live, the column never did, and
+      # because PostgREST resolves an RPC by its exact NAMED arguments, every
+      # guest message save returned save_failed — silently, with green CI, for
+      # weeks. Same shape as the orphan changelog.d dirs that stranded 172
+      # fragments. See apps/web/scripts/lint-migrations-dir.mjs.
+      - name: Lint migrations dir
+        id: guard_migrations_dir
+        continue-on-error: true
+        run: node apps/web/scripts/lint-migrations-dir.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
@@ -299,6 +316,7 @@ jobs:
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
+          MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
         run: |
           failed=0
           check() {
@@ -322,6 +340,7 @@ jobs:
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
+          check 'lint migrations dir'         "$MIGRATIONS_DIR"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'

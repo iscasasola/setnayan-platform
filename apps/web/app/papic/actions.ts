@@ -35,6 +35,7 @@ import {
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
+import { captureWindowState } from '@/lib/papic-window';
 
 // Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
 // client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
@@ -308,17 +309,17 @@ export async function recordSeatCapture(
       // Closing the window ends CAPTURE only — the gallery + delivery stay open
       // forever. Fail-OPEN on absent/null bounds (legacy seats had none) so a
       // pre-window camera is never broken. Applies to per-camera seats only.
-      const nowMs = Date.now();
-      const validFrom = seat.valid_from
-        ? Date.parse(seat.valid_from as string)
-        : NaN;
-      const validUntil = seat.valid_until
-        ? Date.parse(seat.valid_until as string)
-        : NaN;
-      if (Number.isFinite(validFrom) && nowMs < validFrom) {
+      // ⚠ SHARED HELPER — see captureWindowState(). Parsing the DATE columns
+      // with Date.parse() reads them as midnight UTC (08:00 Manila) and makes a
+      // one-day window zero-width.
+      const windowState = captureWindowState(
+        seat.valid_from as string | null,
+        seat.valid_until as string | null,
+      );
+      if (windowState === 'not_started') {
         return { ok: false, error: 'capture_not_started' };
       }
-      if (Number.isFinite(validUntil) && nowMs > validUntil) {
+      if (windowState === 'closed') {
         return { ok: false, error: 'capture_window_closed' };
       }
 

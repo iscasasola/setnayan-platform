@@ -420,6 +420,15 @@ export function PapicSeatCapture({
         if (isCapCode(code)) {
           throw new Error(code);
         }
+        // ⚠ WINDOW REFUSALS MUST BE TERMINAL, NOT RETRIED. Both codes are
+        // already in PAPIC_TERMINAL_ERRORS, but they only reach it if we
+        // re-throw them by name. A code-less/unknown 403 became
+        // Error('presign'), which is NOT terminal — so the shot went to the
+        // durable offline queue, the counter still incremented, and the
+        // photographer was shown nothing. They believed the photo was taken.
+        if (code === 'capture_not_started' || code === 'capture_window_closed') {
+          throw new Error(code);
+        }
         throw new Error('presign');
       }
       const { uploadUrl, r2Ref } = (await presignRes.json()) as {

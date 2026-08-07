@@ -29,6 +29,7 @@ import {
 } from '@/lib/papic-cameras';
 import { combinePointsGates } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
+import { captureWindowState } from '@/lib/papic-window';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -320,17 +321,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // record-layer gate in app/papic/actions.ts. Fail-OPEN on null bounds
       // (legacy seats) so a pre-window camera is never broken.
       {
-        const nowMs = Date.now();
+        // ⚠ USE THE SHARED HELPER. This used to Date.parse() the DATE columns
+        // directly, which reads "2026-09-19" as midnight UTC = 08:00 Manila —
+        // collapsing a one-day window to a single instant. See
+        // captureWindowState() for the full story.
         const vf = (seat as { valid_from?: string | null }).valid_from;
         const vu = (seat as { valid_until?: string | null }).valid_until;
-        const validFrom = vf ? Date.parse(vf) : NaN;
-        const validUntil = vu ? Date.parse(vu) : NaN;
-        if (
-          (Number.isFinite(validFrom) && nowMs < validFrom) ||
-          (Number.isFinite(validUntil) && nowMs > validUntil)
-        ) {
+        const windowState = captureWindowState(vf, vu);
+        if (windowState !== 'open') {
+          // ⚠ THE `code` IS LOAD-BEARING, not decoration. Without it the client
+          // cannot tell a refusal from a network failure: papic-seat-capture
+          // turns a code-less 403 into a generic Error('presign'), which is not
+          // in PAPIC_TERMINAL_ERRORS, so the shot goes to the durable OFFLINE
+          // QUEUE and the counter still increments. The photographer is told
+          // nothing and believes the photo was taken.
           return NextResponse.json(
-            { error: 'This camera’s capture window isn’t open.' },
+            {
+              error:
+                windowState === 'not_started'
+                  ? 'This camera’s capture window hasn’t opened yet.'
+                  : 'This camera’s capture window has closed.',
+              code: windowState === 'not_started' ? 'capture_not_started' : 'capture_window_closed',
+            },
             { status: 403 },
           );
         }

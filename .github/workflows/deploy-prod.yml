@@ -171,7 +171,24 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # PINNED, not `latest`. Supabase CLI v2.112.0 (released 2026-08-07
+          # 10:08 UTC) broke `supabase link` with
+          #   failed to get api keys: SchemaError(Expected a string matching the RegExp ...)
+          # — it validates a timestamp the API returns against a stricter
+          # RFC3339 regex than the API emits. Every prod deploy from 11:17 that
+          # day failed at the link step, so THREE migrations merged green and
+          # never reached the database: venue dimensions (the column did not
+          # exist while the code reading it was live), creator-offers-free, and
+          # an OAuth credential backfill.
+          #
+          # 🔑 `version: latest` means a third party can break this pipeline
+          # without anyone touching this repo — and it fails AFTER the merge, so
+          # CI is green and nobody is told. v2.111.0 (2026-07-31) is the last
+          # release every deploy succeeded on.
+          #
+          # To move off the pin: bump it deliberately and watch one deploy go
+          # green. Do not put `latest` back.
+          version: 2.111.0
 
       - name: Link Supabase project
         if: steps.gate.outputs.enabled == 'true'

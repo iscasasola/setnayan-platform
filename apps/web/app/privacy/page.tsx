@@ -1029,11 +1029,12 @@ export default function PrivacyPage() {
               <em>Vendor interest counts</em> above.)
             </li>
             <li>
-              <strong>Retention.</strong> Grants are kept until the earlier of
-              (a) you revoke them from your profile or from TikTok&rsquo;s app
-              settings, (b) you delete your Setnayan account, or (c) 30 days
-              after the event ends. Refresh tokens past their expiry are
-              purged automatically.
+              <strong>Retention.</strong> Grants are kept until you revoke them
+              — from your Setnayan profile or from TikTok&rsquo;s own app
+              settings — or until you delete your Setnayan account. The moment
+              you disconnect, we erase the stored keys rather than merely
+              marking the connection ended. We do <strong>not</strong> delete
+              connections on a timer: if you want one gone, disconnect it.
             </li>
             <li>
               <strong>Revoking access.</strong> Two paths, either works
@@ -1449,13 +1450,15 @@ export default function PrivacyPage() {
               never use it to train AI or ML models.
             </li>
             <li>
-              <strong>Retention.</strong> Grants are kept until the earlier
-              of (a) you revoke them from your Google account or from your
-              Setnayan profile, (b) you delete your Setnayan account, or
-              (c) 30 days after the event ends. Refresh tokens past their
-              expiry are purged automatically. The files Setnayan wrote to
-              your Drive are not deleted by Setnayan when the grant ends —
-              they remain in your Drive under your sole control.
+              <strong>Retention.</strong> Grants are kept until you revoke
+              them — from your Google account or from your Setnayan profile —
+              or until you delete your Setnayan account. The moment you
+              disconnect, we erase the stored keys rather than merely marking
+              the connection ended. We do <strong>not</strong> delete
+              connections on a timer: if you want one gone, disconnect it. The
+              files Setnayan wrote to your Drive are not deleted by Setnayan
+              when the grant ends — they remain in your Drive under your sole
+              control.
             </li>
             <li>
               <strong>Revoking access.</strong> Two paths, either works

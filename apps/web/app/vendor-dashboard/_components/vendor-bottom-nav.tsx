@@ -123,6 +123,9 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/services',
       '/vendor-dashboard/attributes',
       '/vendor-dashboard/repertoire',
+      // Sibling of repertoire; was missing here too, so the tab went unlit while
+      // a host sat on his own segments page.
+      '/vendor-dashboard/activities',
       '/vendor-dashboard/manpower',
       '/vendor-dashboard/moodboard-library',
     ],

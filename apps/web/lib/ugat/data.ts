@@ -295,16 +295,20 @@ export const getUgatCounts = cache(loadUgatCountsCached);
    ═════════════════════════════════════════════════════════════════════════ */
 export const UGAT_PAGE_SIZE = 25;
 
-export type UgatTableKey =
-  | 'users'
-  | 'events'
-  | 'guests'
-  | 'vendors'
-  | 'services'
-  | 'orders'
-  | 'threads'
-  | 'billing'
-  | 'communities';
+/**
+ * The single table list lives in `./data-pure` — see the long note there.
+ *
+ * It CANNOT live in this file: `ugat-console.tsx` is a `'use client'` component
+ * and needs the tuple at runtime to render its tabs, but this module opens with
+ * `import 'server-only'`, so importing a value from here into the client fails
+ * the production build. Re-exported so every server-side caller keeps its
+ * existing `@/lib/ugat/data` import path.
+ */
+export { UGAT_TABLE_KEYS, type UgatTableKey } from './data-pure';
+// A re-export does NOT bind the name locally, and this module uses the type in
+// six of its own signatures — so it is imported as well as re-exported.
+import type { UgatTableKey as UgatTableKeyLocal } from './data-pure';
+type UgatTableKey = UgatTableKeyLocal;
 
 /** A generic display row. `cells` are pre-formatted strings the table renders. */
 export interface UgatRow {

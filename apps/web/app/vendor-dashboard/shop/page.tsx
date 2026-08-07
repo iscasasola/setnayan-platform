@@ -1493,6 +1493,12 @@ const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
+  // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
+  // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no
+  // nav-config entry, no route-builder, no registry key. Its deliberately-
+  // identical sibling /vendor-dashboard/repertoire (the line above) had five.
+  // A host wrote his segments into a page he could only reach by typing the URL.
+  { href: '/vendor-dashboard/activities', label: 'Your segments', sub: 'The parts of the night you run — couples tick these onto their timeline.' },
   // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
   // BranchManager) is the canonical branch surface; the standalone /branches
   // route now redirects here. Team stays: /team hosts the extra-seat purchase

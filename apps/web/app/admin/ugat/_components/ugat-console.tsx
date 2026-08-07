@@ -37,6 +37,10 @@ import type {
   UgatTablePage,
   UgatSearchGroup,
 } from '@/lib/ugat/data';
+// VALUE import (the block above is type-only, and types are erased). It must come
+// from data-pure: `@/lib/ugat/data` is `server-only`, and pulling a value from it
+// into a 'use client' file fails the production build.
+import { UGAT_TABLE_KEYS } from '@/lib/ugat/data-pure';
 import {
   fetchUgatTable,
   fetchUgatSearch,
@@ -64,17 +68,26 @@ type Resolution = 'entities' | 'joints' | 'fields';
 /** Nodes carry their live count once merged with UgatCounts. */
 type LiveNode = UgatTypeMeta & { count: number; countLabel: string };
 
-const TABLE_META: Array<{ key: UgatTableKey; label: string; type: UgatEntityType }> = [
-  { key: 'users', label: 'Users', type: 'user' },
-  { key: 'events', label: 'Events', type: 'event' },
-  { key: 'guests', label: 'Guests', type: 'guest' },
-  { key: 'vendors', label: 'Vendors', type: 'vendor' },
-  { key: 'services', label: 'Service cards', type: 'service' },
-  { key: 'orders', label: 'Orders', type: 'order' },
-  { key: 'threads', label: 'Threads', type: 'thread' },
-  { key: 'billing', label: 'Billing', type: 'billing' },
-  { key: 'communities', label: 'Samahan', type: 'community' },
-];
+/**
+ * Tab labels, keyed by table. A `Record<UgatTableKey, …>` on purpose: TypeScript
+ * REFUSES TO COMPILE if a key is missing, so a new Ugat table cannot render a
+ * nameless tab — or, as happened with Samahan, render a tab the server then
+ * rejects. The tab ORDER comes from UGAT_TABLE_KEYS, the single source.
+ */
+const TABLE_LABELS: Record<UgatTableKey, { label: string; type: UgatEntityType }> = {
+  users: { label: 'Users', type: 'user' },
+  events: { label: 'Events', type: 'event' },
+  guests: { label: 'Guests', type: 'guest' },
+  vendors: { label: 'Vendors', type: 'vendor' },
+  services: { label: 'Service cards', type: 'service' },
+  orders: { label: 'Orders', type: 'order' },
+  threads: { label: 'Threads', type: 'thread' },
+  billing: { label: 'Billing', type: 'billing' },
+  communities: { label: 'Samahan', type: 'community' },
+};
+
+const TABLE_META: Array<{ key: UgatTableKey; label: string; type: UgatEntityType }> =
+  UGAT_TABLE_KEYS.map((key) => ({ key, ...TABLE_LABELS[key] }));
 
 const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
   user: 'users',

@@ -95,6 +95,15 @@ END $$;
 COMMENT ON FUNCTION public.call_rtc_can_access(TEXT) IS
   'Authorises a private Realtime channel for the couple<->vendor 1:1 call (topic call:{thread_id}). SECURITY INVOKER on purpose: it asks whether the caller can SELECT the thread, so chat_threads_member_read is the single definition of who may join a call — no second copy to drift. Returns FALSE for anon, a non-call topic, or a malformed id; never throws.';
 
+-- Postgres grants EXECUTE to PUBLIC on every new function, so the GRANT below
+-- is not what decides who may call this — the default is. Without the REVOKE,
+-- `anon` can execute it and the exposure baseline records exactly that. The
+-- function is safe either way (auth.uid() IS NULL returns FALSE on the first
+-- line), but "safe because the body checks" and "unreachable" are different
+-- guarantees, and only the second one survives someone editing the body later.
+-- This is the standing house rule: REVOKE ALL in the same migration that creates
+-- the object. With it, this PR adds NO new anon-reachable surface at all.
+REVOKE ALL ON FUNCTION public.call_rtc_can_access(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.call_rtc_can_access(TEXT) TO authenticated;
 
 -- ── The policies ───────────────────────────────────────────────────────────

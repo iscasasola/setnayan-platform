@@ -9,6 +9,7 @@ import {
   manilaDate,
   inclusiveDays,
   resolvePapicWindow,
+  PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
 
 /**
@@ -80,7 +81,12 @@ export default function PapicWindowPicker({
         ? `Capture has to cover your event day — start on or before ${anchor ?? 'the event date'}.`
         : preview.error === 'missing_event_date'
           ? 'Set your event date first, then choose a window.'
-          : 'Pick a start date.'
+          : // A start earlier than the cap. The generic fallback used to say
+            // "Pick a start date." to someone who HAD picked one — a refusal
+            // that blames the person for the wrong thing.
+            preview.error === 'start_too_early'
+            ? `You can start up to ${PAPIC_CAPTURE_MONTHS_BEFORE} months before your event — pick a later start date.`
+            : 'Pick a start date.'
     : null;
 
   return (

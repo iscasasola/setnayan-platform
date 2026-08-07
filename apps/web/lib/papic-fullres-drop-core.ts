@@ -13,14 +13,28 @@ export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
 
 /**
  * Days after the EVENT DATE before an original may be dropped, whatever the
- * 6-month clock says. The owner's stated reason for the 5-month window cap was
- * "so they have at least 30 days to download the files they have" — this makes
- * that a rule rather than an arithmetic coincidence that only holds while
- * nobody starts earlier than 5 months out or moves their date.
+ * 6-month clock says.
  *
- * It can only ever KEEP files longer. It can never cause an earlier deletion.
+ * 🔒 RAISED 30 → 92 (one month → three) by the owner on 2026-08-07, verbatim:
+ * *"still preserve 3 months all their photos in high res before we compress it."*
+ *
+ * 🔑 THIS CONSTANT — NOT THE CAPTURE WINDOW — IS THE PROMISE TO THE COUPLE. The
+ * same sitting opened shooting to six months before the event. Six months of
+ * capture against a six-month retention clock means an engagement-shoot photo's
+ * own clock expires ON THE WEDDING DAY. Every day the couple keeps their
+ * originals after their own wedding is bought by the line below and by nothing
+ * else. Lower it and photos start disappearing while the thank-you cards are
+ * still going out; there is no other guard behind it.
+ *
+ * WHY 92 AND NOT 90. Three calendar months is 89–92 days depending on which
+ * months they are (1 Feb → 1 May is 89; 1 Mar → 1 Jun is 92). Ninety would be
+ * three months in most of the year and a few days SHORT of it in spring. We take
+ * the longest so "three months" is true for every wedding date, not most.
+ *
+ * It can only ever KEEP files longer. It can never cause an earlier deletion —
+ * the sweep takes GREATEST(first_capture + retention, event_date + this).
  */
-export const FULL_RES_POST_EVENT_GRACE_DAYS = 30;
+export const FULL_RES_POST_EVENT_GRACE_DAYS = 92;
 
 /**
  * A clip's web copy must have EXISTED for at least this long before its raw is

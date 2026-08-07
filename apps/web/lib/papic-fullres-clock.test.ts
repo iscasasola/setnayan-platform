@@ -1,14 +1,23 @@
 /**
  * HIGH-RES ORIGINALS EXPIRE PER EVENT, NOT PER PHOTO.
  *
- * Owner-locked 2026-08-02: *"the total time we keep their high resolution is
- * 6 months from the first day they use the service. the reason why i said
- * 5 month for until the event date is so they have at least 30 days to download
- * the files they have."*
+ * 🔒 CURRENT RULE — owner, 2026-08-07. READ THIS ONE:
+ *   • high-res is kept **6 months from the event's FIRST capture**, and
+ *   • **never less than 3 months after the event date itself**, and
+ *   • cameras may start shooting **6 months before** the event.
+ *
+ * ⚠ SUPERSEDED, KEPT ONLY SO THE NUMBERS BELOW READ CORRECTLY — owner 2026-08-02:
+ * *"the total time we keep their high resolution is 6 months from the first day
+ * they use the service. the reason why i said 5 month for until the event date
+ * is so they have at least 30 days to download the files they have."* On
+ * 2026-08-07 shooting moved 5 → 6 months and the post-event floor moved 30 days
+ * → 3 months. **Do not reason from the 5-month / 30-day pair anywhere.** At the
+ * new 6-month cap the old subtraction yields ZERO days after the event; the
+ * floor, not the subtraction, is what keeps the promise. See the test below.
  *
  * ── THE DEFECT THIS REPLACED ──────────────────────────────────────────────
  * The sweep aged each photo against ITS OWN capture time, 90 days. Fine for a
- * one-day wedding; wrong for a journey:
+ * one-day wedding; wrong for a journey (numbers are the then-current 5-month cap):
  *
  *   a photo taken 5 months (150d) before the wedding
  *     → original deleted 90 days later
@@ -32,6 +41,7 @@ import {
   DEFAULT_FULL_RES_RETENTION_DAYS,
   FULL_RES_POST_EVENT_GRACE_DAYS,
 } from './papic-fullres-drop-core';
+import { PAPIC_CAPTURE_MONTHS_BEFORE } from './papic-window';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -47,19 +57,88 @@ test('the window is 6 months, not 90 days', () => {
   assert.equal(DEFAULT_FULL_RES_RETENTION_DAYS, 183);
 });
 
-test('and never less than a 30-day grace after the event itself', () => {
-  assert.equal(FULL_RES_POST_EVENT_GRACE_DAYS, 30);
+test('and never less than THREE MONTHS of high-res after the event itself', () => {
+  // Owner 2026-08-07: "still preserve 3 months all their photos in high res
+  // before we compress it." 92 = the longest three calendar months, so the
+  // promise is true for a March wedding as well as a December one.
+  assert.equal(FULL_RES_POST_EVENT_GRACE_DAYS, 92);
+  assert.ok(FULL_RES_POST_EVENT_GRACE_DAYS >= 92, 'three months must never round down');
 });
 
-test('🔑 the owner’s example works: start 5 months out, keep 30 days after', () => {
-  // Their arithmetic, checked rather than assumed. Open the window at the
-  // 5-month cap, and the 6-month clock still leaves a month after the day.
-  const FIVE_MONTHS = 150;
-  const graceLeft = DEFAULT_FULL_RES_RETENTION_DAYS - FIVE_MONTHS;
+test('🔑 AT THE EARLIEST PERMITTED SHOT, SUBTRACTION GIVES ZERO — the floor is the promise', () => {
+  // THE TRAP THIS EXISTS TO CATCH, and it is not hypothetical: an earlier
+  // version of this suite "proved" the promise by subtraction —
+  // `retention − time_shot_before_the_event >= grace` — back when shooting
+  // opened 5 months out (183 − 150 = 33 days spare). The owner then opened it
+  // to SIX months. The same subtraction now yields ZERO, and had the promise
+  // really rested on it, every engagement-shoot original would become
+  // droppable on the morning of the wedding.
+  const capMonths = PAPIC_CAPTURE_MONTHS_BEFORE;
+  assert.equal(capMonths, 6, 'if this changes, re-read the reasoning below before editing it');
+
+  const shotDaysBeforeEvent = 183; // six months out, the earliest allowed
+  const clockLeftAfterEvent = DEFAULT_FULL_RES_RETENTION_DAYS - shotDaysBeforeEvent;
+  assert.equal(clockLeftAfterEvent, 0, 'the first-capture clock expires ON the wedding day');
+
+  // The sweep takes the LATER of the two dates, so the floor rescues it.
+  const survivesUntil = Math.max(clockLeftAfterEvent, FULL_RES_POST_EVENT_GRACE_DAYS);
+  assert.equal(
+    survivesUntil,
+    92,
+    'the earliest photo a couple can take must still be high-res three months ' +
+      'after their wedding. If this is 0, the sweep is using the first-capture ' +
+      'clock alone and the floor has been dropped from the query.',
+  );
+});
+
+test('🪤 the floor is a GREATEST in SQL, not a subtraction in TypeScript', () => {
+  // The assertion above is arithmetic on constants — it would still pass if the
+  // migration stopped applying the floor. Pin the SQL itself.
+  //
+  // ⚠ THE FIRST DRAFT OF THIS TEST WAS DECORATION, and it took a sabotage run to
+  // find out. It matched /NOW\(\) >= \(f\.event_date/, so renaming the column to
+  // `f.event_dateX` still matched on the prefix, and prefixing the clause with
+  // `OR TRUE` — which neuters it completely — left the text it looked for fully
+  // intact. Both sabotages went green. Match the ARITHMETIC and ban the
+  // tautology, not the presence of a name.
+  //
+  // ⚠ And strip SQL comments first: this migration's own header contains the
+  // line "(b) the event date + p_post_event_days", so a comment alone would
+  // satisfy a naive search for that identifier.
+  const bare = sql
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.ok(bare.length > 500, 'self-check: the migration read as near-empty after stripping');
   assert.ok(
-    graceLeft >= FULL_RES_POST_EVENT_GRACE_DAYS,
-    `starting ${FIVE_MONTHS} days out leaves only ${graceLeft} days after the ` +
-      `event, short of the ${FULL_RES_POST_EVENT_GRACE_DAYS}-day download grace`,
+    bare.includes('p_post_event_days'),
+    'the eligibility RPC no longer takes a post-event floor (checked in CODE, not comments)',
+  );
+  // ⏭ Renaming the ARGUMENT in the function signature is deliberately not
+  // asserted here — it is caught by rpc-argument-names.db.test.ts, which
+  // compares every .rpc() call site's named arguments against the real function
+  // in the database. That is the stronger check: a phantom argument name makes
+  // PostgREST match no candidate at all and the call fails before the body runs.
+
+  // The floor's actual arithmetic: event_date + N days.
+  assert.match(
+    bare,
+    // [\s\S], not [^\n]: the clause is wrapped across two lines in the migration.
+    // \b after event_date: without it, renaming the column to `event_dateX` — a
+    // phantom identifier, the exact shape of three live bugs on this project —
+    // still matched on the prefix and the sabotage run went green.
+    /\bevent_date\b[\s\S]{0,60}\+\s*make_interval\(days\s*=>\s*GREATEST\(p_post_event_days,\s*0\)\)/,
+    'the floor must ADD p_post_event_days to event_date in the predicate. ' +
+      'Without this the three-month promise lives only in a comment.',
+  );
+
+  // A tautology anywhere in the predicate makes the floor unreachable while
+  // leaving every string above it intact — the exact way the first draft was
+  // fooled.
+  assert.doesNotMatch(
+    bare,
+    /\bOR\s+(TRUE\b|1\s*=\s*1)/i,
+    'a tautology short-circuits the floor: the clause is still there to read, ' +
+      'and originals become droppable the moment the first-capture clock ends.',
   );
 });
 

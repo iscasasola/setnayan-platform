@@ -127,15 +127,29 @@ test('resolveStoredWindow: window set → inclusive days', () => {
   assert.equal(w.startIso, '2026-07-10T09:00:00+08:00');
 });
 
-test('resolveStoredWindow: no window → legacy single day anchored to event_date', () => {
+test('🔑 resolveStoredWindow: no window → SIX MONTHS before the event, not one day', () => {
+  // THIS TEST USED TO ASSERT `days === 1`, and that assertion was the bug
+  // written down as a requirement. A couple who never opened the window picker
+  // got a camera valid for the wedding day alone — so the engagement shoot, the
+  // fittings and the whole week before were refused. Worse, a one-day window
+  // writes the SAME date into valid_from and valid_until, which is what
+  // collapsed six of thirteen production seats to a zero-width window.
+  //
+  // Owner 2026-08-07: "let them use the papic service up to 6 months away from
+  // the event itself."
   const w = resolveStoredWindow({
     windowStart: null,
     windowEnd: null,
     eventDate: '2026-12-20',
   });
-  assert.equal(w.days, 1);
-  assert.equal(manilaDate(w.startIso), '2026-12-20');
-  assert.equal(w.endIso, manilaEndOfDayIso('2026-12-20'));
+  assert.equal(manilaDate(w.startIso), '2026-06-20', 'default start is 6 months before');
+  assert.equal(w.endIso, manilaEndOfDayIso('2026-12-20'), 'still ends on the event day');
+  assert.ok(w.days > 180, `default window collapsed to ${w.days} days`);
+  assert.notEqual(
+    manilaDate(w.startIso),
+    manilaDate(w.endIso),
+    'start and end on the same date is the zero-width window that refused every shot',
+  );
 });
 
 test('resolveStoredWindow: no window + no date → 1 day, null bounds', () => {

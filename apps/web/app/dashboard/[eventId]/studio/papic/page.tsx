@@ -39,7 +39,11 @@ import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
-import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
+import {
+  resolveStoredWindow,
+  formatWindowSummary,
+  PAPIC_CAPTURE_MONTHS_BEFORE,
+} from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
@@ -1107,7 +1111,9 @@ function StatusBanners({
               ? 'The end date is before the start date.'
               : papicWindowError === 'missing_event_date'
                 ? 'Set your event date first, then choose a window.'
-                : 'Could not save the window — please try again.'}
+                : papicWindowError === 'start_too_early'
+                  ? `You can start up to ${PAPIC_CAPTURE_MONTHS_BEFORE} months before your event — pick a later start date.`
+                  : 'Could not save the window — please try again.'}
         </p>
       ) : null}
 

@@ -107,19 +107,43 @@ test('paperwork: refusal is non-specific — never an existence oracle', () => {
   }
 });
 
-/* ── budget proof · public bucket ───────────────────────────────────────────── */
+/* ── budget proof · PRIVATE thread-files bucket ─────────────────────────────── */
 
+/**
+ * ⚠ THESE TWO TESTS ASSERTED A REF NO UPLOADER HAS EVER PRODUCED, which is
+ * exactly why the broken feature shipped green. They pinned
+ * `r2://setnayan-media/budget/<EVENT>/receipt.jpg` — public bucket, `budget/`
+ * prefix — while the one uploader
+ * (`_components/vendor-itemization-card.tsx`) mints
+ * `payment-proof/events/<EVENT>/` in the PRIVATE thread-files bucket. A test is
+ * only as real as the value it feeds in.
+ */
 test('budget proof: this event is accepted, another event is not', () => {
   const policy = budgetPaymentProofPolicy(EVENT);
-  assert.ok(parseClientRef(`r2://setnayan-media/budget/${EVENT}/receipt.jpg`, policy));
-  assert.equal(parseClientRef(`r2://setnayan-media/budget/${OTHER}/receipt.jpg`, policy), null);
+  assert.ok(
+    parseClientRef(`r2://setnayan-thread-files/payment-proof/events/${EVENT}/receipt.jpg`, policy),
+    'the prefix the real uploader mints must be accepted',
+  );
+  assert.equal(
+    parseClientRef(`r2://setnayan-thread-files/payment-proof/events/${OTHER}/receipt.jpg`, policy),
+    null,
+    'another event must not be reachable',
+  );
 });
 
-test('budget proof: a PRIVATE bucket is unreachable from the public-media policy', () => {
-  // The policy omits `bucket`, so it defaults to public media. A private-bucket
-  // ref must not satisfy it even under an allowed-looking prefix.
+test('budget proof: the PUBLIC bucket is unreachable from this policy', () => {
+  // A bank-transfer screenshot is private. The policy now names the private
+  // bucket explicitly, so a public-media ref must NOT satisfy it — the reverse
+  // of what this file asserted until 2026-08-07.
   assert.equal(
-    parseClientRef(`r2://${CONTRACTS}/budget/${EVENT}/receipt.jpg`, budgetPaymentProofPolicy(EVENT)),
+    parseClientRef(
+      `r2://setnayan-media/payment-proof/events/${EVENT}/receipt.jpg`,
+      budgetPaymentProofPolicy(EVENT),
+    ),
+    null,
+  );
+  assert.equal(
+    parseClientRef(`r2://${CONTRACTS}/payment-proof/events/${EVENT}/receipt.jpg`, budgetPaymentProofPolicy(EVENT)),
     null,
   );
 });
@@ -132,14 +156,21 @@ import { privateBucketRootIsAllowed } from './r2-client-ref';
  * EVERY REAL PRIVATE-BUCKET CALL SITE MUST STILL WORK. This half of the test is
  * the more important one: a fail-closed allowlist that refuses a legitimate
  * upload is a worse outcome than the pollution it prevents. Each pair below was
- * read off an actual call site (grepped exhaustively for `bucket="…"` /
- * `bucket: '…'`), so this fails loudly if a prefix ever moves.
+ * read off an actual call site (grepped for `bucket="…"` / `bucket: '…'`), so
+ * this fails loudly if a prefix ever moves.
+ *
+ * ⚠ THIS DOCBLOCK SAID "grepped exhaustively" AND THE LIST WAS NOT EXHAUSTIVE.
+ * It missed `payment-proof/events/<id>` (vendor-itemization-card.tsx), whose
+ * root was absent from PRIVATE_BUCKET_ROOTS — so every receipt a couple attached
+ * to a vendor payment was refused, and this list's silence read as coverage.
+ * Adding a row here is not optional when a new private uploader is written.
  */
 const REAL_PRIVATE_CALL_SITES: ReadonlyArray<[string, string, string]> = [
   ['setnayan-thread-files', 'events/EVT/disputes/incoming', 'disputes/page.tsx'],
   ['setnayan-thread-files', 'payments/ORDER', 'orders/[orderId]/page.tsx'],
   ['setnayan-thread-files', 'payments/ORDER', 'vendor booking-fees/[orderId]'],
   ['setnayan-thread-files', 'payment-screenshots/inline-checkout/EVT', 'inline-checkout-drawer'],
+  ['setnayan-thread-files', 'payment-proof/events/EVT', 'vendor-itemization-card.tsx'],
   ['setnayan-vendor-contracts', 'paperwork/EVT/psa_birth', 'paperwork/page.tsx'],
   ['setnayan-vendor-verification', 'vendors/VP/verification/dti', 'verify + docs-body'],
   ['setnayan-samples', 'refinements/LEAF', 'taxonomy-studio'],

@@ -400,7 +400,12 @@ export function vendorVerificationDocPolicy(vendorProfileId: string): ClientRefP
  */
 const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new Map([
   // Payment screenshots · dispute evidence · chat attachments.
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots'])],
+  // ⚠ `payment-proof` was MISSING until 2026-08-07 while
+  // vendor-itemization-card.tsx minted exactly that prefix, so every receipt a
+  // couple attached to a vendor payment was refused with a 400 at
+  // app/api/upload/route.ts. Add a root here when a new uploader is written,
+  // or the upload is rejected and only the widget shows it.
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.
@@ -449,12 +454,26 @@ export function paperworkScanPolicy(eventId: string): ClientRefPolicy {
 /**
  * A host's own off-platform payment receipt on the budget ledger.
  *
- * Public media bucket, so there is no confidentiality delta (see the bucket note
- * at the top of this file) — this is containment and attribution: it stops a
- * payment row pointing at an object that has nothing to do with this event.
+ * ⚠ CORRECTED 2026-08-07. This used to omit `bucket` — which defaults to the
+ * PUBLIC media bucket — and list `budget/<id>/` + `payments/<id>/`, two prefixes
+ * NO uploader has ever produced. The one uploader
+ * (`_components/vendor-itemization-card.tsx`) writes
+ * `payment-proof/events/<id>/` into the PRIVATE thread-files bucket, so the
+ * policy could never match, and a non-matching ref is dropped to NULL by design.
+ * The receipt was discarded on every single attempt.
+ *
+ * A bank-transfer screenshot is a private document, so the private bucket is
+ * also the correct home; the reader signs a short-lived GET.
+ *
+ * ⛔ Do NOT "fix" a future variant by moving the prefix to `payments/<eventId>`:
+ * `lib/upload-prefix-tenancy.ts` treats `payments` as an ORDER root, so an event
+ * id underneath it is checked against the orders table and 403s.
  */
 export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
-  return { prefixes: [`budget/${eventId}/`, `payments/${eventId}/`] };
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`payment-proof/events/${eventId}/`],
+  };
 }
 
 /**

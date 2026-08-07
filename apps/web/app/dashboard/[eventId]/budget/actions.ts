@@ -443,20 +443,25 @@ export async function logPayment(formData: FormData) {
   // Optional receipt screenshot the host attaches to their own payment
   // record. Couples pay vendors off-platform, so this is the host's
   // evidence of the transfer — NOT a Setnayan-verified proof. The
-  // FileUpload widget submits an `r2://media/…` ref; absent an upload the
-  // field is blank → stored NULL. Column added by migration
-  // 20260820000000_vendor_payment_methods.sql (nullable TEXT).
-  // SEC-1 follow-up (deferred lane #2): client-supplied ref → the sanctioned
-  // gate. This one lands in the PUBLIC media bucket, so unlike the paperwork lane
-  // there is no confidentiality delta — the value here is containment and
-  // attribution: a payment row must not point at an object belonging to another
-  // event. A ref that fails the policy is dropped to NULL rather than throwing,
+  // FileUpload widget submits an `r2://setnayan-thread-files/payment-proof/…`
+  // ref; absent an upload the field is blank → stored NULL. Column added by
+  // migration 20260820000000_vendor_payment_methods.sql (nullable TEXT).
+  // ⚠ This comment said "lands in the PUBLIC media bucket" — it does not, and
+  // never did. It lands in the PRIVATE thread-files bucket, which is correct: a
+  // bank-transfer screenshot is a private document. The reader signs a
+  // short-lived GET via displayUrlForStoredAsset. A ref that fails the policy is dropped to NULL rather than throwing,
   // because the receipt is OPTIONAL evidence and losing the attachment must never
   // cost the host the payment record itself.
+  // ⚠ STORE THE FULL `r2://bucket/key` REF, NOT `.key`. The reader calls
+  // displayUrlForStoredAsset → parseStoredAsset, which returns any value NOT
+  // starting with `r2://` VERBATIM as a legacy URL — so a bare key became a
+  // relative path and a 404. Validate with parseClientRef, then persist the ref
+  // the widget submitted.
   const proofRefRaw = nullIfBlank(formData.get('proof_r2_key'));
-  const proofR2Key = proofRefRaw
-    ? (parseClientRef(proofRefRaw, budgetPaymentProofPolicy(eventId))?.key ?? null)
-    : null;
+  const proofR2Key =
+    proofRefRaw && parseClientRef(proofRefRaw, budgetPaymentProofPolicy(eventId))
+      ? proofRefRaw.trim()
+      : null;
 
   // Optional installment attribution (Phase 2 PR-C) — when the booking has a
   // frozen payment plan (event_vendor_payment_plan.instances_json), the host can

@@ -140,3 +140,84 @@ test('🔒 the clock function is service_role only', () => {
     'it reads across every event — never anon or authenticated',
   );
 });
+
+/* ── the labels must match the switch ──────────────────────────────────────── */
+
+/**
+ * 🔑 READ THE EXPRESSION ONCE, APPLY IT TO EVERY COPY.
+ *
+ * The header of the one module that permanently deletes couples' originals said
+ * "Ships DRY-RUN by default: it deletes NOTHING unless
+ * PAPIC_FULLRES_DROP_ENABLED='true'". The gate is `!== 'false'` — ON unless
+ * disabled. Anyone reading before touching that code believed nothing could be
+ * deleted. The SAME false sentence sat in the cron route too, so fixing one copy
+ * would have left the other.
+ *
+ * ⚠ A per-file "if it contains the expression it must not say dry-run" test
+ * would pass VACUOUSLY on the cron route, which never mentions the env var at
+ * all. So: establish the real default from the library ONCE, then apply the
+ * copy assertion to BOTH files unconditionally.
+ *
+ * ⚠ Deliberately NOT using retention-copy-is-true.test.ts's `code()` helper — it
+ * strips comments, and a docblock is exactly what we need to read here.
+ */
+const DROP_SOURCES = [
+  'lib/papic-fullres-drop.ts',
+  'app/api/cron/papic-fullres-drop/route.ts',
+] as const;
+
+test('the drop is ON by default, and no copy claims otherwise', () => {
+  const lib = read('lib/papic-fullres-drop.ts');
+
+  // Establish the truth from the code, not from a comment.
+  assert.match(
+    lib,
+    /PAPIC_FULLRES_DROP_ENABLED\s*!==\s*'false'/,
+    'the gate should be `!== \'false\'` (ON unless disabled). If this changed ' +
+      'deliberately, update the assertion below too — do not delete this test.',
+  );
+
+  for (const rel of DROP_SOURCES) {
+    const src = read(rel);
+    assert.ok(
+      !/DRY.?RUN by default/i.test(src),
+      `${rel} claims it ships dry-run by default. It does not: the gate is ` +
+        `!== 'false', so it deletes unless explicitly disabled. This is the ` +
+        `first thing a reader sees before touching irreversible deletion.`,
+    );
+  }
+});
+
+test('the warning email uses the SAME retention default as the drop', async () => {
+  // These were typed separately and drifted: the warn hand-typed 90 while the
+  // drop used 183, so the one notice a couple ever gets fired 107 days early.
+  const warn = read('lib/daily-email-jobs.ts');
+  assert.match(
+    warn,
+    /:\s*DEFAULT_FULL_RES_RETENTION_DAYS/,
+    'the warn job must DERIVE its retention default from ' +
+      'DEFAULT_FULL_RES_RETENTION_DAYS, never re-type the number',
+  );
+  assert.ok(
+    !/\?\s*Math\.floor\(n\)\s*:\s*\d+/.test(warn),
+    'a literal retention fallback is back in the warn job — derive it',
+  );
+});
+
+test('the warn audience honours the post-event grace, not photo age alone', () => {
+  // The drop's clock is max(first_capture + retention, event_date + grace).
+  // Warning on captured_at alone is early whenever the post-event term binds —
+  // the engagement-shoot case.
+  const warn = read('lib/daily-email-jobs.ts');
+  assert.match(
+    warn,
+    /papic_events_past_fullres_clock/,
+    'the warn job must intersect with the same clock rpc the sweep uses',
+  );
+  assert.match(
+    warn,
+    /p_post_event_days:\s*Math\.max\(0,\s*FULL_RES_POST_EVENT_GRACE_DAYS\s*-\s*WARN_LEAD_DAYS\)/,
+    'BOTH offsets must be pulled back by the lead time — pulling back only the ' +
+      'retention one gives zero lead on events where the post-event term binds',
+  );
+});

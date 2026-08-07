@@ -1,13 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { runFullResDropSweep } from '@/lib/papic-fullres-drop';
 
-// 3-month full-res drop sweep (owner 2026-07-11). Weekly Vercel cron.
+// 6-month full-res drop sweep (owner 2026-07-11).
+//
+// ⚠ NOT a Vercel cron — vercel.json has `"crons": []`. It is driven by the
+// cron-free after() claim on admin traffic. This line said "Weekly Vercel cron"
+// and there is no such schedule.
 //
 // ⚠ DESTRUCTIVE when enabled: deletes OUR R2 copy of full-res photo originals
 // past the free window, keeping the forever web copy (the couple's Drive copy is
-// never touched). Ships DRY-RUN by default — deletes NOTHING unless
-// PAPIC_FULLRES_DROP_ENABLED='true'. Pass ?dry=1 to force a preview even when
-// enabled (safe to hit manually to see the eligible count first).
+// never touched). ⚠ IT IS SWITCHED ON: the gate is `!== 'false'`, i.e. deletes
+// UNLESS PAPIC_FULLRES_DROP_ENABLED='false'. This comment said "Ships DRY-RUN by
+// default" — the same false sentence that was in the library header, in a second
+// place, which is why correcting one copy was never going to be enough.
+// Pass ?dry=1 to force a preview even when enabled (safe to hit manually to see
+// the eligible count first).
 //
 // CLIPS (Papic storage PR-2) are swept only when PAPIC_CLIP_DROP_ENABLED='true'
 // (a separate go-live gate, OFF by default); a clip's raw is dropped only after

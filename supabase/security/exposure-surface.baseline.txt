@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6223
+# facts: 6238
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     671
-#   col       4490
-#   policy    839
+#   tpriv     672
+#   col       4502
+#   policy    840
 #   view      9
-#   func      210
+#   func      211
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -347,6 +347,7 @@ tpriv	public.panood_screens|anon	SIUD
 tpriv	public.panood_screens|authenticated	SIUD
 tpriv	public.paparazzi_seats|anon	SIUD
 tpriv	public.paparazzi_seats|authenticated	SIUD
+tpriv	public.papic_challenge_library|authenticated	S
 tpriv	public.papic_event_pool_usage|anon	SIUD
 tpriv	public.papic_event_pool_usage|authenticated	SIUD
 tpriv	public.papic_guest_captures|anon	SIUD
@@ -2864,6 +2865,15 @@ col	public.paparazzi_seats.tier	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.updated_at	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_from	anon=SIU authenticated=SIU
 col	public.paparazzi_seats.valid_until	anon=SIU authenticated=SIU
+col	public.papic_challenge_library.capture_kind	anon=- authenticated=S
+col	public.papic_challenge_library.category	anon=- authenticated=S
+col	public.papic_challenge_library.is_active	anon=- authenticated=S
+col	public.papic_challenge_library.library_id	anon=- authenticated=S
+col	public.papic_challenge_library.mission_type	anon=- authenticated=S
+col	public.papic_challenge_library.priority_rank	anon=- authenticated=S
+col	public.papic_challenge_library.prompt	anon=- authenticated=S
+col	public.papic_challenge_library.slug	anon=- authenticated=S
+col	public.papic_challenge_library.title	anon=- authenticated=S
 col	public.papic_event_pool_usage.created_at	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.event_id	anon=SIU authenticated=SIU
 col	public.papic_event_pool_usage.points_used	anon=SIU authenticated=SIU
@@ -2921,10 +2931,13 @@ col	public.papic_mission_completions.guest_id	anon=SIU authenticated=SIU
 col	public.papic_mission_completions.id	anon=SIU authenticated=SIU
 col	public.papic_mission_completions.mission_id	anon=SIU authenticated=SIU
 col	public.papic_missions.approved	anon=SIU authenticated=SIU
+col	public.papic_missions.board_slot	anon=SIU authenticated=SIU
+col	public.papic_missions.capture_kind	anon=SIU authenticated=SIU
 col	public.papic_missions.created_at	anon=SIU authenticated=SIU
 col	public.papic_missions.event_id	anon=SIU authenticated=SIU
 col	public.papic_missions.id	anon=SIU authenticated=SIU
 col	public.papic_missions.is_active	anon=SIU authenticated=SIU
+col	public.papic_missions.library_id	anon=SIU authenticated=SIU
 col	public.papic_missions.mission_id	anon=SIU authenticated=SIU
 col	public.papic_missions.mission_type	anon=SIU authenticated=SIU
 col	public.papic_missions.prompt	anon=SIU authenticated=SIU
@@ -5616,6 +5629,7 @@ policy	public.panood_moments|panood_moments_couple_full	mode=PERMISSIVE cmd=ALL 
 policy	public.panood_screens|panood_screens_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = panood_screens.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = panood_screens.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))))
 policy	public.paparazzi_seats|paparazzi_seats_claimer_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(claimer_user_id = auth.uid()) check=NULL
 policy	public.paparazzi_seats|paparazzi_seats_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = paparazzi_seats.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = paparazzi_seats.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
+policy	public.papic_challenge_library|papic_challenge_library_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.papic_event_pool_config|papic_event_pool_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.papic_guest_captures|papic_guest_captures_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.papic_guest_captures|papic_guest_captures_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_guest_captures.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
@@ -6090,6 +6104,7 @@ func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=
 func	public.demand_radar_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.detect_self_review_signal(p_vendor_profile_id uuid, p_reviewer_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ensure_papic_auto_missions(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.ensure_papic_board(p_event_id uuid, p_pabati_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.evaluate_earned_token_expiry(p_vendor_id uuid)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp

@@ -103,7 +103,7 @@ export default async function AdminOnboardingPage({ searchParams }: Props) {
             order shown and loop, so when one song ends the next plays. Upload{' '}
             <strong>owned / AI-generated</strong> music only (e.g. your Suno
             instrumentals) — Setnayan serves the files, so it must be music you
-            own the rights to. The tracks listed below are what's playing now;
+            own the rights to. The tracks listed below are what&apos;s playing now;
             press ▶ to hear any of them. Remove all for no music.
           </p>
 

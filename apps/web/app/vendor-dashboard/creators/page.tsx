@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<VendorSentOffer['status'], string> = {
   pending: 'Awaiting response',
   accepted: 'Accepted',
   declined: 'Declined',
-  expired: 'Expired · token refunded',
+  expired: 'Expired · no reply',
 };
 
 export default async function VendorCreatorsPage({
@@ -81,7 +81,7 @@ export default async function VendorCreatorsPage({
   const [creators, sentOffers, roi] = await Promise.all([
     fetchEligibleCreators({ minReach, limit: 60 }),
     fetchVendorSentOffers(supabase, profile.vendor_profile_id),
-    // P3 per-creator ROI — ledger facts only (inquiries driven · reach tokens
+    // P3 per-creator ROI — ledger facts only (inquiries driven
     // spent · collab status). NO "discount given" (settles off-platform).
     fetchVendorCreatorRoi(supabase, profile.vendor_profile_id),
   ]);
@@ -106,10 +106,11 @@ export default async function VendorCreatorsPage({
         </p>
         <h1 className="sn-h1">Creators</h1>
         <p className="text-base text-ink/65">
-          {/* Ratified vendor one-breath copy (simplest-approach verdict §6). */}
-          Spend one token to offer a storyteller your promo — they publish their
-          story crediting you for free, and anyone who books you through it gets
-          the deal you chose. You keep 100%.
+          {/* Was "Spend one token to offer…" — sending is FREE since the token
+              retirement (owner 2026-08-07). */}
+          Offer a storyteller your promo — they publish their story crediting
+          you for free, and anyone who books you through it gets the deal you
+          chose. You keep 100%.
         </p>
       </header>
 
@@ -118,7 +119,7 @@ export default async function VendorCreatorsPage({
       ) : null}
       {search.sent ? (
         <FormFlash tone="success">
-          Offer sent — 1 token spent; refunded only if no reply in 14 days.
+          Offer sent — it expires if they don&rsquo;t reply within 14 days.
         </FormFlash>
       ) : null}
 
@@ -208,8 +209,8 @@ export default async function VendorCreatorsPage({
       ) : null}
 
       {/* Per-creator ROI (P3) — ledger facts for the creators you've collab'd
-          with: the inquiries their chapters drove, the reach tokens you spent
-          reaching them, and where each collab stands. NO "discount given" — that
+          with: the inquiries their chapters drove and where each collab
+          stands. NO "discount given" — that
           settles off-platform between you and the creator, so Setnayan can't
           (and won't) report it. Renders only once you've sent an offer. */}
       {roi.length > 0 ? (
@@ -220,9 +221,8 @@ export default async function VendorCreatorsPage({
           </h2>
           <p className="text-[12.5px] text-ink/55">
             Inquiries driven is each creator&rsquo;s all-time public number (the
-            inquiries their chapters drove that a vendor unlocked). Reach tokens
-            spent is what you paid to reach them. Discounts settle off-platform,
-            so they&rsquo;re not shown here.
+            inquiries their chapters drove that a vendor unlocked). Discounts
+            settle off-platform, so they&rsquo;re not shown here.
           </p>
           <div className="overflow-x-auto rounded-tile border border-ink/10 bg-white">
             <table className="w-full min-w-[34rem] text-left text-sm">
@@ -230,7 +230,6 @@ export default async function VendorCreatorsPage({
                 <tr>
                   <th className="px-4 py-3 font-medium">Creator</th>
                   <th className="px-4 py-3 text-right font-medium">Inquiries driven</th>
-                  <th className="px-4 py-3 text-right font-medium">Reach tokens spent</th>
                   <th className="px-4 py-3 font-medium">Collab</th>
                 </tr>
               </thead>
@@ -368,9 +367,10 @@ function CreatorCard({
               </span>
             </label>
             <p className="text-[11px] text-ink/50">
-              {/* Ratified send-time token copy (verdict §3 "one line of copy"). */}
-              1 token; refunded only if no reply in 14 days. Discounts settle
-              off-platform — Setnayan never touches the money.
+              {/* Was "1 token; refunded only if no reply…" — sending is free. */}
+              Free to send; the offer expires if they don&rsquo;t reply within 14
+              days. Discounts settle off-platform — Setnayan never touches the
+              money.
             </p>
             <SubmitButton
               className="button-primary inline-flex items-center gap-2"
@@ -424,9 +424,6 @@ function RoiRow({ row }: { row: VendorCreatorRoiRow }) {
               to its left; hides at 0. */}
           <CreatorTierChip inquiriesDriven={row.inquiriesDriven} />
         </span>
-      </td>
-      <td className="px-4 py-3 text-right align-top font-mono text-sm tabular-nums text-ink">
-        {formatAudienceCount(row.reachTokensSpent)}
       </td>
       <td className="px-4 py-3 align-top">
         <span

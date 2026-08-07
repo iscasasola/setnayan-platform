@@ -85,9 +85,6 @@ function parseComposition(formData: FormData): CustomComposition {
   const photosRaw = intField(formData.get('photos'), CUSTOM_BASE.photos);
   // Snap photos to a +100 step, floored at the base 300.
   const photos = Math.max(CUSTOM_BASE.photos, Math.round(photosRaw / 100) * 100);
-  const tokensRaw = intField(formData.get('tokensPerCycle'), 0);
-  // Snap tokens to a +25 step within [0, 500].
-  const tokensPerCycle = Math.max(0, Math.min(500, Math.round(tokensRaw / 25) * 25));
   const domain = boolField(formData.get('domain'));
 
   return {
@@ -97,7 +94,6 @@ function parseComposition(formData: FormData): CustomComposition {
     seats,
     slotsPerCategory,
     photos,
-    tokensPerCycle,
     domain,
   };
 }

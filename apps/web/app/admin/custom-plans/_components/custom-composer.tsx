@@ -8,7 +8,6 @@ import {
   Users,
   CalendarClock,
   Images,
-  Coins,
   Globe,
   Sparkles,
   BadgeCheck,
@@ -59,7 +58,6 @@ const DEFAULT_COMPOSITION: CustomComposition = {
   seats: CUSTOM_BASE.seats,
   slotsPerCategory: CUSTOM_BASE.slotsPerCategory,
   photos: CUSTOM_BASE.photos,
-  tokensPerCycle: 0,
   domain: false,
   api_access: false,
 };
@@ -269,22 +267,6 @@ export function CustomComposer({
               </Knob>
 
               <Knob
-                icon={<Coins className="h-4 w-4" strokeWidth={2} />}
-                label={`Included tokens / cycle · ${comp.tokensPerCycle}`}
-                hint="Tokens granted every 28-day cycle, at flat face value."
-              >
-                <input
-                  type="range"
-                  min={0}
-                  max={500}
-                  step={10}
-                  value={comp.tokensPerCycle}
-                  onChange={(e) => setK('tokensPerCycle', Number(e.target.value))}
-                  className="w-full accent-ink"
-                />
-              </Knob>
-
-              <Knob
                 icon={<Globe className="h-4 w-4" strokeWidth={2} />}
                 label="Custom domain"
                 hint="A branded custom domain for the vendor's public website."
@@ -349,7 +331,6 @@ export function CustomComposer({
                         ['seat', 'Per extra seat'],
                         ['slot', 'Per +1 slot'],
                         ['photoPack', 'Per +100 photos'],
-                        ['includedToken', 'Per token'],
                         ['domain', 'Custom domain'],
                       ] as Array<[keyof CustomUnitPrices, string]>
                     ).map(([key, label]) => (
@@ -462,12 +443,6 @@ export function CustomComposer({
                 {comp.photos} portfolio photos
                 {photoPacks > 0 ? ` (+${photoPacks} pack${photoPacks === 1 ? '' : 's'})` : ''}
               </li>
-              {comp.tokensPerCycle > 0 ? (
-                <li className="flex items-center gap-2">
-                  <Coins className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                  {comp.tokensPerCycle} tokens included every cycle
-                </li>
-              ) : null}
               {comp.domain ? (
                 <li className="flex items-center gap-2">
                   <Globe className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -524,7 +499,6 @@ export function CustomComposer({
               <input type="hidden" name="seats" value={comp.seats} />
               <input type="hidden" name="slotsPerCategory" value={comp.slotsPerCategory} />
               <input type="hidden" name="photos" value={comp.photos} />
-              <input type="hidden" name="tokensPerCycle" value={comp.tokensPerCycle} />
               <input type="hidden" name="domain" value={String(comp.domain)} />
               <input type="hidden" name="api_access" value={String(comp.api_access ?? false)} />
               <input type="hidden" name="unit_base" value={prices.base} />
@@ -534,7 +508,6 @@ export function CustomComposer({
               <input type="hidden" name="unit_seat" value={prices.seat} />
               <input type="hidden" name="unit_slot" value={prices.slot} />
               <input type="hidden" name="unit_photoPack" value={prices.photoPack} />
-              <input type="hidden" name="unit_includedToken" value={prices.includedToken} />
               <input type="hidden" name="unit_domain" value={prices.domain} />
               <input type="hidden" name="discount_type" value={discountType} />
               <input type="hidden" name="discount_value" value={discountValue} />

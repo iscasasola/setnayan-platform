@@ -16,7 +16,6 @@ const COMP: CustomComposition = {
   seats: 15,
   slotsPerCategory: 12,
   photos: 800,
-  tokensPerCycle: 100,
   domain: true,
 };
 

@@ -107,9 +107,13 @@ export async function notifyVendorSubscriptionActivated(
       userId: v.user_id as string,
       type: 'subscription_activated',
       title: `Your ${tier} plan is active`,
+      // ⚠ This used to end "…with the bundled tokens added to your wallet."
+      // That became FALSE the moment migration 20271120530202 removed the
+      // bundle grant from _apply_subscription_credit — and this body is EMAILED,
+      // so every paying vendor was told they received something nothing granted.
       body: `We confirmed your ${peso(
         Number(p.amount_php),
-      )} payment. Your ${tier} (${p.billing_cycle}) plan is live, with the bundled tokens added to your wallet.`,
+      )} payment. Your ${tier} (${p.billing_cycle}) plan is live.`,
       relatedUrl: '/vendor-dashboard/subscription',
     });
   } catch (e) {

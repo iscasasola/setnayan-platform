@@ -55,6 +55,7 @@ import {
   AnonInquiryComposer,
   type AnonComposerService,
 } from './_components/anon-inquiry-composer';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
 import {
   ServicesGallery,
   type ServiceCard,
@@ -1073,7 +1074,7 @@ export async function renderVendorBySlug({
   }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
-     once at the page level so the hero, "Get in touch" copy,
+     once at the page level so the hero, "Inquire" copy,
      LocalBusiness JSON-LD's `name` field, BreadcrumbList's leaf
      label, and the FollowGate vendorName all surface the same
      display label. Real business_name when the column says revealed,
@@ -1235,6 +1236,22 @@ export async function renderVendorBySlug({
   // onboarding. Signed-out / anonymous → route through signup for a real account.
   const signedInNoEvent =
     user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
+
+  // The event-type question in the anon composer (owner 2026-08-06: "for what
+  // type of event? then onboarding"). Fed from the LIVE vocab so the offered
+  // types can never drift from what create-event will accept — it validates
+  // ?event_type against this very same list and drops anything it doesn't know.
+  // Only fetched when the composer will actually render; getCreatableEventTypes
+  // is request-cached and falls back to the constant roster if the read fails,
+  // so an empty list here means "don't ask", never "silently offer nothing".
+  const anonComposerEventTypes =
+    anonComposerServices.length > 0
+      ? (await getCreatableEventTypes()).map((t) => ({
+          key: t.key,
+          label: t.label,
+          emoji: t.emoji,
+        }))
+      : [];
 
   // Pre-quote blindside #2 (Adaptive Pax Pricing Phase 3): startServiceInquiry
   // silently snapshots this live pax onto chat_threads.pax_at_inquiry, but the
@@ -1800,7 +1817,7 @@ export async function renderVendorBySlug({
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cream px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-white"
                 >
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
+                  Inquire
                 </a>
               ) : null}
             </div>
@@ -1988,19 +2005,30 @@ export async function renderVendorBySlug({
                 </a>
               ) : null}
             </div>
-            {/* Primary actions (2026-07-02): Inquire Now (scrolls to the
+            {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
-                On desktop the sticky Inquire rail carries these too. */}
+                On desktop the sticky Inquire rail carries these too.
+
+                🔑 The cinematic hero ALREADY carries its own Inquire, so this
+                one is dropped when that hero renders — otherwise an Enterprise
+                shop with a hero photo showed TWO identical Inquire buttons a
+                few centimetres apart (owner spotted it 2026-08-06). The block
+                just above suppresses only the name + tagline for the same
+                reason, and the button was missed. Share is NOT dropped: the
+                hero has no Share, so removing the whole row would leave an
+                Enterprise shop with no way to share it at all. */}
             {bookable ? (
               <div
                 className={`flex flex-wrap items-center gap-2 pt-4 ${
                   premiumLayout ? 'lg:hidden' : ''
                 }`}
               >
-                <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
-                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
-                </a>
+                {cinematicHero ? null : (
+                  <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Inquire
+                  </a>
+                )}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {canShowBooth ? (
                   <Link
@@ -2437,11 +2465,11 @@ export async function renderVendorBySlug({
 
         <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {bookable ? 'Get in touch' : 'Not yet bookable'}
+            {bookable ? 'Inquire' : 'Not yet bookable'}
           </h2>
           <p className="max-w-2xl text-sm text-ink/65">
             {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
-                "Get in touch" copy uses displayLabel so a hidden
+                "Inquire" copy uses displayLabel so a hidden
                 vendor surfaces as e.g. "Manila Wedding Photographer"
                 instead of leaking the real name through the
                 contact-info section. */}
@@ -2566,6 +2594,7 @@ export async function renderVendorBySlug({
               vendorLabel={displayLabel}
               services={anonComposerServices}
               signedInNoEvent={signedInNoEvent}
+              eventTypes={anonComposerEventTypes}
             />
           ) : null}
 
@@ -2635,7 +2664,7 @@ export async function renderVendorBySlug({
           </div>
 
           {/* Sticky Inquire rail — Pro/Enterprise, desktop only. Rating + the
-              primary Inquire Now / Share CTAs + at-a-glance, following the
+              primary Inquire / Share CTAs + at-a-glance, following the
               scroll. (Free/Solo use the inline Inquire actions above.) */}
           {premiumLayout && bookable ? (
             <aside className="hidden lg:block">
@@ -2660,7 +2689,7 @@ export async function renderVendorBySlug({
                   className="button-primary flex w-full items-center justify-center gap-2"
                 >
                   <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire Now
+                  Inquire
                 </a>
                 <ShareButton
                   title={displayLabel}

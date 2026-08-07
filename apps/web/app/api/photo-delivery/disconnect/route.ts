@@ -70,6 +70,13 @@ export async function POST(req: NextRequest) {
     await admin
       .from('oauth_grants')
       .update({
+        // ⚠ refresh_token WAS MISSING HERE. This route cleared the short-lived
+        // access token and left the REFRESH token — the long-lived one that
+        // actually re-opens the account, and the only one that does not expire
+        // on its own. Third of three disconnect routes to be fixed; the wipe
+        // reached youtube on 2026-07-27, drive and this one on 2026-08-07.
+        // '' not null: the column is NOT NULL.
+        refresh_token: '',
         revoked_at: new Date().toISOString(),
         access_token: null,
         access_token_expires_at: null,

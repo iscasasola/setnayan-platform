@@ -212,6 +212,14 @@ export async function disconnectPhotoDelivery(formData: FormData) {
     await admin
       .from('oauth_grants')
       .update({
+        // ⚠ refresh_token WAS MISSING HERE — the fourth and last of the four
+        // paths that revoke a Google grant. This one is not even under
+        // app/api/, which is why the first version of the guard (scoped to
+        // app/api/oauth) could not see it. It cleared the short-lived access
+        // token and kept the long-lived refresh token, the one that actually
+        // re-opens the account and never expires on its own.
+        // '' not null: the column is NOT NULL.
+        refresh_token: '',
         revoked_at: new Date().toISOString(),
         access_token: null,
         access_token_expires_at: null,

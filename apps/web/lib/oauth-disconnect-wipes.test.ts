@@ -32,7 +32,13 @@ import { join } from 'node:path';
  * rows, so "no revoked grant holds a token" would pass vacuously there.
  */
 
-const OAUTH_DIR = join(process.cwd(), 'app', 'api', 'oauth');
+// ⚠ SCOPE WAS `app/api/oauth` AND THAT WAS TOO NARROW — it missed
+// `app/api/photo-delivery/disconnect/route.ts`, a THIRD route that revokes an
+// oauth_grants row and cleared only the short-lived access token, leaving the
+// refresh token behind. A guard that scans the folder you expect the code to be
+// in will miss the copy that lives somewhere else — which is the same mistake
+// the bug itself is. Scan by TABLE NAME across the whole app + lib tree.
+const SCAN_DIRS = [join(process.cwd(), 'app'), join(process.cwd(), 'lib')];
 const CREDENTIAL_TABLES = ['oauth_grants', 'live_studio_channel_grants'];
 
 function walk(dir: string): string[] {
@@ -75,9 +81,9 @@ function revokingUpdates(src: string): string[] {
 }
 
 test('a disconnect that revokes an OAuth grant also wipes the credential', () => {
-  const files = walk(OAUTH_DIR);
+  const files = SCAN_DIRS.flatMap((d) => walk(d));
   // Self-check: a guard that scans nothing passes forever.
-  assert.ok(files.length >= 3, `scanned only ${files.length} oauth route files — the path is wrong`);
+  assert.ok(files.length >= 200, `scanned only ${files.length} source files — the paths are wrong`);
 
   const offenders: string[] = [];
   let checked = 0;
@@ -103,9 +109,9 @@ test('a disconnect that revokes an OAuth grant also wipes the credential', () =>
   // Second self-check: if this found no revoking update at all, the matcher is
   // broken and its green means nothing.
   assert.ok(
-    checked >= 2,
-    `matched only ${checked} credential-revoking updates — expected at least the drive and youtube ` +
-      `disconnect routes. The matcher has drifted; fix it rather than trusting this pass.`,
+    checked >= 3,
+    `matched only ${checked} credential-revoking updates — expected at least the drive, youtube and ` +
+      `photo-delivery disconnect routes. The matcher has drifted; fix it rather than trusting this pass.`,
   );
 
   assert.deepEqual(

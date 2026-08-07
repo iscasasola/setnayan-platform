@@ -122,7 +122,16 @@ export function ThreadCallRoom({
           return;
         }
         handle = joinCall({
-          room: `call:${threadId}`,
+          // ⚠ `threadId` ALONE — and this line is why the migration in this PR is
+          // safe. joinCall builds the topic as `call:${room}`, so passing
+          // `call:${threadId}` made the real channel **`call:call:{threadId}`**,
+          // double-prefixed. On a PUBLIC channel that was harmless: any topic
+          // string is accepted and both parties built the same wrong one. The
+          // moment the channel goes PRIVATE it is fatal — the RLS predicate reads
+          // the id after `call:`, gets `call:{uuid}`, fails the uuid cast, and
+          // returns FALSE for EVERY call. Shipping the private channel without
+          // this line would have taken calling down completely.
+          room: threadId,
           clientId: crypto.randomUUID(),
           localStream: s,
           iceServers,

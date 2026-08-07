@@ -92,8 +92,24 @@ export function joinCall(opts: {
   let helloTimer: ReturnType<typeof setInterval> | null = null;
   let connectTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // 🔴 `private: true` is a SECURITY REQUIREMENT, not a preference — the same
+  // sentence the Live Studio transport carries, for the same reason. Supabase
+  // evaluates RLS on `realtime.messages` for PRIVATE channels ONLY; a public
+  // channel bypasses it entirely, so anyone who learned a thread id could
+  // subscribe to this call's SDP offer/answer and ICE exchange, and publish into
+  // it. This channel was public from 2026-07-10 until 2026-08-06: the fix landed
+  // on `panood-webrtc.ts` on 2026-07-21 and was carried into the newer
+  // `panood-guest-webrtc.ts`, but never back-ported here — five near-identical
+  // transports, and the security edit reached two of them.
+  //
+  // ⚠ PAIRED WITH migration 20271118012278, which adds the `call:%` policies on
+  // `realtime.messages`. This flag WITHOUT that migration authorises nobody and
+  // takes every call down. Never ship one without the other.
   const channel: RealtimeChannel = supabase.channel(`call:${room}`, {
-    config: { broadcast: { self: false } },
+    config: {
+      broadcast: { self: false },
+      private: true as const,
+    },
   });
 
   const send = (event: string, payload: Record<string, unknown>) => {

@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { ingestToWall } from '@/lib/live-wall';
 import { papicCaptureCost } from '@/lib/papic-cameras';
 import {
@@ -172,6 +173,55 @@ export async function POST(req: Request) {
   // clip, keyed on capture_id. Branch BEFORE any metering / pool reserve / RPC.
   if (form.get('mode') === 'web_copy') {
     return handleGuestClipWebCopy(form, session);
+  }
+
+  // ── WHEN may this guest shoot? (owner 2026-08-07) ────────────────────────
+  // Default: the event day only. If the host pressed "let guests shoot now",
+  // the event's whole Papic window. Guests previously had NO time gate at all —
+  // the pass check asks only WHETHER the event has guest cameras, never WHEN —
+  // so someone who redeemed their invite months early could shoot into the
+  // couple's gallery on any random Tuesday.
+  //
+  // 🔑 THIS IS THE ENFORCEMENT. The guest page hides the camera too, but a page
+  // is a courtesy: this route is reachable directly and the RPC behind it checks
+  // ownership and quota, never time.
+  //
+  // ⚠ Placed AFTER the web_copy branch on purpose. A web copy is the follow-up
+  // for a clip we already accepted; refusing it because the day has since rolled
+  // over would strand the raw with no playable copy.
+  {
+    const gateAdmin = createAdminClient();
+    const { data: gateRow, error: gateErr } = await gateAdmin
+      .from('events')
+      .select(GUEST_CAPTURE_GATE_COLUMNS)
+      .eq('event_id', session.event_id)
+      .maybeSingle();
+
+    // ⚠ Supabase RESOLVES with { error }, it does not throw. A phantom column
+    // here would return null and read exactly like "no event" — so an unreadable
+    // row must not be treated as a refusal. Fail OPEN on a read failure: the
+    // pass check and the quota still bound this, and silently refusing a guest
+    // at a live wedding is the worse outcome.
+    if (!gateErr && gateRow) {
+      const gate = guestCaptureGate({
+        earlyAllowed: gateRow.papic_guest_capture_early,
+        eventDate: gateRow.event_date,
+        windowStart: gateRow.papic_window_start,
+        windowEnd: gateRow.papic_window_end,
+      });
+      if (gate.state !== 'open') {
+        return NextResponse.json(
+          {
+            error:
+              gate.state === 'not_open_yet'
+                ? 'guest_capture_not_open_yet'
+                : 'guest_capture_closed',
+            eventDay: gate.eventDay,
+          },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤10s

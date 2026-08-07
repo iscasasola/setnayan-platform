@@ -90,6 +90,7 @@ import { PapicOneCard } from './_components/papic-one-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
+import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -810,6 +811,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           because they answer the same question — what happens to pictures of my
           guests. Each renders nothing when it has nothing to offer. */}
       <VendorMediaControls eventId={eventId} />
+      <GuestCamerasChoice eventId={eventId} />
+
       <FaceTaggingChoice eventId={eventId} />
 
       {/* Moderation — a slim, real action. */}

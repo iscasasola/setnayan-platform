@@ -94,10 +94,18 @@ export async function GET(req: NextRequest) {
   const userInfo = await fetchTiktokUserInfo(token.access_token);
 
   // 5. Soft-revoke any previous active grants for this event (unique index
-  //    on (event_id) WHERE revoked_at IS NULL enforces single active grant).
+  //    on (event_id) WHERE revoked_at IS NULL enforces single active grant),
+  //    AND ERASE THE OLD CREDENTIAL. Superseding is the same situation as
+  //    disconnecting: the old tokens can never be used again by us, and keeping
+  //    them means a reconnect quietly leaves a live TikTok refresh token behind
+  //    for every previous grant. Found by widening the disconnect guard to this
+  //    table — it was the sixth revoke path and the second on TikTok.
+  //    '' not null: the column is NOT NULL, matching every other route.
   await admin
     .from('patiktok_oauth_grants')
     .update({
+      access_token: null,
+      refresh_token: '',
       revoked_at: new Date().toISOString(),
       revoked_reason: 'superseded_by_new_grant',
       updated_at: new Date().toISOString(),

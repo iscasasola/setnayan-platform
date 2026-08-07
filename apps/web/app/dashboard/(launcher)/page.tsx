@@ -1855,7 +1855,14 @@ function EventComposer({ initial }: { initial: string }) {
       </span>
       <span
         aria-hidden
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta text-white transition-transform duration-200 group-hover:scale-105 sm:h-9 sm:w-9"
+        /* CTA slot, so `bg-mulberry` (#C24E25) — NOT `bg-terracotta`, which
+           the 2026-08-01 palette lock remapped to the GOLD accent #A9834B.
+           The lock's whole point is structural: terracotta ACTS, gold
+           HIGHLIGHTS, and "gold is never a button" is the rule this circle
+           was breaking. Label is `text-cream`, the pairing the contrast
+           guard actually measures (4.61:1 AA); `text-white` is a different,
+           unmeasured pairing. */
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-[transform,background-color] duration-200 group-hover:bg-mulberry-600 group-hover:scale-105 sm:h-9 sm:w-9"
       >
         <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
       </span>

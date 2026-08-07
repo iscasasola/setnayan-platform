@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
@@ -84,7 +85,7 @@ export default async function PapicGuestPage({
     eventPapicGuestActive(admin, session.event_id),
     admin
       .from('events')
-      .select('display_name, papic_face_mode, event_type')
+      .select(`display_name, papic_face_mode, event_type, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
   ]);
@@ -103,6 +104,49 @@ export default async function PapicGuestPage({
         <p className="mt-2 text-sm text-ink/65">
           Guest cameras haven&rsquo;t been turned on for {eventName} yet. Sit
           back and enjoy the celebration!
+        </p>
+      </Shell>
+    );
+  }
+
+  // WHEN, as distinct from WHETHER (owner 2026-08-07). The check above asks if
+  // this event has guest cameras at all; this one asks whether today is a day
+  // they may be used. Default is the event day; the host has a button to open
+  // them earlier.
+  //
+  // ⚠ This is a COURTESY, not the enforcement — the upload route runs the same
+  // resolver and is what actually refuses. Showing a camera that would reject
+  // every shot is how the seat cameras spent weeks telling photographers their
+  // photos were saved.
+  const gate = guestCaptureGate({
+    earlyAllowed: (ev as { papic_guest_capture_early?: boolean | null } | null)
+      ?.papic_guest_capture_early,
+    eventDate: (ev as { event_date?: string | null } | null)?.event_date,
+    windowStart: (ev as { papic_window_start?: string | null } | null)?.papic_window_start,
+    windowEnd: (ev as { papic_window_end?: string | null } | null)?.papic_window_end,
+  });
+  if (gate.state !== 'open') {
+    return (
+      <Shell>
+        <h1 className="mt-3 text-xl font-semibold tracking-tight">
+          {gate.state === 'not_open_yet'
+            ? 'Guest cameras open on the day'
+            : 'Guest cameras have closed'}
+        </h1>
+        <p className="mt-2 text-sm text-ink/65">
+          {gate.state === 'not_open_yet' ? (
+            <>
+              Your camera for {eventName} switches on
+              {gate.eventDay ? ` on ${gate.eventDay}` : ' on the day of the event'}.
+              The couple can open it earlier if they&rsquo;d like shots of the
+              preparations.
+            </>
+          ) : (
+            <>
+              Thanks for shooting at {eventName} — the cameras are closed now.
+              Your photos are still in your gallery.
+            </>
+          )}
         </p>
       </Shell>
     );

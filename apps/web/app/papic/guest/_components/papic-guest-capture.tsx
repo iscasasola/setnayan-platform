@@ -88,6 +88,32 @@ function isPermanentUploadReject(status: number): boolean {
   return status >= 400 && status < 500 && status !== 429;
 }
 
+/**
+ * Copy for a refusal that is about WHEN, not about the bytes (owner 2026-08-07:
+ * guests shoot on the event day unless the host opens the cameras early).
+ *
+ * 🔑 ONE HELPER, BOTH PATHS. The photo and clip branches each format their own
+ * reject message, and a window refusal falling through to the generic "please
+ * try again" would tell a guest to keep retrying something that cannot succeed
+ * until a date. Returns null when the code is not a window refusal, so the
+ * existing generic handling is unchanged.
+ */
+function guestWindowRejectMessage(
+  error: unknown,
+  eventDay: unknown,
+): string | null {
+  const day = typeof eventDay === 'string' && eventDay ? eventDay : null;
+  if (error === 'guest_capture_not_open_yet') {
+    return day
+      ? `Guest cameras open on ${day}. Your host can open them earlier.`
+      : 'Guest cameras open on the day of the event. Your host can open them earlier.';
+  }
+  if (error === 'guest_capture_closed') {
+    return 'Guest cameras for this event have closed.';
+  }
+  return null;
+}
+
 // Papic · guest capture (client)
 //
 // Mirrors the seat-capture surface (apps/web/app/papic/seat/[token]/_components/
@@ -406,6 +432,8 @@ export function PapicGuestCapture({
         remaining?: number;
         error?: string;
         captureId?: string | null;
+        /** Set on a capture-window refusal, so the copy can name the date. */
+        eventDay?: string | null;
       };
 
       if (res.status === 409 || json.status === 'quota_exhausted') {
@@ -432,9 +460,10 @@ export function PapicGuestCapture({
         // Name the real cause instead. Transient failures fall through to throw.
         if (isPermanentUploadReject(res.status)) {
           setSaveError(
-            res.status === 413 || json.error === 'too_large'
-              ? 'That shot was too large to save — try again.'
-              : "That shot couldn't be saved — please try again.",
+            guestWindowRejectMessage(json.error, json.eventDay) ??
+              (res.status === 413 || json.error === 'too_large'
+                ? 'That shot was too large to save — try again.'
+                : "That shot couldn't be saved — please try again."),
           );
           return;
         }
@@ -650,6 +679,8 @@ export function PapicGuestCapture({
           remaining?: number;
           error?: string;
           captureId?: string | null;
+          /** Set on a capture-window refusal, so the copy can name the date. */
+          eventDay?: string | null;
         };
 
         if (res.status === 409 || json.status === 'quota_exhausted') {
@@ -677,9 +708,10 @@ export function PapicGuestCapture({
           // queues with the honest offline message).
           if (isPermanentUploadReject(res.status)) {
             setSaveError(
-              res.status === 413 || json.error === 'too_large'
-                ? 'That clip was too long or heavy to save — try a shorter one.'
-                : "That clip couldn't be saved — please try again.",
+              guestWindowRejectMessage(json.error, json.eventDay) ??
+                (res.status === 413 || json.error === 'too_large'
+                  ? 'That clip was too long or heavy to save — try a shorter one.'
+                  : "That clip couldn't be saved — please try again."),
             );
             return;
           }

@@ -310,9 +310,7 @@ All three paid tiers are available as 28-day prepaid blocks (13 cycles per year,
 
 ## Answering couples (included free)
 
-Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies with no token spend — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. Verified vendors can answer up to 10 new couples per rolling week; Solo, Pro, and Enterprise are unlimited. No per-lead fee, no listing fee, 0% commission.
-
-(Vendor token packs are retired — vendors no longer buy tokens to answer couples.)
+Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies at no charge — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. Verified vendors can answer up to 10 new couples per rolling week; Solo, Pro, and Enterprise are unlimited. No per-lead fee, no listing fee, 0% commission.
 
 ## Capabilities behind sign-in
 

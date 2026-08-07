@@ -30,7 +30,8 @@ type LaneTile = {
   sub: string;
   href: string;
   oldestAt?: string | null;
-  slaHours?: number;
+  /** `null` = this queue has no clock (the admin is not who clears it). */
+  slaHours?: number | null;
 };
 
 export default async function AdminOverview() {
@@ -150,7 +151,6 @@ export default async function AdminOverview() {
       tiles: [
         queueTile('payments', 'Payments to confirm', 'Awaiting reconciliation', '/admin/payments?filter=pending'),
         queueTile('payouts', 'Payouts to release', 'Verified T+1 schedule', '/admin/payouts'),
-        queueTile('token-purchases', 'Token sales', 'Vendor packs to confirm', '/admin/token-purchases'),
         queueTile(
           'subscriptions',
           'Subscriptions',
@@ -819,7 +819,8 @@ function ActionQueueTile({
   sub: string;
   href: string;
   oldestAt?: string | null;
-  slaHours?: number;
+  /** `null` = this queue has no clock (the admin is not who clears it). */
+  slaHours?: number | null;
   nowMs: number;
 }) {
   const hasWork = (value ?? 0) > 0;

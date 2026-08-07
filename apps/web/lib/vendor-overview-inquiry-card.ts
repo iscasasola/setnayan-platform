@@ -18,7 +18,6 @@
  * Kept free of `server-only` so the builder is unit-testable (the server
  * assembly in `vendor-overview.ts` imports both the type and the builder).
  */
-import { regionBurnTokens } from '@/lib/v2/region-token-burn';
 import { regionLabel } from '@/lib/region-source';
 import { inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 
@@ -39,8 +38,6 @@ export type InquiryWhatsNewCard = {
   /** City/area-level place ONLY — never a venue name or address. */
   place: string | null;
   category: string | null;
-  /** Region-banded token cost to Accept (◎N). */
-  tokenCost: number;
   createdAt: string;
 };
 
@@ -71,7 +68,6 @@ export function buildInquiryCard(input: {
     eventDate: input.eventDate,
     place: city,
     category: input.category,
-    tokenCost: regionBurnTokens(input.region),
     createdAt: input.createdAt,
   };
 }

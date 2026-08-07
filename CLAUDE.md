@@ -2,6 +2,26 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
+## 📋 START HERE — [`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md) (2026-08-07)
+
+**The verified register of every remaining item, carried INTO THIS REPO because
+`~/.claude/.../memory/` does not travel between accounts and the spec corpus is a
+second repo you may not have.**
+
+87 claims checked against shipped code and the live database — not against the
+documents that made them — then attacked by a refute pass. **58 survived · 15
+need the owner, not engineering.**
+
+It also carries what would otherwise be lost on an account change: the owner
+decisions already made (**do not re-ask them**), the prod test accounts and the
+`is_internal` false-green trap, the environment traps that have each cost real
+time, and an honest account of four times a session stated something untrue and
+was corrected by a one-word question from the owner.
+
+⚠ **A HANDOFF IS NOT EVIDENCE — including that one.** Verify before acting.
+
+---
+
 ## 🛑 RULE 0 — FIND IT BEFORE YOU BUILD IT (owner-locked 2026-07-27)
 
 **This project is ~2 years of design and code. Almost nothing you are asked for is new.**

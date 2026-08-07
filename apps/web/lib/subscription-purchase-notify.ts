@@ -4,10 +4,9 @@ import { emitNotification } from '@/lib/notification-emit';
 
 /**
  * Notification helpers for the vendor SUBSCRIPTION (Pro/Enterprise) checkout
- * flow (Phase D). Cloned from lib/token-purchase-notify.ts. Both are fail-soft
- * (a failed notification never affects the underlying money/credit action) and
- * resolve everything they need from the purchase id, so the same call works
- * from a server action OR the payment webhook.
+ * flow (Phase D). Fail-soft — a failed notification never affects the
+ * underlying money action — and resolves everything it needs from the purchase
+ * id, so the same call works from a server action OR the payment webhook.
  *
  * NOTIFICATION TYPES: the admin "pending" signal uses
  * 'order_awaiting_reconciliation' and the vendor "your plan is live" signal
@@ -15,10 +14,11 @@ import { emitNotification } from '@/lib/notification-emit';
  * 20270221018919_add_order_reconciliation_notification_type.sql). These USED to
  * borrow the token enum values 'vendor_token_purchase_pending' /
  * 'vendor_tokens_credited', which made the tray badge read "TOKEN PURCHASE
- * AWAITING PAYMENT" / "TOKENS CREDITED" on a subscription — wrong (owner: "only
- * keep the vendor tokens"; a subscription is not a token pack). Real vendor
- * token-pack purchases keep the token types (lib/token-purchase-notify.ts). The
- * rejected path keeps 'vendor_status_change' (an account event, not a token).
+ * AWAITING PAYMENT" / "TOKENS CREDITED" on a subscription — wrong; a
+ * subscription is not a token pack. Those two token types now have no emitter
+ * at all (the token currency was retired 2026-08-07), but they stay in the
+ * union because two already-read notifications in prod still carry one. The
+ * rejected path keeps 'vendor_status_change' (an account event).
  */
 
 const peso = (n: number) =>

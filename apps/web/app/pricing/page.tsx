@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Check, Sparkles, Brush, Clock3, Coins } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Brush, Clock3 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
@@ -476,7 +476,6 @@ export default async function PricingPage() {
 
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
-  const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
 
   const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -537,25 +536,10 @@ export default async function PricingPage() {
           },
         };
       }),
-      ...tokenPacks.map((t) => ({
-        '@type': 'Product',
-        '@id': `${SITE_URL}/pricing#tokens-${t.sku_code}`,
-        name: t.title,
-        description:
-          t.token_grant_count !== null
-            ? `${t.title} · ${t.token_grant_count} Setnayan vendor tokens.`
-            : `${t.title} · Setnayan vendor token pack.`,
-        brand: ORGANIZATION_REF,
-        category: 'Wedding vendor tokens',
-        offers: {
-          '@type': 'Offer',
-          url: `${SITE_URL}/vendors`,
-          price: String(Math.round(t.price_php)),
-          priceCurrency: 'PHP',
-          availability: 'https://schema.org/InStock',
-          seller: ORGANIZATION_REF,
-        },
-      })),
+      // Token-pack Products were emitted here until 2026-08-07. The vendor
+      // token currency is retired, so publishing them as `InStock` structured
+      // data would advertise a purchasable product that does not exist — to
+      // search engines, which cache it.
     ],
   };
 
@@ -748,15 +732,12 @@ export default async function PricingPage() {
                               with Papic
                             </span>
                           ) : null}
-                          {sku.is_token_able ? (
-                            <span
-                              title="Token Worthy: can be purchased with vendor tokens"
-                              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55"
-                            >
-                              <Coins aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-                              Token
-                            </span>
-                          ) : null}
+                          {/* The "Token Worthy" badge was removed here
+                              2026-08-07 with the token retirement. It rendered
+                              on `is_token_able`, which is false for every row
+                              in prod — so it was dark, but one catalog flag
+                              away from telling a couple on the PUBLIC pricing
+                              page that a vendor could buy this with tokens. */}
                         </div>
                         {sku.description ? (
                           <p className="text-sm leading-relaxed text-ink/65">{sku.description}</p>
@@ -828,11 +809,25 @@ export default async function PricingPage() {
           >
             You apply, then pay. The money goes straight to the service.
           </LineRevealHeading>
+          {/* ⚠ "No commission on vendor bookings" is CORRECT and stays (owner
+              2026-08-06): the couple pays the vendor directly and Setnayan never
+              touches that money. But this page ALSO sells vendor plans, and
+              "no hidden fees" beside it read to a vendor as "Setnayan charges me
+              nothing" — which stops being true the moment the syncing fee is
+              switched on. The fee is charged to the VENDOR for the introduction
+              and the in-app sync; it is not a cut of the couple↔vendor deal, so
+              both sentences are true at once — but only if the second one is
+              actually said. Owner ruled a disclosure is owed; this is it.
+              It is written now, BEFORE the fee is on (zero charges exist), so a
+              vendor never reads "no hidden fees" on Monday and gets a fee on
+              Tuesday. */}
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
             Prices are in Philippine peso. Apply for a service, then pay by GCash
             or bank transfer against a unique reference. No commission on vendor
-            bookings, no hidden fees. Setnayan never sits between you and your
-            vendor at checkout.
+            bookings — couples pay their vendors directly and we never sit
+            between you at checkout. Vendors pay a booking fee to Setnayan on
+            clients we introduce them to; it is charged to the vendor, never
+            added to what a couple pays.
           </p>
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
             Prices render live from the Setnayan catalog and are admin-managed.

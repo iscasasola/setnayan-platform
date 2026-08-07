@@ -116,7 +116,6 @@ import {
   User,
   Users,
   Wallet,
-  Coins,
   Crown,
   Building2,
   Images,
@@ -394,26 +393,25 @@ export function VendorSidebar({
  * VendorSidebarFooter — the prototype's pinned footer, passed to
  * <SidebarShell sidebarFooter>. One row linking to the Plan hub
  * (/vendor-dashboard/subscription): a gold "Pro" pill (tier label · Free shows
- * "Free") + "Plan" label, with the vendor's retained token balance right-aligned
- * (tokens are retired — the balance is read-only, nothing spends them).
+ * "Free") + "Plan" label.
  * SidebarShell hides this whole slot when the sidebar collapses to the 64px rail.
+ *
+ * ⚠ The token balance that used to sit right-aligned here is GONE (2026-08-07).
+ * Its own docblock already said "tokens are retired — the balance is read-only,
+ * nothing spends them", and it was still printed in the chrome of EVERY vendor
+ * screen. A counter for a currency that buys nothing is not read-only, it is a
+ * standing claim that the currency exists. Owner lock 2026-07-21: "token can
+ * retire, there should be nothing that needs token anymore." 
  */
-export function VendorSidebarFooter({
-  tier,
-  tokenBalance,
-}: {
-  tier: string | null;
-  tokenBalance: number;
-}) {
+export function VendorSidebarFooter({ tier }: { tier: string | null }) {
   const normalizedTier: VendorTier = asVendorTier(tier);
   const tierLabel = TIER_LABEL[normalizedTier];
-  const numberFormat = new Intl.NumberFormat('en-PH');
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ONE Plan & tokens row (deduped 2026-07-16 — was two adjacent rows both
-          linking to /subscription): tier pill + label on the left, the live
-          token balance right-aligned. */}
+      {/* ONE Plan row (deduped 2026-07-16 — was two adjacent rows both linking
+          to /subscription): tier pill + label. The token balance that sat
+          right-aligned here was removed 2026-08-07 with the token economy. */}
       <Link
         href="/vendor-dashboard/subscription"
         className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-sidebar-hover)]"
@@ -438,14 +436,6 @@ export function VendorSidebarFooter({
         </span>
         <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
           Plan
-        </span>
-        <span
-          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold"
-          style={{ color: 'var(--m-sidebar-fg)' }}
-          title={`${numberFormat.format(tokenBalance)} tokens`}
-        >
-          <Coins aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
-          {numberFormat.format(tokenBalance)}
         </span>
       </Link>
     </div>

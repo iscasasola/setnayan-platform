@@ -428,55 +428,6 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
   custom: { monthly: 8999, annual: 89990 },
 };
 
-/**
- * Free tokens bundled with a paid subscription, granted per paid period
- * (activation/renewal) by `_apply_subscription_credit`, and on admin tier-set
- * (the monthly amount) by `setVendorTier`.
- *
- * RATES (owner 2026-06-09): Pro 5/50 · Enterprise 10/100. **LIFETIME** — the
- * bundle is credited to the never-expire `vendor_wallets.purchased_tokens`
- * bucket and available in full immediately (via `grant_vendor_lifetime_tokens`,
- * migration 20261012000000). The amounts are MIRRORED in the SQL CASE inside
- * `_apply_subscription_credit`; keep BOTH in sync on any future reprice.
- */
-export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
-  VendorTier,
-  { monthly: number; annual: number }
-> = {
-  free: { monthly: 0, annual: 0 },
-  verified: { monthly: 0, annual: 0 },
-  // Solo grants NO bundle tokens: neither the SQL CASE in
-  // _apply_subscription_credit (branches pro/enterprise only) nor setVendorTier
-  // (guarded to pro/enterprise) ever credits Solo. Zeroed 2026-07-01 so the
-  // subscription card can't advertise free tokens no grant path delivers.
-  solo: { monthly: 0, annual: 0 },
-  pro: { monthly: 5, annual: 50 },
-  enterprise: { monthly: 10, annual: 100 },
-  // Custom's included tokens are a composed line (tokensPerCycle on the plan,
-  // priced at a flat face value per the rate card) — NOT a fixed subscription
-  // bundle. This static entry is 0 so no bundle-token path double-grants; the
-  // composed count is handled by the Custom plan flow.
-  custom: { monthly: 0, annual: 0 },
-};
-
-/** Price to buy one additional lifetime (non-expiring) token. */
-export const TOKEN_BUY_PRICE_PHP = 100;
-
-/**
- * May purchase additional lifetime tokens (₱200/token)?
- *
- * VERIFICATION-GATED (owner 2026-07-01: "they can only purchase tokens and
- * subscribe when they are verified"). Only a VERIFIED store may buy — i.e. any
- * tier except unverified `free`. This is the client-side UX mirror; the server
- * RPC `create_vendor_token_purchase` is authoritative — it RAISEs NOT_VERIFIED
- * on `vendor_profiles.verification_state <> 'verified'` (migration
- * 20270403095563). Reverses the 2026-06-07 "FREE may buy" override, whose
- * client-import justification died when customer import went free (#2448).
- */
-export function canBuyTokens(tier: string | null | undefined): boolean {
-  return asVendorTier(tier) !== 'free';
-}
-
 export const TIER_LABEL: Record<VendorTier, string> = {
   free: 'Free',
   verified: 'Free · Verified',

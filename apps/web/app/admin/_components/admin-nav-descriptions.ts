@@ -33,7 +33,6 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Vendor-to-vendor partnership claims awaiting two-admin verification.',
   payments: 'Order payments awaiting reconciliation.',
   payouts: 'Vendor payouts ready to release.',
-  'token-purchases': 'Vendor token-pack purchases awaiting confirmation.',
   subscriptions: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
   'payment-options': 'Vendor payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and vendor disputes.',
@@ -129,8 +128,6 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Negotiated Custom vendor plans — dial a quote, apply a partner discount, send it for apply-then-pay approval.',
   'vendor-recommendations':
     'The vendor-leaf → recommendable-SKU map and its two-way curation review queue.',
-  'token-bands':
-    'Per-inquiry token burn — flat 1 everywhere since the 2026-07-11 lock. Edit only to change the platform-wide burn.',
   'price-bands': 'Price bands used across the catalog.',
   'budget-planner': 'The couple budget-planner reference table and defaults.',
   receipts: 'Issued receipts and BIR-facing records.',
@@ -216,7 +213,6 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',
-  'token-purchases': 'tokens packs credits',
   pricing: 'price cost sku catalog catalogue amount',
   'price-bands': 'market range benchmark',
   secrets: 'keys api credentials rotate env',

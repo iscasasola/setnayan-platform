@@ -264,17 +264,21 @@ export function VoucherForm({
           style={{ color: 'var(--m-slate)' }}
         >
           Percentage off scales by percentage · Percentage off (capped) tops
-          out at a peso ceiling · Free makes covered services 100% off · Grant
-          tokens credits a vendor&rsquo;s wallet (vendor accounts only · vendor
-          redeems at their dashboard).
+          out at a peso ceiling · Free makes covered services 100% off.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
           {(
             [
               { v: 'pct_off' as const, label: 'Percentage off' },
               { v: 'pct_off_capped' as const, label: 'Percentage off (capped)' },
+              // 'grant_tokens' was REMOVED here 2026-08-07 with the token
+              // retirement. It minted a currency with no redeem surface at all
+              // — `redeem_vendor_token_voucher` has zero callers in the app, so
+              // every voucher of that type was unredeemable from the hour it
+              // was created. The type stays in the DB enum: one expired row
+              // (TESTGTK1) still carries it, and the parsing below still reads
+              // it so that row renders instead of crashing the list.
               { v: 'free' as const, label: 'Free (100% off)' },
-              { v: 'grant_tokens' as const, label: 'Grant tokens (vendor reward)' },
             ] satisfies { v: DiscountType; label: string }[]
           ).map((opt) => (
             <label

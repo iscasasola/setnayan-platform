@@ -49,7 +49,7 @@ const COPY: Record<
       },
       {
         title: 'Receipts in one place',
-        body: 'Your Setnayan software receipts download together so you always have a record. Vendor-side: monthly subscription receipts + token-pack receipts download the same way. The boring parts, handled, not handed back to you.',
+        body: 'Your Setnayan software receipts download together so you always have a record. Vendor-side: monthly subscription receipts download the same way. The boring parts, handled, not handed back to you.',
       },
     ],
   },
@@ -73,7 +73,7 @@ const COPY: Record<
       },
       {
         title: 'Lahat ng resibo, nasa isang lugar',
-        body: 'Ang Setnayan software receipts mo ay sabay-sabay na nada-download para may record ka lagi. Sa vendor-side: ganun din ang monthly subscription receipts + token-pack receipts. Ang mga nakakaantok na parte, kami na ang bahala, hindi isinasauli sa’yo.',
+        body: 'Ang Setnayan software receipts mo ay sabay-sabay na nada-download para may record ka lagi. Sa vendor-side: ganun din ang monthly subscription receipts. Ang mga nakakaantok na parte, kami na ang bahala, hindi isinasauli sa’yo.',
       },
     ],
   },

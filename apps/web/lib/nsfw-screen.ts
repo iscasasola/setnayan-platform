@@ -223,10 +223,12 @@ export async function screenCapture(opts: {
     // papic_photos flags clips via photo_type; papic_guest_captures via
     // media_type (Option A — guest-recorded clips). Both are the screen's signal
     // to classify the POSTER frame, not the video bytes.
+    // `event_id` is carried for the known-hash record below (both capture
+    // tables have it — reScreenStuckCaptures already filters on it).
     const selectCols =
       opts.table === 'papic_photos'
-        ? `${idColumn}, moderation_state, photo_type`
-        : `${idColumn}, moderation_state, media_type`;
+        ? `${idColumn}, moderation_state, event_id, photo_type`
+        : `${idColumn}, moderation_state, event_id, media_type`;
     let row: Record<string, unknown> | null = null;
     {
       const { data, error: rowError } = await admin
@@ -242,7 +244,7 @@ export async function screenCapture(opts: {
         if (opts.table === 'papic_guest_captures') {
           const { data: retry } = await admin
             .from(opts.table)
-            .select(`${idColumn}, moderation_state`)
+            .select(`${idColumn}, moderation_state, event_id`)
             .eq('r2_object_key', opts.r2ObjectKey)
             .maybeSingle();
           row = (retry as Record<string, unknown> | null) ?? null;
@@ -283,6 +285,47 @@ export async function screenCapture(opts: {
       const { R2_BUCKETS } = await import('@/lib/r2');
       const { bucket, key } = parseR2Ref(classifyRef);
       bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
+    }
+
+    // ── CSAM known-hash check (lib/known-hash-match.ts) ────────────────────
+    // Runs on the SAME still the classifier is about to read, which is why it
+    // lives here rather than at the two capture call sites: every route that
+    // reaches a capture reaches screenCapture, so none can skip it and none can
+    // be added that does.
+    //
+    // ⚠ INERT TODAY. No provider is enrolled, so this records 'not_enrolled'
+    // (or nothing at all while the flag is off) and the upload proceeds under
+    // the NSFW classifier alone — today's behaviour, unchanged. It is NOT a
+    // pass; `hashCheckBlocksMedia` is false for every non-match status and the
+    // recorded row says plainly that nothing was checked.
+    let hashBlocked = false;
+    try {
+      const { recordKnownHashCheck, hashCheckBlocksMedia } = await import(
+        '@/lib/known-hash-match'
+      );
+      const outcome = await recordKnownHashCheck({
+        subjectTable: opts.table,
+        r2ObjectKey: opts.r2ObjectKey,
+        eventId: typeof record.event_id === 'string' ? record.event_id : null,
+        bytes,
+      });
+      hashBlocked = hashCheckBlocksMedia(outcome.status);
+    } catch {
+      // Never let the hook cost a capture. The absence of a record is itself
+      // visible in the console (an object with no row was not checked).
+    }
+
+    // A positive match is terminal and does not wait on the classifier. It
+    // reuses the shipped `nsfw_blocked` state rather than inventing one, so
+    // every existing display gate (which allowlists 'clean') already withholds
+    // it — no surface has to learn a new value to be safe.
+    if (hashBlocked) {
+      await admin
+        .from(opts.table)
+        .update({ moderation_state: 'nsfw_blocked' })
+        .eq('r2_object_key', opts.r2ObjectKey)
+        .eq('moderation_state', 'unscreened');
+      return;
     }
 
     const scores = await classifyImageBytes(bytes);
@@ -504,6 +547,31 @@ export async function screenEditorialVendorMedia(opts: {
     const { R2_BUCKETS } = await import('@/lib/r2');
     const { bucket, key } = parseR2Ref(opts.stillR2Key);
     const bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
+
+    // CSAM known-hash check on the same still — see screenCapture above. Inert
+    // until enrolment; a match is terminal and skips the classifier.
+    let hashBlocked = false;
+    try {
+      const { recordKnownHashCheck, hashCheckBlocksMedia } = await import(
+        '@/lib/known-hash-match'
+      );
+      const outcome = await recordKnownHashCheck({
+        subjectTable: 'editorial_vendor_media',
+        r2ObjectKey: opts.stillR2Key,
+        bytes,
+      });
+      hashBlocked = hashCheckBlocksMedia(outcome.status);
+    } catch {
+      // Never let the hook cost a submission.
+    }
+    if (hashBlocked) {
+      await admin
+        .from('editorial_vendor_media')
+        .update({ moderation_state: 'nsfw_blocked' })
+        .eq('media_id', opts.mediaId)
+        .eq('moderation_state', 'unscreened');
+      return;
+    }
 
     const scores = await classifyImageBytes(bytes);
     const decision = decideNsfw(scores);
@@ -775,9 +843,33 @@ export async function screenStdVideo(opts: {
     // fingerprinted, and the seal below is conditioned on that same ETag.
     if (after.video !== before.video) return;
 
-    const scores = await classifyImageBytes(bytes);
+    // CSAM known-hash check. Recorded against the VIDEO key (the media object)
+    // while hashing the POSTER bytes — the same convention screenCapture uses
+    // for a clip, since the poster is the only still this stack can decode.
+    // That inherits the poster's limitation too: a hash match on the poster is
+    // evidence enough to reject, but a non-match vouches for nothing about the
+    // video, which is exactly why the human gate below stays on.
+    let hashBlocked = false;
+    try {
+      const { recordKnownHashCheck, hashCheckBlocksMedia } = await import(
+        '@/lib/known-hash-match'
+      );
+      const hashOutcome = await recordKnownHashCheck({
+        subjectTable: 'event_std_video',
+        r2ObjectKey: opts.videoKey,
+        eventId: opts.eventId,
+        bytes,
+      });
+      hashBlocked = hashCheckBlocksMedia(hashOutcome.status);
+    } catch {
+      // Never let the hook strand an upload — the verdict stays pending and the
+      // opportunistic heal retries, exactly as for any other failure here.
+    }
+
+    // A match rejects outright and needs no classifier run; otherwise fall
+    // through to the existing poster classification unchanged.
     const outcome = stdScreenOutcome({
-      decision: decideNsfw(scores),
+      decision: hashBlocked ? 'nsfw_blocked' : decideNsfw(await classifyImageBytes(bytes)),
       grandfathered: grandfathered !== null,
     });
 

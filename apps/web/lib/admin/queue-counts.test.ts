@@ -89,3 +89,49 @@ test('deriveQueueUrgency — distinguishes genuinely-clear from a degraded read'
   assert.equal(degraded.totalOpen, 0);
   assert.ok(degraded.unknownCount > 0, 'all-null is degraded, not clear');
 });
+
+/**
+ * A queue with no clock never goes red.
+ *
+ * 🚨 THE NOISE THIS REMOVES. Partnerships carried a 72-hour promise, but its
+ * rows wait on the RECIPIENT VENDOR to accept or decline — the only admin
+ * control is a veto. No admin action could ever meet that deadline, so every
+ * solo admin was shown a permanently red past-promise row. The same noise that
+ * got payouts taken off this list, arriving by a different route.
+ *
+ * 🔑 A DEADLINE ON SOMEONE ELSE'S DECISION IS PERMANENT RED. The row still
+ * shows its count, so nothing is hidden — it just stops claiming a promise
+ * nobody made.
+ */
+test('a queue with no clock is never late, however old its oldest item', () => {
+  const ancient = new Date(Date.now() - 400 * 24 * 3_600_000).toISOString();
+  assert.equal(computeDueState({ count: 5, oldestAt: ancient }, null, Date.now()), 'ok');
+});
+
+test('a clockless queue with nothing in it still reads as clear', () => {
+  assert.equal(computeDueState({ count: 0, oldestAt: null }, null, Date.now()), 'clear');
+});
+
+test('an unmeasured clockless queue is still unknown, not ok', () => {
+  // `null` count means we could not read it. Reporting that as "fine" is the
+  // same lie the work-list drawer had to be fixed for.
+  assert.equal(computeDueState({ count: null, oldestAt: null }, null, Date.now()), 'unknown');
+});
+
+test('partnerships is the queue that carries no clock', () => {
+  // Named explicitly: if someone re-adds an SLA here, they should have to
+  // delete this line and read why it existed.
+  assert.equal(
+    ADMIN_QUEUE_META['vendor-partnerships']?.slaHours,
+    null,
+    'partnerships waits on the recipient vendor — an admin deadline on it can only ever be red',
+  );
+});
+
+test('every other queue still has a clock', () => {
+  // "No clock" must stay the rare, argued exception rather than a habit.
+  const clockless = Object.entries(ADMIN_QUEUE_META)
+    .filter(([, m]) => m.slaHours === null)
+    .map(([k]) => k);
+  assert.deepEqual(clockless, ['vendor-partnerships'], `unexpected clockless queues: ${clockless.join(', ')}`);
+});

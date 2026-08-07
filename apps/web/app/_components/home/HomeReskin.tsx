@@ -42,6 +42,22 @@ const HomeOverlays = dynamic(() => import('./HomeOverlays').then((m) => m.HomeOv
   ssr: false,
 });
 
+/**
+ * THE FRONT-PAGE COPY IS OWNER-APPROVED AND VERBATIM — do not reword it.
+ *
+ * Source: `03_Strategy/Claude_Design_Brief_2026-07-31.md` § 5, approved by the
+ * owner on 2026-07-31 with both scope questions answered — full front-page
+ * repositioning, and **non-sectarian at the top of the funnel** (binyag ·
+ * kumpil · kasal · aqiqah belong on `/alaala` and the deeper pages, NEVER in
+ * the hero). The direction it replaces was culturally neutral: the hero sub
+ * read "The independent hub to keep a lifetime of memories, and plan any event,
+ * free.", which said nothing about who a Filipino celebration belongs to.
+ *
+ * `lib/home-front-copy.test.ts` pins these strings so a later edit cannot
+ * silently revert them, and fails if the retired neutral sentence comes back.
+ * Change the words here only with the owner — then update that test in the
+ * same commit.
+ */
 const HOME_HERO = {
   kick: 'Set na ’yan',
   title: (
@@ -51,7 +67,7 @@ const HOME_HERO = {
       Plan your moments.
     </>
   ),
-  sub: 'The independent hub to keep a lifetime of memories, and plan any event, free.',
+  sub: 'The Filipino way to keep a celebration — remembered by everyone who came, not just the couple. Plan any event, free.',
 };
 
 /**
@@ -59,15 +75,18 @@ const HOME_HERO = {
  * word starts faint and rises to full ink, staggered left-to-right, when the
  * section scrolls into view. `b` = the bolded anchor words; `fin` = the
  * serif-italic finale that gets the gold underline sweep. The copy itself is
- * the owner-locked positioning statement — presentation only changes here.
+ * the owner-approved positioning statement (§ 5, see above) — presentation
+ * only changes here.
  */
 const MANIFESTO: Array<{ t: string; b?: boolean; fin?: boolean }> = [
-  { t: 'Setnayan is where the memories of every event in your life are kept, the ones you' },
+  { t: 'Setnayan is where the memories of every event in your life are kept — the ones you' },
   { t: 'hold', b: true },
   { t: 'and the ones you' },
   { t: 'attend.', b: true },
+  { t: 'A Filipino celebration was never one family’s; it belongs to the whole' },
+  { t: 'samahan', b: true },
   {
-    t: 'Most tools you open for one event and close. This is the place your celebrations live, so you come back for the next one. Plan it, run it, remember it, and',
+    t: '— the ninong and ninang, the titos and titas, the barkada, everyone who showed up. So the memory shouldn’t belong to one camera either. Every one of them is holding a piece of your day. Setnayan is where those pieces come together, and everyone goes home with their own. Plan it, run it, remember it, and',
   },
   { t: 'keep it, for life.', fin: true },
 ];

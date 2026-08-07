@@ -28,7 +28,6 @@ import {
   CalendarDays,
   CheckCheck,
   CircleUser,
-  Coins,
   Crown,
   Compass,
   CreditCard,
@@ -66,7 +65,6 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  ShoppingBag,
   Signal,
   Sparkles,
   Star,
@@ -167,14 +165,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Payouts',
         href: '/admin/payouts',
         icon: Wallet,
-      },
-      {
-        // Money queue — vendor token-pack purchase reconcile (was in Money).
-        key: 'token-purchases',
-        label: 'Token sales',
-        href: '/admin/token-purchases',
-        icon: ShoppingBag,
-        matchPrefix: '/admin/token-purchases',
       },
       {
         // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
@@ -844,13 +834,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/vendor-recommendations',
         icon: Lightbulb,
         matchPrefix: '/admin/vendor-recommendations',
-      },
-      {
-        key: 'token-bands',
-        label: 'Token bands',
-        href: '/admin/pricing?tab=token-bands',
-        icon: Coins,
-        matchPrefix: '/admin/token-bands',
       },
       {
         key: 'price-bands',

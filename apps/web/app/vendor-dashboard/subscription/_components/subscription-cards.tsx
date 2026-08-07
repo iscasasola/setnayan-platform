@@ -226,12 +226,11 @@ export function SubscriptionCards({
                   {cycle === 'monthly' ? '28d' : 'yr'}
                 </p>
               )}
-              {card.bundleTokens > 0 ? (
-                <p className="mt-1 text-xs text-ink/55">
-                  Includes {NUMBER.format(card.bundleTokens)} free tokens{' '}
-                  {cycle === 'monthly' ? 'each period' : 'on activation'}.
-                </p>
-              ) : null}
+              {/* The "Includes N free tokens each period" line was removed
+                  2026-08-07. Owner lock 2026-07-21: "token can retire, there
+                  should be nothing that needs token anymore." A plan card is
+                  where a vendor decides what to pay for, so it is the worst
+                  place of all to still promise a currency that buys nothing. */}
 
               <ul className="mt-4 space-y-2">
                 {card.capLines.map((line) => (

@@ -43,7 +43,6 @@ import {
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
-import { TokenWalletSection } from './_components/token-wallet-section';
 import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
 /**
@@ -355,8 +354,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
           Upgrade to reach more couples and answer unlimited inquiries — no
-          features are locked behind a paywall. Pro and Enterprise also bundle
-          free tokens each cycle.
+          features are locked behind a paywall.
         </p>
 
         {/* Current tier + renewal */}
@@ -619,7 +617,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       {/* Token wallet — reduced to a dormant read-only balance panel (renders
           only if a retained balance exists; token packs are retired, nothing
           spends tokens). */}
-      <TokenWalletSection />
     </main>
   );
 }

@@ -207,7 +207,6 @@ export default async function VendorDashboardLayout({
     ? await displayUrlForStoredAsset(vendorProfile.logo_url).catch(() => null)
     : null;
   const vendorTier = tierWallet.tier;
-  const vendorTokenBalance = tierWallet.tokenBalance;
 
   // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
   // awaited write RPC that blocked every layout render — including every
@@ -347,7 +346,7 @@ export default async function VendorDashboardLayout({
             threadsBadge={threadsUnread}
           />
         }
-        sidebarFooter={<VendorSidebarFooter tier={vendorTier} tokenBalance={vendorTokenBalance} />}
+        sidebarFooter={<VendorSidebarFooter tier={vendorTier} />}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last

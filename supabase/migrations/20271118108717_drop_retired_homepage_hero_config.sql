@@ -1,0 +1,26 @@
+-- Drop `homepage_hero_config` — the retired sign-in hero's settings table.
+--
+-- Owner decision 2026-08-06: "yes". The sign-in hero itself was deleted
+-- 2026-08-02 (its admin screen now 404s); this table is what it read.
+--
+-- ⚠ A DROP IS IRREVERSIBLE, so the boundary was verified against LIVE PROD
+-- rather than inferred, immediately before writing this:
+--   · 1 row — settings for a screen that no longer exists
+--   · 0 `.from('homepage_hero_config')` call sites anywhere in apps/web
+--     (four mentions remain, all in COMMENTS describing the pattern it shared
+--      with platform_settings — one of them says outright that it is "an inert
+--      table deliberately NOT consulted")
+--   · 0 inbound foreign keys · 0 dependent views · 0 non-internal triggers
+--   · 0 tests seed it
+--
+-- Its read policy, primary key, role grants and its outbound
+-- `updated_by_admin_id → users` FK all fall with the table.
+--
+-- 🔑 THIS ALSO REMOVES AN EXPOSURE SURFACE. anon and authenticated held
+-- SELECT/INSERT/UPDATE/DELETE on it — a live, writable public endpoint for a
+-- feature nobody can reach. The exposure baseline is regenerated in this same
+-- PR and shrinks accordingly; that diff is the review.
+--
+-- Same shape as 20271033104200_drop_retired_token_burn_bands.sql.
+
+DROP TABLE IF EXISTS public.homepage_hero_config;

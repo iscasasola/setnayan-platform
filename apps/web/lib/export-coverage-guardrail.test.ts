@@ -236,7 +236,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Per-event feature toggle set by staff — set_by_admin_id is the operator, not the subject.',
   feature_policy: 'Platform feature-gate configuration — updated_by_admin_id is a staff actor.',
   homepage_background_videos: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
-  homepage_hero_config: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  homepage_hero_config:
+    'Table DROPPED 2026-08-06 (retired sign-in hero). The CREATE still sits in ' +
+    'migration history, so the scanner keeps seeing it — the key stays for that ' +
+    'reason, not because the table exists.',
   reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
   site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
   platform_compliance_facts:

@@ -17,6 +17,8 @@ import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
 import { MayaCard } from './_components/maya-card';
 import { BuildTimeStatus } from './_components/build-time-status';
+import { KnownHashCard } from './_components/known-hash-card';
+import { getKnownHashIntegrationStatus } from '@/lib/known-hash-match';
 import {
   SECRET_INTEGRATIONS,
   OAUTH_INTEGRATIONS,
@@ -60,7 +62,7 @@ export default async function AdminIntegrationsPage({
   }
 
   const admin = createAdminClient();
-  const [secretRes, settingsRes, secretPresence] = await Promise.all([
+  const [secretRes, settingsRes, secretPresence, knownHashStatus] = await Promise.all([
     admin
       .from('platform_integration_secrets')
       .select('resend_api_key_enc, last_verified_at')
@@ -74,6 +76,9 @@ export default async function AdminIntegrationsPage({
     // never enters this component's render tree (defense-in-depth: a future edit
     // can't accidentally pass a secrets object to a client prop / log).
     getSecretPresenceMap(),
+    // Read-only, never-throwing. Surfaces the CSAM known-hash matcher's honest
+    // state — which is "not enrolled" and will stay so until the owner enrols.
+    getKnownHashIntegrationStatus(),
   ]);
 
   const dbHasKey = Boolean(secretRes.data?.resend_api_key_enc);
@@ -397,6 +402,13 @@ export default async function AdminIntegrationsPage({
           }
           statusApproved={process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED'}
         />
+      </section>
+
+      {/* Safety — CSAM known-hash matching. Read-only + deliberately unswitchable:
+          it needs organisational enrolment, not a key. Placed above the
+          build-time block so the "not enrolled" state is not buried. */}
+      <section className="space-y-4">
+        <KnownHashCard status={knownHashStatus} />
       </section>
 
       {/* Build-time & env-only (PR4d) — read-only; these can't be DB-flipped */}

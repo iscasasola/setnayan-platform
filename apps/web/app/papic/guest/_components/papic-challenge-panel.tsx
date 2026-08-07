@@ -293,6 +293,13 @@ function ChallengePanelInner({
                     <div className="min-w-0">
                       <p className="text-[11px] uppercase tracking-wide text-cream/45">
                         {label}
+                        {m.capture_kind === 'clip'
+                          ? ' · Video'
+                          : m.capture_kind === 'pabati'
+                            ? ' · Greeting'
+                            : m.capture_kind === 'photo'
+                              ? ' · Photo'
+                              : ''}
                       </p>
                       <p className="mt-0.5 text-sm text-cream/90">{m.prompt}</p>
                     </div>

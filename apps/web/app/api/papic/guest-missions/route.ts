@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { ensureAutoMissions, fetchGuestMissions } from '@/lib/papic-games';
+import { ensurePapicBoard, fetchGuestMissions } from '@/lib/papic-games';
+import { eventPabatiActive } from '@/lib/pabati';
 
 // GET /api/papic/guest-missions
 //
@@ -23,19 +24,24 @@ export async function GET() {
 
   const admin = createAdminClient();
 
-  // Idempotently materialize the FREE booth missions for this event's booked
-  // vendors before reading. ensure_papic_auto_missions is advisory-locked +
-  // unique-indexed, so concurrent guest opens can't double-insert. Best-effort:
-  // a generation hiccup still returns whatever missions already exist.
+  // Idempotently materialize + rank the §9 20-slot board (couple + vendor +
+  // Setnayan) before reading. ensure_papic_board advisory-locks per event and
+  // calls ensure_papic_auto_missions internally, so concurrent guest opens can't
+  // double-insert. Best-effort: a hiccup leaves the v4 reader to FAIL-SOFT to the
+  // pre-board (created_at) ordering, so missions are never blanked.
   //
-  // The RPC is deliberately NOT granted to `anon` ("guests never generate"),
-  // but that guards the DIRECT-from-browser path — a guest's own anon Postgres
-  // role can't call it. Here we call it SERVER-SIDE via the service-role admin
-  // client on behalf of a cookie-validated guest, which is an explicitly
-  // authorized caller (the RPC's couple/coordinator/admin gate only applies when
-  // auth.uid() IS NOT NULL). event_id is cookie-derived, so generation is always
-  // scoped to THIS guest's own event — the same trust model as guest-capture.
-  await ensureAutoMissions(admin, session.event_id).catch(() => 0);
+  // The RPC is deliberately NOT granted to `anon`, but that guards the
+  // DIRECT-from-browser path. Here we call it SERVER-SIDE via the service-role
+  // admin client on behalf of a cookie-validated guest (auth.uid() IS NULL →
+  // the couple/coordinator/admin gate is bypassed for the server), scoped to
+  // THIS guest's own cookie-derived event — the same trust model as guest-capture.
+  //
+  // Pabati (#5) availability is computed SERVER-SIDE here and passed in — the
+  // resolver never trusts a client-supplied flag, and eventSkuActive (a 6-source
+  // entitlement engine) stays out of SQL. Fail-closed: an error → false → Pabati
+  // is skipped + backfilled.
+  const pabatiActive = await eventPabatiActive(admin, session.event_id).catch(() => false);
+  await ensurePapicBoard(admin, session.event_id, pabatiActive).catch(() => 0);
 
   const missions = await fetchGuestMissions(admin, session.guest_id).catch(() => []);
   return NextResponse.json({ missions });

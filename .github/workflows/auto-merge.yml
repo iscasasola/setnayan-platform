@@ -9,9 +9,26 @@ name: auto-enable-automerge
 # auto-merge; this only removes the "forgot to arm it" failure mode that let
 # PRs pile up unmerged.
 #
-# To HOLD a PR (don't let it auto-merge): open it as a DRAFT — this workflow
-# skips drafts. Marking it "Ready for review" arms auto-merge. To pause an
-# already-armed PR: `gh pr merge <#> --disable-auto`.
+# To HOLD a PR (don't let it auto-merge), ANY of these three:
+#   1. Label it `do-not-auto-merge`  ← PREFERRED, and the only one that is safe
+#   2. Put `DO NOT AUTO-MERGE` in the title
+#   3. Open it as a DRAFT (this workflow skips drafts)
+# To pause an already-armed PR: `gh pr merge <#> --disable-auto`.
+#
+# 🚨 WHY 1 AND 2 EXIST (added 2026-08-07 after a near miss). The standing rule is
+# that public-facing LEGAL COPY is opened for the owner to read and merge in his
+# own name as DPO — never merged by a machine. The only protection was "don't
+# run `gh pr merge --auto`", which does nothing here: THIS WORKFLOW ARMS IT FOR
+# YOU. PR #4209 (the privacy retention notice + the booking-fee disclosure) was
+# opened deliberately unarmed, verified unarmed, and was ARMED BY THIS WORKFLOW
+# about a minute later. It was caught only because a re-check happened to run.
+#
+# 🔑 A CONVENTION THAT LIVES IN SOMEONE'S HEAD IS NOT A CONTROL. "We don't arm
+# legal PRs" was never enforced anywhere — and the two PRs relying on it
+# (#4186, #4209) carried NO label and NO enforcement, only a title. Drafts were
+# the documented hold, but a draft is worse for this case: the owner must mark
+# it Ready to merge it, which re-fires this workflow and arms it — so the very
+# act of approving becomes the act of losing the hold.
 #
 # RETIRE THIS at public-vendor launch: when updates move to a temp/staging
 # site (see corpus deployment-phases), delete this workflow so prod stops
@@ -19,6 +36,9 @@ name: auto-enable-automerge
 
 on:
   pull_request:
+    # `labeled` is NOT here on purpose: adding the hold label must never be the
+    # thing that arms the PR. Removing the label does not re-arm either — that
+    # is deliberate, and `gh pr merge <#> --auto --merge` is the manual path.
     types: [opened, reopened, ready_for_review]
 
 permissions:
@@ -27,7 +47,14 @@ permissions:
 
 jobs:
   enable-automerge:
-    if: github.event.pull_request.draft == false
+    # Three independent holds. The LABEL is the real control; the title check is
+    # a belt-and-braces catch for a PR opened before anyone thought to label it
+    # (both PRs that needed this on 2026-08-07 had the words in the title and no
+    # label at all). Draft stays as it was.
+    if: >-
+      github.event.pull_request.draft == false
+      && !contains(github.event.pull_request.labels.*.name, 'do-not-auto-merge')
+      && !contains(github.event.pull_request.title, 'DO NOT AUTO-MERGE')
     runs-on: ubuntu-latest
     steps:
       - name: Arm auto-merge (merge commit)

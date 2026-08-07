@@ -492,10 +492,23 @@ html.hr-snap {
   text-align: center;
   scroll-snap-align: start;
 }
+/* ⚠ THE TYPE SCALE HERE IS SIZED TO THE COPY, and the copy is owner-approved
+   (Claude_Design_Brief_2026-07-31.md § 5). The approved manifesto is 96 words —
+   it replaced a 55-word one — and the section is a ONE-SCREEN BEAT
+   (min-height:100dvh) inside a `scroll-snap-type: y mandatory` scroller, so a
+   paragraph taller than the viewport pushes its own closing line ("keep it, for
+   life.", the gold underline sweep, the whole payoff) past the first snap stop.
+   At the old clamp the section measured 799px against a 720px laptop viewport
+   and 792px against a 375×667 phone. These three numbers are the fit, nothing
+   more — no colour, no spacing, no structure changed with them:
+     max 2.30rem (was 2.7)   1280×720 → 600px, fits with slack
+     min 1.30rem (was 1.6)   375×667  → 525px, fits with slack
+     mid 3.05vw  (was 3.6)   holds the same crossover shape between the two
+   If the copy is ever shortened again, raise them back. */
 .home-reskin .hr-manifesto p {
   max-width: 880px;
   margin: 0;
-  font-size: clamp(1.6rem, 3.6vw, 2.7rem);
+  font-size: clamp(1.3rem, 3.05vw, 2.3rem);
   font-weight: 400;
   line-height: 1.32;
   color: var(--hr-grey);
@@ -537,7 +550,12 @@ html.hr-snap {
       opacity 0.6s ease,
       color 0.6s ease,
       transform 0.6s ease;
-    transition-delay: calc(var(--wi) * 22ms);
+    /* 13ms, not 22ms — the § 5 manifesto is 96 words where the old one was 55,
+       and the gold underline sweep on `.hr-mfin` fires at a FIXED 1.35s delay
+       below. At 22ms the last word would still be inking at 2.1s, so the sweep
+       would land in the middle of the cascade instead of closing it. 96 × 13ms
+       = 1.25s keeps the finale last, which is the choreography as designed. */
+    transition-delay: calc(var(--wi) * 13ms);
   }
   .home-reskin .hr-manifesto.hr-in .hr-mw {
     opacity: 1;

@@ -475,7 +475,14 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
     const res = await sendEmail({
       to: email,
       subject: `Your ${name} full-resolution photos — a quick heads-up`,
-      text: `Hi! Your ${name} gallery on Setnayan stays online forever, free.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed gallery stays online for you forever. Your gallery keeps every photo; we just won't be holding the full-resolution originals after that. Here's how to keep the originals before then:\n\n• Download your originals any time from your gallery — a single photo, the whole event as a ZIP, or a full account export.\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your online gallery is safe either way.\n\n— Setnayan`,
+      // ⚠ The third bullet used to offer "a full account export" as a way to
+      // save the originals. NO SUCH EXPORT EXISTS for a couple — there is no
+      // settings route, no action, nothing. It was the safest-SOUNDING of the
+      // three options, so a worried couple would pick it and end up with
+      // nothing. Only the two things that actually move pixels are listed now,
+      // and Drive is named first because it is the one that keeps working
+      // after the six months are up.
+      text: `Hi! Your ${name} gallery on Setnayan stays online forever, free.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed gallery stays online for you forever. Your gallery keeps every photo; we just won't be holding the full-resolution originals after that. Here are the two ways to keep the originals before then:\n\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free — this keeps working after the six months are up.\n• Or download them from your gallery — a single photo, or the whole event as a ZIP.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your online gallery is safe either way.\n\n— Setnayan`,
     });
     // Only mark warned when the email actually went (or the address is dead) —
     // if Resend isn't configured yet, leave it unwarned so it retries later.

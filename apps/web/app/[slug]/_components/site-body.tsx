@@ -1590,7 +1590,6 @@ export async function SiteBody({
                           guest={guest}
                           eventId={event.event_id}
                           eventPublicId={event.public_id}
-                          limited={isLimitedPlusOne}
                           faceMode={faceMode}
                           flash={rsvpFlash}
                         />
@@ -1605,7 +1604,6 @@ export async function SiteBody({
                     guest={guest}
                     eventId={event.event_id}
                     eventPublicId={event.public_id}
-                    limited={isLimitedPlusOne}
                     faceMode={faceMode}
                     flash={rsvpFlash}
                   />

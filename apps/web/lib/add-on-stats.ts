@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Aggregate stats that drive the App Store-style stat carousel on the
-// add-on detail page (apps/web/app/dashboard/[eventId]/studio/[addon]/page.tsx).
+// Aggregate stats that drive the App Store-style stat carousel.
+//
+// ⚠ The consumer named here used to be `studio/[addon]/page.tsx` — that page
+// renders only an IterationPlaceholder and has never imported this module. The
+// sole consumer is `studio/live-studio-control/page.tsx`.
 //
 // Cheap reads — three indexed COUNT/AVG queries against `orders` +
 // `feature_reviews` + `events`. No materialized views in V1; if the
@@ -61,9 +64,17 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
   // order). An event that buys Live Studio flips its card/detail to 'launch' → the unified
   // controller. Drives resolveAddOnState + fetchAddOnStats.
   'live-studio-roam': ['LIVE_STUDIO', 'LIVE_STUDIO_ROAM'],
-  papic: [
-    // 0012 SKUs slot in here once the iteration's catalog rows land.
-  ],
+  // ⚠ NO `papic` KEY, DELIBERATELY — do NOT add one.
+  // It sat here as an empty array behind a "SKUs slot in here once the catalog
+  // rows land" TODO. FILLING IT WOULD CREATE THE DEFECT THIS MAP EXISTS TO
+  // PREVENT: Papic ownership is not an `orders` question. Papic is free to
+  // start, and the grant writes `papic_event_point_grants` — prod holds 13
+  // seats and 9 grants against 0 orders, so an orders-keyed lookup answers
+  // "not owned" for every Papic-active event in existence. That is exactly the
+  // 2026-07-21 incident above, pointed at a different feature.
+  // The authority is `eventPapicActive()` (lib/papic-seats.ts), already used by
+  // nine call sites. Both readers here use `?? []`, so the absent key is
+  // runtime-identical to the empty array it replaces.
   'mood-board': [],
   'save-the-date': [], // now the free page-opening reveal (no SKU); video render retired 2026-06-16
   led: [],
@@ -87,8 +98,11 @@ export async function fetchAddOnStats(
       : supabase
           .from('orders')
           .select('event_id')
+          // 'paid' AND 'fulfilled' — matching add-on-state.ts. Counting only
+          // 'paid' under-reported every fulfilled order. Both are real enum
+          // values; this is not a phantom-enum case.
           .in('service_key', skus)
-          .eq('status', 'paid');
+          .in('status', ['paid', 'fulfilled']);
 
   const totalEventsQuery = supabase
     .from('events')
@@ -134,20 +148,10 @@ export async function fetchAddOnStats(
   };
 }
 
-// Did *this* event purchase any SKU under the feature? Drives the
-// "OPEN" vs "GET" hero-CTA flip on the detail page.
-export async function eventOwnsFeature(
-  supabase: SupabaseClient,
-  eventId: string,
-  featureKey: string,
-): Promise<boolean> {
-  const skus = ADD_ON_SKU_MAP[featureKey] ?? [];
-  if (skus.length === 0) return false;
-  const { count } = await supabase
-    .from('orders')
-    .select('order_id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .in('service_key', skus)
-    .eq('status', 'paid');
-  return (count ?? 0) > 0;
-}
+// `eventOwnsFeature` was DELETED here 2026-08-07. It had zero callers repo-wide,
+// and its `if (skus.length === 0) return false;` was the loaded gun: a feature
+// with no SKUs listed silently answered "you do not own this", which is how a
+// paying host got shown a buy button instead of their control room on
+// 2026-07-21. It is the function a future session would reach for by name.
+// Ownership lives in `add-on-state.ts` (resolveAddOnState), which counts both
+// 'paid' AND 'fulfilled'; for Papic use `eventPapicActive()`.

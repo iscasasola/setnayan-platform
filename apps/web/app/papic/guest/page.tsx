@@ -138,7 +138,7 @@ export default async function PapicGuestPage({
             <>
               Your camera for {eventName} switches on
               {gate.eventDay ? ` on ${gate.eventDay}` : ' on the day of the event'}.
-              The couple can open it earlier if they&rsquo;d like shots of the
+              Your host can open it earlier if they&rsquo;d like shots of the
               preparations.
             </>
           ) : (

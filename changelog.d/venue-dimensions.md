@@ -25,7 +25,19 @@ venue ever being asked.
    called by no component that nulls every column absent from the submission.
    **`capacity_min`/`capacity_max` are picked up here too**: they already existed
    with no writer anywhere, and it is the same screen and the same audience.
-3. `lib/venue-room-size.ts` reads it for the couple.
+3. `lib/venue-room-size.ts` reads it, **the seating page calls it**, and the
+   editor seeds from it — showing *"Sized from {venue} — change it if your room
+   is different"* while the size still matches what the venue stated.
+
+🔴 **THE FIRST PUSH OF THIS PR SHIPPED THAT READER WITH NO CALLER.** The columns
+and the vendor form went in, `venue-room-size.ts` went in, and **nothing called
+it** — a venue could type its room size and nothing anywhere would change. That
+is a reader with no caller: the same defect as a column with no writer, wearing
+the other shoe, in the same PR whose body claimed "ships all three halves
+together, on purpose". It did not. Caught by the owner asking *"all complete?"*
+and by grepping for the caller instead of trusting the claim. Two assertions now
+make the answer checkable rather than remembered, and unwiring the fetch turns
+them red.
 
 🔑 **A SUGGESTION, NEVER AN OVERWRITE.** The couple's own number always wins, and
 "already set" includes a room sized once and furnished ever since — a vendor

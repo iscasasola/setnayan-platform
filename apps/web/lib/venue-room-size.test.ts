@@ -110,3 +110,73 @@ test('the read fails toward silence, and says why that is safe here', async () =
       'silent-absence bug rather than the one place it is the right answer.',
   );
 });
+
+// ── THE HALF I ACTUALLY SHIPPED BROKEN ──────────────────────────────────────
+//
+// 🔴 The first version of this feature shipped the columns, the vendor's form
+// and THIS MODULE — and nothing called it. A venue could type its room size and
+// nothing anywhere would change: a reader with no caller, which is the same
+// defect as a column with no writer, wearing the other shoe. The PR body
+// claimed "ships all three halves together, on purpose". It did not.
+//
+// It was caught by the owner asking "all complete?" and by grepping for the
+// caller rather than trusting the claim. These assertions exist so the answer
+// is checkable instead of remembered.
+
+test('the reader is actually wired into the seating page', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const page = readFileSync(
+    join(here, '..', 'app', 'dashboard', '[eventId]', 'seating', 'page.tsx'),
+    'utf8',
+  );
+  assert.match(
+    page,
+    /fetchBookedVenueRoomSize\(supabase, eventId\)/,
+    'Nothing fetches the venue size. The vendor fills in their room and the ' +
+      'couple never sees it — a reader with no caller.',
+  );
+  assert.match(
+    page,
+    /shouldSuggestVenueSize\(/,
+    'The page fetches the size but never asks whether it may be used, so it ' +
+      'would either always or never apply.',
+  );
+  assert.match(
+    page,
+    /suggestedRoomSize=\{/,
+    'The page resolves the suggestion and does not pass it to the editor.',
+  );
+});
+
+test('the editor seeds from it, and the couple can still override', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const editor = readFileSync(
+    join(here, '..', 'app', 'dashboard', '[eventId]', 'seating', '_components', 'seating-editor.tsx'),
+    'utf8',
+  );
+  assert.match(
+    editor,
+    /width: floorPlan\.venue_width_m \?\? suggestedRoomSize\?\.widthM \?\? 20/,
+    'The precedence broke. The couple\'s own number must come FIRST, the ' +
+      'venue\'s second, and the historical 20×30 last.',
+  );
+  assert.match(
+    editor,
+    /Sized from/,
+    'The couple is not told where the number came from. A room that silently ' +
+      'resizes itself is alarming.',
+  );
+  // The note must stop claiming the venue's authorship once they change it.
+  assert.match(
+    editor,
+    /venue\.width === suggestedRoomSize\.widthM/,
+    'The provenance note is shown unconditionally, so it keeps crediting the ' +
+      'venue for a size the couple has since changed.',
+  );
+});

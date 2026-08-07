@@ -124,13 +124,32 @@ export async function POST(req: NextRequest) {
     await revokeDriveToken(grant.refresh_token as string);
   }
 
-  // --- Flip revoked_at locally + reset storage target ---
-  // Running both updates in parallel — they target different tables and
-  // neither depends on the other's result.
+  // --- WIPE THE CREDENTIAL + flip revoked_at locally + reset storage target ---
+  //
+  // ⚠ THIS USED TO SET `revoked_at` ONLY, and its comment argued that was
+  // enough because revoked_at is "the source of truth for whether we'll ever
+  // use this token again." That is the wrong test. The question is not whether
+  // WE would use it — it is whether we are still HOLDING a key to someone's
+  // Google Drive after they asked us to let go. A Google refresh token does not
+  // expire on its own.
+  //
+  // The YouTube disconnect was fixed on 2026-07-27 and this one was not, so the
+  // fix reached one of the two BYO paths. Both now write the same three fields
+  // as the Setnayan-owned channel pool (`lib/live-studio-channel-grants.ts`):
+  // refresh_token '' (the column is NOT NULL, hence '' not null) · access_token
+  // null · revoked_at now.
+  //
+  // Safe by ordering: the Google revoke above already read
+  // `grant.refresh_token` into memory, so wiping the column here cannot break
+  // it.
   await Promise.all([
     admin
       .from('oauth_grants')
-      .update({ revoked_at: new Date().toISOString() })
+      .update({
+        refresh_token: '',
+        access_token: null,
+        revoked_at: new Date().toISOString(),
+      })
       .eq('grant_id', grant.grant_id),
     ...(eventReset
       ? [admin.from('events').update(eventReset).eq('event_id', eventId)]

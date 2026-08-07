@@ -37,9 +37,12 @@ const ERR = (msg: string) =>
  *   • sku_code — a vendor_billing_catalog subscription sku_code
  *     (pro_vendor_monthly / pro_vendor_annual / enterprise_vendor_monthly /
  *      enterprise_vendor_annual).
- *   • addon_token_pack_sku — OPTIONAL token_pack sku_code folded into the SAME
- *     order (one payment for plan + tokens). Blank/absent → plan only. The DB
- *     re-reads the add-on price + token count from the catalog.
+ * The optional `addon_token_pack_sku` field is GONE (2026-08-07, token
+ * retirement) — the checkout no longer offers a pack, and nothing credits one.
+ * ⚠ `p_addon_token_pack_sku` is still PASSED to the RPC as an explicit null:
+ * PostgREST resolves a function by its exact set of NAMED arguments, so
+ * dropping the key would stop matching `create_vendor_subscription` and every
+ * plan purchase would fail — rejected, not thrown, which is silent.
  *
  * On success: redirect to /vendor-dashboard/subscription?ordered=<reference_code>
  * so the page shows the payment-instructions panel for the new order.
@@ -51,13 +54,6 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
   }
   const skuCode = (sku as string).trim();
 
-  // Optional token-pack add-on — one payment covers the plan + these tokens.
-  const addonRaw = formData.get('addon_token_pack_sku');
-  const addonSku =
-    typeof addonRaw === 'string' && addonRaw.trim().length > 0
-      ? addonRaw.trim()
-      : null;
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -66,7 +62,8 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
 
   const { data, error } = await supabase.rpc('create_vendor_subscription', {
     p_sku_code: skuCode,
-    p_addon_token_pack_sku: addonSku,
+    // Always null — see the docblock. The key must stay for RPC resolution.
+    p_addon_token_pack_sku: null,
   });
 
   if (error) {

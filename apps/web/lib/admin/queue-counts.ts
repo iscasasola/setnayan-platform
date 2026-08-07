@@ -102,13 +102,6 @@ const QUEUE_DEFS: QueueDef[] = [
     filter: (q) => q.is('paid_at', null).eq('on_hold', false),
   },
   {
-    key: 'token-purchases',
-    table: 'vendor_token_purchases',
-    lane: 'money',
-    slaHours: 24,
-    filter: (q) => q.eq('status', 'pending_payment'),
-  },
-  {
     key: 'subscriptions',
     table: 'vendor_subscriptions',
     lane: 'money',

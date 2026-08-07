@@ -991,6 +991,17 @@ export default async function LauncherPage({
         </h1>
       </header>
 
+      {/* THE COMPOSER — "What's your event?" (owner 2026-08-07, from the
+          Facebook comparison: "instead of what's on your mind? what's your
+          event?"). Creating an event was already reachable three ways — the
+          trailing ghost card, the raised ➕ in the phone pill, and ⌘K — but all
+          three are small and none of them ASKS. This is the same single
+          destination worded as an invitation and given the width Facebook gives
+          its composer: the first full-width thing under the greeting.
+          It is a navigation, not a form — the create screen owns the real
+          question ("Who are we celebrating?") and every guard behind it. */}
+      <EventComposer initial={greeting.charAt(0).toUpperCase()} />
+
       {/* The board — the same aggregates the old one-line stat printed, but each
           number is now a door with its own context line. Capability-gated: the
           shop/HQ tiles exist only for a user who has them. */}
@@ -1814,6 +1825,48 @@ function AttentionPill({ label, more = 0 }: { label: string; more?: number }) {
         ) : null}
       </span>
     </span>
+  );
+}
+
+/**
+ * EventComposer — the full-width "What's your event?" row under the greeting.
+ *
+ * Deliberately NOT an input. A text box would promise that typing a sentence
+ * creates something, and the create flow needs a type, a subject and a date
+ * before it can do anything real — so a half-answer here would be thrown away
+ * on the very next screen. It looks like a composer and behaves like the door
+ * it already was.
+ */
+function EventComposer({ initial }: { initial: string }) {
+  return (
+    <Link
+      href="/dashboard/create-event"
+      className="sn-press sn-reveal group mb-5 flex items-center gap-3 rounded-full border border-ink/12 bg-white/70 py-2 pl-2 pr-2.5 transition-[border-color,background-color] duration-200 hover:border-terracotta hover:bg-white sm:mb-6 sm:py-2.5 sm:pl-2.5"
+      style={{ animationDelay: '0.3s' }}
+    >
+      <span
+        aria-hidden
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--sn-gold-100)] text-[13px] font-extrabold text-[color:var(--sn-gold-700)] sm:h-10 sm:w-10 sm:text-sm"
+      >
+        {initial}
+      </span>
+      <span className="flex-1 truncate text-[13.5px] font-semibold text-[color:var(--sn-ink-400)] sm:text-[15px]">
+        What’s your event?
+      </span>
+      <span
+        aria-hidden
+        /* CTA slot, so `bg-mulberry` (#C24E25) — NOT `bg-terracotta`, which
+           the 2026-08-01 palette lock remapped to the GOLD accent #A9834B.
+           The lock's whole point is structural: terracotta ACTS, gold
+           HIGHLIGHTS, and "gold is never a button" is the rule this circle
+           was breaking. Label is `text-cream`, the pairing the contrast
+           guard actually measures (4.61:1 AA); `text-white` is a different,
+           unmeasured pairing. */
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-[transform,background-color] duration-200 group-hover:bg-mulberry-600 group-hover:scale-105 sm:h-9 sm:w-9"
+      >
+        <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
+      </span>
+    </Link>
   );
 }
 

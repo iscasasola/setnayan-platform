@@ -14,7 +14,6 @@
 import {
   BadgeCheck,
   Banknote,
-  ShoppingBag,
   Crown,
   CreditCard,
   Shield,
@@ -55,7 +54,6 @@ export const BASE_ROWS: BaseRow[] = [
   // permanently empty by construction — it costs a row and a glance every day
   // forever. /admin/payouts itself STAYS, reachable from the Money menu, because
   // legacy orders may still need it. This removes the daily prompt, not the page.
-  { key: 'token-purchases', label: 'Token sales', href: '/admin/token-purchases', icon: ShoppingBag, description: 'Vendor token-pack purchases awaiting confirmation.' },
   { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.' },
   { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Vendor payment destinations awaiting a fraud screen.' },
   { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and vendor disputes.' },

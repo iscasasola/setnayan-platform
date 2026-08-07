@@ -93,14 +93,12 @@ export const routes = {
     // (remounted from /admin/ugat when the studio took the hub path 2026-07-10).
     ugatMap: () => `/admin/ugat/map`,
     priceBands: () => `/admin/pricing?tab=price-bands`,
-    tokenBands: () => `/admin/pricing?tab=token-bands`,
-    tokenPurchases: () => `/admin/token-purchases`,
     userReports: () => `/admin/user-reports`,
     users: () => `/admin/users`,
     vendors: {
       index: () => `/admin/vendors`,
       edit: (vendorProfileId: string) => `/admin/vendors/${vendorProfileId}/edit`,
-      tokens: (vendorProfileId: string) => `/admin/vendors/${vendorProfileId}/tokens`,
+      plan: (vendorProfileId: string) => `/admin/vendors/${vendorProfileId}/plan`,
     },
     venues: {
       index: () => `/admin/venues`,
@@ -558,7 +556,6 @@ export const routes = {
     subscription: () => `/vendor-dashboard/subscription`,
     taxDocuments: () => `/vendor-dashboard/tax-documents`,
     team: () => `/vendor-dashboard/team`,
-    tokens: () => `/vendor-dashboard/tokens`,
     verify: () => `/vendor-dashboard/verify`,
     website: () => `/vendor-dashboard/website`,
   },

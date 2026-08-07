@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Pencil, Trash2, Coins, Users } from 'lucide-react';
+import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -417,19 +417,19 @@ export async function VendorsSurface({
                 {v.public_id}
               </p>
 
-              {/* Token grant link · admin can credit this vendor's wallet.
-                  Migration 20260703500000 + actions.ts grantTokensToVendor.
-                  Only render for CLAIMED vendors — unclaimed ones don't
-                  have wallets yet (founder-bonus trigger fires on
-                  verification which requires a claimed user_id). */}
+              {/* Plan link · admin sets the vendor's subscription tier. Was
+                  "Grant tokens" until the token currency was retired
+                  2026-08-07; the tier form is what the page is now for, and it
+                  is the ONLY way to put a vendor on Pro/Enterprise until
+                  self-serve checkout lands. Only render for CLAIMED vendors. */}
               {v.user_id ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/admin/vendors/${v.vendor_profile_id}/tokens`}
+                    href={`/admin/vendors/${v.vendor_profile_id}/plan`}
                     className="inline-flex w-fit items-center gap-1 rounded-md bg-orange/10 px-2 py-1 text-[11px] font-medium text-orange hover:bg-orange/15"
                   >
-                    <Coins className="h-3 w-3" strokeWidth={2} />
-                    Grant tokens
+                    <BadgeCheck className="h-3 w-3" strokeWidth={2} />
+                    Set plan
                   </Link>
                   <Link
                     href={`/admin/vendors/${v.vendor_profile_id}/team`}

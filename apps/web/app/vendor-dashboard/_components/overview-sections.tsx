@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowUpRight,
-  Coins,
   Star,
   Inbox,
   ListTodo,
@@ -585,13 +584,6 @@ function InquiryBody({
             style={{ background: 'var(--sn-ink-900)' }}
           >
             Accept
-            <span
-              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[11px] font-bold"
-              style={{ background: 'rgba(203,167,102,0.28)', color: 'var(--sn-gold-100)' }}
-            >
-              <Coins className="h-3 w-3" strokeWidth={2} aria-hidden />
-              {card.tokenCost}
-            </span>
           </SubmitButton>
         </form>
         <form action={declineInquiry}>

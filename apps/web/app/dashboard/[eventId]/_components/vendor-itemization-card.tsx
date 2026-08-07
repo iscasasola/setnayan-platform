@@ -676,10 +676,13 @@ function PaymentSection({
             route to `thread-files` via bucketForPrefix(). "The host's own
             record" describes whose data it is, not how exposed it may be.
 
-            There is currently NO reader — `proof_r2_key` is written here and
-            displayed nowhere. When a reader is built it MUST resolve the ref
-            through `displayUrlForStoredAsset()` (lib/uploads.ts), which signs a
-            short-lived GET; never interpolate the key into a public URL. */}
+            ⚠ "There is currently NO reader" was true when written and is NOT
+            true now — `lib/vendor-service-payment-schedules.server.ts` has read
+            this since 2026-06-20 and renders it on three live vendor routes. It
+            resolves through `displayUrlForStoredAsset()` (lib/uploads.ts), which
+            signs a short-lived GET; never interpolate the key into a public URL.
+            The reader existed while the upload was refused outright, so the
+            vendor's screen had a slot for a receipt that could never arrive. */}
         <div className="col-span-2 sm:col-span-4">
           <FileUpload
             name="proof_r2_key"

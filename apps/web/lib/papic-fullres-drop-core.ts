@@ -76,17 +76,31 @@ export type DropCandidate = {
 };
 
 /**
- * Is this capture eligible to have OUR R2 full-res original dropped? Pure, so the
- * sweep and its test share one definition. Photo/clip filtering happens in the
- * QUERY (clips are excluded entirely — their r2_object_key is the video). The
- * guards here are the safety net that makes a wrong delete impossible:
+ * Is this capture eligible to have OUR R2 full-res original REPLACED by its
+ * compressed copy? Pure, so the sweep and its test share one definition.
+ *
+ * 🗣 SAY "COMPRESSED", NOT "DELETED" — owner-corrected twice, most recently
+ * 2026-08-07 ("again. not delete. just compress"). NO PHOTO IS EVER DELETED by
+ * this module. The compressed web copy is derived at capture time and kept
+ * forever; all that happens here is that the full-resolution ORIGINAL FILE stops
+ * being held once that copy is confirmed to exist. The customer's gallery keeps
+ * every photo — what changes is resolution. The module is named `...-drop` after
+ * what happens to the FILE; do not let that name leak into a sentence whose
+ * subject is a photo, and never into customer copy.
+ *
+ * Photo/clip filtering happens in the QUERY (clips are excluded entirely — their
+ * r2_object_key is the video). The guards here are the safety net that makes
+ * losing a photo impossible:
  *   • already dropped → skip (idempotent);
- *   • NO web copy (display_r2_key null) → skip — dropping would LOSE the photo;
+ *   • NO web copy (display_r2_key null) → skip — dropping would LOSE the photo.
+ *     ⚠ THIS IS THE GUARANTEE THE WHOLE "compress, don't delete" PROMISE RESTS
+ *     ON: there is no path that removes an original before its replacement
+ *     exists. Do not weaken it;
  *   • a `sample/...` key → skip — never touch seed/demo data;
  *   • the EVENT's clock has not run out → skip. ⚠ NOT the photo's own age: the
  *     clock is per EVENT (6 months from its first capture), because a per-photo
- *     fuse deleted a couple's earliest journey photos BEFORE the wedding those
- *     photos were leading up to. The caller passes only rows whose event has
+ *     fuse stripped a couple's earliest journey photos down to their compressed
+ *     copies BEFORE the wedding those photos were leading up to. The caller passes only rows whose event has
  *     already expired (papic_events_past_fullres_clock), so age is not re-tested
  *     here — re-testing it is exactly the bug.
  * The couple's Drive copy is never involved here (this only decides OUR R2 copy).
@@ -190,7 +204,8 @@ export function clipEligibleForDrop(
   // Same move as the photo path: the age fuse is per EVENT, decided upstream by
   // papic_events_past_fullres_clock. A clip shot during the ceremony and a photo
   // shot five months earlier belong to ONE keepsake and must expire together —
-  // two clocks would delete half of a couple's journey while keeping the rest.
+  // two clocks would compress half of a couple's journey to its web copies while
+// the rest kept its originals. (Nothing is deleted — see the header.)
   // The clip's OWN object-level guards (a distinct web copy, its byte floor, the
   // fresh-grace on that object) are above and stay per-clip, because those are
   // about whether a playable copy really exists, not about age.

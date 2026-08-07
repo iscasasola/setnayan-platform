@@ -493,7 +493,9 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
   //
   // Intersect with the SAME rpc the sweep uses, both offsets pulled back by the
   // lead time. Fail-CLOSED on error: warning nobody this pass is recoverable
-  // next run; a false "your photos go in two weeks" is not.
+  // next run; a false "your full-resolution originals go in two weeks" is not.
+  // (The PHOTOS never go — only the originals are replaced by the compressed
+  // copies that the gallery keeps for good. Say compressed, not deleted.)
   const dueSoon = await eventsApproachingTheirClock(admin, days - WARN_LEAD_DAYS);
   if (dueSoon === null) return { candidates: 0, sent: 0 };
   const dueSet = new Set(dueSoon);
@@ -526,7 +528,7 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       .from('users')
       .select('email')
       // users.id is BIGSERIAL; the auth UUID is users.user_id — join on the
-      // UUID or this always matches 0 rows and the deletion-warning never sends.
+      // UUID or this always matches 0 rows and the full-res drop warning never sends.
       .eq('user_id', member.user_id as string)
       .maybeSingle();
     const email = (user?.email as string | null) ?? null;

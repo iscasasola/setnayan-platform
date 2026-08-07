@@ -231,7 +231,7 @@ test('clip NOT eligible: already dropped / sample seed', () => {
 test('🔑 a clip rides the same EVENT clock as the photos beside it', () => {
   // ⚠ The per-clip age assertion that lived here moved out with the photo one.
   // A clip shot during the ceremony and a photo shot five months earlier belong
-  // to ONE keepsake: two clocks would delete half of a couple's journey and keep
+  // to ONE keepsake: two clocks would compress half of a couple's journey and keep
   // the rest. The clip's own object-level guards (a distinct web copy, its byte
   // floor, the fresh-grace on that object) are unchanged — those prove a playable
   // copy exists, which is a different question from age.

@@ -113,3 +113,43 @@ three weeks with green CI.
 on `main` first and `main` sits with a notice that understates retention. The
 first draft *was* a separate branch and its CI went red immediately — the guard
 caught its own author.
+
+### Same PR · "not delete — compress", everywhere (owner-corrected twice)
+
+Owner, verbatim: *"again. not delete. just compress."* **No photo is ever deleted.**
+A compressed copy is derived at capture time and kept forever; all the sweep does is
+stop holding the full-resolution ORIGINAL once that copy is confirmed. The code has
+always worked this way — `isEligibleForDrop` returns `false` when no compressed copy
+exists, commenting *"dropping would LOSE the photo"*. **Only the vocabulary was
+wrong**, and a 16-agent sweep found 19 verified places carrying it.
+
+🚨 **THE GUARD THAT WAS SUPPOSED TO CATCH THIS HAS BEEN BLIND ITS WHOLE LIFE.**
+`retention-copy-is-true.test.ts` bans the exact phrase `5-year backup`. The couple's
+Photo Delivery page says *"your Setnayan-side 5-year backup stays intact"* — and the
+test never fired, because JSX wrapped it as `5-year\n              backup` and
+`/\b5-year backup\b/` needs one space. The source is now whitespace-normalised
+before matching; the fix immediately turned the suite red on the live page, which is
+the only reason we know the guard can fire at all.
+🔑 **A pattern that cannot survive the code formatter is decoration.**
+
+**Customer-facing fixes (this is what the owner asked about):**
+- **Photo Delivery page** made THREE false claims in one warning box: a "30-day
+  window" that exists nowhere; *"Setnayan compresses the Drive originals"* — we never
+  touch the couple's own Drive, we only add to it; and a *"5-year backup"* that does
+  not exist. It never mentioned that the gallery is kept for good, so it could only
+  cause panic. Rewritten.
+- **"Delivery complete" screen** said *"Your Drive folder is the copy that lasts"* and
+  stopped at "6 months" — omitting the half that matters. Now matches the correct
+  wording already used earlier in the same file.
+- **Public `/tl/features`** still carried both halves of a promise the English twin was
+  corrected for months ago: an invented "30-day grace window" and *"Itago ang raws mo
+  hangga't kailangan mo"* — literally "keep your raws as long as you need".
+  🔑 **A copy fix is not done until every language is fixed;** the English correction
+  read as complete because its own file looked fixed.
+
+Plus six internal comments/tests whose grammatical object of "delete" was *the photo*
+rather than *the original file* — the vocabulary the next author inherits.
+
+Typecheck clean, 7060/7060 unit tests green, all 12 `lint-*.mjs` clean.
+⚠ The broken-comment syntax error this introduced was invisible to the test runner
+and caught only by `tsc` — `tsx --test` is not a typechecker.

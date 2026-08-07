@@ -86,7 +86,19 @@ const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
 test('no user-facing copy promises a lifetime for the originals that we do not keep', () => {
   const hits: string[] = [];
   for (const f of FILES) {
-    const src = code(f);
+    // 🚨 COLLAPSE WHITESPACE FIRST — THIS GUARD WAS BLIND FOR ITS WHOLE LIFE.
+    //
+    // The couple's Photo Delivery page said "your Setnayan-side 5-year backup
+    // stays intact", and this test never fired, because JSX wrapped it as
+    // "5-year\n              backup" and /\b5-year backup\b/ needs ONE space.
+    // The phrase was in the banned list, the file was in FILES, and the guard
+    // still could not see it. Prose in a JSX attribute or a <p> is wrapped by
+    // the formatter at whatever column it likes, so ANY multi-word pattern here
+    // is a coin flip until the source is normalised.
+    //
+    // 🔑 A guard whose pattern cannot survive the formatter is decoration. This
+    // one read as protection for months and caught nothing.
+    const src = code(f).replace(/\s+/g, ' ');
     for (const { re, why } of FALSE_PROMISES) {
       if (re.test(src)) hits.push(`${relative(WEB, f)} — ${re} (${why})`);
     }

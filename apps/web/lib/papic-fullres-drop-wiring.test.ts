@@ -177,8 +177,9 @@ test('PRODUCTION PATH attacks (column guard): each fails closed on a real sweep 
   assert.equal(drops({ clip_web_bytes: CLIP_WEB_MIN_BYTES - 1 }), false);
   assert.equal(drops({ clip_web_bytes: null }), false);
   // ⚠ NO age assertion here any more (2026-08-02). Age is decided per EVENT
-  // upstream, not per clip — a per-file fuse deleted a couple's earliest journey
-  // photos before the wedding they led up to. An unreadable timestamp still
+  // upstream, not per clip — a per-file fuse stripped a couple's earliest
+  // journey photos down to their compressed copies before the wedding they led
+  // up to. (Nothing is deleted.) An unreadable timestamp still
   // fails closed, which is the guard this line is actually for.
   assert.equal(drops({ captured_at: 'not-a-date' }), false);
   // already dropped (idempotent).

@@ -55,14 +55,44 @@ for (const { re, what, why } of REQUIRED) {
   if (!re.test(yml)) failures.push(`missing ${what} — ${why}`);
 }
 
-// `labeled` must NOT be a trigger: adding the hold label must never be the very
-// event that arms the PR.
+// THE REAL INVARIANT: applying the hold label must never be the event that ARMS
+// a PR.
+//
+// This used to be checked by its proxy — "`labeled` must not be a trigger at all"
+// — which was right for the original design, where the only job was the arming
+// one. It is too strict now. On 2026-08-07 the label turned out to protect only
+// a PR that already carried it AT `opened`; #4186 and #4209 were armed at open,
+// labelled 16h/14m later, wore the label for eleven minutes and merged anyway.
+// Fixing that needs `labeled` as a trigger so a DISARM job can fire on it.
+//
+// So assert the property, not the proxy: `labeled` may be a trigger ONLY IF the
+// arming job explicitly opts out of it. That is strictly stronger than the old
+// check — it still forbids the backwards case, and additionally permits the one
+// arrangement that makes the label work at any time.
 const triggers = yml.match(/types:\s*\[([^\]]*)\]/)?.[1] ?? '';
 if (/\blabeled\b/.test(triggers)) {
-  failures.push(
-    "`labeled` is a trigger — adding the do-not-auto-merge label would itself arm the PR, " +
-      'which is exactly backwards',
-  );
+  // The arming job's condition must exclude the labeled event.
+  const armingOptsOut = /github\.event\.action\s*!=\s*'labeled'/.test(yml);
+  if (!armingOptsOut) {
+    failures.push(
+      '`labeled` is a trigger but the arming job does not opt out of it — adding the ' +
+        "do-not-auto-merge label would itself ARM the PR, which is exactly backwards. " +
+        "Add `github.event.action != 'labeled'` to enable-automerge's `if:`",
+    );
+  }
+  // And if we are paying the cost of the trigger, the disarm job must exist and
+  // must actually run the command — a recovery step that lives in a comment is a
+  // convention, which is the precise failure this whole guard exists to prevent.
+  const nonComment = yml
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('#'))
+    .join('\n');
+  if (!/disarm-on-hold-label:/.test(yml) || !/--disable-auto/.test(nonComment)) {
+    failures.push(
+      '`labeled` is a trigger but nothing disarms on it — the disarm-on-hold-label job ' +
+        'must exist and must run `--disable-auto` as a COMMAND, not mention it in a comment',
+    );
+  }
 }
 
 if (failures.length > 0) {
@@ -76,4 +106,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('lint-automerge-hold: OK — label hold, title hold, and no `labeled` trigger.');
+console.log(
+  'lint-automerge-hold: OK — label hold, title hold, and labelling can only disarm, never arm.',
+);

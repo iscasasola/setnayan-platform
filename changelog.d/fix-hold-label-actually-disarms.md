@@ -61,3 +61,28 @@ page, which is worse than publishing a true one early. Flagged to the owner to
 read and keep or reverse; that is his call as DPO, not a code decision.
 
 SPEC IMPACT: None.
+
+### The existing guard had to change too — by tightening, not weakening
+
+#4210 also shipped `apps/web/scripts/lint-automerge-hold.mjs`, which asserted
+**"`labeled` must not be a trigger at all."** That was correct for its design,
+where the arming job was the only job — but it forbids the very mechanism that
+makes the label work at any time, so it went red on this PR. Its own error text
+says *"Restore them rather than weakening this check."* Agreed, so it was not
+weakened.
+
+It now asserts the **property instead of the proxy**: `labeled` may be a trigger
+**only if** the arming job explicitly opts out of it, **and** a disarm job exists
+that runs `--disable-auto` as a command rather than mentioning it in a comment.
+That is strictly stronger than before — it still forbids the backwards case, and
+additionally rejects a half-done version of this change.
+
+Sabotage-tested both new branches:
+
+| Sabotage | Guard's message |
+|---|---|
+| `labeled` trigger, arming job does not opt out | *"…would itself ARM the PR, which is exactly backwards"* |
+| disarm job removed | *"…nothing disarms on it… must run `--disable-auto` as a COMMAND, not mention it in a comment"* |
+
+⚠ The first CI run also showed `playwright e2e` red. It was **cancelled**, not
+failed — collateral from the lint job going red. No test failed.

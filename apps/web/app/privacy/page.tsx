@@ -899,10 +899,13 @@ export default function PrivacyPage() {
               <strong>full-resolution originals</strong> are kept for{' '}
               <strong>6 months</strong> from the event&rsquo;s first photo (never
               less than <strong>3 months</strong> after the event itself), and are
-              then replaced by a compressed copy. That <strong>compressed gallery stays online
-              indefinitely</strong> — we do not delete it. If you connect Google
-              Drive, every original is also saved to a folder you own, and that
-              copy is yours to keep for as long as you want it.
+              then replaced by a compressed copy. That{' '}
+              <strong>compressed gallery stays online, free, for 5 years</strong> —
+              we do not delete your photos. Past 5 years, keeping everything stored
+              with us becomes a paid option; we will tell you the price well before
+              then. If you connect Google Drive, every original is also saved to a
+              folder you own, and that copy is yours to keep for as long as you want
+              it.
             </li>
             <li>
               <strong>Face-recognition data</strong> — for the one event only,

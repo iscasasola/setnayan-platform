@@ -132,9 +132,11 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         </p>
       </header>
 
-      {/* The standing 30-day compression rule — visible at the top of the page so
-          couples see it before they ever click Connect. Repeated as per-folder
-          countdown badges once a folder is downloaded. */}
+      {/* How long we hold things — visible at the top of the page so couples see
+          it before they ever click Connect.
+          ⚠ This comment used to say "the standing 30-day compression rule". There
+          is no such rule and there never was; it is what kept the false box below
+          it alive through several edits. */}
       <aside
         role="note"
         aria-label="How long full-resolution originals are kept"
@@ -162,13 +164,13 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
                    because JSX wrapped it as "5-year\nbackup" and the pattern
                    needed one space. The guard is now whitespace-normalised.
 
-                And the one reassuring fact — the gallery is kept for good — was
+                And the one reassuring fact — the gallery is kept, free, for 5 years — was
                 never said, so the box could only ever cause panic. */}
             <p className="font-semibold tracking-tight">
               Your photos stay — full resolution has a window
             </p>
             <p className="text-warn-900/85">
-              Every photo stays in your Setnayan gallery for good. About{' '}
+              Every photo stays in your Setnayan gallery, free, for 5 years. About{' '}
               <span className="font-mono font-semibold">6 months</span> after
               your first photo is taken — and never sooner than 3 months after
               your event — we swap the full-resolution original for a compressed

@@ -153,3 +153,33 @@ rather than *the original file* — the vocabulary the next author inherits.
 Typecheck clean, 7060/7060 unit tests green, all 12 `lint-*.mjs` clean.
 ⚠ The broken-comment syntax error this introduced was invisible to the test runner
 and caught only by `tsc` — `tsx --test` is not a typechecker.
+
+### Same PR · the gallery is free for FIVE YEARS, not "forever" (owner 2026-08-07)
+
+Owner: *"in 5 years, we will preserve their photo and then we will check how much
+they need to be charged to keep all those data post 5 years."* This **supersedes the
+2026-07-10 "free forever, never deleted" lock.**
+
+Nine live customer-facing promises of "forever" replaced with **free for 5 years**,
+plus a stated paid option beyond it whose price is not yet set: the public privacy
+notice · the full-res warning email · public `/features` (EN **and** TL) · the
+couple's Papic studio · the Photo Delivery box · the delivery panel (twice) · the
+guest tier card · a published SEO claim.
+
+⛔ **NOTHING was built to delete anything at 5 years, deliberately.** The owner set a
+price *review*, not a deletion. What happens if a couple declines to pay is **not
+decided**, and inventing it would mean destroying galleries on an assumption. Copy
+therefore says what is true — free for 5 years, then a paid option — and promises no
+deletion.
+
+✅ **This also narrows an open compliance question rather than widening it.** The
+retention schedule flagged that *indefinite* retention of photographs of identifiable
+people is a lawful-basis problem under RA 10173 storage limitation. A declared 5-year
+period is a stronger position than "forever"; the basis still needs counsel, but the
+period is now finite and stated.
+
+🛡 Three new banned phrases in `retention-copy-is-true.test.ts`, sabotage-tested.
+⚠ Kept **narrow on purpose**: "yours forever" about a Pakanta *song* is true (the
+couple owns it), and "a folder you own, forever" about their *own* Drive is true (we
+never touch it). A bare `/forever/` fires on both, and a guard that cries wolf gets
+skimmed past on the one occasion it is right.

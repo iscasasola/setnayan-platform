@@ -6,7 +6,10 @@
  * original. they can sync with their google drive."
  *   · Full-resolution originals are held for SIX MONTHS from the event's FIRST
  *     capture, then dropped. The sweep runs unless deliberately disabled.
- *   · The compressed gallery stays online for good — that part IS forever.
+ *   · The compressed gallery stays online FREE FOR 5 YEARS (owner 2026-08-07,
+ *     superseding "free forever"). Past 5 years, continuing to store it becomes
+ *     a paid option whose price is not yet set. Nothing is deleted at 5 years —
+ *     that consequence has NOT been decided and must not be assumed in code.
  *   · Connecting Google Drive is the ONLY way a couple keeps originals past
  *     six months.
  *
@@ -57,7 +60,8 @@ const FILES = ROOTS.flatMap((r) => sources(r));
 /**
  * Phrases that promise a lifetime for the ORIGINALS which we do not honour.
  * Deliberately narrow: each was a real string that shipped. A broad pattern
- * here would fire on the compressed gallery, which genuinely IS forever, and a
+ * here would fire on the compressed gallery, which is genuinely kept (5 years,
+ * free), and a
  * guard that cries wolf teaches you to skim past the one time it is right.
  */
 const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
@@ -67,6 +71,30 @@ const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
   // The month count itself. It moved 3 → 6 on 2026-08-02 and a dormant buy card
   // kept the old number for five days, so pin the stale one by name.
   { re: /after 3 months we keep a[^.]{0,30}compressed/i, why: 'the clock is 6 months, not 3' },
+  // ── The gallery is no longer "forever" (owner 2026-08-07) ──────────────────
+  // It is free for FIVE YEARS, after which continuing to store it becomes a paid
+  // option whose price is not yet set. Every "forever" below was a live promise
+  // on a real screen — the couple's Papic page, the delivery panel, the public
+  // features page, the guest tier card and the warning email all said it — so
+  // these are pinned by name rather than by a broad pattern.
+  //
+  // ⚠ NARROW ON PURPOSE. "yours forever" about a Pakanta SONG is true (the couple
+  // owns the track), and "one folder you own, forever" about their own Google
+  // Drive is true (we never touch their folder). A pattern matching bare
+  // /forever/ fires on both and a guard that cries wolf teaches you to skim past
+  // the one time it is right.
+  {
+    re: /gallery[^.]{0,60}(forever|indefinitely)/i,
+    why: 'the compressed gallery is free for 5 years, not forever',
+  },
+  {
+    re: /(forever|indefinitely)[^.]{0,40}gallery/i,
+    why: 'the compressed gallery is free for 5 years, not forever',
+  },
+  {
+    re: /photos? kept permanently/i,
+    why: 'photos are kept free for 5 years, then storage becomes a paid option',
+  },
 ];
 
 /**
@@ -107,8 +135,10 @@ test('no user-facing copy promises a lifetime for the originals that we do not k
     hits,
     [],
     `Copy promises a photo lifetime the deletion sweep does not honour:\n${hits.join('\n')}\n\n` +
-      'Originals: 6 months from the first capture. Compressed gallery: forever. ' +
-      'Google Drive is how a couple keeps originals past 6 months.',
+      'Originals: 6 months from the first capture, floored at 3 months after the ' +
+      'event. Compressed gallery: free for 5 years. NOTHING is deleted — the ' +
+      'original is REPLACED by the compressed copy. Google Drive is how a couple ' +
+      'keeps originals past 6 months.',
   );
 });
 

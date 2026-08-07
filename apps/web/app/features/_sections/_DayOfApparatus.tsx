@@ -83,7 +83,7 @@ const COPY: Record<
         // not keep: full-resolution originals are dropped six months after the
         // event's first capture. The Drive folder is what makes "as long as you
         // need" true, so the sentence now points at the thing that delivers it.
-        body: 'Connect your photographer’s Google Drive. Setnayan pipes full-resolution albums into the couple’s gallery post-event. We hold the full-resolution originals for 6 months and keep the compressed gallery online for good — connect Drive and every original also lands in a folder you own, to keep.',
+        body: 'Connect your photographer’s Google Drive. Setnayan pipes full-resolution albums into the couple’s gallery post-event. We hold the full-resolution originals for 6 months and keep the compressed gallery online free for 5 years — connect Drive and every original also lands in a folder you own, to keep.',
       },
       {
         tagline: 'Wedding-day supplies, one bill',
@@ -137,7 +137,7 @@ const COPY: Record<
         // correction read as complete because the file it lived in looked fixed.
         // Whenever you edit user-facing prose here, grep the other locale block
         // in the SAME file before you commit.
-        body: 'I-connect ang Google Drive ng photographer mo. Ipa-pipe ng Setnayan ang full-resolution albums papunta sa gallery ng couple pagkatapos ng event. Hawak namin ang full-resolution originals nang 6 na buwan, at mananatiling online ang compressed gallery habambuhay — i-connect ang Drive at mapupunta rin ang bawat original sa folder na sa iyo, para itago.',
+        body: 'I-connect ang Google Drive ng photographer mo. Ipa-pipe ng Setnayan ang full-resolution albums papunta sa gallery ng couple pagkatapos ng event. Hawak namin ang full-resolution originals nang 6 na buwan, at mananatiling online ang compressed gallery nang libre sa loob ng 5 taon — i-connect ang Drive at mapupunta rin ang bawat original sa folder na sa iyo, para itago.',
       },
       {
         tagline: 'Wedding-day supplies, isang bill',

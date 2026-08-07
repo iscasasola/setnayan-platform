@@ -17,10 +17,19 @@ still holding someone's key after they asked us to let go.
 So it is not one stale row. **Prod holds an ACTIVE Drive grant, and the next
 Disconnect press would have recreated the problem.**
 
-**Shipped:**
-- The Drive disconnect now writes the same three fields as YouTube and as the
-  Setnayan-owned channel pool: `refresh_token: ''` (the column is NOT NULL),
-  `access_token: null`, `revoked_at`.
+🚨 **AND IT WAS NOT TWO ROUTES — IT WAS FOUR.** The first cut of the guard
+scanned `app/api/oauth`, the folder the code "should" be in. Widening it to scan
+by TABLE NAME across the whole `app` + `lib` tree immediately found two more:
+`app/api/photo-delivery/disconnect` and
+`app/dashboard/[eventId]/studio/photo-delivery/actions.ts` — the latter not under
+`app/api` at all. Both cleared the short-lived **access** token and kept the
+long-lived **refresh** token, which is the one that actually re-opens the
+account. **A guard scoped to the folder you expect is the same mistake as the bug
+it is hunting.**
+
+**Shipped — all four revoke paths now write the same three fields** as the
+Setnayan-owned channel pool: `refresh_token: ''` (the column is NOT NULL),
+`access_token: null`, `revoked_at`.
 - A backfill migration wipes tokens on any already-revoked grant, in both
   credential tables. Active grants are untouched — wiping one would break a
   working connection.

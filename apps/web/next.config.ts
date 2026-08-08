@@ -160,10 +160,23 @@ const securityHeaders = [
     key: 'Permissions-Policy',
     value: 'camera=(self), microphone=(self), geolocation=(self), browsing-topics=()',
   },
+  // ⚠ `https://www.openstreetmap.org` added 2026-08-08. It was MISSING, and the
+  // vendor location map has been a silent grey box on every shop page with
+  // coordinates ever since it shipped — measured on the live site, not inferred.
+  // A blocked iframe throws nothing a visitor or a test can see; it just renders
+  // empty. So "New embed origins later extend this one list" (above) needed a
+  // mechanism, not a sentence: `lib/csp-embeds-are-allowed.test.ts` now fails if
+  // any iframe host in the app is absent here.
+  //
+  // 🔑 KEEP THIS COMMENT ABOVE THE OBJECT, NOT BETWEEN `value:` AND THE STRING.
+  // `csp-report.test.ts` matches `value:` immediately followed by the policy to
+  // prove the enforced header is still the frame-only one, and a comment in
+  // between fails it. That guard is right and is not to be loosened — this note
+  // is here so the next person moves their comment instead of the assertion.
   {
     key: 'Content-Security-Policy',
     value:
-      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com",
+      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org",
   },
 ];
 

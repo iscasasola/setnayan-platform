@@ -146,6 +146,16 @@ export type VendorCardData = {
    *  VERIFIED vendor's real business_name is never gated (shown on any tier). */
   verification_state?: string | null;
   /**
+   * E10 — TRUE only when the anonymity read actually answered for this vendor.
+   *
+   * 🔑 WITHOUT THIS FLAG THE EXPLAINER IS A LIE ON EVERY CARD. When that read
+   * fails, the page hands every row `name_revealed_at: null` — exactly what a
+   * genuinely-hidden name looks like — so the whole marketplace would explain
+   * why names are hidden on vendors hiding nothing. Absent or false ⇒ say
+   * nothing.
+   */
+  anonymity_resolved?: boolean;
+  /**
    * Relationship depth between this couple's active event and the vendor (0–3).
    * Computed from event_vendors + vendor_event_unlocks when the viewer is
    * authenticated and has an active event. 0 (or absent) = no relationship.
@@ -360,6 +370,19 @@ export async function VendorCard({
             <p className="mt-0.5 text-sm text-ink/65">
               <span className="font-medium text-ink">{serviceLabel}</span>{' '}
               <span className="text-ink/55">by {vendor.business_name}</span>
+            </p>
+          ) : null}
+          {/* E10 — why this shop has no name yet. The condition is the exact
+            *  INVERSE of the line above: that one renders when the real name is
+            *  showing, this when it is withheld. Reusing the same expression is
+            *  deliberate — a second, independently-derived signal could
+            *  disagree with the name actually on screen.
+            *
+            *  Gated on `anonymity_resolved`, so a failed read says nothing
+            *  rather than explaining a hidden name on every vendor. */}
+          {vendor.anonymity_resolved && displayLabel !== vendor.business_name ? (
+            <p className="mt-0.5 text-xs text-ink/50">
+              New shops stay unnamed until they reply to their first couple.
             </p>
           ) : null}
           {/* Badge row — placed below the name so it's visible at

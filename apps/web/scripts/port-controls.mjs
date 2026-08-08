@@ -47,6 +47,72 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
+/**
+ * Blank out comments so PROSE ABOUT a control can never be mistaken for the
+ * control itself.
+ *
+ * 🪤 THIS WAS A LIVE HOLE, FOUND BY SABOTAGE. Deleting `<EventDashboard …>` from
+ * the couple's dashboard — the entire body of the page — PASSED. The name still
+ * appeared in four docblocks across the route folder (`loading.tsx` says its
+ * shape "mirrors the <EventDashboard> render order", the page explains what
+ * <EventDashboard> owns, and the component's own header names itself), so the
+ * set never changed. **The richer a file's comments, the less its widgets were
+ * protected** — precisely backwards, and it would have been worst on exactly the
+ * heavily-documented surfaces this repo cares most about.
+ *
+ * This file already knew the disease in a milder form: the `routes` pattern
+ * carries a note that the string `routes.ts` in a comment was once recorded as a
+ * control, fixed by demanding a trailing `(`. That fix was per-pattern; this one
+ * is at the source, so every extractor gets it.
+ *
+ * Characters are replaced with spaces rather than deleted so byte offsets — and
+ * therefore any future line reporting — stay true.
+ *
+ * ⚠ IT MUST BE STRING-AWARE. A naive `//` strip eats the rest of the line from
+ * inside `href="https://…"`, silently truncating real source. So this walks the
+ * text tracking quotes, template literals and escapes, which is why it is a
+ * small lexer and not a regex.
+ */
+export function stripComments(source) {
+  const out = source.split('');
+  let i = 0;
+  const n = source.length;
+  let quote = null; // "'" | '"' | '`'
+  while (i < n) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (quote) {
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
+      if (c === quote) quote = null;
+      i += 1;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      quote = c;
+      i += 1;
+      continue;
+    }
+    if (c === '/' && next === '/') {
+      while (i < n && source[i] !== '\n') out[i++] = ' ';
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end === -1 ? n : end + 2;
+      while (i < stop) {
+        if (source[i] !== '\n') out[i] = ' ';
+        i += 1;
+      }
+      continue;
+    }
+    i += 1;
+  }
+  return out.join('');
+}
+
 /** Dynamic segments collapse so `/x/${id}` and `/x/${eventId}` are one key. */
 export function normalizeHref(raw) {
   return (
@@ -126,6 +192,45 @@ export function routeSourceFiles(routeDir, { isAppRoot = false } = {}) {
   return out.sort();
 }
 
+/**
+ * ── BLOCKS: the widget inventory (added 2026-08-08) ─────────────────────────
+ *
+ * The owner's question, verbatim: *"should we have a prototype first? make sure
+ * all widgets are there?"*
+ *
+ * Controls answered half of it. A destination and a bound action are what a
+ * person can DO — and a missing one is LOUD, because somebody cannot get
+ * somewhere. What nothing watched was whether a redesigned page still SHOWS the
+ * same things. That failure is silent: the page looks finished and simply tells
+ * you less. It has already happened here once — the /panood port dropped the
+ * YouTube API Services disclosure, a compliance paragraph with no link and no
+ * action in it, so a controls-only guard could never have seen it.
+ *
+ * 🔑 A BLOCK IS THE UNIT THE OWNER MEANS BY "WIDGET". Not a sentence, not a
+ * number — a rendered component. If the vendor Overview stops rendering its
+ * upcoming-schedules panel, that panel is gone whatever the copy says.
+ * Components are also the one identity a restyle does NOT disturb: the whole
+ * point of the port is that `VendorEnergyStats` keeps its name while every
+ * pixel inside it changes.
+ *
+ * ⚠ ICONS ARE EXCLUDED, AND THIS IS THE DIFFERENCE BETWEEN A GUARD AND NOISE.
+ * Icons are capitalised JSX elements too, and swapping one is exactly the kind
+ * of thing a restyle is SUPPOSED to do. Left in, the guard would fire on nearly
+ * every port unit, and a guard that cries wolf teaches you to skim past the one
+ * time it is right. They are identified by their IMPORT SOURCE rather than by a
+ * name list, so a new icon package is covered without anyone remembering to add
+ * its names.
+ *
+ * Deliberately NOT extracted: prose, numbers, and data property paths. A port
+ * rewrites copy by design, and the specs retire real numbers on purpose (the
+ * vendor bento's 90-day countdown ratio "dies with the ring"). Locking those
+ * would block the very work this protects. The block is the largest unit that
+ * is still honest.
+ */
+const ICON_SOURCES = /^(lucide-react|react-icons|@heroicons|@radix-ui\/react-icons)/;
+const IMPORT_RE = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+const JSX_EL_RE = /<([A-Z][\w$]*(?:\.[A-Z][\w$]*)?)[\s/>]/g;
+
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\}|\{\s*"([^"]*)"\s*\}|\{\s*'([^']*)'\s*\})/g;
 const ACTION_RE = /\b(?:form)?[aA]ction\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\}/g;
 /**
@@ -152,7 +257,9 @@ const ROUTES_RE = /\broutes((?:\.[A-Za-z_$][\w$]*)+)\s*\(/g;
  * marketing decision, not a way out of the app, and would make the baseline
  * churn on every copy edit. A bare `#` is not a destination either.
  */
-export function extractControls(source) {
+export function extractControls(rawSource) {
+  // Every pattern below runs against comment-free text — see stripComments.
+  const source = stripComments(rawSource);
   const destinations = new Set();
   const actions = new Set();
 
@@ -165,23 +272,58 @@ export function extractControls(source) {
   for (const m of source.matchAll(ACTION_RE)) actions.add(m[1]);
   for (const m of source.matchAll(ROUTES_RE)) actions.add(`routes${m[1]}`);
 
-  return { destinations, actions };
+  return { destinations, actions, blocks: extractBlocks(source) };
+}
+
+/**
+ * The blocks one file renders — capitalised JSX elements, minus anything the
+ * same file imported from an icon package.
+ *
+ * The icon filter is per-file on purpose: `Calendar` is a lucide icon in one
+ * component and could be a real panel in another, so a global name list would
+ * be wrong in both directions. Import source is the only honest discriminator.
+ */
+export function extractBlocks(maybeRaw) {
+  // Safe when called directly: stripping twice is a no-op, since the first pass
+  // leaves only spaces where comments were.
+  const source = stripComments(maybeRaw);
+  const icons = new Set();
+  for (const m of source.matchAll(IMPORT_RE)) {
+    if (!ICON_SOURCES.test(m[2])) continue;
+    for (const spec of m[1].split(',')) {
+      // `Store`, `Store as ShopIcon`, `type Foo` — the LOCAL name is what JSX uses.
+      const local = spec.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop()?.trim();
+      if (local) icons.add(local);
+    }
+  }
+
+  const blocks = new Set();
+  for (const m of source.matchAll(JSX_EL_RE)) {
+    const name = m[1];
+    // `Foo.Bar` — judge it by its root, which is what the import named.
+    if (icons.has(name.split('.')[0])) continue;
+    blocks.add(name);
+  }
+  return blocks;
 }
 
 /** The control set for a whole route folder, merged across its files. */
 export function controlsForRoute(routeDir, appRoot) {
   const destinations = new Set();
   const actions = new Set();
+  const blocks = new Set();
   const files = routeSourceFiles(routeDir, { isAppRoot: routeDir === appRoot });
   for (const f of files) {
-    const { destinations: d, actions: a } = extractControls(readFileSync(f, 'utf8'));
+    const { destinations: d, actions: a, blocks: b } = extractControls(readFileSync(f, 'utf8'));
     d.forEach((x) => destinations.add(x));
     a.forEach((x) => actions.add(x));
+    b.forEach((x) => blocks.add(x));
   }
   return {
     files: files.map((f) => relative(appRoot, f).split(sep).join('/')).sort(),
     destinations: [...destinations].sort(),
     actions: [...actions].sort(),
+    blocks: [...blocks].sort(),
   };
 }
 

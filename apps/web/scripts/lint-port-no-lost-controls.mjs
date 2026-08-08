@@ -59,10 +59,11 @@ const now = buildBaseline(join(WEB, 'app'));
 // "pass" by having nothing to compare. Refuse that outcome loudly.
 const nowRoutes = Object.keys(now).length;
 const nowDestinations = Object.values(now).reduce((n, r) => n + r.destinations.length, 0);
-if (nowRoutes < 300 || nowDestinations < 400) {
+const nowBlocks = Object.values(now).reduce((n, r) => n + (r.blocks?.length ?? 0), 0);
+if (nowRoutes < 300 || nowDestinations < 400 || nowBlocks < 1000) {
   console.error(
-    `❌ EXTRACTOR IS NOT SEEING THE APP: ${nowRoutes} routes / ${nowDestinations} destinations ` +
-      `(baseline had ${base.routeCount} / ${base.destinations}).\n` +
+    `❌ EXTRACTOR IS NOT SEEING THE APP: ${nowRoutes} routes / ${nowDestinations} destinations / ` +
+      `${nowBlocks} blocks (baseline had ${base.routeCount} / ${base.destinations} / ${base.blocks ?? '?'}).\n` +
       `   This guard would pass everything in this state, so it fails instead.`,
   );
   process.exit(1);
@@ -71,6 +72,7 @@ if (nowRoutes < 300 || nowDestinations < 400) {
 const problems = [];
 let checkedRoutes = 0;
 let checkedControls = 0;
+let checkedBlocks = 0;
 
 for (const [route, before] of Object.entries(base.routes)) {
   const after = now[route];
@@ -85,19 +87,27 @@ for (const [route, before] of Object.entries(base.routes)) {
   checkedRoutes += 1;
   const lostDestinations = before.destinations.filter((d) => !after.destinations.includes(d));
   const lostActions = before.actions.filter((a) => !after.actions.includes(a));
+  // A pre-blocks baseline has no `blocks` key. Treat that as "not recorded" and
+  // check nothing, rather than reading undefined as an empty set — which would
+  // report every block on every route as lost the first time anyone rebased.
+  const lostBlocks = Array.isArray(before.blocks)
+    ? before.blocks.filter((b) => !(after.blocks ?? []).includes(b))
+    : [];
   checkedControls += before.destinations.length + before.actions.length;
+  checkedBlocks += Array.isArray(before.blocks) ? before.blocks.length : 0;
 
-  if (lostDestinations.length || lostActions.length) {
-    problems.push({ route, lostDestinations, lostActions });
+  if (lostDestinations.length || lostActions.length || lostBlocks.length) {
+    problems.push({ route, lostDestinations, lostActions, lostBlocks });
   }
 }
 
 if (problems.length) {
-  console.error('❌ A ported route lost a way out.\n');
+  console.error('❌ A ported route lost something it used to offer.\n');
   for (const p of problems) {
     console.error(`   ${p.route}`);
     for (const d of p.lostDestinations) console.error(`      – can no longer reach:  ${d}`);
     for (const a of p.lostActions) console.error(`      – no longer runs:        ${a}`);
+    for (const b of p.lostBlocks) console.error(`      – no longer shows:       <${b}>`);
   }
   console.error(
     '\n   If a removal is DELIBERATE, regenerate the baseline in this same PR:\n' +
@@ -108,6 +118,7 @@ if (problems.length) {
 }
 
 console.log(
-  `✅ no route lost a control — ${checkedRoutes} routes / ${checkedControls} controls checked ` +
+  `✅ no route lost anything — ${checkedRoutes} routes / ${checkedControls} controls / ` +
+    `${checkedBlocks} blocks checked ` +
     `(baseline ref ${base.generatedFromRef})`,
 );

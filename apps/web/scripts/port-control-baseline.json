@@ -1,8 +1,9 @@
 {
-  "generatedFromRef": "b80bf6645",
+  "generatedFromRef": "e5afbf6d8",
   "routeCount": 400,
-  "destinations": 676,
-  "actions": 511,
+  "destinations": 674,
+  "actions": 512,
+  "blocks": 3511,
   "routes": {
     "/": {
       "files": [
@@ -16,10 +17,42 @@
       ],
       "destinations": [
         "/",
-        "/explore",
-        "/favicon.ico?v=N"
+        "/explore"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AppInitSplash",
+        "BrandProvider",
+        "ClientTypeDetector",
+        "CookieConsentBanner",
+        "DeferredObservability",
+        "DemoModeBanner",
+        "DeviceCapture",
+        "GlobalHaptics",
+        "GlobalSliderHint",
+        "HomeReskin",
+        "HomeSpotlightStrip",
+        "Link",
+        "LoaderConfigProvider",
+        "LoaderOverlayProvider",
+        "Metadata",
+        "NativeBridge",
+        "NavProgress",
+        "NavSlideController",
+        "OfflineDaemonMount",
+        "PersistQueryClientProvider",
+        "PostHogProvider",
+        "Providers",
+        "Script",
+        "SiteChrome",
+        "SiteFooterChrome",
+        "Suspense",
+        "T",
+        "ThemeProvider",
+        "ToastFromParams",
+        "ToastProvider",
+        "ZoomGuard"
+      ]
     },
     "/3d_plan/demo/[token]": {
       "files": [
@@ -29,7 +62,14 @@
       "destinations": [
         "/"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Phase",
+        "Plan3DGuestView",
+        "Plan3DSceneLoader",
+        "Shell"
+      ]
     },
     "/[slug]": {
       "files": [
@@ -145,6 +185,187 @@
       "actions": [
         "action",
         "submit"
+      ],
+      "blocks": [
+        "AnnouncementCard",
+        "ArrivalGreeting",
+        "BackgroundMusic",
+        "Blob",
+        "ByTheNumbers",
+        "Chapter",
+        "ChapterWriteUp",
+        "ClipFrame",
+        "Colophon",
+        "CountdownWidget",
+        "CssFallback",
+        "Date",
+        "DayOfAnnouncement",
+        "DayOfBanner",
+        "DayOfFaceEnroll",
+        "Detail",
+        "DoorCard",
+        "DoorPanels",
+        "DressCodeWidget",
+        "EditionLine",
+        "EditorBridge",
+        "EditorialChaptersForEditor",
+        "EditorialContent",
+        "EditorialData",
+        "EditorialOrderKey",
+        "EditorialSections",
+        "EventMedia",
+        "FaceDataNotice",
+        "FaceGateResult",
+        "FacebookWatchCard",
+        "Field",
+        "FilmMonogram",
+        "FindModeCard",
+        "Flap",
+        "FourFlapEnvelope",
+        "FromTheCouple",
+        "GlowBlob",
+        "GracefulFallback",
+        "GuestCameraPlayer",
+        "GuestCameraWatcher",
+        "GuestColumnCard",
+        "GuestColumnForm",
+        "GuestColumnsWall",
+        "GuestContext",
+        "GuestDoorwayStrip",
+        "GuestGuidedTour",
+        "GuestHubBar",
+        "GuestHubCard",
+        "GuestPreload",
+        "GuestToHostCta",
+        "HTMLAudioElement",
+        "HTMLButtonElement",
+        "HTMLCanvasElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLImageElement",
+        "HTMLInputElement",
+        "HTMLVideoElement",
+        "HeroBackgroundMedia",
+        "HeroMonogram",
+        "HeroPhoto",
+        "HideableWidgetRender",
+        "HubMenuButton",
+        "HubPanelKey",
+        "Icon",
+        "InvitationBody",
+        "InvitationShell",
+        "InvitationSkeleton",
+        "KwentoClip",
+        "KwentoWall",
+        "LeadArticle",
+        "LeadMedia",
+        "Link",
+        "LiveLayerData",
+        "LivePhotoWall",
+        "LiveWallBlock",
+        "LiveWallCaption",
+        "LiveWallHeader",
+        "LivingMoments",
+        "Logo",
+        "LoveStoryInput",
+        "MediaRecorder",
+        "MediaStream",
+        "MomentsEssay",
+        "Monogram",
+        "NavLinksRow",
+        "OurLoveStoryWidget",
+        "OurPhotosWidget",
+        "OurStory",
+        "OwnerCapability",
+        "OwnerRibbon",
+        "PabatiPrompt",
+        "PahinaCoverParallax",
+        "PahinaKeepsake",
+        "PahinaMasthead",
+        "PahinaMotionObserver",
+        "PahinaMotionRootFlag",
+        "PanelFade",
+        "PapicGuestCapture",
+        "Phase",
+        "PhaseRibbon",
+        "PhotoGallery",
+        "PhotoMomentModeBadge",
+        "PhotoMomentsWidget",
+        "PrivateLanding",
+        "ProgressRing",
+        "PublicEventDayBar",
+        "PublicEventDetails",
+        "PublicHideableWidget",
+        "PublicPageActions",
+        "ReactElement",
+        "Remaining",
+        "RevealFeatures",
+        "RevealOverlay",
+        "RevealOverlayServer",
+        "RevealParticles",
+        "ReviewsEmptyState",
+        "ReviewsWall",
+        "RigidFlaps",
+        "RigidReveal",
+        "RigidStage",
+        "RigidWebGL",
+        "RoamWatchPicker",
+        "RsvpPill",
+        "RsvpWidget",
+        "RunOfShowHeader",
+        "SavePhotoButton",
+        "SaveStoryCardButton",
+        "SaveTheDateFilm",
+        "SaveTheDateView",
+        "ScheduleWidget",
+        "SectionEmptyPlate",
+        "SectionRule",
+        "Select",
+        "Selection",
+        "SelfRotateResult",
+        "SelfieCapture",
+        "SetnayanExperience",
+        "ShareButtons",
+        "SiteBody",
+        "SiteMenuBar",
+        "SpatialBackdrop",
+        "SpecialMessageWidget",
+        "SpotlightCard",
+        "Stat",
+        "Status",
+        "StdBackgroundLayer",
+        "StdFilmHandoff",
+        "StdTouchGlow",
+        "StdViewBeacon",
+        "StripCell",
+        "StudioRevealPlayer",
+        "SubmitButton",
+        "SupportingStrip",
+        "SurfaceMaps",
+        "Suspense",
+        "THREE.CanvasTexture",
+        "THREE.Texture",
+        "TeaCeremonyCard",
+        "TeamBehindTheDay",
+        "TheirSong",
+        "TierComparisonWidget",
+        "VeilLook",
+        "VeilReveal",
+        "VendorCapability",
+        "VendorDoorway",
+        "VendorMediaStrip",
+        "VendorRow",
+        "VendorsWeLoved",
+        "VenueWidget",
+        "VideoGuestbookWall",
+        "WatchLiveBlock",
+        "WatchTheFilm",
+        "WaxSeal",
+        "WaxSealGLState",
+        "WayfindingMap",
+        "WhatToBringWidget",
+        "YourPhotosWidget",
+        "YourSeatBlock"
       ]
     },
     "/[slug]/find-my-table": {
@@ -155,7 +376,16 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EntrancePos",
+        "Link",
+        "LiveRefresher",
+        "Logo",
+        "PromptCard",
+        "Shell",
+        "WayfindingMap"
+      ]
     },
     "/[slug]/find-seat": {
       "files": [
@@ -165,7 +395,16 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AbortController",
+        "Link",
+        "Logo",
+        "MatchCard",
+        "NameSearch",
+        "PromptCard",
+        "Shell"
+      ]
     },
     "/[slug]/hub": {
       "files": [
@@ -176,14 +415,28 @@
         "/[seg]/find-my-table",
         "/papic/me/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DayOfFaceEnroll",
+        "HubShell",
+        "Link",
+        "LiveWallBlock",
+        "NavLinksRow",
+        "ScheduleWidget",
+        "WatchLiveBlock",
+        "WhatsHappeningCard"
+      ]
     },
     "/[slug]/invite": {
       "files": [
         "[slug]/invite/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InvalidTokenScreen",
+        "JoinFlow"
+      ]
     },
     "/[slug]/pabuya": {
       "files": [
@@ -192,7 +445,13 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Logo",
+        "PabuyaCardList",
+        "PabuyaTrustNote"
+      ]
     },
     "/[slug]/print": {
       "files": [
@@ -203,7 +462,18 @@
         "[slug]/print/print-toolbar.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ChapterCard",
+        "Colophon",
+        "HeroMonogram",
+        "Link",
+        "LockedClose",
+        "PrintSheet",
+        "PrintToolbar",
+        "SectionRule",
+        "StillMonogram"
+      ]
     },
     "/[slug]/recap": {
       "files": [
@@ -213,7 +483,26 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ChapterBlock",
+        "CuratedGallery",
+        "HeroMonogram",
+        "Link",
+        "Logo",
+        "PanoodReplay",
+        "PhotoGrid",
+        "RecapClosing",
+        "RecapFooter",
+        "RecapHeader",
+        "RecapHero",
+        "RecapPrologue",
+        "RecapStats",
+        "Reels",
+        "SaveStoryCardButton",
+        "ShareButtons",
+        "Voices"
+      ]
     },
     "/[slug]/seat": {
       "files": [
@@ -223,7 +512,22 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AnimatedMonogramHero",
+        "ArrivalBloom",
+        "BackLink",
+        "EventMonogram",
+        "EventMonogramBadge",
+        "Link",
+        "LiveRefresher",
+        "Logo",
+        "PersonalPass",
+        "PromptCard",
+        "PublicTableView",
+        "SeatPassShell",
+        "WayfindingMap"
+      ]
     },
     "/[slug]/venue": {
       "files": [
@@ -235,7 +539,41 @@
         "/[seg]",
         "/[seg]/venue"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BoothVendorCard",
+        "Canvas",
+        "DanceFloorMural",
+        "EmoteBubbles",
+        "Figure",
+        "FigureSpec",
+        "GuestAvatar",
+        "GuestTable",
+        "GuestVenue3D",
+        "GuestVenueLoader",
+        "InstancedChairs",
+        "InstancedSeatedCrowd",
+        "Lab3DBooth",
+        "Lab3DCocktail",
+        "Lab3DTable",
+        "Link",
+        "LocalMoveBroadcaster",
+        "LocalPlayer",
+        "MouseEvent",
+        "OrbitControls",
+        "OwnSeatTapTarget",
+        "RemotePlayers",
+        "SceneLighting",
+        "SeatDestinationMarker",
+        "SeatedFigure",
+        "StringLights",
+        "THREE.Group",
+        "THREE.Mesh",
+        "Vec2",
+        "VenueDecor",
+        "VenueFixtures",
+        "VenueShell"
+      ]
     },
     "/[slug]/welcome": {
       "files": [
@@ -247,6 +585,9 @@
       "actions": [
         "abandonAction",
         "confirmAction"
+      ],
+      "blocks": [
+        "SubmitButton"
       ]
     },
     "/about": {
@@ -263,7 +604,17 @@
         "/signup",
         "/tl/about"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AboutHero",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "Icon",
+        "Link",
+        "RevealGrid",
+        "RevealSection"
+      ]
     },
     "/acceptable-use": {
       "files": [
@@ -274,7 +625,12 @@
         "/privacy",
         "/terms"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
     },
     "/admin": {
       "files": [
@@ -321,7 +677,39 @@
         "/admin/website",
         "/admin/work"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AccordionSection",
+        "AccountSwitcher",
+        "ActionQueueTile",
+        "AdminBottomNav",
+        "AdminCommandPalette",
+        "AdminNavFab",
+        "AdminSidebar",
+        "AdminSidebarMenu",
+        "AppleSecretReminder",
+        "Badge",
+        "BottomNav",
+        "CountUp",
+        "DoorwaySidebarHeader",
+        "GuidedTour",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Icon",
+        "KpiStatCard",
+        "LandingCard",
+        "Link",
+        "MoreSearch",
+        "NavFab",
+        "ProgressRing",
+        "Screen",
+        "SidebarShell",
+        "Sk",
+        "SkLine",
+        "SwitcherPlaqueTrigger",
+        "Tile",
+        "UnreadBellBadge"
+      ]
     },
     "/admin/account-deletions": {
       "files": [
@@ -334,6 +722,10 @@
         "approveAndBlacklist",
         "approveAndDelete",
         "rejectRequest"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "SubmitButton"
       ]
     },
     "/admin/accounts": {
@@ -342,14 +734,24 @@
         "admin/accounts/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DemoVendorsSurface",
+        "EventsSurface",
+        "Icon",
+        "Link",
+        "UsersSurface",
+        "VendorsSurface",
+        "VenuesSurface"
+      ]
     },
     "/admin/addons": {
       "files": [
         "admin/addons/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/app-performance": {
       "files": [
@@ -371,6 +773,29 @@
         "addExpense",
         "attachReceipt",
         "viewReceipt"
+      ],
+      "blocks": [
+        "ChartCard",
+        "CockpitSurface",
+        "ConnectionLogsSurface",
+        "DeepHealth",
+        "DeltaPct",
+        "FunnelsSurface",
+        "GridPageSkeleton",
+        "GrowthSurface",
+        "Icon",
+        "IntelligenceSurface",
+        "InterconnectionsSurface",
+        "Link",
+        "ListPageSkeleton",
+        "Metric",
+        "OfflineSurface",
+        "OperationsHiringSurface",
+        "SeoSurface",
+        "StackedBars",
+        "StatusPill",
+        "Suspense",
+        "TablePageSkeleton"
       ]
     },
     "/admin/approvals": {
@@ -383,6 +808,9 @@
         "approveRequest",
         "rejectRequest",
         "requestPrivilegedGrant"
+      ],
+      "blocks": [
+        "SubmitButton"
       ]
     },
     "/admin/background-videos": {
@@ -392,7 +820,14 @@
         "admin/background-videos/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BackgroundVideosManager",
+        "HTMLInputElement",
+        "Phase",
+        "Result",
+        "SlotCard"
+      ]
     },
     "/admin/booking-fees": {
       "files": [
@@ -401,14 +836,19 @@
       "destinations": [
         "/admin/payments"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead"
+      ]
     },
     "/admin/brain": {
       "files": [
         "admin/brain/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/budget-planner": {
       "files": [
@@ -417,7 +857,13 @@
         "admin/budget-planner/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AdminActionResult",
+        "BenchmarkRowForm",
+        "BudgetBandRowForm",
+        "SubmitButton"
+      ]
     },
     "/admin/chat-flags": {
       "files": [
@@ -429,6 +875,10 @@
       ],
       "actions": [
         "resolveChatFlag"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SubmitButton"
       ]
     },
     "/admin/completions": {
@@ -441,6 +891,10 @@
       "actions": [
         "forceCompleteVendor",
         "upholdNonDelivery"
+      ],
+      "blocks": [
+        "CompletionsTable",
+        "SubmitButton"
       ]
     },
     "/admin/compliance": {
@@ -452,7 +906,15 @@
       "destinations": [
         "/admin/compliance/data-sheet"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ComplianceFormState",
+        "Field",
+        "K",
+        "Link",
+        "SaveResult",
+        "SubProcessor"
+      ]
     },
     "/admin/compliance/data-sheet": {
       "files": [
@@ -461,7 +923,12 @@
       "destinations": [
         "/admin/settings?tab=compliance"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Block",
+        "Link",
+        "Row"
+      ]
     },
     "/admin/concierge-abuse": {
       "files": [
@@ -477,6 +944,18 @@
         "adminClearConciergeFlag",
         "adminConfirmConciergeAbuse",
         "adminLiftConciergeEnforcement"
+      ],
+      "blocks": [
+        "EnforcementTab",
+        "FormFlash",
+        "Link",
+        "MatchedAccounts",
+        "Metric",
+        "QueueTab",
+        "SignalsTable",
+        "SimilarityBar",
+        "StrikePill",
+        "SubmitButton"
       ]
     },
     "/admin/connection-logs": {
@@ -486,7 +965,21 @@
         "admin/connection-logs/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActionResult",
+        "Count",
+        "EmptyState",
+        "FaultLogRow",
+        "Field",
+        "FilterKey",
+        "HTMLDivElement",
+        "InspectModal",
+        "JsonTree",
+        "LogRow",
+        "StatCard",
+        "TabButton"
+      ]
     },
     "/admin/corrections": {
       "files": [
@@ -499,6 +992,14 @@
       "actions": [
         "applyCorrectionRequest",
         "declineCorrectionRequest"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "FormFlash",
+        "Link",
+        "RequestCard",
+        "SubmitButton",
+        "VendorCorrectionRequestRow"
       ]
     },
     "/admin/custom-plans": {
@@ -511,6 +1012,14 @@
       "actions": [
         "activateAction",
         "formAction"
+      ],
+      "blocks": [
+        "CustomComposition",
+        "CustomPlanActionState",
+        "CustomUnitPrices",
+        "K",
+        "Knob",
+        "SubmitButton"
       ]
     },
     "/admin/data-privacy": {
@@ -528,6 +1037,21 @@
       ],
       "actions": [
         "formAction"
+      ],
+      "blocks": [
+        "ControlActionResult",
+        "ControlActions",
+        "ControlCard",
+        "ControlsBoard",
+        "CoveragePanel",
+        "Link",
+        "NpcChecklist",
+        "NpcDocuments",
+        "NpcTaskResult",
+        "PrivacyControlStatus",
+        "StatusIcon",
+        "TaskActions",
+        "TaskCard"
       ]
     },
     "/admin/demand": {
@@ -538,6 +1062,9 @@
       "destinations": [],
       "actions": [
         "runDemandRadarRefresh"
+      ],
+      "blocks": [
+        "DemandRadarCard"
       ]
     },
     "/admin/demo-vendors": {
@@ -547,7 +1074,11 @@
         "admin/demo-vendors/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CreateState",
+        "ResultState"
+      ]
     },
     "/admin/demo-vendors/inquiries": {
       "files": [
@@ -559,7 +1090,11 @@
         "/admin/demo-vendors",
         "/admin/demo-vendors/inquiries/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DemoThread",
+        "Link"
+      ]
     },
     "/admin/demo-vendors/inquiries/[threadId]": {
       "files": [
@@ -573,6 +1108,10 @@
         "adminAcceptInquiry",
         "adminDeclineInquiry",
         "adminReplyAsVendor"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/directory": {
@@ -581,7 +1120,10 @@
         "admin/directory/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "MobileLandingGrid"
+      ]
     },
     "/admin/discount-codes": {
       "files": [
@@ -599,6 +1141,11 @@
         "action",
         "addEligibleUser",
         "removeEligibleUser"
+      ],
+      "blocks": [
+        "DiscountType",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/discount-codes/[id]/edit": {
@@ -611,6 +1158,11 @@
       ],
       "actions": [
         "updateDiscountCode"
+      ],
+      "blocks": [
+        "EligibilitySection",
+        "Link",
+        "VoucherForm"
       ]
     },
     "/admin/discount-codes/new": {
@@ -623,6 +1175,10 @@
       ],
       "actions": [
         "createDiscountCode"
+      ],
+      "blocks": [
+        "Link",
+        "VoucherForm"
       ]
     },
     "/admin/disputes": {
@@ -634,6 +1190,17 @@
       "destinations": [],
       "actions": [
         "resolveDispute"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "DisputesTable",
+        "FilterStrip",
+        "HandoverEvidence",
+        "PolicyEvidence",
+        "StatCell",
+        "StatsBanner",
+        "SubmitButton",
+        "TierChip"
       ]
     },
     "/admin/editorial-review": {
@@ -643,7 +1210,11 @@
       "destinations": [
         "/admin/editorial-review/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EditorialRow",
+        "Link"
+      ]
     },
     "/admin/editorial-review/[editorialId]": {
       "files": [
@@ -651,7 +1222,13 @@
         "admin/editorial-review/[editorialId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EditForm",
+        "FlagCard",
+        "StatusBadge",
+        "SubmitButton"
+      ]
     },
     "/admin/event-types": {
       "files": [
@@ -660,7 +1237,8 @@
         "admin/event-types/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/event-types/[eventType]/categories": {
       "files": [
@@ -672,6 +1250,10 @@
       "actions": [
         "setFolderEventTypeOffered",
         "setTileEventTypeOffered"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/event-types/[eventType]/onboarding": {
@@ -687,6 +1269,15 @@
       "actions": [
         "resetOnboardingSpec",
         "upsertOnboardingSpec"
+      ],
+      "blocks": [
+        "ChipMultiSelect",
+        "EditorPack",
+        "Link",
+        "OnboardingEditor",
+        "OnboardingOverrideRow",
+        "SubmitButton",
+        "TypeQuestion"
       ]
     },
     "/admin/event-types/[eventType]/profile": {
@@ -698,6 +1289,11 @@
       ],
       "actions": [
         "upsertEventTypeProfile"
+      ],
+      "blocks": [
+        "Link",
+        "ProfileRow",
+        "SubmitButton"
       ]
     },
     "/admin/events": {
@@ -707,7 +1303,8 @@
         "admin/events/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/force-majeure": {
       "files": [
@@ -718,7 +1315,11 @@
       "destinations": [
         "/admin/force-majeure/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "MiniTour"
+      ]
     },
     "/admin/force-majeure/[flagId]": {
       "files": [
@@ -731,6 +1332,12 @@
       "actions": [
         "resolveFlag",
         "takeOwnership"
+      ],
+      "blocks": [
+        "Field",
+        "Image",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/founder-seats": {
@@ -742,6 +1349,10 @@
       "actions": [
         "grantFounderSeat",
         "revokeFounderSeat"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SubmitButton"
       ]
     },
     "/admin/fraud": {
@@ -755,6 +1366,13 @@
         "dismissVendorSignals",
         "initiateFraudWipeBan",
         "unsuspendVendor"
+      ],
+      "blocks": [
+        "EvidenceChips",
+        "HTMLDivElement",
+        "StateBadge",
+        "SubmitButton",
+        "WipeBanDialog"
       ]
     },
     "/admin/funnels": {
@@ -762,14 +1380,16 @@
         "admin/funnels/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/growth": {
       "files": [
         "admin/growth/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/help": {
       "files": [
@@ -782,6 +1402,10 @@
       ],
       "actions": [
         "setHelpMessageStatus"
+      ],
+      "blocks": [
+        "FilterChip",
+        "SubmitButton"
       ]
     },
     "/admin/insights": {
@@ -789,7 +1413,8 @@
         "admin/insights/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/integrations": {
       "files": [
@@ -815,6 +1440,16 @@
         "saveOAuthConfig",
         "saveResendConfig",
         "setAiPaywall"
+      ],
+      "blocks": [
+        "BuildTimeStatus",
+        "KnownHashCard",
+        "Link",
+        "MayaCard",
+        "OAuthCard",
+        "SecretCard",
+        "SubmitButton",
+        "TestResendButton"
       ]
     },
     "/admin/integrity-watch": {
@@ -833,6 +1468,11 @@
       "actions": [
         "rescanAction",
         "resolveIntegrityFlag"
+      ],
+      "blocks": [
+        "FormFlash",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/intelligence": {
@@ -840,7 +1480,8 @@
         "admin/intelligence/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/journal-spotlights": {
       "files": [
@@ -848,7 +1489,8 @@
         "admin/journal-spotlights/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/live-studio-channels": {
       "files": [
@@ -866,6 +1508,10 @@
         "setChannelLabel",
         "setChannelStatus",
         "setChannelVerified"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SubmitButton"
       ]
     },
     "/admin/marketing": {
@@ -873,7 +1519,8 @@
         "admin/marketing/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/menus": {
       "files": [
@@ -884,6 +1531,12 @@
       "destinations": [],
       "actions": [
         "uploadSlotIcon"
+      ],
+      "blocks": [
+        "DynamicIcon",
+        "NavAccountScope",
+        "SlotRow",
+        "SubmitButton"
       ]
     },
     "/admin/money": {
@@ -892,7 +1545,10 @@
         "admin/money/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "MobileLandingGrid"
+      ]
     },
     "/admin/moodboard-library": {
       "files": [
@@ -903,7 +1559,18 @@
         "admin/moodboard-library/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ColorChip",
+        "ColorRangeManipulator",
+        "ColorRangeMap",
+        "HTMLCanvasElement",
+        "HTMLDivElement",
+        "HTMLImageElement",
+        "Image",
+        "PalettePreview",
+        "RandomMoodboardPrompt"
+      ]
     },
     "/admin/more": {
       "files": [
@@ -911,14 +1578,18 @@
         "admin/more/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "MobileLandingGrid"
+      ]
     },
     "/admin/notifications": {
       "files": [
         "admin/notifications/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/npc-readiness": {
       "files": [
@@ -926,7 +1597,11 @@
         "admin/npc-readiness/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "NpcTaskResult",
+        "NpcTaskStatus"
+      ]
     },
     "/admin/offline": {
       "files": [
@@ -935,7 +1610,12 @@
         "admin/offline/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "OfflineDiagnostic",
+        "Status",
+        "StatusPill"
+      ]
     },
     "/admin/onboarding": {
       "files": [
@@ -943,7 +1623,8 @@
         "admin/onboarding/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/operations-hiring": {
       "files": [
@@ -951,7 +1632,10 @@
         "admin/operations-hiring/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "SmokeResult"
+      ]
     },
     "/admin/pakanta": {
       "files": [
@@ -960,28 +1644,39 @@
         "admin/pakanta/pakanta-deliver.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EventLite",
+        "FileUpload",
+        "PakantaDeliver",
+        "Result"
+      ]
     },
     "/admin/papic-storage": {
       "files": [
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Tile"
+      ]
     },
     "/admin/patiktok": {
       "files": [
         "admin/patiktok/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/pax-changes": {
       "files": [
         "admin/pax-changes/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/payment-options": {
       "files": [
@@ -994,6 +1689,18 @@
         "approvePaymentMethod",
         "holdPaymentMethod",
         "removePaymentMethod"
+      ],
+      "blocks": [
+        "ActionRow",
+        "AllowlistBadge",
+        "DirectPayPreviewButton",
+        "FormFlash",
+        "Image",
+        "MethodDetail",
+        "MethodTypeBadge",
+        "ModerationBadge",
+        "PaymentMethodCard",
+        "SubmitButton"
       ]
     },
     "/admin/payments": {
@@ -1013,6 +1720,20 @@
         "refundOrder",
         "rejectPayment",
         "requestPaymentResubmit"
+      ],
+      "blocks": [
+        "BatchApproveBar",
+        "BatchApproveCheckbox",
+        "ConfirmForm",
+        "FilterChip",
+        "HTMLInputElement",
+        "InboxMatcher",
+        "OrdersNeedingQuote",
+        "PaymentsList",
+        "PlatformChip",
+        "RefundForm",
+        "Stat",
+        "SubmitButton"
       ]
     },
     "/admin/payouts": {
@@ -1027,6 +1748,18 @@
       "actions": [
         "holdPayoutAction",
         "markPayoutPaidAction"
+      ],
+      "blocks": [
+        "AdminUser",
+        "ConfirmForm",
+        "Field",
+        "FilterBar",
+        "FlashBanner",
+        "FormFlash",
+        "Link",
+        "PayoutCard",
+        "Stat",
+        "SubmitButton"
       ]
     },
     "/admin/price-bands": {
@@ -1035,7 +1768,8 @@
         "admin/price-bands/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/pricing": {
       "files": [
@@ -1048,7 +1782,22 @@
       "destinations": [
         "/admin/pricing?tab=[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActiveToggle",
+        "CustomPlansSurface",
+        "FreeWindowsSurface",
+        "GridPageSkeleton",
+        "Icon",
+        "InfoPanel",
+        "InfoToggle",
+        "Link",
+        "MoneyInput",
+        "PriceBandsSurface",
+        "PricingSurface",
+        "Suspense",
+        "TablePageSkeleton"
+      ]
     },
     "/admin/queues": {
       "files": [
@@ -1058,7 +1807,15 @@
         "admin/queues/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "LaneChips",
+        "Link",
+        "QueueDrawer",
+        "TriageRow",
+        "TriageStrip"
+      ]
     },
     "/admin/real-stories": {
       "files": [
@@ -1066,7 +1823,8 @@
         "admin/real-stories/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/recaps": {
       "files": [
@@ -1074,7 +1832,8 @@
         "admin/recaps/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/receipts": {
       "files": [
@@ -1084,7 +1843,11 @@
       "destinations": [
         "/receipts/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Stat"
+      ]
     },
     "/admin/referrals": {
       "files": [
@@ -1092,14 +1855,16 @@
         "admin/referrals/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/refinements": {
       "files": [
         "admin/refinements/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/repost-watch": {
       "files": [
@@ -1115,6 +1880,10 @@
         "resolveQrMediaFlag",
         "resolveRepostFlag",
         "scanQrMediaGuard"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SubmitButton"
       ]
     },
     "/admin/reveal-studio": {
@@ -1127,7 +1896,19 @@
       "destinations": [
         "/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FourFlapEnvelope",
+        "HTMLDivElement",
+        "PreviewTpl",
+        "Result",
+        "RevealStudioConfig",
+        "RigidReveal",
+        "Slider",
+        "StdTouchGlow",
+        "Toggle",
+        "VeilReveal"
+      ]
     },
     "/admin/reviews": {
       "files": [
@@ -1143,6 +1924,14 @@
         "escalateAppeal",
         "overridePublishReview",
         "rejectAppeal"
+      ],
+      "blocks": [
+        "AppealCard",
+        "Cell",
+        "FilterChip",
+        "Link",
+        "SubmitButton",
+        "VendorFakeFlagCard"
       ]
     },
     "/admin/secrets": {
@@ -1163,6 +1952,17 @@
         "redeployProduction",
         "updateDbSecret",
         "updateVercelSecret"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "EncryptionKeyCard",
+        "HTMLInputElement",
+        "Link",
+        "ReencryptCounts",
+        "ReencryptPanel",
+        "SecretRow",
+        "SecretValueInput",
+        "SubmitButton"
       ]
     },
     "/admin/seo": {
@@ -1170,7 +1970,8 @@
         "admin/seo/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/settings": {
       "files": [
@@ -1189,6 +1990,28 @@
       "actions": [
         "saveLoaderAppearance",
         "uploadBrandIcon"
+      ],
+      "blocks": [
+        "Blob",
+        "ComplianceSurface",
+        "DemoModeSurface",
+        "File",
+        "FireResult",
+        "FormPageSkeleton",
+        "GridPageSkeleton",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "Icon",
+        "Link",
+        "ListPageSkeleton",
+        "LoaderVariant",
+        "NotificationsSurface",
+        "PreviewSwatch",
+        "ProcessStatus",
+        "SDLoader",
+        "SettingsSurface",
+        "SubmitButton",
+        "Suspense"
       ]
     },
     "/admin/settings/demo-mode": {
@@ -1196,7 +2019,8 @@
         "admin/settings/demo-mode/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/settings/payment-methods": {
       "files": [
@@ -1209,6 +2033,15 @@
       "actions": [
         "removeMerchantQr",
         "savePaymentInstruments"
+      ],
+      "blocks": [
+        "BackButton",
+        "ChannelSwitch",
+        "Field",
+        "FormFlash",
+        "QrUploadBlock",
+        "QrUploadForm",
+        "SubmitButton"
       ]
     },
     "/admin/social-queue": {
@@ -1217,7 +2050,10 @@
         "admin/social-queue/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AdminUser"
+      ]
     },
     "/admin/songs": {
       "files": [
@@ -1226,7 +2062,8 @@
         "admin/songs/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/spotlight-awards": {
       "files": [
@@ -1235,7 +2072,10 @@
         "admin/spotlight-awards/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "SpotlightAwardType"
+      ]
     },
     "/admin/studio": {
       "files": [
@@ -1243,7 +2083,24 @@
         "admin/studio/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DiscountCodesSurface",
+        "Icon",
+        "JournalSpotlightsSurface",
+        "Link",
+        "MoodboardLibrarySurface",
+        "PatiktokSurface",
+        "RealStoriesSurface",
+        "RecapsSurface",
+        "ReferralsSurface",
+        "RevealStudioSurface",
+        "SocialQueueSurface",
+        "SongsSurface",
+        "SpotlightAwardsSurface",
+        "StorytellersSurface",
+        "WebsiteSurface"
+      ]
     },
     "/admin/subscriptions": {
       "files": [
@@ -1256,6 +2113,10 @@
       "actions": [
         "approveSubscription",
         "rejectSubscription"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/taxonomy": {
@@ -1307,6 +2168,44 @@
         "unretireEventTypeVocab",
         "updateEventTypePresentation",
         "updatePlanningDeadline"
+      ],
+      "blocks": [
+        "AddLeafFieldForm",
+        "AddOptionForm",
+        "Badge",
+        "EventTypeVocabPanel",
+        "FaithLaunchButton",
+        "FaithLaunchPill",
+        "FaithVocabPanel",
+        "FileUpload",
+        "GrainGroup",
+        "Icon",
+        "Inspector",
+        "InspectorTab",
+        "KpiStatCard",
+        "LeafBlock",
+        "LeafFieldCard",
+        "LeafHiddenFields",
+        "LeafRefinementsPanel",
+        "Link",
+        "LucideByName",
+        "OptionCard",
+        "OptionGrid",
+        "PhotoField",
+        "RefThumb",
+        "RefinementsTab",
+        "ReorderButtons",
+        "RequestsQueue",
+        "ServiceFlagsPanel",
+        "ServicesTab",
+        "Sheet",
+        "StudioActionResult",
+        "StudioView",
+        "SubmitButton",
+        "TaxonomyStudio",
+        "TileCard",
+        "UnfiledTray",
+        "VocabRowShell"
       ]
     },
     "/admin/ugat": {
@@ -1320,14 +2219,44 @@
         "/admin/ugat/map",
         "/admin/ugat?tab=[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BrainSurface",
+        "Control",
+        "EdgeCard",
+        "EdgeRow",
+        "FindingCard",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Ico",
+        "Icon",
+        "Link",
+        "ListPageSkeleton",
+        "MapCanvas",
+        "MenusSurface",
+        "NodeCard",
+        "Omnibox",
+        "OnboardingSurface",
+        "Resolution",
+        "Suspense",
+        "TablePageSkeleton",
+        "TablesView",
+        "UgatCounts",
+        "UgatSavedSearch",
+        "UgatTableKey",
+        "UgatTablePage",
+        "WeddingTraditionsSurface"
+      ]
     },
     "/admin/ugat/map": {
       "files": [
         "admin/ugat/map/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "UgatConsole"
+      ]
     },
     "/admin/user-reports": {
       "files": [
@@ -1339,6 +2268,10 @@
       ],
       "actions": [
         "resolveReport"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SubmitButton"
       ]
     },
     "/admin/users": {
@@ -1348,7 +2281,8 @@
         "admin/users/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/users/[userId]": {
       "files": [
@@ -1363,7 +2297,14 @@
         "/admin/user-reports",
         "/admin/users"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AccountTabs",
+        "ActivityTimeline",
+        "LifecycleStrip",
+        "Link",
+        "SupportSection"
+      ]
     },
     "/admin/vendor-partnerships": {
       "files": [
@@ -1374,6 +2315,11 @@
       "actions": [
         "createPartnershipHq",
         "rejectPartnership"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SearchParams",
+        "SubmitButton"
       ]
     },
     "/admin/vendor-recommendations": {
@@ -1388,6 +2334,15 @@
         "deleteRecommendation",
         "resolveFeedback",
         "updateRecommendation"
+      ],
+      "blocks": [
+        "AddRecommendation",
+        "Banner",
+        "ConfirmForm",
+        "FeedbackCard",
+        "RecommendationRow",
+        "Stat",
+        "SubmitButton"
       ]
     },
     "/admin/vendors": {
@@ -1398,7 +2353,10 @@
         "admin/vendors/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AdminInviteResult"
+      ]
     },
     "/admin/vendors/[vendorProfileId]/edit": {
       "files": [
@@ -1408,7 +2366,12 @@
       "destinations": [
         "/admin/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Field",
+        "Link",
+        "SubmitButton"
+      ]
     },
     "/admin/vendors/[vendorProfileId]/plan": {
       "files": [
@@ -1419,6 +2382,10 @@
       ],
       "actions": [
         "setVendorTier"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/admin/vendors/[vendorProfileId]/team": {
@@ -1429,7 +2396,10 @@
         "/admin/vendors",
         "/admin/vendors/[seg]/plan"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/admin/venues": {
       "files": [
@@ -1442,6 +2412,11 @@
       "destinations": [],
       "actions": [
         "action"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "VenueFormInitial"
       ]
     },
     "/admin/venues/[id]": {
@@ -1455,6 +2430,12 @@
       "actions": [
         "deleteVenue",
         "updateBound"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "Link",
+        "SubmitButton",
+        "VenueForm"
       ]
     },
     "/admin/venues/new": {
@@ -1467,6 +2448,10 @@
       ],
       "actions": [
         "createVenue"
+      ],
+      "blocks": [
+        "Link",
+        "VenueForm"
       ]
     },
     "/admin/verification-docs": {
@@ -1478,6 +2463,11 @@
       "actions": [
         "deleteVerificationDoc",
         "viewVerificationDoc"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "Group",
+        "SubmitButton"
       ]
     },
     "/admin/verify": {
@@ -1504,6 +2494,36 @@
         "saveManualDossierAction",
         "setApplicationInReview",
         "verifyVendorExperience"
+      ],
+      "blocks": [
+        "ActionRow",
+        "AdminUser",
+        "ApplicationCard",
+        "ApplicationsSurface",
+        "ApplicationsTabs",
+        "Avatar",
+        "CategoryMatchBadge",
+        "ConfirmForm",
+        "ContactChannelMark",
+        "ContactConfirmationBlock",
+        "DeepSearchBlock",
+        "DeepSearchChat",
+        "DeepSearchInputs",
+        "DemotedVendorCard",
+        "FlashBanner",
+        "FormFlash",
+        "Image",
+        "Link",
+        "SlaBadge",
+        "SlotDetail",
+        "StatusBadge",
+        "SubmitButton",
+        "SurfaceTabs",
+        "VerificationStateBadge",
+        "VerifyCard",
+        "VisibilityBadge",
+        "VisibilitySurface",
+        "VisibilityTabs"
       ]
     },
     "/admin/website": {
@@ -1513,7 +2533,11 @@
         "admin/website/widget-list.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "SiteWidgetRow",
+        "ToggleSwitch"
+      ]
     },
     "/admin/website-media": {
       "files": [
@@ -1523,7 +2547,13 @@
         "admin/website-media/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ClearFolderButton",
+        "MediaTable",
+        "Result",
+        "Stat"
+      ]
     },
     "/admin/wedding-traditions": {
       "files": [
@@ -1531,7 +2561,8 @@
         "admin/wedding-traditions/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/wedding-types": {
       "files": [
@@ -1539,7 +2570,8 @@
         "admin/wedding-types/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/admin/work": {
       "files": [
@@ -1547,7 +2579,10 @@
         "admin/work/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "QueuesTriageFeed"
+      ]
     },
     "/alaala": {
       "files": [
@@ -1558,16 +2593,24 @@
         "/our-story",
         "/pricing"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AlaalaOrb",
+        "HowItWorksPanel",
+        "LineRevealHeading",
+        "Link",
+        "Reveal",
+        "RevealBand",
+        "RevealList"
+      ]
     },
     "/api/v1": {
       "files": [
         "api/v1/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/api-keys"
-      ],
-      "actions": []
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/blog": {
       "files": [
@@ -1579,7 +2622,14 @@
         "/blog?category=[seg]",
         "/signup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Eyebrow",
+        "Image",
+        "LeadCard",
+        "Link",
+        "StoryCard"
+      ]
     },
     "/blog/[slug]": {
       "files": [
@@ -1593,7 +2643,14 @@
         "/blog?category=[seg]",
         "/signup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Block",
+        "Image",
+        "JournalPartnerCredit",
+        "Link",
+        "Logo"
+      ]
     },
     "/claim/[token]": {
       "files": [
@@ -1605,6 +2662,11 @@
       ],
       "actions": [
         "claimAlaga"
+      ],
+      "blocks": [
+        "Link",
+        "Shell",
+        "SubmitButton"
       ]
     },
     "/cookies": {
@@ -1614,7 +2676,13 @@
       "destinations": [
         "/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CookieSettingsLink",
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
     },
     "/creators": {
       "files": [
@@ -1628,7 +2696,28 @@
         "/realstories",
         "/signup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CardGrid",
+        "CreatorStoryCTA",
+        "CreatorStoryChapter",
+        "CreatorStoryHero",
+        "CreatorStoryOneBreath",
+        "CreatorStoryStyles",
+        "CreatorStoryThesis",
+        "CreatorStoryWedge",
+        "CreatorStoryWho",
+        "CreatorStoryWhy",
+        "Eyebrow",
+        "FeatureLI",
+        "GridCard",
+        "H2",
+        "HTMLDivElement",
+        "Image",
+        "Lede",
+        "Link",
+        "RevealOnView"
+      ]
     },
     "/dashboard/(account)/api-keys": {
       "files": [
@@ -1644,6 +2733,12 @@
       "actions": [
         "createApiKey",
         "revokeApiKey"
+      ],
+      "blocks": [
+        "FormFlash",
+        "Link",
+        "ScopeCheckbox",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/create-event": {
@@ -1666,6 +2761,24 @@
       ],
       "actions": [
         "createWeddingEvent"
+      ],
+      "blocks": [
+        "BlockingLifeEvent",
+        "CreateDatePicker",
+        "CreateLocationPicker",
+        "CreateSubject",
+        "EventTypeKey",
+        "EventTypePhotoPicker",
+        "EventTypePicker",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HeroCard",
+        "Image",
+        "InPlanningWedding",
+        "Link",
+        "PhotoTile",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/creator": {
@@ -1691,6 +2804,19 @@
         "setCreatorAcceptsOffers",
         "unpublishChapter",
         "updateChapter"
+      ],
+      "blocks": [
+        "ChapterCard",
+        "ChapterEmbedFrame",
+        "ChapterFields",
+        "CreatorBody",
+        "FormFlash",
+        "Link",
+        "OfferInbox",
+        "Phase",
+        "SubmitButton",
+        "TeaserGenerator",
+        "TeaserPlan"
       ]
     },
     "/dashboard/(account)/library": {
@@ -1714,7 +2840,23 @@
         "/v/[seg]",
         "/v/[seg]?src=favorites"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AlbumCard",
+        "EditorialCard",
+        "EditorialsTab",
+        "EventMonogram",
+        "FacebookGlyph",
+        "Icon",
+        "Link",
+        "PeopleLens",
+        "PhotosTab",
+        "SavedVendorCardItem",
+        "Section",
+        "StatusChip",
+        "VendorsTab",
+        "WithMeLens"
+      ]
     },
     "/dashboard/(account)/life-flash": {
       "files": [
@@ -1731,7 +2873,22 @@
         "/dashboard",
         "/dashboard/create-event"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActionResult",
+        "BeatLayer",
+        "BeatMedia",
+        "ClipFrame",
+        "ContactSheet",
+        "Flash",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "Link",
+        "ScrollReel",
+        "Stage",
+        "StoryPeople"
+      ]
     },
     "/dashboard/(account)/notifications": {
       "files": [
@@ -1743,6 +2900,15 @@
       ],
       "actions": [
         "markAllNotificationsRead"
+      ],
+      "blocks": [
+        "Link",
+        "LoadingNarration",
+        "NotificationsList",
+        "Screen",
+        "Sk",
+        "SkLine",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/people": {
@@ -1771,6 +2937,20 @@
         "proposeSamahanConnection",
         "revokeHandoverLink",
         "setDependentSharing"
+      ],
+      "blocks": [
+        "ActionResult",
+        "ConfirmForm",
+        "ConnectionRelation",
+        "ConnectionsPanel",
+        "CopyButton",
+        "DependentsSection",
+        "Link",
+        "PeoplePreview",
+        "PreviewRow",
+        "Result",
+        "SamahanPeopleSection",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/profile": {
@@ -1806,6 +2986,21 @@
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
         "updateUserSlug"
+      ],
+      "blocks": [
+        "ArrayBuffer",
+        "ConfirmForm",
+        "Field",
+        "FileUpload",
+        "FormFlash",
+        "HapticsToggle",
+        "Link",
+        "ProfileShareButton",
+        "PushToggle",
+        "Row",
+        "Status",
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/dashboard/(account)/profile/concierge": {
@@ -1819,7 +3014,14 @@
         "/dashboard/profile/concierge?event=[seg]",
         "/pricing"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActionContext",
+        "EventPicker",
+        "FactRow",
+        "Link",
+        "StatusPanel"
+      ]
     },
     "/dashboard/(account)/samahan": {
       "files": [
@@ -1831,7 +3033,11 @@
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CommunityRow",
+        "Link"
+      ]
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
@@ -1848,6 +3054,14 @@
         "promoteMember",
         "removeMember",
         "rotateInviteToken"
+      ],
+      "blocks": [
+        "CopyButton",
+        "EventsTab",
+        "Link",
+        "MembersTab",
+        "OverviewTab",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/samahan/new": {
@@ -1859,6 +3073,10 @@
       ],
       "actions": [
         "createCommunity"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/year": {
@@ -1868,7 +3086,12 @@
       "destinations": [
         "/dashboard"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "MomentCard",
+        "MomentIcon"
+      ]
     },
     "/dashboard/(launcher)": {
       "files": [
@@ -1902,7 +3125,55 @@
         "/dashboard/year",
         "/v/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AccountSwitcher",
+        "AlaalaLensKey",
+        "AlaalaLenses",
+        "AlaalaTile",
+        "AlaalaTileSkeleton",
+        "AttentionPill",
+        "AutoSurfacedEvents",
+        "BecomeStorytellerRow",
+        "CollabRow",
+        "ComingSoonNote",
+        "CountUp",
+        "CreateSamahanRow",
+        "CreatorBenefits",
+        "EventComposer",
+        "EventMonogram",
+        "EventScene",
+        "Expandable",
+        "Facet",
+        "GlassEventCard",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "HomeBoard",
+        "HomeCommandBar",
+        "HomePillNav",
+        "HomeRail",
+        "Icon",
+        "Image",
+        "InlinePanelSkeleton",
+        "LifeStorySection",
+        "Link",
+        "LogoMark",
+        "MobileEventChip",
+        "MobileEventHero",
+        "MomentRow",
+        "NewEventCard",
+        "PhotosTab",
+        "ProgressRing",
+        "SectionLabel",
+        "ShopLogo",
+        "ShowAllToggle",
+        "SpaceRow",
+        "Suspense",
+        "UnreadBellBadge",
+        "Wordmark",
+        "YearMomentsList",
+        "YearMomentsStrip"
+      ]
     },
     "/dashboard/[eventId]": {
       "files": [
@@ -1983,6 +3254,137 @@
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "toggleChecklistItem"
+      ],
+      "blocks": [
+        "AccessRequestsDoorway",
+        "AccountSwitcher",
+        "ApplyVoucherResult",
+        "AutoPreloadOnEventDay",
+        "BankBody",
+        "Blob",
+        "BottomNav",
+        "BudgetHealthCard",
+        "ChannelToggle",
+        "ChecklistItemView",
+        "ChecklistPhaseGroup",
+        "ColorRow",
+        "ConfirmForm",
+        "ContactCard",
+        "CoordinatorBroadcastCard",
+        "CoordinatorBroadcastStub",
+        "CopyButton",
+        "CopyRow",
+        "CountUp",
+        "CustomerBottomNav",
+        "CustomerNavFab",
+        "CustomerSectionSubnav",
+        "CustomerSidebar",
+        "DayOfModeBanner",
+        "DayOfModeGrid",
+        "DirectPayBody",
+        "DirectPayTrigger",
+        "DoorwaySidebarHeader",
+        "DraftGuestListResult",
+        "EffectToggle",
+        "EventDashboard",
+        "EventDayPrepCta",
+        "EventMonogram",
+        "EventVendorRowInput",
+        "ExpandCard",
+        "Field",
+        "FileUpload",
+        "FourFlapEnvelope",
+        "FreeVenueShortlistOffer",
+        "GetHelpCard",
+        "GovernedFieldResult",
+        "GroupIcon",
+        "GuestLike",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HTMLTextAreaElement",
+        "Icon",
+        "Image",
+        "InspectorColumn",
+        "InspectorLayout",
+        "InspectorTrigger",
+        "JourneyRail",
+        "LeafSuggestion",
+        "LeafSuggestions",
+        "LineItemSection",
+        "Link",
+        "LinkBody",
+        "LinkedVendorConfirmation",
+        "LiveBroadcastCard",
+        "LivePhotoWallCard",
+        "LiveScheduleCard",
+        "MarketplaceAutocomplete",
+        "MarketplaceContact",
+        "MarketplaceReviewsData",
+        "MarketplaceVendorSuggestion",
+        "MethodCard",
+        "MethodIcon",
+        "ModalMode",
+        "ModalShell",
+        "Money",
+        "NavFab",
+        "NikahEssentialsCard",
+        "OverviewDecisionInspector",
+        "OverviewWatchInspector",
+        "PapicReadyNudge",
+        "PaymentDetailsBlock",
+        "PaymentSection",
+        "PhaseRows",
+        "PostSaveStep",
+        "PreviewConflictsResult",
+        "PriceSourceChip",
+        "ProgressRing",
+        "PromoFreeWindowBanner",
+        "QrBody",
+        "RevealChoice",
+        "ReviewAxis",
+        "ReviewRow",
+        "ReviewsCard",
+        "ReviewsHero",
+        "RigidReveal",
+        "SDLoader",
+        "SavePakantaIntakeResult",
+        "SaveToContinue",
+        "Screen",
+        "ServiceRow",
+        "ServicesCard",
+        "SetCeremonyResult",
+        "SetDateNudge",
+        "Sheet",
+        "SidebarItem",
+        "SidebarSection",
+        "SidebarShell",
+        "Sk",
+        "Spinner",
+        "StatusIcon",
+        "StepKey",
+        "SubNav",
+        "SubmitButton",
+        "SubmitOrderResult",
+        "SubmitSuccess",
+        "SuggestMilestonesButton",
+        "SuggestionRow",
+        "SwitcherPlaqueTrigger",
+        "UnreadBellBadge",
+        "UnreadMessagesBadge",
+        "UpcomingItem",
+        "UpdateMatchCriteriaResult",
+        "VeilReveal",
+        "VendorCategoryProgress",
+        "VendorDirectPay",
+        "VendorLogo",
+        "VendorProgress",
+        "VideoGuestbookCard",
+        "VoucherBlock",
+        "Watermark",
+        "WhatsHappeningCard",
+        "WizardTaskId",
+        "YourTableCard"
       ]
     },
     "/dashboard/[eventId]/access-requests": {
@@ -1992,7 +3394,12 @@
         "dashboard/[eventId]/access-requests/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AnswerResult",
+        "PageMasthead",
+        "RequestCard"
+      ]
     },
     "/dashboard/[eventId]/activity": {
       "files": [
@@ -2002,7 +3409,10 @@
       "destinations": [
         "/dashboard/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/alaala": {
       "files": [
@@ -2013,7 +3423,12 @@
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/papic/moderation"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Chip",
+        "Link",
+        "Stage"
+      ]
     },
     "/dashboard/[eventId]/alaala/assignments": {
       "files": [
@@ -2024,7 +3439,13 @@
       "destinations": [
         "/dashboard/[seg]/alaala"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActionResult",
+        "AssignmentRow",
+        "GuestPicker",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/budget": {
       "files": [
@@ -2045,6 +3466,40 @@
       ],
       "actions": [
         "formAction"
+      ],
+      "blocks": [
+        "AllocationConfig",
+        "BudgetAllocationPlanner",
+        "BudgetLiveSummary",
+        "BudgetLiveSummaryCard",
+        "BudgetSetter",
+        "BudgetSummaryStrip",
+        "ChineseTraditionInfoCard",
+        "ConfidenceChip",
+        "EmptyBudget",
+        "EventMoney",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "LeafRow",
+        "Link",
+        "ListPageSkeleton",
+        "MahrInfoCard",
+        "NoFinalizedVendors",
+        "OverspendBanner",
+        "SaveSnapshotResult",
+        "SaveState",
+        "SetEventBudgetResult",
+        "SetShareBudgetBandResult",
+        "ShareBudgetBandToggle",
+        "Stat",
+        "SuggestMilestonesResult",
+        "SummaryStat",
+        "TiltButton",
+        "TiltEditor",
+        "UnlocksHint",
+        "UpcomingRow",
+        "VendorItemizationCard"
       ]
     },
     "/dashboard/[eventId]/checklist": {
@@ -2052,7 +3507,10 @@
         "dashboard/[eventId]/checklist/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ChecklistFull"
+      ]
     },
     "/dashboard/[eventId]/clearance": {
       "files": [
@@ -2060,7 +3518,13 @@
         "dashboard/[eventId]/clearance/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/contracts": {
       "files": [
@@ -2071,7 +3535,12 @@
         "/dashboard/[seg]/contracts/[seg]",
         "/dashboard/[seg]/documents"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ContractCard",
+        "ContractsEmptyState",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/contracts/[contractId]": {
       "files": [
@@ -2081,7 +3550,10 @@
       "destinations": [
         "/dashboard/[seg]/contracts"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/date-selection": {
       "files": [
@@ -2101,6 +3573,26 @@
       "actions": [
         "lockEventDate",
         "markDateUndecided"
+      ],
+      "blocks": [
+        "CandidateCard",
+        "CandidateDatePicker",
+        "CeremonyType",
+        "ChineseSpecialistNudge",
+        "DatePicker",
+        "FourQuestionFlow",
+        "Icon",
+        "IndoorOutdoor",
+        "Link",
+        "MeaningfulDateDraft",
+        "NotReadyForm",
+        "PathCard",
+        "ProRow",
+        "ProgressStrip",
+        "RadioGroup",
+        "StepContainer",
+        "SuggestionsList",
+        "T"
       ]
     },
     "/dashboard/[eventId]/design": {
@@ -2108,7 +3600,8 @@
         "dashboard/[eventId]/design/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/details": {
       "files": [
@@ -2122,7 +3615,20 @@
         "/dashboard/[seg]/date-selection",
         "/help"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ConflictField",
+        "DetailsForm",
+        "DocRow",
+        "EditableRow",
+        "ErrorNote",
+        "GovernedFields",
+        "HTMLFormElement",
+        "Link",
+        "LockedRow",
+        "PageMasthead",
+        "PaxSettingsCard"
+      ]
     },
     "/dashboard/[eventId]/disputes": {
       "files": [
@@ -2133,6 +3639,12 @@
       "destinations": [],
       "actions": [
         "fileForceMajeureFlag"
+      ],
+      "blocks": [
+        "FileUpload",
+        "FlagCard",
+        "NewFlagForm",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/documents": {
@@ -2149,14 +3661,28 @@
         "/dashboard/[seg]/studio",
         "/receipts/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ContractsSection",
+        "CreationsSection",
+        "EmptyState",
+        "Icon",
+        "Link",
+        "OrdersSection",
+        "PaperworkSection",
+        "ReceiptsSection",
+        "SectionEmpty",
+        "SectionHeader",
+        "StatusPill"
+      ]
     },
     "/dashboard/[eventId]/event-page": {
       "files": [
         "dashboard/[eventId]/event-page/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/event-qr": {
       "files": [
@@ -2165,7 +3691,11 @@
         "dashboard/[eventId]/event-qr/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "RegenerateResult",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/find-date": {
       "files": [
@@ -2174,21 +3704,36 @@
         "dashboard/[eventId]/find-date/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CategoryLine",
+        "DateCard",
+        "FindYourDate",
+        "FindYourDateBody",
+        "Link",
+        "Shell"
+      ]
     },
     "/dashboard/[eventId]/for-you": {
       "files": [
         "dashboard/[eventId]/for-you/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/galleries": {
       "files": [
         "dashboard/[eventId]/galleries/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link",
+        "PageMasthead",
+        "RevealList"
+      ]
     },
     "/dashboard/[eventId]/guests": {
       "files": [
@@ -2234,7 +3779,108 @@
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/custom-qr-guest"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActiveFilters",
+        "AddButton",
+        "AddToGroupControl",
+        "AssignSheet",
+        "BulkApplyForm",
+        "CaptureBar",
+        "ChipTrigger",
+        "ConfirmForm",
+        "CustomizePanel",
+        "DecorativeQr",
+        "DensityBtn",
+        "DesktopCanvas",
+        "DesktopRow",
+        "Drawer",
+        "EditGroupForm",
+        "EditResult",
+        "EmptyState",
+        "FacetRow",
+        "Fragment",
+        "G",
+        "GridPageSkeleton",
+        "GroupChipList",
+        "GroupsSidebar",
+        "GuestCard",
+        "GuestDetailBody",
+        "GuestDrawerHost",
+        "GuestListMultiselect",
+        "GuestMindMap",
+        "GuestPhoto",
+        "GuestRole",
+        "GuestSide",
+        "GuestsSearch",
+        "GuestsViewSwitcher",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLInputElement",
+        "Icon",
+        "InlineEditor",
+        "InlineResult",
+        "InspectorColumn",
+        "InspectorLayout",
+        "InspectorTrigger",
+        "InviteButton",
+        "InvitedToBlock",
+        "KebabMenu",
+        "Lens",
+        "LensPill",
+        "Link",
+        "LiveSearch",
+        "MPill",
+        "MapActionResult",
+        "MiniChip",
+        "MobileGridItem",
+        "MobileGuestCarousel",
+        "MobileListRow",
+        "MobileSelfJoinCard",
+        "MobileTree",
+        "ModeSeg",
+        "NewGroupForm",
+        "NewGroupInlineForm",
+        "OpenQuickAddButton",
+        "OptimisticDeleteButton",
+        "OptionRow",
+        "Popover",
+        "QuickAddInlineForm",
+        "QuickAddResult",
+        "QuickAddSheet",
+        "QuickGroupResult",
+        "QuickRoleResult",
+        "QuickViewButton",
+        "RestoreResult",
+        "RoleChip",
+        "RoleChipEditor",
+        "RoleChips",
+        "RowAvatar",
+        "RsvpChipEditor",
+        "RsvpPill",
+        "Scrim",
+        "SeatChip",
+        "Seg",
+        "SegRow",
+        "SelectFilter",
+        "SelectionBar",
+        "SelfJoinDesktopRow",
+        "ShareDropdown",
+        "SheetChoice",
+        "SheetPill",
+        "SideChipEditor",
+        "SidePill",
+        "SoftDeleteForUndoResult",
+        "SortSelect",
+        "SubmitButton",
+        "SummaryFacetBar",
+        "Suspense",
+        "SwipeToDelete",
+        "TeamSideSelect",
+        "TierHeader",
+        "UndoToastHost"
+      ]
     },
     "/dashboard/[eventId]/guests/[guestId]": {
       "files": [
@@ -2251,6 +3897,19 @@
         "inviteAction",
         "releaseAction",
         "updateAction"
+      ],
+      "blocks": [
+        "FaceBlock",
+        "FaceRecognitionExclude",
+        "Field",
+        "InvitedToChips",
+        "Link",
+        "PhotoConsent",
+        "Section",
+        "SegmentedRsvp",
+        "Select",
+        "SubmitButton",
+        "TagChip"
       ]
     },
     "/dashboard/[eventId]/guests/checkin": {
@@ -2263,7 +3922,17 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/souvenirs"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CheckinActionResult",
+        "CheckinDesk",
+        "GuestAvatar",
+        "HTMLVideoElement",
+        "Link",
+        "LiveRefresher",
+        "MediaStream",
+        "UndoActionResult"
+      ]
     },
     "/dashboard/[eventId]/guests/claims": {
       "files": [
@@ -2273,7 +3942,11 @@
       "destinations": [
         "/dashboard/[seg]/guests"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/guests/import": {
       "files": [
@@ -2286,6 +3959,10 @@
       ],
       "actions": [
         "action"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/guests/invite": {
@@ -2300,7 +3977,13 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InviteLink",
+        "Link",
+        "RegenerateInviteQrResult",
+        "RegenerateQrButton"
+      ]
     },
     "/dashboard/[eventId]/guests/new": {
       "files": [
@@ -2313,6 +3996,15 @@
       ],
       "actions": [
         "action"
+      ],
+      "blocks": [
+        "Field",
+        "GuestNameFields",
+        "InvitedToChips",
+        "Link",
+        "PlusOneToggle",
+        "Select",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/guests/quick": {
@@ -2329,6 +4021,13 @@
       ],
       "actions": [
         "action"
+      ],
+      "blocks": [
+        "FormFlash",
+        "HTMLInputElement",
+        "Link",
+        "QuickAddList",
+        "UploadButton"
       ]
     },
     "/dashboard/[eventId]/guests/souvenirs": {
@@ -2340,7 +4039,16 @@
       "destinations": [
         "/dashboard/[seg]/guests"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLVideoElement",
+        "Link",
+        "LiveRefresher",
+        "MediaStream",
+        "SouvenirActionResult",
+        "SouvenirDesk",
+        "UndoActionResult"
+      ]
     },
     "/dashboard/[eventId]/guests/tea-ceremony": {
       "files": [
@@ -2351,7 +4059,14 @@
         "/dashboard/[seg]/guests/[seg]",
         "/dashboard/[seg]/guests/new"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EmptyState",
+        "Link",
+        "PrintButton",
+        "ServeRow",
+        "SideBlock"
+      ]
     },
     "/dashboard/[eventId]/hosts": {
       "files": [
@@ -2369,6 +4084,15 @@
         "revokeHostInvite",
         "setDelegateBudget",
         "setDelegatePhotos"
+      ],
+      "blocks": [
+        "ConsentGatedInviteForm",
+        "ConsentModal",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/invitation": {
@@ -2386,6 +4110,18 @@
       "actions": [
         "monoAction",
         "reissueAction"
+      ],
+      "blocks": [
+        "CheckResult",
+        "HTMLDivElement",
+        "Icon",
+        "Link",
+        "ReissueQrButton",
+        "SlugField",
+        "StatusBadge",
+        "StatusLine",
+        "SubmitButton",
+        "SuggestionsRow"
       ]
     },
     "/dashboard/[eventId]/invitation/print": {
@@ -2393,14 +4129,19 @@
         "dashboard/[eventId]/invitation/print/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/launch": {
       "files": [
         "dashboard/[eventId]/launch/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/live": {
       "files": [
@@ -2412,7 +4153,16 @@
       "destinations": [
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ActionResult",
+        "FlashAutoWallToggle",
+        "KwentoQueue",
+        "Link",
+        "LiveWallControls",
+        "WallMode",
+        "WallModeControl"
+      ]
     },
     "/dashboard/[eventId]/manpower": {
       "files": [
@@ -2427,6 +4177,13 @@
       "actions": [
         "cancelGigFromHost",
         "postManpowerGig"
+      ],
+      "blocks": [
+        "GigGroup",
+        "Link",
+        "PostGigDrawer",
+        "SearchParams",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -2441,6 +4198,15 @@
       ],
       "actions": [
         "startThreadByVendorEmail"
+      ],
+      "blocks": [
+        "FeedPageSkeleton",
+        "FollowGate",
+        "Link",
+        "SubmitButton",
+        "ThreadArchiveToggle",
+        "ThreadListAvatar",
+        "ThreadListCard"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -2455,6 +4221,18 @@
       ],
       "actions": [
         "withdrawInquiry"
+      ],
+      "blocks": [
+        "ChatMessageStream",
+        "ChatSafetyBanner",
+        "ChatSendForm",
+        "ChatThreadMenu",
+        "Link",
+        "NegotiationComposerMenu",
+        "SubmitButton",
+        "ThreadCallLauncher",
+        "ThreadInterestChips",
+        "ThreadQuotationsCard"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -2477,6 +4255,35 @@
         "clearUploadedMarkAction",
         "saveStudioAction",
         "saveUploadedMarkAction"
+      ],
+      "blocks": [
+        "AnimatedMonogramHero",
+        "AnimatedMonogramUpgrade",
+        "ApplyButton",
+        "BespokeMonogramMark",
+        "FeatureUsCard",
+        "GoldMonogramReveal",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLInputElement",
+        "InlineCheckoutDrawer",
+        "Link",
+        "MarkEverywhere",
+        "MoltenMonogramInline",
+        "MonogramDraft",
+        "MonogramDraftRestore",
+        "OwnedView",
+        "PaymentUnderReview",
+        "SDLoader",
+        "SaveButton",
+        "StudioAnim",
+        "StudioAnimKind",
+        "StudioApi",
+        "StudioRevealPlayer",
+        "UnownedView",
+        "UploadMark",
+        "VectorStudio"
       ]
     },
     "/dashboard/[eventId]/more": {
@@ -2485,7 +4292,8 @@
         "dashboard/[eventId]/more/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/orders": {
       "files": [
@@ -2497,7 +4305,10 @@
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/orders/new"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/orders/[orderId]": {
       "files": [
@@ -2511,6 +4322,13 @@
       "actions": [
         "cancelOrder",
         "logPayment"
+      ],
+      "blocks": [
+        "CopyButton",
+        "FileUpload",
+        "Link",
+        "Stat",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/orders/new": {
@@ -2519,7 +4337,8 @@
         "dashboard/[eventId]/orders/new/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/pabuya": {
       "files": [
@@ -2529,7 +4348,18 @@
         "dashboard/[eventId]/pabuya/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DraftState",
+        "EgiftActionResult",
+        "Field",
+        "FileUpload",
+        "ListPageSkeleton",
+        "PabuyaCardList",
+        "PabuyaManager",
+        "PabuyaTrustNote",
+        "PageMasthead"
+      ]
     },
     "/dashboard/[eventId]/paperwork": {
       "files": [
@@ -2549,6 +4379,31 @@
         "setPaperworkNotes",
         "setPaperworkStatus",
         "uploadPaperworkScan"
+      ],
+      "blocks": [
+        "ActionsBlock",
+        "BackLink",
+        "DeadlineHint",
+        "DocumentCard",
+        "ExpiryWarning",
+        "ExtraRowsSection",
+        "Field",
+        "FileUpload",
+        "Link",
+        "NoDatePrompt",
+        "NotesForm",
+        "PaperworkDocumentType",
+        "PaperworkRow",
+        "PaperworkStatus",
+        "SeedPrompt",
+        "StatusPill",
+        "SubmitButton",
+        "SummaryStrip",
+        "SummaryTile",
+        "TrackingReferenceForm",
+        "TraditionsGuide",
+        "UnknownCeremonyPrompt",
+        "UploadBlock"
       ]
     },
     "/dashboard/[eventId]/progress": {
@@ -2558,14 +4413,23 @@
         "dashboard/[eventId]/progress/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Phase",
+        "ProgressRing"
+      ]
     },
     "/dashboard/[eventId]/refer": {
       "files": [
         "dashboard/[eventId]/refer/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CopyButton",
+        "Icon"
+      ]
     },
     "/dashboard/[eventId]/schedule": {
       "files": [
@@ -2608,6 +4472,52 @@
         "setBlockResponsibleParty",
         "toggleActivityPick",
         "toggleBlockVisibility"
+      ],
+      "blocks": [
+        "AddBlockForm",
+        "AddPreparationItem",
+        "BlockCard",
+        "BlockTimeEditor",
+        "BulkRetimePanel",
+        "DeletePreparationItemButton",
+        "EmceePicks",
+        "EmceeScriptButton",
+        "EventDayView",
+        "FeedPageSkeleton",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "Icon",
+        "JourneyArc",
+        "JourneyEmptyState",
+        "JourneyRow",
+        "JourneyView",
+        "LensChip",
+        "Link",
+        "PhaseSection",
+        "PrepKind",
+        "PrepKindPicker",
+        "PreparationAgendaView",
+        "PreparationEmptyState",
+        "PreparationLegend",
+        "PreparationRow",
+        "ResponsiblePartyEditor",
+        "RosLensBar",
+        "RosLensPreview",
+        "RunOfShowHeader",
+        "ScheduleBlockRow",
+        "ScheduleBlockType",
+        "ScheduleModeToggle",
+        "Segment",
+        "SentList",
+        "SubmitButton",
+        "TellTheHost",
+        "TemplatePicker",
+        "TimelineNode",
+        "TravelClashGuard",
+        "TravelItineraryView",
+        "VendorMeetingsSection",
+        "VendorSuggestionsQueue"
       ]
     },
     "/dashboard/[eventId]/seating": {
@@ -2636,6 +4546,49 @@
       "actions": [
         "setSeatingAutoplace",
         "setSeatingGroupAdjacency"
+      ],
+      "blocks": [
+        "AddTablePanel",
+        "BannerSlot",
+        "BarMenu",
+        "BoardPageSkeleton",
+        "BoothIcon",
+        "BoothPickerPanel",
+        "BoothType",
+        "ChairAvatar",
+        "CommandBar",
+        "ContextDock",
+        "DayOfEditingBanner",
+        "DrawerSnap",
+        "DropConfirmBubble",
+        "DropConfirmState",
+        "FrameBody",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HoldButton",
+        "Icon",
+        "KeepApartAdder",
+        "LockBroadcast",
+        "MemberRow",
+        "MenuCaption",
+        "MenuDivider",
+        "MenuRow",
+        "MetreSizeField",
+        "MiniTour",
+        "PriorityOrder",
+        "SaveStatusChip",
+        "SeatBadge",
+        "SeatPeoplePanel",
+        "SeatingEditor",
+        "SeatingFrame",
+        "SeatingLockStatus",
+        "SeatingViewSegment",
+        "Section",
+        "ShapeGlyph",
+        "ShapePicker",
+        "Step",
+        "T",
+        "TableType"
       ]
     },
     "/dashboard/[eventId]/seating/lab": {
@@ -2650,6 +4603,72 @@
       "actions": [
         "dismissGhostBooth",
         "setGhostBoothsEnabled"
+      ],
+      "blocks": [
+        "BoothVendorCard",
+        "CameraMoveBroadcaster",
+        "CameraRig",
+        "Canvas",
+        "CinematicPass",
+        "Couple3dPlanBuy",
+        "Couple3dPlanUnlockNotice",
+        "Crowd",
+        "DanceFloorMural",
+        "DancerToken",
+        "DropConfirmBubble",
+        "DropConfirmState",
+        "DustMotes",
+        "EmoteBubbles",
+        "Figure",
+        "FigureSpec",
+        "FloorPanel",
+        "GhostBooths",
+        "Grid",
+        "HTMLDivElement",
+        "Hud",
+        "InlineCheckoutDrawer",
+        "InstancedChairs",
+        "InstancedSeatedCrowd",
+        "Lab3DBooth",
+        "Lab3DCocktail",
+        "Lab3DPalette",
+        "LabBoothHitTarget",
+        "LocalPlayer",
+        "LookPad",
+        "MonogramPlane",
+        "MouseEvent",
+        "MoverToken",
+        "OrbitControls",
+        "PointerEvent",
+        "PriorityOrder",
+        "RemotePlayers",
+        "RoomShell",
+        "RulesPanel",
+        "SceneLighting",
+        "SeatedAvatar",
+        "SeatingLab3D",
+        "SeatingLabLoader",
+        "SeatingViewSegment",
+        "SitController",
+        "StringLights",
+        "Suspense",
+        "THREE.CanvasTexture",
+        "THREE.Group",
+        "THREE.Mesh",
+        "THREE.MeshBasicMaterial",
+        "THREE.Vector3",
+        "TableMesh",
+        "Vec2",
+        "VenueDecor",
+        "VenueFixtures",
+        "VenueShell",
+        "WalkController",
+        "WalkInput",
+        "WalkStick",
+        "Walker",
+        "WalkerState",
+        "ZoneDragGrips",
+        "ZoneDragPreview"
       ]
     },
     "/dashboard/[eventId]/seating/walkthrough": {
@@ -2661,7 +4680,13 @@
       "destinations": [
         "/dashboard/[seg]/seating"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FileUpload",
+        "Link",
+        "WalkthroughManager",
+        "ZoneCard"
+      ]
     },
     "/dashboard/[eventId]/sponsors": {
       "files": [
@@ -2683,6 +4708,19 @@
         "markResponse",
         "removeSponsor",
         "sendInvitation"
+      ],
+      "blocks": [
+        "AddSponsorModal",
+        "Banner",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "HTMLTextAreaElement",
+        "InvitationTemplateModal",
+        "Link",
+        "PairTargetPicker",
+        "PrincipalPairRow",
+        "SponsorCard",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/studio": {
@@ -2704,6 +4742,23 @@
         "dismissRecommendation",
         "dismissVendorRecommendation",
         "recommendFeature"
+      ],
+      "blocks": [
+        "AddOnDetailView",
+        "AppStoreLayout",
+        "Icon",
+        "InspectorColumn",
+        "InspectorLayout",
+        "InspectorTrigger",
+        "Link",
+        "PillEl",
+        "RevealList",
+        "RowPill",
+        "ServiceTags",
+        "StudioAppRow",
+        "StudioFeaturedCard",
+        "StudioSectionTabs",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/studio/[addon]": {
@@ -2714,14 +4769,21 @@
       "destinations": [
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "IterationPlaceholder",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/about/[addon]": {
       "files": [
         "dashboard/[eventId]/studio/about/[addon]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AddOnDetailView"
+      ]
     },
     "/dashboard/[eventId]/studio/animated-monogram": {
       "files": [
@@ -2729,7 +4791,8 @@
         "dashboard/[eventId]/studio/animated-monogram/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/custom-qr-guest": {
       "files": [
@@ -2743,7 +4806,14 @@
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/custom-qr-guest/print"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InlineCheckoutDrawer",
+        "Link",
+        "OwnedView",
+        "PaymentUnderReview",
+        "UnownedView"
+      ]
     },
     "/dashboard/[eventId]/studio/custom-qr-guest/print": {
       "files": [
@@ -2752,7 +4822,10 @@
       "destinations": [
         "/dashboard/[seg]/studio/custom-qr-guest"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/editorial-pro": {
       "files": [
@@ -2762,7 +4835,11 @@
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InlineCheckoutDrawer",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/guest-columns": {
       "files": [
@@ -2773,7 +4850,12 @@
       "destinations": [
         "/dashboard/[seg]/website"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ColumnActionResult",
+        "ColumnQueueControls",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/indoor-blueprint": {
       "files": [
@@ -2787,7 +4869,16 @@
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BlueprintStudio",
+        "BlueprintStudioView",
+        "EntrancePos",
+        "HTMLDivElement",
+        "Link",
+        "PageMasthead",
+        "WayfindingMap"
+      ]
     },
     "/dashboard/[eventId]/studio/led": {
       "files": [
@@ -2799,7 +4890,18 @@
         "/dashboard/[seg]/monogram",
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InlineCheckoutDrawer",
+        "LedBackgroundMaker",
+        "LedTemplate",
+        "Link",
+        "OwnedEditor",
+        "QueuedJob",
+        "RenderQueuedCard",
+        "TemplateThumbnail",
+        "UnownedView"
+      ]
     },
     "/dashboard/[eventId]/studio/live-studio-control": {
       "files": [
@@ -2809,14 +4911,22 @@
         "/api/oauth/youtube/start?event_id=[seg]",
         "/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AddOnStateCta",
+        "AppStoreLayout",
+        "Link",
+        "SubmitButton",
+        "YoutubeChannelPanel"
+      ]
     },
     "/dashboard/[eventId]/studio/live-studio-control/setup": {
       "files": [
         "dashboard/[eventId]/studio/live-studio-control/setup/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/mood-board": {
       "files": [
@@ -2839,6 +4949,38 @@
       ],
       "actions": [
         "handleSubmit"
+      ],
+      "blocks": [
+        "BoardCardView",
+        "CanvasArches",
+        "ConceptPdfButton",
+        "HTMLCanvasElement",
+        "HTMLImageElement",
+        "Image",
+        "ImageData",
+        "InspirationBoard",
+        "Link",
+        "MoodboardBoard",
+        "PaletteEditor",
+        "PaletteFamily",
+        "PaletteKey",
+        "PaletteStrip",
+        "PartId",
+        "PhotoFigure",
+        "PrintablePdfButton",
+        "ReceptionDesign",
+        "ReceptionDesigner",
+        "RecolorStudio",
+        "RegionEditMap",
+        "RoleCluster",
+        "RoleConfig",
+        "RoleKey",
+        "RolePalette",
+        "RoomDressing",
+        "ShareWithVendorsButton",
+        "Silhouette",
+        "Slider",
+        "SlotTile"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {
@@ -2852,7 +4994,19 @@
         "/dashboard/[seg]/details",
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AiDisclosure",
+        "EventRow",
+        "Field",
+        "HTMLFormElement",
+        "InlineCheckoutDrawer",
+        "Link",
+        "PakantaIntakeResponses",
+        "PakantaMusicForm",
+        "Result",
+        "UseSongButton"
+      ]
     },
     "/dashboard/[eventId]/studio/panood": {
       "files": [
@@ -2861,7 +5015,8 @@
         "dashboard/[eventId]/studio/panood/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/panood/broadcast": {
       "files": [
@@ -2876,7 +5031,28 @@
         "/dashboard/[seg]/studio/panood/cameras",
         "/dashboard/[seg]/studio/panood/setup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ConsoleLayout",
+        "ControlActionResult",
+        "FormPageSkeleton",
+        "GoLivePanel",
+        "HTMLDivElement",
+        "HTMLVideoElement",
+        "Icon",
+        "Link",
+        "MobileTab",
+        "MomentDirector",
+        "PanoodControlRoom",
+        "ProgramMonitor",
+        "ScreensManager",
+        "SetnayanOverlay",
+        "SourceTileBody",
+        "SourcesRail",
+        "SplitPane",
+        "SplitProgram",
+        "Window"
+      ]
     },
     "/dashboard/[eventId]/studio/panood/cameras": {
       "files": [
@@ -2887,14 +5063,20 @@
       "destinations": [
         "/dashboard/[seg]/studio/panood/cameras/print"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CopyLink",
+        "Link",
+        "ReissueCameraButton"
+      ]
     },
     "/dashboard/[eventId]/studio/panood/cameras/print": {
       "files": [
         "dashboard/[eventId]/studio/panood/cameras/print/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/panood/setup": {
       "files": [
@@ -2911,11 +5093,39 @@
       "actions": [
         "clearPanoodWatchUrl",
         "savePanoodWatchUrl"
+      ],
+      "blocks": [
+        "ActiveBroadcast",
+        "AddOnRow",
+        "BroadcastSetup",
+        "ComingSoonPlaceholder",
+        "ConnectCTA",
+        "ConnectedPanel",
+        "CopyButton",
+        "DeliveryFact",
+        "FacebookDualStreamCard",
+        "FormPageSkeleton",
+        "GoLiveCard",
+        "GoLivePrompt",
+        "GoLiveResult",
+        "Icon",
+        "Link",
+        "LiveStudioRecordingsCard",
+        "ObsConnectionCard",
+        "PackCard",
+        "ProgressRing",
+        "SetupStatus",
+        "Stat",
+        "StyleAndAddOns",
+        "SubmitButton",
+        "YouTubeDelivery",
+        "YoutubeConnect"
       ]
     },
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
+        "dashboard/[eventId]/studio/papic/_components/guest-cameras-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-actions.ts",
@@ -2935,6 +5145,7 @@
         "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
         "dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx",
+        "dashboard/[eventId]/studio/papic/guest-window-actions.ts",
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
         "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
@@ -2967,12 +5178,66 @@
         "reviewVendorChallengeAction",
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",
+        "setPapicGuestCaptureEarly",
         "setPapicQualityTier",
         "setPapicStorageDrive",
         "setPapicStorageR2",
         "setPapicStyle",
         "setPapicWindow",
         "setVendorCapturesHidden"
+      ],
+      "blocks": [
+        "ActionResult",
+        "CaptureDefaultsSection",
+        "ClipLightbox",
+        "CoupleChallengesManager",
+        "DriveConnectCTA",
+        "DriveConnectedPanel",
+        "DriveReconnectBanner",
+        "DriveSafetyPanel",
+        "DslrBridgeSection",
+        "ExtraCamerasPicker",
+        "FaceTaggingChoice",
+        "FilterId",
+        "GalleryPhoto",
+        "GalleryPreviewCard",
+        "GuestCameraTierPicker",
+        "GuestCamerasChoice",
+        "GuestContributionsCard",
+        "HTMLDivElement",
+        "HostPoolMeterCard",
+        "InlineCheckoutDrawer",
+        "LegendDot",
+        "LimitedCard",
+        "Link",
+        "LiveWallCard",
+        "LiveWallControls",
+        "MagazineCard",
+        "MiniTour",
+        "PapicGalleryGrid",
+        "PapicOneCard",
+        "PapicPoolCard",
+        "PapicWindowPicker",
+        "PaymentUnderReview",
+        "PoolGalleryCard",
+        "PoolGalleryToggle",
+        "QualityPicker",
+        "RadioDot",
+        "RecapCard",
+        "SavePhotoButton",
+        "ShowcaseToggle",
+        "ShutterSection",
+        "StatusBanners",
+        "Stepper",
+        "StorageChoiceCard",
+        "StorageOptionDrive",
+        "StorageOptionR2",
+        "StylePicker",
+        "SubmitButton",
+        "TierOption",
+        "VendorChallengesApproval",
+        "VendorMediaControls",
+        "WallTileLayout"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -2985,6 +5250,12 @@
       "actions": [
         "provisionPapicSeats",
         "reissuePapicSeat"
+      ],
+      "blocks": [
+        "CopyButton",
+        "GridPageSkeleton",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew/poster": {
@@ -2992,14 +5263,16 @@
         "dashboard/[eventId]/studio/papic/crew/poster/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/papic/crew/print": {
       "files": [
         "dashboard/[eventId]/studio/papic/crew/print/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/papic/moderation": {
       "files": [
@@ -3011,7 +5284,15 @@
       "destinations": [
         "/dashboard/[seg]/studio/papic"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InlineCheckoutDrawer",
+        "KwentoActionResult",
+        "KwentoQueue",
+        "KwentoQueueControls",
+        "Link",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/studio/papic/recap": {
       "files": [
@@ -3025,7 +5306,16 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/magazine"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DriveSafetyPanel",
+        "Link",
+        "RecapDriveNudge",
+        "RecapSocialFeatureToggle",
+        "ShareButtons",
+        "Stat",
+        "SubmitButton"
+      ]
     },
     "/dashboard/[eventId]/studio/patiktok": {
       "files": [
@@ -3047,6 +5337,32 @@
       "actions": [
         "disconnectPatiktokTiktok",
         "submitPatiktokRender"
+      ],
+      "blocks": [
+        "Blob",
+        "BoothLaunchPanel",
+        "BoothTag",
+        "BuyCard",
+        "CategoryChips",
+        "HTMLDivElement",
+        "HTMLVideoElement",
+        "HowItWorks",
+        "Icon",
+        "InlineCheckoutDrawer",
+        "Link",
+        "MediaRecorder",
+        "MediaStream",
+        "MusicTrackOption",
+        "Phase",
+        "Preview",
+        "ReelRenderer",
+        "RenderJobRow",
+        "RenderStatusPill",
+        "SubmitButton",
+        "TagSheet",
+        "TemplateCard",
+        "TiktokConnectPanel",
+        "YourRenders"
       ]
     },
     "/dashboard/[eventId]/studio/patiktok/[templateId]": {
@@ -3057,7 +5373,12 @@
       "destinations": [
         "/dashboard/[seg]/studio/patiktok"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Preview",
+        "RenderForm"
+      ]
     },
     "/dashboard/[eventId]/studio/patiktok/booth": {
       "files": [
@@ -3068,7 +5389,17 @@
         "/dashboard/[seg]/studio/patiktok",
         "/dashboard/[seg]/studio/patiktok/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BoothCapture",
+        "CapacityStrip",
+        "FormPageSkeleton",
+        "Link",
+        "OperatorTips",
+        "RecordCTA",
+        "TemplateSlot",
+        "TemplatesGrid"
+      ]
     },
     "/dashboard/[eventId]/studio/photo-delivery": {
       "files": [
@@ -3088,6 +5419,20 @@
         "releasePhotoDelivery",
         "setPhotoDeliverySyncModeAuto",
         "setPhotoDeliverySyncModeManual"
+      ],
+      "blocks": [
+        "ConnectedState",
+        "DriveConnectCard",
+        "DriveReconnectBanner",
+        "Icon",
+        "IdleState",
+        "Link",
+        "ModeBanner",
+        "PhotoDeliveryPanel",
+        "ReleaseProgressPoller",
+        "SubmitButton",
+        "SyncModeCard",
+        "SyncModeSection"
       ]
     },
     "/dashboard/[eventId]/studio/playlist": {
@@ -3103,7 +5448,18 @@
       "destinations": [
         "/dashboard/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLFormElement",
+        "HostSetlistPanel",
+        "Link",
+        "PlaylistPickRowComponent",
+        "PlaylistSlotSection",
+        "PlaylistSlotType",
+        "PlaylistVibe",
+        "UnsortedTray",
+        "VibePicker"
+      ]
     },
     "/dashboard/[eventId]/studio/save-the-date": {
       "files": [
@@ -3124,7 +5480,33 @@
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website/site-chrome"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ColorRow",
+        "DeviceFrame",
+        "DeviceToggle",
+        "FeatureUsCard",
+        "FileUpload",
+        "Icon",
+        "InlineCheckoutDrawer",
+        "LaunchStdButton",
+        "Link",
+        "PreviewDevice",
+        "RevealChoice",
+        "RevealEffects",
+        "RevealPreview",
+        "RevealPreviewCard",
+        "SaveTheDateFilm",
+        "SchedulePicker",
+        "StdBackground",
+        "StdBackgroundLayer",
+        "StdBackgroundPicker",
+        "StdBuilderClient",
+        "StdFilmContent",
+        "StdMedia",
+        "StdMediaPicker",
+        "StdThemeId"
+      ]
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
       "files": [
@@ -3136,6 +5518,19 @@
       ],
       "actions": [
         "saveWaxSeal"
+      ],
+      "blocks": [
+        "FrameRequestCallback",
+        "HTMLCanvasElement",
+        "HTMLDivElement",
+        "HTMLParagraphElement",
+        "Link",
+        "Phase",
+        "SubmitButton",
+        "WaxFinish",
+        "WaxSealConfig",
+        "WaxSealGLState",
+        "WaxStampMaker"
       ]
     },
     "/dashboard/[eventId]/studio/setnayan-ai": {
@@ -3149,7 +5544,14 @@
         "/dashboard/[seg]/studio",
         "/dashboard/[seg]/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Figure",
+        "Icon",
+        "InlineCheckoutDrawer",
+        "Link",
+        "SetnayanAiValue"
+      ]
     },
     "/dashboard/[eventId]/studio/supplies-marketplace": {
       "files": [
@@ -3161,7 +5563,16 @@
         "/dashboard/[seg]/studio",
         "/help"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CartDrawer",
+        "CategoryChip",
+        "HTMLDivElement",
+        "Link",
+        "ProductCard",
+        "SuppliesMarketplaceBrowser",
+        "SupplyCategoryKey"
+      ]
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
@@ -3171,7 +5582,11 @@
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "InlineCheckoutDrawer",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/suite": {
       "files": [
@@ -3189,6 +5604,17 @@
         "routes.dashboard.schedule",
         "routes.explore.compare",
         "routes.explore.index"
+      ],
+      "blocks": [
+        "Icon",
+        "Link",
+        "RevealList",
+        "RowPill",
+        "Scene",
+        "ServiceTags",
+        "SuiteSearch",
+        "SuiteServiceCard",
+        "SuiteVignetteCard"
       ]
     },
     "/dashboard/[eventId]/today": {
@@ -3197,7 +5623,8 @@
         "dashboard/[eventId]/today/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/vendors": {
       "files": [
@@ -3247,6 +5674,108 @@
         "cancelVendorReuseForm",
         "deleteVendor",
         "requestVendorReuseForm"
+      ],
+      "blocks": [
+        "AccordionBuildButton",
+        "AccordionChild",
+        "AccordionLockButton",
+        "AddCard",
+        "AddOnEntry",
+        "AttachManualVendorResult",
+        "AttachMarketplaceVendorResult",
+        "BenchSort",
+        "BenchVendorActions",
+        "BudgetBuildTab",
+        "BuildActionResult",
+        "BuildCompare",
+        "BuildFallbackResult",
+        "BuildLocked",
+        "BuildPickResult",
+        "BuildStateMap",
+        "CancelBookingAsHostResult",
+        "CatIcon",
+        "CategoryDecisionResult",
+        "CategorySearchOverlay",
+        "ChangePickButton",
+        "ChildRail",
+        "CompareSheet",
+        "ContactShortlistVendorButton",
+        "DeadlineChip",
+        "DeleteManualVendorResult",
+        "DependencyNudge",
+        "DialogState",
+        "DigitalServicesRail",
+        "DownpaymentModal",
+        "EventVendorRowInput",
+        "ExceptionModal",
+        "ExploreInfoToggle",
+        "FacetSelection",
+        "FallbackPanel",
+        "FillableCategory",
+        "FinalizeVendorResult",
+        "FitBadges",
+        "FolderIcon",
+        "FolderSection",
+        "HTMLAnchorElement",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "Icon",
+        "InAppServiceCard",
+        "InspectorColumn",
+        "InspectorLayout",
+        "InspectorTrigger",
+        "Link",
+        "ListPageSkeleton",
+        "LoadCategoryRequirementsResult",
+        "LoadingStatus",
+        "LockDateConfirmModal",
+        "LockMilestoneToast",
+        "LockState",
+        "LockTile",
+        "ManualVendorInviteResult",
+        "ManualVendorResult",
+        "MarketplaceVendorSuggestion",
+        "MerkadoBudgetLens",
+        "MerkadoGuardBanner",
+        "NewManualVendorModal",
+        "PendingLockProposals",
+        "PlanBudgetAccordion",
+        "PlansRowPick",
+        "PoolIcon",
+        "QuoteFillRow",
+        "RenamePlanRequest",
+        "RequirementsModal",
+        "RequirementsModalPhase",
+        "ReservationTermsModal",
+        "ReuseBookingsPanel",
+        "RevertVendorResult",
+        "Row",
+        "RunBuildResult",
+        "SaveCategoryRequirementsResult",
+        "SearchMarketplaceVendorsResult",
+        "SectionStub",
+        "ServiceOpenOverlay",
+        "ServiceSection",
+        "ServicesTakeover",
+        "ShortlistCategories",
+        "SlotPickerModal",
+        "SubmitButton",
+        "SuccessToast",
+        "TeamClearCandidates",
+        "TeamDecisionDoorway",
+        "TeamRemoveCandidate",
+        "TeamSavePlan",
+        "TeamSummaryChip",
+        "ToastState",
+        "VendorCard",
+        "VendorCardAtom",
+        "VendorCategory",
+        "VendorQuickViewInspector",
+        "VendorStatus",
+        "WaitingForQuotes",
+        "WeddingFolder"
       ]
     },
     "/dashboard/[eventId]/vendors/[vendorId]": {
@@ -3254,7 +5783,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/vendors/[vendorId]/review": {
       "files": [
@@ -3274,6 +5804,21 @@
         "submitCoupleReview",
         "submitReviewAppeal",
         "withdrawRecommendation"
+      ],
+      "blocks": [
+        "AlreadyReviewedState",
+        "AppealForm",
+        "ConfirmReceiptState",
+        "DisputedState",
+        "Link",
+        "NoLinkedProfileState",
+        "NotEligibleState",
+        "OnTimeBinaryInput",
+        "RecommendVendorCard",
+        "ReviewAxis",
+        "SelfReviewBlockedState",
+        "StarRatingInput",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/vendors/[vendorId]/workspace": {
@@ -3309,6 +5854,42 @@
         "deleteWorkingNoteAction",
         "updateVendorCosts",
         "withdrawInquiry"
+      ],
+      "blocks": [
+        "AppointmentsSection",
+        "CancelBookingButton",
+        "ChangeOrderTrail",
+        "ChatMessageStream",
+        "ChatSafetyBanner",
+        "ChatSendForm",
+        "ChatThreadMenu",
+        "ClaimLinkShare",
+        "DepositReservation",
+        "DisputeLinkButton",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HandoverInbox",
+        "HandoverItem",
+        "HostServiceDetails",
+        "Icon",
+        "Link",
+        "PaymentPlanStepper",
+        "QuoteBridge",
+        "RelationshipTabShell",
+        "ReservationTermsAck",
+        "SnapshotChargeLine",
+        "SubmitButton",
+        "ThreadCallLauncherLazy",
+        "ThreadInterestChips",
+        "TrustedCircleBadge",
+        "VendorItemizationCard",
+        "VendorMarketplaceInfo",
+        "VendorPackageItemRow",
+        "VendorProposalsCard",
+        "WorkingFolderNotes",
+        "WorkingNoteViewer",
+        "WorkspaceStage"
       ]
     },
     "/dashboard/[eventId]/vendors/categories": {
@@ -3320,7 +5901,13 @@
       "destinations": [
         "/dashboard/[seg]/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SaveGateHint",
+        "SaveToContinue",
+        "UnlockCategoriesList"
+      ]
     },
     "/dashboard/[eventId]/vendors/packages/[bookingId]": {
       "files": [
@@ -3335,6 +5922,11 @@
       "actions": [
         "releasePackage",
         "removeItemFromPackage"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "VendorPackageItemRow"
       ]
     },
     "/dashboard/[eventId]/website": {
@@ -3351,7 +5943,13 @@
         "/dashboard/[seg]/website/our-story",
         "/dashboard/[seg]/website/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PhasePart",
+        "QuickLink",
+        "RevealList"
+      ]
     },
     "/dashboard/[eventId]/website/colors": {
       "files": [
@@ -3359,7 +5957,8 @@
         "dashboard/[eventId]/website/colors/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/website/dress-code": {
       "files": [
@@ -3376,6 +5975,14 @@
       ],
       "actions": [
         "updateAction"
+      ],
+      "blocks": [
+        "DressCodeFields",
+        "DressCodePreview",
+        "Link",
+        "ListField",
+        "PaletteField",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/website/editor": {
@@ -3398,12 +6005,43 @@
         "action",
         "moveDownAction",
         "moveUpAction",
-        "serverAction",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
         "updateLandingPageVisibility",
         "uploadHeroPhoto"
+      ],
+      "blocks": [
+        "ColorsPanel",
+        "DeviceKey",
+        "DressCodeFields",
+        "DressCodePanel",
+        "EditorShell",
+        "EditorialPanel",
+        "FileUpload",
+        "GalleryPanel",
+        "HTMLIFrameElement",
+        "HeroPhotoPanel",
+        "HexField",
+        "Icon",
+        "LaunchStdButton",
+        "Link",
+        "OpenBrowsePanel",
+        "PhotoMomentsEditor",
+        "PhotoMomentsPanel",
+        "PreviewTabKey",
+        "ProLockPanel",
+        "ReturnTo",
+        "SaveButton",
+        "SchedulePeekPanel",
+        "SectionsPanel",
+        "SiteChromePanel",
+        "StdPanel",
+        "StoryFields",
+        "StoryPanel",
+        "SubmitButton",
+        "TextPanel",
+        "VisibilityPanel"
       ]
     },
     "/dashboard/[eventId]/website/editorial": {
@@ -3417,7 +6055,20 @@
         "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EditorialEditor",
+        "EditorialEditorInput",
+        "Field",
+        "FileUpload",
+        "K",
+        "Link",
+        "ProChip",
+        "ProUpsellLine",
+        "ShareButtons",
+        "WebsiteProLock",
+        "WishRow"
+      ]
     },
     "/dashboard/[eventId]/website/hero-photo": {
       "files": [
@@ -3432,6 +6083,12 @@
       "actions": [
         "removeHeroPhoto",
         "uploadHeroPhoto"
+      ],
+      "blocks": [
+        "FileUpload",
+        "Image",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/website/launch": {
@@ -3439,7 +6096,8 @@
         "dashboard/[eventId]/website/launch/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/website/living-hero": {
       "files": [
@@ -3450,7 +6108,17 @@
       "destinations": [
         "/dashboard/[seg]/website/hero-photo"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BakeResult",
+        "File",
+        "HTMLInputElement",
+        "HTMLVideoElement",
+        "Link",
+        "LivingHeroStudio",
+        "PageMasthead",
+        "Phase"
+      ]
     },
     "/dashboard/[eventId]/website/our-photos": {
       "files": [
@@ -3462,6 +6130,12 @@
       ],
       "actions": [
         "updateAction"
+      ],
+      "blocks": [
+        "FileUpload",
+        "Link",
+        "SubmitButton",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/our-story": {
@@ -3476,6 +6150,13 @@
       ],
       "actions": [
         "updateAction"
+      ],
+      "blocks": [
+        "Field",
+        "Link",
+        "MilestonesField",
+        "StoryFields",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/website/photo-moments": {
@@ -3489,7 +6170,15 @@
       "destinations": [
         "/dashboard/[seg]/website"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Date",
+        "HTMLFormElement",
+        "Link",
+        "MomentRow",
+        "PhotoMomentsEditor",
+        "UpdatePhotoMomentsResult"
+      ]
     },
     "/dashboard/[eventId]/website/privacy": {
       "files": [
@@ -3506,6 +6195,11 @@
         "setLiveMediaAudience",
         "setShowcaseConsent",
         "updateLandingPageVisibility"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "VisibilityCard"
       ]
     },
     "/dashboard/[eventId]/website/site-chrome": {
@@ -3518,6 +6212,12 @@
       ],
       "actions": [
         "updateAction"
+      ],
+      "blocks": [
+        "FileUpload",
+        "Link",
+        "SubmitButton",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/special-message": {
@@ -3526,7 +6226,8 @@
         "dashboard/[eventId]/website/special-message/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/website/what-to-bring": {
       "files": [
@@ -3534,7 +6235,8 @@
         "dashboard/[eventId]/website/what-to-bring/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/website/widgets": {
       "files": [
@@ -3551,6 +6253,11 @@
         "moveWidgetUp",
         "setSectionMode",
         "toggleWidgetVisibility"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "WidgetRow"
       ]
     },
     "/demo-capture/[slug]": {
@@ -3559,7 +6266,10 @@
         "demo-capture/[slug]/reel.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DemoCaptureReel"
+      ]
     },
     "/dev/booth-lab": {
       "files": [
@@ -3567,7 +6277,15 @@
         "dev/booth-lab/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BoothLabClient",
+        "BoothTemplate",
+        "Canvas",
+        "Environment",
+        "Lab3DBooth",
+        "OrbitControls"
+      ]
     },
     "/download": {
       "files": [
@@ -3577,7 +6295,27 @@
       "destinations": [
         "/api/download/mac"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AppWindowHero",
+        "DockApp",
+        "GuestRow",
+        "HTMLAnchorElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "LineRevealH1",
+        "Link",
+        "Logo",
+        "MagneticDownloadButton",
+        "NavRow",
+        "Note",
+        "Req",
+        "RevealGroup",
+        "StatCard",
+        "Step",
+        "Value"
+      ]
     },
     "/explore": {
       "files": [
@@ -3613,6 +6351,63 @@
       ],
       "actions": [
         "formAction"
+      ],
+      "blocks": [
+        "ActivityBadges",
+        "AddVenueToPlanResult",
+        "CatalogView",
+        "CategoryTile",
+        "CeremonyVenuePanel",
+        "CompareShortlistBanner",
+        "ContextualPillOption",
+        "CtaLine",
+        "EmptyState",
+        "EventTypeNotifyForm",
+        "ExploreChip",
+        "ExploreSearchHero",
+        "FaithKey",
+        "FilterDrawer",
+        "FocusedModeSearchForm",
+        "FolderTab",
+        "FolderVendorCard",
+        "FolderVendorsSection",
+        "FollowGate",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Icon",
+        "IconTileFolderStrip",
+        "Image",
+        "Link",
+        "LocalState",
+        "LockDayButton",
+        "MiniBadge",
+        "NoticeBanner",
+        "NotifyResult",
+        "OffSeasonBadge",
+        "PageLink",
+        "Pagination",
+        "PartnershipBadge",
+        "ReligionBanner",
+        "ReviewCard",
+        "ReviewCarousel",
+        "SaveVendorButton",
+        "SaveVendorResult",
+        "ScopedFolderBanner",
+        "SortKey",
+        "StatePill",
+        "StickyMarketplaceHeader",
+        "TaxonomyOption",
+        "TaxonomyPhase",
+        "TaxonomySearch",
+        "TileLink",
+        "VendorBadge",
+        "VendorBadgeRow",
+        "VendorCard",
+        "VendorHero",
+        "VendorReviewPreview",
+        "VendorsAvailabilityBanner",
+        "VenueFilterBanner",
+        "Wordmark"
       ]
     },
     "/explore/categories": {
@@ -3621,7 +6416,8 @@
         "explore/categories/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/explore/compare": {
       "files": [
@@ -3633,7 +6429,14 @@
         "/explore",
         "/v/[seg]?src=explore"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BrandLogo",
+        "CompareRowEl",
+        "Link",
+        "SaveVendorButton",
+        "VendorHeaderCell"
+      ]
     },
     "/features": {
       "files": [
@@ -3641,7 +6444,20 @@
         "features/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Communications",
+        "Compliance",
+        "DayOfApparatus",
+        "FeaturesAnchorNav",
+        "FeaturesHero",
+        "FeaturesPageBody",
+        "FinalCTA",
+        "OutsourcingPacing",
+        "PlanningToolkit",
+        "StickyMobileCTA",
+        "VendorsLedger"
+      ]
     },
     "/forgot-password": {
       "files": [
@@ -3654,6 +6470,11 @@
       ],
       "actions": [
         "requestPasswordReset"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "Wordmark"
       ]
     },
     "/help": {
@@ -3668,6 +6489,16 @@
       ],
       "actions": [
         "submitHelpMessage"
+      ],
+      "blocks": [
+        "Article",
+        "Field",
+        "HelpSearch",
+        "Icon",
+        "Link",
+        "SubmitButton",
+        "Topic",
+        "VendorTier"
       ]
     },
     "/help/[slug]": {
@@ -3679,7 +6510,11 @@
         "/help",
         "/help/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Logo"
+      ]
     },
     "/host/accept/[token]": {
       "files": [
@@ -3694,6 +6529,13 @@
       "actions": [
         "acceptHostInvite",
         "declineHostInvite"
+      ],
+      "blocks": [
+        "AcceptShell",
+        "Icon",
+        "Link",
+        "SubmitButton",
+        "TerminalCard"
       ]
     },
     "/how-it-works": {
@@ -3707,7 +6549,22 @@
         "/tl/how-it-works",
         "/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FinalCtaReveal",
+        "FlowPanel",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "HeroReveal",
+        "HowItWorksHero",
+        "Icon",
+        "Link",
+        "PanelThread",
+        "RevealBlock",
+        "RoleCard",
+        "RoleGridReveal"
+      ]
     },
     "/join/[eventId]": {
       "files": [
@@ -3723,6 +6580,14 @@
       "actions": [
         "action",
         "selfAction"
+      ],
+      "blocks": [
+        "FormFlash",
+        "InvalidTokenScreen",
+        "JoinFlow",
+        "JoinShell",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/join/[eventId]/check-email": {
@@ -3730,7 +6595,8 @@
         "join/[eventId]/check-email/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/join/[eventId]/set-password": {
       "files": [
@@ -3740,6 +6606,10 @@
       "destinations": [],
       "actions": [
         "action"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/join/[eventId]/success": {
@@ -3750,7 +6620,10 @@
       "destinations": [
         "/dashboard"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/login": {
       "files": [
@@ -3765,6 +6638,18 @@
       ],
       "actions": [
         "signInWithPassword"
+      ],
+      "blocks": [
+        "DesktopOAuthButtons",
+        "HTMLDivElement",
+        "Link",
+        "LoginSearchParams",
+        "LoginView",
+        "OAuthButtonRow",
+        "SignInCard",
+        "SignInCardModal",
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/monogram": {
@@ -3778,7 +6663,24 @@
         "/onboarding/wedding?from=monogram",
         "/signup?next=/monogram"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "ClosingCta",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "HTMLOListElement",
+        "Link",
+        "MonogramHeadline",
+        "PanelThread",
+        "PublicMonogramStudio",
+        "StepsReveal",
+        "StudioAnim",
+        "StudioAnimKind",
+        "StudioApi",
+        "StudioRevealPlayer"
+      ]
     },
     "/onboarding/[type]": {
       "files": [
@@ -3787,7 +6689,20 @@
         "onboarding/[type]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Eyebrow",
+        "Field",
+        "GenericOnboarding",
+        "HTMLInputElement",
+        "ItemInput",
+        "OpenMultiselect",
+        "Roster",
+        "ServicesStep",
+        "SetnayanAiValue",
+        "SpecialtyFields",
+        "Title"
+      ]
     },
     "/onboarding/simple": {
       "files": [
@@ -3800,6 +6715,11 @@
       ],
       "actions": [
         "commitSimpleEvent"
+      ],
+      "blocks": [
+        "Link",
+        "ServicesStep",
+        "SubmitButton"
       ]
     },
     "/onboarding/wedding": {
@@ -3825,6 +6745,47 @@
       "actions": [
         "signInWithGoogle",
         "signUp"
+      ],
+      "blocks": [
+        "Ans",
+        "ArtState",
+        "CountUp",
+        "Date",
+        "DateCalendar",
+        "FreeValueSlider",
+        "HTMLAudioElement",
+        "HTMLButtonElement",
+        "HTMLCanvasElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLImageElement",
+        "HeroImg",
+        "LocationStep",
+        "Mode",
+        "MonoLockup",
+        "OnboardingCommitResult",
+        "OnboardingMusic",
+        "OnboardingShell",
+        "OnboardingState",
+        "OnboardingVendorCounts",
+        "PCard",
+        "PickCard",
+        "Pos",
+        "Rail",
+        "RefineCard",
+        "RefineStep",
+        "SDLoader",
+        "ScreenId",
+        "ServicesStep",
+        "SetnayanAiValue",
+        "SetnayanMark",
+        "Sk",
+        "SongBankStep",
+        "SongPreviewList",
+        "SubmitButton",
+        "TurnstileField",
+        "WeddingCountdown",
+        "WelcomeMoments"
       ]
     },
     "/open-shop": {
@@ -3838,6 +6799,13 @@
       ],
       "actions": [
         "becomeVendor"
+      ],
+      "blocks": [
+        "FileUpload",
+        "HTMLFormElement",
+        "Link",
+        "OpenShopWizard",
+        "SubmitButton"
       ]
     },
     "/our-story": {
@@ -3848,28 +6816,43 @@
       "destinations": [
         "/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLParagraphElement",
+        "Link",
+        "OurStoryManifesto"
+      ]
     },
     "/pa3d": {
       "files": [
         "pa3d/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
     },
     "/pabati/[eventId]": {
       "files": [
         "pabati/[eventId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "PabatiPrompt",
+        "Shell"
+      ]
     },
     "/palogo": {
       "files": [
         "palogo/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
     },
     "/panood": {
       "files": [
@@ -3880,7 +6863,13 @@
       "destinations": [
         "/privacy"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DoorwayPage",
+        "GuestPickSessionResult",
+        "Link",
+        "PanoodIceServersResult"
+      ]
     },
     "/panood/cam/[token]": {
       "files": [
@@ -3891,6 +6880,17 @@
       "destinations": [],
       "actions": [
         "claimPanoodCamera"
+      ],
+      "blocks": [
+        "CameraPublisher",
+        "GuestFanout",
+        "HTMLVideoElement",
+        "Link",
+        "MediaStream",
+        "PanoodCameraPublish",
+        "PeerConnectionState",
+        "Shell",
+        "SubmitButton"
       ]
     },
     "/panood/control/[eventId]": {
@@ -3927,6 +6927,38 @@
         "setGuestPick",
         "setLowerThird",
         "setMonogramOverlay"
+      ],
+      "blocks": [
+        "Banner",
+        "BroadcastWindowStrip",
+        "CameraFeedsContext.Provider",
+        "CameraFeedsProvider",
+        "ChannelJoinRow",
+        "ChannelTileCard",
+        "ChannelVideo",
+        "CopyButton",
+        "Date",
+        "FacebookDualStreamCard",
+        "FeedMap",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLVideoElement",
+        "Icon",
+        "InlineCheckoutDrawer",
+        "Link",
+        "LiveStudioRecordingsCard",
+        "MonitorOverlays",
+        "OverlayToggle",
+        "ProgramBridgeHost",
+        "SetupSheet",
+        "Sheet",
+        "Strip",
+        "SubmitButton",
+        "TileSurface",
+        "ToastLayer",
+        "TransportRow",
+        "ViewportLock",
+        "Window"
       ]
     },
     "/panood/demo/[token]": {
@@ -3937,7 +6969,18 @@
       "destinations": [
         "/"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CamJoinFlow",
+        "CamSlot",
+        "CameraPublisher",
+        "HTMLVideoElement",
+        "Link",
+        "MediaStream",
+        "PeerConnectionState",
+        "Shell",
+        "Step"
+      ]
     },
     "/panood/program/[eventId]": {
       "files": [
@@ -3945,7 +6988,22 @@
         "panood/program/[eventId]/program-surface.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BridgeFailure",
+        "BridgeFailureCard",
+        "BroadcastOverlays",
+        "HTMLVideoElement",
+        "NoSignalCard",
+        "ObsOrderingNotice",
+        "PanoodProgramSurface",
+        "PinnedChannelNotice",
+        "ProgramFrame",
+        "SetnayanOverlay",
+        "SplitComposite",
+        "StreamLayer",
+        "WithheldCard"
+      ]
     },
     "/papic": {
       "files": [
@@ -3963,6 +7021,25 @@
       ],
       "actions": [
         "startPapicGuestPurchase"
+      ],
+      "blocks": [
+        "HTMLDivElement",
+        "HTMLHeadingElement",
+        "HTMLUListElement",
+        "HowItWorksPanel",
+        "LineRevealHeading",
+        "Link",
+        "OfferForm",
+        "PanelThread",
+        "PapicAnchor",
+        "PapicBuyShell",
+        "PersistSeatClipWebCopyResult",
+        "RecordSeatCaptureResult",
+        "Reveal",
+        "RevealBand",
+        "RevealList",
+        "SettleTiles",
+        "TagSeatCaptureResult"
       ]
     },
     "/papic/claim/[token]": {
@@ -3973,6 +7050,11 @@
       "destinations": [],
       "actions": [
         "claimPapicSeat"
+      ],
+      "blocks": [
+        "Link",
+        "Shell",
+        "SubmitButton"
       ]
     },
     "/papic/decorate": {
@@ -3981,7 +7063,16 @@
         "papic/decorate/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Drag",
+        "HTMLDivElement",
+        "HTMLImageElement",
+        "HTMLInputElement",
+        "KwentoDecorator",
+        "PapicStyle",
+        "Shell"
+      ]
     },
     "/papic/demo/[token]": {
       "files": [
@@ -3991,7 +7082,15 @@
       "destinations": [
         "/"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DemoJoinFlow",
+        "HTMLVideoElement",
+        "Link",
+        "MediaStream",
+        "Shell",
+        "Step"
+      ]
     },
     "/papic/guest": {
       "files": [
@@ -4004,7 +7103,23 @@
         "/",
         "/terms"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ArmedChallenge",
+        "Blob",
+        "ChallengePanelInner",
+        "DayOfFaceEnroll",
+        "HTMLButtonElement",
+        "HTMLCanvasElement",
+        "Link",
+        "MediaRecorder",
+        "PapicCameraControls",
+        "PapicChallengePanel",
+        "PapicGuestBuyPanel",
+        "PapicGuestCapture",
+        "PapicStyle",
+        "Shell"
+      ]
     },
     "/papic/join/[token]": {
       "files": [
@@ -4015,7 +7130,15 @@
       "destinations": [
         "/"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AppInstallBanner",
+        "JoinForwarder",
+        "Kind",
+        "Link",
+        "Platform",
+        "Shell"
+      ]
     },
     "/papic/lightcheck": {
       "files": [
@@ -4023,7 +7146,13 @@
         "papic/lightcheck/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "HTMLVideoElement",
+        "LightcheckClient",
+        "MediaStreamTrack"
+      ]
     },
     "/papic/me/[token]": {
       "files": [
@@ -4040,7 +7169,20 @@
         "/papic/me/[seg]/session?next=pool",
         "/papic/seat/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "File",
+        "GuestGallery",
+        "GuestStoryMaker",
+        "GuestStoryPlan",
+        "Link",
+        "MusicChoice",
+        "MusicOption",
+        "Phase",
+        "PoolDoorway",
+        "Shell"
+      ]
     },
     "/papic/order/[token]": {
       "files": [
@@ -4049,6 +7191,9 @@
       "destinations": [],
       "actions": [
         "submitPapicGuestPayment"
+      ],
+      "blocks": [
+        "CopyButton"
       ]
     },
     "/papic/pool": {
@@ -4057,7 +7202,11 @@
         "papic/pool/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "PoolGrid",
+        "Shell"
+      ]
     },
     "/papic/seat/[token]": {
       "files": [
@@ -4069,21 +7218,44 @@
       "destinations": [
         "/"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "CameraBridgePanel",
+        "DslrPairingController",
+        "HTMLButtonElement",
+        "HTMLCanvasElement",
+        "Link",
+        "MediaRecorder",
+        "MockBridge",
+        "PairingState",
+        "PapicCameraControls",
+        "PapicGuestBuyPanel",
+        "PapicSeatCapture",
+        "PapicSinkDeps",
+        "PapicStyle",
+        "Shot"
+      ]
     },
     "/patiktok": {
       "files": [
         "patiktok/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
     },
     "/pawebsite": {
       "files": [
         "pawebsite/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DoorwayPage"
+      ]
     },
     "/pricing": {
       "files": [
@@ -4096,7 +7268,19 @@
         "/onboarding/wedding?from=pricing",
         "/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BuildStatusChip",
+        "HTMLDivElement",
+        "HTMLHeadingElement",
+        "HTMLParagraphElement",
+        "LineRevealHeading",
+        "Link",
+        "Mode",
+        "PapicEstimator",
+        "RevealBand",
+        "Stepper"
+      ]
     },
     "/privacy": {
       "files": [
@@ -4106,7 +7290,11 @@
         "/dashboard/profile",
         "/help"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Section"
+      ]
     },
     "/proposals/[publicId]": {
       "files": [
@@ -4117,6 +7305,11 @@
         "deleteDraftProposal",
         "respondToProposal",
         "sendProposal"
+      ],
+      "blocks": [
+        "Link",
+        "PrintButton",
+        "SubmitButton"
       ]
     },
     "/prototype/mesh-call": {
@@ -4127,7 +7320,15 @@
       "destinations": [
         "/prototype/mesh-call?room=[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLVideoElement",
+        "Link",
+        "MeshHandle",
+        "MeshRoom",
+        "MeshRoomState",
+        "PeerTile"
+      ]
     },
     "/realstories": {
       "files": [
@@ -4141,7 +7342,24 @@
         "/explore",
         "/signup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BoomerangVideo",
+        "FacebookGlyph",
+        "FacetRow",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "HTMLVideoElement",
+        "Link",
+        "PinterestGlyph",
+        "RealStoriesGallery",
+        "SectionHead",
+        "StoriesSearch",
+        "StorytellerTile",
+        "StorytellersShelf",
+        "Tile",
+        "VendorCreditChip"
+      ]
     },
     "/realstories/[slug]": {
       "files": [
@@ -4150,7 +7368,12 @@
       "destinations": [
         "/realstories"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EditorialContent",
+        "Link",
+        "SampleEditorial"
+      ]
     },
     "/receipts/[receiptId]": {
       "files": [
@@ -4158,7 +7381,10 @@
         "receipts/[receiptId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Line"
+      ]
     },
     "/refunds": {
       "files": [
@@ -4168,7 +7394,12 @@
         "/help",
         "/terms"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
     },
     "/reset-password": {
       "files": [
@@ -4182,6 +7413,11 @@
       ],
       "actions": [
         "completePasswordReset"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton",
+        "Wordmark"
       ]
     },
     "/samahan/join/[token]": {
@@ -4198,6 +7434,12 @@
       ],
       "actions": [
         "acceptCommunityInvite"
+      ],
+      "blocks": [
+        "InviteHeader",
+        "Link",
+        "Shell",
+        "SubmitButton"
       ]
     },
     "/setnayan-ai": {
@@ -4209,7 +7451,19 @@
         "/onboarding/wedding?from=setnayan-ai",
         "/pricing"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CtaPanel",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "HowItWorks",
+        "Link",
+        "Matchmaking",
+        "PanelThread",
+        "RevealBlock",
+        "SetnayanAiHero"
+      ]
     },
     "/signup": {
       "files": [
@@ -4224,6 +7478,17 @@
       ],
       "actions": [
         "signUp"
+      ],
+      "blocks": [
+        "AccountTypeOption",
+        "DesktopOAuthButtons",
+        "FormField",
+        "Link",
+        "OAuthButtonRow",
+        "Sk",
+        "SubmitButton",
+        "TurnstileField",
+        "Wordmark"
       ]
     },
     "/site-editor/[eventId]": {
@@ -4231,28 +7496,32 @@
         "site-editor/[eventId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/site-editor/[eventId]/editorial": {
       "files": [
         "site-editor/[eventId]/editorial/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/site-editor/[eventId]/event": {
       "files": [
         "site-editor/[eventId]/event/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/site-editor/[eventId]/rsvp": {
       "files": [
         "site-editor/[eventId]/rsvp/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/terms": {
       "files": [
@@ -4264,7 +7533,12 @@
         "/privacy",
         "/refunds"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
+      ]
     },
     "/tl/about": {
       "files": [
@@ -4279,14 +7553,21 @@
         "/pricing",
         "/signup"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link"
+      ]
     },
     "/tl/features": {
       "files": [
         "tl/features/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FeaturesPageBody"
+      ]
     },
     "/tl/how-it-works": {
       "files": [
@@ -4298,7 +7579,12 @@
         "/signup?as=vendor",
         "/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link",
+        "RoleCard"
+      ]
     },
     "/tour": {
       "files": [
@@ -4311,7 +7597,12 @@
         "/maria-and-jose",
         "/onboarding/wedding?from=tour"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLTextAreaElement",
+        "Link",
+        "ScriptMsg"
+      ]
     },
     "/tour/budget": {
       "files": [
@@ -4324,7 +7615,25 @@
         "/tour",
         "/tour/gallery"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AllocationConfig",
+        "ConfidenceChip",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "LeafRow",
+        "LineItemSection",
+        "Link",
+        "Money",
+        "OverspendBanner",
+        "PaymentSection",
+        "PriceSourceChip",
+        "SummaryStat",
+        "TiltButton",
+        "TiltEditor",
+        "TourBudgetPlanner",
+        "TourVendorItemization"
+      ]
     },
     "/tour/gallery": {
       "files": [
@@ -4337,7 +7646,13 @@
         "/tour",
         "/tour/budget"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PaletteKey",
+        "TourLiveWall",
+        "TourPalettePreview"
+      ]
     },
     "/tour/seating": {
       "files": [
@@ -4349,7 +7664,12 @@
         "/tour",
         "/tour/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FindYourSeat",
+        "Link",
+        "WayfindingMap"
+      ]
     },
     "/tour/vendors": {
       "files": [
@@ -4361,7 +7681,13 @@
         "/onboarding/wedding?from=tour",
         "/tour"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "TourChatThread",
+        "TourShortlist",
+        "VendorCard"
+      ]
     },
     "/u/[userSlug]": {
       "files": [
@@ -4372,7 +7698,20 @@
         "/u/[seg]/c/[seg]",
         "/v/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ChapterTimeline",
+        "CreatorBadge",
+        "CreatorInfluence",
+        "CreatorTierChip",
+        "EventMonogram",
+        "FollowButton",
+        "Link",
+        "Metadata",
+        "ProfileShareButton",
+        "ReportPageButton",
+        "ViewBeacon"
+      ]
     },
     "/u/[userSlug]/c/[chapterId]": {
       "files": [
@@ -4383,7 +7722,16 @@
         "/v/[seg]",
         "/v/[seg]?ref_chapter=[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ChapterEmbedFrame",
+        "CreatorBadge",
+        "Link",
+        "Metadata",
+        "ReportPageButton",
+        "ShareButtons",
+        "ViewBeacon"
+      ]
     },
     "/v/[slug]": {
       "files": [
@@ -4395,7 +7743,6 @@
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
-        "v/[slug]/loading.tsx",
         "v/[slug]/page.tsx",
         "v/[slug]/waitlist-actions.ts"
       ],
@@ -4410,6 +7757,57 @@
       ],
       "actions": [
         "joinVendorWaitlist"
+      ],
+      "blocks": [
+        "AnonInquiryComposer",
+        "AutoCarryState",
+        "AxisStat",
+        "CardRecordSection",
+        "ComingSoonBanner",
+        "DemoVendorBanner",
+        "FilterChip",
+        "HTMLDivElement",
+        "Image",
+        "InquiryComposer",
+        "Link",
+        "LockPackageModal",
+        "Logo",
+        "MessageDelivery",
+        "ModalState",
+        "NavLinksRow",
+        "PackageCard",
+        "PlatformIcon",
+        "PublicVendorRow",
+        "RequirementsModal",
+        "ReviewHeroMetrics",
+        "ReviewRow",
+        "ReviewWithCouple",
+        "ReviewsSection",
+        "SaveGateHint",
+        "SaveToContinue",
+        "ServiceCardView",
+        "ServiceDetailsSheet",
+        "ServicesGallery",
+        "ServicesPricingSection",
+        "ShareButton",
+        "StarRow",
+        "StartServiceInquiryResult",
+        "StorytellerTile",
+        "SubmitButton",
+        "TrackRecord",
+        "TrustedBySection",
+        "TrustedByVendor",
+        "VendorCompletedEventRow",
+        "VendorLocationMap",
+        "VendorPackageWithItems",
+        "VendorPackagesSection",
+        "VendorReplyBlock",
+        "VendorServiceRow",
+        "VenueMatchedEvents",
+        "VerifiedBookingPill",
+        "VerifiedPriceCard",
+        "VerifiedWeddingPill",
+        "Wordmark"
       ]
     },
     "/v/[slug]/booth": {
@@ -4421,7 +7819,19 @@
       "destinations": [
         "/v/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BoothMesh",
+        "BoothShowcaseClient",
+        "BoothShowcaseLoader",
+        "BoothVendorRow",
+        "Canvas",
+        "Environment",
+        "Link",
+        "Metadata",
+        "OrbitControls",
+        "SoftGate"
+      ]
     },
     "/vendor-dashboard": {
       "files": [
@@ -4476,8 +7886,75 @@
         "declineInquiry",
         "disconnectInstagram",
         "formAction",
+        "null",
         "renewAction",
         "toggleInstagramMediaVisibility"
+      ],
+      "blocks": [
+        "AccountSwitcher",
+        "AddBranchForm",
+        "AgentHome",
+        "BottomNav",
+        "BranchActionState",
+        "BranchPinMap",
+        "BranchRow",
+        "CardShell",
+        "CashFlowTile",
+        "Collapsible",
+        "ComingSoon",
+        "Connected",
+        "CopyButton",
+        "CorrectionRequestResult",
+        "CountUp",
+        "DisputeBody",
+        "DoorwaySidebarHeader",
+        "EarnedTile",
+        "EmptyCard",
+        "EnergyKpi",
+        "FeedCard",
+        "FieldSaveResult",
+        "HTMLDivElement",
+        "Image",
+        "InquiryBody",
+        "LatLng",
+        "Link",
+        "LockBody",
+        "LockedBody",
+        "LockedQrGenerator",
+        "MediaTile",
+        "NavFab",
+        "NotConnected",
+        "OngoingTasks",
+        "ProgressRing",
+        "PromoFreeWindowBannerVendor",
+        "PushNotificationRegistrar",
+        "QrCard",
+        "ReviewBody",
+        "RowSkeleton",
+        "Screen",
+        "SectionHeader",
+        "SegButton",
+        "ShortlistBody",
+        "SidebarItem",
+        "SidebarSection",
+        "SidebarShell",
+        "Sk",
+        "SpotlightAwardBanner",
+        "State",
+        "SubmitButton",
+        "SwitcherPlaqueTrigger",
+        "SyncResult",
+        "TrackRecordRow",
+        "UnreadBellBadge",
+        "UpcomingSchedules",
+        "VendorAvatar",
+        "VendorBottomNav",
+        "VendorEnergyStats",
+        "VendorNavFab",
+        "VendorSidebar",
+        "VendorSidebarFooter",
+        "VendorTodayFocal",
+        "WhatsNewFeed"
       ]
     },
     "/vendor-dashboard/activities": {
@@ -4491,6 +7968,11 @@
         "reorderActivity",
         "toggleActivityOffered",
         "updateActivity"
+      ],
+      "blocks": [
+        "ActivityRow",
+        "Icon",
+        "MoveButton"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -4506,6 +7988,15 @@
       "actions": [
         "removeVendorServiceAttribute",
         "saveVendorServiceAttribute"
+      ],
+      "blocks": [
+        "AttributeFieldRenderer",
+        "CompletenessBadge",
+        "Link",
+        "MultiSelectOpen",
+        "RemoveServiceButton",
+        "ServiceForm",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/booking-fees": {
@@ -4516,7 +8007,12 @@
       "destinations": [
         "/vendor-dashboard/subscription"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "FeeGroup",
+        "Link",
+        "PageMasthead"
+      ]
     },
     "/vendor-dashboard/booking-fees/[orderId]": {
       "files": [
@@ -4525,6 +8021,13 @@
       "destinations": [],
       "actions": [
         "logBookingFeePayment"
+      ],
+      "blocks": [
+        "CopyButton",
+        "FileUpload",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/bookings": {
@@ -4538,7 +8041,18 @@
       "destinations": [
         "/vendor-dashboard/messages/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "KindIcon",
+        "Link",
+        "PrepKind",
+        "PrepKindPicker",
+        "VendorDeletePrepItem",
+        "VendorPrepForBooking"
+      ]
     },
     "/vendor-dashboard/branches": {
       "files": [
@@ -4548,7 +8062,10 @@
         "vendor-dashboard/branches/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "BranchActionState"
+      ]
     },
     "/vendor-dashboard/calendar": {
       "files": [
@@ -4574,6 +8091,11 @@
         "removeBlock",
         "updatePoolCapacity",
         "updateWaitlistSettings"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/calendar/[date]": {
@@ -4586,6 +8108,10 @@
       "actions": [
         "notifyWaitlistSlot",
         "setCalendarDayState"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/clients": {
@@ -4602,6 +8128,12 @@
       "actions": [
         "importExternalClient",
         "removeBlock"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "Link",
+        "StageChip",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/clients/[eventId]": {
@@ -4658,6 +8190,45 @@
         "vendorRejectDeposit",
         "vendorRespondChangeOrder",
         "vendorWithdrawChangeOrder"
+      ],
+      "blocks": [
+        "ActivityFeed",
+        "AppointmentsSection",
+        "BoothPosterCard",
+        "Card",
+        "CardTabs",
+        "ChatMessageStream",
+        "ChatPrivacyNotice",
+        "ChatSendForm",
+        "ChatThreadMenu",
+        "ClientNotes",
+        "FileUpload",
+        "FilesTab",
+        "Icon",
+        "Image",
+        "Link",
+        "LockRow",
+        "OverviewTab",
+        "PhotoChallengeActionState",
+        "PhotoChallengeBuy",
+        "PipelineStrip",
+        "QuoteTab",
+        "RelationshipTabShell",
+        "ReturningMarkerAndActions",
+        "RunOfShowHeader",
+        "ScheduleTab",
+        "ScriptActionState",
+        "ScriptComposer",
+        "ScriptTab",
+        "SubmitButton",
+        "ThreadCallLauncherLazy",
+        "ThreadInterestChips",
+        "Vendor3dPlanUnlockActionState",
+        "Vendor3dPlanUnlockButton",
+        "Vendor3dPlanUnlockSection",
+        "VendorChallengeSection",
+        "VendorCompletionCard",
+        "VendorPaymentLive"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/challenge-photos": {
@@ -4667,7 +8238,10 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/vendor-dashboard/clients/[eventId]/cocktail": {
       "files": [
@@ -4678,7 +8252,15 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CocktailEditor",
+        "Drag",
+        "HTMLDivElement",
+        "Link",
+        "Result",
+        "Room"
+      ]
     },
     "/vendor-dashboard/clients/[eventId]/editorial-media": {
       "files": [
@@ -4689,7 +8271,13 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "EditorialMediaStudio",
+        "HTMLInputElement",
+        "Link",
+        "StatusBadge"
+      ]
     },
     "/vendor-dashboard/clients/[eventId]/mood-board": {
       "files": [
@@ -4698,7 +8286,10 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/vendor-dashboard/clients/[eventId]/production-sheet": {
       "files": [
@@ -4711,6 +8302,11 @@
       "actions": [
         "addPortionRule",
         "deletePortionRule"
+      ],
+      "blocks": [
+        "Link",
+        "PrintButton",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/seat-plan": {
@@ -4720,7 +8316,11 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinMarker"
+      ]
     },
     "/vendor-dashboard/contracts": {
       "files": [
@@ -4733,7 +8333,12 @@
         "/vendor-dashboard/contracts/[seg]",
         "/vendor-dashboard/contracts/new"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ContractCard",
+        "ContractsEmptyState",
+        "Link"
+      ]
     },
     "/vendor-dashboard/contracts/[contractId]": {
       "files": [
@@ -4746,6 +8351,10 @@
       "actions": [
         "cancelContract",
         "publishContractToCouple"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/contracts/new": {
@@ -4759,6 +8368,10 @@
       ],
       "actions": [
         "uploadVendorContract"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/creators": {
@@ -4772,6 +8385,16 @@
       ],
       "actions": [
         "sendCreatorOffer"
+      ],
+      "blocks": [
+        "CreatorCard",
+        "CreatorTierChip",
+        "FormFlash",
+        "Link",
+        "RoiRow",
+        "SearchParams",
+        "SubmitButton",
+        "VendorTierGate"
       ]
     },
     "/vendor-dashboard/customers": {
@@ -4785,7 +8408,25 @@
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/services"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AccordionSkeleton",
+        "BookingsSurface",
+        "CalendarSurface",
+        "ClientsSurface",
+        "CustomerCalendarMonth",
+        "CustomerSectionBody",
+        "CustomersCalendar",
+        "CustomersFilterBar",
+        "CustomersPipeline",
+        "FeatureAccordion",
+        "FilterSelect",
+        "Link",
+        "MessagesSurface",
+        "PaydaySurface",
+        "Suspense",
+        "VendorQrSection"
+      ]
     },
     "/vendor-dashboard/deep-search": {
       "files": [
@@ -4797,6 +8438,14 @@
       "destinations": [],
       "actions": [
         "formAction"
+      ],
+      "blocks": [
+        "DeepSearchRunner",
+        "DossierView",
+        "PageMasthead",
+        "Section",
+        "SubmitButton",
+        "VendorDeepSearchActionState"
       ]
     },
     "/vendor-dashboard/demand": {
@@ -4805,7 +8454,10 @@
         "vendor-dashboard/demand/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "SignalTile"
+      ]
     },
     "/vendor-dashboard/disputes": {
       "files": [
@@ -4815,6 +8467,10 @@
       "destinations": [],
       "actions": [
         "submitDisputeContest"
+      ],
+      "blocks": [
+        "DisputeCard",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/earnings": {
@@ -4828,14 +8484,21 @@
         "/vendor-dashboard/services",
         "/vendor-dashboard/subscription"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PayoutKpi",
+        "Stat",
+        "VendorTierGate"
+      ]
     },
     "/vendor-dashboard/funnel": {
       "files": [
         "vendor-dashboard/funnel/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/invite": {
       "files": [
@@ -4852,6 +8515,17 @@
       ],
       "actions": [
         "issueLockedQr"
+      ],
+      "blocks": [
+        "CopyButton",
+        "HTMLInputElement",
+        "Icon",
+        "Link",
+        "LockedMode",
+        "LockedQrGenerator",
+        "Row",
+        "ShortlistMode",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/lines": {
@@ -4866,6 +8540,9 @@
         "attachLineToActivity",
         "deleteLine",
         "updateLine"
+      ],
+      "blocks": [
+        "Link"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -4877,7 +8554,13 @@
         "/vendor-dashboard/invite?mode=locked&issued=[seg]",
         "/vendor-dashboard/shop"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CopyButton",
+        "Icon",
+        "Link",
+        "StatusBadge"
+      ]
     },
     "/vendor-dashboard/manpower": {
       "files": [
@@ -4888,7 +8571,14 @@
         "vendor-dashboard/manpower/surface.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AcceptManpowerResult",
+        "CancelGigResult",
+        "CompleteGigResult",
+        "GigCard",
+        "Group"
+      ]
     },
     "/vendor-dashboard/messages": {
       "files": [
@@ -4901,7 +8591,15 @@
         "/vendor-dashboard",
         "/vendor-dashboard/messages/[seg]"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "InquiryOutcomesRollup",
+        "Link",
+        "RevealList",
+        "ThreadArchiveToggle",
+        "ThreadListCard"
+      ]
     },
     "/vendor-dashboard/messages/[threadId]": {
       "files": [
@@ -4936,6 +8634,36 @@
         "declinePaxSurcharge",
         "recordInquiryOutcome",
         "sendProposalFromChat"
+      ],
+      "blocks": [
+        "ChatInfoRailColumn",
+        "ChatInfoRailTrigger",
+        "ChatMessageStream",
+        "ChatPrivacyNotice",
+        "ChatSendForm",
+        "ChatThreadMenu",
+        "Icon",
+        "InquiryBasics",
+        "InquiryOutcomeCapture",
+        "Link",
+        "NegotiationComposerMenu",
+        "OfferServiceResult",
+        "OutcomeState",
+        "PaymentPlanStepper",
+        "ProposalMaker",
+        "QuoteSeed",
+        "RailAction",
+        "RailBody",
+        "Resolved",
+        "SendProposalCard",
+        "Sheet",
+        "SnapRow",
+        "SubmitButton",
+        "ThreadAttribution",
+        "ThreadCallLauncher",
+        "ThreadInterestChips",
+        "VendorOfferService",
+        "VendorPaymentLive"
       ]
     },
     "/vendor-dashboard/moodboard-library": {
@@ -4948,7 +8676,14 @@
       "destinations": [
         "/vendor-dashboard"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ColorRangeManipulator",
+        "Image",
+        "Link",
+        "PalettePreview",
+        "StylistLibraryEditor"
+      ]
     },
     "/vendor-dashboard/more": {
       "files": [
@@ -4956,7 +8691,10 @@
         "vendor-dashboard/more/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "GridPageSkeleton"
+      ]
     },
     "/vendor-dashboard/notifications": {
       "files": [
@@ -4969,6 +8707,13 @@
       ],
       "actions": [
         "markAllNotificationsRead"
+      ],
+      "blocks": [
+        "Link",
+        "NotificationsList",
+        "PermissionState",
+        "PushToggle",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/on-the-day": {
@@ -4994,7 +8739,33 @@
         "/vendor-dashboard/on-the-day?preview=1",
         "/vendor-dashboard/verify"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AccessGrants",
+        "CaptureCard",
+        "CompactDayOf",
+        "ConfigureEventView",
+        "DayRequestActionResult",
+        "DayRequestsView",
+        "EventPicker",
+        "FamilyIcon",
+        "GuestReviewQr",
+        "HTMLDivElement",
+        "Icon",
+        "IssuesLog",
+        "Link",
+        "LocalIssuesLog",
+        "ModuleConfigurator",
+        "ModuleReadout",
+        "NonPhotoConsole",
+        "RequestsInbox",
+        "SetActionResult",
+        "ShotList",
+        "ShotListSection",
+        "SongDeskGate",
+        "Tag",
+        "VendorStatusUpdates"
+      ]
     },
     "/vendor-dashboard/on-the-day/live/[eventId]": {
       "files": [
@@ -5026,6 +8797,61 @@
       "actions": [
         "markStageNoteSeen",
         "sendStageNote"
+      ],
+      "blocks": [
+        "AnnouncementsCard",
+        "Answer",
+        "AskAccess",
+        "AskAccessResult",
+        "Banned",
+        "Blob",
+        "Card",
+        "Closed",
+        "ComingSoon",
+        "ConsoleEyebrow",
+        "ConsoleHeading",
+        "ConsolePlate",
+        "ConsoleRule",
+        "Coverage",
+        "CueCard",
+        "FloorActionResult",
+        "FloorClock",
+        "Group",
+        "HTMLCanvasElement",
+        "HTMLVideoElement",
+        "HostPlaylist",
+        "Icon",
+        "Link",
+        "LiveReviews",
+        "LockedUpsell",
+        "MediaRecorder",
+        "MediaStream",
+        "MyLine",
+        "PauseToggle",
+        "PickRow",
+        "PlaylistSlotType",
+        "PrivateBadge",
+        "ReactNode",
+        "RequestsInbox",
+        "RunOfDay",
+        "RunOfShowHeader",
+        "ScheduleUpdater",
+        "ScriptCard",
+        "SeatLookupResponse",
+        "SeatScanOutcome",
+        "SeatScanner",
+        "SetCard",
+        "SetsPanel",
+        "SongRow",
+        "Spare",
+        "SpecializationSlot",
+        "StageNoteCompose",
+        "StageNotesCard",
+        "SubmitButton",
+        "Surface",
+        "TierMeter",
+        "VendorSpecializationSet",
+        "WakeLockSentinel"
       ]
     },
     "/vendor-dashboard/on-the-day/live/[eventId]/papic": {
@@ -5033,7 +8859,12 @@
         "vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "OwnCapturesStrip",
+        "PapicCaptureController"
+      ]
     },
     "/vendor-dashboard/packages": {
       "files": [
@@ -5045,7 +8876,16 @@
         "/vendor-dashboard/packages/[seg]",
         "/vendor-dashboard/packages/new"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DraftItem",
+        "DraftOption",
+        "DraftPackage",
+        "Link",
+        "OptionList",
+        "ProblemLine",
+        "SavePackageResult"
+      ]
     },
     "/vendor-dashboard/packages/[packageId]": {
       "files": [
@@ -5054,7 +8894,11 @@
       "destinations": [
         "/vendor-dashboard/packages"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PackageEditor"
+      ]
     },
     "/vendor-dashboard/partnerships": {
       "files": [
@@ -5068,6 +8912,11 @@
         "declinePartnership",
         "proposePartnership",
         "withdrawPartnership"
+      ],
+      "blocks": [
+        "FormFlash",
+        "SearchParams",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/payday": {
@@ -5080,7 +8929,12 @@
       "destinations": [
         "/vendor-dashboard/bookings"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PaydayRow",
+        "PaydaySummary"
+      ]
     },
     "/vendor-dashboard/payment-options": {
       "files": [
@@ -5096,6 +8950,14 @@
         "deletePaymentMethod",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
+      ],
+      "blocks": [
+        "AddPaymentMethod",
+        "FileUpload",
+        "FormFlash",
+        "Icon",
+        "PaymentMethodType",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/performance": {
@@ -5122,7 +8984,45 @@
         "vendor-dashboard/performance/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "AttributionBar",
+        "BookingsBars",
+        "CapacityCard",
+        "ChartCaption",
+        "CompositeRing",
+        "ConversionDealsCard",
+        "CountUp",
+        "DemandRadarCard",
+        "EarningsSparkline",
+        "FunnelPreviewCard",
+        "GrowthCard",
+        "GrowthRecsCard",
+        "HTMLDivElement",
+        "HealthCompositeCard",
+        "InquiryHandlingCard",
+        "Link",
+        "MomentumCard",
+        "MomentumMode",
+        "MomentumWindowToggle",
+        "PerformanceControls",
+        "PillarBar",
+        "Reanimate",
+        "ReanimateCtx.Provider",
+        "ReputationCard",
+        "RoiAttributionCard",
+        "ScopePill",
+        "SectionEyebrow",
+        "ServiceScopeSelectClient",
+        "ServiceScopeSelector",
+        "SourceBreakdown",
+        "T",
+        "Tile",
+        "ToggleButton",
+        "VendorTierGate",
+        "VendorTierTeaser",
+        "VerifiedMedianCard"
+      ]
     },
     "/vendor-dashboard/profile": {
       "files": [
@@ -5130,7 +9030,8 @@
         "vendor-dashboard/profile/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/proposals": {
       "files": [
@@ -5149,6 +9050,12 @@
         "saveTemplate",
         "vendorDeclineReuseForm",
         "vendorQuoteReuseForm"
+      ],
+      "blocks": [
+        "Link",
+        "ReuseActionResult",
+        "SubmitButton",
+        "VendorReuseInbox"
       ]
     },
     "/vendor-dashboard/real-stories": {
@@ -5159,7 +9066,12 @@
         "/[seg]",
         "/realstories"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SaveStoryCardButton",
+        "ShareButtons"
+      ]
     },
     "/vendor-dashboard/recaps": {
       "files": [
@@ -5168,7 +9080,13 @@
       "destinations": [
         "/[seg]/recap"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SaveStoryCardButton",
+        "ShareButtons",
+        "VendorTierGate"
+      ]
     },
     "/vendor-dashboard/recommendations": {
       "files": [
@@ -5182,6 +9100,16 @@
         "flagFeedback",
         "setOptIn",
         "suggestToCouple"
+      ],
+      "blocks": [
+        "ActiveRecCard",
+        "LeafSection",
+        "NotAFitControl",
+        "OptInOfferCard",
+        "RecommendationsPanel",
+        "SubmitButton",
+        "SuggestControl",
+        "SuggestToCoupleControl"
       ]
     },
     "/vendor-dashboard/repertoire": {
@@ -5196,6 +9124,10 @@
       "actions": [
         "addRepertoireSong",
         "removeRepertoireSong"
+      ],
+      "blocks": [
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/reviews": {
@@ -5208,6 +9140,21 @@
       "actions": [
         "postVendorReply",
         "submitFlagAsFake"
+      ],
+      "blocks": [
+        "AxisStat",
+        "ExistingReplySection",
+        "FlagForm",
+        "ReplyForm",
+        "ReviewAxis",
+        "StarRow",
+        "StatsOverview",
+        "SubmitButton",
+        "TrackRecord",
+        "VendorCompletedEventRow",
+        "VendorReviewCard",
+        "VerifiedBookingPill",
+        "VerifiedWeddingPill"
       ]
     },
     "/vendor-dashboard/services": {
@@ -5251,6 +9198,72 @@
         "toggleVendorServiceActive",
         "updateCoverageServes",
         "updateVendorService"
+      ],
+      "blocks": [
+        "AddRowButton",
+        "AddServiceForm",
+        "AddonsEditor",
+        "AmountInput",
+        "AttributeFieldRenderer",
+        "Basis",
+        "BranchSelect",
+        "CanvasFormSnapshot",
+        "CanvasSheet",
+        "CardRecordSection",
+        "CardRegion",
+        "CheckChip",
+        "ChipGroup",
+        "CoachChip",
+        "ConfirmForm",
+        "CoverageBrowse",
+        "CoverageLeaf",
+        "CoveragePanel",
+        "Crumb",
+        "CustomizationStep",
+        "DiscountBadge",
+        "DiscountDraft",
+        "DiscountRow",
+        "DiscountsEditor",
+        "DraftItem",
+        "DraftOption",
+        "ExclusivePerkField",
+        "Field",
+        "FileUpload",
+        "FindingRow",
+        "Fragment",
+        "GridCard",
+        "HTMLDivElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HealthHeader",
+        "Icon",
+        "IncludedFlags",
+        "InclusionsEditor",
+        "LastMinuteFields",
+        "LineRow",
+        "Link",
+        "ManagerTabs",
+        "Muted",
+        "PField",
+        "PaymentScheduleEditor",
+        "PriceBracketsEditor",
+        "PricingBasisEditor",
+        "Recap",
+        "RefinementsEditor",
+        "RequestStatusBadge",
+        "Row",
+        "RowRemove",
+        "SectionEyebrow",
+        "SelectChip",
+        "ServiceCardLivePreview",
+        "ServicesManagerSearch",
+        "SheetKey",
+        "ShowcaseMediaFields",
+        "SlotEditor",
+        "Snapshot",
+        "SubLabel",
+        "SubmitButton",
+        "YourCoverage"
       ]
     },
     "/vendor-dashboard/services/new/[category]": {
@@ -5260,7 +9273,12 @@
       "destinations": [
         "/vendor-dashboard/services"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CanvasMaker",
+        "Link",
+        "ServiceWizard"
+      ]
     },
     "/vendor-dashboard/shop": {
       "files": [
@@ -5294,6 +9312,102 @@
         "formAction",
         "inviteVendorTeamMember",
         "updateBusinessStartDate"
+      ],
+      "blocks": [
+        "AccordionSkeleton",
+        "ApplicationStatus",
+        "AutoReplyCard",
+        "AutoReplySaveResult",
+        "AutoReplySection",
+        "BranchManager",
+        "BranchPanel",
+        "CheckGroup",
+        "ClientReference",
+        "ClientReferencesInput",
+        "Collapsible",
+        "CompletenessRing",
+        "ContactsStep",
+        "ContractsSurface",
+        "CopyButton",
+        "DocSlotCard",
+        "DocSlotSaveResult",
+        "DocsBody",
+        "DocsStep",
+        "EarningsSurface",
+        "EditableRow",
+        "FeatureAccordion",
+        "Field",
+        "FieldControl",
+        "FieldSaveResult",
+        "FileUpload",
+        "GalleryForm",
+        "GalleryMedia",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HeroCard",
+        "HqAddressControl",
+        "InlineDocsPayload",
+        "InstagramConnectCard",
+        "K",
+        "LeafletMap",
+        "LeafletMarker",
+        "LeafletModule",
+        "Link",
+        "ManageTiles",
+        "ManpowerSurface",
+        "PanelShell",
+        "PaymentOptionsSurface",
+        "PickTile",
+        "Pin",
+        "PinRow",
+        "PlainInput",
+        "ProfileChecklistEditor",
+        "ProposalsSurface",
+        "ReachMap",
+        "ReceiptLine",
+        "RegNumberSaveResult",
+        "RegistrationNumberInput",
+        "Row",
+        "RowPreview",
+        "ServiceCoverageRow",
+        "ServiceRadiusFields",
+        "ServiceRadiusSaveResult",
+        "ServicesDisclosure",
+        "ShopData",
+        "ShopHome",
+        "ShopSectionBody",
+        "ShopTools",
+        "SocialLinksInput",
+        "SoloUpsell",
+        "StatTile",
+        "StatusChip",
+        "StepPill",
+        "StepShell",
+        "SubmitBlock",
+        "SubmitButton",
+        "SubmitResult",
+        "Suspense",
+        "Switch",
+        "TeamPanel",
+        "ToolKey",
+        "ToolTile",
+        "VendorAvatar",
+        "VendorServicesManager",
+        "VendorSlotInput",
+        "VenueMatchCard",
+        "VenueMatchSaveResult",
+        "VerifySection",
+        "VideoLinksEditor",
+        "VoiceGate",
+        "VoiceMatchCard",
+        "VoiceMatchSection",
+        "VoiceProfile",
+        "VoiceSaveResult",
+        "VoiceSuggestResult",
+        "WebsiteEditor"
       ]
     },
     "/vendor-dashboard/subscription": {
@@ -5316,6 +9430,21 @@
       "actions": [
         "formAction",
         "startSubscriptionPurchase"
+      ],
+      "blocks": [
+        "AiAddonCard",
+        "BandRail",
+        "BoothAddonCard",
+        "CycleLink",
+        "Link",
+        "PayBox",
+        "PositionHeadline",
+        "SubmitButton",
+        "SubscriptionCards",
+        "SubscriptionCycleToggle",
+        "Vendor3dBoothActionState",
+        "VendorAiAddonActionState",
+        "WebNudgeBanner"
       ]
     },
     "/vendor-dashboard/subscription/custom": {
@@ -5329,6 +9458,16 @@
       ],
       "actions": [
         "requestCustomPlan"
+      ],
+      "blocks": [
+        "ControlShell",
+        "CustomComposition",
+        "CustomConfigurator",
+        "K",
+        "Link",
+        "ReachControl",
+        "StepperControl",
+        "ToggleControl"
       ]
     },
     "/vendor-dashboard/tax-documents": {
@@ -5337,7 +9476,8 @@
         "vendor-dashboard/tax-documents/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/team": {
       "files": [
@@ -5356,6 +9496,10 @@
         "stepDownSelf",
         "updateVendorTeamMember",
         "voteAdminMotion"
+      ],
+      "blocks": [
+        "AgentServiceAssignment",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/theft-watch": {
@@ -5363,7 +9507,11 @@
         "vendor-dashboard/theft-watch/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Image",
+        "VendorTierGate"
+      ]
     },
     "/vendor-dashboard/track-record": {
       "files": [
@@ -5372,7 +9520,11 @@
       "destinations": [
         "/vendor-dashboard/shop"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link",
+        "VendorTrackRecordPanel"
+      ]
     },
     "/vendor-dashboard/verify": {
       "files": [
@@ -5386,6 +9538,22 @@
         "submitApplication",
         "updateDocUpload",
         "withdrawApplication"
+      ],
+      "blocks": [
+        "ApplicationProgress",
+        "ApprovedCard",
+        "DocChecklist",
+        "DocSlotCard",
+        "FileUpload",
+        "PendingReviewCard",
+        "RejectedCard",
+        "SlotInputForm",
+        "StartApplicationCard",
+        "SubmitButton",
+        "SubmitCard",
+        "TypeOption",
+        "VendorDocSlotCard",
+        "VerificationStatusCard"
       ]
     },
     "/vendor-dashboard/website": {
@@ -5397,7 +9565,12 @@
       "destinations": [
         "/vendor-dashboard/shop"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "DomainActionResult",
+        "DomainManager",
+        "Link"
+      ]
     },
     "/vendor-invite/[slug]": {
       "files": [
@@ -5412,6 +9585,12 @@
       ],
       "actions": [
         "claimVendorInviteToEvent"
+      ],
+      "blocks": [
+        "Image",
+        "Link",
+        "LoadingActivity",
+        "SubmitButton"
       ]
     },
     "/vendor/claim/[token]": {
@@ -5422,6 +9601,15 @@
       "destinations": [],
       "actions": [
         "declineVendorInviteByToken"
+      ],
+      "blocks": [
+        "ClaimShell",
+        "DeclineForm",
+        "Link",
+        "Perk",
+        "SnapshotField",
+        "SubmitButton",
+        "TerminalCard"
       ]
     },
     "/vendor/claim/[token]/finalize": {
@@ -5432,7 +9620,11 @@
       "destinations": [
         "/login"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "ErrorShell",
+        "Link"
+      ]
     },
     "/vendor/fit/[ref]": {
       "files": [
@@ -5446,6 +9638,12 @@
       ],
       "actions": [
         "addVendorFromFit"
+      ],
+      "blocks": [
+        "Icon",
+        "Image",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/vendor/lock/[token]": {
@@ -5462,6 +9660,13 @@
       ],
       "actions": [
         "claimLockedQr"
+      ],
+      "blocks": [
+        "ClaimForm",
+        "Image",
+        "Link",
+        "LoadingActivity",
+        "SubmitButton"
       ]
     },
     "/vendors": {
@@ -5478,7 +9683,39 @@
         "/open-shop",
         "/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "CardGrid",
+        "CellView",
+        "Col",
+        "Eyebrow",
+        "FeatureLI",
+        "Fragment",
+        "GridCard",
+        "H2",
+        "HTMLAnchorElement",
+        "HTMLDivElement",
+        "Image",
+        "Lede",
+        "Link",
+        "RevealOnView",
+        "VendorGrowAI",
+        "VendorGrowAnalytics",
+        "VendorGrowCTA",
+        "VendorGrowFairPay",
+        "VendorGrowGetPaid",
+        "VendorGrowHero",
+        "VendorGrowHub",
+        "VendorGrowNoFakes",
+        "VendorGrowReach",
+        "VendorGrowStyles",
+        "VendorGrowThesis",
+        "VendorGrowTools",
+        "VendorGrowTrust",
+        "VendorGrowWebsite",
+        "VendorHeroGate",
+        "VendorTierMatrix"
+      ]
     },
     "/waitlist": {
       "files": [
@@ -5489,7 +9726,10 @@
         "/onboarding/wedding",
         "/vendors"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
     },
     "/wall/[eventId]": {
       "files": [
@@ -5498,7 +9738,15 @@
         "wall/[eventId]/page.tsx"
       ],
       "destinations": [],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "Conn",
+        "ConnDot",
+        "HeroMonogram",
+        "TileGrid",
+        "WallClaim",
+        "WallProjection"
+      ]
     },
     "/why-setnayan": {
       "files": [
@@ -5510,7 +9758,17 @@
         "/papic",
         "/setnayan-ai"
       ],
-      "actions": []
+      "actions": [],
+      "blocks": [
+        "HTMLDListElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "LineRevealHeading",
+        "Link",
+        "RevealBand",
+        "SettleRow"
+      ]
     }
   }
 }

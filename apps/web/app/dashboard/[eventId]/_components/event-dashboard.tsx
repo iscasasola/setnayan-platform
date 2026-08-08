@@ -11,6 +11,8 @@ import {
   Camera,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { fetchChecklistProgress } from '@/lib/checklist';
+import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -242,6 +244,7 @@ export async function EventDashboard({
     scheduleBlocks,
     hostAccounts,
     papicHome,
+    checklistProgress,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -551,6 +554,10 @@ export async function EventDashboard({
     // and it rides this existing batch rather than adding a round-trip. Returns
     // null (⇒ neither surface renders) when the event has no Papic signal at all.
     resolvePapicHomeTile(adminClient, eventId, canViewPapicCounts),
+    // Checklist completion for the doorway chip (§ 2.3b). Head-counts only —
+    // no rows, no seeding. Returns null on a failed read AND on a never-seeded
+    // event, which is why the chip is absent rather than "0%" in both cases.
+    fetchChecklistProgress(supabase, eventId),
   ]);
 
   const event = eventRes.data;
@@ -1047,6 +1054,8 @@ export async function EventDashboard({
   // One obsidian per view (§ 1.3): the "Big Day" focal is dark EXCEPT on the day
   // itself, where the DayOfModeGrid's "happening now" card owns the obsidian and
   // this focal steps down to a glass tile.
+  // E2: a `guard` item is a warning, so the phone fold starts OPEN when one exists.
+  const watchHasGuard = watchItems.some((w) => w.intervention.category === 'guard');
   const focalDark = !dayOfActive;
   // The focal's date line — the emotional anchor. Real event data or a muted
   // "to be set" (a no-date event still gets the SetDateNudge in slotAfterBento).
@@ -1520,6 +1529,23 @@ export async function EventDashboard({
                *  #3265 desktop inspector trigger (w:<dedupeKey>); below xl it's
                *  inert, matching a no-action row. This is what fills the tall
                *  focal in the AI state. */}
+              {/* AI: "The Watch" — the attention rows, inside the focal's lower half.
+                *  Each row keeps its #3265 desktop inspector trigger (w:<dedupeKey>);
+                *  below xl it's inert, matching a no-action row.
+                *
+                *  § 4 E2 — ON A PHONE THIS FOLDS. The AI focal is tall, and on <lg it
+                *  pushed "Needs you this week" below the fold — the one panel a couple
+                *  opens the app for. Nine months out the briefing is reassurance; the
+                *  digest is the job. Open by default when anything is a `guard`, so a
+                *  real warning is never hidden behind a tap.
+                *
+                *  ⚠ TWO BRANCHES, NOT ONE ELEMENT NEUTRALISED BY CSS. Forcing a single
+                *  <details> open at ≥lg leaves its <summary> clickable and focusable
+                *  while doing nothing visible — a dead control, which this repo treats
+                *  as a defect. Two branches is also the pattern already used for the
+                *  sidebar/bottom-nav split. `watchItems` is capped at 4, so the cost is
+                *  at most four rows of duplicate markup and no duplicate DOM ids —
+                *  `inspectId` is a query param, not an id. */}
               {aiActive && watchItems.length > 0 ? (
                 <>
                   <div
@@ -1528,6 +1554,59 @@ export async function EventDashboard({
                       background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
                     }}
                   />
+                  {/* Phone — a real disclosure. */}
+                  <details className="lg:hidden" open={watchHasGuard}>
+                    <summary className="sn-eye cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <Sparkles aria-hidden strokeWidth={1.75} />
+                      Setnayan AI · The Watch · {watchItems.length}
+                    </summary>
+                  <div className="mt-1">
+                    {watchItems.map(({ intervention, copy }) => {
+                      const watchColor =
+                        intervention.category === 'guard'
+                          ? 'var(--sn-info)'
+                          : 'var(--sn-gold-600)';
+                      return (
+                        <InspectorTrigger
+                          key={intervention.dedupeKey}
+                          inspectId={`w:${intervention.dedupeKey}`}
+                          className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                        >
+                          <span
+                            aria-hidden
+                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                            style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                          />
+                          <span className="min-w-0">
+                            <span
+                              className="block text-[10px] font-bold uppercase tracking-[0.13em]"
+                              style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                            >
+                              {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
+                            </span>
+                            <span
+                              className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
+                              style={{
+                                color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
+                              }}
+                            >
+                              {copy}
+                            </span>
+                          </span>
+                        </InspectorTrigger>
+                      );
+                    })}
+                  </div>
+                  <p
+                    className="mt-3 text-[10.5px]"
+                    style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
+                  >
+                    Suri fires a few alerts a week at most — deduped, most-urgent first.
+                  </p>
+                  </details>
+
+                  {/* Laptop — never folds. */}
+                  <div className="hidden lg:block">
                   <p className="sn-eye">
                     <Sparkles aria-hidden strokeWidth={1.75} />
                     Setnayan AI · The Watch
@@ -1575,6 +1654,7 @@ export async function EventDashboard({
                   >
                     Suri fires a few alerts a week at most — deduped, most-urgent first.
                   </p>
+                  </div>
                 </>
               ) : null}
             </div>
@@ -1636,9 +1716,16 @@ export async function EventDashboard({
                             <span className="block truncate text-[14px] font-semibold text-ink">
                               {item.label}
                             </span>
-                            <span className="block truncate text-[11.5px] text-ink/55">
-                              {item.sub}
-                            </span>
+                            {/* § 2.2 — on the DIGEST the second line earns its place
+                              *  only when it carries a date or a reference. Everything
+                              *  else it used to repeat is still written in full on the
+                              *  decisions board below, so nothing is lost, and the row
+                              *  becomes one line with one number as the frame draws it. */}
+                            {digestSubWorthShowing(item.sub) ? (
+                              <span className="block truncate text-[11.5px] text-ink/55">
+                                {item.sub}
+                              </span>
+                            ) : null}
                           </span>
                           <span
                             className={`flex-none whitespace-nowrap text-[13.5px] font-bold text-ink ${
@@ -1882,7 +1969,7 @@ export async function EventDashboard({
           )}
           {/* Doorway to the full planning checklist — the only in-UI entry point
            *  to /checklist since the standalone checklist card was removed. */}
-          <div className="mt-3.5 text-sm">
+          <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
             <Link
               href={`${base}/checklist`}
               className="font-semibold hover:underline"
@@ -1890,6 +1977,29 @@ export async function EventDashboard({
             >
               View your full checklist →
             </Link>
+            {/* § 2.3b — completion chip. Absent when the checklist has never been
+             *  seeded OR the read failed: both arrive as "no completed items", and
+             *  "0% done" would state a fact about their planning that nobody
+             *  measured. A finished list turns green rather than staying gold —
+             *  gold in this kit means "waiting on you", which 100% is not. */}
+            {checklistProgress ? (
+              (() => {
+                const pct = Math.round((checklistProgress.done / checklistProgress.total) * 100);
+                const complete = pct >= 100;
+                return (
+                  <span
+                    className="inline-flex flex-none items-center rounded-lg px-2 py-0.5 font-mono text-[11px] font-bold"
+                    style={
+                      complete
+                        ? { color: 'var(--sn-success)', background: '#E9EEE3' }
+                        : { color: 'var(--sn-gold-800)', background: 'rgba(169,131,75,.12)' }
+                    }
+                  >
+                    {pct}% done
+                  </span>
+                );
+              })()
+            ) : null}
           </div>
         </section>
 

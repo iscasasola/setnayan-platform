@@ -76,7 +76,7 @@ export function PaletteField({ initial }: { initial: Swatch[] }) {
         <button
           type="button"
           onClick={() => setRows((prev) => [...prev, { name: '', hex: SAMPLE_HEX }])}
-          className="inline-flex h-11 min-h-[44pt] items-center gap-2 rounded-md border border-dashed border-ink/25 bg-cream px-4 text-sm font-medium text-terracotta transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="inline-flex h-11 min-h-[44pt] items-center gap-2 rounded-md border border-dashed border-ink/25 bg-cream px-4 text-sm font-medium text-terracotta-700 transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           <span>Add another swatch</span>

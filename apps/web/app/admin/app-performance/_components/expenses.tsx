@@ -365,7 +365,7 @@ export async function ExpensesZone() {
                           <input type="hidden" name="expense_id" value={r.expense_id} />
                           <span
                             className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ background: 'var(--m-blush)', color: '#A0502F' }}
+                            style={{ background: 'var(--m-blush)', color: 'var(--m-blush-deepest)' }}
                           >
                             Missing
                           </span>

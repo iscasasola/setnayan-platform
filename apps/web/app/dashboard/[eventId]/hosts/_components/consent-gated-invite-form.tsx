@@ -258,7 +258,7 @@ function ConsentModal({
             type="button"
             onClick={() => onConfirm({ vendorLock: lockVendors, checkout: handlePayments })}
             disabled={!agreed}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
           >
             <UserCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
             Agree &amp; invite

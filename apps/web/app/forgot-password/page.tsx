@@ -135,7 +135,7 @@ export default async function ForgotPasswordPage({
               borderRadius: 'var(--m-r-sm)',
               border: '1px solid var(--m-orange-3)',
               background: 'var(--m-orange-4)',
-              color: 'var(--m-orange-2)',
+              color: 'var(--m-orange-deep)',
               fontSize: 13,
             }}
           >
@@ -207,7 +207,7 @@ export default async function ForgotPasswordPage({
               fontSize: 14,
               justifyContent: 'center',
               width: '100%',
-              background: 'var(--m-orange)',
+              background: 'var(--m-orange-2)',
               color: 'var(--m-paper)',
               border: 'none',
               borderRadius: 'var(--m-r-full)',

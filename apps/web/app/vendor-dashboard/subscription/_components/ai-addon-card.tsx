@@ -92,7 +92,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
         <span
           aria-hidden
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
         >
           <Bot className="h-5 w-5" strokeWidth={1.75} />
         </span>
@@ -171,7 +171,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
           ) : null}
 
           <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
             pendingLabel={trialAvailable ? 'Turning on…' : 'Starting…'}
           >
             {trialAvailable

@@ -53,7 +53,7 @@ export function ProfileChecklistEditor({
           ) : (
             <span
               className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ background: 'var(--m-paper)', color: 'var(--m-slate-3)' }}
+              style={{ background: 'var(--m-paper)', color: 'var(--m-slate-2)' }}
             >
               Unverified
             </span>

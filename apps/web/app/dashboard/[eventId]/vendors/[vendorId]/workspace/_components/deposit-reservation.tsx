@@ -132,7 +132,7 @@ export function DepositReservation({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terracotta/90"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
         >
           <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Record deposit
@@ -211,7 +211,7 @@ export function DepositReservation({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
             >
               {pending ? (
                 <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />

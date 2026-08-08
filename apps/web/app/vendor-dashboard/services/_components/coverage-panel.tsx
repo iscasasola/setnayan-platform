@@ -158,7 +158,7 @@ function YourCoverage({
             <span
               aria-hidden
               className="inline-flex h-6 w-6 items-center justify-center rounded-md"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               <Folder className="h-3.5 w-3.5" strokeWidth={1.75} />
             </span>

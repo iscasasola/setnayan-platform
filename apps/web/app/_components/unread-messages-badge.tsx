@@ -92,13 +92,13 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
     <Link
       href={href}
       aria-label={label}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
     >
       <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
       {unread > 0 ? (
         <span
           aria-hidden
-          className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream"
+          className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta-700 px-1 font-mono text-[9px] font-semibold text-cream"
         >
           {unread > 9 ? '9+' : unread}
         </span>

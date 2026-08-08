@@ -86,7 +86,7 @@ export function TaskActions({
         className="rounded-lg border px-2 py-1 text-[11px] font-medium disabled:opacity-60"
         style={
           t.status === 'not_applicable'
-            ? { background: 'var(--m-slate-3)', color: 'var(--m-paper)', borderColor: 'var(--m-slate-3)' }
+            ? { background: 'var(--m-slate-2)', color: 'var(--m-paper)', borderColor: 'var(--m-slate-3)' }
             : { borderColor: 'var(--m-line)', color: 'var(--m-slate-3)' }
         }
       >

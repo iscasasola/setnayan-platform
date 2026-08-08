@@ -417,7 +417,7 @@ function StatusChip({ ok }: { ok: boolean }) {
               background: 'color-mix(in srgb, var(--m-sage-deep) 14%, transparent)',
               color: 'var(--m-sage-deep)',
             }
-          : { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
+          : { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
       }
     >
       {ok ? (

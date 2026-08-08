@@ -354,7 +354,7 @@ function EnergyKpi({
         <span
           aria-hidden
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-          style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+          style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
         >
           {icon}
         </span>
@@ -729,7 +729,7 @@ export function OngoingTasks({ tasks }: { tasks: OngoingTask[] }) {
                   </span>
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold"
-                    style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                    style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                   >
                     {task.dueChip}
                   </span>

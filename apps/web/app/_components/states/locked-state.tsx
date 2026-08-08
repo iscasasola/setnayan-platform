@@ -41,7 +41,7 @@ export function LockedState({ tierLabel, title, blurb, action, preview }: Props)
             : 'flex flex-col items-center justify-center px-6 py-12 text-center'
         }
       >
-        <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-terracotta/30 bg-cream text-terracotta-700">
+        <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-terracotta/30 bg-cream text-terracotta-700-700">
           <Lock aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <span className="mb-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-terracotta-700">

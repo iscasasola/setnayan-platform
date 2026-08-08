@@ -338,7 +338,7 @@ export function ServiceWizard({
             name="publish"
             value="true"
             disabled={!canPublish}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
             pendingLabel="Publishing…"
           >
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />

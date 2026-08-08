@@ -163,7 +163,7 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
       onClick={handleLock}
       disabled={isPending}
       aria-label={`Lock wedding date to ${prettyDay(day)}`}
-      className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-xs text-ink/80 hover:border-terracotta hover:text-terracotta disabled:opacity-50"
+      className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-xs text-ink/80 hover:border-terracotta hover:text-terracotta-700 disabled:opacity-50"
       title={error ?? undefined}
     >
       {isPending ? 'Saving…' : prettyDay(day)}

@@ -263,7 +263,7 @@ export function StickyMarketplaceHeader({
                 ? `Open filters (${appliedCount} applied)`
                 : 'Open filters'
             }
-            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink hover:border-terracotta/40 hover:text-terracotta"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
           >
             <SlidersHorizontal
               className="h-4 w-4"
@@ -274,7 +274,7 @@ export function StickyMarketplaceHeader({
             {appliedCount > 0 ? (
               <span
                 aria-hidden
-                className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-terracotta px-1.5 font-mono text-[10px] text-cream"
+                className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-terracotta-700 px-1.5 font-mono text-[10px] text-cream"
               >
                 {appliedCount}
               </span>

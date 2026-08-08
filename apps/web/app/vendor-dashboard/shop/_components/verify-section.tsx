@@ -146,7 +146,7 @@ export function VerifySection({
           <span
             aria-hidden
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           >
             <BadgeCheck className="h-5 w-5" strokeWidth={1.75} />
           </span>
@@ -302,7 +302,7 @@ function StepShell({
                   background: 'color-mix(in srgb, var(--m-sage-deep) 14%, transparent)',
                   color: 'var(--m-sage-deep)',
                 }
-              : { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
+              : { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
           }
         >
           {done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : n}
@@ -346,10 +346,10 @@ function StepPill({
           color: 'var(--m-sage-deep)',
         }
       : tone === 'action'
-        ? { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }
+        ? { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
         : tone === 'checking'
           ? { background: 'var(--m-line-soft)', color: 'var(--m-slate)' }
-          : { background: 'var(--m-paper)', color: 'var(--m-slate-3)' };
+          : { background: 'var(--m-paper)', color: 'var(--m-slate-2)' };
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]"

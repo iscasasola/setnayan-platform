@@ -88,7 +88,7 @@ export function PublicEventDayBar({
               <Link
                 href={photosHref}
                 aria-label="Event photos"
-                className="inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta"
+                className="inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
               >
                 <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                 <span className="text-[0.6rem] font-medium leading-none">Photos</span>

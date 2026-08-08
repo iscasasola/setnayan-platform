@@ -152,7 +152,7 @@ export function OpenShopWizard({
           <span
             aria-hidden
             className="inline-flex h-11 w-11 items-center justify-center rounded-xl"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           >
             <Store className="h-5 w-5" strokeWidth={1.75} />
           </span>

@@ -22,7 +22,7 @@ export function ScopeNote({
       style={{
         borderColor: 'var(--m-line)',
         background: 'var(--m-paper)',
-        color: 'var(--m-slate-3)',
+        color: 'var(--m-slate-2)',
       }}
     >
       <Layers className="h-3 w-3" strokeWidth={1.75} aria-hidden />

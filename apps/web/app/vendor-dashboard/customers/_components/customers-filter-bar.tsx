@@ -64,7 +64,7 @@ export function CustomersFilterBar({
       <span
         aria-hidden
         className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+        style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
       >
         <Filter className="h-4 w-4" strokeWidth={1.75} />
       </span>
@@ -100,7 +100,7 @@ export function CustomersFilterBar({
             ? {
                 borderColor: 'var(--m-orange-2)',
                 background: 'var(--m-orange-4)',
-                color: 'var(--m-orange-2)',
+                color: 'var(--m-orange-deep)',
               }
             : {
                 borderColor: 'var(--m-line)',

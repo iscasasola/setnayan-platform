@@ -53,7 +53,7 @@ export async function VendorReuseInbox() {
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-terracotta px-3 py-1.5 text-sm font-semibold text-white hover:bg-terracotta/90"
+                  className="rounded-lg bg-terracotta-700 px-3 py-1.5 text-sm font-semibold text-cream hover:bg-terracotta-800"
                 >
                   {r.status === 'quoted' ? 'Re-quote' : 'Send quote'}
                 </button>

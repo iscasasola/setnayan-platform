@@ -28,7 +28,7 @@ export function ThreadArchiveToggle({
         type="submit"
         aria-label={archived ? 'Unarchive conversation' : 'Archive conversation'}
         title={archived ? 'Unarchive' : 'Archive'}
-        className="grid h-full min-h-[3.5rem] w-11 place-items-center rounded-xl border border-ink/10 bg-cream text-ink/45 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta"
+        className="grid h-full min-h-[3.5rem] w-11 place-items-center rounded-xl border border-ink/10 bg-cream text-ink/45 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta-700"
       >
         {archived ? (
           <ArchiveRestore aria-hidden className="h-4 w-4" strokeWidth={1.75} />

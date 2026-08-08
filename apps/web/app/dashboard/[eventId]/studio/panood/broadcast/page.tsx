@@ -217,7 +217,7 @@ function UpgradeBanner({ eventId }: { eventId: string }) {
       </div>
       <Link
         href={`/dashboard/${eventId}/studio/panood`}
-        className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-terracotta px-4 py-2 text-xs font-semibold text-cream hover:opacity-90 sm:self-auto"
+        className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-terracotta-700 px-4 py-2 text-xs font-semibold text-cream hover:opacity-90 sm:self-auto"
       >
         <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Unlock Live Studio

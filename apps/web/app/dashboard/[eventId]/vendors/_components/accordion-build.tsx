@@ -128,7 +128,7 @@ export function AccordionBuildButton({
             pin();
           }
         }}
-        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
+        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
       >
         <Hammer className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         {isPending ? 'Adding…' : 'Add to build'}
@@ -185,7 +185,7 @@ export function AccordionBuildButton({
                     type="button"
                     onClick={pin}
                     disabled={isPending}
-                    className="flex-1 rounded-md bg-terracotta px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-60"
+                    className="flex-1 rounded-md bg-terracotta-700 px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
                   >
                     {isPending ? '…' : 'Replace'}
                   </button>

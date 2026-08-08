@@ -169,7 +169,7 @@ export function AppointmentJoinButton({
         type="button"
         onClick={join}
         disabled={starting}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-terracotta/90 disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-2.5 py-1.5 text-[11px] font-semibold text-cream transition hover:bg-terracotta-800 disabled:opacity-60"
         aria-label={ringing ? `Join the incoming ${kind} call` : `Join the ${kind} call`}
       >
         <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

@@ -299,7 +299,7 @@ export default async function PapicGuestOrderPage({
             </label>
             <button
               type="submit"
-              className="inline-flex items-center justify-center rounded-xl bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-700"
+              className="inline-flex items-center justify-center rounded-xl bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
             >
               Log my payment
             </button>

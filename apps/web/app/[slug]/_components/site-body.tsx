@@ -820,7 +820,7 @@ export async function SiteBody({
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
-                className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta"
+                className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
               >
                 <MapPin aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Find your seat
@@ -1515,7 +1515,7 @@ export async function SiteBody({
                       always render. */}
                   <Link
                     href={`/${event.slug}/find-my-table`}
-                    className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+                    className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
                   >
                     <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                     Find my table

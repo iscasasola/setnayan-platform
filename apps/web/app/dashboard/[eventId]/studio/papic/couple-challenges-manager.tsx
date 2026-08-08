@@ -146,7 +146,7 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
                           type="submit"
                           title="Delete"
                           aria-label="Delete challenge"
-                          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
                         >
                           <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
                         </button>

@@ -29,7 +29,7 @@ export function QrCard({
           <div className="flex items-center gap-2.5">
             <span
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
               aria-hidden
             >
               <QrCode className="h-5 w-5" strokeWidth={1.75} />

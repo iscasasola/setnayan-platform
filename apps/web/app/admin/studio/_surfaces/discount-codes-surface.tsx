@@ -560,7 +560,7 @@ function Stat({
         className="flex h-8 w-8 items-center justify-center rounded-full"
         style={{
           background: 'var(--m-blush)',
-          color: 'var(--m-orange-2)',
+          color: 'var(--m-orange-deep)',
         }}
       >
         {icon}

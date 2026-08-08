@@ -274,7 +274,7 @@ export function PabuyaManager({
                     type="button"
                     disabled={isPending}
                     onClick={() => openEdit(m)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta-700 disabled:opacity-50"
                   >
                     <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                     Edit
@@ -287,7 +287,7 @@ export function PabuyaManager({
                         is_enabled: (!m.is_enabled).toString(),
                       })
                     }
-                    className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta-700 disabled:opacity-50"
                   >
                     {m.is_enabled ? (
                       <>
@@ -310,7 +310,7 @@ export function PabuyaManager({
                       })
                     }
                     aria-label={`Move ${m.label} up`}
-                    className="inline-flex items-center rounded-full border border-ink/15 bg-cream p-1.5 text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:opacity-40"
+                    className="inline-flex items-center rounded-full border border-ink/15 bg-cream p-1.5 text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta-700 disabled:opacity-40"
                   >
                     <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   </button>
@@ -323,7 +323,7 @@ export function PabuyaManager({
                       })
                     }
                     aria-label={`Move ${m.label} down`}
-                    className="inline-flex items-center rounded-full border border-ink/15 bg-cream p-1.5 text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta disabled:opacity-40"
+                    className="inline-flex items-center rounded-full border border-ink/15 bg-cream p-1.5 text-ink/75 transition-colors hover:border-terracotta hover:text-terracotta-700 disabled:opacity-40"
                   >
                     <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   </button>

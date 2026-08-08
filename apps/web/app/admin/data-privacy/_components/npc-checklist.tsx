@@ -142,7 +142,7 @@ function TaskCard({ task: t, counselGatedStill }: { task: NpcTaskRow; counselGat
             {t.counselGated ? (
               <span
                 className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
               >
                 <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} /> Counsel-gated
               </span>

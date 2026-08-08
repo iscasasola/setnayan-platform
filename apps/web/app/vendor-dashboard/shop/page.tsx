@@ -1083,7 +1083,7 @@ function HeroCard({
             <a
               href="#get-verified"
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-3)]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               <ShieldCheck className="h-3 w-3" strokeWidth={2} aria-hidden />
               Get verified ·{' '}
@@ -1364,7 +1364,7 @@ function BranchPanel({
       <div className="flex items-center gap-3">
         <span
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           aria-hidden
         >
           <Building2 className="h-4 w-4" strokeWidth={1.75} />

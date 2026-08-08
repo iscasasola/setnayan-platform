@@ -296,7 +296,7 @@ export function CheckinDesk({
           <button
             type="button"
             onClick={startScanner}
-            className="flex w-full items-center justify-center gap-2 bg-terracotta px-4 py-4 text-base font-semibold text-white transition-colors hover:bg-terracotta/90"
+            className="flex w-full items-center justify-center gap-2 bg-terracotta-700 px-4 py-4 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800"
           >
             <Camera className="h-5 w-5" /> Scan a guest’s QR
           </button>
@@ -414,7 +414,7 @@ export function CheckinDesk({
                 type="button"
                 disabled={busy}
                 onClick={() => doCheckIn(selected.guestId, scanning ? 'qr_scan' : 'manual_search')}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-4 py-3 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
               >
                 <Check className="h-5 w-5" /> Check in
               </button>

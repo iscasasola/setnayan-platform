@@ -502,7 +502,7 @@ export async function PricingSurface({ searchParams }: Props) {
               Reset
             </button>
             <SubmitButton
-              className="rounded-md bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta/90"
+              className="rounded-md bg-terracotta-700 px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
               pendingLabel="Saving all prices…"
             >
               Save all changes

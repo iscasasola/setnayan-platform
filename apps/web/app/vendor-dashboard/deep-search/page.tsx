@@ -151,7 +151,7 @@ export default async function VendorDeepSearchPage() {
           <span
             aria-hidden
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           >
             <Search className="h-5 w-5" strokeWidth={1.75} />
           </span>

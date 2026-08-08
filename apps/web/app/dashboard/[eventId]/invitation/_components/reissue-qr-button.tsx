@@ -170,7 +170,7 @@ export function ReissueQrButton({
                     setOpen(false);
                   })
                 }
-                className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-semibold text-cream shadow-sm transition hover:bg-terracotta-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream shadow-sm transition hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw aria-hidden className="h-4 w-4" strokeWidth={2} />
                 {pending ? 'Replacing…' : 'Replace QR'}

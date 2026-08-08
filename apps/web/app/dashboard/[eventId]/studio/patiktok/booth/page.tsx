@@ -306,7 +306,7 @@ function TemplateSlot({
       <p className="text-xs text-ink/55">{template.vibe}</p>
       <Link
         href={browseHref}
-        className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+        className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700-700"
       >
         Change {role === 'primary' ? 'primary' : 'backup'}
       </Link>
@@ -345,7 +345,7 @@ function RecordCTA({
       />
       <Link
         href={`/dashboard/${eventId}/studio/patiktok/${primaryTemplate.slug}`}
-        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700-700"
       >
         <Film className="h-4 w-4" strokeWidth={1.75} />
         Preview template + queue render

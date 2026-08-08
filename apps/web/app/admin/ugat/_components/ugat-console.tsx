@@ -1124,7 +1124,7 @@ function EdgeCard({
   return (
     <>
       <div className="ug-card-head">
-        <div className="ug-av" style={{ background: 'var(--ug-gold-soft)', color: 'var(--ug-lock)' }}>
+        <div className="ug-av" style={{ background: 'var(--ug-gold-soft)', color: 'var(--ug-lock-strong)' }}>
           <Ico name="link" />
         </div>
         <div className="ug-ti">

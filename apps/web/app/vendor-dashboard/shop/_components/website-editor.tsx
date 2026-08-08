@@ -963,7 +963,7 @@ function PickTile({
         <span
           aria-hidden
           className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full"
-          style={{ background: 'var(--m-orange)', color: 'var(--m-paper)' }}
+          style={{ background: 'var(--m-orange-2)', color: 'var(--m-paper)' }}
         >
           <Check className="h-3 w-3" strokeWidth={3} />
         </span>

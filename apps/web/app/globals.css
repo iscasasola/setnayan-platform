@@ -915,6 +915,11 @@ html.subnav-docked [data-shell-main] {
   --m-orange-2:   #8A6B39;
   --m-orange-3:   #CBA766;
   --m-orange-4:   #F3ECDF;
+  /* Deep gold — the ONLY gold that may carry TEXT. #A9834B/#8A6B39 score
+     3.37:1 / 4.21:1 against the pale gold wash, below the 4.5:1 AA floor for
+     normal text; this clears it at 7.50:1. Same value as tailwind
+     terracotta-800. Added 2026-08-08 with lint-label-on-fill-contrast.mjs. */
+  --m-orange-deep: #5C4726;
 
   /* Chrome nav active-state — Atelier GOLD (owner-locked 2026-07-12 design
    * finalization: gold supersedes wine; kit gold-700 for text/active contrast).
@@ -962,8 +967,10 @@ html.subnav-docked [data-shell-main] {
   /* Supporting (retained from v2.1 pending owner future call) */
   --m-blush:      #F4D7C9;
   --m-blush-deep: #B65A3A;
+  --m-blush-deepest: #783B28; /* label on --m-blush (6.28:1; -deep on it is 3.41:1) */
   --m-sage:       #C5D2BD;
   --m-sage-deep:  #4F6B4A;
+  --m-sage-deeper: #3C5237;   /* label on --m-sage (5.44:1; -deep on it is 3.77:1) */
 
   /* Semantic */
   --m-accent:      var(--m-orange);
@@ -2526,6 +2533,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-gold-500:   #A9834B;
   --sn-gold-600:   #95713D;
   --sn-gold-700:   #8A6B39;
+  --sn-gold-800:   #5C4726;   /* text-on-gold-wash — see --m-orange-deep */
 
   /* home-launcher fidelity additions (2026-07-15 pixel pass) —
      proto values with no pre-existing kit slot, named per owner rule
@@ -2535,6 +2543,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 
   /* semantic (warm-tuned, never neon) */
   --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
+  --sn-success-deep: #4F6B4A; /* label on --sn-success-soft (5.03:1; the plain one is 3.97:1) */
   --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
   --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;
   --sn-info:       #4E6C82;  --sn-info-soft:    #E2EAEF;

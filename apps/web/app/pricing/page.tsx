@@ -89,7 +89,7 @@ export const metadata = {
 function BuildStatusChip({ status }: { status: BuildStatus }) {
   if (status === 'live') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-cream">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-cream">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
         Live
       </span>

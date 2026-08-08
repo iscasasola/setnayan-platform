@@ -148,7 +148,7 @@ export function GuestHubBar({
           <Link
             href="/dashboard/profile"
             aria-label="Your account"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             <span>Account</span>
@@ -178,19 +178,19 @@ export function GuestHubBar({
             <button
               type="button"
               onClick={() => setQrOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta"
+              className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               <span>My QR</span>
             </button>
             <Link
               href={galleryHref}
-              className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta"
+              className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               <span>Photos of you</span>
               {galleryCount > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
                   {galleryCount > 99 ? '99+' : galleryCount}
                 </span>
               ) : null}
@@ -217,7 +217,7 @@ export function GuestHubBar({
             type="button"
             onClick={() => setQrOpen(true)}
             aria-label="Show my QR code"
-            className="inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta"
+            className="inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             <span className="text-[0.6rem] font-medium leading-none">My QR</span>
@@ -247,12 +247,12 @@ export function GuestHubBar({
           <Link
             href={galleryHref}
             aria-label="Photos of you"
-            className="relative inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta"
+            className="relative inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             <span className="text-[0.6rem] font-medium leading-none">Photos</span>
             {galleryCount > 0 ? (
-              <span className="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-terracotta px-1 text-[0.6rem] font-semibold leading-[1.1rem] text-cream">
+              <span className="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-terracotta-700 px-1 text-[0.6rem] font-semibold leading-[1.1rem] text-cream">
                 {galleryCount > 99 ? '99+' : galleryCount}
               </span>
             ) : null}
@@ -388,7 +388,7 @@ export function GuestHubBar({
                             }
                           })
                         }
-                        className="inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream transition hover:bg-terracotta-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <RefreshCw aria-hidden className="h-3 w-3" strokeWidth={2} />
                         {rotatePending ? 'Replacing…' : 'Yes, replace my QR'}

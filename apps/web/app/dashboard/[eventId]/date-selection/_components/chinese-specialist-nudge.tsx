@@ -40,7 +40,7 @@ export function ChineseSpecialistNudge() {
           </p>
           <Link
             href="/explore?category=date_fengshui_consultant"
-            className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+            className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
           >
             <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
             Find a date / feng-shui specialist

@@ -86,7 +86,7 @@ function FeatureLI({ icon, title, body }: { icon: string; title: string; body: s
           height: 34,
           borderRadius: 'var(--m-r-sm)',
           background: 'var(--m-orange-4)',
-          color: 'var(--m-orange-2)',
+          color: 'var(--m-orange-deep)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

@@ -83,7 +83,7 @@ export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, p
           type="button"
           onClick={() => setAdding((v) => !v)}
           aria-expanded={adding}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-3.5 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3.5 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
         >
           <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
           Add a branch

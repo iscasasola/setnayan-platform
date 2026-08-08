@@ -150,7 +150,7 @@ export function EventTypeCarousel({
           onClick={() => scrollToIndex(Math.max(0, active - 1))}
           disabled={active === 0}
           aria-label="Previous event type"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:bg-cream disabled:hover:text-ink/70"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:bg-cream disabled:hover:text-ink/70"
         >
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
@@ -196,7 +196,7 @@ export function EventTypeCarousel({
           onClick={() => scrollToIndex(Math.min(types.length - 1, active + 1))}
           disabled={active === types.length - 1}
           aria-label="Next event type"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:bg-cream disabled:hover:text-ink/70"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink/15 disabled:hover:bg-cream disabled:hover:text-ink/70"
         >
           <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>

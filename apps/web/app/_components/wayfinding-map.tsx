@@ -122,7 +122,7 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
         style={{ left: `${tEntrance.x}%`, top: `${tEntrance.y}%` }}
       >
         <div className="flex flex-col items-center gap-1">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta shadow-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta-700 shadow-sm">
             <DoorIcon />
           </span>
           <span className="rounded bg-cream/90 px-1.5 py-0.5 text-xs font-semibold text-ink/75 shadow-sm">

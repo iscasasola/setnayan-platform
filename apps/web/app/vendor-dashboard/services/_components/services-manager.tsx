@@ -589,7 +589,7 @@ export async function VendorServicesManager({
           <div className="flex items-start gap-3">
             <span
               className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               <Snowflake aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
@@ -1196,7 +1196,7 @@ export async function VendorServicesManager({
                   <span
                     aria-hidden
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
                   >
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </span>
@@ -1693,7 +1693,7 @@ function DiscountBadge({
   return (
     <span
       className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:inline-flex"
-      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
     >
       <Tag className="h-3 w-3" strokeWidth={2} />
       {label}
@@ -1750,7 +1750,7 @@ function SlotEditor({
                   type="submit"
                   aria-label={`Remove time slot ${slot.slot_label}`}
                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                  style={{ background: 'var(--m-paper-2)', color: 'var(--m-blush-deep)' }}
+                  style={{ background: 'var(--m-paper-2)', color: 'var(--danger-700)' }}
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </button>

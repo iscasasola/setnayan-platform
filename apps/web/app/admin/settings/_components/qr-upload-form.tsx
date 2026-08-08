@@ -190,7 +190,7 @@ export function QrUploadForm({
         accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif"
         required
         onChange={onFileChange}
-        className="block w-full cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
+        className="block w-full cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700-700 hover:file:bg-terracotta/15"
       />
 
       {status.kind === 'processing' ? (

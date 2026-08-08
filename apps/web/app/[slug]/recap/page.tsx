@@ -122,7 +122,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           </p>
           <Link
             href={`/${event.slug}`}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
           >
             Open their page
           </Link>

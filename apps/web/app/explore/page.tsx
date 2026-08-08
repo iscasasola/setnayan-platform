@@ -3097,7 +3097,7 @@ function EmptyState({
         </p>
         <Link
           href={buildHref(filters, { offSeason: false, page: 1 })}
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-600"
+          className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-800"
         >
           Show all vendors
         </Link>
@@ -4038,7 +4038,7 @@ async function CatalogView({
           <div className="mt-12 text-center">
             <Link
               href="/explore?browse=1"
-              className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+              className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
             >
               Browse all categories →
             </Link>
@@ -4090,7 +4090,7 @@ function VenueFilterBanner({
       </p>
       <Link
         href={showAllHref}
-        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all venue settings
       </Link>
@@ -4155,7 +4155,7 @@ function ReligionBanner({
       </p>
       <Link
         href="/explore?match=0"
-        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all faiths
       </Link>

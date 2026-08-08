@@ -406,7 +406,7 @@ export function ShapePicker({
                 setPending(null);
               }}
               disabled={pending === value}
-              className="rounded-lg bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-50"
+              className="rounded-lg bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
             >
               Apply
             </button>

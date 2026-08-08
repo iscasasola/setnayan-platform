@@ -319,7 +319,7 @@ export default async function AdminBudgetPlannerPage() {
           </div>
           <div className="mt-5">
             <SubmitButton
-              className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+              className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
               pendingLabel="Saving…"
             >
               Save settings
@@ -472,7 +472,7 @@ function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
         <span className="text-sm text-ink/70 sm:hidden">Active</span>
       </label>
       <SubmitButton
-        className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta/90 sm:px-4 sm:py-2 sm:text-sm"
+        className="rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-800 sm:px-4 sm:py-2 sm:text-sm"
         pendingLabel="Saving…"
       >
         Save
@@ -565,7 +565,7 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
         <span className="text-sm text-ink/70 sm:hidden">Active</span>
       </label>
       <SubmitButton
-        className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta/90 sm:px-4 sm:py-2 sm:text-sm"
+        className="rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-800 sm:px-4 sm:py-2 sm:text-sm"
         pendingLabel="Saving…"
       >
         Save

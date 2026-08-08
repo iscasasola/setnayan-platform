@@ -530,7 +530,7 @@ function SelfJoinDesktopRow({
             <SubmitButton
               overlay={false}
               pendingLabel="Keeping…"
-              className="inline-flex h-8 items-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+              className="inline-flex h-8 items-center rounded-md bg-terracotta-700 px-3 text-xs font-medium text-cream hover:bg-terracotta-800"
             >
               Keep
             </SubmitButton>
@@ -1123,7 +1123,7 @@ function BulkApplyForm({
       ))}
 
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta px-2 text-xs font-semibold text-cream">
+        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta-700 px-2 text-xs font-semibold text-cream">
           {count}
         </span>
         <span className="text-sm font-medium text-ink">selected</span>
@@ -1658,7 +1658,7 @@ function MobileSelfJoinCard({
           <SubmitButton
             overlay={false}
             pendingLabel="Keeping…"
-            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-terracotta-700 px-3 text-xs font-medium text-cream hover:bg-terracotta-800"
           >
             Keep
           </SubmitButton>

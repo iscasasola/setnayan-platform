@@ -142,7 +142,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
             <>
               <Link
                 href={editorHref}
-                className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta-600"
+                className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
               >
                 <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                 Edit editorial
@@ -160,7 +160,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
           ) : (
             <Link
               href={publicHref ?? editorHref}
-              className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-terracotta-600"
+              className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
             >
               View editorial
               <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

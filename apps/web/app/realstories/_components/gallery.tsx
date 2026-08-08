@@ -239,7 +239,7 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
             </span>
           ) : null}
           {showVideo ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-cream">
               <Play aria-hidden className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
               Live · 5s
             </span>

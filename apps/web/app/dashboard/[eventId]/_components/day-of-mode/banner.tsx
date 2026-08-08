@@ -117,7 +117,7 @@ export function DayOfModeBanner({ eventId, blocks }: Props) {
     >
       <span
         aria-hidden
-        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta text-cream sm:mt-0"
+        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream sm:mt-0"
       >
         <Radio className="h-4 w-4" strokeWidth={2} />
       </span>

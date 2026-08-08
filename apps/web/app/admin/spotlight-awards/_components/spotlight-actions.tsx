@@ -35,7 +35,7 @@ export function SpotlightRecomputeButton() {
           }),
         )
       }
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+      className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
     >
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />

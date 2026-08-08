@@ -41,7 +41,7 @@ export function TestResendButton() {
         type="button"
         onClick={run}
         disabled={state === 'testing'}
-        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700-700 disabled:opacity-60"
       >
         {state === 'testing' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />

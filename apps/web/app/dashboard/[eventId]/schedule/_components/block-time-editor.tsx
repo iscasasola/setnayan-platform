@@ -86,7 +86,7 @@ export function BlockTimeEditor({
             setErrorMessage(null);
             setEditing(true);
           }}
-          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 text-[10px] font-medium tracking-[0.15em] text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 text-[10px] font-medium tracking-[0.15em] text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
         >
           <Pencil aria-hidden className="h-3 w-3" strokeWidth={2} />
           Edit time

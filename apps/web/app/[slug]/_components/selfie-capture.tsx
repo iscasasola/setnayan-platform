@@ -624,7 +624,7 @@ export function SelfieCapture({
                     type="button"
                     onClick={capture}
                     disabled={!ready || busy}
-                    className="inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta/90 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full bg-terracotta-700 px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-50"
                   >
                     <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     {multiShot ? `Capture angle ${shots.length + 1}` : 'Capture'}

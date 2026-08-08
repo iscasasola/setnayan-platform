@@ -520,7 +520,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                       <input type="hidden" name="visibility" value="couple_visible" />
                       <SubmitButton
                         pendingLabel="Releasing…"
-                        className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta/90"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-800"
                       >
                         <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         Release to couple
@@ -718,7 +718,7 @@ function EventDayView({
           <span
             aria-hidden
             className="flex h-10 w-10 flex-none items-center justify-center rounded-full"
-            style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+            style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
           >
             <CalendarClock className="h-5 w-5" strokeWidth={1.75} />
           </span>

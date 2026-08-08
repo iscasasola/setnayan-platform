@@ -472,7 +472,7 @@ async function CustomersPipeline({ searchParams }: Props) {
               <span
                 aria-hidden
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
                 <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
               </span>
@@ -504,7 +504,7 @@ async function CustomersPipeline({ searchParams }: Props) {
               <span
                 aria-hidden
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
                 <Sparkles className="h-4 w-4" strokeWidth={1.75} />
               </span>
@@ -598,7 +598,7 @@ async function CustomersPipeline({ searchParams }: Props) {
                       <span
                         aria-hidden
                         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                       >
                         {initialsOf(r.eventName)}
                       </span>

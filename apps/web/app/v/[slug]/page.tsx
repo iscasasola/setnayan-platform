@@ -378,6 +378,30 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   return (data ?? null) as PublicVendorRow | null;
 }
 
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
+ * anything uploaded through the shop editor, and a browser cannot fetch that —
+ * it renders a broken-image glyph, throws nothing, logs nothing.
+ *
+ * This page was the LAST and highest-value entry on the debt list in
+ * `scripts/lint-stored-asset-refs.mjs`, and it stayed there until the owner
+ * approved his own shop, opened the public address, and saw his logo missing at
+ * the top of it. The resolver was already imported in this file and already used
+ * for portfolio photos and showcase videos, ~1200 lines above the logo — the
+ * pattern was applied to every asset on the page except the one in the header.
+ *
+ * Swallows presign failures on purpose: a logo is decoration, and `<Logo>` falls
+ * back to the vendor's initials. Taking a whole public shop page down because an
+ * R2 signature could not be minted would be a worse outcome than no picture.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
@@ -428,6 +452,7 @@ export async function vendorMetadataBySlug(slug: string) {
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
+  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
   // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — extend the
   // base metadata from PR #573 with canonical URL + OpenGraph profile card
   // + Twitter summary_large_image so social shares of a vendor profile
@@ -445,11 +470,14 @@ export async function vendorMetadataBySlug(slug: string) {
       description: descText,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      ...(vendor.logo_url
+      // Same r2:// trap as the on-page logo — an unresolved reference here is a
+      // social card with a broken picture, which nobody sees until a link is
+      // already shared. Resolved once, reused by both cards below.
+      ...(logoDisplayUrl
         ? {
             images: [
               {
-                url: vendor.logo_url,
+                url: logoDisplayUrl,
                 /* Hybrid-anonymity (V2.1 amendment #2): alt text uses
                    the resolved display label so social previews don't
                    leak a hidden business_name via crawler-friendly alt. */
@@ -463,7 +491,7 @@ export async function vendorMetadataBySlug(slug: string) {
       card: 'summary_large_image',
       title: titleText,
       description: descText,
-      ...(vendor.logo_url ? { images: [vendor.logo_url] } : {}),
+      ...(logoDisplayUrl ? { images: [logoDisplayUrl] } : {}),
     },
   };
 }
@@ -763,6 +791,10 @@ export async function renderVendorBySlug({
     boothTierCanBrand(vendor.tier_state ?? null) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
+  // Resolved ONCE for the whole render — the header logo and the JSON-LD
+  // `image` below both consume it. See resolveDisplayUrl: the stored value is
+  // an `r2://` reference, not something an <img> can load.
+  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
 
   const pageRaw = Number(search.reviewsPage ?? '1');
   const reviewsPage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -1541,7 +1573,7 @@ export async function renderVendorBySlug({
     name: displayLabel,
     url: `${SITE_URL}/${slug}`,
     description: vendor.tagline ?? `${displayLabel} on Setnayan.`,
-    image: vendor.logo_url ?? `${SITE_URL}/icon-512.svg`,
+    image: logoDisplayUrl ?? `${SITE_URL}/icon-512.svg`,
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'PH',
@@ -1855,7 +1887,7 @@ export async function renderVendorBySlug({
         >
           <div className="min-w-0">
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
-          <Logo logoUrl={vendor.logo_url} name={displayLabel} />
+          <Logo logoUrl={logoDisplayUrl} name={displayLabel} />
           <div className="min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-

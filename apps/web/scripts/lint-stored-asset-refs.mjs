@@ -94,8 +94,14 @@ const BASELINE = new Set([
   'app/vendor-invite/[slug]/page.tsx',
   'app/open-shop/page.tsx',
   'app/v/[slug]/booth/page.tsx',
-  // The PUBLIC shop page itself — the highest-value one still owed.
-  'app/v/[slug]/page.tsx',
+  // ✅ PAID 2026-08-08 — `app/v/[slug]/page.tsx`, which this list called "the
+  // highest-value one still owed", is fixed and removed. What it cost while it
+  // sat here: the owner approved his own shop, opened the public address, and
+  // the first thing on the page was a broken-image glyph where his logo goes.
+  // The debt note named the risk exactly and nobody was reading the note.
+  // 🔑 A BASELINE IS A BILL, NOT A DECISION. Every line here is a surface that
+  // shows no logo to a real person right now; work the list down, and start
+  // with whatever is publicly reachable.
 ]);
 
 const failures = [];

@@ -1380,12 +1380,6 @@ export async function EventDashboard({
                 focalDark ? 'sn-tile-dark' : 'sn-tile'
               }`}
             >
-              {focalDark ? (
-                <>
-                  <span className="sn-veil" aria-hidden />
-                  <span className="sn-capiz" aria-hidden />
-                </>
-              ) : null}
               <p className="sn-eye">
                 <CalendarClock aria-hidden strokeWidth={1.75} />
                 The {eventWord} day

@@ -48,37 +48,55 @@ const CHIP: Record<
   CustomerDayStateKind,
   { label: string; bg: string; fg: string; border: string }
 > = {
-  full: { label: 'Full', bg: 'var(--m-ink)', fg: '#fff', border: 'var(--m-ink)' },
+  // Labels are CREAM, never pure white — the palette lock retired #fff on
+  // 2026-07-13 and these two literals outlived it.
+  full: { label: 'Full', bg: 'var(--m-ink)', fg: 'var(--m-paper)', border: 'var(--m-ink)' },
+  // The RESTING booked chip = a day the vendor booked themselves. A day Setnayan
+  // brought is overridden to gold at the call site (§ 2.7b) — one state, two
+  // origins, which is the split's whole purpose.
   booked: {
     label: 'Booked',
-    bg: 'rgba(79,107,74,0.14)',
-    fg: 'var(--m-sage-deep)',
-    border: 'rgba(79,107,74,0.30)',
+    bg: 'rgba(30,26,18,0.06)',
+    fg: 'var(--m-slate)',
+    border: 'rgba(30,26,18,0.14)',
   },
+  // A hard hold is the vendor's own strong mark, so it takes the CTA colour.
   locked: {
     label: 'Locked',
-    bg: 'var(--m-orange-4)',
-    fg: 'var(--m-orange-2)',
-    border: 'var(--m-orange-3)',
+    bg: 'rgba(194,78,37,0.10)',
+    fg: 'var(--m-mulberry-deep)',
+    border: 'rgba(194,78,37,0.28)',
   },
+  // ⚠ VIOLET IS RETIRED APP-WIDE and this was the last live consumer — the
+  // customers STATUS_PILL moved off it long ago and this chip lagged behind.
   whitelist: {
     label: 'Whitelist',
-    bg: 'rgba(139,123,184,0.14)',
-    fg: '#6D5C9C',
-    border: 'rgba(139,123,184,0.32)',
+    bg: 'rgba(59,78,103,0.10)',
+    fg: '#3B4E67',
+    border: 'rgba(59,78,103,0.30)',
   },
+  // Unmistakable is the point — the full-black cell stays exactly as it was.
   blocked: {
     label: 'Blocked',
     bg: 'var(--m-ink)',
-    fg: '#fff',
+    fg: 'var(--m-paper)',
     border: 'var(--m-ink)',
   },
+  // Waiting-on-people is gold in this kit's dot vocabulary.
   waitlist: {
     label: 'Waitlist',
-    bg: 'rgba(184,134,47,0.14)',
-    fg: '#946A17',
-    border: 'rgba(184,134,47,0.30)',
+    bg: 'rgba(169,131,75,0.14)',
+    fg: 'var(--m-orange-deep)',
+    border: 'rgba(169,131,75,0.30)',
   },
+};
+
+/** A booked day Setnayan brought — gold, against the neutral self-booked chip. */
+const CHIP_BOOKED_SETNAYAN = {
+  label: 'Booked',
+  bg: 'rgba(169,131,75,0.12)',
+  fg: 'var(--m-orange-deep)',
+  border: 'rgba(169,131,75,0.30)',
 };
 
 /** Raw, filter-agnostic month inputs cached per month for instant re-derive. */
@@ -203,6 +221,23 @@ export function CustomersCalendar({
     );
   }, [month, monthInputs, filteredPools, filteredBookings, blocks, todayIso]);
 
+  // "6 booked · 2 held" — booked counts days the calendar shows as booked or
+  // full; held counts hard holds. Derived from `data.days`, so it always
+  // describes exactly what is on screen: a narrowed filter narrows the counts.
+  const monthCounts = useMemo(() => {
+    let booked = 0;
+    let held = 0;
+    for (const d of data.days) {
+      if (d.state === 'booked' || d.state === 'full') booked += 1;
+      else if (d.state === 'locked') held += 1;
+    }
+    if (booked === 0 && held === 0) return null;
+    const parts: string[] = [];
+    if (booked > 0) parts.push(`${booked} booked`);
+    if (held > 0) parts.push(`${held} held`);
+    return parts.join(' · ');
+  }, [data.days]);
+
   const goToMonth = useCallback(
     (delta: number) => {
       const nextMonth = shiftMonth(month, delta);
@@ -288,6 +323,15 @@ export function CustomersCalendar({
               />
             ) : null}
           </h2>
+          {/* § 2.7a — what this month actually holds, counted from the days on
+            *  screen, so a narrowed filter narrows the counts (correct: it
+            *  describes what you are looking at). Omitted entirely when both are
+            *  zero — "0 booked · 0 held" is noise on an empty month. */}
+          {monthCounts ? (
+            <span className="font-mono text-[12px]" style={{ color: 'var(--m-slate-2)' }}>
+              {monthCounts}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={() => goToMonth(1)}
@@ -341,7 +385,14 @@ export function CustomersCalendar({
             <div key={`pad-${i}`} />
           ))}
           {data.days.map((day) => {
-            const chip = day.state ? CHIP[day.state] : null;
+            // § 2.7b — one state, two origins. A booked day Setnayan brought
+            // reads gold; a day the vendor booked themselves stays neutral. The
+            // STATE is identical either way; only its origin is being said.
+            const chip = day.state
+              ? day.state === 'booked' && day.setnayanConsumed > 0
+                ? CHIP_BOOKED_SETNAYAN
+                : CHIP[day.state]
+              : null;
             // A blocked day is a hard closure — it can't be booked. Paint the
             // WHOLE cell black with a white "BLOCKED" stamp so it's unmistakable,
             // and let it win over the heat tint (a closure isn't "intensity").
@@ -372,7 +423,7 @@ export function CustomersCalendar({
                       ? heatBg
                       : day.isToday
                         ? 'var(--m-orange-4)'
-                        : '#fff',
+                        : 'var(--m-paper)',
                   opacity: day.past ? 0.45 : 1,
                 }}
               >
@@ -380,7 +431,7 @@ export function CustomersCalendar({
                   className="font-mono text-[11px] font-semibold"
                   style={{
                     color: isBlocked
-                      ? '#fff'
+                      ? 'var(--m-paper)'
                       : day.isToday
                         ? 'var(--m-orange-2)'
                         : 'var(--m-ink)',
@@ -392,7 +443,7 @@ export function CustomersCalendar({
                   <span
                     className="mt-1 inline-flex items-center self-start rounded px-1 py-px text-[10px] font-bold uppercase leading-tight tracking-wide"
                     style={{
-                      color: '#fff',
+                      color: 'var(--m-paper)',
                       border: '1px solid rgba(255,255,255,0.45)',
                     }}
                     title="Blocked — closed, can't be booked"
@@ -452,6 +503,19 @@ export function CustomersCalendar({
           className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]"
           style={{ color: 'var(--m-slate-2)' }}
         >
+          {/* Setnayan-brought bookings get their own swatch — a legend that does
+            *  not mirror the cells 1:1 is worse than no legend. */}
+          <span className="inline-flex items-center gap-1">
+            <span
+              aria-hidden
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                background: CHIP_BOOKED_SETNAYAN.bg,
+                border: `1px solid ${CHIP_BOOKED_SETNAYAN.border}`,
+              }}
+            />
+            Booked via Setnayan
+          </span>
           {(
             [
               'full',

@@ -1301,15 +1301,15 @@ function RequestStatusBadge({
   mapped: string | null;
 }) {
   const map: Record<CategoryRequestRow['status'], { label: string; bg: string; fg: string }> = {
-    pending: { label: 'Pending review', bg: 'var(--m-orange-4)', fg: 'var(--m-orange-2)' },
-    promoted: { label: 'Added to directory', bg: 'var(--m-sage)', fg: 'var(--m-sage-deep)' },
+    pending: { label: 'Pending review', bg: 'var(--m-orange-4)', fg: 'var(--m-orange-deep)' },
+    promoted: { label: 'Added to directory', bg: 'var(--m-sage)', fg: 'var(--m-sage-deeper)' },
     mapped: {
       label: mapped ? `Use "${mapped}"` : 'Mapped to an existing category',
       bg: 'var(--m-paper-2)',
       fg: 'var(--m-slate)',
     },
     kept_private: { label: 'Kept for your listing', bg: 'var(--m-paper-2)', fg: 'var(--m-slate-2)' },
-    rejected: { label: 'Not added', bg: 'var(--m-blush)', fg: 'var(--m-blush-deep)' },
+    rejected: { label: 'Not added', bg: 'var(--m-blush)', fg: 'var(--m-blush-deepest)' },
   };
   const { label, bg, fg } = map[status];
   return (

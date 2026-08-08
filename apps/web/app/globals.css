@@ -961,6 +961,7 @@ html.subnav-docked [data-shell-main] {
    * body copy on the vendor pages. Left neutral on purpose. */
   --m-mulberry:    #C24E25;
   --m-mulberry-2:  #B04722;
+  --m-mulberry-deep: #974930; /* text on a mulberry WASH (5.38:1; the plain CTA on it is 4.04:1) */
   --m-mulberry-3:  #C9CBCE;  /* neutral — light text on dark + disabled fill (see above) */
   --m-mulberry-4:  #ECEDEE;  /* neutral — pairs with -3 */
 
@@ -2543,6 +2544,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 
   /* semantic (warm-tuned, never neon) */
   --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
+  --sn-warning-deep: #7A5119; /* text on --sn-warning-soft (5.84:1; the plain one is 2.92:1) */
   --sn-success-deep: #4F6B4A; /* label on --sn-success-soft (5.03:1; the plain one is 3.97:1) */
   --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
   --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;

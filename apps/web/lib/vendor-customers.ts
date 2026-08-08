@@ -79,6 +79,15 @@ export type CustomerCalendarDay = {
   state: CustomerDayStateKind | null;
   /** Consuming reservations (booked + external) summed across visible pools. */
   consumed: number;
+  /**
+   * The share of `consumed` that Setnayan brought (pool bookings), as opposed to
+   * the vendor's own `external_client` blocks. `consumed - setnayanConsumed` is
+   * the outside share.
+   *
+   * 🔑 ADDITIVE — no existing field changes meaning and the six-state precedence
+   * is untouched. A day is still `booked` whoever booked it; this only says who.
+   */
+  setnayanConsumed: number;
   /** Sum of daily capacity across visible pools (for the "n/cap" label). */
   capacity: number;
   /** How many couples are waitlisted on this date (0 = none). */
@@ -98,6 +107,8 @@ export type CustomerCalendarMonth = {
 /** Per-pool per-day consuming/closure/state accumulation (internal). */
 type DayAcc = {
   consumed: number;
+  /** The share of `consumed` that came through Setnayan (pool bookings). */
+  setnayanConsumed: number;
   capacity: number;
   closed: boolean;
   locked: boolean;
@@ -139,6 +150,7 @@ export function buildCustomerCalendarMonth(
     for (let d = 1; d <= daysInMonth; d++) {
       inner.set(dateOf(d), {
         consumed: 0,
+        setnayanConsumed: 0,
         capacity: p.capacity,
         closed: false,
         locked: false,
@@ -153,7 +165,15 @@ export function buildCustomerCalendarMonth(
   for (const b of bookings) {
     if (!poolIds.has(b.poolId)) continue;
     const st = acc.get(b.poolId)?.get(b.bookedDate);
-    if (st) st.consumed += 1;
+    if (st) {
+      st.consumed += 1;
+      // A pool booking is a client Setnayan brought. The `external_client` block
+      // below also consumes capacity but is the vendor's own client, so it is
+      // deliberately NOT counted here — that difference is the whole point of
+      // the split, and merging them is what made a full calendar unreadable
+      // about where the work came from.
+      st.setnayanConsumed += 1;
+    }
     const set = labelsByDate.get(b.bookedDate) ?? new Set<string>();
     set.add(b.eventName);
     labelsByDate.set(b.bookedDate, set);
@@ -198,6 +218,7 @@ export function buildCustomerCalendarMonth(
   for (let d = 1; d <= daysInMonth; d++) {
     const date = dateOf(d);
     let consumed = 0;
+    let setnayanConsumed = 0;
     let capacity = 0;
     let anyClosed = false;
     let allClosed = pools.length > 0;
@@ -213,6 +234,7 @@ export function buildCustomerCalendarMonth(
         continue;
       }
       consumed += st.consumed;
+      setnayanConsumed += st.setnayanConsumed;
       capacity += capById.get(p.poolId) ?? st.capacity;
       if (st.closed) anyClosed = true;
       else allClosed = false;
@@ -244,6 +266,7 @@ export function buildCustomerCalendarMonth(
       isToday: date === todayIso,
       state,
       consumed,
+      setnayanConsumed,
       capacity,
       waitlistCount,
       eventLabels: [...(labelsByDate.get(date) ?? [])],

@@ -48,7 +48,7 @@ function fmtDate(iso: string | null): string {
 
 function StatusBadge({ status }: { status: TokenRow['status'] }) {
   const map = {
-    pending: { label: 'Pending', bg: 'rgba(197,160,89,0.15)', fg: 'var(--m-orange-2)', Icon: Clock },
+    pending: { label: 'Pending', bg: 'rgba(197,160,89,0.15)', fg: 'var(--m-orange-deep)', Icon: Clock },
     claimed: { label: 'Claimed', bg: 'rgba(79,107,74,0.12)', fg: 'var(--m-sage-deep)', Icon: Check },
     void: { label: 'Void', bg: 'rgba(0,0,0,0.06)', fg: 'var(--m-slate-2)', Icon: Ban },
   }[status];

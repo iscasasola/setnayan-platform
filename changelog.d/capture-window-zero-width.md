@@ -212,3 +212,39 @@ comment does not travel with a value.
 asserts the profile name matches the maths it produces. Sabotaged back to 854 → **3
 failures**. ⚠ The assertions are **floors, not equalities** — raising quality is a
 cost decision, not a defect, and the guard must never block an improvement.
+
+### Same PR · both kept copies raised to 1920 — matched to a 42" LED TV
+
+Owner: *"how about on flat screen TV?… like 42 inch led tv."* A 42" set is
+**1920×1080 native**, so a 1920 long edge is a **1:1 pixel match** — nothing
+upscaled.
+
+| kept copy | was | now |
+|---|---|---|
+| photo (gallery) | 1280 | **1920** |
+| clip (playback) | 854 → 1280 | **1920** (1080p) |
+
+🚨 **THE CORRECTION THAT DROVE THIS — I had it wrong.** I said the original covers
+TV viewing for the first six months. It does not: `clipPlaybackRef()` resolves
+`clip_web_r2_key ?? r2_object_key`, so **the web copy wins from day one**, and the
+corpus is explicit that *"full-res is a download, never streamed."* These sizes are
+not a post-retention fallback — they are the product's picture quality on every
+screen, permanently. That single fact is what made 720p insufficient.
+
+On the named screen: at 1280 a landscape photo was **upscaled 1.5×** — the display
+inventing a third of the pixels. At 1920 it is exact. Clips at 1080p land 1:1 in
+landscape and are downscaled in portrait.
+
+I also over-stated the case for stopping at 720p by claiming 1080p is "nearly the
+original". **Wrong** — a 1080p copy is ~2.2 MB against a ~16 MB raw, still an ~86%
+saving. That error is precisely why 720p looked like enough.
+
+**Cost:** forever pool ~0.42 → ~0.92 GB/event (**₱4.83 → ₱10.6/event/yr**). At 500k
+events/yr, ₱12.1M → ₱26.5M/yr — against hundreds of millions of revenue at that
+scale, and it buys the screen the owner actually named.
+⚠ **Scrolling is unaffected** — grid tiles are 320px thumbs; the bigger copy loads
+only when a photo is opened, so venue-wifi browsing costs the same.
+
+🛡 Guard extended: floors for both copies, a **clip-never-weaker-than-photo**
+invariant (the exact shape of the 480-vs-1280 drift), and the profile name must
+equal the resolution it produces. Sabotaged at 1280 and 854 → 2 and 4 failures.

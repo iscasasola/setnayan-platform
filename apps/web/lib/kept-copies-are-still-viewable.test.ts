@@ -13,9 +13,15 @@ import { WEB_LONG_EDGE } from './video-compress';
  *
  * The plan is not invented here — it is the corpus:
  *   · `Papic_Good_Better_Best_Pricing_2026-07-17.md` §4 — the kept clip copy is
- *     "compressed clip copies (**720p-class**)".
+ *     "compressed clip copies (**720p-class**)"  ← the FLOOR, since raised.
  *   · `Papic_Pricing_Plan_of_Action_2026-07-20.md` — "compressed gallery
- *     (**AVIF long-edge 1280**)".
+ *     (**AVIF long-edge 1280**)"  ← the FLOOR, since raised.
+ *
+ * 🔒 BOTH RAISED TO 1920 ON 2026-08-07 when the owner named the screen: *"how
+ * about on flat screen TV?… like 42 inch led tv"*. A 42" set is 1920×1080
+ * native, so 1920 is a 1:1 pixel match — at 1280 that display was inventing a
+ * third of the pixels it showed. The corpus figures above stay recorded as the
+ * floors they are; these assertions enforce the raised numbers.
  *   · `Papic_Storage_Sustainability_Spec_2026-07-22.md` — the stated goal is
  *     "every Papic memory survives forever, **at viewable resolution**".
  *
@@ -29,9 +35,15 @@ import { WEB_LONG_EDGE } from './video-compress';
  * after the original is replaced. A number that is merely "small enough" quietly
  * decides what a couple still has years later.
  *
- * 🔑 THESE ASSERTIONS ARE FLOORS, NOT EQUALITIES. Going HIGHER than the plan is
- * a cost decision, not a defect — the guard must not block someone improving
- * quality. It only catches the direction that silently takes something away.
+ * 🔑 THESE ASSERTIONS ARE FLOORS, NOT EQUALITIES. Going HIGHER is a cost
+ * decision, not a defect — the guard must never block someone improving quality.
+ * It only catches the direction that silently takes something away.
+ *
+ * 🚨 AND THE REASON THE NUMBERS MATTER AT ALL: this is the ONLY copy the gallery
+ * ever shows or plays. `clipPlaybackRef()` prefers `clip_web_r2_key` from day
+ * one and the corpus is explicit that "full-res is a download, never streamed" —
+ * so these are not fallback sizes for after the retention window. They are the
+ * product's picture quality, on every screen, permanently.
  */
 
 const WEB = process.cwd();
@@ -39,7 +51,7 @@ const WEB = process.cwd();
 /** A Papic clip is portrait 9:16 by convention — the phone-native shape. */
 const PORTRAIT_SHORT_OVER_LONG = 9 / 16;
 
-test('🔒 the kept CLIP copy is 720p-class, per the owner plan', () => {
+test('🔒 the kept CLIP copy is at least 1080p — never below the plan floor', () => {
   const shortEdge = Math.round(WEB_LONG_EDGE * PORTRAIT_SHORT_OVER_LONG);
   assert.ok(
     shortEdge >= 720,
@@ -50,14 +62,18 @@ test('🔒 the kept CLIP copy is 720p-class, per the owner plan', () => {
   );
 });
 
-test('🔒 the kept PHOTO copy is long-edge 1280, per the owner plan', () => {
+test('🔒 the kept PHOTO copy matches a 42" LED TV (1920 long edge)', () => {
   const src = readFileSync(join(WEB, 'lib/papic-derivatives.ts'), 'utf8');
   const m = src.match(/const DISPLAY_LONG_EDGE\s*=\s*(\d+)/);
   assert.ok(m, 'DISPLAY_LONG_EDGE not found — update this guard with the new name');
   const longEdge = Number(m![1]);
   assert.ok(
-    longEdge >= 1280,
-    `the kept photo copy is ${longEdge}px on its long edge; the plan is 1280.`,
+    longEdge >= 1920,
+    `the kept photo copy is ${longEdge}px on its long edge. A 42" LED TV is ` +
+      `1920x1080 native and is a stated use case, so anything below 1920 is ` +
+      `upscaled by the display on the exact screen the owner named. This is also ` +
+      `the ONLY copy the gallery ever shows — the original is a download, never ` +
+      `displayed — so it is the product's picture quality, permanently.`,
   );
 });
 
@@ -85,14 +101,36 @@ test('🪤 the profile NAME must not out-date the size it produces', () => {
   }
 });
 
-test('both kept copies share ONE long edge, so they cannot drift apart', () => {
+test('🪤 the CLIP copy may never be weaker than the PHOTO copy', () => {
+  // The invariant that actually encodes the failure. Video is the half nobody
+  // spot-checks: photos were correct at 1280 while clips sat at 480, and the
+  // right-looking half is what let the wrong half survive. So rather than
+  // demanding one shared number, pin the DIRECTION — clips must be at least as
+  // generous as photos. Motion is watched full-screen more often than a still
+  // is, so video being the weaker copy is never the intended outcome.
   const src = readFileSync(join(WEB, 'lib/papic-derivatives.ts'), 'utf8');
   const photo = Number(src.match(/const DISPLAY_LONG_EDGE\s*=\s*(\d+)/)![1]);
-  assert.equal(
-    WEB_LONG_EDGE,
-    photo,
-    'photo and clip web copies use different long edges. They are the same ' +
-      'promise to the same person on the same screen; one number is easier to ' +
-      'defend than two, and two is how the video half fell to 480p unnoticed.',
+  assert.ok(
+    WEB_LONG_EDGE >= photo,
+    `the clip copy (${WEB_LONG_EDGE}px long edge) is smaller than the photo copy ` +
+      `(${photo}px). That is the exact shape of the 480p-vs-1280 drift: the video ` +
+      `half quietly falling behind the half that gets checked.`,
+  );
+});
+
+test('🔒 the kept clip copy is TV-capable (owner asked: "how about on flat screen TV?")', () => {
+  // 🚨 THIS COPY IS NOT A FALLBACK. clipPlaybackRef() resolves
+  // `clip_web_r2_key ?? r2_object_key`, so the web copy wins from day one and
+  // the original is a DOWNLOAD, never streamed. Whatever this number is, it is
+  // what every person watches on every screen for the life of the event.
+  //
+  // 1080 short edge on a 9:16 clip → 1.125× upscale on a 4K TV (effectively
+  // sharp) and a downscale on a 1080p TV. At 720 the landscape-on-4K case was a
+  // 3× upscale, which is where it visibly fell apart.
+  const shortEdge = Math.round(WEB_LONG_EDGE * PORTRAIT_SHORT_OVER_LONG);
+  assert.ok(
+    shortEdge >= 1080,
+    `the kept clip copy is ${shortEdge}p. A flat-screen TV is a stated use case ` +
+      `and this is the only copy that ever plays, so it must not go below 1080.`,
   );
 });

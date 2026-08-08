@@ -31,7 +31,29 @@ import { getR2Client, r2Upload, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
  * throws. The caller fires this fire-and-forget after the capture is saved.
  */
 
-const DISPLAY_LONG_EDGE = 1280;
+// 🔒 1920 — MATCHED TO A 42" LED TV, 2026-08-07.
+//
+// Owner asked "how about on flat screen TV?… like 42 inch led tv". A 42" set is
+// 1920×1080 native, so serving a 1920 long edge is a 1:1 pixel match — nothing
+// upscaled, nothing wasted. At the previous 1280 a landscape photo was upscaled
+// 1.5× on that exact screen: the softness you see is the display inventing half
+// the pixels.
+//
+// 🔑 THIS IS THE ONLY COPY THE GALLERY EVER SHOWS. The full-res original is a
+// DOWNLOAD, never displayed (corpus: "full-res is a download, never streamed"),
+// and after the retention window it is replaced by this file outright. So this
+// number is not a thumbnail setting — it is the picture quality of the product,
+// permanently.
+//
+// ⚠ SCROLLING IS UNAFFECTED: grid tiles use thumb_r2_key (320px). This larger
+// copy is fetched only when someone opens a photo, so venue-wifi gallery
+// browsing costs the same as before.
+//
+// COST: ~0.32 → ~0.7 MB per photo ⇒ forever pool ~0.62 → ~0.92 GB/event
+// (₱7.1 → ₱10.6/event/yr). Kept in step with the clip copy at 1920 deliberately —
+// a photo and a clip are the same promise on the same screen, and video already
+// drifted to half-resolution once while the photo half looked fine.
+const DISPLAY_LONG_EDGE = 1920;
 // AVIF quality (0–100). ~60 ≈ JPEG q80 to the eye at roughly half the bytes —
 // the single-pass web copy (owner 2026-07-11).
 const DISPLAY_QUALITY = 60;

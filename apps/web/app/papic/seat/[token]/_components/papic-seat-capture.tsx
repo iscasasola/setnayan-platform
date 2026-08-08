@@ -578,7 +578,7 @@ export function PapicSeatCapture({
       try {
         if (!canCompressVideo()) return;
         const src = new File([clip], `papic-web-${Date.now()}.mp4`, { type: 'video/mp4' });
-        const web = await compressVideoForWeb(src, { profile: 'web720' });
+        const web = await compressVideoForWeb(src, { profile: 'web1080' });
         // Reference-equality: compressVideoForWeb returns the INPUT unchanged on
         // skip/failure (or when the copy wasn't smaller) → nothing worth storing.
         if (web === src || web.size <= WEB_COPY_MIN_BYTES || web.size >= clip.size) return;

@@ -14,6 +14,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
+import { waitingAge } from '@/lib/waiting-age';
 import { formatPhp } from '@/lib/vendors';
 import type {
   OngoingTask,
@@ -568,10 +569,27 @@ function InquiryBody({
     card.place,
     card.category,
   ]);
+  // Rendered on the server, so "now" is the render instant. Elapsed milliseconds,
+  // never a difference between two civil dates — see lib/waiting-age.ts.
+  const waited = waitingAge(card.createdAt, Date.now());
   return (
     <>
       <p className="text-sm font-semibold text-ink">New customer</p>
-      <p className="mt-0.5 font-mono text-xs text-ink/60">{meta}</p>
+      <p className="mt-0.5 font-mono text-xs text-ink/60">
+        {meta}
+        {/* § 2.4 EXTEND 1 — how long this couple has been waiting for a reply.
+          *  Enquiry cards ONLY: lock requests, reviews and disputes carry
+          *  timestamps too, but none of them is a clock the vendor is answerable
+          *  to, and putting an age on those would invent an SLA nobody agreed to.
+          *  Tinted once it passes a day, which is also where the feed's new
+          *  oldest-first order puts it at the top. */}
+        {waited ? (
+          <span style={waited.overdue ? { color: 'var(--m-mulberry)' } : undefined}>
+            {' · '}
+            {waited.label}
+          </span>
+        ) : null}
+      </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={acceptInquiry}>
           <input type="hidden" name="thread_id" value={card.threadId} />

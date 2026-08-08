@@ -92,6 +92,22 @@ export type CustomerCalendarDay = {
   capacity: number;
   /** How many couples are waitlisted on this date (0 = none). */
   waitlistCount: number;
+  /**
+   * Pending enquiries asking about this date (0 = none).
+   *
+   * 🔑 DELIBERATELY NOT A `state`. The six-state precedence describes what the
+   * day IS — blocked, held, approve-first, full, booked, waitlisted. An enquiry
+   * is a QUESTION about the day: it holds nothing, consumes nothing, and may
+   * never be answered. Folding it into the precedence would do harm in both
+   * directions — an enquiry on an open day would make it look taken, and an
+   * enquiry on a booked day would hide that it is booked. It rides alongside.
+   *
+   * ⚠ COUNT ONLY, NEVER IDENTITY. A pending enquiry is PRE-accept, and the
+   * couple's identity is withheld until the vendor accepts (anonymisation-until
+   * -accept). A number is the most this may ever carry; a name or a venue here
+   * would route around a privacy rule the inquiry card enforces by construction.
+   */
+  inquiryCount: number;
   /** Short event labels for this day (e.g. booked event names). Deduped. */
   eventLabels: string[];
 };
@@ -135,6 +151,11 @@ export function buildCustomerCalendarMonth(
   waitlist: { requestedDate: string; pendingCount: number }[],
   month: string,
   todayIso: string,
+  /**
+   * Dates couples are ASKING about. Optional and last so every existing caller
+   * keeps working unchanged; an omitted list simply means no enquiry markers.
+   */
+  inquiries: { requestedDate: string; count: number }[] = [],
 ): CustomerCalendarMonth {
   const daysInMonth = daysInMonthOf(month);
   const [y = 2026, m = 1] = month.split('-').map(Number);
@@ -210,6 +231,7 @@ export function buildCustomerCalendarMonth(
     }
   }
 
+  const inquiriesByDate = new Map(inquiries.map((i) => [i.requestedDate, i.count]));
   const waitlistByDate = new Map(
     waitlist.map((w) => [w.requestedDate, w.pendingCount]),
   );
@@ -245,6 +267,8 @@ export function buildCustomerCalendarMonth(
       if (!poolFull) everyFull = false;
     }
     const waitlistCount = waitlistByDate.get(date) ?? 0;
+    // Read but NOT used in the precedence below — see `inquiryCount`'s docblock.
+    const inquiryCount = inquiriesByDate.get(date) ?? 0;
 
     // Precedence: blocked > locked > whitelist > full > booked > waitlist.
     let state: CustomerDayStateKind | null = null;
@@ -269,6 +293,7 @@ export function buildCustomerCalendarMonth(
       setnayanConsumed,
       capacity,
       waitlistCount,
+      inquiryCount,
       eventLabels: [...(labelsByDate.get(date) ?? [])],
     });
   }

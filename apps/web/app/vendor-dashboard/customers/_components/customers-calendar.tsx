@@ -133,6 +133,7 @@ function monthLabelOf(ym: string): string {
 export function CustomersCalendar({
   initialDayStates,
   initialWaitlist,
+  inquiries = [],
   initialMonth,
   todayIso,
   pools,
@@ -148,6 +149,12 @@ export function CustomersCalendar({
   /** The first-painted month's raw day states + waitlist (server-fetched). */
   initialDayStates: VendorCalendarDayState[];
   initialWaitlist: WaitlistDateGroup[];
+  /**
+   * Dates couples are ASKING about, counted. Optional so the component still
+   * renders without it. COUNT ONLY — a pending enquiry is pre-accept and the
+   * couple's identity is withheld until the vendor accepts.
+   */
+  inquiries?: { requestedDate: string; count: number }[];
   /** 'YYYY-MM' key of the first-painted month. */
   initialMonth: string;
   /** PH civil "today" (YYYY-MM-DD) — passed to the client-side rebuild. */
@@ -218,8 +225,12 @@ export function CustomersCalendar({
       inputs?.waitlist ?? [],
       month,
       todayIso,
+      // Not per-month: a vendor's pending enquiries are few, so the whole
+      // list is passed once and the builder reads only the days it renders.
+      // That keeps the month-nav refetch path untouched.
+      inquiries,
     );
-  }, [month, monthInputs, filteredPools, filteredBookings, blocks, todayIso]);
+  }, [month, monthInputs, filteredPools, filteredBookings, blocks, todayIso, inquiries]);
 
   // "6 booked · 2 held" — booked counts days the calendar shows as booked or
   // full; held counts hard holds. Derived from `data.days`, so it always
@@ -475,6 +486,27 @@ export function CustomersCalendar({
                           : chip.label}
                   </span>
                 ) : null}
+                {/* Someone is ASKING about this day. Rendered after the state
+                  *  chip and never in place of it — an enquiry is a question
+                  *  about the day, not what the day IS. Count only: a pending
+                  *  enquiry is pre-accept, so no couple identity may appear. */}
+                {day.inquiryCount > 0 ? (
+                  <span
+                    className="mt-0.5 inline-flex items-center gap-1 self-start rounded px-1 py-px text-[10px] font-semibold leading-tight"
+                    style={
+                      isBlocked
+                        ? { color: 'rgba(255,255,255,0.85)' }
+                        : { color: 'var(--m-blush-deepest)', background: 'var(--m-blush)' }
+                    }
+                    title={
+                      day.inquiryCount === 1
+                        ? '1 couple is asking about this date'
+                        : `${day.inquiryCount} couples are asking about this date`
+                    }
+                  >
+                    {day.inquiryCount === 1 ? '1 asking' : `${day.inquiryCount} asking`}
+                  </span>
+                ) : null}
                 {day.eventLabels.slice(0, 2).map((label) => (
                   <span
                     key={label}
@@ -535,6 +567,19 @@ export function CustomersCalendar({
               {CHIP[k].label}
             </span>
           ))}
+          {/* Not a seventh state — the six above describe what a day IS. This
+            *  says a couple is ASKING about it, which is why it sits apart and
+            *  is drawn as a label rather than a swatch. */}
+          <span className="inline-flex items-center gap-1">
+            <span
+              aria-hidden
+              className="inline-block rounded px-1 text-[9px] font-semibold leading-[1.4]"
+              style={{ color: 'var(--m-blush-deepest)', background: 'var(--m-blush)' }}
+            >
+              N
+            </span>
+            asking
+          </span>
         </div>
       </div>
     </div>

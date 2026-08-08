@@ -1088,8 +1088,8 @@ export async function EventDashboard({
         background: 'var(--sn-gold-100)',
         color: 'var(--sn-gold-800)',
       };
-  const focalHeadColor = focalDark ? '#F3ECDF' : 'var(--sn-ink-900)';
-  const focalSubColor = focalDark ? 'rgba(243,236,223,.65)' : 'var(--sn-ink-500)';
+  const focalHeadColor = focalDark ? '#FDFBF7' : 'var(--sn-ink-900)';
+  const focalSubColor = focalDark ? 'rgba(253,251,247,.65)' : 'var(--sn-ink-500)';
 
   // ── Inspector column selection (desktop, ≥xl) ───────────────────────────
   // Resolve `?inspect=` to a decision (`d:<id>`) or a Suri-on-watch (`w:<key>`)
@@ -1375,6 +1375,22 @@ export async function EventDashboard({
         <section aria-label={`The ${eventWord} day`} className="!mt-6">
           <div className="grid items-start gap-4 lg:grid-cols-2">
             {/* LEFT — the Big Day focal */}
+            {/* WARM EDITORIAL restyle (§ 2.4). The focal's SURFACE is no longer
+             *  styled here: `.sn-tile-dark` itself became a solid ink card in the
+             *  app-wide skin swap, so this page just uses the class.
+             *
+             *  ⚠ THIS BLOCK USED TO STYLE IT INLINE, and the reason it gave was
+             *  measured and found wrong: it said `.sn-tile-dark` "has 20+ consumers
+             *  … restyling the shared class would repaint surfaces this port has
+             *  not reviewed". It has SEVEN, and every one of them is the focal card
+             *  of its own surface (admin home · here · the day-of card · vendor
+             *  on-the-day ×2 · vendor overview · vendor performance). Seven surfaces
+             *  wanting one treatment is a class, not seven copies of the same hexes.
+             *
+             *  Inlining also silently dropped two things the class provides: the
+             *  `--m-*` token remap that lets a card nested in the dark sidebar
+             *  follow the sidebar, and the hover lift. Only the HEADLINE colours
+             *  stay here — those are per-surface, exactly as the skin swap said. */}
             <div
               className={`relative overflow-hidden sn-bloom ${
                 focalDark ? 'sn-tile-dark' : 'sn-tile'

@@ -1601,10 +1601,10 @@ export async function EventDashboard({
                             className="flex-none whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-bold transition-transform hover:-translate-y-0.5"
                             style={
                               ii === 0
-                                ? { background: 'rgb(var(--color-mulberry))', color: '#FDFBF7' }
+                                ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
                                 : {
-                                    border: '1px solid rgb(var(--color-mulberry))',
-                                    color: 'rgb(var(--color-mulberry))',
+                                    border: '1px solid var(--sn-gold-500)',
+                                    color: 'var(--sn-gold-700)',
                                   }
                             }
                           >
@@ -1666,7 +1666,7 @@ export async function EventDashboard({
             <Link
               href={topPriorityTask.ctaHref}
               className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'rgb(var(--color-mulberry))', color: '#FDFBF7' }}
+              style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
             >
               {topPriorityTask.ctaLabel}
             </Link>
@@ -1781,8 +1781,8 @@ export async function EventDashboard({
                               className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
                               style={
                                 ii === 0
-                                  ? { background: 'rgb(var(--color-mulberry))', color: '#FDFBF7' }
-                                  : { border: '1px solid rgb(var(--color-mulberry))', color: 'rgb(var(--color-mulberry))' }
+                                  ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
+                                  : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
                               }
                             >
                               {item.ctaLabel}

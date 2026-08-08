@@ -1047,7 +1047,7 @@ function BadgeDot({
     neutral: { bg: '#E7E5E4', fg: '#44403C' },
     amber: { bg: '#FEF3C7', fg: '#78350F' },
     red: { bg: '#FEE2E2', fg: '#7F1D1D' },
-    orange: { bg: 'var(--m-orange)', fg: '#FFFFFF' },
+    orange: { bg: 'var(--m-orange-2)', fg: 'var(--m-paper)' },
   };
   const { bg, fg } = toneStyle[tone];
   const display = count > 9 ? '9+' : String(count);

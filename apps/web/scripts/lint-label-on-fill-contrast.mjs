@@ -289,6 +289,48 @@ function classPairing(className, palette) {
   return fill && label ? { fill, label } : null;
 }
 
+/**
+ * `{ bg: 'rgba(169,131,75,.12)', fg: 'var(--m-orange-2)' }` — a colour PAIR held
+ * in an object and applied later through a variable (`style={{ background:
+ * chip.bg, color: chip.fg }}`).
+ *
+ * 🪤 THIS WAS A BLIND SPOT, AND IT LET ME SHIP THE VERY BUG I HAD JUST SWEPT.
+ * Recolouring the vendor calendar's chip map put THREE labels back on a wash of
+ * their own colour — 4.25:1, 4.14:1 and 4.04:1 — and this guard reported all
+ * clear, because it only understood a literal `background:…, color:…` adjacency
+ * and a Tailwind className. A style OBJECT names the same two colours; only the
+ * keys differ.
+ *
+ * 🔑 THE PATTERN A GUARD CANNOT SEE IS THE PATTERN PEOPLE WILL USE. Named colour
+ * maps are the natural way to write a six-state chip table, so the most
+ * structured colour code in the repo was the least protected.
+ *
+ * ALPHA IS COMPOSITED AGAINST THE PAGE, not skipped as it is for Tailwind
+ * classes. A chip wash is `rgba(gold, .12)` on the cream page essentially
+ * everywhere, and skipping it would leave exactly this table unchecked again.
+ * The composite is an assumption, so it is only made for a low-alpha fill —
+ * above 0.6 the parent dominates and this stays out of it.
+ */
+function objectPairings(src, resolveColor) {
+  const out = [];
+  const re =
+    /\bbg\s*:\s*'([^']+)'\s*,\s*fg\s*:\s*'([^']+)'|\bfg\s*:\s*'([^']+)'\s*,\s*bg\s*:\s*'([^']+)'/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const rawFill = m[1] ?? m[4];
+    const rawLabel = m[2] ?? m[3];
+    const fill = resolveColor(rawFill);
+    const label = resolveColor(rawLabel);
+    if (!fill || !label) continue;
+    out.push({
+      index: m.index,
+      fill: { name: rawFill, rgb: fill },
+      label: { name: rawLabel, rgb: label },
+    });
+  }
+  return out;
+}
+
 /** `background: 'var(--sn-gold-700)', color: '#FDFBF7'` — inline-styled buttons. */
 function inlinePairings(src, cssVars) {
   const out = [];
@@ -314,6 +356,25 @@ function lineOf(src, index) {
 /* ── run ────────────────────────────────────────────────────────────────── */
 
 const cssVars = readCssVars();
+
+const PAGE = cssVars.get('m-paper') ?? cssVars.get('color-cream') ?? [253, 251, 247];
+
+/** hex · `var(--x)` · low-alpha `rgba(r,g,b,a)` composited on the page. */
+function resolveColor(raw) {
+  const v = raw.trim();
+  const hex = v.match(/^#[0-9a-f]{3,6}$/i);
+  if (hex) return parseHex(hex[0]);
+  const varRef = v.match(/^var\(\s*--([a-z0-9-]+)/i);
+  if (varRef) return cssVars.get(varRef[1]) ?? null;
+  const rgba = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+))?\s*\)$/i);
+  if (rgba) {
+    const [r, g, b] = [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])];
+    const a = rgba[4] === undefined ? 1 : Number(rgba[4]);
+    if (a > 0.6) return [r, g, b]; // effectively opaque
+    return [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * PAGE[i]));
+  }
+  return null;
+}
 const palette = readTailwindPalette(cssVars);
 const failures = [];
 let checked = 0;
@@ -332,6 +393,14 @@ for (const dir of SCAN_DIRS) {
       const ratio = contrast(pair.fill.rgb, pair.label.rgb);
       if (ratio < AA_NORMAL_TEXT) {
         failures.push({ rel, line: lineOf(src, m.index), ratio, ...pair });
+      }
+    }
+
+    for (const pair of objectPairings(src, resolveColor)) {
+      checked++;
+      const ratio = contrast(pair.fill.rgb, pair.label.rgb);
+      if (ratio < AA_NORMAL_TEXT) {
+        failures.push({ rel, line: lineOf(src, pair.index), ratio, ...pair });
       }
     }
 

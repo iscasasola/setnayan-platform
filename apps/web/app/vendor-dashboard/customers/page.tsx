@@ -84,7 +84,7 @@ const STATUS_PILL: Record<
   locked: {
     label: 'Locked',
     bg: 'var(--m-orange-4)',
-    fg: 'var(--m-orange-2)',
+    fg: 'var(--m-orange-deep)',
     border: 'var(--m-orange-3)',
   },
   whitelist: {
@@ -97,7 +97,7 @@ const STATUS_PILL: Record<
   waitlist: {
     label: 'Waitlist',
     bg: 'var(--sn-warning-soft)',
-    fg: 'var(--sn-warning)',
+    fg: 'var(--sn-warning-deep)',
     border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
   },
   in_conversation: {

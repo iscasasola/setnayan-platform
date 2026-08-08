@@ -250,3 +250,26 @@ exact shape of the 480-vs-1280 drift), the profile name must equal the resolutio
 produces, and the owner-decision note must survive. Sabotaged four ways — 480p clip
 → 3 failures, sub-plan photo → 1, note removed → 1, all from a verified-green
 baseline.
+
+### 📏 The 480-vs-720 size question, MEASURED
+
+Owner asked *"the file size of 720 and 480 is big?"*, then confirmed **"ok stick with
+720p."** Answered with real encodes rather than the spec's estimates — ffmpeg 8.1.2,
+the exact args this repo ships, on real clips from `public/realstories` plus a
+worst-case 1080×1920 dense-motion source. Per **10-second** clip:
+
+| source | 480p | 720p | ratio |
+|---|---|---|---|
+| real wedding footage | 0.25 MB | **0.47 MB** | 1.9× |
+| worst case (dense detail) | 0.70 MB | **1.48 MB** | 2.1× |
+
+Across the spec's 150-clip event: **+₱0.37/event/yr** realistic, +₱1.31 worst case.
+
+🔑 **The scale that settles it: a 10s clip at 720p is SMALLER THAN ONE PHONE PHOTO
+(3–5 MB).** Both options are tiny; 720p is merely less tiny. Storage was never a real
+argument for 480p.
+
+⚠ **Two estimates in this file's history were wrong in the same direction** (~₱2 and
+~₱0.66 per event/yr, both too high). The measured figures now replace them in
+`video-compress.ts`, with a note telling the next reader to **re-measure, not
+re-estimate**.

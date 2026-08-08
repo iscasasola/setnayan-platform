@@ -63,7 +63,24 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 //   · TV maths (9:16 portrait is the Papic norm): on a 1080p TV a 720p portrait
 //     clip fits to 1080 height = DOWNSCALED 0.84×, i.e. sharp. The soft case is a
 //     LANDSCAPE clip, upscaled 1.5× on 1080p and 3× on 4K.
-//   · Cost of 1080p would have been ~₱4.83 → ~₱6.90/event/yr.
+//   · Cost of 1080p would have been ~₱4.83 → ~₱6.90/event/yr (estimated).
+//
+// 📏 MEASURED 2026-08-07, not estimated — the owner asked "the file size of 720
+// and 480 is big?" and the honest answer needed real encodes, because two earlier
+// figures in this file were guesses and both were too high. Encoded with the exact
+// args below (ffmpeg 8.1.2, real clips from public/realstories plus a worst-case
+// 1080×1920 dense-motion source), per 10-SECOND clip:
+//
+//        real wedding footage      480p 0.25 MB  →  720p 0.47 MB   (1.9×)
+//        worst case (dense detail) 480p 0.70 MB  →  720p 1.48 MB   (2.1×)
+//
+// Across the spec's 150-clip event that is **+₱0.37/event/yr** on realistic
+// footage, +₱1.31 worst case. 🔑 THE SCALE THAT SETTLES IT: a 10s clip at 720p is
+// SMALLER THAN ONE PHONE PHOTO (3–5 MB). Both options are tiny; 720p is merely
+// less tiny. Storage was never a real argument for 480p — resolution is.
+//
+// ⚠ Anyone re-opening this: re-measure, do not re-estimate. The estimates in this
+// file's history were wrong in the same direction twice.
 // The owner weighed this and chose 720p. Raising it is an OWNER decision, not an
 // engineering one.
 //
@@ -82,10 +99,9 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 // the half that was checked was correct. Matching 1280 here also makes the two
 // derivative paths share one number.
 //
-// COST OF HONOURING THE PLAN: ~0.5 MB → ~1.1 MB per 10s clip, so the forever pool
-// goes ~0.36 → ~0.42 GB/event (₱4.14 → ~₱4.8/event/yr). At 500k events/yr that is
-// ₱10.4M → ₱12M — a rounding error against the revenue at that scale, and far
-// cheaper than shipping video nobody wants to watch.
+// COST OF HONOURING THE PLAN (measured, see above): 0.25 → 0.47 MB per 10s clip on
+// real footage ⇒ +₱0.37/event/yr. A rounding error, and far cheaper than shipping
+// video nobody wants to watch.
 //
 // So the web720 profile:
 //   • caps the LONG edge to 1280 px → a 9:16 Papic clip (the norm) lands 720×1280,
@@ -215,7 +231,7 @@ export async function compressVideoForWeb(
      *   • 'quality' (default) — the couple's Save-the-Date path: preserve the
      *     ORIGINAL resolution up to 4K, CRF 21, 192k audio; SKIP already-light
      *     inputs. Behaviour unchanged from before this option existed.
-     *   • 'web720' — the Papic storage web-copy: a ~1.1 MB still-watchable
+     *   • 'web720' — the Papic storage web-copy: a ~0.5 MB still-watchable
      *     playable derivative (1280 long edge → 720 short edge, H.264 baseline,
      *     CRF 30, 64k audio). NEVER skips small inputs (even a small raw clip
      *     should become a tiny web copy) and needs no duration probe.

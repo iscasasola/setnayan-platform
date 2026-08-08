@@ -1922,6 +1922,45 @@ export async function renderVendorBySlug({
                 ) : null}
               </>
             )}
+            {/* "✓ Verified" — Fable E1 (FABLE_Public_Marketplace_Spec § 3.5).
+                Gated on the SAME column this route's own 404-gate uses at :769 —
+                `verification_state` — and deliberately NOT on `public_visibility`.
+                Those are two different facts (migration 20271013500000 exists
+                because an RLS policy conflated them), and app/explore/compare/
+                page.tsx keys its own ✓ Verified pill on the visibility one; do
+                not "make them consistent" — that changes a second surface's
+                meaning.
+
+                Honest by construction: every shop a stranger can reach is
+                already `verification_state = 'verified'` (the :769 gate 404s
+                every other state), so this asserts only what the gate already
+                guarantees. On the two renders that survive that gate — an admin
+                in demo mode, and a vendor previewing their own shop before
+                approval — an unverified row shows NO chip and no counter-claim.
+
+                FAILED READ vs GENUINE "not verified": a failed read cannot
+                produce this chip. If the full select errors, fetchVendor falls
+                back to `legacySelect`, which omits the column ⇒ the field is
+                undefined ⇒ the strict `=== 'verified'` is false AND the :769
+                gate 404s the page. Failure is a 404; "not verified" is a page
+                with no chip. The two are visibly different, and neither states
+                an unmeasured fact.
+
+                The `title` is load-bearing. This page already renders three
+                narrower "verified" claims below (the DTI-years BadgeCheck, and
+                the reviews block's Verified wedding / Verified booking pills);
+                a bare word here would be read as covering prices, reviews and
+                availability too. Say what admin review actually does — document
+                review — and nothing more. Never "Verified by Setnayan". */}
+            {vendor.verification_state === 'verified' ? (
+              <p
+                className="inline-flex w-fit items-center gap-1 rounded-full border border-link/20 bg-link/[0.08] px-2.5 py-0.5 text-[11px] font-bold text-link"
+                title="Setnayan reviewed this shop’s business documents before it went public."
+              >
+                <span aria-hidden>✓</span>
+                Verified
+              </p>
+            ) : null}
             {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
                 subtle violet chip stating how many finalized bookings flowed
                 through Setnayan. The profile keeps the honest "New to Setnayan"
@@ -1997,6 +2036,42 @@ export async function renderVendorBySlug({
                   <span className="text-ink/40">· self-reported</span>
                 )}
               </p>
+            ) : null}
+            {/* "Featured in N stories →" — Fable E2 (spec § 3.5). A POINTER to
+                the "Featured in these stories" section further down that ALREADY
+                SHIPS; it builds nothing new. The gate below is byte-identical to
+                that section's own gate, so the chip can never be a fake door —
+                and `showEditorials` is the first term on purpose, because a
+                vendor on a personalisable tier can hide that section from their
+                own page editor.
+
+                FAILED READ vs GENUINE ZERO: both loaders swallow their errors to
+                `[]` (the editorial try/catch above; loadFeaturedChaptersCrediting-
+                Vendor's `if (error) return []`), so at the data layer a failure
+                and a true zero are the same value. The mitigation is structural:
+                the count is derived from the SAME two arrays the section maps
+                over, so on a failed read the chip AND the section disappear
+                together and the page states nothing it did not measure. A
+                separate count query for the chip is therefore FORBIDDEN — it
+                would be the one number able to say "Featured in 3 stories" over
+                a section that renders nothing.
+
+                The count is exact, not approximate: both arrays are already
+                truncated before this point (editorials .slice(0, 3); chapters
+                .slice(0, 6) inside the loader), so the number equals the tiles
+                the reader will actually find at the anchor. */}
+            {showEditorials &&
+            (featuredEditorials.length > 0 || featuredChapterCredits.length > 0) ? (
+              <a
+                href="#featured-stories"
+                className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[11px] font-medium text-link hover:underline"
+              >
+                Featured in {featuredEditorials.length + featuredChapterCredits.length}{' '}
+                {featuredEditorials.length + featuredChapterCredits.length === 1
+                  ? 'story'
+                  : 'stories'}
+                <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </a>
             ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
               {vendor.location_city ? (
@@ -2242,7 +2317,7 @@ export async function renderVendorBySlug({
             grammar. Auto-hidden until either voice has something to show. */}
         {showEditorials &&
         (featuredEditorials.length > 0 || featuredChapterCredits.length > 0) ? (
-          <section className="space-y-4 border-b border-ink/10 py-8">
+          <section id="featured-stories" className="scroll-mt-24 space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Featured in these stories
             </h2>

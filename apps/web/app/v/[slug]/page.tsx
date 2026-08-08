@@ -3270,7 +3270,7 @@ function ReviewsSection({
   hasVenueMatch: boolean;
 }) {
   return (
-    <section className="space-y-6 border-b border-ink/10 py-8">
+    <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

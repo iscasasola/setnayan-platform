@@ -76,47 +76,43 @@ export default async function VendorDashboardLayout({
   const vendorProfilePromise = fetchOwnVendorProfile(supabase, user.id).catch(() => null);
 
   // Sidebar chrome data (proto-shell) — the identity card + footer chips.
-  //   • tier          — soft-probed tier_state (not in the shared profile
-  //                     select), normalized in VendorSidebarFooter.
-  //   • tokenBalance  — the SAME wallet read the /tokens page uses: purchased +
-  //                     earned. Fail-soft to 0 so the sidebar never blocks on a
-  //                     wallet error. The expiry sweep that used to run inline
-  //                     before this read is now deferred to after() (see below).
+  //   • tier      — soft-probed tier_state (not in the shared profile select),
+  //                 normalized in VendorSidebarFooter. Fail-soft to null so the
+  //                 sidebar never blocks on a probe error.
+  //   • vendorId  — carried out so the tier-lapse sweep below can gate on it.
+  //
+  // ⚠ THE WALLET READ THAT SHARED THIS PROBE IS GONE (2026-08-08). It selected
+  // vendor_wallets.purchased_tokens/earned_tokens on EVERY layout render — and
+  // this layout re-renders server-side on every sidebar navigation, since it
+  // reads cookies via getCurrentUser(). Its last consumer, the sidebar token
+  // pill, was deleted 2026-08-07 with the token economy (see the
+  // VendorSidebarFooter docblock); the query outlived it by a day, paying a
+  // round trip per navigation for a value nothing rendered. Tokens are RETIRED
+  // (owner lock 2026-07-21: "token can retire, there should be nothing that
+  // needs token anymore"; PRs #4220/#4222/#4223 removed the last writers).
   //
   // PERF FIX (2026-07-01, "sidebar nav feels slow"): this used to `await` the
   // whole chrome Promise.all (below) — which includes getSwitcherData()'s own
   // 3-stage sequential chain (membership batch → events → gallery counts) —
-  // before even ISSUING the tier/wallet queries, then awaited those as a
-  // 4th sequential round trip. That serialized an independent 2-query read
-  // behind the single slowest, unrelated fetch in the layout, on *every*
-  // sidebar click (this layout re-renders server-side on every navigation
-  // since it reads cookies via getCurrentUser()). Chaining off
-  // vendorProfilePromise directly lets tier/wallet fire as soon as the
-  // vendor profile resolves, overlapping with switcherData's remaining
-  // stages instead of queuing behind them — cuts one full round trip off
-  // the critical path of every sidebar navigation.
-  const tierWalletPromise = vendorProfilePromise.then(async (vp) => {
+  // before even ISSUING the tier query, then awaited it as a 4th sequential
+  // round trip. That serialized an independent read behind the single slowest,
+  // unrelated fetch in the layout, on every sidebar click. Chaining off
+  // vendorProfilePromise directly lets the probe fire as soon as the vendor
+  // profile resolves, overlapping with switcherData's remaining stages instead
+  // of queuing behind them — cuts one full round trip off the critical path of
+  // every sidebar navigation. That still holds with one query instead of two.
+  const tierProbePromise = vendorProfilePromise.then(async (vp) => {
     if (!vp?.vendor_profile_id) {
-      return { tier: null as string | null, tokenBalance: 0, earnedTokens: 0, vendorId: null as string | null };
+      return { tier: null as string | null, vendorId: null as string | null };
     }
     const vendorId = vp.vendor_profile_id;
-    const [tierRes, walletRes] = await Promise.all([
-      supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle(),
-      supabase
-        .from('vendor_wallets')
-        .select('purchased_tokens, earned_tokens')
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-    ]);
-    const earnedTokens = walletRes.data?.earned_tokens ?? 0;
+    const tierRes = await supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('vendor_profile_id', vendorId)
+      .maybeSingle();
     return {
       tier: (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null,
-      tokenBalance: (walletRes.data?.purchased_tokens ?? 0) + earnedTokens,
-      earnedTokens,
       vendorId,
     };
   });
@@ -150,7 +146,7 @@ export default async function VendorDashboardLayout({
     vendorRole,
     vendorProfile,
     navSlots,
-    tierWallet,
+    tierProbe,
     threadsUnread,
     bookingsPending,
   ] =
@@ -182,7 +178,7 @@ export default async function VendorDashboardLayout({
       // and handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG,
       // fails open. No dependency → batched here rather than run sequentially.
       getNavSlotMap(),
-      tierWalletPromise,
+      tierProbePromise,
       // Threads badge — unread chat threads for this user (existing graceful RPC,
       // already used on the couple chrome). Independent of the vendor profile.
       countUnreadMessages(supabase, user.id),
@@ -206,44 +202,37 @@ export default async function VendorDashboardLayout({
   const vendorLogoUrl = vendorProfile?.logo_url
     ? await displayUrlForStoredAsset(vendorProfile.logo_url).catch(() => null)
     : null;
-  const vendorTier = tierWallet.tier;
+  const vendorTier = tierProbe.tier;
 
-  // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
-  // awaited write RPC that blocked every layout render — including every
-  // Server-Action-triggered re-render of this dynamic layout. Deferring it to
-  // after() (post-response, same cron-free pattern as the ghosting check)
-  // keeps expiry current without gating first paint. Trade-off: the sidebar
-  // token pill can be one load stale after an expiry — accepted by owner
-  // 2026-07-01. `supabase` is captured in the closure (holds the access token
-  // in memory), so the post-response call still authenticates.
+  // ⚠ THE evaluate_earned_token_expiry SWEEP THAT SAT HERE IS GONE (2026-08-08),
+  // together with the wallet read that gated it (see the probe above). It was
+  // already a guaranteed no-op twice over: tokens are RETIRED (owner lock
+  // 2026-07-21), and `20270406637718_tokens_never_expire.sql` had already
+  // extended every live voucher to a 2999 sentinel, so there is no expiry left
+  // to evaluate. All it could still do was fire a background write RPC after
+  // the response on any vendor holding a stale non-zero earned balance.
   //
-  // GATED (2026-07-01 gap-fix): only *earned* tokens expire, so the sweep is
-  // a guaranteed no-op when the wallet holds none. Skipping it there avoids a
-  // pointless background write on every render for the majority of vendors
-  // (those with a zero earned balance).
-  if (tierWallet.vendorId && tierWallet.earnedTokens > 0) {
-    const vendorId = tierWallet.vendorId;
-    after(async () => {
-      await supabase
-        .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
-        .then(() => undefined, () => undefined);
-    });
-  }
+  // The post-response `after()` pattern it demonstrated is NOT gone — the tier
+  // lapse sweep below is the live user of it, and the ghosting / creator-offer /
+  // booking-fee sweeps further down use the same cron-free shape.
 
-  // Login-driven vendor TIER lapse (no cron) — same post-response, downgrade-only,
-  // idempotent pattern as the token sweep above. sweep_vendor_tier_expiry reverts
-  // a tier past its tier_expires_at (pro/enterprise → verified-or-free; custom →
-  // verified-or-free + demotes the active custom plan). Only fired for a sweepable
-  // PAID tier — for free/verified it is a guaranteed no-op, so skip the background
-  // RPC (the same pointless-write avoidance the token sweep uses). The api_access
-  // gate already denies expired access inline; this reconciles tier_state + the
-  // caps overlay so a lapsed vendor stops reading Custom/Pro ceilings.
+  // Login-driven vendor TIER lapse (no cron) — post-response, downgrade-only,
+  // idempotent. sweep_vendor_tier_expiry reverts a tier past its tier_expires_at
+  // (pro/enterprise → verified-or-free; custom → verified-or-free + demotes the
+  // active custom plan). Deferring to after() keeps it off the render path of a
+  // layout that re-renders on every navigation; `supabase` is captured in the
+  // closure (holds the access token in memory), so the post-response call still
+  // authenticates. Only fired for a sweepable PAID tier — for free/verified it
+  // is a guaranteed no-op, so skip the pointless background write. The
+  // api_access gate already denies expired access inline; this reconciles
+  // tier_state + the caps overlay so a lapsed vendor stops reading Custom/Pro
+  // ceilings.
   if (
-    tierWallet.vendorId &&
+    tierProbe.vendorId &&
     vendorTier != null &&
     (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
   ) {
-    const vendorId = tierWallet.vendorId;
+    const vendorId = tierProbe.vendorId;
     after(async () => {
       await supabase
         .rpc('sweep_vendor_tier_expiry', { p_vendor_id: vendorId })

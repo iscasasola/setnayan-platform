@@ -1096,7 +1096,7 @@ export const UGAT_FINDINGS: UgatFinding[] = [
     trace: [
       ['Surface', 'Vendor profile badge (Solo/Pro/Enterprise pill)'],
       ['Still true', 'tier_state remains denormalized on vendor_profiles; NO database trigger re-syncs it'],
-      ['New since 07-05', 'Pay-activation stamps tier_expires_at = now+28d; a login-driven sweep fires from vendor-dashboard/layout.tsx:250 (write guard 20270920020000)'],
+      ['New since 07-05', 'Pay-activation stamps tier_expires_at = now+28d; a login-driven sweep fires from vendor-dashboard/layout.tsx:238 (write guard 20270920020000)'],
       ['The residual', 'Public readers are BUILT to pair the columns (v/[slug]/page.tsx:253-259,1516-1520 · vendorHoldsActivePaidSub · enterprise-vendor-gate.ts:32) — but any NEW reader of tier_state alone regresses silently. A convention cannot be enforced by review alone.'],
       ['Audit trail', 'Flagged 2026-07-04 · re-verified 2026-07-30 as mitigated. Live signal counts vendors currently wearing a lapsed badge.'],
     ],

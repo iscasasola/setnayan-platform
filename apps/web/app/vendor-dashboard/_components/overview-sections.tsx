@@ -484,11 +484,11 @@ export function WhatsNewFeed({
       <SectionHeader
         title="What's new"
         count={cards.length}
-        action={
-          cards.length > 0 ? (
-            <span className="text-xs text-ink/45">Mark all seen</span>
-          ) : null
-        }
+        // ⛔ "Mark all seen" REMOVED — it was a bare <span> with no onClick, no
+        // href and no form: a control that looked pressable and did nothing.
+        // No bulk-acknowledge action exists for these cards, so the honest fix is
+        // to remove the affordance rather than to fake one. ("No fake doors.")
+        action={null}
       />
       {cards.length === 0 ? (
         <EmptyCard

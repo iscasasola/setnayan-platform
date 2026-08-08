@@ -245,6 +245,7 @@ export async function EventDashboard({
     hostAccounts,
     papicHome,
     checklistProgress,
+    handoversRes,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -558,6 +559,27 @@ export async function EventDashboard({
     // no rows, no seeding. Returns null on a failed read AND on a never-seeded
     // event, which is why the chip is absent rather than "0%" in both cases.
     fetchChecklistProgress(supabase, eventId),
+    // ── Unacknowledged vendor deliveries (the "Meanwhile" card) ─────────────
+    // ⚠ THE DESIGN NAMED THE WRONG SOURCE. The frame points at `alaala/`, which
+    // its own docblock says holds "no per-event data yet" — it is catalog-driven.
+    // `booking_handovers` is the row that actually means "a vendor delivered
+    // something you have not looked at".
+    //
+    // 🔑 USER CLIENT, NOT ADMIN, DELIBERATELY. RLS here is couple-on-event
+    // (`current_event_ids`), so a coordinator or moderator viewing this page is
+    // denied → empty → the card hides. For THIS card that fail-direction is
+    // correct: a vendor's delivery is the couple's business, and an RLS denial
+    // being indistinguishable from "nothing waiting" is the safe way round.
+    // (It would be the WRONG way round for a counter — see the zero≠failed rule.)
+    supabase
+      .from('booking_handovers')
+      .select('handover_id, event_vendor_id, kind, label, delivered_at')
+      .eq('event_id', eventId)
+      .eq('status', 'delivered')
+      .is('couple_acknowledged_at', null)
+      .order('delivered_at', { ascending: false })
+      .limit(4),
+
   ]);
 
   const event = eventRes.data;
@@ -632,6 +654,25 @@ export async function EventDashboard({
     total_cost_php: number | string | null;
     marketplace_vendor_id: string | null;
   }>;
+
+  // ---- "Meanwhile" — a vendor delivered something the couple hasn't opened ---
+  // Names come from the eventVendors array already loaded above; the id is the
+  // event_vendors PK, which is what the workspace route's [vendorId] expects.
+  // ⚠ booking_handovers.event_vendor_id carries NO foreign key (the decoupled
+  // pattern), so a name can legitimately be missing — the copy falls back to
+  // "Your vendor" rather than rendering "undefined delivered your gallery".
+  const handovers = (handoversRes.data ?? []) as Array<{
+    handover_id: string;
+    event_vendor_id: string;
+    kind: 'gallery_link' | 'file' | 'note' | 'signoff';
+    label: string | null;
+    delivered_at: string | null;
+  }>;
+  const latestHandover = handovers[0] ?? null;
+  const handoverVendorName = latestHandover
+    ? (eventVendors.find((v) => v.vendor_id === latestHandover.event_vendor_id)?.vendor_name ??
+       'Your vendor')
+    : null;
 
   // ---- Committed budget — same formula as the Overview (paid + fulfilled
   // orders plus every contracted-or-better vendor with a known cost). --------
@@ -2070,6 +2111,72 @@ export async function EventDashboard({
                   </div>
                 );
               })}
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── Meanwhile — a delivery is waiting ──────────────────────────
+         *  Renders ONLY when a vendor has delivered something still
+         *  unacknowledged. Absent data ⇒ absent section, never an empty shell.
+         *
+         *  There is no per-card dismiss state and no new action: "Confirm
+         *  receipt" in the vendor workspace is the shipped, explicit dismissal
+         *  (the idempotent `acknowledge_handover` RPC), so acknowledging there
+         *  clears this here. One mechanism, one place.
+         *
+         *  The thumbnail is a HATCHED PLACEHOLDER on purpose — a handover
+         *  payload is a link or a file, not a resolvable preview, so nothing is
+         *  presigned here and no image is faked.
+         *
+         *  ⚠ The frame's sample copy read "Your prenup photos arrived — 84 from
+         *  Studio Hiraya". Neither the count nor the media kind is derivable
+         *  from this row, so the copy claims only what it knows. */}
+        {latestHandover ? (
+          <section aria-label="Meanwhile" className="!mt-6">
+            <p className="sn-eye">Meanwhile</p>
+            <div
+              className="mt-2 rounded-[14px] p-4"
+              style={{
+                background: 'rgb(var(--color-cream))',
+                border: '1px solid #E1DCD1',
+                boxShadow: '0 1px 3px rgba(30,26,18,0.06)',
+              }}
+            >
+              <Link
+                href={`${base}/vendors/${latestHandover.event_vendor_id}/workspace`}
+                className="flex min-h-[44px] items-center gap-3"
+              >
+                <span
+                  aria-hidden
+                  className="h-11 w-11 flex-none rounded-[10px]"
+                  style={{
+                    border: '1px solid #E1DCD1',
+                    background:
+                      'repeating-linear-gradient(-45deg,#EFE8DA,#EFE8DA 6px,#E6DECB 6px,#E6DECB 12px)',
+                  }}
+                />
+                <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
+                  {latestHandover.kind === 'gallery_link'
+                    ? `${handoverVendorName} delivered your gallery.`
+                    : latestHandover.kind === 'file'
+                      ? `${handoverVendorName} sent you a file${
+                          latestHandover.label ? ` — ${latestHandover.label}` : ''
+                        }.`
+                      : `${handoverVendorName} left you a note.`}{' '}
+                  <span className="font-semibold" style={{ color: 'rgb(var(--color-link))' }}>
+                    {latestHandover.kind === 'gallery_link'
+                      ? 'Look →'
+                      : latestHandover.kind === 'file'
+                        ? 'Open →'
+                        : 'Read →'}
+                  </span>
+                </span>
+              </Link>
+              {handovers.length > 1 ? (
+                <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
+                  +{handovers.length - 1} more waiting in your vendor rooms.
+                </p>
+              ) : null}
             </div>
           </section>
         ) : null}

@@ -121,8 +121,6 @@ export function VendorTodayFocal({
   return (
     <section aria-label={`Today at ${businessName}`} className="!mt-6">
       <div className="sn-tile-dark sn-bloom relative overflow-hidden">
-        <span className="sn-veil" aria-hidden />
-        <span className="sn-capiz" aria-hidden />
         <p className="sn-eye">
           <Store aria-hidden strokeWidth={1.75} />
           Today at {businessName}

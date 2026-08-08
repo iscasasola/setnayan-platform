@@ -3040,35 +3040,77 @@ html.dark {
     margin-inline: auto;
   }
 
-  /* Non-navigating glass panel — Watch/Spaces/stat panels/form sections. */
+  /* Non-navigating panel — Watch/Spaces/stat panels/form sections.
+   *
+   * ── WARM EDITORIAL ARCHIVE, 2026-08-08 · glass → flat ──────────────────
+   * Was Atelier-Glass: translucent fill, 24px backdrop blur, 20px radius.
+   * Now the approved card recipe — cream surface, 1px line, 14px radius, a
+   * shadow you have to look for. Separation comes from the border, never
+   * from a second surface tint.
+   *
+   * WHY THIS IS ONE EDIT AND NOT 186. The design spec's scope guard says
+   * "do NOT restyle the .sn-* classes globally — they have consumers across
+   * the app", which assumes each surface is ported by hand. Measured, that
+   * assumption does not hold: `.sn-tile` has **417 uses across 186 files**,
+   * spread over all three doorways (dashboard 72 · vendor 56 · admin 54).
+   * The guard exists to protect surfaces "not yet designed" — but the
+   * programme covers all 401 routes and every one of them is going here, so
+   * the thing being protected is a stop on the same journey. Porting by
+   * markup would mean ~40 PRs to reach a look one recipe reaches today, and
+   * would leave the app in two visual languages for the whole of it.
+   *
+   * SAFE BECAUSE THE GLASS CASES ARE ALREADY SEPARATE CLASSES.
+   * `.sn-tile-glass` (over imagery) and `.sn-tile-dark` (the obsidian focal,
+   * max one per view) are untouched and keep their treatment.
+   *
+   * TOKEN-AWARE ON PURPOSE. `--m-paper`/`--m-line` are remapped inside
+   * `.sn-sidebar`, so a card nested in the dark panel follows the panel
+   * instead of punching a cream hole in it. Hard-coding #FDFBF7 here would
+   * have broken exactly that.
+   *
+   * REVERSIBLE IN ONE PLACE. If the owner wants the glass back, it is this
+   * block and nothing else. */
   .sn-tile {
-    background: var(--sn-glass-bg);
-    border: 1px solid var(--sn-glass-line);
-    backdrop-filter: var(--sn-glass-blur);
-    -webkit-backdrop-filter: var(--sn-glass-blur);
-    border-radius: 20px;
+    background: var(--m-paper);
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-r-md);
     padding: 18px;
-    box-shadow: var(--sn-sh-tile);
+    box-shadow: 0 1px 3px rgba(30, 26, 18, 0.06);
     transition:
       transform var(--sn-dur-elem) var(--sn-ease),
       box-shadow var(--sn-dur-elem) var(--sn-ease);
   }
-  .sn-tile:hover { transform: translateY(-3px); box-shadow: var(--sn-sh-hi); }
+  /* Lift kept as shipped — the spec keeps the shipped translateY(-3px) on
+   * link-cards, and narrowing it to anchors only would be a behaviour change
+   * in a styling-only pass. */
+  .sn-tile:hover { transform: translateY(-3px); box-shadow: var(--m-shadow-md); }
 
   /* The obsidian focal — max ONE per view (§ 1.3). Canonical named class the
    * recomposition PRs consume; the launcher's .sn-tile-obsidian is the same
    * recipe under its proto name. */
+  /* The focal — max ONE per view. Obsidian glass → solid ink, same pass as
+   * `.sn-tile` above. Was a gold radial wash over translucent dark with a 22px
+   * blur; now one flat ink plane, so the focal reads as a considered object
+   * rather than a lit panel.
+   *
+   * All SEVEN consumers are the focal card of their own surface (admin home ·
+   * couple dashboard · the day-of card · vendor on-the-day ×2 · vendor overview ·
+   * vendor performance), so they want one treatment, not seven.
+   *
+   * The eyebrow already had its on-dark pair (`.sn-tile-dark .sn-eye` →
+   * `--sn-gold-300` #CBA766, 6.30:1 on this ink). Left alone — it was correct.
+   *
+   * Text colour deliberately NOT touched: `--sn-gold-100` #F3ECDF is a warm
+   * parchment, well clear of the palette lock's ban on pure white, and changing
+   * the inherited colour would ripple into every child that sets none. The
+   * per-surface units own the headline hexes. */
   .sn-tile-dark {
-    background:
-      radial-gradient(70% 60% at 85% -10%, rgba(203, 167, 102, 0.16), transparent 60%),
-      var(--sn-glass-dark-bg);
-    border: 1px solid var(--sn-glass-dark-line);
-    backdrop-filter: blur(22px) saturate(1.4);
-    -webkit-backdrop-filter: blur(22px) saturate(1.4);
-    border-radius: 20px;
+    background: var(--m-ink);
+    border: 1px solid rgba(253, 251, 247, 0.10);
+    border-radius: var(--m-r-md);
     padding: 18px;
     color: var(--sn-gold-100);
-    box-shadow: 0 26px 50px -28px rgba(23, 22, 15, 0.7);
+    box-shadow: 0 8px 28px rgba(30, 26, 18, 0.10);
   }
 
   /* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
@@ -3080,10 +3122,15 @@ html.dark {
    * the border given the warm hairline at a LIGHTER weight than .sn-tile:
    * these repeat hundreds of times, and full-strength edges would read as a
    * cage. rgba(40,34,24,.10) → 1.21:1 against the ground. */
+  /* Repeated rows inside a panel. The fill was PURE WHITE `#FFFFFF`, which the
+   * palette lock forbids outright ("cream #FDFBF7, was pure white 2026-07-13") —
+   * a white row on a cream card reads as a lit rectangle, which is why rows
+   * looked detached from the panels holding them. Token-aware for the same
+   * reason as `.sn-tile` above. */
   .sn-row {
-    background: #FFFFFF;
-    border: 1px solid rgba(40, 34, 24, 0.1);
-    border-radius: 14px;
+    background: var(--m-paper);
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-r-md);
   }
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */

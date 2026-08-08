@@ -141,9 +141,12 @@ function serviceLabel(key: string | null): string {
     .join(' ');
 }
 
-const shortDate = new Intl.DateTimeFormat('en-PH', {
-  month: 'short',
+// Day-first, per the Warm Editorial handoff ("12 Dec 2026"; short form "12 Dec"
+// in chips and rails). en-PH orders this month-first ("Dec 12"), so the locale is
+// pinned to en-GB purely for ORDER — the month name is identical in both.
+const shortDate = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
+  month: 'short',
 });
 
 type DecisionItemView = {
@@ -1123,7 +1126,7 @@ export async function EventDashboard({
   const miniFoot = (label: string) => (
     <span
       className="mt-auto flex items-center gap-1 pt-3 text-[11.5px] font-bold"
-      style={{ color: 'var(--sn-gold-700)' }}
+      style={{ color: 'rgb(var(--color-link))' }}
     >
       {label} →
     </span>
@@ -1616,7 +1619,7 @@ export async function EventDashboard({
                     <a
                       href="#decisions"
                       className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
-                      style={{ color: 'var(--sn-gold-700)' }}
+                      style={{ color: 'rgb(var(--color-link))' }}
                     >
                       All {openDecisionCount}{' '}
                       {openDecisionCount === 1 ? 'decision' : 'decisions'} ↗
@@ -1809,7 +1812,7 @@ export async function EventDashboard({
             <Link
               href={`${base}/checklist`}
               className="font-semibold hover:underline"
-              style={{ color: 'var(--sn-gold-700)' }}
+              style={{ color: 'rgb(var(--color-link))' }}
             >
               View your full checklist →
             </Link>
@@ -2149,7 +2152,7 @@ export async function EventDashboard({
             <Link
               href={`${base}/activity`}
               className="ml-auto whitespace-nowrap font-bold"
-              style={{ color: 'var(--sn-gold-700)' }}
+              style={{ color: 'rgb(var(--color-link))' }}
             >
               See all recent activity →
             </Link>

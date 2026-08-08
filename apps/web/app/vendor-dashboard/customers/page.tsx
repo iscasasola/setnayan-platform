@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { countUnreadMessages, fetchVendorThreads } from '@/lib/chat';
+import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';
 import {
   fetchVendorBlocks,
   fetchVendorDayStates,
@@ -196,6 +197,11 @@ async function CustomersPipeline({ searchParams }: Props) {
     paydayRes.error ? [] : ((paydayRes.data ?? []) as unknown as PaydayInstallmentRow[])
   );
 
+  // The dates couples are ASKING about. Derived from `threads`, which this page
+  // already loads — zero new queries, and a COUNT only: a pending enquiry is
+  // pre-accept, so the couple's identity must not reach the calendar.
+  const inquiryDates = pendingInquiryDates(threads);
+
   // ── Section 2: month calendar ────────────────────────────────────────────
   const calendar = buildCustomerCalendarMonth(
     pools,
@@ -205,6 +211,7 @@ async function CustomersPipeline({ searchParams }: Props) {
     waitlist,
     month,
     todayIso,
+    inquiryDates,
   );
 
   // ── Section 3a: this-month payments roll-up ──────────────────────────────
@@ -381,6 +388,7 @@ async function CustomersPipeline({ searchParams }: Props) {
         <CustomersCalendar
           initialDayStates={dayStates}
           initialWaitlist={waitlist}
+          inquiries={inquiryDates}
           initialMonth={month}
           todayIso={todayIso}
           pools={pools}

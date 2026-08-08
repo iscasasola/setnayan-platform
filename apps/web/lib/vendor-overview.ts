@@ -255,7 +255,11 @@ export async function fetchVendorOverviewData(
 
   // Newest first across every card type.
   whatsNew.sort(
-    (a, b) => cardTimestamp(b).getTime() - cardTimestamp(a).getTime(),
+    // OLDEST WAITING FIRST (design § 2.4 EXTEND 3). The shipped order was
+    // newest-first and carried no recorded rationale; the frame's caption is the
+    // authority — "a missed inquiry is lost income". The thing that has been
+    // waiting longest is the thing most at risk, so it goes to the top.
+    (a, b) => cardTimestamp(a).getTime() - cardTimestamp(b).getTime(),
   );
 
   // --- Assemble ONGOING ------------------------------------------------------

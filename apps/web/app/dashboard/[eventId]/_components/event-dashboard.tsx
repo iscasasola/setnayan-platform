@@ -149,6 +149,19 @@ const shortDate = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
 });
 
+/**
+ * The three-dot status vocabulary (Warm Editorial § 2.1), keyed off the SHIPPED
+ * `chipTone` so the digest and the board cannot disagree about urgency.
+ *   mulberry = money due / urgent · gold = waiting on people · slate = informational
+ */
+const decisionDotColor: Record<'hot' | 'warm' | 'calm', string> = {
+  // ⛔ Owner ruling 2026-08-08 ("stick to gold to all"): gold is the ACTION colour
+  // here, so the urgent dot is the deepest gold rather than the handoff's rust.
+  hot: 'var(--sn-gold-700)',
+  warm: 'var(--sn-gold-500)',
+  calm: 'rgb(var(--color-link))',
+};
+
 type DecisionItemView = {
   id: string;
   label: string;
@@ -1574,7 +1587,7 @@ export async function EventDashboard({
               <div className="sn-tile">
                 <p className="sn-eye">
                   <ListChecks aria-hidden strokeWidth={1.75} />
-                  Decisions · waiting on you
+                  Needs you this week
                 </p>
                 <div className="mt-2 flex items-baseline gap-2">
                   <b className="font-mono text-[30px] font-bold leading-none text-ink">
@@ -1587,33 +1600,57 @@ export async function EventDashboard({
                 </div>
                 {flatDecisions.length > 0 ? (
                   <>
-                    <div className="mt-2 space-y-2">
+                    {/* WARM EDITORIAL row grammar (§ 2.2): one line, one status, one
+                     *  destination. THE WHOLE ROW IS THE LINK now — a 44px target
+                     *  instead of a 28px pill, which is the tap-target rule rather
+                     *  than a preference. The labelled CTA pills are NOT lost: the
+                     *  decisions board below keeps them (§ 2.2b), so every action
+                     *  still has a verb somewhere on the page.
+                     *
+                     *  The dot replaces the pill as the urgency signal, read from the
+                     *  SHIPPED `chipTone` — no new field, no re-derivation.
+                     *
+                     *  ⚠ Two deliberate departures from the spec, both to avoid
+                     *  inventing fragile logic:
+                     *   · the spec wanted the peso figure parsed OUT of `chip`. There
+                     *     is no amount field on DecisionItemView, so that means a
+                     *     regex over display text that breaks silently when the chip
+                     *     is reworded. The chip itself is rendered instead — same
+                     *     number, nothing to break — in mono when it carries a ₱.
+                     *   · the spec wanted `sub` shown only "when it carries a date or
+                     *     a reference". That is a heuristic over free text with no
+                     *     field to key on, so `sub` is kept as shipped. */}
+                    <div className="mt-2">
                       {flatDecisions.slice(0, 3).map((item, ii) => (
-                        <div
+                        <Link
                           key={item.id}
-                          className="sn-row flex items-center gap-2.5 px-3 py-2.5"
+                          href={item.href}
+                          className={`flex min-h-[44px] items-center gap-3 px-4 py-3 transition-colors hover:bg-ink/[0.03] ${
+                            ii > 0 ? 'border-t' : ''
+                          }`}
+                          style={ii > 0 ? { borderColor: '#EDE8DE' } : undefined}
                         >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-semibold text-ink">
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 flex-none rounded-full"
+                            style={{ background: decisionDotColor[item.chipTone] }}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[14px] font-semibold text-ink">
                               {item.label}
-                            </p>
-                            <p className="truncate text-[11.5px] text-ink/55">{item.sub}</p>
-                          </div>
-                          <Link
-                            href={item.href}
-                            className="flex-none whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-bold transition-transform hover:-translate-y-0.5"
-                            style={
-                              ii === 0
-                                ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
-                                : {
-                                    border: '1px solid var(--sn-gold-500)',
-                                    color: 'var(--sn-gold-700)',
-                                  }
-                            }
+                            </span>
+                            <span className="block truncate text-[11.5px] text-ink/55">
+                              {item.sub}
+                            </span>
+                          </span>
+                          <span
+                            className={`flex-none whitespace-nowrap text-[13.5px] font-bold text-ink ${
+                              item.chip.includes('₱') ? 'font-mono' : ''
+                            }`}
                           >
-                            {item.ctaLabel}
-                          </Link>
-                        </div>
+                            {item.chip}
+                          </span>
+                        </Link>
                       ))}
                     </div>
                     <a

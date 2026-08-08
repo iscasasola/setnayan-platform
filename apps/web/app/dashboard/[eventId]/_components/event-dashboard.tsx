@@ -2135,8 +2135,9 @@ export async function EventDashboard({
           <section aria-label="Meanwhile" className="!mt-6">
             <p className="sn-eye">Meanwhile</p>
             <div
-              className="mt-2 rounded-[14px] p-4"
+              className="mt-2 p-4"
               style={{
+                borderRadius: 'var(--m-r-md)',
                 background: 'rgb(var(--color-cream))',
                 border: '1px solid #E1DCD1',
                 boxShadow: '0 1px 3px rgba(30,26,18,0.06)',
@@ -2148,8 +2149,9 @@ export async function EventDashboard({
               >
                 <span
                   aria-hidden
-                  className="h-11 w-11 flex-none rounded-[10px]"
+                  className="h-11 w-11 flex-none"
                   style={{
+                    borderRadius: 'var(--m-r-sm)',
                     border: '1px solid #E1DCD1',
                     background:
                       'repeating-linear-gradient(-45deg,#EFE8DA,#EFE8DA 6px,#E6DECB 6px,#E6DECB 12px)',

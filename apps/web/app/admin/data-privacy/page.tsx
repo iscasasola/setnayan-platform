@@ -293,7 +293,7 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
           {c.risk_note ? (
             <p
               className="mt-2 rounded-md px-3 py-2 text-xs"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               <strong>Why it’s sensitive:</strong> {c.risk_note}
             </p>

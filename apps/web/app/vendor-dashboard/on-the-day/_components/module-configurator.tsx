@@ -105,7 +105,7 @@ export function ModuleConfigurator({
                     {m.readout ? (
                       <span
                         className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                        style={{ background: 'var(--m-line)', color: 'var(--m-slate-2)' }}
+                        style={{ background: 'var(--m-line)', color: 'var(--m-slate)' }}
                       >
                         {m.readout}
                       </span>
@@ -113,7 +113,7 @@ export function ModuleConfigurator({
                     {gated ? (
                       <span
                         className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                        style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                        style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
                       >
                         <Lock aria-hidden className="h-3 w-3" strokeWidth={2} /> Needs setup
                       </span>

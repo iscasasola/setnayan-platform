@@ -427,7 +427,7 @@ export function NewManualVendorModal({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 self-start rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                    className="inline-flex items-center gap-1.5 self-start rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
                   >
                     <Upload aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                     {photoPreviewUrl ? 'Replace photo' : 'Add photo'}

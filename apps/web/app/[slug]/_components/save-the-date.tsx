@@ -209,7 +209,7 @@ export function SaveTheDateView({
             <a
               href={icsDataHref(ics)}
               download={`${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`}
-              className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-terracotta hover:text-terracotta"
+              className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               Apple / Outlook (.ics)
             </a>

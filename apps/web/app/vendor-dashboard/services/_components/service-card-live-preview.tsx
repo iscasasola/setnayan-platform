@@ -200,7 +200,7 @@ export function ServiceCardLivePreview({
       >
         <div
           className="flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-3)' }}
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
         >
           {initialCoverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -251,7 +251,7 @@ export function ServiceCardLivePreview({
           {snap.notIncluded.length ? (
             <p
               className="flex items-start gap-1 rounded-md px-2 py-1 text-[11px]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               <AlertCircle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
               <span>Not included: {snap.notIncluded.join(' · ')}</span>

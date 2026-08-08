@@ -100,7 +100,7 @@ const PAPIC_SCENES: RichFrame[] = [
       <div className="absolute inset-0 flex flex-col bg-cream text-ink">
         <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your gallery</div>
         <div className="flex flex-wrap gap-1 px-3">
-          <span className="rounded-full bg-terracotta px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
+          <span className="rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Photos of us</span>
           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Videos</span>
         </div>
@@ -190,7 +190,7 @@ const SAVE_THE_DATE_SCENES: RichFrame[] = [
         <span className="text-xl" style={{ fontFamily: SERIF, color: GOLD }}>M &amp; J</span>
         <span className="mt-1 font-mono text-[8px] uppercase tracking-[0.28em] text-ink/55">Save the Date</span>
         <span className="mt-0.5 text-base italic" style={{ fontFamily: SERIF }}>June 12, 2027</span>
-        <span className="mt-4 rounded-full bg-terracotta px-4 py-1.5 text-[11px] font-medium text-cream shadow-sm">Add to calendar</span>
+        <span className="mt-4 rounded-full bg-terracotta-700 px-4 py-1.5 text-[11px] font-medium text-cream shadow-sm">Add to calendar</span>
         <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-2 py-1 text-[9px] font-medium text-emerald-700">
           <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} /> Added — Jun 12
         </span>
@@ -238,7 +238,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
         <div className="relative mt-2 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl bg-white">
           <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1B1A17)' }}>M&amp;J</span>
           <span className="absolute inset-y-4 left-1/3 w-6 -skew-x-12" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}66, transparent)` }} />
-          <span className="absolute right-2 top-2 rounded-full bg-terracotta px-1.5 py-0.5 text-[7px] font-medium text-cream">Upgrade</span>
+          <span className="absolute right-2 top-2 rounded-full bg-terracotta-700 px-1.5 py-0.5 text-[7px] font-medium text-cream">Upgrade</span>
         </div>
         <div className="mt-2 flex gap-1 overflow-hidden">
           {['Drawn', 'Foil', 'Bloom', 'Halo'].map((m, k) => (
@@ -321,7 +321,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
             <span className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-terracotta text-[11px] text-terracotta">+</span>
           </div>
         </div>
-        <button type="button" className="mt-auto mb-4 self-end rounded-md bg-terracotta px-4 py-1.5 text-[10px] font-medium text-cream">Save palette</button>
+        <button type="button" className="mt-auto mb-4 self-end rounded-md bg-terracotta-700 px-4 py-1.5 text-[10px] font-medium text-cream">Save palette</button>
       </div>
     ),
   },
@@ -391,7 +391,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
             <span className="block h-1.5 w-full rounded bg-ink/10" />
           </div>
         </div>
-        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-[10px] font-medium text-cream">
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-[10px] font-medium text-cream">
           <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download
         </button>
         <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Free · one vision every vendor pulls from</span>
@@ -440,7 +440,7 @@ const CUSTOM_QR_SCENES: RichFrame[] = [
             <p className="mt-1 text-[8px] font-medium">Default — free</p>
           </div>
           <div className="relative rounded-lg border-2 border-terracotta bg-white p-2 text-center">
-            <span className="absolute right-1 top-1 rounded-full bg-terracotta px-1 py-0.5 text-[6px] font-medium text-cream">Upgrade</span>
+            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Upgrade</span>
             <QrCode aria-hidden className="mx-auto h-12 w-12" strokeWidth={0.75} style={{ color: MULB }} />
             <p className="mt-1 text-[8px] font-medium">Branded</p>
           </div>
@@ -577,7 +577,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
         <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
         <p className="text-[12px] font-semibold">Pick the reel templates</p>
         <div className="mt-1.5 flex gap-1">
-          <span className="rounded-full bg-terracotta px-2 py-0.5 text-[7px] text-cream">All</span>
+          <span className="rounded-full bg-terracotta-700 px-2 py-0.5 text-[7px] text-cream">All</span>
           <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Ceremony</span>
           <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Reception</span>
         </div>
@@ -656,7 +656,7 @@ const LED_SCENES: RichFrame[] = [
         <div className="px-4 pb-7 text-center text-cream">
           <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: GOLD }}>Pailaw · LED background</span>
           <p className="mt-1 text-base" style={{ fontFamily: SERIF }}>Your name, twenty feet tall.</p>
-          <span className="mt-3 inline-block rounded-full bg-terracotta px-4 py-1 text-[10px] font-medium text-cream">Choose template</span>
+          <span className="mt-3 inline-block rounded-full bg-terracotta-700 px-4 py-1 text-[10px] font-medium text-cream">Choose template</span>
         </div>
       </div>
     ),
@@ -1128,7 +1128,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
     hint: 'Scroll the timeline of moments.',
     scene: (
       <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
-        <span className="w-fit rounded-full bg-terracotta px-2 py-0.5 font-mono text-[6px] uppercase tracking-[0.12em] text-cream">Playlist</span>
+        <span className="w-fit rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[6px] uppercase tracking-[0.12em] text-cream">Playlist</span>
         <p className="mt-1.5 text-[13px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
         <div className="mt-2 space-y-1.5">
           {['Processional', 'Ceremony', 'Cocktail hour', 'First dance · 1 song', 'Dinner'].map((s) => (

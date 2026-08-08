@@ -184,7 +184,7 @@ export function ChangeOrderTrail({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terracotta/90"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
           >
             <PlusCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Propose a change
@@ -296,7 +296,7 @@ export function ChangeOrderTrail({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
             >
               {pending && busyId === null ? (
                 <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
@@ -386,7 +386,7 @@ export function ChangeOrderTrail({
                       type="button"
                       disabled={pending}
                       onClick={() => handleRespond(co.change_order_id, 'accept')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1 text-[11px] font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
                     >
                       {busy && pending ? (
                         <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />

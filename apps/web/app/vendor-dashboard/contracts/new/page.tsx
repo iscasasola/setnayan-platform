@@ -132,7 +132,7 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
               type="file"
               accept="application/pdf,.pdf"
               required
-              className="block w-full text-sm text-ink file:mr-4 file:rounded-md file:border-0 file:bg-terracotta file:px-4 file:py-2 file:text-sm file:font-medium file:text-cream hover:file:bg-terracotta-700"
+              className="block w-full text-sm text-ink file:mr-4 file:rounded-md file:border-0 file:bg-terracotta-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cream hover:file:bg-terracotta-700"
             />
             <p className="text-xs text-ink/55">
               PDF only · max {formatFileSize(CONTRACT_MAX_BYTES)} ·

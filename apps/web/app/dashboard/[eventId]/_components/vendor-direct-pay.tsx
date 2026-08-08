@@ -180,7 +180,7 @@ function DirectPayTrigger({
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta-700"
         >
           <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {adminLabel}
@@ -366,7 +366,7 @@ function CopyButton({ value, fieldLabel }: { value: string; fieldLabel: string }
       type="button"
       onClick={onCopy}
       aria-label={copied ? `${fieldLabel} copied` : `Copy ${fieldLabel.toLowerCase()}`}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/10 bg-cream px-2 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/10 bg-cream px-2 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta-700"
     >
       {copied ? (
         <>
@@ -399,7 +399,7 @@ function QrBody({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta-700"
       >
         <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Show QR
@@ -479,7 +479,7 @@ function LinkBody({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-700"
+        className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
       >
         <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Pay
@@ -523,7 +523,7 @@ function LinkBody({
               <button
                 type="button"
                 onClick={onContinue}
-                className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-700"
+                className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
               >
                 <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Continue

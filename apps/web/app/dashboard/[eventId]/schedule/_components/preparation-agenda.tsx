@@ -247,13 +247,13 @@ function PreparationEmptyState({
         <AddPreparationItem eventId={eventId} />
         <Link
           href={`/dashboard/${eventId}/budget`}
-          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta-700"
         >
           Open budget
         </Link>
         <Link
           href={`/dashboard/${eventId}/paperwork`}
-          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta-700"
         >
           Open paperwork
         </Link>

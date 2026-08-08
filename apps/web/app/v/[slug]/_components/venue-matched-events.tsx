@@ -59,7 +59,7 @@ export function VenueMatchedEvents({
               {e.atViewerVenue ? (
                 <span
                   className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
                 >
                   Your venue
                 </span>

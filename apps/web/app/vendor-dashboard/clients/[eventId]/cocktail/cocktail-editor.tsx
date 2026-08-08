@@ -557,7 +557,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                       <button
                         type="button"
                         onClick={() => saveOfferings(b)}
-                        className="rounded-lg bg-terracotta px-2.5 py-1 text-xs font-semibold text-cream hover:opacity-90"
+                        className="rounded-lg bg-terracotta-700 px-2.5 py-1 text-xs font-semibold text-cream hover:opacity-90"
                       >
                         Save
                       </button>

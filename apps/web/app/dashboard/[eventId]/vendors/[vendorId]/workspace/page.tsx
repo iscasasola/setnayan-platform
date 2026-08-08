@@ -1495,7 +1495,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 </p>
                 <Link
                   href={conversationHref}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 >
                   Open chat thread
                 </Link>
@@ -1508,7 +1508,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 </p>
                 <Link
                   href={`/dashboard/${eventId}/messages`}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 >
                   Go to Messages
                 </Link>

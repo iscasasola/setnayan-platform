@@ -72,7 +72,7 @@ export function InvitationTemplateModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-cream px-2.5 py-1.5 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/10"
+        className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-cream px-2.5 py-1.5 text-xs font-medium text-terracotta-700-700 transition-colors hover:bg-terracotta/10"
       >
         <Send aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         {triggerLabel}

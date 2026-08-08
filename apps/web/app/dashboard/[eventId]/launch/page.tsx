@@ -180,7 +180,7 @@ export default async function LaunchHubPage({ params }: Props) {
               {s.owned ? (
                 <Link
                   href={s.launchHref}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta-600"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
                 >
                   {s.launchLabel}
                   <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -238,7 +238,7 @@ export default async function LaunchHubPage({ params }: Props) {
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold text-ink">{page.name}</h3>
                       {isActive && (
-                        <span className="inline-flex items-center rounded-full bg-terracotta px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                        <span className="inline-flex items-center rounded-full bg-terracotta-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cream">
                           Active now
                         </span>
                       )}

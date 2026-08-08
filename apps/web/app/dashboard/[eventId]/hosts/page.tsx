@@ -292,7 +292,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   <input type="hidden" name="display_label" value={c.vendor_name.slice(0, 80)} />
                   <SubmitButton
                     pendingLabel="Inviting…"
-                    className="rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta/90"
+                    className="rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-800"
                   >
                     Invite as delegate
                   </SubmitButton>
@@ -350,7 +350,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                     <input type="hidden" name="moderator_id" value={row.moderator_id} />
                     <SubmitButton
                       pendingLabel="Removing…"
-                      className="inline-flex items-center gap-1 rounded-md border border-terracotta/30 bg-cream px-2.5 py-1 text-xs text-terracotta-700 hover:bg-terracotta/10"
+                      className="inline-flex items-center gap-1 rounded-md border border-terracotta/30 bg-cream px-2.5 py-1 text-xs text-terracotta-700-700 hover:bg-terracotta/10"
                     >
                       <Trash2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                       Revoke

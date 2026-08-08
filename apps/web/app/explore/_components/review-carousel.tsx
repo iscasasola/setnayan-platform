@@ -77,7 +77,7 @@ export function ReviewCarousel({ reviews, vendorName }: Props) {
             <button
               type="button"
               onClick={prev}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta-700"
               aria-label="Previous review"
             >
               <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -91,7 +91,7 @@ export function ReviewCarousel({ reviews, vendorName }: Props) {
             <button
               type="button"
               onClick={next}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta-700"
               aria-label="Next review"
             >
               <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.75} />

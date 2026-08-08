@@ -136,7 +136,7 @@ export function WipeBanDialog({
                 <SubmitButton
                   pendingLabel="Opening request…"
                   disabled={!matches}
-                  className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-bold text-cream transition-colors hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Open two-admin wipe + ban request
                 </SubmitButton>

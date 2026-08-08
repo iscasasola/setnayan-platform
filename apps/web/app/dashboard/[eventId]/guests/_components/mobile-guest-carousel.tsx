@@ -219,7 +219,7 @@ export function MobileGuestCarousel({
                 aria-label={`${pendingClaims} ${pendingClaims === 1 ? 'guest needs' : 'guests need'} you`}
                 className="inline-flex items-center gap-1.5 rounded-full border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-xs font-medium text-danger-700"
               >
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-bold text-white">
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger-700 px-1 text-[10px] font-bold text-white">
                   {pendingClaims}
                 </span>
                 Needs you

@@ -75,7 +75,7 @@ export function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => choose(true)}
-              className="rounded-full bg-terracotta px-4 py-1.5 text-xs font-semibold text-cream hover:opacity-90"
+              className="rounded-full bg-terracotta-700 px-4 py-1.5 text-xs font-semibold text-cream hover:opacity-90"
             >
               Accept all
             </button>
@@ -122,7 +122,7 @@ export function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => choose(analytics)}
-              className="rounded-full bg-terracotta px-4 py-1.5 text-xs font-semibold text-cream hover:opacity-90"
+              className="rounded-full bg-terracotta-700 px-4 py-1.5 text-xs font-semibold text-cream hover:opacity-90"
             >
               Save
             </button>

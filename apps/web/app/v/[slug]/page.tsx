@@ -2674,7 +2674,7 @@ export async function renderVendorBySlug({
                     <input type="hidden" name="requested_date" value={waitlistDate} />
                     <SubmitButton
                       pendingLabel="Joining…"
-                      className="rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta/90"
+                      className="rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
                     >
                       Join the waitlist for this date
                     </SubmitButton>
@@ -3773,7 +3773,7 @@ function VendorPackagesSection({
             cta = (
               <Link
                 href="/login"
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep"
               >
                 Sign in to customize
               </Link>

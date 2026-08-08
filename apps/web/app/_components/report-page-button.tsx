@@ -164,7 +164,7 @@ export function ReportPageButton({
                   type="button"
                   onClick={submit}
                   disabled={pending}
-                  className="w-full rounded-md bg-terracotta px-3 py-2 text-xs font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-60"
+                  className="w-full rounded-md bg-terracotta-700 px-3 py-2 text-xs font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
                 >
                   {pending ? 'Sending…' : 'Submit report'}
                 </button>

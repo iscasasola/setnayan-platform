@@ -276,7 +276,7 @@ export function TagSheet({
               <button
                 type="button"
                 onClick={startScanner}
-                className="flex w-full items-center justify-center gap-2 bg-terracotta px-4 py-3.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
+                className="flex w-full items-center justify-center gap-2 bg-terracotta-700 px-4 py-3.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800"
               >
                 <Camera className="h-5 w-5" /> Scan place card or table QR
               </button>

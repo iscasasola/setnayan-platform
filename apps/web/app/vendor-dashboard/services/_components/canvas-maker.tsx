@@ -387,7 +387,7 @@ export function CanvasMaker({
                     key={i}
                     aria-hidden
                     className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg font-mono text-[8px]"
-                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
                   >
                     {i + 1}
                   </span>
@@ -518,7 +518,7 @@ export function CanvasMaker({
             name="publish"
             value="true"
             disabled={blocked}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-50"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
             pendingLabel="Publishing…"
           >
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -992,7 +992,7 @@ function CoachChip({
       style={{
         borderColor: 'color-mix(in srgb, var(--m-orange-2) 45%, transparent)',
         background: 'var(--m-orange-4)',
-        color: 'var(--m-orange-2)',
+        color: 'var(--m-orange-deep)',
       }}
     >
       {label}

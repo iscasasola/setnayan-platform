@@ -112,7 +112,7 @@ function SwitcherPanelBody({
         <Link
           href="/dashboard"
           onClick={close}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800"
         >
           <Home aria-hidden className="h-4 w-4" strokeWidth={2.5} />
           {homeLabel}
@@ -278,7 +278,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta"
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
         {/* Avatar circle */}
         <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
@@ -349,7 +349,7 @@ export function AccountSwitcherIconTrigger({
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={onToggle}
-      className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:border-terracotta"
+      className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta"
     >
       {data.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element

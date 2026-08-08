@@ -4090,7 +4090,7 @@ export function SeatingEditor({
         onClick={() => setShowAddTable((v) => !v)}
         disabled={!canEdit}
         title={!canEdit ? 'View only — someone else is editing this seat plan' : undefined}
-        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-terracotta px-2.5 py-2 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-2 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
       </button>
@@ -5749,7 +5749,7 @@ export function SeatingEditor({
                   onPointerCancel={onRectGripUp}
                   aria-label="Resize cocktail area"
                   title="Drag to resize the cocktail area"
-                  className="pointer-events-auto absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+                  className="pointer-events-auto absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta-700 shadow-sm"
                 >
                   <Maximize2 className="h-3 w-3 rotate-90" />
                 </button>
@@ -5793,7 +5793,7 @@ export function SeatingEditor({
                 onPointerCancel={onRectGripUp}
                 aria-label="Resize stage"
                 title="Drag to resize the stage"
-                className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+                className="absolute -bottom-2 -right-2 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta-700 shadow-sm"
               >
                 <Maximize2 className="h-3 w-3 rotate-90" />
               </button>
@@ -6491,7 +6491,7 @@ export function SeatingEditor({
                 onPointerCancel={onWallGripUp}
                 aria-label="Drag to resize the room"
                 title="Drag to resize the room"
-                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/60 hover:border-terracotta hover:text-terracotta"
+                className="absolute bottom-0 right-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tl-md border border-ink/30 bg-cream text-ink/60 hover:border-terracotta hover:text-terracotta-700"
               >
                 <Maximize2 className="h-3 w-3 rotate-90" />
               </button>
@@ -6605,7 +6605,7 @@ export function SeatingEditor({
                   onPointerCancel={() => {
                     handleRotRef.current = null;
                   }}
-                  className="absolute z-40 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta shadow-sm hover:bg-terracotta/10 active:cursor-grabbing"
+                  className="absolute z-40 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta-700 shadow-sm hover:bg-terracotta/10 active:cursor-grabbing"
                   style={{ left, top: handleTop }}
                 >
                   <RotateCw className="h-3.5 w-3.5" />
@@ -6709,7 +6709,7 @@ export function SeatingEditor({
                           <button
                             type="button"
                             onClick={() => freeSeat && place(freeSeat.tableId, freeSeat.seat)}
-                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1 text-xs font-medium text-cream hover:bg-terracotta-600"
+                            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-1 text-xs font-medium text-cream hover:bg-terracotta-800"
                           >
                             <Armchair className="h-3.5 w-3.5" /> Seat here
                           </button>
@@ -7615,7 +7615,7 @@ function AddTablePanel({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-1 rounded-lg bg-terracotta px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg bg-terracotta-700 px-2.5 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Add table
         </button>

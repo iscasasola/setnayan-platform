@@ -96,7 +96,7 @@ export function LockDateConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
           >
             {isPending ? (
               <>
@@ -147,7 +147,7 @@ export function LockMilestoneToast({
       className="fixed bottom-4 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-terracotta/40 bg-cream px-4 py-3.5 shadow-lg"
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta text-cream">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream">
           <PartyPopper aria-hidden className="h-4.5 w-4.5" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1 space-y-1">

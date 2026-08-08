@@ -56,7 +56,7 @@ export function OverviewDecisionInspector({
         <Link
           href={href}
           className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-transform hover:-translate-y-0.5"
-          style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+          style={{ background: 'var(--sn-gold-700)', color: '#FDFBF7' }}
         >
           {ctaLabel}
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />

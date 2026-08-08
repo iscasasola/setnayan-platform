@@ -124,7 +124,7 @@ export function RecommendationRow({ row }: { row: MapRow }) {
           </label>
           <div className="ml-auto">
             <SubmitButton
-              className="rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta/90"
+              className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
               pendingLabel="Saving…"
             >
               Save
@@ -229,7 +229,7 @@ export function AddRecommendation({
       </label>
       <div className="mt-4">
         <SubmitButton
-          className="inline-flex items-center gap-2 rounded-md bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta/90"
+          className="inline-flex items-center gap-2 rounded-md bg-terracotta-700 px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
           pendingLabel="Adding…"
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add recommendation
@@ -291,7 +291,7 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
         <input type="hidden" name="decision" value={decision} />
         <SubmitButton
           onClick={() => setDecision('accepted')}
-          className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
           pendingLabel="Resolving…"
         >
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Accept

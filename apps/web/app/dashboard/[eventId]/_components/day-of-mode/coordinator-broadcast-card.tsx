@@ -147,7 +147,7 @@ function LiveBroadcastCard({
             type="button"
             onClick={handleSend}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-sm font-medium text-cream transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {isPending ? 'Sending…' : 'Broadcast'}

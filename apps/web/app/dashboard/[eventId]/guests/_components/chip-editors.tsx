@@ -547,7 +547,7 @@ export function AddToGroupControl({
                 type="button"
                 onClick={createAndAdd}
                 aria-label="Create group and add"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-terracotta text-cream hover:bg-terracotta-700"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-terracotta-700 text-cream hover:bg-terracotta-800"
               >
                 <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>

@@ -71,7 +71,7 @@ export function FeatureUsCard({
         <input type="hidden" name="artifact_ref" value={artifactRef} />
         <input type="hidden" name="revalidate_path" value={revalidatePath} />
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700-700">
             <input
               type="radio"
               name="credit_mode"
@@ -81,7 +81,7 @@ export function FeatureUsCard({
             />
             <span>Credit us by first names</span>
           </label>
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700-700">
             <input
               type="radio"
               name="credit_mode"

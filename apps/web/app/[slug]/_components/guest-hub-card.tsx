@@ -382,7 +382,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
             </span>
             <Link
               href={`/${slug}/find-my-table`}
-              className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta"
+              className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta-700"
             >
               <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
               Find my table
@@ -390,7 +390,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
             {!isLimitedPlusOne ? (
               <Link
                 href={`/${slug}/welcome`}
-                className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta"
+                className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta-700"
               >
                 Welcome back
               </Link>

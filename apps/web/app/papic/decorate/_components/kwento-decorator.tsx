@@ -413,7 +413,7 @@ export function KwentoDecorator({
                           onPointerDown={(e) => onHandleDown(e, ov)}
                           role="button"
                           aria-label="Resize and rotate"
-                          className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta text-cream shadow"
+                          className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta-700 text-cream shadow"
                         >
                           <RotateCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
                         </span>
@@ -535,7 +535,7 @@ export function KwentoDecorator({
               type="button"
               disabled={saving || done}
               onClick={save}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta/90 disabled:opacity-60"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
             >
               {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
               {done ? 'Saved' : 'Save to gallery'}

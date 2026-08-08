@@ -93,7 +93,7 @@ export function PendingLockProposals({
                   type="button"
                   onClick={() => confirmLock(p)}
                   disabled={busy}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta/90 disabled:opacity-60"
+                  className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
                 >
                   {busy ? (
                     <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />

@@ -104,7 +104,7 @@ export function InclusionsEditor({ initial }: { initial: InclusionDraft[] }) {
           {rows.length > 0 ? (
             <span
               className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               {rows.length}
             </span>
@@ -259,7 +259,7 @@ export function DiscountsEditor({
           {rows.length > 0 ? (
             <span
               className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               {rows.length}
             </span>
@@ -458,7 +458,7 @@ export function PriceBracketsEditor({ initial }: { initial: BracketDraft[] }) {
           {rows.length > 0 ? (
             <span
               className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
               {rows.length}
             </span>

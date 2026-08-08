@@ -47,7 +47,7 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
 
         <Link
           href={model.editorHref}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-terracotta hover:text-terracotta"
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
         >
           <PencilLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Edit this site

@@ -195,7 +195,7 @@ export function LiveWallControls({
                         onClick={() =>
                           run(() => hideWallTile(eventId, tile.sourceTable, tile.sourceId, true))
                         }
-                        className="rounded p-0.5 text-terracotta hover:bg-cream/20"
+                        className="rounded p-0.5 text-terracotta-700 hover:bg-cream/20"
                       >
                         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>

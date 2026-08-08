@@ -49,7 +49,7 @@ export default function AdminError({
       <div className="flex items-center gap-3">
         <button
           onClick={reset}
-          className="rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+          className="rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream transition hover:opacity-90"
         >
           Try again
         </button>

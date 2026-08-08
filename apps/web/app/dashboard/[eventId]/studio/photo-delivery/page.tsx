@@ -368,7 +368,7 @@ function SyncModeCard({
           {selected ? (
             <span
               aria-hidden
-              className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream"
+              className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream"
             >
               <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
               Selected

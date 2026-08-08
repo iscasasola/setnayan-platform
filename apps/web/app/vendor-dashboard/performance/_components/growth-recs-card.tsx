@@ -26,10 +26,10 @@ const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
 
 function impactChipStyle(impact: GrowthImpact): React.CSSProperties {
   if (impact === 'high') {
-    return { background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' };
+    return { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' };
   }
   if (impact === 'medium') {
-    return { background: 'var(--m-sage)', color: 'var(--m-sage-deep)' };
+    return { background: 'var(--m-sage)', color: 'var(--m-sage-deeper)' };
   }
   return {
     background: 'color-mix(in srgb, var(--m-ink) 6%, transparent)',
@@ -47,7 +47,7 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
         <span
           aria-hidden
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
         >
           {REC_ICON[rec.key]}
         </span>

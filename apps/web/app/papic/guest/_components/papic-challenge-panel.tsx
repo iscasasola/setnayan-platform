@@ -307,7 +307,7 @@ function ChallengePanelInner({
                       <button
                         type="button"
                         onClick={disarm}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-terracotta/80 px-2.5 py-1 text-xs font-medium text-cream transition hover:bg-terracotta"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-terracotta/80 px-2.5 py-1 text-xs font-medium text-cream transition hover:bg-terracotta-800"
                       >
                         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                         Cancel

@@ -175,7 +175,7 @@ export function FilterDrawer({
             aria-label="Close filters"
             // 44pt min-height (global rule). Same rounded radius as the
             // other CTAs so visually everything reads as one button family.
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
           >
             <X className="h-4 w-4" strokeWidth={2} aria-hidden />
           </button>

@@ -18,6 +18,9 @@
   --ug-gold: var(--m-orange, #c5a059);
   --ug-gold-soft: var(--m-orange-4, #f4ecd8);
   --ug-lock: var(--m-orange-2, #a88340);
+  /* Gold-on-gold-wash is 4.21:1 — under the 4.5:1 AA floor. This is the
+     shade that may carry a word on --ug-gold-soft (7.50:1). */
+  --ug-lock-strong: var(--m-orange-deep, #5C4726);
 
   /* semantic audit tones */
   --ug-ok: #3e8b59;

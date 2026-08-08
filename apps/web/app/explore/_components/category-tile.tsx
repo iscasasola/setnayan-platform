@@ -232,7 +232,7 @@ function StatePill({ state }: { state: TileState }) {
   switch (state.kind) {
     case 'setnayan':
       return (
-        <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
+        <span className="shrink-0 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
           Setnayan
         </span>
       );

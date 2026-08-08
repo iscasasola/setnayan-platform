@@ -305,7 +305,7 @@ function CandidateCard({
       >
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           {isBest ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2.5 py-0.5 text-[11px] font-semibold text-cream">
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2.5 py-0.5 text-[11px] font-semibold text-cream">
               <Star aria-hidden className="h-3 w-3 fill-cream" strokeWidth={2} />
               Our pick
             </span>
@@ -467,7 +467,7 @@ export function CandidateDatePicker({
       {/* Our pick banner */}
       {top ? (
         <div className="flex items-start gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/[0.06] px-5 py-4">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta text-cream">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream">
             <Star aria-hidden className="h-4 w-4 fill-cream" strokeWidth={2} />
           </span>
           <div className="min-w-0 flex-1">

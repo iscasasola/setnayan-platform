@@ -74,7 +74,7 @@ export function GuestToHostCta({
             destination: '/signup',
           });
         }}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
       >
         Start planning →
       </a>

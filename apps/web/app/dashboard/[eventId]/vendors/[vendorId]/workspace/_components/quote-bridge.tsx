@@ -192,7 +192,7 @@ export function QuoteBridge({
                   onClick={() =>
                     openWith({ servicePesos: amt, label: 'Quote from chat' })
                   }
-                  className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-terracotta/30 bg-cream px-3 py-1.5 text-xs font-semibold text-terracotta transition-colors hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-terracotta/30 bg-cream px-3 py-1.5 text-xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 >
                   Log {fmtPeso(amt)}
                 </button>

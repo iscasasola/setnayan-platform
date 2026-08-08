@@ -362,7 +362,7 @@ function TraditionsGuide({
           {teaCeremonyHref ? (
             <Link
               href={teaCeremonyHref}
-              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
             >
               <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               Plan your tea-ceremony serving order
@@ -372,7 +372,7 @@ function TraditionsGuide({
           {baziSpecialistHref ? (
             <Link
               href={baziSpecialistHref}
-              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-700-800"
             >
               <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               Find a date / feng-shui specialist
@@ -783,7 +783,7 @@ function ActionsBlock({
             <input type="hidden" name="paperwork_id" value={row.id} />
             <input type="hidden" name="status" value="not_started" />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta disabled:opacity-70"
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-70"
               pendingLabel="Resetting…"
             >
               Reset status
@@ -798,7 +798,7 @@ function ActionsBlock({
             href="https://psa.gov.ph"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta"
+            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Open PSA portal
@@ -809,7 +809,7 @@ function ActionsBlock({
             href="https://www.cfo.gov.ph"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta"
+            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
             Open CFO site
@@ -967,7 +967,7 @@ function NotesForm({
       />
       <div>
         <SubmitButton
-          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta disabled:opacity-70"
+          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-70"
           pendingLabel="Saving…"
         >
           Save note

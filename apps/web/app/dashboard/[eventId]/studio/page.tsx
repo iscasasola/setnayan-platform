@@ -542,7 +542,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
                   </span>
                   <Link
                     href={cardHref(entry)}
-                    className="shrink-0 rounded-full bg-terracotta px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-700"
+                    className="shrink-0 rounded-full bg-terracotta-700 px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-800"
                   >
                     View
                   </Link>
@@ -591,7 +591,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
                   </span>
                   <Link
                     href={cardHref(entry)}
-                    className="shrink-0 rounded-full bg-terracotta px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-700"
+                    className="shrink-0 rounded-full bg-terracotta-700 px-3.5 py-1 text-xs font-bold text-cream transition-colors hover:bg-terracotta-800"
                   >
                     View
                   </Link>

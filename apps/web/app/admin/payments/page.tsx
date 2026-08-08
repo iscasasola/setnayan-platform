@@ -517,7 +517,7 @@ function PaymentsList({
                   {PAYMENT_STATUS_LABEL[p.status]}
                 </span>
                 {sameDay ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-cream">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-cream">
                     Event today
                   </span>
                 ) : null}

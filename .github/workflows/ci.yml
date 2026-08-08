@@ -260,6 +260,16 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-migrations-dir.mjs
 
+      # Text on a fill it cannot be read against. Born 2026-08-08 with the gold
+      # ruling: cream on the standard gold is 3.37:1 against a 4.5:1 floor, and
+      # nothing in the stack notices — it compiles, renders and screenshots fine.
+      # 76 call sites were failing while lib/palette-lock.test.ts stayed green,
+      # because that test checks the TOKENS and this checks how they are PAIRED.
+      - name: Lint label-on-fill contrast
+        id: guard_label_contrast
+        continue-on-error: true
+        run: node apps/web/scripts/lint-label-on-fill-contrast.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
@@ -337,6 +347,7 @@ jobs:
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
           MIGRATIONS_DIR: ${{ steps.guard_migrations_dir.outcome }}
+          LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
         run: |
@@ -363,6 +374,7 @@ jobs:
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
+          check 'lint label-on-fill contrast' "$LABEL_CONTRAST"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"
           check 'lint stored-asset refs'      "$STORED_ASSET_REFS"
           if [ "$failed" -ne 0 ]; then

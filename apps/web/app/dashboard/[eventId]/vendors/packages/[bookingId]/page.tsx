@@ -414,14 +414,14 @@ export default async function PackageBookingPage({ params }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <Link
             href={`/dashboard/${eventId}/contracts`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
             <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             View contracts
           </Link>
           <Link
             href={`/dashboard/${eventId}/messages`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
             <MessageCircle
               aria-hidden

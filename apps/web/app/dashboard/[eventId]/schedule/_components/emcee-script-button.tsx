@@ -159,7 +159,7 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
                   type="button"
                   onClick={download}
                   disabled={!script}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-50"
                 >
                   <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Download

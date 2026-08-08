@@ -1086,7 +1086,7 @@ export async function EventDashboard({
     : {
         border: '1px solid var(--sn-gold-500)',
         background: 'var(--sn-gold-100)',
-        color: 'var(--sn-gold-700)',
+        color: 'var(--sn-gold-800)',
       };
   const focalHeadColor = focalDark ? '#F3ECDF' : 'var(--sn-ink-900)';
   const focalSubColor = focalDark ? 'rgba(243,236,223,.65)' : 'var(--sn-ink-500)';
@@ -1233,7 +1233,7 @@ export async function EventDashboard({
             <span key={block.block_id} className="flex items-center gap-2 text-[12px]">
               <span
                 className="flex-none rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold"
-                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
                 {shortDate.format(new Date(block.start_at))}
               </span>
@@ -1733,7 +1733,7 @@ export async function EventDashboard({
             />
             <span
               className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
-              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
             >
               1
             </span>
@@ -1749,7 +1749,7 @@ export async function EventDashboard({
             <Link
               href={topPriorityTask.ctaHref}
               className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+              style={{ background: 'var(--sn-gold-700)', color: '#FDFBF7' }}
             >
               {topPriorityTask.ctaLabel}
             </Link>
@@ -1777,7 +1777,7 @@ export async function EventDashboard({
             <h2 className="sn-sec">{spark}Decisions waiting on you</h2>
             <span
               className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
-              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
             >
               {openDecisionCount} open
             </span>
@@ -1809,7 +1809,7 @@ export async function EventDashboard({
                       <span
                         aria-hidden
                         className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                       >
                         <GroupIcon className="h-4 w-4" strokeWidth={1.75} />
                       </span>
@@ -1822,7 +1822,7 @@ export async function EventDashboard({
                       {aiActive ? (
                         <span
                           className="ml-auto rounded-full px-2.5 py-0.5 font-mono text-[11px] font-extrabold tracking-wide"
-                          style={{ background: 'var(--sn-gold-500)', color: '#FFFDF8' }}
+                          style={{ background: 'var(--sn-gold-700)', color: '#FDFBF7' }}
                         >
                           PRIORITY {gi + 1}
                         </span>
@@ -1864,7 +1864,7 @@ export async function EventDashboard({
                               className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
                               style={
                                 ii === 0
-                                  ? { background: 'var(--sn-gold-500)', color: '#FFFDF8' }
+                                  ? { background: 'var(--sn-gold-700)', color: '#FDFBF7' }
                                   : { border: '1px solid var(--sn-gold-500)', color: 'var(--sn-gold-700)' }
                               }
                             >
@@ -2197,7 +2197,7 @@ export async function EventDashboard({
                     >
                       <span
                         className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full px-1 font-mono text-[10.5px] font-bold"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                       >
                         {shortDate.format(new Date(block.start_at))}
                       </span>

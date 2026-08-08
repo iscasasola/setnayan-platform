@@ -539,7 +539,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={() => setTagSheetOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700-700"
           >
             <Tag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {tag ? 'Change' : 'Tag guest'}
@@ -565,7 +565,7 @@ export function BoothCapture({
               });
               setSuggestion(null);
             }}
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-2.5 py-1 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-2.5 py-1 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
           >
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Tag
           </button>
@@ -585,7 +585,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={openCamera}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Open camera
@@ -603,7 +603,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={startCountdown}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
           >
             <Video aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {captured.length > 0 ? 'Record next guest' : 'Start recording'}
@@ -635,7 +635,7 @@ export function BoothCapture({
               type="button"
               onClick={retake}
               disabled={retakesLeft <= 0}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700-700 disabled:opacity-50"
             >
               <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Retake{retakesLeft < MAX_RETAKES ? ` (${retakesLeft} left)` : ''}
@@ -647,7 +647,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={openCamera}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Retry camera

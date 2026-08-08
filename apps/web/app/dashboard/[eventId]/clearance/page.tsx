@@ -55,7 +55,7 @@ export default async function ClearancePage({ params }: Props) {
           </p>
           <Link
             href={base}
-            className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-terracotta-600"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
           >
             Go to your dashboard
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />

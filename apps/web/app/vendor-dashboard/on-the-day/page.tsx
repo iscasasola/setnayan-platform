@@ -338,7 +338,7 @@ export default async function VendorOnTheDayPage({
           style={{
             borderColor: 'var(--sn-success)',
             background: 'var(--sn-success-soft)',
-            color: 'var(--sn-success)',
+            color: 'var(--sn-success-deep)',
           }}
         >
           <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
@@ -352,7 +352,7 @@ export default async function VendorOnTheDayPage({
           style={{
             borderColor: 'var(--m-orange-3)',
             background: 'var(--m-orange-4)',
-            color: 'var(--m-orange-2)',
+            color: 'var(--m-orange-deep)',
           }}
         >
           <span className="flex items-start gap-3">
@@ -674,7 +674,7 @@ function ModuleReadout({
               {needsSetup ? (
                 <span
                   className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
                 >
                   Needs setup
                 </span>

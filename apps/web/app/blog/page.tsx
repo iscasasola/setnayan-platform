@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Newspaper, ArrowRight, ArrowUpRight } from 'lucide-react';
@@ -8,10 +7,13 @@ import {
   blogCategoriesInUse,
   blogCategoryLabel,
   findBlogArticle,
-  readingMinutes,
   type BlogArticle,
   type BlogCategoryKey,
 } from '@/lib/blog';
+// Eyebrow / metaLine / StoryCard moved to ./_components/story-card (2026-08-08)
+// so /realstories' "From the Journal" rail renders a real Journal card instead
+// of a copy of one. Pure move — this page's markup is unchanged.
+import { StoryCard, Eyebrow, metaLine } from './_components/story-card';
 
 // Setnayan Journal index — magazine redesign (iteration 0038, 2026-06-15).
 // Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"
@@ -48,16 +50,6 @@ export const metadata = {
   },
 };
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return `${d} ${MONTHS[m - 1]} ${y}`;
-}
-
 function isCategoryKey(value: string | undefined): value is BlogCategoryKey {
   return (
     value === 'planning' ||
@@ -66,18 +58,6 @@ function isCategoryKey(value: string | undefined): value is BlogCategoryKey {
     value === 'real-weddings' ||
     value === 'news'
   );
-}
-
-function Eyebrow({ children }: { children: ReactNode }) {
-  return (
-    <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta">
-      {children}
-    </span>
-  );
-}
-
-function metaLine(article: BlogArticle): string {
-  return `${formatDate(article.publishedAt)} · ${readingMinutes(article.blocks)} min read`;
 }
 
 // Wide, horizontal "lead" story — image left, words right. Anchors each view.
@@ -109,33 +89,6 @@ function LeadCard({ article }: { article: BlogArticle }) {
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={1.75} />
         </span>
         <p className="mt-4 text-xs text-ink/45">{metaLine(article)}</p>
-      </div>
-    </Link>
-  );
-}
-
-// Photo-led story card for the grid.
-function StoryCard({ article }: { article: BlogArticle }) {
-  return (
-    <Link href={`/blog/${article.slug}`} className="group flex flex-col">
-      <div className="relative aspect-[5/4] overflow-hidden rounded-2xl bg-ink/5">
-        <Image
-          src={article.cover}
-          alt={article.coverAlt}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
-          className="object-cover transition duration-500 group-hover:scale-[1.04]"
-        />
-      </div>
-      <div className="mt-4 flex flex-1 flex-col">
-        <Eyebrow>{blogCategoryLabel(article.category)}</Eyebrow>
-        <h3 className="mt-2 font-display text-xl font-medium leading-[1.16] tracking-tight text-ink group-hover:text-terracotta-700">
-          {article.title}
-        </h3>
-        <p className="mt-2 flex-1 text-sm leading-relaxed text-ink/65">
-          {article.excerpt}
-        </p>
-        <p className="mt-3 text-xs text-ink/45">{metaLine(article)}</p>
       </div>
     </Link>
   );

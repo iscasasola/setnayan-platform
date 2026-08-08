@@ -66,7 +66,17 @@ export type BlogBlock =
   // Downloadable asset (e.g. the printable checklist PDF in /public/blog). Renders
   // a prominent download button; `href` is a static /public path, `download`
   // forces save-as. Carries `.text` so blogPlainText's fallback stays type-safe.
-  | { type: 'download'; text: string; href: string; label: string };
+  | { type: 'download'; text: string; href: string; label: string }
+  // Embedded storyteller chapter (FABLE Public Marketplace § 3.4). `publicId`
+  // is the chapter's S89C-… public_id, hand-typed by the editor; `note` is
+  // optional framing prose that also feeds blogPlainText.
+  //
+  // The storyteller's NAME and chapter TITLE are resolved at render time from
+  // the database, never stored here — so the block carries no identity of its
+  // own, and it renders NOTHING unless the chapter is still published on a
+  // still-public profile. A wrong/retired id is a silent no-op by design; the
+  // format is guarded by lib/blog-chapter-block.test.ts.
+  | { type: 'chapter'; publicId: string; note?: string };
 
 export type BlogArticle = {
   slug: string;
@@ -960,6 +970,12 @@ export function blogPlainText(blocks: ReadonlyArray<BlogBlock>): string {
     .map((b) => {
       if (b.type === 'ul') return b.items.join(' ');
       if (b.type === 'image') return b.caption ?? '';
+      // An embedded chapter contributes ONLY the editor's own note. The
+      // storyteller's name and their chapter's title are deliberately kept out
+      // of articleBody and the meta description: /blog/[slug] is indexed while
+      // a chapter's own page is noindex, so folding their identity in here
+      // would publish it somewhere they never agreed to.
+      if (b.type === 'chapter') return b.note ?? '';
       // p / h2 / quote / cta all carry a `.text` field.
       return b.text;
     })

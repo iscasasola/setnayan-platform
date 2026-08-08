@@ -135,6 +135,17 @@ export async function fetchPublishedChapterByPublicId(
  * resolve() enforces via resolvePublicProfile). Anything short of that returns
  * null — a chapter title / storyteller name is never surfaced for a page that
  * isn't actually public.
+ *
+ * ⚠ A FAILED READ AND A GENUINE ABSENCE RETURN THE SAME `null` — and that is
+ * the CORRECT render, but it must not be the same in the LOGS. Supabase
+ * resolves with `{ data: null, error }`; it does not throw. So a rejected query
+ * (RLS denial, a dropped column, a network blip) is indistinguishable at the
+ * call site from a storyteller who simply unpublished. Callers are right to
+ * show nothing either way — an error banner on a public page would be worse —
+ * but without the console.error below a real outage would be a silent absence
+ * forever, with green CI. Same disease as the phantom column / phantom enum
+ * value / phantom RPC argument: the database DECLINES, and the only symptom is
+ * that something isn't there.
  */
 export async function fetchPublishedChapterForShare(publicId: string): Promise<{
   chapter: PublicChapter;
@@ -143,22 +154,32 @@ export async function fetchPublishedChapterForShare(publicId: string): Promise<{
 } | null> {
   if (!publicId) return null;
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('creator_chapters')
     .select(`${CHAPTER_FIELDS}, user_id`)
     .eq('public_id', publicId)
     .eq('status', 'published')
     .maybeSingle();
+  if (error) {
+    console.error('[creator-public] chapter share read failed', publicId, error);
+  }
   if (!data) return null;
   const row = data as Record<string, unknown>;
   const chapter = mapRow(row);
   if (!chapter.embed_url) return null;
 
-  const { data: owner } = await admin
+  const { data: owner, error: ownerError } = await admin
     .from('users')
     .select('slug, display_name, public_profile_enabled, deleted_at')
     .eq('user_id', row.user_id as string)
     .maybeSingle();
+  if (ownerError) {
+    console.error(
+      '[creator-public] chapter owner read failed',
+      publicId,
+      ownerError,
+    );
+  }
   const u = owner as {
     slug: string | null;
     display_name: string | null;

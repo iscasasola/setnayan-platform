@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * gen-port-baseline.mjs — record every way OUT of every route, as it stands
- * BEFORE the design port rewrites the screens.
+ * gen-port-baseline.mjs — record every way OUT of every route AND every block it
+ * shows, as they stand BEFORE the design port rewrites the screens.
+ *
+ * Blocks were added 2026-08-08 after the owner asked *"should we have a
+ * prototype first? make sure all widgets are there?"*. Controls answered only
+ * half of that: a missing button is loud, a missing PANEL is silent.
  *
  * 🔑 THE BASELINE IS GENERATED, NEVER AUTHORED. Nobody types a control name.
  * The expected value cannot drift from the real page, because it IS the real
@@ -41,13 +45,15 @@ const routes = buildBaseline(join(WEB, 'app'));
 const routeCount = Object.keys(routes).length;
 const destinations = Object.values(routes).reduce((n, r) => n + r.destinations.length, 0);
 const actions = Object.values(routes).reduce((n, r) => n + r.actions.length, 0);
+const blocks = Object.values(routes).reduce((n, r) => n + r.blocks.length, 0);
 
 // A generator that silently produces an empty baseline would hand every future
 // run a guard that passes on everything — the exact "cannot fail" shape this
 // file exists to prevent. Refuse to write one.
-if (routeCount < 300 || destinations < 400) {
+if (routeCount < 300 || destinations < 400 || blocks < 1000) {
   console.error(
-    `REFUSING TO WRITE: extracted only ${routeCount} routes / ${destinations} destinations. ` +
+    `REFUSING TO WRITE: extracted only ${routeCount} routes / ${destinations} destinations / ` +
+      `${blocks} blocks. ` +
       `The app has ~404 routes; this means the app root moved or the extractor broke. ` +
       `Writing this would silently disarm the guard for every route.`,
   );
@@ -56,8 +62,9 @@ if (routeCount < 300 || destinations < 400) {
 
 writeFileSync(
   OUT,
-  JSON.stringify({ generatedFromRef: ref, routeCount, destinations, actions, routes }, null, 2) + '\n',
+  JSON.stringify({ generatedFromRef: ref, routeCount, destinations, actions, blocks, routes }, null, 2) + '\n',
 );
 console.log(
-  `wrote port-control-baseline.json — ${routeCount} routes · ${destinations} destinations · ${actions} actions (ref ${ref})`,
+  `wrote port-control-baseline.json — ${routeCount} routes · ${destinations} destinations · ` +
+    `${actions} actions · ${blocks} blocks (ref ${ref})`,
 );

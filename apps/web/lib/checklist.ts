@@ -1180,3 +1180,44 @@ export function checklistChrome(eventType: string | null | undefined): Checklist
     showPhaseBlurbs: false,
   };
 }
+
+/**
+ * Two head-counts for the Overview's "N% done" chip — done and total, no rows.
+ *
+ * 🔑 THREE OUTCOMES, NOT TWO, AND THEY MUST NOT COLLAPSE.
+ *   · `null`      — the read FAILED, or the table has no rows because the seed
+ *                   has never run for this event. Show NO chip.
+ *   · `{0, n}`    — genuinely seeded and nothing done yet. Show `0% done`.
+ * A failed read and an untouched checklist both arrive as "no completed items",
+ * and rendering `0% done` for either would state a fact about the couple's
+ * planning that nobody measured. `total === 0` therefore returns null: an event
+ * whose checklist has never been seeded has no percentage, and "0%" would read
+ * as "you have done nothing" to someone who has not been given a list yet.
+ *
+ * ⚠ THIS DELIBERATELY DOES NOT SEED. `ensureChecklistSeeded` mutates, and it
+ * belongs to the checklist surfaces; a read on the Overview must never write.
+ *
+ * ⚠ SUPABASE RESOLVES WITH `{ error }` RATHER THAN THROWING, so the error is
+ * checked explicitly — a `try/catch` alone would let a rejected query fall
+ * through as a count of zero, which is the failure this whole comment is about.
+ */
+export async function fetchChecklistProgress(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ done: number; total: number } | null> {
+  try {
+    const base = () =>
+      supabase.from('event_checklist_items').select('item_id', { count: 'exact', head: true });
+    const [totalRes, doneRes] = await Promise.all([
+      base().eq('event_id', eventId),
+      base().eq('event_id', eventId).eq('status', 'done'),
+    ]);
+    if (totalRes.error || doneRes.error) return null;
+    const total = totalRes.count ?? 0;
+    const done = doneRes.count ?? 0;
+    if (total <= 0) return null; // never seeded — no percentage exists to state
+    return { done: Math.min(done, total), total };
+  } catch {
+    return null;
+  }
+}

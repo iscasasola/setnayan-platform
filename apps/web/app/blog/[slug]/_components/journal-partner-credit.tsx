@@ -5,6 +5,7 @@ import {
   PLACEMENT_LABELS,
   type JournalSpotlightPublic,
 } from '@/lib/journal-spotlights';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
  * JournalPartnerCredit — the public "Featured partner / In partnership with"
@@ -17,16 +18,60 @@ import {
  * unambiguous "Sponsored" badge (0038 disclosure rule); free placements
  * (featured_partner / recommended) do not.
  *
- * Pure presentation — the parent page fetches the approved rows (drafts never
- * reach here). Renders nothing when there are no credits.
+ * The parent page fetches the approved rows (drafts never reach here). Renders
+ * nothing when there are no credits.
+ *
+ * 🪤 `logo_url` DOES NOT HOLD A URL. `fetchApprovedSpotlightsForSlug` reads it
+ * through an embedded `vendor_profiles` join, and that column stores an
+ * `r2://bucket/key` reference — a browser cannot fetch it, so it rendered a
+ * broken-image glyph beside the credited vendor's name on a PUBLIC, crawlable
+ * article. Nothing throws and nothing logs; the only symptom is the absence of a
+ * picture on the one block whose whole purpose is to credit someone.
  */
 
-export function JournalPartnerCredit({
+/**
+ * Presign one stored logo reference for display. Swallows failures on purpose:
+ * a logo is decoration and the row already falls back to a BadgeCheck tile, so a
+ * signing hiccup must never take a published article down.
+ */
+/**
+ * ⏳ THE TTL MUST OUTLIVE THE PAGE, AND HERE THE PAGE IS BAKED AT BUILD TIME.
+ *
+ * `app/blog/[slug]/page.tsx` sets `dynamicParams = false` with
+ * `generateStaticParams` over an in-code article list, and `revalidate = 3600`.
+ * So the HTML — including this signed URL — is prerendered once and then served
+ * stale-while-revalidate. The default presign TTL is 24 hours. On a quiet
+ * article nothing forces a re-render inside that window, so the credit logo
+ * would simply start 403ing a day after the build: the picture disappears with
+ * no deploy, no error and no code change, which is close to unfindable.
+ *
+ * Seven days gives a wide margin over any realistic revalidation gap. Read the
+ * page's caching directives before copying this number anywhere else — the
+ * right TTL is a function of how long the HTML holding it may live.
+ */
+const PRERENDERED_PAGE_TTL_SECONDS = 60 * 60 * 24 * 7;
+
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value, {
+      ttlSeconds: PRERENDERED_PAGE_TTL_SECONDS,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function JournalPartnerCredit({
   spotlights,
 }: {
   spotlights: JournalSpotlightPublic[];
 }) {
   if (!spotlights || spotlights.length === 0) return null;
+
+  // ONE batch before the render — each resolve is a separate signing round trip,
+  // and the map callback below is not async so it could not await anyway.
+  // Indexed by position: `logoUrls[i]` belongs to `spotlights[i]`.
+  const logoUrls = await Promise.all(spotlights.map((s) => resolveDisplayUrl(s.logo_url)));
 
   return (
     <section
@@ -41,19 +86,20 @@ export function JournalPartnerCredit({
       </h2>
 
       <ul className="mt-6 space-y-4">
-        {spotlights.map((s) => {
+        {spotlights.map((s, i) => {
           const name = s.business_name ?? 'A Setnayan vendor';
           const href = s.business_slug ? `/v/${s.business_slug}` : null;
+          const logoUrl = logoUrls[i] ?? null;
           return (
             <li
               key={s.spotlight_id}
               className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                {s.logo_url ? (
+                {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={s.logo_url}
+                    src={logoUrl}
                     alt=""
                     className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-ink/10"
                   />

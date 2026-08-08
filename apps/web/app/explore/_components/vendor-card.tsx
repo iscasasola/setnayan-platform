@@ -57,6 +57,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { experienceTier } from '@/lib/vendor-experience';
@@ -200,7 +201,25 @@ type Props = {
   reviews: ReadonlyArray<VendorReviewPreview>;
 };
 
-export function VendorCard({
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
+ * editor is stored as `r2://bucket/key`, which a browser cannot fetch — it
+ * renders a broken-image glyph, throws nothing, logs nothing. Mirrors the
+ * resolver in `app/v/[slug]/page.tsx` (the shipped reference pattern).
+ *
+ * Swallows presign failures on purpose: the card's hero already falls back to
+ * the vendor's service photo and then to the bundled placeholder, so a failed
+ * signature costs a picture, never the whole marketplace grid.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
+export async function VendorCard({
   vendor,
   rating,
   reviewCount,
@@ -212,6 +231,10 @@ export function VendorCard({
   badges,
   reviews,
 }: Props) {
+  // Resolved ONCE per card and handed to VendorHero as an already-usable URL.
+  // The hero's own fallback ladder (service photo → logo → placeholder) is
+  // unchanged; only the logo rung now carries something a browser can load.
+  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
   const primaryService = vendor.services[0] ?? null;
   const serviceLabel = primaryService ? displayServiceLabel(primaryService) : null;
   // V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity label.
@@ -293,7 +316,7 @@ export function VendorCard({
           name + badges + price stacked below. */}
       <VendorHero
         photoUrl={vendor.primary_photo_url ?? null}
-        logoUrl={vendor.logo_url}
+        logoUrl={logoDisplayUrl}
         /* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
            resolved display label so the photo placeholder initials
            and the alt text both surface the taxonomy-derived label

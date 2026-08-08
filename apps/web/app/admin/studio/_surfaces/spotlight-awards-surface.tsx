@@ -42,6 +42,23 @@ import {
   SpotlightAwardRowActions,
 } from '@/app/admin/spotlight-awards/_components/spotlight-actions';
 import { addAwardManually } from '@/app/admin/spotlight-awards/actions';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+
+/**
+ * `vendor_profiles.logo_url` holds an `r2://bucket/key` REFERENCE, not a URL —
+ * handing it to an <img src> renders a broken-image glyph with no error thrown
+ * anywhere. Resolve it to a presigned display URL first. Mirrors the shipped
+ * pattern in app/v/[slug]/page.tsx: the try/catch is deliberate, because a
+ * missing logo already falls back to the award icon below and a failed R2
+ * signing must never take this curation surface down.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 const AWARD_ICON: Record<SpotlightAwardType, React.ReactNode> = {
   top_pick: <Trophy className="h-4 w-4" strokeWidth={1.75} aria-hidden />,
@@ -68,6 +85,11 @@ export async function SpotlightAwardsSurface({
   const supabase = await createClient();
   const period = currentPeriodMonth();
   const rows = await fetchSpotlightAwards(supabase, { periodMonth: period });
+
+  // Resolved ONCE for the whole render, in a single batch — each call is its own
+  // R2 signing round trip, and the row markup below is a plain (non-async) map
+  // callback that cannot await.
+  const logoUrls = await Promise.all(rows.map((r) => resolveDisplayUrl(r.logo_url)));
 
   const featuredCount = rows.filter((r) => r.is_homepage_featured).length;
   const autoCount = rows.filter((r) => r.awarded_by === 'auto').length;
@@ -132,16 +154,16 @@ export async function SpotlightAwardsSurface({
         </div>
       ) : (
         <ul className="space-y-3">
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <li
               key={r.award_id}
               className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                {r.logo_url ? (
+                {logoUrls[i] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={r.logo_url}
+                    src={logoUrls[i] ?? undefined}
                     alt=""
                     className="h-10 w-10 rounded-lg object-cover ring-1 ring-ink/10"
                   />

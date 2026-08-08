@@ -14,6 +14,7 @@ import { DUE_ANCHOR_LABELS, type DueAnchor } from '@/lib/vendor-service-payment-
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimLockedQr } from './actions';
 
@@ -35,6 +36,26 @@ const STATUS_COPY: Record<string, string> = {
   invalid: 'This Locked QR link is not valid.',
   error: 'Something went wrong locking the vendor. Please try again.',
 };
+
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
+ * anything uploaded through the shop editor, and a browser cannot fetch that —
+ * it renders a broken-image glyph, throws nothing, logs nothing. This page is
+ * what a couple sees after scanning the vendor's Locked QR in person, so the
+ * logo is the only thing proving the page belongs to the vendor in front of
+ * them.
+ *
+ * Same shape as `app/v/[slug]/page.tsx`. Swallows presign failures on purpose:
+ * the block already falls back to the neutral Store glyph, and taking the whole
+ * claim flow down over an R2 signature would be the worse outcome.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 type ScheduleRow = {
   label?: string;
@@ -117,6 +138,11 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     );
   }
 
+  // Resolved ONCE, after the terminal-state early return above (which renders
+  // no logo) so a consumed token costs no presign. See resolveDisplayUrl: the
+  // stored value is an `r2://` reference, not something an <img> can load.
+  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
+
   const schedule = (Array.isArray(tok.schedule_json) ? tok.schedule_json : []) as ScheduleRow[];
   const rowAmount = (r: ScheduleRow): string => {
     const v = Number(r.amount_value ?? 0);
@@ -130,9 +156,9 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
       {/* Vendor + deal identity */}
       <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
-        {vendor.logo_url ? (
+        {logoDisplayUrl ? (
           <Image
-            src={vendor.logo_url}
+            src={logoDisplayUrl}
             alt={vendor.business_name}
             width={88}
             height={88}

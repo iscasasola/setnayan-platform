@@ -11,8 +11,27 @@ import {
 } from '@/lib/vendor-counts';
 import { type WeddingFolder } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
+ * editor is stored as `r2://bucket/key`, which a browser cannot fetch — it
+ * renders a broken-image glyph, throws nothing, logs nothing. Mirrors the
+ * resolver in `app/v/[slug]/page.tsx` (the shipped reference pattern).
+ *
+ * Swallows presign failures on purpose: this card already falls back to the
+ * vendor's initials tile, so a failed signature costs a picture and never the
+ * whole folder section.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Inline real-vendor cards for a marketplace folder, rendered in catalog
@@ -93,6 +112,19 @@ export async function FolderVendorsSection({
     vendors.map((v) => v.vendor_profile_id),
   );
 
+  // Logos resolved in ONE batch for the whole section (up to 9 cards) rather
+  // than one sequential await per card — the card below is a plain sync render
+  // and could not await anyway. Keyed by vendor id so the lookup can't drift
+  // out of step with the render order.
+  const logoDisplayUrls = new Map<string, string | null>(
+    await Promise.all(
+      vendors.map(
+        async (v) =>
+          [v.vendor_profile_id, await resolveDisplayUrl(v.logo_url)] as const,
+      ),
+    ),
+  );
+
   // DB-backed labels — a folder renamed in /admin/taxonomy reflects here live
   // (fallback-safe: getTaxonomy falls back to the lib/taxonomy.ts constant).
   const tax = await getTaxonomy();
@@ -141,6 +173,7 @@ export async function FolderVendorsSection({
                 venueAnchor={venueAnchor}
                 trustedRating={trusted?.trusted_avg_rating ?? null}
                 trustedReviewCount={trusted?.trusted_review_count ?? 0}
+                logoUrl={logoDisplayUrls.get(vendor.vendor_profile_id) ?? null}
               />
             </li>
           );
@@ -164,12 +197,17 @@ function FolderVendorCard({
   venueAnchor,
   trustedRating,
   trustedReviewCount,
+  logoUrl,
 }: {
   vendor: VendorPreviewRow;
   venueAnchor: { lat: number; lng: number } | null;
   /** ANTI-FRAUD (2026-07-05): trusted aggregate — public rating + count. */
   trustedRating: number | null;
   trustedReviewCount: number;
+  /** Already-resolved logo URL from the section's batch presign. NEVER the raw
+   *  `vendor.logo_url` — that holds `r2://bucket/key` for uploaded logos and a
+   *  browser silently renders nothing for it. Null → initials tile. */
+  logoUrl: string | null;
 }) {
   const slug = vendor.business_slug;
   // ?src=explore stamps inquiry_source for Booking-Fee attribution (PR-0).
@@ -222,10 +260,10 @@ function FolderVendorCard({
       aria-label={`${displayName} — view profile`}
     >
       <div className="flex items-start gap-3">
-        {vendor.logo_url ? (
+        {logoUrl ? (
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink/5">
             <Image
-              src={vendor.logo_url}
+              src={logoUrl}
               alt={displayName}
               fill
               sizes="48px"

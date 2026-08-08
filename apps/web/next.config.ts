@@ -31,6 +31,34 @@ const remoteImagePatterns = [
         pathname: '/**',
       }
     : null,
+  // 🚨 THE BUCKET IS A SUBDOMAIN, AND THE ENTRY ABOVE NEVER MATCHED A REAL URL.
+  //
+  // `lib/r2.ts` builds its S3Client with
+  // `endpoint: https://<accountId>.r2.cloudflarestorage.com` and leaves
+  // `forcePathStyle` at its default of FALSE, so every presigned URL the SDK
+  // signs is VIRTUAL-HOST style:
+  //     https://setnayan-media.<accountId>.r2.cloudflarestorage.com/<key>
+  // The pattern above has no bucket segment, `hostname` is an exact match
+  // unless it carries a wildcard, and so every single presigned R2 image ever
+  // handed to next/image came back **HTTP 400 INVALID_IMAGE_OPTIMIZE_REQUEST**.
+  //
+  // MEASURED on the live site 2026-08-08, minutes after the fix that was
+  // supposed to make the owner's shop logo appear: the presigned URL itself
+  // answered `200 image/png 34478 bytes`, and `/_next/image?url=…` answered
+  // `400`. The picture was still missing — same symptom, third cause, after a
+  // raw `r2://` and a CSP-blocked iframe. **RESOLVING A REFERENCE IS NOT THE
+  // SAME AS THE PICTURE ARRIVING. FETCH THE FINAL URL.**
+  //
+  // Nobody had seen it because production holds no vendor portfolios and no
+  // Papic photos yet — the shop logo was the first R2 image the optimizer was
+  // ever asked for. This affected the whole app, not one page.
+  process.env.R2_ACCOUNT_ID
+    ? {
+        protocol: 'https' as const,
+        hostname: `*.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        pathname: '/**',
+      }
+    : null,
   // Supabase Storage public URL
   supabaseHost
     ? {

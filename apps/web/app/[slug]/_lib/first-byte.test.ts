@@ -30,6 +30,11 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTE = join(HERE, '..');
 const PAGE = readFileSync(join(ROUTE, 'page.tsx'), 'utf8');
+// The legacy vendor microsite. It is the SAME shop the bare-root dispatcher
+// serves — app/[slug]/page.tsx imports renderVendorBySlug straight out of it —
+// so the rule this file exists to hold has always applied to both, and was
+// only ever enforced on one.
+const VENDOR_ROUTE = join(ROUTE, '..', 'v', '[slug]');
 
 test('the invitation flushes something before the slow work', () => {
   assert.match(PAGE, /<Suspense/, 'The streaming boundary is gone — the page is one blocking shell again.');
@@ -80,6 +85,67 @@ test('no route-level loading.tsx comes back', () => {
       assert.ok(true);
     }
   }
+});
+
+test('the legacy vendor route does not soft-404 either', () => {
+  // MEASURED IN PROD 2026-08-08, not reasoned about: with a loading.tsx here,
+  // https://www.setnayan.com/v/definitely-not-a-real-shop-xyz answered
+  // HTTP 200 — a shop that has never existed telling Google it was found.
+  // Every unapproved vendor's address did the same, because a hidden shop
+  // notFound()s in page.tsx (`isPubliclyVisible`) long after the streaming
+  // shell has already committed the status.
+  //
+  // The bare-root twin was fixed in 04c03063d and guarded above; this one was
+  // missed for the same reason it is easy to miss now — the bug is invisible
+  // to a person, who sees a perfectly good 404 page either way. Only a crawler
+  // and a status code can tell.
+  assert.ok(
+    !existsSync(join(VENDOR_ROUTE, 'loading.tsx')),
+    'v/[slug]/loading.tsx is back. It commits HTTP 200 before the body runs, ' +
+      'so every unknown or unapproved shop URL becomes an indexable soft-404. ' +
+      'The bare-root vendor path (app/[slug] → renderVendorBySlug) blocks with ' +
+      'no skeleton for the same reason, so this costs no parity — put any ' +
+      'boundary INSIDE page.tsx, after the notFound(), instead.',
+  );
+});
+
+test('the bare-root 404 speaks to shop visitors too, not only wedding guests', () => {
+  // Conditional on the thing that makes it true: app/[slug]/page.tsx falls
+  // through to the vendor renderer, so a shop address that is not approved
+  // yet — the resting state of EVERY unapproved vendor, per the 2026-07-27
+  // owner ruling — lands on this exact not-found. The owner opened their own
+  // shop address and was told to check their "invitation link" with "the
+  // host". A correct 404 aimed at the wrong person reads as a broken product.
+  //
+  // Prose in the file was not enough to hold this: the comment explaining the
+  // guest-only framing was already there and still described one audience.
+  if (!/renderVendorBySlug/.test(PAGE)) return; // vendor fall-through gone → rule moot
+
+  const NOT_FOUND = readFileSync(join(ROUTE, 'not-found.tsx'), 'utf8');
+  // ⚠ SCOPE THIS TO THE RENDERED COPY, NOT THE FILE. The first draft matched
+  // the whole file and could never fail: the comment block above explaining
+  // WHY the shop audience matters says "shop" and "vendor" a dozen times, so
+  // the assertion passed on its own justification while the visible sentence
+  // could say anything at all. Caught by mutation-testing it — the sabotage
+  // ran green, which is the only reason the hole showed.
+  const returnAt = NOT_FOUND.indexOf('return (');
+  assert.notEqual(returnAt, -1, 'not-found.tsx no longer returns JSX — rewrite this guard');
+  const RENDERED = NOT_FOUND.slice(returnAt);
+
+  const headline = RENDERED.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? '';
+  assert.notEqual(headline, '', 'no <h1> in the rendered output — rewrite this guard');
+  assert.ok(
+    !/invitation/i.test(headline),
+    'The headline names invitations again, but this page still renders for a ' +
+      'vendor shop address that has not been approved. Keep it neutral.',
+  );
+  assert.match(
+    RENDERED,
+    /business|shop|vendor/i,
+    'The body no longer offers the shop-visitor a recovery path. Someone ' +
+      'handed a shop link before approval must learn the page is not open ' +
+      'yet, not that they mistyped a wedding invitation.',
+  );
 });
 
 test('the fallback shows the couple, not a spinner', () => {

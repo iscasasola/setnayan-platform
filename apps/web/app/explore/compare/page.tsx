@@ -723,6 +723,89 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                   </td>
                 ))}
               </CompareRowEl>
+
+              {/*
+                E7 (Fable Public Marketplace spec § 2.E3 · § 3.7) — until now
+                this table DEAD-ENDED AT SAVE: two shops side by side at the
+                exact moment a couple decides, and no way to ask either of them
+                anything. Saving is not asking. This row is the door.
+
+                🔒 OWNER RULING 2026-08-08 — the button is SHOWN to a SIGNED-OUT
+                stranger, never hidden. This surface needs no account and no
+                event (only `?ids=`), so the person most likely to be reading it
+                is the one furthest from booking; hiding the action from them
+                dead-ends the page for exactly the wrong visitor. The destination
+                handles them: `#get-in-touch` renders the shipped anon composer
+                (they write the message, then convert through /signup) — so a
+                signed-out click ends at sign-in, not at a wall.
+
+                🔑 WHY THERE IS NO EXTRA GATE HERE. The plan for this unit
+                proposed widening the query with `contact_email` and hiding the
+                button when it is blank. Reading the destination changed the
+                call: the shop page's OWN three Inquire buttons are gated on
+                `bookable` and nothing else — hero at app/v/[slug]/page.tsx:1846,
+                action row at :2052 (plus a no-duplicate `cinematicHero` check),
+                sticky rail at :2701 (`premiumLayout && bookable`) — and BOTH
+                composers render without ever consulting `contact_email`; only
+                that section's prose paragraph reads it. So a contact_email
+                gate here would hide a working inquiry path from any verified
+                vendor who simply never typed an address into that box, which is
+                the hiding the owner just ruled out. Every row that reaches this
+                point is bookable BY CONSTRUCTION — the query is
+                `.in('public_visibility', ['verified'])` (line 184) and the
+                post-fetch filter keeps only `verification_state === 'verified'`
+                (line 228) — so re-deriving `isBookable` here would look like a
+                check while checking nothing.
+
+                FAILED READ vs GENUINE ZERO: this row adds NO read of its own, on
+                purpose. A second query could fail on its own and leave a
+                silently button-less column indistinguishable from a vendor who
+                has nothing. If the one shipped query errors, `rowsRaw` is null →
+                `rows` is empty → `rows.length < 2` (line 232) redirects to
+                /explore. The page can never render a half-honest table, so this
+                CTA can never appear over data that failed to load.
+
+                The only reason a cell shows "—" is a GENUINE zero: no
+                `business_slug`, i.e. this vendor has no public address to send
+                anyone to — the same condition that already suppresses the
+                "View full profile" link one row above.
+
+                `?src=explore` is the shipped, enum-valid attribution stamp
+                (lib/inquiry-source.ts) that the neighbouring link and both
+                explore card links already carry; Booking-Fee "sourced" credit
+                rides on it. No `src=compare` is invented (spec § 6.7). `/v/…`
+                rather than the bare root for the same reason as line 717: the
+                bare root resolves EVENT slugs first, and a future collision
+                would silently send this CTA to a wedding website.
+
+                Fill is deep gold `terracotta-700` + cream label (4.86:1) per
+                ACTION_COLOUR_OVERRIDE_2026-08-08, which supersedes the spec's
+                "Mulberry-filled" line. Plain gold `#A9834B` under a label is
+                3.37:1 and fails `scripts/lint-label-on-fill-contrast.mjs`.
+              */}
+              <CompareRowEl label="Get in touch">
+                {rows.map((row) => (
+                  <td
+                    key={row.vendor_profile_id}
+                    className="border-t border-ink/5 px-3 py-3 align-top"
+                  >
+                    {row.business_slug ? (
+                      <Link
+                        href={`/v/${row.business_slug}?src=explore#get-in-touch`}
+                        className="inline-flex h-11 items-center justify-center rounded-md bg-terracotta-700 px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+                      >
+                        Ask about your date
+                        {/* Two columns carry the identical label; a screen
+                            reader reading links out of context needs to know
+                            which shop this one asks. */}
+                        <span className="sr-only"> — {row.business_name}</span>
+                      </Link>
+                    ) : (
+                      <span className="text-ink/40">—</span>
+                    )}
+                  </td>
+                ))}
+              </CompareRowEl>
             </tbody>
           </table>
         </div>

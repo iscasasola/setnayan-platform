@@ -1024,6 +1024,9 @@ export async function EventDashboard({
       ? (committedCentavos / budgetTargetCentavos) * 100
       : 0;
   const guestPct = stats.total > 0 ? (stats.attending / stats.total) * 100 : 0;
+  /** Have ANY replies come back yet? The honesty gate for the unanswered-RSVP row:
+   *  before the first reply, a roster nobody has invited must not be nagged. */
+  const rsvpRepliesStarted = stats.attending + stats.declined + stats.maybe > 0;
 
   // The focal's "% planned" gold bar = vendor-categories-locked share (the same
   // real aggregate the cockpit briefing reports). Clamped for the bar width.
@@ -1615,6 +1618,46 @@ export async function EventDashboard({
                           </Link>
                         </div>
                       ))}
+                      {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so
+                       *  it is appended BELOW the top-3 slice and deliberately does NOT
+                       *  enter `decisionGroups` or `openDecisionCount`: that number means
+                       *  "cockpit decisions + payments" and corrupting a shipped number's
+                       *  definition is worse than the row is worth.
+                       *
+                       *  🔑 HONESTY GATE — `rsvpRepliesStarted`. A roster nobody has
+                       *  invited yet must never be nagged that "141 haven't replied";
+                       *  before the first reply arrives, silence is the truthful state.
+                       *  (An explicit "invitations sent" signal would be the better gate,
+                       *  but `computeGuestStats` has none — this is the conservative
+                       *  substitute, not a guess dressed as one.)
+                       *
+                       *  Zero new queries: `stats` is already computed for this surface.
+                       *  No "nudge them?" copy — no nudge mechanism ships, and a question
+                       *  implying one is a fake door. Links to the plain roster; no
+                       *  invented `?filter=` param. */}
+                      {stats.pending > 0 && rsvpRepliesStarted ? (
+                        <Link
+                          href={`${base}/guests`}
+                          className="flex min-h-[44px] items-center gap-3 border-t px-4 py-3 transition-colors hover:bg-ink/[0.03]"
+                          style={{ borderColor: '#EDE8DE' }}
+                        >
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 flex-none rounded-full"
+                            // gold = "waiting on people" in the § 2.1 dot vocabulary.
+                            // Inlined rather than importing Unit B's shared
+                            // `decisionDotColor` map, so this row ships independently
+                            // of that PR; identical value, no stacked dependency.
+                            style={{ background: 'var(--sn-gold-500)' }}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
+                            <span className="font-mono font-bold">{stats.pending}</span>{' '}
+                            {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t
+                            replied yet
+                          </span>
+                          <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
+                        </Link>
+                      ) : null}
                     </div>
                     <a
                       href="#decisions"

@@ -348,6 +348,15 @@ const SORT_LABEL: Record<SortKey, string> = {
   name_asc: 'Name (A → Z)',
 };
 
+// E3 — the three sorts that get a VISIBLE chip. `name_asc` is deliberately
+// chip-less: it is a lookup order, not a way of judging vendors, and putting it
+// beside the other three would imply alphabetical is a kind of ranking.
+//
+// ⚠ SORT_KEYS is untouched. It feeds the drawer's <select>, and dropping a key
+// would silently stop `?sort=name_asc` round-tripping — the chip row is a second
+// door onto the same mechanism, never a replacement for it.
+const SORT_CHIP_KEYS: ReadonlyArray<SortKey> = ['most_reviews', 'highest_rated', 'newest'];
+
 const PAGE_SIZE = 24;
 
 // Task #48 — couple-facing labels for the venue_setting enum values.
@@ -557,6 +566,8 @@ type EventTypeFilter = string;
 const EVENT_TYPE_PARAM_RE = /^[a-z][a-z0-9_]{0,40}$/;
 
 type VendorCardRow = {
+  /** E10 — true only when the anonymity read genuinely answered for this row. */
+  anonymity_resolved?: boolean;
   vendor_profile_id: string;
   public_id: string;
   business_name: string;
@@ -2003,6 +2014,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
+          // 🔑 AN EMPTY MAP IS INDISTINGUISHABLE FROM "no vendor hides a name".
+          // Every row below would read null, every card would compute "name not
+          // revealed", and the marketplace would sprout an anonymity explainer
+          // on vendors with nothing hidden. Rows are marked `anonymity_resolved`
+          // ONLY when this read genuinely returned, so a failure shows LESS.
           console.error('[vendors] verification_state fetch failed', error);
           return new Map();
         }
@@ -2388,6 +2404,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // once the hide-prices lock is reconsidered (owner decision pending).
   for (const v of visible) {
     const meta = verificationByVendorId.get(v.vendor_profile_id) ?? null;
+    // E10 — did the anonymity read actually answer for THIS vendor? Null fields
+    // mean "nothing hidden" only when it did; otherwise they mean "not
+    // measured", and the card must say nothing rather than guess.
+    v.anonymity_resolved = meta !== null;
     v.verification_state = meta?.verification_state ?? null;
     /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. NULL =
        business_name hidden in this card (Free + Verified pre-first-
@@ -2681,6 +2701,53 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   filters.faithFilter !== null,
               } as FilterDrawerProps}
             />
+
+            {/* E3 — the sort brought out where you can see it.
+              *
+              *  This is a SECOND DOOR onto the sort that already ships, not a
+              *  new mechanism: each chip is `buildHref(filters, { sort, page: 1 })`,
+              *  the same builder the rest of the page uses, so every other
+              *  filter in the URL is preserved and `?sort=` round-trips exactly
+              *  as it did from the drawer. The drawer keeps its <select>.
+              *
+              *  ⚠ NOTHING ABOUT RANKING CHANGES — this only chooses which of the
+              *  existing orders is applied. Resetting to page 1 is required:
+              *  keeping `?page=7` while re-sorting lands the couple in the
+              *  middle of a list they have never seen.
+              *
+              *  Hidden when the grid is empty, so it can never sit above "no
+              *  vendors found" offering to re-order nothing. */}
+            {visible.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-ink/55">Sort</span>
+                {SORT_CHIP_KEYS.map((k) => {
+                  const active = filters.sort === k;
+                  return (
+                    <Link
+                      key={k}
+                      href={buildHref(filters, { sort: k, page: 1 })}
+                      aria-current={active ? 'true' : undefined}
+                      className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
+                      style={
+                        active
+                          ? {
+                              background: 'var(--m-orange-4)',
+                              borderColor: 'var(--m-orange-3)',
+                              color: 'var(--m-orange-deep)',
+                            }
+                          : {
+                              background: 'var(--m-paper)',
+                              borderColor: 'var(--m-line)',
+                              color: 'var(--m-slate-2)',
+                            }
+                      }
+                    >
+                      {SORT_LABEL[k]}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
 
             {/* Compact context strip — back to catalog + current filter
                 summary. Kept below the sticky header so it doesn't bloat

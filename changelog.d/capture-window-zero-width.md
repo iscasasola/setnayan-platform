@@ -183,3 +183,32 @@ period is now finite and stated.
 couple owns it), and "a folder you own, forever" about their *own* Drive is true (we
 never touch it). A bare `/forever/` fires on both, and a guard that cries wolf gets
 skimmed past on the one occasion it is right.
+
+### Same PR · video shipped at HALF its planned resolution
+
+Owner: *"we already have a plan for the size of the photo and video. it should still
+be viewable."* RULE 0 found the plan; the code disagreed with it.
+
+| | plan (corpus) | shipped | now |
+|---|---|---|---|
+| kept PHOTO copy | AVIF long-edge **1280** | 1280 ✅ | 1280 |
+| kept CLIP copy | **720p-class** | 854×**480** ❌ | 1280×**720** |
+
+🚨 **The half that anyone checked was correct, which is exactly why this survived.**
+Photos matched the plan the whole time; only video was at roughly **half the planned
+pixel count**, and this is the copy that survives after the original is replaced — so
+a number that was merely "small enough" was quietly deciding what a couple still has
+years later.
+
+**Cost of honouring the plan is a rounding error:** ~0.5 → ~1.1 MB per 10s clip, so
+the forever pool goes ~0.36 → ~0.42 GB/event (**₱4.14 → ~₱4.8/event/yr**). At 500k
+events/yr that is ₱10.4M → ₱12M against hundreds of millions of revenue.
+
+Also **renamed the profile `web480` → `web720`** at all three sites. The name was the
+most visible statement of the wrong number and travelled to every call site — a
+comment does not travel with a value.
+
+🛡 New `kept-copies-are-still-viewable.test.ts` pins both copies against the plan and
+asserts the profile name matches the maths it produces. Sabotaged back to 854 → **3
+failures**. ⚠ The assertions are **floors, not equalities** — raising quality is a
+cost decision, not a defect, and the guard must never block an improvement.

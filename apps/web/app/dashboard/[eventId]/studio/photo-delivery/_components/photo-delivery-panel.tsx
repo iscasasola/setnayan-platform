@@ -218,7 +218,7 @@ function IdleState({
                photo_delivery_artifacts, so it covers these vendor-delivered
                albums too, not only Papic captures. The Drive folder is what
                lasts; our copy is not. */
-            body: 'Photos arrive in your Drive and stay there — that folder is yours. Setnayan holds the full-resolution originals for 6 months, then keeps the compressed gallery online for good.',
+            body: 'Photos arrive in your Drive and stay there — that folder is yours. Setnayan holds the full-resolution originals for 6 months, then keeps the compressed gallery online free for 5 years.',
           },
         ].map((step) => (
           <li
@@ -427,9 +427,16 @@ function ConnectedState({
                 : 'Your folder is ready.'}{' '}
               {/* ⚠ Was "Setnayan keeps a 5-year backup" — untrue. We hold the
                   full-resolution originals for six months. Said here because
-                  this is the screen where a couple decides they are done. */}
-              Your Drive folder is the copy that lasts. Setnayan holds the
-              full-resolution originals for 6 months.
+                  this is the screen where a couple decides they are done.
+                  ⚠ AMENDED 2026-08-07: the fix stopped one clause too early.
+                  "The copy that lasts" told them OURS does not, and ending at
+                  "6 months" omitted the half that matters — the gallery is kept
+                  for good. Now matches the step copy at line ~221 verbatim, so
+                  the two cannot drift. Nothing is ever deleted; the
+                  full-resolution original is replaced by a compressed copy. */}
+              Your Drive folder holds the originals — that folder is yours.
+              Setnayan holds the full-resolution originals for 6 months, then
+              keeps the compressed gallery online free for 5 years.
             </p>
           </header>
           <div className="flex flex-wrap gap-2">

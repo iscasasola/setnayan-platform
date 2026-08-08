@@ -48,3 +48,228 @@ follow-up is migrating those two columns to `timestamptz` so the write stops
 being lossy — a schema change, worth its own pass.
 
 SPEC IMPACT: None.
+
+## 2026-08-07 · fix(papic): shooting opens 6 months out; high-res survives 3 months past the event
+
+Owner rulings, same sitting, in order: cameras may start *"up to 6 months away from
+the event itself"*, and we *"still preserve 3 months all their photos in high res
+before we compress it."*
+
+- `PAPIC_CAPTURE_MONTHS_BEFORE` **5 → 6**, and the no-window DEFAULT now opens six
+  months before the event instead of a **single day**. That one-day default —
+  mislabelled "legacy" while applying to every event whose couple never opened the
+  picker — is what wrote `valid_from = valid_until` onto 6 of 13 production seats.
+- `FULL_RES_POST_EVENT_GRACE_DAYS` **30 → 92** (the longest three calendar months,
+  so "three months" is true for a March wedding as well as a December one).
+- New `start_too_early` refusal, wired into **both** copy maps. The generic
+  fallback previously told someone who *had* picked a start date to "Pick a start
+  date."
+
+🔑 **Six is NOT derived from retention, and the first draft of this change made it
+so.** `5 = 6 months − 1 month` was elegant and wrong: with capture at six months the
+first-capture clock expires **on the wedding day**, so the same subtraction now
+"proves" the promise is zero days. The promise was never carried by that number —
+it is `GREATEST(first_capture + 6 months, event_date + 3 months)` in migration
+`20271102113000`. Shoot six months out and originals live three months past the
+wedding; shoot on the day and they live six.
+
+🪤 **A guard I wrote was decoration and a sabotage run caught it.** The SQL check
+matched `NOW() >= (f.event_date`, so renaming the column to `f.event_dateX` still
+matched *on the prefix*, and prefixing the clause with `OR TRUE` — which neuters it
+entirely — left every searched string intact. Both went green. It now matches the
+arithmetic with a `\b` boundary, bans the tautology, and strips SQL `--` comments
+first (the migration's own header names `p_post_event_days`, so a comment alone
+satisfied the identifier check). Four sabotages run; three caught here, the fourth
+(renaming the RPC argument) is covered by `rpc-argument-names.db.test.ts`.
+
+🪤 **The baseline was red during the first sabotage run**, which made two results
+meaningless — `[^\n]` could not cross the line break in the wrapped SQL clause.
+Verify the baseline is green *and* that the sabotage applied, or the run proves
+nothing.
+
+Tests rewritten rather than deleted: `papic-window.test.ts` asserted `days === 1`,
+which was the bug written down as a requirement. Green under UTC, Asia/Manila and
+Pacific/Kiritimati.
+
+SPEC IMPACT: Yes — `Data_Retention_Schedule_2026-07-11.md`, corpus `CLAUDE.md`,
+`0012_papic/Papic_Pricing_Lock_2026-07-20.md` (still documents the retired 90-day
+model) and the public `/privacy` copy all carry the superseded 5-month / 30-day
+pair. Applied separately.
+
+### Same PR · the public privacy notice, and the guard that now ties it to the code
+
+Raising the floor 30 days → 3 months made the live `/privacy` notice **understate**
+what we hold. That is a breach in the quieter direction: RA 10173 storage
+limitation binds us to the period we **declare**, nobody complains about getting
+more than promised, and the notice is still false.
+
+New guard in `retention-copy-is-true.test.ts` **derives** the month figure from
+`FULL_RES_POST_EVENT_GRACE_DAYS` and asserts the notice states it. Moving either
+one alone now fails — sabotaged both directions. This is copy-vs-CODE, not two
+hand-typed strings agreeing with each other, which is how `llms.txt` drifted for
+three weeks with green CI.
+
+🪤 **The coupling is why this is not a separate PR.** Split out, the constant lands
+on `main` first and `main` sits with a notice that understates retention. The
+first draft *was* a separate branch and its CI went red immediately — the guard
+caught its own author.
+
+### Same PR · "not delete — compress", everywhere (owner-corrected twice)
+
+Owner, verbatim: *"again. not delete. just compress."* **No photo is ever deleted.**
+A compressed copy is derived at capture time and kept forever; all the sweep does is
+stop holding the full-resolution ORIGINAL once that copy is confirmed. The code has
+always worked this way — `isEligibleForDrop` returns `false` when no compressed copy
+exists, commenting *"dropping would LOSE the photo"*. **Only the vocabulary was
+wrong**, and a 16-agent sweep found 19 verified places carrying it.
+
+🚨 **THE GUARD THAT WAS SUPPOSED TO CATCH THIS HAS BEEN BLIND ITS WHOLE LIFE.**
+`retention-copy-is-true.test.ts` bans the exact phrase `5-year backup`. The couple's
+Photo Delivery page says *"your Setnayan-side 5-year backup stays intact"* — and the
+test never fired, because JSX wrapped it as `5-year\n              backup` and
+`/\b5-year backup\b/` needs one space. The source is now whitespace-normalised
+before matching; the fix immediately turned the suite red on the live page, which is
+the only reason we know the guard can fire at all.
+🔑 **A pattern that cannot survive the code formatter is decoration.**
+
+**Customer-facing fixes (this is what the owner asked about):**
+- **Photo Delivery page** made THREE false claims in one warning box: a "30-day
+  window" that exists nowhere; *"Setnayan compresses the Drive originals"* — we never
+  touch the couple's own Drive, we only add to it; and a *"5-year backup"* that does
+  not exist. It never mentioned that the gallery is kept for good, so it could only
+  cause panic. Rewritten.
+- **"Delivery complete" screen** said *"Your Drive folder is the copy that lasts"* and
+  stopped at "6 months" — omitting the half that matters. Now matches the correct
+  wording already used earlier in the same file.
+- **Public `/tl/features`** still carried both halves of a promise the English twin was
+  corrected for months ago: an invented "30-day grace window" and *"Itago ang raws mo
+  hangga't kailangan mo"* — literally "keep your raws as long as you need".
+  🔑 **A copy fix is not done until every language is fixed;** the English correction
+  read as complete because its own file looked fixed.
+
+Plus six internal comments/tests whose grammatical object of "delete" was *the photo*
+rather than *the original file* — the vocabulary the next author inherits.
+
+Typecheck clean, 7060/7060 unit tests green, all 12 `lint-*.mjs` clean.
+⚠ The broken-comment syntax error this introduced was invisible to the test runner
+and caught only by `tsc` — `tsx --test` is not a typechecker.
+
+### Same PR · the gallery is free for FIVE YEARS, not "forever" (owner 2026-08-07)
+
+Owner: *"in 5 years, we will preserve their photo and then we will check how much
+they need to be charged to keep all those data post 5 years."* This **supersedes the
+2026-07-10 "free forever, never deleted" lock.**
+
+Nine live customer-facing promises of "forever" replaced with **free for 5 years**,
+plus a stated paid option beyond it whose price is not yet set: the public privacy
+notice · the full-res warning email · public `/features` (EN **and** TL) · the
+couple's Papic studio · the Photo Delivery box · the delivery panel (twice) · the
+guest tier card · a published SEO claim.
+
+⛔ **NOTHING was built to delete anything at 5 years, deliberately.** The owner set a
+price *review*, not a deletion. What happens if a couple declines to pay is **not
+decided**, and inventing it would mean destroying galleries on an assumption. Copy
+therefore says what is true — free for 5 years, then a paid option — and promises no
+deletion.
+
+✅ **This also narrows an open compliance question rather than widening it.** The
+retention schedule flagged that *indefinite* retention of photographs of identifiable
+people is a lawful-basis problem under RA 10173 storage limitation. A declared 5-year
+period is a stronger position than "forever"; the basis still needs counsel, but the
+period is now finite and stated.
+
+🛡 Three new banned phrases in `retention-copy-is-true.test.ts`, sabotage-tested.
+⚠ Kept **narrow on purpose**: "yours forever" about a Pakanta *song* is true (the
+couple owns it), and "a folder you own, forever" about their *own* Drive is true (we
+never touch it). A bare `/forever/` fires on both, and a guard that cries wolf gets
+skimmed past on the one occasion it is right.
+
+### Same PR · video shipped at HALF its planned resolution
+
+Owner: *"we already have a plan for the size of the photo and video. it should still
+be viewable."* RULE 0 found the plan; the code disagreed with it.
+
+| | plan (corpus) | shipped | now |
+|---|---|---|---|
+| kept PHOTO copy | AVIF long-edge **1280** | 1280 ✅ | 1280 |
+| kept CLIP copy | **720p-class** | 854×**480** ❌ | 1280×**720** |
+
+🚨 **The half that anyone checked was correct, which is exactly why this survived.**
+Photos matched the plan the whole time; only video was at roughly **half the planned
+pixel count**, and this is the copy that survives after the original is replaced — so
+a number that was merely "small enough" was quietly deciding what a couple still has
+years later.
+
+**Cost of honouring the plan is a rounding error:** ~0.5 → ~1.1 MB per 10s clip, so
+the forever pool goes ~0.36 → ~0.42 GB/event (**₱4.14 → ~₱4.8/event/yr**). At 500k
+events/yr that is ₱10.4M → ₱12M against hundreds of millions of revenue.
+
+Also **renamed the profile `web480` → `web720`** at all three sites. The name was the
+most visible statement of the wrong number and travelled to every call site — a
+comment does not travel with a value.
+
+🛡 New `kept-copies-are-still-viewable.test.ts` pins both copies against the plan and
+asserts the profile name matches the maths it produces. Sabotaged back to 854 → **3
+failures**. ⚠ The assertions are **floors, not equalities** — raising quality is a
+cost decision, not a defect, and the guard must never block an improvement.
+
+### Same PR · 720p CONFIRMED by the owner — the 1920 raise was declined
+
+I proposed raising both kept copies to 1920 (1080p clips) after the owner asked
+about a **42" LED TV** — that screen is 1920×1080 native, so 1280 is genuinely
+upscaled ~1.5× on it. **The owner declined: *"no. let's stay with 720p."*** Both are
+back on the documented plan:
+
+| kept copy | shipped before today | now |
+|---|---|---|
+| photo (gallery) | 1280 | **1280** — unchanged, per plan |
+| clip (playback) | 854 → **480p** ❌ | **1280 → 720p** ✅ per plan |
+
+**The real defect of the day still stands and is still fixed:** clips shipped at
+**480p against a documented 720p-class plan**. Photos were correct at 1280 the whole
+time — which is exactly why the video half survived, since the half anyone
+spot-checked looked right.
+
+⛔ **The declined argument is recorded in the code, not silently dropped.** It is a
+good argument and a future session will re-derive it, so `video-compress.ts` now
+carries the facts and the verdict: this copy is what **plays from day one**
+(`clipPlaybackRef()` prefers `clip_web_r2_key`; full-res is a download, never
+streamed), a 9:16 clip at 720p is *downscaled* on a 1080p TV while a **landscape**
+clip is upscaled 1.5×, and 1080p would have cost ₱4.83 → ₱6.90/event/yr. A guard
+asserts that note still exists — so an accidental raise hits a test naming whose
+call it is, while a deliberate one just updates the note.
+
+🚨 **Two corrections I owe the record.** I claimed the original covers TV viewing for
+the first six months — **false**, the compressed copy plays from day one. And I
+claimed 1080p is "nearly the original" — **false**, it would still be an ~86% saving
+against the ~16 MB raw. Both errors pointed the same way: making 720p look like more
+of a compromise than it is.
+
+🛡 Guard: floors for both copies, a **clip-never-weaker-than-photo** invariant (the
+exact shape of the 480-vs-1280 drift), the profile name must equal the resolution it
+produces, and the owner-decision note must survive. Sabotaged four ways — 480p clip
+→ 3 failures, sub-plan photo → 1, note removed → 1, all from a verified-green
+baseline.
+
+### 📏 The 480-vs-720 size question, MEASURED
+
+Owner asked *"the file size of 720 and 480 is big?"*, then confirmed **"ok stick with
+720p."** Answered with real encodes rather than the spec's estimates — ffmpeg 8.1.2,
+the exact args this repo ships, on real clips from `public/realstories` plus a
+worst-case 1080×1920 dense-motion source. Per **10-second** clip:
+
+| source | 480p | 720p | ratio |
+|---|---|---|---|
+| real wedding footage | 0.25 MB | **0.47 MB** | 1.9× |
+| worst case (dense detail) | 0.70 MB | **1.48 MB** | 2.1× |
+
+Across the spec's 150-clip event: **+₱0.37/event/yr** realistic, +₱1.31 worst case.
+
+🔑 **The scale that settles it: a 10s clip at 720p is SMALLER THAN ONE PHONE PHOTO
+(3–5 MB).** Both options are tiny; 720p is merely less tiny. Storage was never a real
+argument for 480p.
+
+⚠ **Two estimates in this file's history were wrong in the same direction** (~₱2 and
+~₱0.66 per event/yr, both too high). The measured figures now replace them in
+`video-compress.ts`, with a note telling the next reader to **re-measure, not
+re-estimate**.

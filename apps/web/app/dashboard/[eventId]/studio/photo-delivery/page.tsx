@@ -132,12 +132,14 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         </p>
       </header>
 
-      {/* The standing 30-day compression rule — visible at the top of the page so
-          couples see it before they ever click Connect. Repeated as per-folder
-          countdown badges once a folder is downloaded. */}
+      {/* How long we hold things — visible at the top of the page so couples see
+          it before they ever click Connect.
+          ⚠ This comment used to say "the standing 30-day compression rule". There
+          is no such rule and there never was; it is what kept the false box below
+          it alive through several edits. */}
       <aside
         role="note"
-        aria-label="30-day post-download compression rule"
+        aria-label="How long full-resolution originals are kept"
         className="rounded-2xl border border-warn-300/60 bg-warn-50/70 p-4 text-sm text-warn-950 sm:p-5"
       >
         <div className="flex items-start gap-3">
@@ -145,15 +147,36 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
             <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <div className="space-y-1.5">
+            {/* ⚠ REWRITTEN 2026-08-07. THIS BOX MADE THREE FALSE CLAIMS AT ONCE,
+                on the screen where a couple decides their photos are safe:
+
+                1. A "30-day window" that starts when photos land in Drive. NO
+                   SUCH RULE EXISTS anywhere in the product. The real clock runs
+                   6 months from the event's FIRST capture, floored at 3 months
+                   after the event, and it is about OUR copy, not a download.
+                2. "Setnayan compresses the Drive originals". We never touch the
+                   couple's own Drive folder — we only ADD to it. The sweep
+                   removes our own R2 original and actually DEFERS when the Drive
+                   copy is unconfirmed.
+                3. "your Setnayan-side 5-year backup stays intact" — there is no
+                   5-year backup. That exact phrase is in the banned list in
+                   retention-copy-is-true.test.ts and the guard could not see it,
+                   because JSX wrapped it as "5-year\nbackup" and the pattern
+                   needed one space. The guard is now whitespace-normalised.
+
+                And the one reassuring fact — the gallery is kept, free, for 5 years — was
+                never said, so the box could only ever cause panic. */}
             <p className="font-semibold tracking-tight">
-              30-day window for full-resolution originals
+              Your photos stay — full resolution has a window
             </p>
             <p className="text-warn-900/85">
-              Once photos land in your Drive, you have <span className="font-mono font-semibold">30 days</span> to
-              copy or back up the originals if you want them elsewhere. After
-              that, Setnayan compresses the Drive originals to web-quality
-              JPEGs to keep your storage tidy — your Setnayan-side 5-year
-              backup stays intact.
+              Every photo stays in your Setnayan gallery, free, for 5 years. About{' '}
+              <span className="font-mono font-semibold">6 months</span> after
+              your first photo is taken — and never sooner than 3 months after
+              your event — we swap the full-resolution original for a compressed
+              copy, and we keep that copy indefinitely. Anything already in your
+              Drive folder is yours: we only add to it, and never compress or
+              remove what&rsquo;s there.
             </p>
           </div>
         </div>

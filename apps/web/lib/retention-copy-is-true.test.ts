@@ -6,7 +6,10 @@
  * original. they can sync with their google drive."
  *   · Full-resolution originals are held for SIX MONTHS from the event's FIRST
  *     capture, then dropped. The sweep runs unless deliberately disabled.
- *   · The compressed gallery stays online for good — that part IS forever.
+ *   · The compressed gallery stays online FREE FOR 5 YEARS (owner 2026-08-07,
+ *     superseding "free forever"). Past 5 years, continuing to store it becomes
+ *     a paid option whose price is not yet set. Nothing is deleted at 5 years —
+ *     that consequence has NOT been decided and must not be assumed in code.
  *   · Connecting Google Drive is the ONLY way a couple keeps originals past
  *     six months.
  *
@@ -57,7 +60,8 @@ const FILES = ROOTS.flatMap((r) => sources(r));
 /**
  * Phrases that promise a lifetime for the ORIGINALS which we do not honour.
  * Deliberately narrow: each was a real string that shipped. A broad pattern
- * here would fire on the compressed gallery, which genuinely IS forever, and a
+ * here would fire on the compressed gallery, which is genuinely kept (5 years,
+ * free), and a
  * guard that cries wolf teaches you to skim past the one time it is right.
  */
 const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
@@ -67,6 +71,30 @@ const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
   // The month count itself. It moved 3 → 6 on 2026-08-02 and a dormant buy card
   // kept the old number for five days, so pin the stale one by name.
   { re: /after 3 months we keep a[^.]{0,30}compressed/i, why: 'the clock is 6 months, not 3' },
+  // ── The gallery is no longer "forever" (owner 2026-08-07) ──────────────────
+  // It is free for FIVE YEARS, after which continuing to store it becomes a paid
+  // option whose price is not yet set. Every "forever" below was a live promise
+  // on a real screen — the couple's Papic page, the delivery panel, the public
+  // features page, the guest tier card and the warning email all said it — so
+  // these are pinned by name rather than by a broad pattern.
+  //
+  // ⚠ NARROW ON PURPOSE. "yours forever" about a Pakanta SONG is true (the couple
+  // owns the track), and "one folder you own, forever" about their own Google
+  // Drive is true (we never touch their folder). A pattern matching bare
+  // /forever/ fires on both and a guard that cries wolf teaches you to skim past
+  // the one time it is right.
+  {
+    re: /gallery[^.]{0,60}(forever|indefinitely)/i,
+    why: 'the compressed gallery is free for 5 years, not forever',
+  },
+  {
+    re: /(forever|indefinitely)[^.]{0,40}gallery/i,
+    why: 'the compressed gallery is free for 5 years, not forever',
+  },
+  {
+    re: /photos? kept permanently/i,
+    why: 'photos are kept free for 5 years, then storage becomes a paid option',
+  },
 ];
 
 /**
@@ -86,7 +114,19 @@ const FALSE_PROMISES: Array<{ re: RegExp; why: string }> = [
 test('no user-facing copy promises a lifetime for the originals that we do not keep', () => {
   const hits: string[] = [];
   for (const f of FILES) {
-    const src = code(f);
+    // 🚨 COLLAPSE WHITESPACE FIRST — THIS GUARD WAS BLIND FOR ITS WHOLE LIFE.
+    //
+    // The couple's Photo Delivery page said "your Setnayan-side 5-year backup
+    // stays intact", and this test never fired, because JSX wrapped it as
+    // "5-year\n              backup" and /\b5-year backup\b/ needs ONE space.
+    // The phrase was in the banned list, the file was in FILES, and the guard
+    // still could not see it. Prose in a JSX attribute or a <p> is wrapped by
+    // the formatter at whatever column it likes, so ANY multi-word pattern here
+    // is a coin flip until the source is normalised.
+    //
+    // 🔑 A guard whose pattern cannot survive the formatter is decoration. This
+    // one read as protection for months and caught nothing.
+    const src = code(f).replace(/\s+/g, ' ');
     for (const { re, why } of FALSE_PROMISES) {
       if (re.test(src)) hits.push(`${relative(WEB, f)} — ${re} (${why})`);
     }
@@ -95,8 +135,10 @@ test('no user-facing copy promises a lifetime for the originals that we do not k
     hits,
     [],
     `Copy promises a photo lifetime the deletion sweep does not honour:\n${hits.join('\n')}\n\n` +
-      'Originals: 6 months from the first capture. Compressed gallery: forever. ' +
-      'Google Drive is how a couple keeps originals past 6 months.',
+      'Originals: 6 months from the first capture, floored at 3 months after the ' +
+      'event. Compressed gallery: free for 5 years. NOTHING is deleted — the ' +
+      'original is REPLACED by the compressed copy. Google Drive is how a couple ' +
+      'keeps originals past 6 months.',
   );
 });
 
@@ -188,5 +230,58 @@ test('no user-facing copy promises we delete a connected account on a timer', ()
     'Copy promising scheduled deletion of an integration grant. We delete on ' +
       'DISCONNECT, immediately; we do not delete on a timer. Say what is ' +
       'guaranteed, not what sounds reassuring:\n  ' + offenders.join('\n  '),
+  );
+});
+
+/**
+ * THE PUBLIC NOTICE'S POST-EVENT FLOOR MUST MATCH THE CONSTANT THAT ENFORCES IT.
+ *
+ * 🔑 THIS IS A COPY-vs-CODE CHECK, NOT TWO HAND-TYPED THINGS. The month figure in
+ * the privacy notice is DERIVED here from FULL_RES_POST_EVENT_GRACE_DAYS, so
+ * moving the constant without touching the notice fails, and vice versa. A guard
+ * comparing two hand-typed strings is not a guard — that is how `llms.txt`
+ * drifted for three weeks with green CI.
+ *
+ * ── WHY THIS ONE MATTERS MORE THAN IT LOOKS ─────────────────────────────────
+ * On 2026-08-07 the floor was raised 30 days → 3 months while shooting opened to
+ * 6 months before the event. Left alone, the notice would have said we replace
+ * originals after 30 days while the sweep actually held them for three months.
+ * **Understating retention is a breach in the quieter direction**: RA 10173
+ * storage limitation binds us to the period we DECLARE, nobody ever complains
+ * about getting more than promised, and the notice is still false.
+ *
+ * It is also now the load-bearing number. A camera may open six months before the
+ * event, so the earliest permitted photo's own six-month clock expires ON the
+ * event day — this floor is the only thing preserving anything afterwards.
+ */
+test('the privacy notice states the REAL post-event floor', async () => {
+  const { FULL_RES_POST_EVENT_GRACE_DAYS } = await import('./papic-fullres-drop-core');
+  const notice = code(join(WEB, 'app/privacy/page.tsx'));
+
+  // Self-check: an unreadable file would satisfy a "does not contain" assertion.
+  assert.ok(notice.length > 2000, 'self-check: the privacy notice read as near-empty');
+
+  const months = Math.round(FULL_RES_POST_EVENT_GRACE_DAYS / 30.44);
+  assert.ok(months >= 1, `a floor of ${FULL_RES_POST_EVENT_GRACE_DAYS} days is not a whole month`);
+
+  // Normalise the JSX: collapse whitespace and drop {' '} spacers so the phrase
+  // reads as one line however it happens to be wrapped.
+  const flat = notice.replace(/\{'\s*'\}/g, ' ').replace(/\s+/g, ' ');
+
+  // NOTE the tag placement: the copy is `<strong>3 months</strong>`, so the unit
+  // sits INSIDE the tag. A first draft put `months` after the closing tag and
+  // failed — which is the only reason we know this assertion can fail at all.
+  const stated = new RegExp(
+    `never less than\\s*(?:<strong>)?\\s*${months}\\s*months?\\s*(?:</strong>)?\\s*after the event`,
+    'i',
+  );
+  assert.match(
+    flat,
+    stated,
+    `the notice must say the originals are held at least ${months} months after ` +
+      `the event, because FULL_RES_POST_EVENT_GRACE_DAYS is ` +
+      `${FULL_RES_POST_EVENT_GRACE_DAYS}. If you changed the constant, change ` +
+      `the public notice in the SAME PR — holding data longer than the declared ` +
+      `period is the RA 10173 problem, and it is silent.`,
   );
 });

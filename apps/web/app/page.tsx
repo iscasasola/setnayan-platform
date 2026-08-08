@@ -56,7 +56,7 @@ export const metadata = {
     "Set na 'yan",
     'Filipino wedding software',
     'wedding photo gallery app',
-    'keep wedding photos forever',
+    'keep wedding photos safe',
     'Filipino life events app',
   ],
   openGraph: {

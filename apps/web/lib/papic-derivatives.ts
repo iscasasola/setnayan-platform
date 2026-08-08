@@ -31,6 +31,19 @@ import { getR2Client, r2Upload, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
  * throws. The caller fires this fire-and-forget after the capture is saved.
  */
 
+// 🔒 1280 — the documented plan (`Papic_Pricing_Plan_of_Action_2026-07-20.md`:
+// "compressed gallery (AVIF long-edge 1280)"), reaffirmed by the owner 2026-08-07.
+//
+// I briefly raised this to 1920 to match a 42" LED TV (1920×1080 native, so 1280
+// is upscaled ~1.5× there). The owner declined — *"no. let's stay with 720p"* —
+// keeping the gallery on plan. Recorded rather than silently reverted so the same
+// case is not re-derived: the trade was ~₱7.1 → ~₱10.6/event/yr, and raising it is
+// an OWNER decision, not an engineering one.
+//
+// 🔑 STILL TRUE AND WORTH KNOWING: this is the ONLY copy the gallery ever shows.
+// The full-res original is a DOWNLOAD, never displayed, and after the retention
+// window it is replaced by this file. Grid tiles use thumb_r2_key (320px), so this
+// copy loads only when a photo is opened.
 const DISPLAY_LONG_EDGE = 1280;
 // AVIF quality (0–100). ~60 ≈ JPEG q80 to the eye at roughly half the bytes —
 // the single-pass web copy (owner 2026-07-11).

@@ -29,6 +29,56 @@
 /** Asia/Manila is UTC+8 year-round (no DST) — a fixed offset is exact. */
 export const PAPIC_TZ_OFFSET = '+08:00';
 
+/**
+ * How early a camera may start shooting, relative to the event date.
+ *
+ * 🔒 OWNER RULE, 2026-08-07, settled across three messages in one sitting:
+ *   1. *"they can start taking photo up to 5 months before the main event"*
+ *   2. *"let them use the papic service up to 6 months away from the event"*  ← FINAL
+ *   3. *"still preserve 3 months all their photos in high res before we compress it"*
+ *
+ * 🔑 SIX IS NOT DERIVED FROM RETENTION, AND MUST NOT BE. The first version of
+ * this constant computed `5 = 6 months retention − 1 month post-event`, which
+ * looked elegant and quietly made the capture window a hostage of the retention
+ * window. The owner then set capture to a flat six months. At six months out the
+ * first-capture clock runs out ON THE WEDDING DAY — so if capture were still
+ * derived, the arithmetic would now "prove" the promise is zero days.
+ *
+ * It is not zero, because the promise was never carried by this number:
+ *
+ *   originals are dropped at   GREATEST( first_capture + 6 months,
+ *                                        event_date    + 3 months )
+ *
+ * — a GREATEST in SQL (migration 20271102113000), not a subtraction here. The
+ * SECOND term is what preserves the photos after the day, and it holds no matter
+ * how early shooting began. Shoot from six months out and the originals live
+ * three months past the wedding; shoot on the day itself and they live six.
+ * Those are two independent promises, and this file owns only the first.
+ *
+ * ⚠ THE RULE WAS NEVER IN THE CODE AT ALL. The default window was a SINGLE DAY —
+ * the event day, midnight to midnight — so a couple who never opened the window
+ * picker got a camera that refused every shot until the wedding morning. The
+ * engagement shoot, the fittings, the week before: all rejected. That default is
+ * what stamped `valid_from = valid_until` onto six of the thirteen seats in
+ * production, including both seats anyone had ever claimed.
+ */
+export const PAPIC_CAPTURE_MONTHS_BEFORE = 6;
+
+/**
+ * The earliest date a camera may shoot for an event on `eventDate`.
+ * Calendar months, not 183 days — "6 months before 12 December" is 12 June.
+ */
+export function earliestCaptureDate(eventDate: string): string {
+  const [y, m, d] = eventDate.split('-').map(Number);
+  // Day 1 of the target month, then clamp the day to that month's length so
+  // 31 March − 6 months lands on 30 September, and 31 August − 6 months on 28/29 Feb.
+  const target = new Date(Date.UTC(y!, m! - 1 - PAPIC_CAPTURE_MONTHS_BEFORE, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  const day = Math.min(d!, lastDay);
+  const mm = String(target.getUTCMonth() + 1).padStart(2, '0');
+  return `${target.getUTCFullYear()}-${mm}-${String(day).padStart(2, '0')}`;
+}
+
 /** Travel is the only multi-day-by-default type; everything else anchors to event_date. */
 export function isTravelEventType(eventType: string | null | undefined): boolean {
   return String(eventType ?? '').toLowerCase() === 'travel';
@@ -133,7 +183,9 @@ export type PapicWindowError =
   | 'missing_start'
   | 'missing_event_date'
   | 'start_after_end'
-  | 'end_after_event_date';
+  | 'end_after_event_date'
+  /** Start earlier than PAPIC_CAPTURE_MONTHS_BEFORE months before the event. */
+  | 'start_too_early';
 
 export type PapicWindowResult =
   | { ok: true; window: ResolvedPapicWindow }
@@ -188,6 +240,10 @@ export function resolvePapicWindow(input: PapicWindowInput): PapicWindowResult {
     // Starting after the event day can't cover it.
     return { ok: false, error: 'end_after_event_date' };
   }
+  // And no earlier than the owner's allowance (5 calendar months before).
+  if (Date.parse(`${startDate}T00:00:00Z`) < Date.parse(`${earliestCaptureDate(anchor)}T00:00:00Z`)) {
+    return { ok: false, error: 'start_too_early' };
+  }
   return {
     ok: true,
     window: {
@@ -226,13 +282,23 @@ export function resolveStoredWindow(args: {
       days: inclusiveDays(manilaDate(windowStart), manilaDate(windowEnd)),
     };
   }
-  // Legacy single-day fallback.
+  // DEFAULT WINDOW — the owner's rule, not a single day.
+  //
+  // ⚠ THIS USED TO RETURN A ONE-DAY WINDOW anchored to the event date, labelled
+  // "legacy single-day fallback". It is not a legacy path: it is what EVERY
+  // event gets until someone opens the window picker, and it made the camera
+  // refuse every shot except on the wedding day itself. Six of thirteen prod
+  // seats were stamped from it.
+  //
+  // A camera may shoot from PAPIC_CAPTURE_MONTHS_BEFORE months before the event
+  // through the end of the event day.
   const anchor = manilaDate(eventDate);
   if (isValidDateStr(anchor)) {
+    const start = earliestCaptureDate(anchor);
     return {
-      startIso: manilaStartIso(anchor, '00:00'),
+      startIso: manilaStartIso(start, '00:00'),
       endIso: manilaEndOfDayIso(anchor),
-      days: 1,
+      days: inclusiveDays(start, anchor),
     };
   }
   return { startIso: null, endIso: null, days: 1 };

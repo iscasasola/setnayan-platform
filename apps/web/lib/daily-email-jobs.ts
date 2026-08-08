@@ -493,7 +493,9 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
   //
   // Intersect with the SAME rpc the sweep uses, both offsets pulled back by the
   // lead time. Fail-CLOSED on error: warning nobody this pass is recoverable
-  // next run; a false "your photos go in two weeks" is not.
+  // next run; a false "your full-resolution originals go in two weeks" is not.
+  // (The PHOTOS never go — only the originals are replaced by the compressed
+  // copies that the gallery keeps for good. Say compressed, not deleted.)
   const dueSoon = await eventsApproachingTheirClock(admin, days - WARN_LEAD_DAYS);
   if (dueSoon === null) return { candidates: 0, sent: 0 };
   const dueSet = new Set(dueSoon);
@@ -526,7 +528,7 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       .from('users')
       .select('email')
       // users.id is BIGSERIAL; the auth UUID is users.user_id — join on the
-      // UUID or this always matches 0 rows and the deletion-warning never sends.
+      // UUID or this always matches 0 rows and the full-res drop warning never sends.
       .eq('user_id', member.user_id as string)
       .maybeSingle();
     const email = (user?.email as string | null) ?? null;
@@ -543,7 +545,7 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       // nothing. Only the two things that actually move pixels are listed now,
       // and Drive is named first because it is the one that keeps working
       // after the six months are up.
-      text: `Hi! Your ${name} gallery on Setnayan stays online forever, free.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed gallery stays online for you forever. Your gallery keeps every photo; we just won't be holding the full-resolution originals after that. Here are the two ways to keep the originals before then:\n\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free — this keeps working after the six months are up.\n• Or download them from your gallery — a single photo, or the whole event as a ZIP.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your online gallery is safe either way.\n\n— Setnayan`,
+      text: `Hi! Your ${name} gallery on Setnayan stays online free for 5 years.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed gallery stays online for you, free, for 5 years. Your gallery keeps every photo; we just won't be holding the full-resolution originals after that. Here are the two ways to keep the originals before then:\n\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free — this keeps working after the six months are up.\n• Or download them from your gallery — a single photo, or the whole event as a ZIP.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your online gallery is safe either way.\n\n— Setnayan`,
     });
     // Only mark warned when the email actually went (or the address is dead) —
     // if Resend isn't configured yet, leave it unwarned so it retries later.

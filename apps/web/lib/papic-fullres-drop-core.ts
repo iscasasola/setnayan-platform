@@ -13,14 +13,28 @@ export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
 
 /**
  * Days after the EVENT DATE before an original may be dropped, whatever the
- * 6-month clock says. The owner's stated reason for the 5-month window cap was
- * "so they have at least 30 days to download the files they have" — this makes
- * that a rule rather than an arithmetic coincidence that only holds while
- * nobody starts earlier than 5 months out or moves their date.
+ * 6-month clock says.
  *
- * It can only ever KEEP files longer. It can never cause an earlier deletion.
+ * 🔒 RAISED 30 → 92 (one month → three) by the owner on 2026-08-07, verbatim:
+ * *"still preserve 3 months all their photos in high res before we compress it."*
+ *
+ * 🔑 THIS CONSTANT — NOT THE CAPTURE WINDOW — IS THE PROMISE TO THE COUPLE. The
+ * same sitting opened shooting to six months before the event. Six months of
+ * capture against a six-month retention clock means an engagement-shoot photo's
+ * own clock expires ON THE WEDDING DAY. Every day the couple keeps their
+ * originals after their own wedding is bought by the line below and by nothing
+ * else. Lower it and photos start disappearing while the thank-you cards are
+ * still going out; there is no other guard behind it.
+ *
+ * WHY 92 AND NOT 90. Three calendar months is 89–92 days depending on which
+ * months they are (1 Feb → 1 May is 89; 1 Mar → 1 Jun is 92). Ninety would be
+ * three months in most of the year and a few days SHORT of it in spring. We take
+ * the longest so "three months" is true for every wedding date, not most.
+ *
+ * It can only ever KEEP files longer. It can never cause an earlier deletion —
+ * the sweep takes GREATEST(first_capture + retention, event_date + this).
  */
-export const FULL_RES_POST_EVENT_GRACE_DAYS = 30;
+export const FULL_RES_POST_EVENT_GRACE_DAYS = 92;
 
 /**
  * A clip's web copy must have EXISTED for at least this long before its raw is
@@ -62,17 +76,31 @@ export type DropCandidate = {
 };
 
 /**
- * Is this capture eligible to have OUR R2 full-res original dropped? Pure, so the
- * sweep and its test share one definition. Photo/clip filtering happens in the
- * QUERY (clips are excluded entirely — their r2_object_key is the video). The
- * guards here are the safety net that makes a wrong delete impossible:
+ * Is this capture eligible to have OUR R2 full-res original REPLACED by its
+ * compressed copy? Pure, so the sweep and its test share one definition.
+ *
+ * 🗣 SAY "COMPRESSED", NOT "DELETED" — owner-corrected twice, most recently
+ * 2026-08-07 ("again. not delete. just compress"). NO PHOTO IS EVER DELETED by
+ * this module. The compressed web copy is derived at capture time and kept
+ * forever; all that happens here is that the full-resolution ORIGINAL FILE stops
+ * being held once that copy is confirmed to exist. The customer's gallery keeps
+ * every photo — what changes is resolution. The module is named `...-drop` after
+ * what happens to the FILE; do not let that name leak into a sentence whose
+ * subject is a photo, and never into customer copy.
+ *
+ * Photo/clip filtering happens in the QUERY (clips are excluded entirely — their
+ * r2_object_key is the video). The guards here are the safety net that makes
+ * losing a photo impossible:
  *   • already dropped → skip (idempotent);
- *   • NO web copy (display_r2_key null) → skip — dropping would LOSE the photo;
+ *   • NO web copy (display_r2_key null) → skip — dropping would LOSE the photo.
+ *     ⚠ THIS IS THE GUARANTEE THE WHOLE "compress, don't delete" PROMISE RESTS
+ *     ON: there is no path that removes an original before its replacement
+ *     exists. Do not weaken it;
  *   • a `sample/...` key → skip — never touch seed/demo data;
  *   • the EVENT's clock has not run out → skip. ⚠ NOT the photo's own age: the
  *     clock is per EVENT (6 months from its first capture), because a per-photo
- *     fuse deleted a couple's earliest journey photos BEFORE the wedding those
- *     photos were leading up to. The caller passes only rows whose event has
+ *     fuse stripped a couple's earliest journey photos down to their compressed
+ *     copies BEFORE the wedding those photos were leading up to. The caller passes only rows whose event has
  *     already expired (papic_events_past_fullres_clock), so age is not re-tested
  *     here — re-testing it is exactly the bug.
  * The couple's Drive copy is never involved here (this only decides OUR R2 copy).
@@ -176,7 +204,8 @@ export function clipEligibleForDrop(
   // Same move as the photo path: the age fuse is per EVENT, decided upstream by
   // papic_events_past_fullres_clock. A clip shot during the ceremony and a photo
   // shot five months earlier belong to ONE keepsake and must expire together —
-  // two clocks would delete half of a couple's journey while keeping the rest.
+  // two clocks would compress half of a couple's journey to its web copies while
+// the rest kept its originals. (Nothing is deleted — see the header.)
   // The clip's OWN object-level guards (a distinct web copy, its byte floor, the
   // fresh-grace on that object) are above and stay per-clip, because those are
   // about whether a playable copy really exists, not about age.

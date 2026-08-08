@@ -41,13 +41,71 @@ const SKIP_BELOW_BYTES = 12 * 1024 * 1024; // 12 MB
 const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-quality rate
 
 // ── WEB-COPY profile (Papic storage PR-1) ─────────────────────────────────────
-// A DELIBERATELY SMALL, storage-minimal playable copy of a Papic clip (~0.3–0.6
-// MB for a 10s clip), produced at capture so galleries serve it and the heavy raw
-// clip becomes droppable later. This is a different intent from the quality-first
-// path above (which preserves the couple's original resolution): here we WANT to
-// shrink hard. So the web480 profile:
-//   • caps the LONG edge to 854 px → a 9:16 Papic clip (the norm) lands ~480×854,
-//     i.e. a ≤480 px SHORT side, using the SAME single-quoted `min(...)` filter
+// The storage-minimal but STILL-WATCHABLE playable copy of a Papic clip, produced
+// at capture so galleries serve it and the heavy raw clip becomes droppable later.
+// Different intent from the quality-first path above (which preserves the couple's
+// original resolution): here we shrink hard — but not below what a person would
+// call viewable.
+//
+// 🔒 720p IS THE OWNER'S DECISION — 2026-08-07, final. Do NOT raise it again.
+//
+// I argued for 1080p when the owner asked about a 42" LED TV, and the owner
+// answered: *"no. let's stay with 720p."* That is the call. It also puts this
+// file back on the documented plan (`Papic_Good_Better_Best_Pricing_2026-07-17.md`
+// §4 — "compressed clip copies (720p-class)"), so plan and code now agree.
+//
+// ⛔ WHY THIS NOTE EXISTS RATHER THAN A SILENT REVERT: the 1080p case is genuinely
+// arguable and a future session WILL re-derive it. It was considered in full and
+// declined. Facts, so nobody has to rediscover them:
+//   · This copy is what PLAYS, always, from day one — `clipPlaybackRef()` resolves
+//     `clip_web_r2_key ?? r2_object_key`, and full-res is a download, never
+//     streamed. It is not a post-retention fallback.
+//   · TV maths (9:16 portrait is the Papic norm): on a 1080p TV a 720p portrait
+//     clip fits to 1080 height = DOWNSCALED 0.84×, i.e. sharp. The soft case is a
+//     LANDSCAPE clip, upscaled 1.5× on 1080p and 3× on 4K.
+//   · Cost of 1080p would have been ~₱4.83 → ~₱6.90/event/yr (estimated).
+//
+// 📏 MEASURED 2026-08-07, not estimated — the owner asked "the file size of 720
+// and 480 is big?" and the honest answer needed real encodes, because two earlier
+// figures in this file were guesses and both were too high. Encoded with the exact
+// args below (ffmpeg 8.1.2, real clips from public/realstories plus a worst-case
+// 1080×1920 dense-motion source), per 10-SECOND clip:
+//
+//        real wedding footage      480p 0.25 MB  →  720p 0.47 MB   (1.9×)
+//        worst case (dense detail) 480p 0.70 MB  →  720p 1.48 MB   (2.1×)
+//
+// Across the spec's 150-clip event that is **+₱0.37/event/yr** on realistic
+// footage, +₱1.31 worst case. 🔑 THE SCALE THAT SETTLES IT: a 10s clip at 720p is
+// SMALLER THAN ONE PHONE PHOTO (3–5 MB). Both options are tiny; 720p is merely
+// less tiny. Storage was never a real argument for 480p — resolution is.
+//
+// ⚠ Anyone re-opening this: re-measure, do not re-estimate. The estimates in this
+// file's history were wrong in the same direction twice.
+// The owner weighed this and chose 720p. Raising it is an OWNER decision, not an
+// engineering one.
+//
+// ── superseded reasoning, kept because the drift it records is the real lesson ──
+// 720p-CLASS WAS THE OWNER'S DOCUMENTED PLAN, and this file shipped BELOW it.
+// `Papic_Good_Better_Best_Pricing_2026-07-17.md` §4 specifies the kept clip copy as
+// "compressed clip copies (**720p-class**)", and the storage spec's stated goal is
+// "every Papic memory survives forever, **at viewable resolution**". The constant
+// below was 854 (→ a 480 px short side, i.e. 480p) — roughly HALF the pixels the
+// plan calls for. Corrected 2026-08-07 after the owner restated the rule: *"we
+// already have a plan for the size of the photo and video. it should still be
+// viewable."*
+//
+// 🔑 THE PHOTO SIDE NEVER DRIFTED — `papic-derivatives.ts` uses a 1280 long edge,
+// exactly as planned. Only video fell below spec, which is why the gap survived:
+// the half that was checked was correct. Matching 1280 here also makes the two
+// derivative paths share one number.
+//
+// COST OF HONOURING THE PLAN (measured, see above): 0.25 → 0.47 MB per 10s clip on
+// real footage ⇒ +₱0.37/event/yr. A rounding error, and far cheaper than shipping
+// video nobody wants to watch.
+//
+// So the web720 profile:
+//   • caps the LONG edge to 1280 px → a 9:16 Papic clip (the norm) lands 720×1280,
+//     i.e. a 720 px SHORT side, using the SAME single-quoted `min(...)` filter
 //     idiom the quality path uses (the quotes protect the inner comma);
 //   • encodes H.264 BASELINE (max device compatibility) at CRF 30 (visually fine
 //     small, far below the quality path's CRF 21) with 64 kbps AAC;
@@ -56,7 +114,7 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 // Same never-throws contract: on unsupported/failure it returns the ORIGINAL File
 // unchanged, so the caller detects "no web copy" by reference-equality (result ===
 // input) and simply omits it — the raw stays the only playable copy.
-const WEB_LONG_EDGE = 854; // 9:16 → ~480 short edge; the storage-minimal target
+export const WEB_LONG_EDGE = 1280; // 9:16 → 720 short edge (720p-class — owner-locked 2026-08-07)
 const WEB_CRF = '30';
 const WEB_AUDIO_BITRATE = '64k';
 
@@ -173,16 +231,16 @@ export async function compressVideoForWeb(
      *   • 'quality' (default) — the couple's Save-the-Date path: preserve the
      *     ORIGINAL resolution up to 4K, CRF 21, 192k audio; SKIP already-light
      *     inputs. Behaviour unchanged from before this option existed.
-     *   • 'web480' — the Papic storage web-copy: shrink HARD to a ~0.5 MB
-     *     playable derivative (854 long edge → ≤480 short edge, H.264 baseline,
+     *   • 'web720' — the Papic storage web-copy: a ~0.5 MB still-watchable
+     *     playable derivative (1280 long edge → 720 short edge, H.264 baseline,
      *     CRF 30, 64k audio). NEVER skips small inputs (even a small raw clip
      *     should become a tiny web copy) and needs no duration probe.
      */
-    profile?: 'quality' | 'web480';
+    profile?: 'quality' | 'web720';
   } = {},
 ): Promise<File> {
   const { onProgress, signal, maxDurationS } = opts;
-  const isWebCopy = opts.profile === 'web480';
+  const isWebCopy = opts.profile === 'web720';
   if (!canCompressVideo()) return file;
 
   // ── Skip clips that are already light enough to stream smoothly (quality
@@ -222,7 +280,7 @@ export async function compressVideoForWeb(
         const outName = 'out.mp4';
         await ffmpeg.writeFile(inName, await fetchFile(file));
 
-        // web480: cap the LONG edge to 854 (9:16 → ~480 short edge) using the same
+        // web720: cap the LONG edge to 1280 (9:16 → 720 short edge) using the same
         // single-quoted `min(...)` filter idiom (quotes protect the inner comma) —
         // H.264 BASELINE, CRF 30, 64k audio, faststart → a storage-minimal web copy.
         // quality: keep the ORIGINAL resolution up to a 4K long edge (only downscale

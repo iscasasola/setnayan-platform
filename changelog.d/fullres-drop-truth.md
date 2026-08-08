@@ -1,6 +1,14 @@
 ## 2026-08-07 · fix(papic): the deletion job said it was off, and warned couples 107 days early
 
-The one piece of code that **permanently deletes couples' original photos**
+> 🗣 **VOCABULARY CORRECTED 2026-08-07** (owner, twice: *"again. not delete. just
+> compress"*). Read every "delete" below as **"replace the full-resolution ORIGINAL
+> FILE with its compressed copy"**. **No photo is ever deleted** — the compressed
+> copy is derived at capture time and kept forever, and `isEligibleForDrop` refuses
+> outright when it is missing (*"dropping would LOSE the photo"*). The customer's
+> gallery keeps every photo; only resolution changes.
+
+The one piece of code that **permanently removes the full-resolution original behind**
+every couple's photo — the compressed copy in their gallery is kept forever —
 carried a header saying it deletes nothing unless switched on. **It is switched
 on** — the gate is "delete unless explicitly disabled", which is the owner's
 decision and correct. The label was the defect, and it is the first thing anyone

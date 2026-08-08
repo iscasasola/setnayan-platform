@@ -16,13 +16,29 @@ import {
 // nothing, so there's no flash of a wrong-state button. followedUserId is the
 // account being viewed; the follow write is RLS-guarded to the viewer's own
 // rows server-side.
+//
+// E6 — the one-way note ("Following a storyteller is one-way — they publish on
+// purpose.") is rendered by THIS island, past the `return null` gate below, so
+// it is structurally impossible for it to appear where the button doesn't. A
+// sibling in the server page would print it to signed-out strangers and to the
+// storyteller reading their own profile.
+//
+// THE SENTENCE MUST STAY TRUE OF THE CODE. Verified 2026-08-08: follow rows are
+// written through the AUTHENTICATED client (RLS Pattern A confines a caller to
+// their own rows), users.followers_count is the ONLY public audience number,
+// the follow GRAPH is never exposed, and the sole fan-out is
+// notifyFollowersOfNewChapter — creator → followers, on publish. If anyone ever
+// ships a follower LIST or a "X follows you" surface, this line becomes a lie
+// and must be retired in the SAME PR.
 
 export function FollowButton({
   followedUserId,
   className,
+  noteClassName,
 }: {
   followedUserId: string;
   className?: string;
+  noteClassName?: string;
 }) {
   const [state, setState] = useState<{
     resolved: boolean;
@@ -62,15 +78,20 @@ export function FollowButton({
   };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={pending}
-      aria-pressed={state.following}
-      className={className}
-      data-following={state.following ? '1' : '0'}
-    >
-      {state.following ? 'Following' : 'Follow'}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        aria-pressed={state.following}
+        className={className}
+        data-following={state.following ? '1' : '0'}
+      >
+        {state.following ? 'Following' : 'Follow'}
+      </button>
+      <span className={noteClassName}>
+        Following a storyteller is one-way — they publish on purpose.
+      </span>
+    </>
   );
 }

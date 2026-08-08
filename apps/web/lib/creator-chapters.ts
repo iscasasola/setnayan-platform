@@ -172,3 +172,52 @@ export const CHAPTER_KIND_LABEL: Record<ChapterKind, string> = {
   food: 'Food',
   lifestyle: 'Lifestyle',
 };
+
+/** What `rankChaptersByPublishedAt` knows about a rendered chapter list. */
+export type ChapterRanking = {
+  /**
+   * 1-based CHRONOLOGICAL number (oldest = 1) keyed by the row's index in the
+   * input array. A row with no parseable `published_at` is ABSENT — numbering is
+   * a claim about sequence, and without a date we do not have one to make.
+   */
+  numberByIndex: Map<number, number>;
+  /** Input index of the newest DATED row, or -1 when nothing is dated. */
+  newestIndex: number;
+  /** Whether "latest" carries information — false in a set of one dated row. */
+  showLatest: boolean;
+};
+
+/**
+ * Rank a rendered chapter list by `published_at` (E5 — profile timeline
+ * numbering + the latest-chapter poster).
+ *
+ * 🔑 WHY THIS IS NOT `index 0`. `fetchPublishedChapters` orders
+ * `published_at` DESC, and Postgres DESC is **NULLS FIRST** — a published row
+ * with a NULL `published_at` sorts ABOVE the genuine newest. Taking the first
+ * element as "latest" would hand the number and the poster to an undated row.
+ * Rank is therefore derived from PARSED DATES, oldest first, and undated rows
+ * are excluded from numbering entirely rather than guessed at.
+ *
+ * `publishChapter` always stamps `published_at`, so an undated published row is
+ * only reachable by a direct DB write — which is exactly the case a rendered
+ * page must survive without lying.
+ *
+ * Pure: takes the dates, returns positions. Ties keep input order (Array#sort is
+ * stable), so two rows published in the same millisecond stay newest-first as
+ * the query returned them, and the LAST of them by that order is not promoted.
+ */
+export function rankChaptersByPublishedAt(
+  publishedAt: ReadonlyArray<string | null | undefined>,
+): ChapterRanking {
+  const dated = publishedAt
+    .map((iso, i) => ({ i, t: iso ? Date.parse(iso) : Number.NaN }))
+    .filter((x) => !Number.isNaN(x.t))
+    .sort((a, b) => a.t - b.t); // oldest → newest
+  const numberByIndex = new Map<number, number>();
+  dated.forEach((x, k) => numberByIndex.set(x.i, k + 1));
+  return {
+    numberByIndex,
+    newestIndex: dated.length > 0 ? dated[dated.length - 1]!.i : -1,
+    showLatest: dated.length > 1,
+  };
+}

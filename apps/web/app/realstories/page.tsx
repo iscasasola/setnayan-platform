@@ -15,6 +15,8 @@ import {
   type ChapterSearchItem,
 } from './_components/stories-search';
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
+import { publishedBlogArticles } from '@/lib/blog';
+import { JournalRail } from './_components/journal-rail';
 
 // /realstories — THE single public stories hub (iteration 0046 + Storytellers
 // PR-D, council verdict 2026-07-16): two named, visually distinct shelves on
@@ -293,6 +295,13 @@ export default async function RealStoriesIndexPage() {
             />
           </>
         )}
+
+        {/* "From the Journal" (E4) — deliberately OUTSIDE the searchMode
+            ternary. Inside the else-branch it would silently disappear the day
+            the pool crosses STORIES_SEARCH_MIN_POOL: a rail that vanishes on
+            success. The guides are just as relevant above the gate as below it.
+            Self-gates to nothing under 2 published articles. */}
+        <JournalRail articles={publishedBlogArticles().slice(0, 3)} />
 
         <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">

@@ -16,13 +16,26 @@ import {
   readingMinutes,
   type BlogBlock,
 } from '@/lib/blog';
+import {
+  fetchPublishedChapterForShare,
+  type PublicChapter,
+} from '@/lib/creator-public';
+import { EMBED_PROVIDER_LABEL } from '@/lib/creator-chapters';
+import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components/chapter-embed-frame';
 
 // Per-article Journal pages — magazine reader (iteration 0038, 2026-06-15).
 // Immersive cover header, drop-cap lead, gold pull-quotes ("nuggets"), inline
 // figures, and photo "keep reading" cards. Same soft-404-proof shape as the
 // first slice: the article set is a fixed in-code constant, every slug is
-// pre-rendered, anything else 404s (dynamicParams=false). No DB, no loading
-// boundary that would commit a 200 before notFound() runs.
+// pre-rendered, anything else 404s (dynamicParams=false). No loading boundary
+// that would commit a 200 before notFound() runs.
+//
+// ⚠ "No DB" WAS TRUE AND NO LONGER IS. Two reads now hang off this page, and
+// BOTH are fail-soft by construction: approved Journal Spotlights (Wave 5) and
+// embedded storyteller chapters (§ 3.4). Neither may ever break the article —
+// a database problem costs the page its credits or its embed, never its prose.
+// The article set itself is still an in-code constant, so the route stays on
+// hourly ISR rather than going dynamic.
 export const dynamicParams = false;
 export const revalidate = 3600;
 
@@ -84,7 +97,35 @@ export async function generateMetadata({ params }: Props) {
   };
 }
 
-function Block({ block, lead }: { block: BlogBlock; lead?: boolean }) {
+/** A storyteller chapter that passed EVERY public gate — see ResolvedChapters. */
+type ResolvedChapter = {
+  chapter: PublicChapter;
+  ownerName: string;
+  ownerSlug: string;
+};
+
+/**
+ * Chapters resolved ONCE in the page body, keyed by the public_id the BLOCK
+ * asked for. The Block switch is then a pure synchronous lookup: making it
+ * async would serialise one database read per block inside the render and
+ * scatter the failure handling across N call sites.
+ *
+ * A publicId missing from this map means "did not pass the public gate, or the
+ * read failed" — and both render nothing, which is the honest answer either
+ * way. The two are told apart in the LOGS, not on the page (see
+ * lib/creator-public.ts).
+ */
+type ResolvedChapters = ReadonlyMap<string, ResolvedChapter>;
+
+function Block({
+  block,
+  lead,
+  chapters,
+}: {
+  block: BlogBlock;
+  lead?: boolean;
+  chapters: ResolvedChapters;
+}) {
   switch (block.type) {
     case 'h2':
       return (
@@ -174,6 +215,68 @@ function Block({ block, lead }: { block: BlogBlock; lead?: boolean }) {
           </a>
         </div>
       );
+    // A storyteller's chapter, woven into the prose where the article cites it
+    // (FABLE Public Marketplace § 3.4). Gold is the FRAME here, never a button.
+    //
+    // THE VANISHING IS THE FEATURE: a missing entry means the chapter was
+    // unpublished, the storyteller's profile went dark, the id is wrong, or the
+    // read failed — and all four render NOTHING. The paragraphs either side
+    // close up and the article stays readable. No empty shell, no "chapter
+    // unavailable", no skeleton: this is a marketing page, and an error box
+    // about somebody else's video would be worse than silence.
+    //
+    // STALENESS, STATED: this route is dynamicParams=false + revalidate=3600,
+    // so a chapter unpublished right now can linger up to an hour — and if the
+    // database is unreachable at a revalidate tick, the degraded (absent)
+    // render is CACHED for that hour with nothing visible to blame. Accepted
+    // per § 3.4 item 4; the resolver's console.error is where it shows up.
+    case 'chapter': {
+      const resolved = chapters.get(block.publicId);
+      if (!resolved) return null;
+      // Typed nullable on PublicChapter even though the resolver only returns
+      // rows that carry one. A real check, not a `!` assertion — the assertion
+      // would be a lie the day the resolver is refactored.
+      const src = resolved.chapter.embed_url;
+      if (!src) return null;
+      // embed_provider is nullable in the schema; never print "plays on
+      // undefined" on a public page — drop the clause instead.
+      const provider = resolved.chapter.embed_provider;
+      const initial = resolved.ownerName.trim().charAt(0).toUpperCase() || '·';
+      return (
+        <div className="my-10 rounded-2xl border-[1.5px] border-terracotta bg-white/60 p-3 sm:p-4">
+          <ChapterEmbedFrame src={src} title={resolved.chapter.title} />
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span
+              aria-hidden
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-display text-sm font-semibold text-ink"
+            >
+              {initial}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-snug text-ink">
+                Chapter: {resolved.chapter.title}
+              </p>
+              <p className="mt-0.5 text-xs text-ink/60">
+                {resolved.ownerName}
+                {provider ? ` · plays on ${EMBED_PROVIDER_LABEL[provider]}` : null}
+              </p>
+            </div>
+            <Link
+              href={`/u/${resolved.ownerSlug}/c/${resolved.chapter.public_id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-link underline-offset-4 hover:underline"
+            >
+              Open
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+          </div>
+          {block.note ? (
+            <p className="mt-3 text-[13px] leading-relaxed text-ink/60">
+              {block.note}
+            </p>
+          ) : null}
+        </div>
+      );
+    }
     default:
       return null;
   }
@@ -195,6 +298,52 @@ export default async function BlogArticlePage({ params }: Props) {
     spotlights = await fetchApprovedSpotlightsForSlug(createAdminClient(), slug);
   } catch (err) {
     console.error('[blog/[slug]] spotlight fetch failed', err);
+  }
+
+  // Embedded storyteller chapters (§ 3.4). Resolved ONCE here, in parallel and
+  // deduped, so an article citing the same chapter twice does one read and the
+  // Block switch stays a pure synchronous lookup.
+  //
+  // The resolver re-applies the FULL public gate (chapter published + carries
+  // an embed, owner's profile public + non-deleted + slugged), so an unresolved
+  // id simply never enters the map.
+  //
+  // allSettled, not all: a throw is only possible from something shared (an
+  // admin client with missing env), but if that ever stops being true, one bad
+  // id must not blank every other chapter in the article. A rejection is logged
+  // and that ONE block disappears. Nothing here may rethrow — a database
+  // problem may cost the article its embed, never the article itself.
+  //
+  // Keyed by the id the BLOCK asked for, not the one the row came back with, so
+  // the lookup in Block can never miss on a round-trip difference.
+  const chapters = new Map<string, ResolvedChapter>();
+  const chapterIds = [
+    ...new Set(
+      article.blocks
+        .filter((b): b is Extract<BlogBlock, { type: 'chapter' }> => b.type === 'chapter')
+        .map((b) => b.publicId),
+    ),
+  ];
+  if (chapterIds.length > 0) {
+    const settled = await Promise.allSettled(
+      chapterIds.map((id) => fetchPublishedChapterForShare(id)),
+    );
+    settled.forEach((outcome, i) => {
+      // `chapterIds[i]` is `string | undefined` under noUncheckedIndexedAccess
+      // even though allSettled preserves the input order — read it once and
+      // check it, rather than asserting a pairing the type system can't see.
+      const requestedId = chapterIds[i];
+      if (!requestedId) return;
+      if (outcome.status === 'rejected') {
+        console.error(
+          '[blog/[slug]] chapter resolve threw',
+          requestedId,
+          outcome.reason,
+        );
+        return;
+      }
+      if (outcome.value) chapters.set(requestedId, outcome.value);
+    });
   }
 
   // First paragraph block gets the editorial drop-cap.
@@ -313,7 +462,12 @@ export default async function BlogArticlePage({ params }: Props) {
 
         <div>
           {article.blocks.map((block, i) => (
-            <Block key={i} block={block} lead={i === firstParagraphIndex} />
+            <Block
+              key={i}
+              block={block}
+              lead={i === firstParagraphIndex}
+              chapters={chapters}
+            />
           ))}
         </div>
 

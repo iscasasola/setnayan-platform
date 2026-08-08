@@ -353,6 +353,22 @@ export function ServiceWizard({
             Save as draft
           </SubmitButton>
         </div>
+        {/* § 2.10 — the reassurance a vendor needs before pressing Publish for
+          *  the first time: that this is reversible.
+          *
+          *  ⚠ THE WORDING IS CORRECTED FROM THE DESIGN, DELIBERATELY. The frame
+          *  said "paused services keep their reviews" — but reviews attach to
+          *  the SHOP, not a service: `vendor_reviews` has NO service column at
+          *  all (verified against migration 20260514100000). That sentence would
+          *  have promised a per-service mechanism that does not exist, and the
+          *  first vendor to hide a service expecting its own review history to
+          *  follow it would have found nothing.
+          *
+          *  What IS true: hiding flips `is_active` and touches nothing else, so
+          *  the card returns byte-identical. That is what this says. */}
+        <p className="text-xs text-ink/55">
+          You can hide a card any time — it comes back exactly as you left it.
+        </p>
       </section>
 
       {/* Nav chrome (hidden on the final step, which has its own submit buttons) */}

@@ -20,7 +20,26 @@ import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
+
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
+ * editor is stored as `r2://bucket/key`, which a browser cannot fetch — it
+ * renders a broken-image glyph, throws nothing, logs nothing. Mirrors the
+ * resolver in `app/v/[slug]/page.tsx` (the shipped reference pattern).
+ *
+ * Swallows presign failures on purpose: the header cell already falls back to
+ * the vendor's initials, so a failed signature costs a picture and never the
+ * whole comparison.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 export const metadata = {
   title: 'Compare vendors — Setnayan',
@@ -226,6 +245,19 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     rows.map((r) => r.vendor_profile_id),
   );
 
+  // Logos resolved in ONE batch for the whole table (capped at MAX_COMPARE)
+  // rather than one sequential await per column — the header cell below is a
+  // plain sync render and could not await anyway. Keyed by vendor id so the
+  // lookup can't drift out of step with the column order.
+  const logoDisplayUrls = new Map<string, string | null>(
+    await Promise.all(
+      rows.map(
+        async (r) =>
+          [r.vendor_profile_id, await resolveDisplayUrl(r.logo_url)] as const,
+      ),
+    ),
+  );
+
   // Lookup saved set so each column's Save button starts in the right state.
   let savedSet = new Set<string>();
   if (user && coupleEventId) {
@@ -383,7 +415,10 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     key={row.vendor_profile_id}
                     className="px-3 py-3 text-left align-top"
                   >
-                    <VendorHeaderCell row={row} />
+                    <VendorHeaderCell
+                      row={row}
+                      logoUrl={logoDisplayUrls.get(row.vendor_profile_id) ?? null}
+                    />
                   </th>
                 ))}
               </tr>
@@ -696,7 +731,16 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   );
 }
 
-function VendorHeaderCell({ row }: { row: CompareRow }) {
+function VendorHeaderCell({
+  row,
+  logoUrl,
+}: {
+  row: CompareRow;
+  /** Already-resolved logo URL from the page's batch presign. NEVER the raw
+   *  `row.logo_url` — that holds `r2://bucket/key` for uploaded logos and a
+   *  browser silently renders nothing for it. Null → initials tile. */
+  logoUrl: string | null;
+}) {
   const initials =
     row.business_name
       .split(/\s+/)
@@ -705,10 +749,10 @@ function VendorHeaderCell({ row }: { row: CompareRow }) {
       .join('') || '?';
   return (
     <div className="flex items-start gap-2">
-      {row.logo_url ? (
+      {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={row.logo_url}
+          src={logoUrl}
           alt={row.business_name}
           className="h-10 w-10 shrink-0 rounded-md border border-ink/10 object-cover"
         />

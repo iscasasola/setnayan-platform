@@ -48,8 +48,25 @@ import {
   confirmSponsored,
   removeSpotlight,
 } from '@/app/admin/journal-spotlights/actions';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 type PendingApproval = { approval_id: string; target_id: string; initiated_by: string };
+
+/**
+ * `vendor_profiles.logo_url` holds an `r2://bucket/key` REFERENCE, not a URL —
+ * handing it to an <img src> renders a broken-image glyph with no error thrown
+ * anywhere. Resolve it to a presigned display URL first. Mirrors the shipped
+ * pattern in app/v/[slug]/page.tsx: the try/catch is deliberate, because a
+ * missing logo already falls back to the book glyph below and a failed R2
+ * signing must never take the admin queue down.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 export async function JournalSpotlightsSurface({
   ok,
@@ -88,6 +105,15 @@ export async function JournalSpotlightsSurface({
 
   const drafts = rows.filter((r) => r.admin_approved_at === null);
   const published = rows.filter((r) => r.admin_approved_at !== null);
+
+  // Resolved ONCE for the whole render, in a single batch — each call is its own
+  // R2 signing round trip, and SpotlightRow is a plain (non-async) component so
+  // it cannot await. Keyed by spotlight_id because the rows are split into two
+  // lists below.
+  const logoUrlEntries = await Promise.all(
+    rows.map(async (r) => [r.spotlight_id, await resolveDisplayUrl(r.logo_url)] as const),
+  );
+  const logoUrlById = new Map<string, string | null>(logoUrlEntries);
 
   return (
     <div>
@@ -225,6 +251,7 @@ export async function JournalSpotlightsSurface({
               <SpotlightRow
                 key={r.spotlight_id}
                 row={r}
+                logoUrl={logoUrlById.get(r.spotlight_id) ?? null}
                 pending={pendingByTarget.get(r.spotlight_id) ?? null}
                 meId={meId}
               />
@@ -243,7 +270,13 @@ export async function JournalSpotlightsSurface({
         ) : (
           <ul className="space-y-3">
             {published.map((r) => (
-              <SpotlightRow key={r.spotlight_id} row={r} pending={null} meId={meId} />
+              <SpotlightRow
+                key={r.spotlight_id}
+                row={r}
+                logoUrl={logoUrlById.get(r.spotlight_id) ?? null}
+                pending={null}
+                meId={meId}
+              />
             ))}
           </ul>
         )}
@@ -262,10 +295,13 @@ function EmptyRow({ text }: { text: string }) {
 
 function SpotlightRow({
   row,
+  logoUrl,
   pending,
   meId,
 }: {
   row: JournalSpotlightAdminRow;
+  /** Already resolved by the server parent — never `row.logo_url` itself. */
+  logoUrl: string | null;
   pending: PendingApproval | null;
   meId: string;
 }) {
@@ -276,10 +312,10 @@ function SpotlightRow({
   return (
     <li className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
-        {row.logo_url ? (
+        {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={row.logo_url}
+            src={logoUrl}
             alt=""
             className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-ink/10"
           />

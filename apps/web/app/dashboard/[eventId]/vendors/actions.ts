@@ -2950,8 +2950,18 @@ export type MarketplaceVendorSuggestion = {
   business_name: string;
   /** Pre-resolved logo URL. NULL = fall back to initials in the UI. The
    *  display URL is resolved via displayLogoUrl so r2:// refs become
-   *  presigned GET URLs with 24h TTL — no client-side fetch needed. */
-  logo_url: string | null;
+   *  presigned GET URLs with 24h TTL — no client-side fetch needed.
+   *
+   *  🔑 NAMED `logo_display_url`, NOT `logo_url`, ON PURPOSE (2026-08-08).
+   *  It held a RESOLVED url under the raw column's name, so every reader —
+   *  human and automated — had to already know that to read it correctly.
+   *  Two separate debt scans booked this file as "renders a raw r2:// ref"
+   *  and it was a false positive both times; `stored-asset-render.test.ts`
+   *  even warns in its own docblock that "a field named logo_url may already
+   *  hold a resolved URL, and this scan cannot tell." When a value's NAME is
+   *  what misleads, rename the value — a comment does not travel with it into
+   *  a call site, a log line, or the next person's grep. */
+  logo_display_url: string | null;
   city: string | null;
   /** All canonical VendorCategory values this vendor has an active
    *  service for. May be empty if the vendor hasn't added any services
@@ -3104,7 +3114,7 @@ export async function searchMarketplaceVendorsByName(
       return {
         vendor_profile_id: p.vendor_profile_id,
         business_name: p.business_name,
-        logo_url: logoUrl,
+        logo_display_url: logoUrl,
         city: p.location_city ?? null,
         categories: cats,
         serves_current_category: cats.includes(

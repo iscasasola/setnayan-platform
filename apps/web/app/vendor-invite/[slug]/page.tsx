@@ -12,6 +12,7 @@ import {
 } from '@/lib/vendors';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
@@ -33,6 +34,25 @@ const STATUS_COPY: Record<string, string> = {
   error: 'Something went wrong adding the vendor. Please try again.',
 };
 
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
+ * anything uploaded through the shop editor, and a browser cannot fetch that —
+ * it renders a broken-image glyph, throws nothing, logs nothing. This is the
+ * landing a couple reaches from the vendor's own Shortlist QR, so the logo is
+ * the whole reason the page reads as coming from that vendor.
+ *
+ * Same shape as `app/v/[slug]/page.tsx`. Swallows presign failures on purpose:
+ * the block already falls back to the neutral Store glyph, and a logo is
+ * decoration — it must never take the invite down.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
 export default async function VendorInvitePage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { status, et, cat } = await searchParams;
@@ -46,6 +66,10 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
     .eq('business_slug', slug)
     .maybeSingle();
   if (!vendor || !vendor.is_published) notFound();
+
+  // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
+  // an `r2://` reference, not something an <img> can load.
+  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
 
   // The vendor's Shortlist QR can scope the invite to one of their service
   // categories (`cat`) and a target event-type (`et`). Validate both; an
@@ -83,9 +107,9 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
       {/* Vendor identity */}
       <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
-        {vendor.logo_url ? (
+        {logoDisplayUrl ? (
           <Image
-            src={vendor.logo_url}
+            src={logoDisplayUrl}
             alt={vendor.business_name}
             width={88}
             height={88}

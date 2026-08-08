@@ -924,6 +924,19 @@ function SuggestionRow({
   onPick: (vendor: MarketplaceVendorSuggestion) => void;
 }) {
   const isCrossCategory = !vendor.serves_current_category;
+  // ALREADY RESOLVED — do not hand a raw stored-asset value to <Image>.
+  // This modal is a client component, so the server-only resolver
+  // (displayUrlForStoredAsset) is unreachable here. It has already run
+  // upstream: searchMarketplaceVendorsByName presigns every candidate
+  // through displayLogoUrl() before the suggestion crosses to the client,
+  // so what lands on this field is a browser-fetchable URL, never an
+  // `r2://bucket/key` ref.
+  //
+  // Rebound to a name that says so, because a value that has been resolved
+  // must never keep reading as a bare column: that shape is exactly how an
+  // r2:// ref reaches an <img> unnoticed, and it fails SILENTLY — no error,
+  // no log, the picture simply never appears.
+  const logoDisplayUrl = vendor.logo_display_url;
   // Compute a human-readable categories list for the cross-category
   // notice. If the vendor offers no services at all (rare), the notice
   // skips the list and just flags the mismatch.
@@ -943,7 +956,7 @@ function SuggestionRow({
       onClick={() => onPick(vendor)}
       className="group flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-terracotta/5"
     >
-      <VendorLogo logoUrl={vendor.logo_url} name={vendor.business_name} />
+      <VendorLogo logoUrl={logoDisplayUrl} name={vendor.business_name} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="truncate text-sm text-ink">
@@ -998,6 +1011,12 @@ function LinkedVendorConfirmation({
   disabled: boolean;
 }) {
   const isCrossCategory = !vendor.serves_current_category;
+  // ALREADY RESOLVED — same invariant as SuggestionRow above. `vendor` here
+  // is the exact object the host clicked in the autocomplete (handlePick
+  // stores the suggestion verbatim), so its logo was presigned server-side
+  // by searchMarketplaceVendorsByName before it ever reached the client.
+  // Rebound so a resolved value never reads as a bare stored-asset column.
+  const logoDisplayUrl = vendor.logo_display_url;
   const otherCategories = vendor.categories.filter(
     (c) => c !== (currentCategory as VendorCategory),
   );
@@ -1021,7 +1040,7 @@ function LinkedVendorConfirmation({
           </button>
         </header>
         <div className="flex items-start gap-3">
-          <VendorLogo logoUrl={vendor.logo_url} name={vendor.business_name} large />
+          <VendorLogo logoUrl={logoDisplayUrl} name={vendor.business_name} large />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="font-display text-base text-ink">
               {vendor.business_name}

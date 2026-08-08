@@ -10,6 +10,7 @@ import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { PrintButton } from '@/components/print-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   PROPOSAL_STATUS_LABEL,
@@ -76,6 +77,25 @@ function fmtDate(iso: string | null): string | null {
   return formatCalendarDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
+ * anything uploaded through the shop editor, and a browser cannot fetch that —
+ * it renders a broken-image glyph, throws nothing, logs nothing. A proposal is
+ * a document a couple prints and keeps, so the letterhead was the one place the
+ * vendor's identity had to be right and it was the one place it was raw.
+ *
+ * Same shape as `app/v/[slug]/page.tsx`. Swallows presign failures on purpose:
+ * the letterhead already renders with no logo for a vendor who never uploaded
+ * one, and the business name below it carries the identity either way.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
 type Props = {
   params: Promise<{ publicId: string }>;
   searchParams: Promise<{ notice?: string }>;
@@ -134,6 +154,9 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     vendorProfile?.business_name ??
     proposal.merge_snapshot.values?.business_name ??
     'Your vendor';
+  // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
+  // an `r2://` reference, not something an <img> can load.
+  const logoDisplayUrl = await resolveDisplayUrl(vendorProfile?.logo_url ?? null);
 
   const snapshotAt = fmtDate(proposal.merge_snapshot.resolved_at ?? proposal.created_at);
   const confirmed = proposal.merge_snapshot.confirmed_guests;
@@ -187,10 +210,10 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       {/* Letterhead */}
       <header className="border-b border-ink/15 pb-4">
         <div className="flex items-center gap-3">
-          {vendorProfile?.logo_url ? (
+          {logoDisplayUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={vendorProfile.logo_url}
+              src={logoDisplayUrl}
               alt=""
               className="h-12 w-12 rounded-lg border border-ink/10 object-cover"
             />

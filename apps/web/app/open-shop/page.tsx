@@ -80,9 +80,22 @@ export default async function OpenShopPage({
 
   // Pre-resolve a display URL for an already-uploaded logo so the <FileUpload>
   // thumbnail paints on first load (a fresh signup won't have one yet).
+  // 🚨 THE TRY/CATCH IS LOAD-BEARING, NOT DEFENSIVE DECORATION (2026-08-08).
+  // `displayUrlForStoredAsset` → `presignDisplayUrl` → `requireR2Client()`,
+  // which THROWS when the R2 env is unset. This is a top-level await in the
+  // page body, so an unhandled throw here does not degrade to "no thumbnail" —
+  // it 500s the whole route, and only for a vendor who ALREADY uploaded a logo.
+  // A returning vendor could not open their own onboarding wizard at all, while
+  // a brand-new one sails through, which is the hardest possible shape to
+  // reproduce. A logo thumbnail is decoration; the wizard is the product.
   const logoDisplayMap: Record<string, string> = {};
   if (row?.logo_url) {
-    const displayUrl = await displayUrlForStoredAsset(row.logo_url);
+    let displayUrl: string | null = null;
+    try {
+      displayUrl = await displayUrlForStoredAsset(row.logo_url);
+    } catch {
+      displayUrl = null;
+    }
     if (displayUrl) logoDisplayMap[row.logo_url] = displayUrl;
   }
 

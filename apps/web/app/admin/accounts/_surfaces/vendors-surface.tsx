@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
@@ -33,6 +34,25 @@ import { revokeAdminVendorInvite } from '@/app/admin/vendors/actions';
  * has no logAdminDataAccess/after() audit side-effect (the original vendors
  * page had none — only logQueryError, which moves with the body).
  */
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
+ * editor is stored as an `r2://bucket/key` reference, which a browser cannot
+ * fetch — handed to <Image> it renders a broken-image glyph, throws nothing and
+ * logs nothing. Both vendor lists on this surface (Pending claim + Claimed) did
+ * exactly that, so the team read this console with no logos to identify shops by.
+ *
+ * Swallows presign failures on purpose: a logo is decoration and <Avatar> falls
+ * back to the vendor's initials. Losing the whole admin list because one R2
+ * signature could not be minted would be a worse outcome than no picture.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
 export async function VendorsSurface({
   q: qRaw,
   status: statusRaw,
@@ -127,6 +147,20 @@ export async function VendorsSurface({
       expires_at: invite?.expires_at ?? null,
     };
   });
+
+  // Logos resolved ONCE per render, in one batch, before any row is drawn — the
+  // row callbacks below are not async, so a stored `r2://` reference cannot be
+  // turned into something fetchable inside them. Keyed by profile id; the two
+  // lists are disjoint (claimed rows have a user_id, unclaimed ones do not).
+  const [claimedLogos, unclaimedLogos] = await Promise.all([
+    Promise.all(vendors.map((v) => resolveDisplayUrl(v.logo_url))),
+    Promise.all(unclaimedProfiles.map((v) => resolveDisplayUrl(v.logo_url))),
+  ]);
+  const logoByProfileId = new Map<string, string | null>();
+  vendors.forEach((v, i) => logoByProfileId.set(v.vendor_profile_id, claimedLogos[i] ?? null));
+  unclaimedProfiles.forEach((v, i) =>
+    logoByProfileId.set(v.vendor_profile_id, unclaimedLogos[i] ?? null),
+  );
 
   // New vendor requests (owner 2026-06-09) — when a couple "Add manually"s a
   // vendor on their Shortlist, that mints a COUPLE-source claim invite. Surface
@@ -253,7 +287,10 @@ export async function VendorsSurface({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-3">
-                      <Avatar logoUrl={v.logo_url} name={v.business_name || 'Vendor'} />
+                      <Avatar
+                        logoUrl={logoByProfileId.get(v.vendor_profile_id) ?? null}
+                        name={v.business_name || 'Vendor'}
+                      />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-ink">
                           {v.business_name || 'Unnamed'}
@@ -382,7 +419,10 @@ export async function VendorsSurface({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
-                  <Avatar logoUrl={v.logo_url} name={v.business_name || 'Vendor'} />
+                  <Avatar
+                    logoUrl={logoByProfileId.get(v.vendor_profile_id) ?? null}
+                    name={v.business_name || 'Vendor'}
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">
                       {v.business_name || 'Unnamed'}

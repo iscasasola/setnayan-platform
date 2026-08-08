@@ -66,9 +66,29 @@ import {
   type VendorDossier,
 } from '@/lib/vendor-deep-search';
 import { DeepSearchChat } from './_components/deep-search-chat';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Verification queue · Admin' };
+
+/**
+ * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. A logo uploaded through the shop
+ * editor is stored as an `r2://bucket/key` reference; a browser cannot fetch
+ * that, so <Image> renders a broken-image glyph while throwing nothing and
+ * logging nothing. This is the queue the team approves shops from — a card with
+ * no logo is a shop that is harder to recognise at a glance.
+ *
+ * Swallows presign failures on purpose: <Avatar> already falls back to the
+ * vendor's initials, and taking the whole verification queue down because one
+ * R2 signature could not be minted would be a worse outcome than no picture.
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
 
 // Deep search runs a live web research pass inside a server action — give the
 // route enough wall-clock for it (typically 1–3 minutes).
@@ -1425,6 +1445,10 @@ async function VisibilitySurface({
   }
 
   const vendors = (data ?? []) as VendorVisibilityRow[];
+  // Resolved ONCE, in one batch, before any card is drawn — the row callback
+  // below is not async, so a stored `r2://` reference cannot be turned into
+  // something fetchable inside it. Indexed by position.
+  const logoDisplayUrls = await Promise.all(vendors.map((v) => resolveDisplayUrl(v.logo_url)));
 
   return (
     <>
@@ -1444,9 +1468,9 @@ async function VisibilitySurface({
         </p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {vendors.map((v) => (
+          {vendors.map((v, i) => (
             <li key={v.vendor_profile_id}>
-              <VerifyCard vendor={v} />
+              <VerifyCard vendor={v} logoDisplayUrl={logoDisplayUrls[i] ?? null} />
             </li>
           ))}
         </ul>
@@ -1500,14 +1524,21 @@ function VisibilityTabs({ current }: { current: string }) {
   );
 }
 
-function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
+function VerifyCard({
+  vendor,
+  logoDisplayUrl,
+}: {
+  vendor: VendorVisibilityRow;
+  // Already resolved by the async parent — never `vendor.logo_url` raw.
+  logoDisplayUrl: string | null;
+}) {
   const visibility = parseVisibility(vendor.public_visibility);
   const slug = vendor.business_slug ?? null;
   return (
     <article className="sn-row flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar logoUrl={vendor.logo_url} name={vendor.business_name || 'Vendor'} />
+          <Avatar logoUrl={logoDisplayUrl} name={vendor.business_name || 'Vendor'} />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">
               {vendor.business_name || 'Unnamed'}

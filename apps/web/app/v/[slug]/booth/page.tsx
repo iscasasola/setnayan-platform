@@ -78,6 +78,23 @@ function boothDisplayName(vendor: BoothVendorRow): string {
   });
 }
 
+/**
+ * Resolves a stored asset value (which may be an `r2://bucket/key` reference,
+ * NOT a URL) into something a browser can actually fetch. Same helper shape the
+ * public profile page uses — see `app/v/[slug]/page.tsx`.
+ *
+ * Swallows presign failures on purpose: the logo only brands the booth sign, and
+ * an unbranded booth is a far better outcome on a public page than a 500 because
+ * an R2 signature could not be minted (e.g. R2 unset on a preview env).
+ */
+async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+  try {
+    return await displayUrlForStoredAsset(value);
+  } catch {
+    return null;
+  }
+}
+
 /** The vendor's booth category (first service that maps to a booth), or null. */
 function boothCategoryFor(services: string[] | null): ReturnType<typeof resolveVendorCategory> | null {
   for (const s of services ?? []) {
@@ -157,8 +174,13 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
     return <SoftGate slug={slug} name={name} message="This vendor's service doesn't have a 3D booth yet." />;
   }
 
-  // Build the synthetic booth (centre-back so it faces the camera) + resolve the
-  // logo so the Pro sign brands. If the category has no booth template, soft-gate.
+  // Resolve the logo ONCE, before the booth object is built. `logo_url` holds an
+  // `r2://bucket/key` reference, not a URL — handing the raw value to the booth
+  // sign renders nothing at all, silently.
+  const boothLogoUrl = await resolveDisplayUrl(vendor.logo_url);
+
+  // Build the synthetic booth (centre-back so it faces the camera) + brand it
+  // with the resolved logo. If the category has no booth template, soft-gate.
   const booth: Lab3DBooth = {
     id: vendor.vendor_profile_id,
     kind: 'custom',
@@ -168,9 +190,9 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
     vendor: {
       name,
       category,
-      // Guard: a logo-signing failure (e.g. R2 unset on a preview env) degrades
-      // to an unbranded booth, never a 500 on the public page.
-      logoUrl: vendor.logo_url ? await displayUrlForStoredAsset(vendor.logo_url).catch(() => null) : null,
+      // Already resolved above. A signing failure degraded to null there, so the
+      // booth renders unbranded rather than 500-ing the public page.
+      logoUrl: boothLogoUrl,
       tier: vendor.tier_state,
       slug: vendor.business_slug,
       bookable: true,

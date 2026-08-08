@@ -73,16 +73,21 @@ const STORED_ASSET_FIELDS = ['logo_url', 'primary_photo_url'];
  * without tracing the data source first — a field named `logo_url` may already
  * hold a resolved URL, and this scan cannot tell.
  */
-const KNOWN_UNRESOLVED = new Set([
-  'app/explore/_components/folder-vendors-section.tsx', // 🔴 live public marketplace
-  'app/explore/compare/page.tsx',
-  'app/proposals/[publicId]/page.tsx',
-  'app/vendor/lock/[token]/page.tsx',
-  'app/vendor-invite/[slug]/page.tsx',
-  'app/blog/[slug]/_components/journal-partner-credit.tsx',
-  'app/_components/home/HomeSpotlightStrip.tsx', // reads the builder fixed here; component still takes the field name
-  'app/admin/studio/_surfaces/journal-spotlights-surface.tsx',
-  'app/admin/studio/_surfaces/spotlight-awards-surface.tsx',
+const KNOWN_UNRESOLVED = new Set<string>([
+  // ✅ EMPTIED 2026-08-08 — all nine resolved, in one sweep, the day the owner
+  // opened his own public shop page and found the logo missing at the top of it.
+  //
+  // ⚠ THE ONE THAT GOT AWAY WAS A NAMING PROBLEM, NOT A MISSING RESOLVE. The
+  // docblock above already warned that "a field named logo_url may already hold
+  // a resolved URL, and this scan cannot tell" — and the add-a-contact modal was
+  // exactly that: `MarketplaceVendorSuggestion.logo_url` was presigned
+  // server-side before it ever crossed to the client. It has been renamed
+  // `logo_display_url` at its source so no future scan, and no future reader,
+  // has to know that fact in advance to read the code correctly.
+  //
+  // 🔑 If you are about to add a line here: trace the data source to the WRITE
+  // first. A raw-looking field may be resolved, and a resolved-looking one may
+  // not be. Both mistakes are silent.
 ]);
 
 test('no component renders a stored-asset field straight into an image', () => {

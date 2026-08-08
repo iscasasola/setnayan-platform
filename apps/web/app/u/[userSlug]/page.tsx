@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import { EventMonogram } from '@/app/_components/event-monogram';
@@ -9,7 +10,12 @@ import { ReportPageButton } from '@/app/_components/report-page-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { CreatorBadge } from '@/app/_components/creator-badge';
 import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
-import { CHAPTER_KIND_LABEL } from '@/lib/creator-chapters';
+import {
+  CHAPTER_KIND_LABEL,
+  EMBED_PROVIDER_LABEL,
+  rankChaptersByPublishedAt,
+  youtubeThumbFromEmbedUrl,
+} from '@/lib/creator-chapters';
 import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
 import {
   fetchCreatorInfluence,
@@ -221,6 +227,28 @@ export default async function AccountProfilePage({ params }: Props) {
           ) : null}
           {hasPublicContent ? (
             <div className="uprof-audience">
+              {/* E6 — "N chapters", first in the row (spec order: chapters ·
+                  followers · views · inquiries-driven). Presentation-only:
+                  `chapters` is already loaded above for the timeline, so this
+                  adds ZERO reads, and it counts EXACTLY what the timeline below
+                  renders (published AND carrying an embed) — not a DB total, and
+                  deliberately not the owner's own draft-inclusive count.
+
+                  HONESTY GATE: `hasChapters` is the only gate, and a FAILED read
+                  cannot reach it — fetchPublishedChapters swallows a Supabase
+                  error to [], so a broken read renders no badge, no timeline and
+                  no stat. There is no path where this prints "0 chapters". */}
+              {hasChapters ? (
+                <>
+                  <span className="uprof-stat">
+                    <strong>{formatAudienceCount(chapters.length)}</strong>{' '}
+                    {chapters.length === 1 ? 'chapter' : 'chapters'}
+                  </span>
+                  <span aria-hidden className="uprof-stat-dot">
+                    &middot;
+                  </span>
+                </>
+              ) : null}
               <span className="uprof-stat">
                 <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
                 {user.followers_count === 1 ? 'follower' : 'followers'}
@@ -251,10 +279,13 @@ export default async function AccountProfilePage({ params }: Props) {
                 </>
               ) : null}
               {/* Follow — the client island renders only for a signed-in
-                  visitor viewing someone else's profile (never self/signed-out). */}
+                  visitor viewing someone else's profile (never self/signed-out).
+                  E6: the one-way note rides INSIDE the island (past its own
+                  render gate) so it can never appear without the button. */}
               <FollowButton
                 followedUserId={user.user_id}
                 className="uprof-follow"
+                noteClassName="uprof-follow-note"
               />
             </div>
           ) : null}
@@ -373,29 +404,85 @@ function ChapterTimeline({
   chapters: PublicChapter[];
   slug: string;
 }) {
+  // E5 numbering + the latest-chapter poster. Derived from published_at, NEVER
+  // from array position — see rankChaptersByPublishedAt for why index 0 is the
+  // wrong answer (Postgres DESC is NULLS FIRST). Undated rows get no number and
+  // can never be "latest"; "· Latest" is suppressed in a set of one, where the
+  // poster still renders.
+  const { numberByIndex, newestIndex, showLatest } = rankChaptersByPublishedAt(
+    chapters.map((c) => c.published_at),
+  );
+
   return (
     <section className="uprof-tl" aria-label="Chapters">
       <h2 className="m-serif uprof-tl-head">Chapters</h2>
       <ol className="uprof-tl-list">
-        {chapters.map((c) => {
+        {chapters.map((c, i) => {
           const date = formatChapterDate(c.published_at);
+          const n = numberByIndex.get(i) ?? null;
+          const isLatest = i === newestIndex && showLatest;
+          // Poster: the newest DATED chapter only, and only when the stored
+          // embed is the canonical YouTube shape. An Instagram / TikTok chapter
+          // derives null and falls back to the shipped compact text card —
+          // never a grey frame with a play button over nothing.
+          const poster =
+            i === newestIndex ? youtubeThumbFromEmbedUrl(c.embed_url) : null;
           return (
             <li key={c.chapter_id} className="uprof-tl-item">
               <span aria-hidden className="uprof-tl-dot" />
               <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-tl-card">
-                <span className="uprof-tl-kicker">
-                  <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
-                  {date ? <span className="uprof-tl-date">{date}</span> : null}
-                  <span className="uprof-tl-views">
-                    {formatAudienceCount(c.view_count)}{' '}
-                    {c.view_count === 1 ? 'view' : 'views'}
+                {poster ? (
+                  <span className="uprof-tl-poster">
+                    {/* A dead thumb (deleted / private / age-gated video) cannot
+                        be detected server-side without a network fetch, so the
+                        frame carries its own ivory background and the img an
+                        empty alt: it degrades to a neutral panel, not a broken
+                        glyph. The card still links to the chapter page, where
+                        the sandboxed embed shows the real reason. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={poster}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="uprof-tl-poster-img"
+                    />
+                    <span aria-hidden className="uprof-tl-play">
+                      <Play
+                        className="uprof-tl-play-icon"
+                        fill="currentColor"
+                        strokeWidth={0}
+                      />
+                    </span>
+                    {c.embed_provider ? (
+                      <span className="uprof-tl-on">
+                        on {EMBED_PROVIDER_LABEL[c.embed_provider]}
+                      </span>
+                    ) : null}
                   </span>
-                </span>
-                <span className="m-serif uprof-tl-title">{c.title}</span>
-                <span className="uprof-tl-cue">
-                  Watch the chapter
-                  <span aria-hidden className="uprof-tl-chev">
-                    &rsaquo;
+                ) : null}
+                <span className="uprof-tl-card-body">
+                  <span className="uprof-tl-kicker">
+                    {n !== null ? (
+                      <span className="uprof-tl-num">
+                        Chapter {n}
+                        {isLatest ? ' · Latest' : ''}
+                      </span>
+                    ) : null}
+                    <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
+                    {date ? <span className="uprof-tl-date">{date}</span> : null}
+                    <span className="uprof-tl-views">
+                      {formatAudienceCount(c.view_count)}{' '}
+                      {c.view_count === 1 ? 'view' : 'views'}
+                    </span>
+                  </span>
+                  <span className="m-serif uprof-tl-title">{c.title}</span>
+                  <span className="uprof-tl-cue">
+                    Watch the chapter
+                    <span aria-hidden className="uprof-tl-chev">
+                      &rsaquo;
+                    </span>
                   </span>
                 </span>
               </Link>
@@ -576,6 +663,23 @@ const UPROF_CSS = `
     color: var(--m-ink, #1B1A17);
     border-color: var(--m-line, #E2DED4);
   }
+  /* E6 — the one-way promise. flex-basis:100% breaks it onto its own centered
+     line inside the wrapping .uprof-audience row, so it never reads as a fourth
+     stat chip.
+     CONTRAST, measured not assumed: --m-slate-2 (#6E6A62) on --m-paper
+     (#FDFBF7) = 5.22:1, clears AA. The spec's own 11.5px #A09A8E is 2.71:1 and
+     was NOT used; --m-slate-3 (#8A857B) is 3.55:1 and also fails. Note that
+     lint-label-on-fill-contrast.mjs CANNOT catch a miss here — it reads Tailwind
+     class pairs and inline style objects, never this template literal. */
+  .uprof-follow-note {
+    flex-basis: 100%;
+    width: 100%;
+    margin: 0.35rem 0 0;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--m-slate-2, #6E6A62);
+  }
 
   .uprof-rule {
     display: block;
@@ -711,11 +815,14 @@ const UPROF_CSS = `
     background: var(--m-paper, #FBFBFA);
     border: 2px solid var(--m-orange, #A9834B);
   }
+  /* E5 — padding + gap moved to .uprof-tl-card-body so the latest chapter's
+     poster can run full-bleed to the card's rounded edge. EVERY card now wraps
+     its text in the body span (poster or not), so the two must never be edited
+     apart. overflow:hidden is what clips the poster to the radius. */
   .uprof-tl-card {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    padding: 1.1rem 1.25rem;
+    overflow: hidden;
     background: #fff;
     border: 1px solid var(--m-line, #E2DED4);
     border-radius: var(--m-r-lg, 22px);
@@ -728,6 +835,60 @@ const UPROF_CSS = `
     transform: translateY(-2px);
     border-color: var(--m-orange, #A9834B);
     box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
+  }
+  .uprof-tl-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.1rem 1.25rem;
+  }
+  .uprof-tl-poster {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--m-ivory, #EDEAE0);
+    overflow: hidden;
+  }
+  .uprof-tl-poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-tl-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 52px;
+    height: 52px;
+    border-radius: var(--m-r-full, 999px);
+    background: rgba(253,251,247,.92);
+    color: rgb(var(--color-mulberry, 194 78 37));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(30,26,18,.18);
+  }
+  .uprof-tl-play-icon { width: 20px; height: 20px; margin-left: 2px; }
+  /* Scrim pill. Cream on rgba(44,42,41,.75) composited over the WORST case (a
+     pure-white thumbnail) measures 6.20:1 — clears AA with room. */
+  .uprof-tl-on {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--m-r-full, 999px);
+    background: rgba(44,42,41,.75);
+    color: var(--m-paper, #FDFBF7);
+    font-family: var(--font-mono-marketing), ui-monospace, monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .uprof-tl-num {
+    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--m-orange-2, #8A6B39);
   }
   .uprof-tl-kicker {
     display: flex;

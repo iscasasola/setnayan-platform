@@ -47,28 +47,25 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 // original resolution): here we shrink hard — but not below what a person would
 // call viewable.
 //
-// 🔒 RAISED AGAIN TO 1080p, 2026-08-07, when the owner asked "how about on flat
-// screen TV?" — and the check that question forced changed the reasoning:
+// 🔒 720p IS THE OWNER'S DECISION — 2026-08-07, final. Do NOT raise it again.
 //
-//   🚨 THE WEB COPY IS WHAT PLAYS, ALWAYS, FROM DAY ONE. It is NOT a
-//   post-6-month fallback. `clipPlaybackRef()` resolves
-//   `clip_web_r2_key ?? r2_object_key` — the web copy WINS whenever it exists,
-//   and the corpus says the same: "full-res is a download, never streamed."
-//   So this constant is not "what's left after the original goes" — it is the
-//   ONLY thing anyone ever watches, on every screen, for the life of the event.
+// I argued for 1080p when the owner asked about a 42" LED TV, and the owner
+// answered: *"no. let's stay with 720p."* That is the call. It also puts this
+// file back on the documented plan (`Papic_Good_Better_Best_Pricing_2026-07-17.md`
+// §4 — "compressed clip copies (720p-class)"), so plan and code now agree.
 //
-// TV maths that follows from that (9:16 portrait is the Papic norm):
-//   · 720p portrait on a 1080p TV → fits to 1080 height = DOWNSCALED 0.84×, sharp.
-//   · 720p portrait on a 4K TV    → upscaled 1.69×.
-//   · 720p LANDSCAPE on a 4K TV   → upscaled 3×. This was the genuinely weak case.
-//   · 1080p portrait on a 4K TV   → 1.125×, effectively sharp; landscape 2×.
-// 1080p is also what the phone shot (the plan's capture spec says "clips 1080p"),
-// so keeping it means we never hand back less than was recorded.
-//
-// COST: ~1.1 → ~2.2 MB per 10s clip ⇒ forever pool ~0.42 → ~0.60 GB/event
-// (₱4.83 → ₱6.90/event/yr; ₱12.1M → ₱17.3M/yr at 500k events/yr). Still an ~86%
-// saving against the ~16 MB raw — an earlier note claiming 1080p is "nearly the
-// original" was simply wrong, and that error is why 720p looked sufficient.
+// ⛔ WHY THIS NOTE EXISTS RATHER THAN A SILENT REVERT: the 1080p case is genuinely
+// arguable and a future session WILL re-derive it. It was considered in full and
+// declined. Facts, so nobody has to rediscover them:
+//   · This copy is what PLAYS, always, from day one — `clipPlaybackRef()` resolves
+//     `clip_web_r2_key ?? r2_object_key`, and full-res is a download, never
+//     streamed. It is not a post-retention fallback.
+//   · TV maths (9:16 portrait is the Papic norm): on a 1080p TV a 720p portrait
+//     clip fits to 1080 height = DOWNSCALED 0.84×, i.e. sharp. The soft case is a
+//     LANDSCAPE clip, upscaled 1.5× on 1080p and 3× on 4K.
+//   · Cost of 1080p would have been ~₱4.83 → ~₱6.90/event/yr.
+// The owner weighed this and chose 720p. Raising it is an OWNER decision, not an
+// engineering one.
 //
 // ── superseded reasoning, kept because the drift it records is the real lesson ──
 // 720p-CLASS WAS THE OWNER'S DOCUMENTED PLAN, and this file shipped BELOW it.
@@ -90,9 +87,9 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 // ₱10.4M → ₱12M — a rounding error against the revenue at that scale, and far
 // cheaper than shipping video nobody wants to watch.
 //
-// So the web1080 profile:
-//   • caps the LONG edge to 1920 px → a 9:16 Papic clip (the norm) lands 1080×1920,
-//     i.e. a 1080 px SHORT side, using the SAME single-quoted `min(...)` filter
+// So the web720 profile:
+//   • caps the LONG edge to 1280 px → a 9:16 Papic clip (the norm) lands 720×1280,
+//     i.e. a 720 px SHORT side, using the SAME single-quoted `min(...)` filter
 //     idiom the quality path uses (the quotes protect the inner comma);
 //   • encodes H.264 BASELINE (max device compatibility) at CRF 30 (visually fine
 //     small, far below the quality path's CRF 21) with 64 kbps AAC;
@@ -101,7 +98,7 @@ const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-q
 // Same never-throws contract: on unsupported/failure it returns the ORIGINAL File
 // unchanged, so the caller detects "no web copy" by reference-equality (result ===
 // input) and simply omits it — the raw stays the only playable copy.
-export const WEB_LONG_EDGE = 1920; // 9:16 → 1080 short edge — TV-capable, and what the phone shot
+export const WEB_LONG_EDGE = 1280; // 9:16 → 720 short edge (720p-class — owner-locked 2026-08-07)
 const WEB_CRF = '30';
 const WEB_AUDIO_BITRATE = '64k';
 
@@ -218,16 +215,16 @@ export async function compressVideoForWeb(
      *   • 'quality' (default) — the couple's Save-the-Date path: preserve the
      *     ORIGINAL resolution up to 4K, CRF 21, 192k audio; SKIP already-light
      *     inputs. Behaviour unchanged from before this option existed.
-     *   • 'web1080' — the Papic storage web-copy: a ~2.2 MB TV-capable
-     *     playable derivative (1920 long edge → 1080 short edge, H.264 baseline,
+     *   • 'web720' — the Papic storage web-copy: a ~1.1 MB still-watchable
+     *     playable derivative (1280 long edge → 720 short edge, H.264 baseline,
      *     CRF 30, 64k audio). NEVER skips small inputs (even a small raw clip
      *     should become a tiny web copy) and needs no duration probe.
      */
-    profile?: 'quality' | 'web1080';
+    profile?: 'quality' | 'web720';
   } = {},
 ): Promise<File> {
   const { onProgress, signal, maxDurationS } = opts;
-  const isWebCopy = opts.profile === 'web1080';
+  const isWebCopy = opts.profile === 'web720';
   if (!canCompressVideo()) return file;
 
   // ── Skip clips that are already light enough to stream smoothly (quality
@@ -267,7 +264,7 @@ export async function compressVideoForWeb(
         const outName = 'out.mp4';
         await ffmpeg.writeFile(inName, await fetchFile(file));
 
-        // web1080: cap the LONG edge to 1920 (9:16 → 1080 short edge) using the same
+        // web720: cap the LONG edge to 1280 (9:16 → 720 short edge) using the same
         // single-quoted `min(...)` filter idiom (quotes protect the inner comma) —
         // H.264 BASELINE, CRF 30, 64k audio, faststart → a storage-minimal web copy.
         // quality: keep the ORIGINAL resolution up to a 4K long edge (only downscale

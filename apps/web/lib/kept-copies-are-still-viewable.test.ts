@@ -17,11 +17,15 @@ import { WEB_LONG_EDGE } from './video-compress';
  *   · `Papic_Pricing_Plan_of_Action_2026-07-20.md` — "compressed gallery
  *     (**AVIF long-edge 1280**)"  ← the FLOOR, since raised.
  *
- * 🔒 BOTH RAISED TO 1920 ON 2026-08-07 when the owner named the screen: *"how
- * about on flat screen TV?… like 42 inch led tv"*. A 42" set is 1920×1080
- * native, so 1920 is a 1:1 pixel match — at 1280 that display was inventing a
- * third of the pixels it showed. The corpus figures above stay recorded as the
- * floors they are; these assertions enforce the raised numbers.
+ * 🗣 A RAISE TO 1920 WAS PROPOSED AND DECLINED, 2026-08-07. The owner named the
+ * screen — *"how about on flat screen TV?… like 42 inch led tv"* — and a 42" set
+ * is 1920×1080 native, so 1280 IS upscaled ~1.5× there. I argued for 1920/1080p
+ * on that basis; the owner answered *"no. let's stay with 720p."* The plan
+ * figures above are therefore the CURRENT numbers, not just historical floors.
+ *
+ * ⛔ Recorded rather than silently reverted, because the argument is a good one
+ * and a future session will re-derive it. It was made in full and declined.
+ * Raising these is an OWNER decision, not an engineering one.
  *   · `Papic_Storage_Sustainability_Spec_2026-07-22.md` — the stated goal is
  *     "every Papic memory survives forever, **at viewable resolution**".
  *
@@ -51,7 +55,7 @@ const WEB = process.cwd();
 /** A Papic clip is portrait 9:16 by convention — the phone-native shape. */
 const PORTRAIT_SHORT_OVER_LONG = 9 / 16;
 
-test('🔒 the kept CLIP copy is at least 1080p — never below the plan floor', () => {
+test('🔒 the kept CLIP copy is 720p-class, per the owner plan', () => {
   const shortEdge = Math.round(WEB_LONG_EDGE * PORTRAIT_SHORT_OVER_LONG);
   assert.ok(
     shortEdge >= 720,
@@ -62,18 +66,17 @@ test('🔒 the kept CLIP copy is at least 1080p — never below the plan floor',
   );
 });
 
-test('🔒 the kept PHOTO copy matches a 42" LED TV (1920 long edge)', () => {
+test('🔒 the kept PHOTO copy is long-edge 1280, per the owner plan', () => {
   const src = readFileSync(join(WEB, 'lib/papic-derivatives.ts'), 'utf8');
   const m = src.match(/const DISPLAY_LONG_EDGE\s*=\s*(\d+)/);
   assert.ok(m, 'DISPLAY_LONG_EDGE not found — update this guard with the new name');
   const longEdge = Number(m![1]);
   assert.ok(
-    longEdge >= 1920,
-    `the kept photo copy is ${longEdge}px on its long edge. A 42" LED TV is ` +
-      `1920x1080 native and is a stated use case, so anything below 1920 is ` +
-      `upscaled by the display on the exact screen the owner named. This is also ` +
-      `the ONLY copy the gallery ever shows — the original is a download, never ` +
-      `displayed — so it is the product's picture quality, permanently.`,
+    longEdge >= 1280,
+    `the kept photo copy is ${longEdge}px on its long edge; the plan is 1280 ` +
+      `(owner-reaffirmed 2026-08-07). This is the ONLY copy the gallery ever ` +
+      `shows — the original is a download, never displayed — so going BELOW this ` +
+      `takes picture quality away permanently.`,
   );
 });
 
@@ -118,19 +121,23 @@ test('🪤 the CLIP copy may never be weaker than the PHOTO copy', () => {
   );
 });
 
-test('🔒 the kept clip copy is TV-capable (owner asked: "how about on flat screen TV?")', () => {
-  // 🚨 THIS COPY IS NOT A FALLBACK. clipPlaybackRef() resolves
-  // `clip_web_r2_key ?? r2_object_key`, so the web copy wins from day one and
-  // the original is a DOWNLOAD, never streamed. Whatever this number is, it is
-  // what every person watches on every screen for the life of the event.
+test('🗣 720p is an OWNER decision — a future session must not quietly raise it', () => {
+  // The 1080p case is genuinely arguable and WILL be re-derived: this copy is
+  // what plays from day one (clipPlaybackRef prefers clip_web_r2_key; full-res is
+  // a download, never streamed), and a LANDSCAPE clip at 720p is upscaled 1.5x on
+  // a 1080p TV. It was argued in full on 2026-08-07 and the owner answered "no.
+  // let's stay with 720p."
   //
-  // 1080 short edge on a 9:16 clip → 1.125× upscale on a 4K TV (effectively
-  // sharp) and a downscale on a 1080p TV. At 720 the landscape-on-4K case was a
-  // 3× upscale, which is where it visibly fell apart.
-  const shortEdge = Math.round(WEB_LONG_EDGE * PORTRAIT_SHORT_OVER_LONG);
-  assert.ok(
-    shortEdge >= 1080,
-    `the kept clip copy is ${shortEdge}p. A flat-screen TV is a stated use case ` +
-      `and this is the only copy that ever plays, so it must not go below 1080.`,
+  // So this asserts the REASONING IS STILL ON FILE, not the number — the number
+  // is already pinned by the floor above. If someone raises it deliberately with
+  // the owner, they change the note and this passes. If someone raises it by
+  // accident, they hit a test that tells them whose call it is.
+  const src = readFileSync(join(WEB, 'lib/video-compress.ts'), 'utf8');
+  assert.match(
+    src,
+    /720p IS THE OWNER'S DECISION/,
+    'the note recording that 720p is an owner decision (not an engineering one) ' +
+      'has been removed from video-compress.ts. Put it back, or the next reader ' +
+      'will re-make the 1080p argument from scratch and think it is new.',
   );
 });

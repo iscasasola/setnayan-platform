@@ -213,38 +213,40 @@ asserts the profile name matches the maths it produces. Sabotaged back to 854 �
 failures**. ⚠ The assertions are **floors, not equalities** — raising quality is a
 cost decision, not a defect, and the guard must never block an improvement.
 
-### Same PR · both kept copies raised to 1920 — matched to a 42" LED TV
+### Same PR · 720p CONFIRMED by the owner — the 1920 raise was declined
 
-Owner: *"how about on flat screen TV?… like 42 inch led tv."* A 42" set is
-**1920×1080 native**, so a 1920 long edge is a **1:1 pixel match** — nothing
-upscaled.
+I proposed raising both kept copies to 1920 (1080p clips) after the owner asked
+about a **42" LED TV** — that screen is 1920×1080 native, so 1280 is genuinely
+upscaled ~1.5× on it. **The owner declined: *"no. let's stay with 720p."*** Both are
+back on the documented plan:
 
-| kept copy | was | now |
+| kept copy | shipped before today | now |
 |---|---|---|
-| photo (gallery) | 1280 | **1920** |
-| clip (playback) | 854 → 1280 | **1920** (1080p) |
+| photo (gallery) | 1280 | **1280** — unchanged, per plan |
+| clip (playback) | 854 → **480p** ❌ | **1280 → 720p** ✅ per plan |
 
-🚨 **THE CORRECTION THAT DROVE THIS — I had it wrong.** I said the original covers
-TV viewing for the first six months. It does not: `clipPlaybackRef()` resolves
-`clip_web_r2_key ?? r2_object_key`, so **the web copy wins from day one**, and the
-corpus is explicit that *"full-res is a download, never streamed."* These sizes are
-not a post-retention fallback — they are the product's picture quality on every
-screen, permanently. That single fact is what made 720p insufficient.
+**The real defect of the day still stands and is still fixed:** clips shipped at
+**480p against a documented 720p-class plan**. Photos were correct at 1280 the whole
+time — which is exactly why the video half survived, since the half anyone
+spot-checked looked right.
 
-On the named screen: at 1280 a landscape photo was **upscaled 1.5×** — the display
-inventing a third of the pixels. At 1920 it is exact. Clips at 1080p land 1:1 in
-landscape and are downscaled in portrait.
+⛔ **The declined argument is recorded in the code, not silently dropped.** It is a
+good argument and a future session will re-derive it, so `video-compress.ts` now
+carries the facts and the verdict: this copy is what **plays from day one**
+(`clipPlaybackRef()` prefers `clip_web_r2_key`; full-res is a download, never
+streamed), a 9:16 clip at 720p is *downscaled* on a 1080p TV while a **landscape**
+clip is upscaled 1.5×, and 1080p would have cost ₱4.83 → ₱6.90/event/yr. A guard
+asserts that note still exists — so an accidental raise hits a test naming whose
+call it is, while a deliberate one just updates the note.
 
-I also over-stated the case for stopping at 720p by claiming 1080p is "nearly the
-original". **Wrong** — a 1080p copy is ~2.2 MB against a ~16 MB raw, still an ~86%
-saving. That error is precisely why 720p looked like enough.
+🚨 **Two corrections I owe the record.** I claimed the original covers TV viewing for
+the first six months — **false**, the compressed copy plays from day one. And I
+claimed 1080p is "nearly the original" — **false**, it would still be an ~86% saving
+against the ~16 MB raw. Both errors pointed the same way: making 720p look like more
+of a compromise than it is.
 
-**Cost:** forever pool ~0.42 → ~0.92 GB/event (**₱4.83 → ₱10.6/event/yr**). At 500k
-events/yr, ₱12.1M → ₱26.5M/yr — against hundreds of millions of revenue at that
-scale, and it buys the screen the owner actually named.
-⚠ **Scrolling is unaffected** — grid tiles are 320px thumbs; the bigger copy loads
-only when a photo is opened, so venue-wifi browsing costs the same.
-
-🛡 Guard extended: floors for both copies, a **clip-never-weaker-than-photo**
-invariant (the exact shape of the 480-vs-1280 drift), and the profile name must
-equal the resolution it produces. Sabotaged at 1280 and 854 → 2 and 4 failures.
+🛡 Guard: floors for both copies, a **clip-never-weaker-than-photo** invariant (the
+exact shape of the 480-vs-1280 drift), the profile name must equal the resolution it
+produces, and the owner-decision note must survive. Sabotaged four ways — 480p clip
+→ 3 failures, sub-plan photo → 1, note removed → 1, all from a verified-green
+baseline.

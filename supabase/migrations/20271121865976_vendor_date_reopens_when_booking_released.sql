@@ -61,10 +61,22 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 -- 1. vendor_unblock_booked_date — the inverse primitive.
 --
---    Matching is byte-for-byte the same predicate vendor_block_booked_date uses
---    to decide "already blocked" (pool_id IS NULL · block_source
---    'setnayan_booking' · blocked_at::date = p_date), so the pair can never
---    disagree about which row they are talking about.
+--    The pair must agree on WHICH ROW they mean, so this matches
+--    vendor_block_booked_date's predicate (pool_id IS NULL · block_source
+--    'setnayan_booking' · the civil day) — but NOT by copying it verbatim.
+--
+--    🚨 THE TWIN'S DAY TEST WAS TIMEZONE-DEPENDENT AND WRONG IN PROD, and
+--    copying it verbatim is exactly what my first draft did. Blocks are written
+--    at PH midnight (`…T00:00:00+08:00`); prod's session TimeZone is **UTC**
+--    (measured, not assumed), so `blocked_at::date` renders 14 Mar as **13
+--    Mar**. Effects: the twin's own idempotency check never matches, so calling
+--    it twice inserts a DUPLICATE block; and this DELETE would have matched
+--    NOTHING, meaning the reopen shipped doing nothing at all. Section 3 below
+--    corrects the twin; both now say `AT TIME ZONE 'Asia/Manila'`.
+--
+--    🔑 Matching a twin means matching what it MEANS, not its characters. A
+--    verbatim copy inherits its bugs — and this one was invisible on a +08
+--    laptop and only appeared under CI's UTC clock.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.vendor_unblock_booked_date(
   p_vendor_profile_id uuid,
@@ -103,11 +115,16 @@ BEGIN
     RETURN FALSE;
   END IF;
 
+  -- ⚠ `blocked_at::date` WOULD BE WRONG HERE. The block is written at PH
+  -- midnight (`…T00:00:00+08:00`), prod's session TimeZone is UTC, and a bare
+  -- ::date renders that instant as the PREVIOUS day — so this DELETE would have
+  -- matched nothing in production and the date would never have reopened: the
+  -- exact bug this migration exists to fix, reintroduced. Pin the civil day.
   DELETE FROM public.vendor_calendar_blocks
    WHERE vendor_profile_id = p_vendor_profile_id
      AND pool_id IS NULL
      AND block_source = 'setnayan_booking'
-     AND blocked_at::date = p_date;
+     AND (blocked_at AT TIME ZONE 'Asia/Manila')::date = p_date;
 
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
   RETURN v_deleted > 0;
@@ -200,6 +217,64 @@ DROP TRIGGER IF EXISTS event_vendor_reopen_on_release ON public.event_vendors;
 CREATE TRIGGER event_vendor_reopen_on_release
   AFTER UPDATE OF status OR DELETE ON public.event_vendors
   FOR EACH ROW EXECUTE FUNCTION public.event_vendor_reopen_on_release();
+
+-- ----------------------------------------------------------------------------
+-- 3. 🚨 CORRECT THE FORWARD TWIN'S DAY TEST TOO — it is wrong in prod today.
+--
+--    vendor_block_booked_date (20270428213000) decides "is this day already
+--    blocked?" with `blocked_at::date = p_date`. It WRITES the block at PH
+--    midnight and prod's session TimeZone is UTC, so that instant reads back as
+--    the PREVIOUS day and the check NEVER matches. The function is documented
+--    and relied upon as idempotent; in fact a second call for the same date
+--    inserts a SECOND identical block.
+--
+--    Latent today (prod holds zero calendar blocks of any source), and harmless-
+--    looking — duplicate closures still close the date. But it breaks the pair:
+--    the inverse deletes by the same predicate, so a mismatched pair means the
+--    date never reopens. Both sides now name the civil day explicitly.
+--
+--    Body is otherwise UNCHANGED from 20270428213000.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.vendor_block_booked_date(
+  p_vendor_profile_id uuid,
+  p_date date,
+  p_label text DEFAULT 'Booked'::text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF p_vendor_profile_id IS NULL OR p_date IS NULL THEN
+    RETURN;
+  END IF;
+  -- Idempotent: skip if an org-wide booked block already covers that day.
+  -- `AT TIME ZONE 'Asia/Manila'` (was a bare ::date) — see this migration's
+  -- header: under prod's UTC session a PH-midnight block reads as the day
+  -- before, so the bare cast never matched and this was not idempotent at all.
+  IF EXISTS (
+    SELECT 1 FROM public.vendor_calendar_blocks
+     WHERE vendor_profile_id = p_vendor_profile_id
+       AND pool_id IS NULL
+       AND block_source = 'setnayan_booking'
+       AND (blocked_at AT TIME ZONE 'Asia/Manila')::date = p_date
+  ) THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.vendor_calendar_blocks
+    (vendor_profile_id, pool_id, blocked_at, blocked_until,
+     block_label, block_source, is_private)
+  VALUES
+    (p_vendor_profile_id, NULL,
+     (p_date::text || 'T00:00:00+08:00')::timestamptz,
+     (p_date::text || 'T23:30:00+08:00')::timestamptz,
+     COALESCE(NULLIF(btrim(p_label), ''), 'Booked'), 'setnayan_booking', TRUE);
+END;
+$$;
+
+COMMENT ON FUNCTION public.vendor_block_booked_date(uuid, date, text) IS
+  'Closes a vendor date on a booking (20270428213000). Day test corrected 2026-08-09 to (blocked_at AT TIME ZONE ''Asia/Manila'')::date: blocks are written at PH midnight and prod runs a UTC session, so the original bare ::date read the day BEFORE and the documented idempotency never actually held. Paired with vendor_unblock_booked_date — both must name the civil day the same way or a released date never reopens.';
 
 COMMENT ON FUNCTION public.event_vendor_reopen_on_release() IS
   'Mirror of event_vendor_autoblock_on_booking. When a marketplace booking leaves the capacity-consuming set (deposit_paid/delivered/complete) by downgrade, cancel or delete, the date Setnayan auto-closed is reopened — unless another live booking still holds it. Without this the auto-block was permanent and a cancelled date never came back.';

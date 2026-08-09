@@ -28,6 +28,14 @@ let db: ReplayResult['db'];
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // 🚨 PIN THE SESSION TO UTC — the clock this bug hides from.
+  // Blocks are written at PH midnight (`…T00:00:00+08:00`). A bare
+  // `blocked_at::date` renders that instant in the SESSION's timezone, so on a
+  // +08 laptop it reads 14 Mar and in UTC — which is what prod and CI actually
+  // run — it reads 13 Mar. The first draft of this suite passed locally and
+  // failed in CI for exactly that reason, and the feature would have shipped
+  // doing nothing. Running UTC here makes the trap reproducible on any machine.
+  await db.query(`SET TIME ZONE 'UTC'`);
 });
 
 after(async () => {
@@ -113,7 +121,7 @@ async function autoBlockCount(vendorProfileId: string, date: string): Promise<nu
       WHERE vendor_profile_id = $1
         AND pool_id IS NULL
         AND block_source = 'setnayan_booking'
-        AND blocked_at::date = $2::date`,
+        AND (blocked_at AT TIME ZONE 'Asia/Manila')::date = $2::date`,
     [vendorProfileId, date],
   );
   return r.rows[0]!.n;
@@ -315,6 +323,53 @@ test('vendor_unblock_booked_date reports honestly whether it reopened anything',
     `SELECT public.vendor_unblock_booked_date(NULL::uuid, NULL::date) AS ok`,
   );
   assert.equal(nulls.rows[0]!.ok, false);
+});
+
+test('THE DAY BOUNDARY IS PINNED — neither primitive may use a bare ::date', async () => {
+  // The regression that nearly shipped: a bare `blocked_at::date` renders a
+  // PH-midnight block in the SESSION timezone, so under prod's UTC it names the
+  // day BEFORE. Proven behaviourally, in both directions, on the clock that
+  // exposes it — and then re-proven against a +08 session so the fix is not
+  // merely "right for UTC" but timezone-independent.
+  for (const sessionTz of ['UTC', 'Asia/Manila', 'America/New_York']) {
+    await db.query(`SET TIME ZONE '${sessionTz}'`);
+    const vendor = await newVendor(`tz-${sessionTz}`);
+    const date = '2028-01-20';
+
+    await db.query(`SELECT public.vendor_block_booked_date($1, $2::date, 'Booked')`, [
+      vendor,
+      date,
+    ]);
+    assert.equal(
+      await autoBlockCount(vendor, date),
+      1,
+      `block landed on the wrong civil day under ${sessionTz}`,
+    );
+
+    // Idempotency is the twin's own documented promise, and the bare cast broke
+    // it: a second call inserted a DUPLICATE instead of returning early.
+    await db.query(`SELECT public.vendor_block_booked_date($1, $2::date, 'Booked')`, [
+      vendor,
+      date,
+    ]);
+    assert.equal(
+      await autoBlockCount(vendor, date),
+      1,
+      `vendor_block_booked_date stopped being idempotent under ${sessionTz} — it wrote a duplicate`,
+    );
+
+    const undone = await db.query<{ ok: boolean }>(
+      `SELECT public.vendor_unblock_booked_date($1, $2::date) AS ok`,
+      [vendor, date],
+    );
+    assert.equal(
+      undone.rows[0]!.ok,
+      true,
+      `the reopen matched nothing under ${sessionTz} — the date would stay shut forever`,
+    );
+    assert.equal(await autoBlockCount(vendor, date), 0, `row survived under ${sessionTz}`);
+  }
+  await db.query(`SET TIME ZONE 'UTC'`); // leave the session as CI runs it
 });
 
 test('the forward and inverse primitives agree on which row they mean', async () => {

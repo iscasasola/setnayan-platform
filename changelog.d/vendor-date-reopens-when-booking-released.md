@@ -23,3 +23,22 @@ Found while auditing the owner's 2026-08-09 description of vendor scheduling ("s
 🧪 **Mutation-tested, three ways, each verified to have APPLIED before trusting the red:** detaching the trigger → 7 fail; neutering the "another live booking" guard → the double-booking case fails alone; widening the DELETE past `block_source` → the manual-closure case fails alone. ⚠ The third sabotage silently did **not** apply on the first attempt — `\n` inside a perl `\Q…\E` is a literal backslash-n, not a newline, so the file was unchanged and the suite's green meant nothing. The applied-check is what caught it. Typecheck clean; migration-timestamp, migrations-dir and server-only-boundary guards green.
 
 SPEC IMPACT: None — this fixes the code to match the behaviour `20270428213000` already described ("the waitlist is a layer ON TOP of the blocked date"). No locked decision moves: the schedulable resource stays the (org, leaf-category) pool, waitlist acceptances stay 1–3, and couples still only ever see "unavailable", never who or why.
+
+### 2026-08-09 (same PR, second pass) · 🚨 CI CAUGHT THE FIX SHIPPING INERT — a bare `::date` on a PH-midnight block
+
+The first push was **green locally and red in CI**, and the failing assertion was the suite's own `BASELINE` case — *"the auto-block did not fire, the reopen tests below would pass vacuously."* Exactly what that case exists for.
+
+**The cause, measured against prod rather than assumed: `SELECT current_setting('TimeZone')` on the production database returns `UTC`.** Calendar blocks are written at PH midnight (`…T00:00:00+08:00`), and a bare `blocked_at::date` renders that instant in the SESSION's zone — so `2027-03-14T00:00:00+08:00` reads back as **13 March**. On a +08 laptop it reads 14 March, which is why it passed locally.
+
+Two consequences, both real:
+
+1. **The reopen would have shipped doing nothing.** Its `DELETE … WHERE blocked_at::date = p_date` matched no row in prod. The bug this PR exists to fix, reintroduced inside the fix.
+2. **`vendor_block_booked_date` — the shipped forward twin — is wrong in prod today.** Its "already blocked?" idempotency check uses the same bare cast, so it never matches: a second call for the same date inserts a **duplicate** block. Latent (prod holds zero calendar blocks), but it breaks the pair, and a mismatched pair means a released date never reopens. **Corrected in this migration** — body otherwise untouched from `20270428213000`.
+
+🔑 **MATCHING A TWIN MEANS MATCHING WHAT IT MEANS, NOT ITS CHARACTERS.** This migration's own header praised copying the twin's predicate "byte-for-byte" as the thing that kept the pair honest. It is what propagated the twin's timezone bug into the inverse. That sentence is now corrected in place rather than left to mislead the next reader.
+
+🪤 **AND THE TEST MEASURED WITH THE SAME BROKEN CAST**, so it could not have seen this on any machine. Both fixed, and the suite now runs `SET TIME ZONE 'UTC'` in `before()` — the clock prod and CI actually use — so the trap is reproducible on any laptop instead of hiding until push. A new case drives block → re-block → unblock under **UTC, Asia/Manila and America/New_York**, asserting the day lands right, that idempotency actually holds, and that the reopen matches. Sabotage-verified: restoring the bare cast fails 8 of 13.
+
+Also declared `event_vendor_reopen_on_release` in `anon-rpc-surface.baseline.txt` — it is `RETURNS trigger`, so PostgreSQL refuses any call outside a trigger context and the anon EXECUTE grant is inert (same shape as `enforce_free_tier_booking_cap`); it takes no caller-supplied arguments, and the primitive it calls is REVOKEd from anon and authenticated.
+
+SPEC IMPACT: None.

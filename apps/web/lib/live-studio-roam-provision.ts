@@ -505,6 +505,14 @@ export function cameraDropNotice(input: {
  * yet." would ride on top of every ordinary single-camera go-live. That is the
  * noise `cameraDropNotice` refuses to emit for the same reason: noise is how a
  * real warning gets skimmed past.
+ *
+ * ⏭ KNOWN, NOT FIXED HERE: `no_zones` is overloaded upstream — the zones read
+ * returns it BOTH for "this event has no camera channels yet" AND for a failed
+ * read of the zones table. So a DB read failure is suppressed with the empty
+ * case. Splitting them needs a new `ProvisionFailure` member inside
+ * `provisionRoamBroadcasts`, which is a wider change than this repair; keying
+ * the split off the two `detail` strings instead would make behaviour depend on
+ * copy, which is worse.
  */
 export function hostNoticeFromProvision(
   provisioned: Pick<ProvisionResult, 'ok' | 'notice' | 'detail' | 'reason'>,

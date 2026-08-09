@@ -382,7 +382,24 @@ export async function acceptInquiry(formData: FormData) {
       .from('chat_threads')
       .update({ inquiry_status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('thread_id', thread.thread_id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      // WHITELIST_DATE_LIMIT — the vendor already holds their plan's number of
+      // accepted-but-not-yet-locked clients for THIS couple's date (owner
+      // 2026-08-09; enforce_vendor_whitelist_per_date, migration
+      // 20271121655918, inert until the owner flips the platform switch).
+      //
+      // It arrives as a Postgres EXCEPTION, so it must be translated here or the
+      // vendor sees a raw error page for a perfectly ordinary "you're at your
+      // limit". Every other tier wall in this app reads as a sentence, not a
+      // crash. The DB's own message carries the number and the date; we only add
+      // the way out, and we deliberately do NOT leak who the other couples are.
+      if (error.message.includes('WHITELIST_DATE_LIMIT')) {
+        fail(
+          "You're already pursuing as many clients as your plan allows for that date. Lock one in, or decline someone, to free a slot.",
+        );
+      }
+      throw new Error(error.message);
+    }
     // The reveal_vendor_name_on_thread_accept trigger stamps name_revealed_at.
     await notifyCoupleOfInquiryOutcome({
       eventId: thread.event_id,

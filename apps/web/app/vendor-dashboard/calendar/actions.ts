@@ -24,7 +24,11 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { asVendorTier, tierCaps } from '@/lib/vendor-tier-caps';
+import {
+  asVendorTier,
+  tierCaps,
+  vendorWaitlistAcceptances,
+} from '@/lib/vendor-tier-caps';
 import {
   notifyWaitlistForDate,
   notifyWaitlistForFreedRange,
@@ -294,22 +298,53 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
 
 /**
  * Waitlist settings (owner 2026-07). Toggle the Booked-Out Waitlist on/off and
- * set how many couples the vendor may PICK per date (1-3). Stored on
- * vendor_profiles; consumed by the couple-side CTA gate + the pick action.
+ * set how many couples the vendor may PICK per date. The ceiling is now the
+ * TIER's, not a flat 1-3 (owner 2026-08-09: Free 0 · Solo 1 · Pro 3 ·
+ * Enterprise 5). Stored on vendor_profiles; consumed by the couple-side CTA
+ * gate + the pick action.
+ *
+ * Clamped here for a truthful form, and clamped AGAIN in the database
+ * (`clamp_vendor_waitlist_to_tier`, migration 20271121655918) — that trigger is
+ * the real gate, since this action is not the only writer of the column.
  */
 export async function updateWaitlistSettings(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
-  const enabled = str(formData, 'waitlist_enabled') === 'on';
+  const tierCap = await vendorWaitlistCapForProfile(supabase, profile.vendor_profile_id);
+
+  const enabled = str(formData, 'waitlist_enabled') === 'on' && tierCap > 0;
   const capRaw = Number(str(formData, 'max_waitlist_acceptances'));
   const cap =
-    Number.isFinite(capRaw) && capRaw >= 1 && capRaw <= 3 ? Math.round(capRaw) : 1;
+    tierCap === 0
+      ? 0
+      : Number.isFinite(capRaw) && capRaw >= 1
+        ? Math.min(Math.round(capRaw), tierCap)
+        : 1;
+
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ waitlist_enabled: enabled, max_waitlist_acceptances: cap })
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) backToCalendar(formData, 'save_failed');
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'waitlist_settings_saved');
+  backToCalendar(formData, tierCap === 0 ? 'waitlist_not_in_plan' : 'waitlist_settings_saved');
+}
+
+/**
+ * The vendor's plan ceiling for waitlist acceptances. Reads `tier_state` with a
+ * targeted single-column query (it is deliberately outside the shared profile
+ * select) and resolves through the tier matrix, so the number here and the
+ * number the database enforces come from the same owner grid.
+ */
+async function vendorWaitlistCapForProfile(
+  supabase: Awaited<ReturnType<typeof requireVendor>>['supabase'],
+  vendorProfileId: string,
+): Promise<number> {
+  const { data } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  return vendorWaitlistAcceptances((data as { tier_state?: string | null } | null)?.tier_state);
 }
 
 /**

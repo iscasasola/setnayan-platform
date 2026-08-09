@@ -26,6 +26,7 @@ import {
 import {
   getAdminQueueDigest,
   computeDueState,
+  compareQueuePriority,
   ageShort,
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
@@ -38,14 +39,11 @@ import { peekQueue } from '@/lib/admin/queue-peek';
 export const metadata = { title: 'Work · Admin' };
 
 // Worklist priority: overdue first, then due-soon, then open work (busiest),
-// then unknown, then clear — canonical order breaks ties within a band.
-const DUE_RANK: Record<string, number> = {
-  overdue: 0,
-  'due-soon': 1,
-  ok: 2,
-  unknown: 3,
-  clear: 4,
-};
+// then unknown, then clear — from the SHARED comparator in
+// lib/admin/queue-counts.ts, which the /admin Overview's busiest-queues preview
+// now reads too. It used to be a private table here while the Overview sorted
+// on volume alone, so the two screens disagreed about what was most urgent.
+// BASE_ROWS order breaks ties within a band.
 
 const LANES = ['money', 'trust', 'growth', 'support'] as const;
 
@@ -101,15 +99,12 @@ export default async function AdminWorkLanding({
 
   const ordered = (rows as (TriageItem & { _index: number })[])
     .slice()
-    .sort((a, b) => {
-      const ra = DUE_RANK[a.dueState ?? 'unknown'] ?? 3;
-      const rb = DUE_RANK[b.dueState ?? 'unknown'] ?? 3;
-      if (ra !== rb) return ra - rb;
-      const ca = a.count ?? 0;
-      const cb = b.count ?? 0;
-      if (cb !== ca) return cb - ca;
-      return a._index - b._index;
-    })
+    .sort(
+      (a, b) =>
+        compareQueuePriority(a, b) ||
+        // Full tie ⇒ BASE_ROWS declaration order.
+        a._index - b._index,
+    )
     .map(({ _index, ...row }) => row as TriageItem);
 
   const totalOpen = rows.reduce(

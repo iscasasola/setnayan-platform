@@ -348,6 +348,55 @@ export function computeDueState(
   return 'ok';
 }
 
+/**
+ * SINGLE SOURCE OF TRUTH for how urgent one queue is against another.
+ *
+ * 🔑 TWO SURFACES RANKED THE SAME QUEUES IN OPPOSITE ORDERS. The command center
+ * (/admin/work) ranked overdue-first and kept its own private DUE_RANK table;
+ * the Overview's "busiest queues" preview (/admin) sorted on open count alone.
+ * The same admin reading both was told two different things were the most
+ * urgent thing to do — and /admin/work's own docblock claimed the two "agree by
+ * construction". Whichever screen they happened to open decided what they did
+ * first. The overdue-first rule wins because it is the one derived from a real
+ * promise (slaHours); volume is only the tie-break inside a band.
+ *
+ * Lower number = ranks earlier. `unknown` (count unavailable) sits BELOW open
+ * work but ABOVE clear: a degraded read must not be presented as either urgent
+ * or settled.
+ */
+export const QUEUE_DUE_RANK: Record<AdminQueueDueState, number> = {
+  overdue: 0,
+  'due-soon': 1,
+  ok: 2,
+  unknown: 3,
+  clear: 4,
+};
+
+/** The minimum a surface must know about a queue to rank it. */
+export type RankableQueue = {
+  /** Missing (a queue with no urgency signal at all) ranks as `unknown`. */
+  dueState?: AdminQueueDueState;
+  /** `null` = count unavailable; ranks as 0 for the volume tie-break. */
+  count: number | null;
+};
+
+/**
+ * Comparator both admin surfaces sort by: urgency band first, then busiest
+ * inside the band. Returns 0 on a full tie so the CALLER's declaration order
+ * breaks it (Array.prototype.sort is stable) — the two surfaces list their
+ * queues in different orders on purpose, and that is the only difference left
+ * between them.
+ */
+export function compareQueuePriority(a: RankableQueue, b: RankableQueue): number {
+  const ra = QUEUE_DUE_RANK[a.dueState ?? 'unknown'];
+  const rb = QUEUE_DUE_RANK[b.dueState ?? 'unknown'];
+  if (ra !== rb) return ra - rb;
+  const ca = a.count ?? 0;
+  const cb = b.count ?? 0;
+  if (cb !== ca) return cb - ca;
+  return 0;
+}
+
 /** Per-queue urgency + the rolled-up tallies the nav chrome escalates on. */
 export type QueueUrgency = {
   /** dueState per nav-item key (only queues with open work appear). */

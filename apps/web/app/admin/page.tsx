@@ -10,6 +10,8 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import {
   getAdminQueueDigest,
   deriveQueueUrgency,
+  computeDueState,
+  compareQueuePriority,
   ageShort,
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
@@ -134,6 +136,13 @@ export default async function AdminOverview() {
         {
           label: 'Taxonomy requests',
           value: taxonomy,
+          // Taxonomy is the one tile with no digest row and no SLA clock, so it
+          // carried NO urgency state at all — which the shared comparator would
+          // read as `unknown` and sink below every queue that merely has work.
+          // Its honest state is the existing no-clock rule (count > 0 ⇒ 'ok',
+          // empty ⇒ 'clear', unavailable ⇒ 'unknown'). Render-neutral: the tile
+          // paints identically for 'ok' and for no state at all.
+          state: computeDueState({ count: taxonomy, oldestAt: null }, null, nowMs),
           sub: 'New category / refinement proposals',
           href: '/admin/taxonomy',
         },
@@ -227,16 +236,26 @@ export default async function AdminOverview() {
       meta.lane === 'support' ? sum : sum + Math.max(0, digest[key]?.count ?? 0),
     0,
   );
-  // Top-3 busiest INDIVIDUAL queues for the focal preview (Exception Desk
-  // fidelity, 2026-07-16) — the proto ranks the single busiest queues, each with
-  // its open count AND its oldest-open age, not the coarse 4-lane rollups. Flatten
-  // every lane's tiles, rank by open count, take three. All from the
-  // already-fetched digest-backed tile values (no new query); ties break on the
-  // tile declaration order via a stable sort.
+  // Top-3 MOST URGENT individual queues for the focal preview (Exception Desk
+  // fidelity, 2026-07-16) — each with its open count AND its oldest-open age,
+  // not the coarse 4-lane rollups. Flatten every lane's tiles, rank with the
+  // SHARED comparator, take three. All from the already-fetched digest-backed
+  // tile values (no new query); ties break on the tile declaration order via a
+  // stable sort.
+  //
+  // 🔑 THIS USED TO SORT ON OPEN COUNT ALONE while /admin/work ranked
+  // overdue-first, so the two screens named different queues as the most urgent
+  // thing to do and an admin's first action depended on which one they opened.
+  // One order now lives in lib/admin/queue-counts.ts and both read it.
   const topQueues = lanes
     .flatMap((lane) => lane.tiles)
     .filter((t) => (t.value ?? 0) > 0)
-    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    .sort((a, b) =>
+      compareQueuePriority(
+        { dueState: a.state, count: a.value },
+        { dueState: b.state, count: b.value },
+      ),
+    )
     .slice(0, 3)
     .map((t) => ({
       label: t.label,

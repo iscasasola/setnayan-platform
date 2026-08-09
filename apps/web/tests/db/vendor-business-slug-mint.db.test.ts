@@ -29,8 +29,9 @@
  *   3. two shops with the SAME name get DIFFERENT slugs
  *   4. a slug is NEVER regenerated — a public URL is a promise
  *   5. a shop named after a top-level route never takes that route's word
- *   6. EVERY word in lib/reserved-slugs.ts is reserved in the database too
- *      (anti-drift: adding a word to the TS list and not the DB fails here)
+ *   6. EVERY hand-typed word in lib/reserved-slugs.ts is reserved in the
+ *      database too (anti-drift: adding a word to the TS list and not the DB
+ *      fails here), and no NEW route folder appears with no database cover
  *   7. an un-slugifiable name still yields a valid address
  *   8. minting publishes NOTHING — public_visibility stays 'hidden'
  *
@@ -46,7 +47,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
-import { RESERVED_SLUGS } from '../../lib/reserved-slugs';
+import { DB_MIRRORED_RESERVED_SLUGS, ROUTE_RESERVED_SLUGS } from '../../lib/reserved-slugs';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -194,14 +195,8 @@ test('a shop named after a top-level route never takes that route', async () => 
   assert.match(row.business_slug!, SLUG_RE);
 });
 
-test('every word reserved in lib/reserved-slugs.ts is reserved in the database', async () => {
-  // ANTI-DRIFT. The database cannot import the TypeScript list, so the two are
-  // written twice — exactly the shape that rots silently. This test compares
-  // them mechanically: add a word to the TS file without adding it to the
-  // migration and this fails, naming the word.
-  const words = [...RESERVED_SLUGS];
-  assert.ok(words.length > 50, 'precondition: the reserved list was read, not empty');
-
+/** The words the database refuses, out of the ones handed in. */
+async function notReservedInDb(words: string[]): Promise<string[]> {
   const { rows } = await db.query<{ word: string }>(
     `SELECT w AS word
        FROM unnest($1::text[]) AS w
@@ -209,11 +204,65 @@ test('every word reserved in lib/reserved-slugs.ts is reserved in the database',
       ORDER BY w`,
     [words],
   );
+  return rows.map((r) => r.word);
+}
+
+test('every HAND-TYPED reserved word is reserved in the database', async () => {
+  // ANTI-DRIFT. The database cannot import the TypeScript list, so the two are
+  // written twice — exactly the shape that rots silently. This test compares
+  // them mechanically: add a word to DB_MIRRORED_RESERVED_SLUGS without adding
+  // it to the migration and this fails, naming the word.
+  const words = [...DB_MIRRORED_RESERVED_SLUGS];
+  assert.ok(words.length > 50, 'precondition: the reserved list was read, not empty');
 
   assert.deepEqual(
-    rows.map((r) => r.word),
+    await notReservedInDb(words),
     [],
     'these words are reserved in lib/reserved-slugs.ts but NOT in the database — a minted shop address could shadow a real route',
+  );
+});
+
+// The route-derived half (lib/reserved-slugs.ts, generated 2026-08-09) is NOT
+// mirrored into public.business_slug_is_reserved — widening that function needs
+// a migration, which the reserved-names build was scoped out of. Every APP path
+// (event create + rename, the availability endpoint, the manual shop-address
+// form, the person handle) already refuses all of these; the only path that
+// does not is the DATABASE'S OWN auto-mint, which builds a default address from
+// a business name. So a company literally named e.g. "Creators" could still be
+// minted `creators`.
+//
+// This list makes that debt LOUD instead of silent, and the assertion is a
+// SUBSET check: it stays green when a migration closes part of it, and goes red
+// the moment a NEW route folder appears with no database cover.
+const KNOWN_DB_MINT_GAP = new Set([
+  'claim',
+  'creators',
+  'demo-capture',
+  'dev',
+  'host',
+  'onboarding',
+  'open-shop',
+  'pabati',
+  'proposals',
+  'prototype',
+  'receipts',
+  'samahan',
+  'site-editor',
+  'tl',
+  'vendor-invite',
+]);
+
+test('no NEW route word is left uncovered by the database mint', async () => {
+  const words = [...ROUTE_RESERVED_SLUGS];
+  assert.ok(words.length > 40, 'precondition: the route-derived list was read, not empty');
+
+  const uncovered = await notReservedInDb(words);
+  const unexpected = uncovered.filter((w) => !KNOWN_DB_MINT_GAP.has(w));
+
+  assert.deepEqual(
+    unexpected,
+    [],
+    'a new top-level page appeared that the database mint can still hand to a shop — add it to public.business_slug_is_reserved in a migration, or to KNOWN_DB_MINT_GAP with a reason',
   );
 });
 

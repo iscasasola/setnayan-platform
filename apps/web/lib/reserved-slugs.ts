@@ -14,9 +14,25 @@
 // must be reserved for all, or a slug could shadow (or be shadowed by) a real
 // route. Verified 2026-07-01 against prod: ZERO existing event/vendor slugs
 // collide with this set, so consolidating is safe for live data.
+//
+// ⚠ 2026-08-09 — THE LIST IS NOW TWO HALVES, AND ONLY ONE IS HAND-TYPED.
+// A hand-typed list is silent about whatever nobody typed into it: fifteen real
+// top-level pages were missing, including /creators and /open-shop, which are
+// live and in the sitemap. `ROUTE_RESERVED_SLUGS` below is therefore GENERATED
+// from the route folders on disk (scripts/gen-reserved-slugs.mjs), so a page
+// added tomorrow is protected the moment its folder exists.
 // ============================================================================
 
-export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
+/**
+ * The hand-authored half. This is the set MIRRORED BY THE DATABASE
+ * (`public.business_slug_is_reserved`, migration 20271117527966) and compared
+ * mechanically by tests/db/vendor-business-slug-mint.db.test.ts. It holds words
+ * that are NOT route folders — namespaces, redirect targets, Next.js internals
+ * and defensive entries — so it cannot be derived from disk.
+ *
+ * Adding a word here means adding it to that migration too.
+ */
+export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // --- auth / account / system ---------------------------------------------
   'admin',
   'api',
@@ -88,6 +104,85 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'sw.js',
   'icon-192.svg',
   'icon-512.svg',
+]);
+
+/**
+ * The GENERATED half — every top-level folder under `apps/web/app` that
+ * actually serves a URL and whose name a person could type as a slug.
+ *
+ * ⛔ DO NOT HAND-EDIT the block between the markers. Run
+ * `node scripts/gen-reserved-slugs.mjs` from `apps/web`.
+ * `lib/reserved-slugs.test.ts` re-reads the folders and fails if this drifts.
+ */
+export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
+  // >>> BEGIN GENERATED ROUTE SLUGS — regenerate with scripts/gen-reserved-slugs.mjs
+  'about',
+  'acceptable-use',
+  'admin',
+  'alaala',
+  'api',
+  'auth',
+  'blog',
+  'claim',
+  'cookies',
+  'creators',
+  'dashboard',
+  'demo-capture',
+  'dev',
+  'download',
+  'explore',
+  'features',
+  'forgot-password',
+  'health',
+  'help',
+  'host',
+  'how-it-works',
+  'join',
+  'login',
+  'monogram',
+  'onboarding',
+  'open-shop',
+  'our-story',
+  'pa3d',
+  'pabati',
+  'palogo',
+  'panood',
+  'papic',
+  'patiktok',
+  'pawebsite',
+  'pricing',
+  'privacy',
+  'proposals',
+  'prototype',
+  'realstories',
+  'receipts',
+  'refunds',
+  'reset-password',
+  'samahan',
+  'setnayan-ai',
+  'signup',
+  'site-editor',
+  'terms',
+  'tl',
+  'tour',
+  'u',
+  'v',
+  'vendor',
+  'vendor-dashboard',
+  'vendor-invite',
+  'vendors',
+  'waitlist',
+  'wall',
+  'why-setnayan',
+  // <<< END GENERATED ROUTE SLUGS
+]);
+
+/**
+ * What every claim and resolution path actually checks: both halves together.
+ */
+export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
+  ...DB_MIRRORED_RESERVED_SLUGS,
+  ...ROUTE_RESERVED_SLUGS,
 ]);
 
 /**

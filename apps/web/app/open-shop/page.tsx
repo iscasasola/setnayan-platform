@@ -5,6 +5,7 @@ import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
+import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -99,10 +100,26 @@ export default async function OpenShopPage({
     if (displayUrl) logoDisplayMap[row.logo_url] = displayUrl;
   }
 
+  // The parent -> branch -> leaf tree the picker drills (owner 2026-08-09).
+  // First-party Setnayan SKUs are stripped inside — picking one would make the
+  // shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its
+  // flat select rather than blocking a vendor from opening a shop.
+  const serviceTree = await getOpenShopServiceTree().catch(() => []);
+  // A re-run must show the NAME of the saved service, not its stored key.
+  const savedService = row?.services?.[0] ?? '';
+  const savedServiceLabel =
+    serviceTree
+      .flatMap((p) => p.branches.flatMap((b) => b.leaves))
+      .find((l) => l.canonicalService === savedService)?.label ??
+    serviceLabels?.[savedService] ??
+    null;
+
   return (
     <OpenShopWizard
       mode={row ? 'complete' : 'create'}
       serviceLabels={serviceLabels}
+      serviceTree={serviceTree}
+      savedServiceLabel={savedServiceLabel}
       eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}

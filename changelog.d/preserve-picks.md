@@ -60,3 +60,32 @@ migration guard: `✓ 1080 migrations: unique prefixes + allocator-sourced`.
 Preserved view.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-08-10 — applied and pushed.
+
+### 🪤 CI caught what my local run could not — the exposure freeze
+
+`typecheck + lint` failed on one of 918 **database-replay** tests:
+*"THE FREEZE: the exposure surface has not widened against the committed
+baseline."* Two new columns widen what the app exposes, and the frozen record
+must be regenerated **in the same PR**.
+
+Two things made it easy to miss, and both are the point:
+
+- **The check hides inside a job called "typecheck + lint".** Nothing in that
+  name suggests a security-surface freeze.
+- **I ran the wrong suite locally.** 7,292 unit tests over `lib/**` and `app/**`
+  — never `tests/db/**`, which is where this lives. "All green" was true and
+  incomplete.
+
+Regenerated with `exposure:baseline` (replays all 1,080 migrations into an
+in-process PGlite — no network, no credentials, never touches prod). The diff is
+exactly two lines:
+
+```
++col  public.papic_guest_captures.preserve_declined_at  anon=SIU authenticated=SIU
++col  public.papic_photos.preserve_declined_at          anon=SIU authenticated=SIU
+```
+
+✅ **Nothing new was opened.** All 40 existing columns on `papic_photos` already
+read `anon=SIU`; the new ones inherit the table's posture exactly, and RLS is
+what actually gates these rows. A column-level grant here would have been a
+second, divergent rule rather than a protection.

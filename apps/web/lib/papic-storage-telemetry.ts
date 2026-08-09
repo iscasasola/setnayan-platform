@@ -13,6 +13,15 @@
  * No I/O — exhaustively unit-testable. The caller supplies rows; this computes.
  */
 
+// 🔑 DERIVE THE RATIO, NEVER RE-TYPE IT. A photo costs 1 point and a ten-second
+// clip costs 8 (owner-locked 2026-07-29, raised from 7). That currency already
+// governs every capture path, and `papic-copy-guardrails.test.ts` fails CI if a
+// surface re-grows a literal — so preservation reads the same constants rather
+// than keeping a second copy that can drift. A second copy of a ratio is how the
+// day-of console and the floor console came to disagree about who counts as
+// booked.
+import { papicCaptureCost } from './papic-cameras';
+
 /** Decimal GB (10^9), matching cloud-storage (R2) per-GB billing. */
 export const BYTES_PER_GB = 1_000_000_000;
 
@@ -166,18 +175,16 @@ export function aggregateEventStorage(
  * Everything here is PURE: the caller supplies rows, this computes.
  */
 
-/** One purchasable year of full-resolution preservation, in photo-units. */
-export const PRESERVATION_BLOCK_UNITS = 3_000;
-
 /**
- * A video is worth this many photos.
+ * One purchasable year of full-resolution preservation, **in Papic points**.
  *
- * 📏 Not arbitrary: a phone photo's original is 3–5 MB and a 10-second clip's is
- * 60–90 MB (see lib/video-compress.ts, which keeps clips quality-first). So one
- * block lands in the same place either way — 3,000 photos ≈ 12 GB, 150 videos
- * ≈ 11 GB — which is what makes "any combination" honest rather than a slogan.
+ * 🔒 OWNER-LOCKED 2026-08-10: *"let's just use the papic credits as the count so
+ * it will be consistent"* · *"5000 pts for 500/year"*. So ₱500 preserves **5,000
+ * photos, or 625 videos, or any mix** — one unit, and it is the unit the couple
+ * already buys their shots in. "The pool you bought is the pool you keep" stops
+ * being a slogan and becomes literally the same number.
  */
-export const CLIP_UNITS = 20;
+export const PRESERVATION_BLOCK_POINTS = 5_000;
 
 /** ₱ per block per year (owner 2026-08-10). ~₱125/yr to us ⇒ ~75% margin. */
 export const PRESERVATION_BLOCK_PHP = 500;
@@ -193,7 +200,7 @@ export const PRESERVATION_BLOCK_PHP = 500;
  */
 export function preservationUnits(row: StoredRow): number {
   if (row.full_res_dropped_at) return 0;
-  return row.is_clip ? CLIP_UNITS : 1;
+  return papicCaptureCost(row.is_clip ? 'clip' : 'photo');
 }
 
 export type AccountPreservation = {
@@ -202,7 +209,7 @@ export type AccountPreservation = {
   /** Captures whose ORIGINAL we are still holding (the ones that cost). */
   originalsHeld: number;
   /** Photo-units those originals consume (a clip = CLIP_UNITS). */
-  unitsHeld: number;
+  pointsHeld: number;
   /** Blocks this usage requires, minimum one. */
   blocksNeeded: number;
   /** ₱/year at the locked block price. */
@@ -230,7 +237,7 @@ export function aggregateAccountPreservation(rows: StoredRow[]): AccountPreserva
   return {
     captures: rows.length,
     originalsHeld: held,
-    unitsHeld: units,
+    pointsHeld: units,
     blocksNeeded: blocks,
     annualPhp: blocks * PRESERVATION_BLOCK_PHP,
   };
@@ -238,12 +245,12 @@ export function aggregateAccountPreservation(rows: StoredRow[]): AccountPreserva
 
 /** Blocks required to cover `units`, minimum 1 (an account on the plan holds one). */
 export function blocksNeeded(units: number): number {
-  return Math.max(1, Math.ceil(Math.max(0, units) / PRESERVATION_BLOCK_UNITS));
+  return Math.max(1, Math.ceil(Math.max(0, units) / PRESERVATION_BLOCK_POINTS));
 }
 
 /** Paid allowance in photo-units for `blocks`. */
-export function allowanceUnits(blocks: number): number {
-  return Math.max(1, Math.floor(blocks)) * PRESERVATION_BLOCK_UNITS;
+export function allowancePoints(blocks: number): number {
+  return Math.max(1, Math.floor(blocks)) * PRESERVATION_BLOCK_POINTS;
 }
 
 export type PreservationMeter = {
@@ -262,9 +269,9 @@ export type PreservationMeter = {
  * photos and videos."* The percentage is now of a COUNT, so it is a figure we can
  * actually stand behind: nothing about it is a floor or an estimate.
  */
-export function preservationMeter(unitsHeld: number, blocks: number): PreservationMeter {
-  const allowance = allowanceUnits(blocks);
-  const used = Math.max(0, unitsHeld);
+export function preservationMeter(pointsHeld: number, blocks: number): PreservationMeter {
+  const allowance = allowancePoints(blocks);
+  const used = Math.max(0, pointsHeld);
   return {
     percentUsed: Math.round((used / allowance) * 100),
     withinAllowance: used <= allowance,

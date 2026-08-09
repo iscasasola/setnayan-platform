@@ -27,7 +27,7 @@
  * fee-scaled formula supersedes this whole Lite/Ltd ladder once the fee lands.
  *
  * Capture-points currency (owner 2026-07-17; clip reweighted 2026-07-22 · §0):
- * 1 photo = 1 pt · 1×10s clip = 7 pts.
+ * 1 photo = 1 pt · 1×10s clip = 8 pts.
  *
  * The base tier (Lite/Ltd) is DERIVED live from vendor_event_unlocks — never
  * stored. Only the paid Unli upgrade is persisted (vendor_papic_capture_grants
@@ -41,7 +41,7 @@
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
 
-/** Points a single capture costs. 1 photo = 1 pt · 1×10s clip = 7 pts
+/** Points a single capture costs. 1 photo = 1 pt · 1×10s clip = 8 pts
  *  (owner override 2026-07-22 · §0). Mirrors the couple pool's clip weight. */
 export const VENDOR_PAPIC_POINTS: Record<VendorPapicMedia, number> = {
   photo: 1,

@@ -813,7 +813,7 @@ export function HomeReskin({
         {articles.length >= 2 ? (
           <section className="hr-stories">
             <div className="hr-pnum">The Journal</div>
-            <h2 className="hr-pname">What we've learned, written down.</h2>
+            <h2 className="hr-pname">What we&rsquo;ve learned, written down.</h2>
             <div className="hr-grid2">
               {articles.map((a) => (
                 <Link href={`/blog/${a.slug}`} className="hr-storyc" key={a.slug}>

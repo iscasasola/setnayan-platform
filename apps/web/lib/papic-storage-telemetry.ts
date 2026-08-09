@@ -125,79 +125,84 @@ export function aggregateEventStorage(
   };
 }
 
-/* ── BILLING: what an ACCOUNT is storing right now ──────────────────────────
+/* ── PRESERVATION: what an ACCOUNT is keeping at FULL RESOLUTION ────────────
  *
- * Owner-locked 2026-08-08: preservation storage is **₱500/year per 10 GB block**,
- * charged on ACTUAL stored bytes, **accumulating across every event on the
- * account** — "this will accumulate all the data they collect on their account."
- * The customer is shown a **PERCENTAGE, never a GB figure**, and always gets a
- * **5 GB buffer** on top of what they paid for so nothing hard-stops.
+ * 🔒 OWNER-LOCKED 2026-08-10. **₱500/year buys 3,000 photos OR 150 videos, or any
+ * combination — a video counts as 20 photos.** The year runs from the day they
+ * buy. There is no free allowance to set, and no gigabyte anywhere.
  *
- * Everything here is PURE, matching the module above: the caller supplies rows,
- * this computes. No I/O, so the money math is exhaustively unit-testable.
+ * ## WHAT IS SOLD IS RESOLUTION, NOT SPACE
+ *
+ * Owner, verbatim: *"we will preserve it compressed so they still keep it. we
+ * just allow them to preserve it"* and *"if they pay nothing, we still keep their
+ * photos for 5 years. but compressed. they pay that additional to keep it in high
+ * res."*
+ *
+ * So the FREE tier is the compressed copy of everything, kept five years (past
+ * five it becomes a paid option whose price is not set, and **nothing is deleted
+ * at five years**). The PAID tier is exactly the originals. That is why there is
+ * no "how many photos are free" number: the question only made sense while this
+ * was thought of as a drive.
+ *
+ * ## WHY COUNTING IS SAFER THAN MEASURING, NOT MERELY FRIENDLIER
+ *
+ * The byte model this replaces needed an `unmeasured` flag because **a clip's raw
+ * video has no recorded size** — the derivative writer deliberately omits
+ * `orig_bytes` for clips, since a clip's "original" is a video, not the poster
+ * still it derives from. Those are the LARGEST objects on the platform, so the
+ * clip-heavy events cost the most and would have been billed the least, while the
+ * customer's meter read reassuringly low. Wrong in both directions, nothing
+ * erroring.
+ *
+ * **Counting removes that hazard at the root.** A clip is one row; it is worth 20
+ * units whether or not anyone recorded how many bytes it is. Nothing is invisible,
+ * so nothing needs a flag.
+ *
+ * ⚠ The byte helpers ABOVE are untouched and still correct — they answer a
+ * different question (how much are we actually holding, for our own cost
+ * telemetry at /admin/papic-storage). Do not wire them into anything a customer
+ * reads.
+ *
+ * Everything here is PURE: the caller supplies rows, this computes.
  */
 
-/** One purchasable block. */
-export const STORAGE_BLOCK_GB = 10;
-/** Always granted on top of the paid allowance, so a couple never hits a wall. */
-export const STORAGE_BUFFER_GB = 5;
-/** ₱ per block per year (owner 2026-08-08). Cost to us is ~₱104 → ~79% margin. */
-export const STORAGE_BLOCK_PHP = 500;
-
-export type StoredBytes = {
-  /** Bytes we can PROVE we are storing for this row. */
-  bytes: number;
-  /**
-   * True when part of this row's storage is real but unmeasured, so `bytes` is a
-   * FLOOR rather than a total. Today that means exactly one thing: a clip whose
-   * raw video is still held. Clips never get `orig_bytes` — the derivative writer
-   * deliberately omits it because a clip's "original" is a video, not the poster
-   * still it derives from — so the largest objects on the platform are invisible
-   * to this sum.
-   */
-  unmeasured: boolean;
-};
+/** One purchasable year of full-resolution preservation, in photo-units. */
+export const PRESERVATION_BLOCK_UNITS = 3_000;
 
 /**
- * What are we storing for ONE capture right now?
+ * A video is worth this many photos.
  *
- * 🚨 AN UNMEASURED BYTE MUST NEVER LOOK LIKE ZERO. This returns a flag rather than
- * silently summing what it happens to know, because the failure mode is invisible
- * and expensive in both directions: bill from an undercount and the clip-heavy
- * events — the ones that actually cost the most — are the ones charged least;
- * show it to a customer as a percentage and the bar reads reassuringly low while
- * the real usage is far higher. Callers must decide what to do about
- * `unmeasured`; they cannot accidentally ignore it.
+ * 📏 Not arbitrary: a phone photo's original is 3–5 MB and a 10-second clip's is
+ * 60–90 MB (see lib/video-compress.ts, which keeps clips quality-first). So one
+ * block lands in the same place either way — 3,000 photos ≈ 12 GB, 150 videos
+ * ≈ 11 GB — which is what makes "any combination" honest rather than a slogan.
  */
-export function storedBytes(row: StoredRow): StoredBytes {
-  // The compressed copies are kept indefinitely — they are always part of the bill.
-  let bytes = webCopyBytes(row) + pos(row.clip_web_bytes);
-  let unmeasured = false;
+export const CLIP_UNITS = 20;
 
-  // The full-res original counts only while we still hold it. Once
-  // `full_res_dropped_at` is set it has been REPLACED by the compressed copy
-  // above, and billing for it would charge for bytes that no longer exist.
-  if (!row.full_res_dropped_at) {
-    if (row.is_clip) {
-      // A clip's raw video is still on R2 and is typically the largest object in
-      // the event — but nothing records its size. Flag it; do not guess.
-      unmeasured = true;
-    } else {
-      bytes += pos(row.orig_bytes);
-    }
-  }
+/** ₱ per block per year (owner 2026-08-10). ~₱125/yr to us ⇒ ~75% margin. */
+export const PRESERVATION_BLOCK_PHP = 500;
 
-  return { bytes, unmeasured };
+/**
+ * How much of the paid allowance does ONE capture consume right now?
+ *
+ * 🔑 **ZERO once the original has been replaced.** A capture whose
+ * `full_res_dropped_at` is set is living as its compressed copy, and the
+ * compressed copy is FREE — charging for it would bill a couple for the tier they
+ * did not buy. This is the count-model twin of the byte model's rule that a
+ * replaced original is not billed.
+ */
+export function preservationUnits(row: StoredRow): number {
+  if (row.full_res_dropped_at) return 0;
+  return row.is_clip ? CLIP_UNITS : 1;
 }
 
-export type AccountStorageSummary = {
+export type AccountPreservation = {
   /** Rows considered, across every event on the account. */
   captures: number;
-  /** Provable stored bytes — a FLOOR when `unmeasuredCaptures > 0`. */
-  storedBytes: number;
-  storedGb: number;
-  /** Captures holding real storage we cannot size (clip raws still held). */
-  unmeasuredCaptures: number;
+  /** Captures whose ORIGINAL we are still holding (the ones that cost). */
+  originalsHeld: number;
+  /** Photo-units those originals consume (a clip = CLIP_UNITS). */
+  unitsHeld: number;
   /** Blocks this usage requires, minimum one. */
   blocksNeeded: number;
   /** ₱/year at the locked block price. */
@@ -207,82 +212,61 @@ export type AccountStorageSummary = {
 /**
  * Roll every capture on an ACCOUNT into one figure.
  *
- * ⚠ ACCOUNT, NOT EVENT. The rest of this codebase scopes storage per event
- * (`aggregateEventStorage` above, `/admin/papic-storage`) because captures belong
- * to events. The plan bills a PERSON, whose wedding, christenings and birthdays
- * accumulate over years — so the caller must gather rows across every event the
- * account owns and pass them here together. Summing per event and adding up the
- * BLOCKS instead would over-charge: three 4 GB events are 12 GB (2 blocks), not
- * three separate 1-block bills.
+ * ⚠ ACCOUNT, NOT EVENT. Captures belong to events, but the plan is bought by a
+ * PERSON whose wedding, christenings and birthdays accumulate over years — so the
+ * caller must gather rows across every event the account owns and pass them
+ * together. Summing per event and adding the BLOCKS would over-charge: three
+ * 1,200-unit events are 3,600 units (2 blocks), not three separate 1-block bills.
  */
-export function aggregateAccountStorage(rows: StoredRow[]): AccountStorageSummary {
-  let total = 0;
-  let unmeasured = 0;
+export function aggregateAccountPreservation(rows: StoredRow[]): AccountPreservation {
+  let units = 0;
+  let held = 0;
   for (const row of rows) {
-    const r = storedBytes(row);
-    total += r.bytes;
-    if (r.unmeasured) unmeasured += 1;
+    const u = preservationUnits(row);
+    if (u > 0) held += 1;
+    units += u;
   }
-  const gb = total / BYTES_PER_GB;
-  const blocks = blocksNeeded(total);
+  const blocks = blocksNeeded(units);
   return {
     captures: rows.length,
-    storedBytes: total,
-    storedGb: gb,
-    unmeasuredCaptures: unmeasured,
+    originalsHeld: held,
+    unitsHeld: units,
     blocksNeeded: blocks,
-    annualPhp: blocks * STORAGE_BLOCK_PHP,
+    annualPhp: blocks * PRESERVATION_BLOCK_PHP,
   };
 }
 
-/** Blocks required to cover `bytes`, minimum 1 (an account on the plan always holds one). */
-export function blocksNeeded(bytes: number): number {
-  const gb = Math.max(0, bytes) / BYTES_PER_GB;
-  return Math.max(1, Math.ceil(gb / STORAGE_BLOCK_GB));
+/** Blocks required to cover `units`, minimum 1 (an account on the plan holds one). */
+export function blocksNeeded(units: number): number {
+  return Math.max(1, Math.ceil(Math.max(0, units) / PRESERVATION_BLOCK_UNITS));
 }
 
-/** Paid allowance in GB for `blocks`, excluding the buffer. */
-export function allowanceGb(blocks: number): number {
-  return Math.max(1, Math.floor(blocks)) * STORAGE_BLOCK_GB;
+/** Paid allowance in photo-units for `blocks`. */
+export function allowanceUnits(blocks: number): number {
+  return Math.max(1, Math.floor(blocks)) * PRESERVATION_BLOCK_UNITS;
 }
 
-/** Paid allowance PLUS the always-granted buffer — the point where a hard stop applies. */
-export function hardCapGb(blocks: number): number {
-  return allowanceGb(blocks) + STORAGE_BUFFER_GB;
-}
-
-export type StorageMeter = {
-  /** 0–100+ against the PAID allowance. Deliberately allowed to exceed 100 — that is the buffer. */
+export type PreservationMeter = {
+  /** 0–100+ against the paid allowance. May exceed 100 — that means they need another block. */
   percentUsed: number;
-  /** Still inside allowance + buffer? False means genuinely out of room. */
-  withinBuffer: boolean;
-  /** Eating into the free buffer (past 100% of paid, still under the cap). */
-  inBuffer: boolean;
-  /** True when the figure is a floor because some storage could not be sized. */
-  approximate: boolean;
+  /** Still inside what they paid for? */
+  withinAllowance: boolean;
 };
 
 /**
  * The customer-facing meter.
  *
- * 🗣 PERCENTAGE ONLY — the owner is explicit that a GB number is never shown
- * ("we do not have to say the Gb size. we will only show percentage"). That is
- * also the safer design while clip raws are unmeasured: a percentage against a
- * known allowance degrades more gracefully than a GB total that is quietly a
- * floor. It is NOT a licence to ship a wrong number — `approximate` is surfaced
- * so the UI can say so rather than imply precision it does not have.
+ * 🗣 PERCENTAGE ONLY — no gigabytes, and no raw unit count either. Owner
+ * 2026-08-08: *"we do not have to say the Gb size. we will only show
+ * percentage"*, and 2026-08-10: *"do not price by drive. price by number of
+ * photos and videos."* The percentage is now of a COUNT, so it is a figure we can
+ * actually stand behind: nothing about it is a floor or an estimate.
  */
-export function storageMeter(bytes: number, blocks: number, unmeasured = 0): StorageMeter {
-  const gb = Math.max(0, bytes) / BYTES_PER_GB;
-  const allowance = allowanceGb(blocks);
-  const cap = hardCapGb(blocks);
-  const pct = (gb / allowance) * 100;
+export function preservationMeter(unitsHeld: number, blocks: number): PreservationMeter {
+  const allowance = allowanceUnits(blocks);
+  const used = Math.max(0, unitsHeld);
   return {
-    // Round to a whole number: a meter reading "62.4%" invites a precision
-    // argument about a figure that is a floor.
-    percentUsed: Math.round(pct),
-    withinBuffer: gb <= cap,
-    inBuffer: gb > allowance && gb <= cap,
-    approximate: unmeasured > 0,
+    percentUsed: Math.round((used / allowance) * 100),
+    withinAllowance: used <= allowance,
   };
 }

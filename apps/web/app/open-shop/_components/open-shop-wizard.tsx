@@ -230,10 +230,20 @@ export function OpenShopWizard({
                 variant="square"
                 qrGuard
               />
+              {/* ⚠ This used to end "…you'll need it to publish your shop and to
+                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
+                  such control for them anywhere, and approval is what makes a
+                  shop public. It was the last survivor of the same false idea
+                  removed from the two QR surfaces on 2026-08-09; a sweep for
+                  "publish your profile/page" missed it because this one says
+                  "publish your SHOP". Getting verified is the true and only
+                  reason the logo is required — it is one of the business-profile
+                  fields, and the profile must be complete before documents can
+                  be submitted. */}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 PNG, JPEG, HEIC, or WebP up to 10&nbsp;MB. Couples see this on every vendor
-                card. You can add it later from My Shop — but you&rsquo;ll need it to publish
-                your shop and to get verified.
+                card. You can add it later from My Shop — but Setnayan needs it before
+                your shop can be approved.
               </span>
             </div>
 

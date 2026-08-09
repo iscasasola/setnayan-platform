@@ -50,8 +50,28 @@ export default async function VendorQrGeneratorPage({
   if (!profile) redirect('/vendor-dashboard');
 
   const slug = (profile as { business_slug?: string | null }).business_slug ?? null;
-  const isPublished = (profile as { is_published?: boolean }).is_published ?? false;
-  const canShare = Boolean(slug && isPublished);
+  // ── A DEAD END, REMOVED 2026-08-09 ─────────────────────────────────────────
+  // This used to be `Boolean(slug && is_published)`, and the refusal it rendered
+  // read "Publish your business profile first". THERE IS NO SUCH BUTTON: the
+  // only `name="is_published"` control in the entire app is on the ADMIN vendor
+  // edit page, and the one vendor-side action that ever wrote the column
+  // (`saveVendorProfile`) has had no caller since the My Shop inline-edit
+  // rewrite. Approving a shop doesn't set it either — /admin/verify writes
+  // public_visibility + verification_state and never touches this column. So the
+  // screen asked the vendor to press something that does not exist for them, and
+  // the owner's own fully-verified shop sits at is_published = false today and
+  // would have hit exactly this wall.
+  //
+  // The twin of this QR on My Customers gates on `slug` ALONE and has all along
+  // — same generator, same output, one door open and its twin bolted. `slug` is
+  // the honest requirement: the QR encodes the shop's public address, and that
+  // address is minted by a database trigger the moment a shop is named, so any
+  // shop that finished /open-shop has one.
+  //
+  // Owner rule this restores (2026-08-09): bringing in the customers you already
+  // have is FREE and works BEFORE approval. Gating it on an admin-only flag made
+  // it wait for approval, which is the opposite.
+  const canShare = Boolean(slug);
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
 
   const { data: profRow } = await supabase
@@ -113,8 +133,8 @@ export default async function VendorQrGeneratorPage({
         <div className="mt-6 rounded-2xl border border-dashed border-ink/20 p-6 text-center">
           <Users className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">
-            Publish your business profile first — your QR is built from your public
-            profile.
+            Name your shop first — your QR is built from your shop&rsquo;s web
+            address, and that address is created the moment you name it.
           </p>
           <Link
             href="/vendor-dashboard/shop"

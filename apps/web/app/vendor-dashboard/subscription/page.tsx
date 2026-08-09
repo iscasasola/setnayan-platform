@@ -391,6 +391,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       <div className="mt-5">
         <SubscriptionCards
           cycle={cycle}
+          verified={isVerifiedVendor}
           cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB

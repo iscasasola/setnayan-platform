@@ -103,8 +103,24 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   event_insurance: { kind: 'tile', tile: 'event_insurance' },
   personal_accident_insurance: { kind: 'tile', tile: 'personal_accident_insurance' },
   restaurant_reservation: { kind: 'tile', tile: 'restaurant_reservation' },
+  wellness_fitness: { kind: 'tile', tile: 'wellness_fitness' },
   // ── B · coarse alias (many-to-one — genuinely spans tiles) ──────────────────
   band_dj: { kind: 'tiles', tiles: ['live_band', 'dj'] },
+  // Added 2026-08-09 with the category itself: seven guest-ACTIVITY booths
+  // that had no coarse home and were resolving to `misc`. Genuinely spans
+  // tiles, so it is an alias rather than a single-tile mapping.
+  guest_booth: {
+    kind: 'tiles',
+    tiles: [
+      'massage_chair',
+      'perfume_bar',
+      'arcade_games',
+      'henna_tattoo',
+      'mini_nail_bar',
+      'tarot_astrology_palmistry',
+      'caricature_calligraphy_painting',
+    ],
+  },
   // `transfers_rentals` added 2026-08-01: on a TRAVEL event the couple-side
   // "transportation" category means an airport transfer or a van/scooter
   // rental, and neither of the two wedding tiles could ever surface one.

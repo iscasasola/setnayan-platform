@@ -108,6 +108,8 @@ export const VENDOR_CATEGORY_ICON: Record<VendorCategory, LucideIcon> = {
   event_insurance: ShieldCheck,
   personal_accident_insurance: Umbrella,
   restaurant_reservation: Utensils,
+  wellness_fitness: Sparkles,
+  guest_booth: Sparkles,
   misc: Wrench,
 };
 

@@ -451,6 +451,15 @@ export type PapicDropItem = DropCandidate & {
   clip_web_r2_key: string | null;
   clip_web_bytes: number | null;
   orig_bytes: number | null;
+  /**
+   * Set when the couple took this capture OUT of full-resolution preservation.
+   * NULL = preserved — the default, because "if nothing is picked, pick all".
+   *
+   * ⚠ NOT a delete flag. Declining only lets this original be replaced by its
+   * compressed copy at the normal point; the photo itself is never deleted and
+   * the compressed copy is kept five years for everyone, paid or not.
+   */
+  preserve_declined_at?: string | null;
 };
 
 type Row = Record<string, unknown>;

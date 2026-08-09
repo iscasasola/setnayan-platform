@@ -177,11 +177,31 @@ export interface TierCaps {
    * transport un-gates unchanged until the owner flips the gate on.
    */
   calls: boolean;
+  /**
+   * WHITELIST — how many ACCEPTED-BUT-NOT-YET-LOCKED customers the vendor may
+   * hold for ONE date (owner 2026-08-09). Their live pipeline for that day:
+   * couples they have answered and are still pursuing, before anyone locks in.
+   * Informational demand, never a hold on the date
+   * (Service_Schedule_and_Quotation_Flow_2026-06-02 § T1.1).
+   *
+   * ⚠ NOT the `whitelist` calendar DAY STATE (a vendor-set "approve-first" day).
+   * Same word, different feature; the day state is not capped.
+   */
+  whitelistPerDate: number;
+  /**
+   * WAITLIST — how many queued couples the vendor may ACCEPT off the waitlist
+   * for one taken date (owner 2026-08-09). `0` = the plan has no waitlist at
+   * all, and `waitlist_enabled` is forced off for it.
+   * Supersedes the flat per-vendor 1..3 setting.
+   */
+  waitlistAcceptances: number;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
     calls: false,
+    whitelistPerDate: 1,
+    waitlistAcceptances: 0, // FREE: one live candidate per date, no waitlist (owner 2026-08-09)
     serviceRadiusKm: 0,
     servicesPerLeaf: 2,
     chat: 'none',
@@ -218,6 +238,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
   verified: {
     calls: false,
+    whitelistPerDate: 1,
+    waitlistAcceptances: 0, // legacy free tier takes the FREE numbers so free <= verified <= solo holds
     serviceRadiusKm: 20,
     servicesPerLeaf: 2,
     chat: 'chat',
@@ -258,6 +280,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
     calls: true,
+    whitelistPerDate: 3,
+    waitlistAcceptances: 1, // owner 2026-08-09
     serviceRadiusKm: 20,
     servicesPerLeaf: 3,
     marketIntel: false,
@@ -290,6 +314,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   },
   pro: {
     calls: true,
+    whitelistPerDate: 5,
+    waitlistAcceptances: 3, // owner 2026-08-09
     serviceRadiusKm: 50,
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
     // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
@@ -332,6 +358,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
     calls: true,
+    whitelistPerDate: 10,
+    waitlistAcceptances: 5, // owner 2026-08-09
     serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
     marketIntel: true,
     theftWatch: true,
@@ -372,6 +400,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
   custom: {
     calls: true,
+    whitelistPerDate: 10,
+    waitlistAcceptances: 5, // runs as Enterprise (keep in lockstep on any Enterprise edit)
     serviceRadiusKm: 100,
     marketIntel: true,
     theftWatch: true,
@@ -556,6 +586,34 @@ export function canUseCalls(tier: string | null | undefined): boolean {
  */
 export function canUseEditorialFeatures(tier: string | null | undefined): boolean {
   return tierCaps(tier).editorialFeatures; // Pro-and-up (locked matrix § 1 GROW)
+}
+
+/**
+ * WHITELIST cap — accepted-but-not-yet-locked customers the vendor may hold for
+ * ONE date. Free 1 · Solo 3 · Pro 5 · Enterprise 10 (owner 2026-08-09).
+ *
+ * Enforcement lives in the DATABASE (`enforce_vendor_whitelist_per_date`,
+ * migration 20271121655918), because accepting is reachable from the vendor
+ * inbox, the admin demo console and any future surface, and a per-date count is
+ * racy client-side. This helper exists so a UI can show the number and warn
+ * BEFORE the vendor hits the wall — never as the gate itself.
+ */
+export function vendorWhitelistPerDate(tier: string | null | undefined): number {
+  return tierCaps(tier).whitelistPerDate;
+}
+
+/**
+ * WAITLIST cap — queued couples the vendor may accept for one taken date.
+ * Free 0 · Solo 1 · Pro 3 · Enterprise 5 (owner 2026-08-09). `0` means the plan
+ * has no waitlist at all.
+ */
+export function vendorWaitlistAcceptances(tier: string | null | undefined): number {
+  return tierCaps(tier).waitlistAcceptances;
+}
+
+/** Does this plan include the Booked-Out Waitlist at all? (Free does not.) */
+export function canUseWaitlist(tier: string | null | undefined): boolean {
+  return vendorWaitlistAcceptances(tier) > 0;
 }
 
 /**

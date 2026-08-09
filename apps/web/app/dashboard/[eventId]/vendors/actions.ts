@@ -31,6 +31,7 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { releaseForcedDate } from '@/lib/release-forced-date';
+import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -343,6 +344,20 @@ export async function updateVendorStatus(formData: FormData) {
   // Best-effort: the visible status change already succeeded.
   if (wasConsuming && !willConsume) {
     await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+    // …and tell the couples waiting on that date. The status write above
+    // already fired event_vendor_reopen_on_release (migration 20271121865976),
+    // which un-does the auto-block that closed the date at deposit_paid — so by
+    // the time this runs the day is genuinely bookable again. The helper
+    // re-reads the calendar and stays silent unless it really is open, so it is
+    // safe regardless of ordering. after() keeps the emails off the response.
+    // NOT wired to the two rollback releases above (a flip that never landed
+    // released nothing) nor to the hard-delete paths, which refuse downpaid rows
+    // and therefore never closed a date in the first place.
+    after(() =>
+      notifyWaitlistIfBookingReleased(vendorId).catch((e) => {
+        console.error('[waitlist] auto-notify on booking release failed:', String(e));
+      }),
+    );
   }
 
   // Coordinator auto-grant (owner 2026-06-22): the FIRST time a planner_coordinator

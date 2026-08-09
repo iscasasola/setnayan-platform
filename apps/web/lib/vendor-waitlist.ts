@@ -116,6 +116,101 @@ export async function notifyWaitlistForDate(
 }
 
 /**
+ * Auto-notify when a BOOKING is released — the couple backed out, the vendor
+ * cancelled, or the status was downgraded off deposit_paid.
+ *
+ * This is the third notify entry point, and the one the waitlist was actually
+ * built for ("in case the person who purchased for that date backs out").
+ * Before migration 20271121865976 it could not exist: the auto-block written at
+ * deposit_paid had no inverse, so a released date stayed shut forever and no
+ * couple could take it even after being emailed. That migration's trigger
+ * reopens the date; this function is what tells the people waiting.
+ *
+ * 🔑 FAILS TOWARD SILENCE, ON PURPOSE. It re-reads the calendar and emails only
+ * when the day is genuinely open — ANY covering block (the vendor's own manual
+ * closure, an external client, a still-live booking the reopen guard kept)
+ * means the date is not really free, and a "your date opened up!" email that
+ * lands on a page still reading "unavailable" is worse than no email. This also
+ * makes it order-independent: callers schedule it from after(), so it never
+ * races the trigger regardless of whether the release ran before or after the
+ * status write.
+ *
+ * Returns the number of couples notified (0 when the date is still closed).
+ */
+export async function notifyWaitlistIfBookingReleased(
+  eventVendorId: string,
+): Promise<number> {
+  const admin = createAdminClient();
+
+  const { data: bookingRow, error: bookingErr } = await admin
+    .from('event_vendors')
+    .select('marketplace_vendor_id, event_id')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+  // A hard-deleted row is the host-cancel path: the booking is gone, so there
+  // is nothing left to resolve the vendor + date from here. That path passes
+  // them explicitly via notifyWaitlistForFreedDate below.
+  if (bookingErr || !bookingRow) return 0;
+
+  const booking = bookingRow as {
+    marketplace_vendor_id: string | null;
+    event_id: string | null;
+  };
+  if (!booking.marketplace_vendor_id || !booking.event_id) return 0;
+
+  const { data: eventRow } = await admin
+    .from('events')
+    .select('event_date')
+    .eq('event_id', booking.event_id)
+    .maybeSingle();
+  const eventDate = (eventRow as { event_date: string | null } | null)?.event_date;
+  if (!eventDate) return 0;
+
+  return notifyWaitlistForFreedDate(booking.marketplace_vendor_id, eventDate);
+}
+
+/**
+ * Notify a (vendor, date) ONLY IF the day is genuinely open — no calendar block
+ * of any source still covers it. The open-check is the whole point: see the
+ * fail-toward-silence note on notifyWaitlistIfBookingReleased.
+ *
+ * Day grain matches vendor_block_booked_date's convention (PH midnight →
+ * 23:30 +08), so a block written for that day always overlaps this window.
+ */
+export async function notifyWaitlistForFreedDate(
+  vendorProfileId: string,
+  requestedDate: string,
+): Promise<number> {
+  const admin = createAdminClient();
+
+  const dayStart = `${requestedDate}T00:00:00+08:00`;
+  const dayEnd = `${requestedDate}T23:59:59+08:00`;
+
+  const { data: covering, error: coveringErr } = await admin
+    .from('vendor_calendar_blocks')
+    .select('block_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .lte('blocked_at', dayEnd)
+    .gte('blocked_until', dayStart)
+    .limit(1);
+
+  // A failed read is NOT an open date. Staying silent costs the vendor a
+  // notification; emailing on a bad read sends couples to a date they cannot
+  // book. The vendor's one-click "a slot opened" button remains the manual
+  // path, so nothing is unrecoverable.
+  if (coveringErr) {
+    console.error(
+      '[waitlist] notifyWaitlistForFreedDate open-check failed:',
+      coveringErr.message,
+    );
+    return 0;
+  }
+  if (Array.isArray(covering) && covering.length > 0) return 0;
+
+  return notifyWaitlistForDate(vendorProfileId, requestedDate);
+}
+
+/**
  * Auto-notify on a freed slot: given a removed calendar block's vendor + date
  * RANGE, notify every pending waitlist date that falls inside the freed range.
  * Called from removeBlock via after() — cron-free. Caps the scan at a generous

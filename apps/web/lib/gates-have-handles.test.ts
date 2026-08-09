@@ -77,6 +77,22 @@ const SWITCHES: {
       'the safe half of the ruling works and the half that gives them a say does not',
     writtenViaRpcParam: 'p_name_me',
   },
+  {
+    // 🚨 FOURTH INSTANCE, registered 2026-08-09 — and the longest-running one.
+    // `vendor_profiles.is_founder` shipped 2026-06-09 with a migration, a
+    // column comment and two live readers, and no code anywhere ever wrote it.
+    // The single row that carried it was set by a HARDCODED UUID inside the
+    // migration itself, so the perk was real, working, tested — and
+    // unreachable by any second business, forever. Note what a mere-mention
+    // check would have concluded: the column name appears in an admin export
+    // list, an anon-column-scope migration and a db test, so it looks
+    // thoroughly wired from every angle except the one that matters.
+    column: 'is_founder',
+    whoFlips: 'an admin, on the vendor plan page (/admin/vendors/[id]/plan)',
+    whatBreaksWhenStuck:
+      'no business can ever be made a founding supplier — the unlimited-category ' +
+      'and unlimited-services-per-category override works and nobody can receive it',
+  },
 ];
 
 /** Every .ts/.tsx under apps/web that is not a test, a type file, or generated. */
@@ -199,6 +215,46 @@ test('the writer detector does not pass on a mere mention', () => {
     'landing_page_visibility is written by the privacy action; if the detector ' +
       'cannot see that write, it cannot see any write, and the assertions above ' +
       'are meaningless.',
+  );
+});
+
+/**
+ * A writer nobody can reach is the same bug wearing a different hat.
+ *
+ * The tests above ask "does anything write this column?" — but a server action
+ * that only the codebase knows about is exactly as useless to an admin as no
+ * writer at all. `setVendorFoundingSupplier` therefore has to be wired to a
+ * form that actually renders, not merely exported. Checked on the RENDERED
+ * region: the JSX `action={...}` / `action={setVendorFoundingSupplier}` binding
+ * in the plan page, so a stray import or a comment mentioning the name cannot
+ * satisfy it.
+ */
+test('the founding-supplier writer is reachable from a rendered control', () => {
+  const page = join(
+    WEB,
+    'app/admin/vendors/[vendorProfileId]/plan/page.tsx',
+  );
+  const src = readFileSync(page, 'utf8')
+    // Strip line comments so the docblock explaining the control cannot BE the
+    // control — the failure mode that has bitten guards in this repo four times.
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+    .join('\n');
+
+  assert.match(
+    src,
+    /<form\s+action=\{setVendorFoundingSupplier\}/,
+    'The plan page no longer renders a <form action={setVendorFoundingSupplier}>. ' +
+      'The action can still be imported and still writes the column — and no admin ' +
+      'can reach it, which is the state `is_founder` sat in from 2026-06-09: a real, ' +
+      'working, tested perk that nobody could ever be given.',
+  );
+  assert.match(
+    src,
+    /name="is_founder"/,
+    'The form no longer posts an `is_founder` value, so setVendorFoundingSupplier ' +
+      'rejects every submission ("Invalid founding-supplier value") — a control that ' +
+      'renders and can never succeed.',
   );
 });
 

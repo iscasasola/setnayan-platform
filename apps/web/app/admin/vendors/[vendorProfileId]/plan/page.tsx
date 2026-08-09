@@ -4,7 +4,7 @@ import { ArrowLeft, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { setVendorTier } from '../../actions';
+import { setVendorTier, setVendorFoundingSupplier } from '../../actions';
 import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -15,7 +15,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ vendorProfileId: string }>;
-  searchParams: Promise<{ tier?: string }>;
+  searchParams: Promise<{ tier?: string; founding?: string }>;
 };
 
 /**
@@ -77,6 +77,23 @@ export default async function AdminVendorPlanPage({
 
   const isClaimed = vendor.user_id !== null;
   const tierSet = search?.tier ? asVendorTier(search.tier) : null;
+  const foundingSet =
+    search?.founding === 'granted' || search?.founding === 'removed'
+      ? search.founding
+      : null;
+
+  // Founding-supplier override, read SEPARATELY on purpose. A column named in a
+  // Supabase select that Postgres rejects takes the WHOLE select down and
+  // resolves `{ error }` rather than throwing — folding it into the main read
+  // above would turn any trouble with this one column into a 404 that also
+  // removes the tier form, the only door to Pro/Enterprise.
+  const { data: founderRow, error: founderErr } = await admin
+    .from('vendor_profiles')
+    .select('is_founder')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const isFounder =
+    (founderRow as { is_founder?: boolean | null } | null)?.is_founder === true;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -107,6 +124,13 @@ export default async function AdminVendorPlanPage({
       {tierSet !== null && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Tier set to <strong>{TIER_LABEL[tierSet]}</strong>.
+        </div>
+      )}
+
+      {foundingSet !== null && (
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+          ✓ Founding supplier{' '}
+          <strong>{foundingSet === 'granted' ? 'granted' : 'removed'}</strong>.
         </div>
       )}
 
@@ -186,6 +210,49 @@ export default async function AdminVendorPlanPage({
             })}.
           </p>
         </form>
+      </section>
+
+      {/* Founding supplier — the handle for `vendor_profiles.is_founder`. The
+          perk it unlocks has worked since 2026-06-09; until this form there was
+          no way for any business to receive it (one row, set by a hardcoded id
+          inside a migration). Deliberately separate from the tier form: it is
+          not a tier, it composes on top of one, and it moves no money. */}
+      <section className="mb-6 rounded-md border border-ink/10 bg-paper p-4">
+        <h2 className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
+          Founding supplier
+        </h2>
+        {founderErr ? (
+          // A failed read must NOT render as "No" — that is indistinguishable
+          // from a business that genuinely does not have it, and an admin would
+          // grant it a second time on the strength of a wrong answer.
+          <p className="text-xs text-warn-700">
+            Couldn&rsquo;t read the founding-supplier setting ({founderErr.message}).
+            Reload before changing it — the buttons are hidden so nothing is set from
+            an unknown starting point.
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-ink/60">
+              Current:{' '}
+              <span className="font-medium text-ink">
+                {isFounder ? 'Yes — founding supplier' : 'No'}
+              </span>
+              . A founding supplier may list under unlimited categories and add
+              unlimited services within each one, whatever their plan allows.
+              Everything else — billing, verification, visibility — is unchanged.
+            </p>
+            <form action={setVendorFoundingSupplier}>
+              <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="is_founder" value={isFounder ? 'off' : 'on'} />
+              <SubmitButton
+                className="button-secondary h-10 px-4 text-sm"
+                pendingLabel="Saving…"
+              >
+                {isFounder ? 'Remove founding supplier' : 'Mark as founding supplier'}
+              </SubmitButton>
+            </form>
+          </>
+        )}
       </section>
 
       {!isClaimed && (

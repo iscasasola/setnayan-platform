@@ -10,6 +10,7 @@ import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
 import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
+import { findSlugConflict } from '@/lib/slug-availability';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
@@ -104,11 +105,11 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
-  if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
+  if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
   // Logo gate reads the SHARED flag (client wizard reads the same one), so the
   // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.
   if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
   }
   // The address can never be renamed, so a bad one is permanent. Shape first,
   // then the reserved-word refusal: a reserved address is a DEAD address, not a
@@ -116,11 +117,37 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // BEFORE it looks for a vendor, so the shop would be unreachable forever with
   // no way out.
   if (chosenSlug && !VENDOR_SLUG_RE.test(chosenSlug)) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugShape));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugShape));
   }
   if (chosenSlug && isReservedSlug(chosenSlug)) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
   }
+  // ── ASK ALL FOUR NAMESPACES, NOT JUST OUR OWN TABLE ────────────────────────
+  // The UNIQUE index covers `vendor_profiles.business_slug` and nothing else.
+  // Weddings (`events.slug`), people (`users.slug`) and retired-but-still-
+  // FORWARDING addresses share the one namespace at `setnayan.com/{word}` — and
+  // `app/[slug]/page.tsx` resolves an EVENT BEFORE a vendor. So a shop that took
+  // a wedding's word would pass the unique index, be written, and then be
+  // permanently unreachable: its own page shadowed by the wedding, with no
+  // rename to escape through because the address is now immutable.
+  //
+  // This inherits the contract `lib/slug-handout-paths.test.ts` used to hold
+  // over the My Shop rename. The rename is gone (owner 2026-08-10); creation is
+  // now the ONLY path that hands out a shop address, so the check moved here
+  // with it rather than being deleted along with the path it guarded.
+  //
+  // Admin client because an anonymous or half-registered vendor cannot read the
+  // other three tables under RLS, and "free" from a denied read is the `count: 0`
+  // trap — an RLS denial and an empty result are the same value.
+  if (chosenSlug) {
+    const conflict = await findSlugConflict(createAdminClient(), chosenSlug);
+    // `unverified` = a probe we could not run. It is NOT proof the word is free,
+    // and this address can never be changed afterwards — so it fails closed.
+    if (conflict) {
+      redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
+    }
+  }
+
   // ── ACCEPT A LEAF *OR* A COARSE CATEGORY ───────────────────────────────────
   // The picker (owner 2026-08-09) posts a canonical LEAF; the flat select it
   // falls back to still posts a coarse category. Both are valid, and the leaf is
@@ -146,24 +173,26 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     }
   }
   if (!coarseService) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
-  // `&step=2` keeps a step-2 rejection ON step 2. Without it the wizard
-  // remounts at step 1 and silently discards all three step-2 values, because
-  // none of them have been written to the DB the `defaults` prop reads from.
+  // ── EVERY REJECTION NAMES THE STEP THAT OWNS THE FIELD (1–4) ──────────────
+  // Without it the wizard remounts at step 1 and silently discards everything
+  // typed on later steps, because none of it has been written to the DB the
+  // `defaults` prop reads from. With four steps the cost of getting this wrong
+  // quadrupled: a step-4 rejection landing on step 1 throws away three screens.
   // Needed even with the client gate, since the server rejects shapes the
   // client accepts (and any DB error redirects here too).
   if (!contactName)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
   if (!contactEmail)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
   const locationCity = clean(formData.get('location_city'), 64);
   // Required as of 2026-07-21: a city-less listing cannot be ranked, filtered
   // by couples, or given a screen-name namespace — it is invisible in practice.
   if (!locationCity)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
 
   // Event types the shop serves — the signal that makes a NON-wedding vendor
   // discoverable (the marketplace ?event_type= filter reads vendor_profiles.
@@ -205,9 +234,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services')
+    .select('vendor_profile_id, services, business_slug')
     .eq('user_id', user.id);
-  const owned = (ownedRows ?? []) as Array<{ vendor_profile_id: string; services?: string[] }>;
+  const owned = (ownedRows ?? []) as Array<{
+    vendor_profile_id: string;
+    services?: string[];
+    business_slug?: string | null;
+  }>;
   const existing = owned[0] ?? null;
   let vendorProfileId = existing?.vendor_profile_id ?? null;
   if (!vendorProfileId) {
@@ -281,7 +314,24 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // minting its own: `tg_vendor_profiles_generate_business_slug` returns early
   // when NEW.business_slug is already set. Guarded like the rest — a blank
   // must not null an address an existing shop already holds.
-  if (chosenSlug) patch.business_slug = chosenSlug;
+  // ⛔ AN ADDRESS IS WRITTEN ONCE AND NEVER MOVED (owner 2026-08-10, twice:
+  //    "slug cannot be renamed", "whatever they choose here will be permanent").
+  //
+  // The `existing?.business_slug` half is the load-bearing one. `chosenSlug`
+  // falls back to the SHOP NAME's slug when the form posts none — which is
+  // exactly what a re-run does, because the wizard renders the address
+  // read-only once a shop has one and submits no field. Without this check the
+  // fallback would quietly overwrite a live address with a fresh slug of the
+  // name: every printed QR, save-the-date and shared link pointing at the old
+  // one dies, silently, on a screen that promised the address was permanent.
+  //
+  // Unreachable through the UI today — `page.tsx` redirects any shop that has a
+  // business_name away from the wizard, and the slug trigger only fires on a
+  // named shop. But this is a server action reachable by direct POST, and
+  // "unreachable" has been wrong here before. The database trigger added in
+  // 20271125090000 is the real boundary; this is the polite refusal in front of
+  // it.
+  if (chosenSlug && !existing?.business_slug) patch.business_slug = chosenSlug;
   if (contactPosition) patch.business_owner_position = contactPosition;
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;

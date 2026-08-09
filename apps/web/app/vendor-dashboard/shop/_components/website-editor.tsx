@@ -170,10 +170,6 @@ export function WebsiteEditor({
     );
   }
 
-  // ── Pro: custom address (text + inline Save) ─────────────────────────────
-  const [slugVal, setSlugVal] = useState(slug ?? '');
-  const slugDirty = slugVal.trim() !== (slug ?? '').trim();
-
   // ── Pro: hero photo (grid · instant) ─────────────────────────────────────
   const [hero, setHero] = useState<string>(
     heroPhotoKey && portfolioPhotos.some((p) => p.key === heroPhotoKey) ? heroPhotoKey : '',
@@ -520,40 +516,12 @@ export function WebsiteEditor({
 
         {isPro ? (
           <div className="mt-3 space-y-5">
-            {/* Change your address. Every plan HOLDS one (minted from the shop
-                name); Pro is what lets you pick a different one. */}
-            <Row title="Change your address" tight>
-              <div
-                className="flex items-center rounded-lg border bg-white pl-2"
-                style={{ borderColor: 'var(--m-line)' }}
-              >
-                <span className="shrink-0 text-xs text-ink/45">{displayHost}/</span>
-                <input
-                  value={slugVal}
-                  onChange={(e) => setSlugVal(e.target.value)}
-                  placeholder="your-studio"
-                  pattern="[a-z0-9-]{3,32}"
-                  aria-label="Custom address"
-                  className="w-full border-0 bg-transparent py-2 pr-2 text-sm text-ink focus:outline-none"
-                />
-                <button
-                  type="button"
-                  disabled={!slugDirty}
-                  onClick={() =>
-                    dispatch('business_slug', [['business_slug', slugVal]], {
-                      successToast: 'Address saved.',
-                    })
-                  }
-                  className="my-1 mr-1 shrink-0 rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-40"
-                  style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-                >
-                  Save
-                </button>
-              </div>
-              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Lowercase letters, numbers, and hyphens (3–32).
-              </p>
-            </Row>
+            {/* ⛔ "Change your address" was the first Row here until 2026-08-10.
+                The address is chosen once at /open-shop and is PERMANENT on every
+                tier (owner, twice). Pro no longer buys the right to change it — it
+                buys the premium page below. Do not re-add: the server refuses the
+                field at its allowlist and the database refuses the UPDATE
+                (vendor_profiles_business_slug_immutable). */}
 
             {/* Hero photo */}
             <Row title="Hero photo" hint="tap to choose" tight>
@@ -658,11 +626,9 @@ export function WebsiteEditor({
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
-            {/* "Change your address", not "Custom address" — every plan already
-                HOLDS an address; Pro buys the right to pick a different one.
-                The old wording read as "no address without Pro", which was the
-                shipped defect this PR fixes. */}
-            {['Change your address', 'Hero photo', 'Pinned review', 'Featured editorials'].map(
+            {/* The address is NOT in this list. Every plan already holds one,
+                permanently — it was never a thing to sell (2026-08-10). */}
+            {['Hero photo', 'Pinned review', 'Featured editorials'].map(
               (t) => (
                 <li
                   key={t}

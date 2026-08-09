@@ -31,7 +31,6 @@ import {
   parseVideoRef,
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
-import { parseVendorSlug } from '@/lib/vendor-slug';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -43,16 +42,6 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
 function nonBlank(raw: FormDataEntryValue | null, max = 128): string {
   if (typeof raw !== 'string') return '';
   return raw.trim().slice(0, max);
-}
-
-/**
- * Shop address parsing moved to `lib/vendor-slug.ts` so the shape AND the
- * reserved-word refusal live in one place — the database's own generator
- * (`public.business_slug_is_reserved`, migration 20271117527966) refuses the
- * same words, and a reserved address is a dead address, not a shadowed route.
- */
-function parseSlug(raw: FormDataEntryValue | null): string | null {
-  return parseVendorSlug(raw);
 }
 
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
@@ -721,7 +710,14 @@ const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_sections',
   'microsite_featured_services',
   // PRO controls (gated on tierCaps.customWebsiteName).
-  'business_slug',
+  // ⛔ 'business_slug' lived here until 2026-08-10. The shop address is chosen
+  //    once at /open-shop and is PERMANENT on every tier (owner, twice).
+  //    🔑 IT IS REFUSED HERE, AT THE ALLOWLIST — NOT AT THE TIER GATE BELOW.
+  //    Removing it from PRO_WEBSITE_FIELDS alone would have handed the rename
+  //    to Free, Verified and Solo instead of taking it away: this Set decides
+  //    what may be edited at all, that one only decides who pays. The real
+  //    boundary is the database trigger vendor_profiles_business_slug_immutable
+  //    (20271124956492) — RLS lets a vendor PATCH this column directly.
   'microsite_hero_photo',
   'microsite_accent',
   'microsite_pinned_review',
@@ -739,9 +735,10 @@ const SOLO_WEBSITE_FIELDS = new Set([
   'microsite_accent',
 ]);
 
-/** PRO-gated website fields. Reuses the same cap the custom slug already uses. */
+/** PRO-gated website fields — the premium PAGE controls. Until 2026-08-10 the
+ *  custom slug was gated here too; the address is now permanent on every tier,
+ *  so this cap no longer has anything to do with the website's NAME. */
 const PRO_WEBSITE_FIELDS = new Set([
-  'business_slug',
   'microsite_hero_photo',
   'microsite_pinned_review',
   'microsite_featured_editorials',
@@ -834,7 +831,6 @@ export async function updateVendorWebsiteField(
   }
 
   // Slug edits change the public path — revalidate BOTH the old and the new.
-  let nextSlug = currentSlug;
 
   let patch: Record<string, unknown> = {};
   switch (field) {
@@ -863,33 +859,10 @@ export async function updateVendorWebsiteField(
       patch = { microsite_featured_service_ids: featured };
       break;
     }
-    case 'business_slug': {
-      let parsed: string | null;
-      try {
-        parsed = parseSlug(formData.get('business_slug'));
-      } catch (e) {
-        return { ok: false, error: (e as Error).message };
-      }
-      // 🔒 ASK ALL FOUR NAMESPACES, NOT JUST OUR OWN TABLE.
-      // `parseSlug` checks the shape and the reserved list and stops there, so
-      // until now a shop could take a word a wedding already held, a person
-      // already held, or — worst — one still FORWARDING from a rename, which
-      // sends every printed invitation carrying it to a stranger's business
-      // page. `findSlugConflict` runs on the admin client because an RLS denial
-      // and an empty read are the same value: "free" would otherwise only mean
-      // "invisible to you".
-      if (parsed) {
-        const conflict = await findSlugConflict(createAdminClient(), parsed, {
-          vendorProfileId: rowTyped?.vendor_profile_id ?? null,
-        });
-        if (conflict) {
-          return { ok: false, error: SLUG_CONFLICT_MESSAGE[conflict] };
-        }
-      }
-      patch = { business_slug: parsed };
-      nextSlug = parsed;
-      break;
-    }
+    // ⛔ case 'business_slug' was removed 2026-08-10 — the address is chosen
+    //    once and is permanent. Its careful four-namespace conflict check did
+    //    not go to waste: the same `findSlugConflict` now runs on the
+    //    /open-shop path, which is the only place an address is ever set.
     case 'microsite_hero_photo': {
       // Must be one of the vendor's own portfolio photos, or cleared.
       const raw = nullIfBlank(formData.get('microsite_hero_photo'));
@@ -956,16 +929,15 @@ export async function updateVendorWebsiteField(
     .eq('user_id', user.id);
   if (error) {
     // Surface the common slug-collision case with friendly copy.
-    if (field === 'business_slug' && /duplicate|unique/i.test(error.message)) {
-      return { ok: false, error: 'That address is taken — try another.' };
-    }
     return { ok: false, error: error.message };
   }
 
   revalidatePath('/vendor-dashboard/shop');
-  for (const s of new Set([currentSlug, nextSlug].filter(Boolean) as string[])) {
-    revalidatePath(`/v/${s}`);
-    revalidatePath(`/${s}`);
+  // One public path now, not two: the address cannot move, so there is no old
+  // one to also revalidate.
+  if (currentSlug) {
+    revalidatePath(`/v/${currentSlug}`);
+    revalidatePath(`/${currentSlug}`);
   }
   return { ok: true };
 }

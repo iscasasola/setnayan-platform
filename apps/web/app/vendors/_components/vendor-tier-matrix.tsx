@@ -168,7 +168,13 @@ function buildLimitsGroup(): Group {
       // the opposite of the merit-first ranking lock. Reviews are now shown on
       // every tier and there is nothing to compare, so the row is gone rather
       // than turned into a column of identical ticks. Do not re-add it.
-      row('Custom URL / slug', (c) => (c.customWebsiteName ? YES : NO)),
+      // ⛔ "Custom URL / slug" was a row here until 2026-08-10, and it became
+      // false the moment the address stopped being renameable (owner, twice:
+      // "whatever they choose here will be permanent"). Every shop picks its
+      // own address at /open-shop, on every tier — so this advertised a paid
+      // upgrade for something already free and now impossible to change.
+      // Same treatment as the reviews row above: removed, not turned into a
+      // column of identical ticks. Do not re-add it.
     ],
   };
 }

@@ -229,7 +229,25 @@ Source of truth: coded `apps/web/lib/vendor-tier-caps.ts` + DB `vendor_billing_c
 | nameMode | hidden¹ | **true** | true | true | true |
 | reviewCommentsViewable | no | no | no | **yes** | yes |
 | editorialTagged | no | no | no | yes (DEAD cap) | yes |
-| customWebsiteName (slug) | no | no | no | yes | yes |
+| customWebsiteName (premium page) | no | no | no | yes | yes |
+
+> ⛔ **The slug is no longer part of this cap (owner 2026-08-10).** The row above
+> read "customWebsiteName (slug)" until then. A shop's web address is now CHOSEN
+> once at `/open-shop` — on every tier, free — and is **permanent**: it cannot be
+> renamed afterwards by any tier, and the database refuses the UPDATE
+> (`vendor_profiles_business_slug_immutable`). Owner, twice: *"slug cannot be
+> renamed so they need to pick their preferred slug"* → *"they can rename it
+> during creation so they can check which is available. but whatever they choose
+> here will be permanent."*
+>
+> **What Pro lost:** the ability to change the shop address. Owner, on being shown
+> the trade: *"no, that is fine. we added a lot recently for pro as well."*
+> **What the cap still buys:** the premium 2-column public page, the hero photo,
+> the pinned review and the featured editorials. It was NOT flipped on for lower
+> tiers — that would have handed away all four.
+>
+> The public tier matrix row "Custom URL / slug" is removed with it: it was false
+> three ways — free, on every tier, and impossible to change.
 | marketplaceSearchable | no (gate DORMANT)² | yes | yes | yes | yes |
 
 ¹ **"Open it up" lock (2026-07-22): the name paywall is retired.** Verified was `'screen'` (anonymized until first chat reply/upgrade) → now `'true'`. `free` keeps `'hidden'` as the *tier* default, but the EFFECTIVE reveal for a real verified vendor no longer keys on tier at all: `resolveVendorDisplayName`/`isVendorNameRevealed` reveal when `verification_state='verified'` (the new `is_verified` input), on ANY tier — because a verified vendor on the free plan carries `tier_state='free'` (verification never bumps tier_state). Unverified vendors (is_verified false) still show the placeholder, so the de-gate can't over-expose them even where a surface's query isn't verification-gated.

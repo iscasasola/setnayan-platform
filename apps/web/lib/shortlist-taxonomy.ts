@@ -26,7 +26,10 @@
  */
 
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
-import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
+import {
+  primaryTileForVendorCategory,
+  tilesForVendorCategory,
+} from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import {
   WEDDING_FOLDER_ORDER,
@@ -145,6 +148,20 @@ const TILE_TO_CATEGORY: Partial<Record<WeddingTile, VendorCategory>> = (() => {
     // out of Budget entirely. See the invariant above.
     if (!planGroupForCategory(cat as VendorCategory)) continue;
     m[tile] = cat as VendorCategory;
+  }
+  // ALIAS PASS. `CATEGORY_TO_TILE` is single-valued, so a category whose
+  // canonical anchor is `kind: 'tiles'` (an ALIAS spanning several tier-2
+  // tiles — `guest_booth` covers seven) only ever claimed its FIRST tile
+  // above, and the other six fell through to 'misc'. Walk the FULL inverse
+  // and give every still-unclaimed tile its bucketable category. Same
+  // invariant as the pass above: only plan-group-claimed categories, and
+  // first-writer-wins so nothing already placed is re-pointed.
+  for (const cat of VENDOR_CATEGORIES) {
+    if (!planGroupForCategory(cat)) continue;
+    for (const tile of tilesForVendorCategory(cat)) {
+      if (tile in m) continue;
+      m[tile] = cat;
+    }
   }
   return m;
 })();

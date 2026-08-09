@@ -23,3 +23,25 @@ Owner, 2026-08-09: *"fix the taxonomy if needed. we do not like having categorie
 Compile-time drift protection did its share too: `VendorCategory` feeds three exhaustive `Record<VendorCategory, …>` maps (label · icon · canonical tile), so TypeScript refuses to let a new category be half-added.
 
 SPEC IMPACT: `Vendor_Onboarding_Redesign_Verdict_2026-07-21.md` — the "wrong-canonical landing fails SILENTLY" risk it names is now partly closed: a service can no longer land in a bucket that means nothing. `DECISION_LOG.md` row added.
+
+### Follow-up in the same PR — CI refused the first cut, correctly
+
+The `typecheck + lint` job went red on two independent counts, and both were the change being **half done**:
+
+**1 · A new category with no planning card is swept into "Logistics & Misc".** `shortlist-taxonomy-coverage.test.ts` asserts that every unbucketable `vendor_category` is one of the 14 known gap leaves. `wellness_fitness` and `guest_booth` were not, so picks under them would have landed in the catch-all — **the exact outcome the owner rejected**, arriving through a different door. The guard was right to stop it.
+
+`GAP_LEAF_PARENT` was considered and **rejected for both**: it is the *declaration* that a category is deliberately swept into Logistics & Misc, so taking that route would have satisfied the test by conceding the point. It also could not have worked for `guest_booth` — a gap leaf must be a live tier-2 tile whose id equals the category name, and `guest_booth` is an alias spanning seven tiles. **Both 14-entry tables are untouched.**
+
+Two real plan groups instead:
+- **Wellness & fitness** — Big-bookings tier, 6 months out (derma and dental courses run 3–6 months before the first fitting), `catalogTile: 'wellness_fitness'`. NOT folded into Hair & Makeup: the tile bridge is first-writer-wins, so a bridal spa would have silently rendered under the HMUA tile.
+- **Guest booths & activities** — Extras tier, 3 months out, sitting beside the existing Cocktail Booths and Photobooth cards. **Deliberately no `catalogTile`** — the category is an alias over seven tiles and pinning one would re-file the other six onto it.
+
+🪤 **A `countsTowardLockable: false` variant was drafted and dropped.** It would have rendered a Lock button (`bench-card-actions.ts` keys on `planGroupForCategory`) while `countUnlockedCategories` skipped the group in both numerator and denominator — a control that moves nothing. It was also a regression on today: a wellness vendor currently stores `misc`, buckets into `logistics`, and counts. Both variants compiled and passed identically, so **CI could not have caught this** — it was a judgement call, and the honest answer is to count them.
+
+**2 · An unrelated hard-coded count.** The same file pinned `VENDOR_CATEGORIES.length === 45`; the enum is now 47. Its own message says "re-derive the contract before editing this number" — done, the two new values are the ones above.
+
+**Also fixed while in there: the inverse tile bridge was single-valued.** `CATEGORY_TO_TILE` maps one tile per category, so an alias category only ever claimed its FIRST tile and the rest fell to `misc` — meaning the new card's own hint advertised six activities while five of them still stored `misc`. An alias pass now walks the full inverse. Measured: couple-side tiles resolving to `misc` drop **45 → 34 of 71**, and all seven booth tiles flip to `guest_booth`.
+
+⏭ **Those remaining 34 are pre-existing and NOT closed here** — they are categories with no planning card (choreographer, performers, av_production, the 14 gap leaves and friends). Closing them means adding ~11 planning cards to every couple's wedding plan, which is an owner product decision, not a taxonomy repair. The **vendor** side, which is what this PR is about, is now **0 of 246**.
+
+Verified: 7191/7191 unit tests · 6/6 the new db guard · 19/19 the two files that were red · all 20 `lint-*.mjs`. Mutation-checked independently of the workflow that proposed it — deleting the `guest_booth` plan group turns `shortlist-taxonomy-coverage.test.ts` red and restoring it turns it green.

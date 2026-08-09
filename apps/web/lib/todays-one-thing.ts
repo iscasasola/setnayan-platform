@@ -104,6 +104,10 @@ export type ResolvedTask = {
  * aware, planner-tone, no jargon, no marketing fluff.
  */
 const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
+  wellness_fitness:
+    'Skin, teeth and fitness plans need months, not weeks — derma courses and dental work run 3-6 months before the first fitting.',
+  guest_booth:
+    'Booths are what guests actually remember — the queue at the henna table is the photo everyone posts. Book once your headcount is roughly known.',
   reception_venue:
     'The first domino — everything downstream waits on this. Your coordinator, caterer, and photographer all key off where your reception lives.',
   ceremony_venue:
@@ -166,6 +170,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
  * "explore" / "find" maps cleanly to the deep-link destination.
  */
 const CTA_LABEL: Record<PlanGroupId, string> = {
+  wellness_fitness: 'Browse wellness & fitness',
+  guest_booth: 'Browse guest booths',
   reception_venue: 'Browse reception venues',
   ceremony_venue: 'Browse ceremony venues',
   coordinator: 'Browse coordinators',
@@ -201,6 +207,8 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
  * "Lock your reception venue" rather than just "Reception venue".
  */
 const ACTION_TITLE: Record<PlanGroupId, string> = {
+  wellness_fitness: 'Start your wellness plan',
+  guest_booth: 'Add your guest booths',
   reception_venue: 'Lock your reception venue',
   ceremony_venue: 'Lock your ceremony venue',
   coordinator: 'Lock your coordinator',

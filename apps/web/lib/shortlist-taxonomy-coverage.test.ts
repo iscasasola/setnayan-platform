@@ -65,7 +65,7 @@ const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
 test('every VendorCategory bridges to a tile (no considered pick is ever dropped)', () => {
   assert.equal(
     VENDOR_CATEGORIES.length,
-    45,
+    47,
     'enum size changed — re-derive the contract before editing this number',
   );
   for (const c of VENDOR_CATEGORIES) {

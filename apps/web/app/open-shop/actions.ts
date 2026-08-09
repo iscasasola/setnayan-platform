@@ -89,6 +89,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
   const contactName = clean(formData.get('contact_name'));
+  const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
@@ -251,8 +252,23 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // unconditional `logo_url: logoUrl` would NULL an existing logo whenever the
   // wizard is re-run (mode 'complete') without re-uploading — breaking this
   // module's own "blanks never clobber" contract and losing vendor data.
+  // Optional and guarded the same way: a blank must not wipe a position an
+  // existing shop already set when the wizard is re-run.
+  if (contactPosition) patch.business_owner_position = contactPosition;
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
+  // ── The dropped pin, when there is one (owner 2026-08-10) ──────────────────
+  // Guarded like the two above: the wizard only posts these when the vendor
+  // actually placed a pin, and an absent pair must never NULL coordinates an
+  // admin already set — this action's "blanks never clobber" contract.
+  // Parsed and range-checked here rather than trusted: they arrive from a form,
+  // and a NaN would be written straight into a numeric column.
+  const lat = Number(formData.get('hq_latitude'));
+  const lng = Number(formData.get('hq_longitude'));
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    patch.hq_latitude = lat;
+    patch.hq_longitude = lng;
+  }
   const { error: updErr } = await admin
     .from('vendor_profiles')
     .update(patch)

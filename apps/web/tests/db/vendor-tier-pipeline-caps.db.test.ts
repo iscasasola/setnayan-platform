@@ -32,6 +32,11 @@ let db: ReplayResult['db'];
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // Run on the clock prod and CI actually use. Nothing here casts a timestamptz
+  // to a date (the whitelist cap compares events.event_date, a DATE, against a
+  // DATE), but the sibling PR the same day shipped a fix that was inert in prod
+  // for exactly that reason and was green on a +08 laptop. Pin it and be sure.
+  await db.query(`SET TIME ZONE 'UTC'`);
 });
 
 after(async () => {

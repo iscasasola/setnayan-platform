@@ -113,7 +113,13 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/vendor-search-gate.ts', ['VENDOR_TIER_SEARCH_GATE']],
   ['lib/vendor-seo-tier-flag.ts', ['NEXT_PUBLIC_VENDOR_SEO_TIER_GATE']],
   ['lib/verified-median-flag.ts', ['NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED']],
+  // ⚠ A PAIR. page.tsx decides whether the "Get a new QR" button is OFFERED;
+  // rotate-qr-actions.ts decides whether pressing it WORKS. Converting one and
+  // not the other showed the offer and then refused it as 'disabled', which the
+  // hub renders as "Something went wrong". The sweep below now enforces this
+  // for every registered flag, not just this one.
   ['app/[slug]/page.tsx', ['GUEST_QR_SELF_ROTATE']],
+  ['app/[slug]/rotate-qr-actions.ts', ['GUEST_QR_SELF_ROTATE']],
   [
     'app/_components/desktop-oauth-buttons.tsx',
     ['NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED', 'NEXT_PUBLIC_OAUTH_APPLE_ENABLED', 'NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED'],
@@ -191,6 +197,240 @@ test('the deliberate holdouts stay strict, and still say why', () => {
       `${rel} must keep the one-line note saying why ${env} was left strict.`,
     );
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE HALF-PAIR SWEEP (2026-08-09)
+//
+// The two registries above are hand-written lists, and a hand-written list only
+// pins the sites somebody REMEMBERED. `GUEST_QR_SELF_ROTATE` proved the gap:
+// `app/[slug]/page.tsx` was converted and listed, while
+// `app/[slug]/rotate-qr-actions.ts` — the action that actually rotates the QR —
+// kept `=== 'true'` and was in NEITHER registry, so nothing noticed. With the
+// flag set to `TRUE`, a guest whose invitation QR had leaked was offered a new
+// one, confirmed, and got "Something went wrong".
+//
+// So this sweep stops trusting the list and asks the REPO instead: for every
+// flag either registry names, find EVERY reader of it anywhere under apps/web
+// and require them all to agree.
+//
+//   registered as CONVERTED   ⇒ every reader must go through envFlagEnabled
+//   registered as HELD_STRICT ⇒ every reader must stay a literal comparison
+//
+// Both directions matter. A flag that is lenient in one file and strict in
+// another is a split brain whichever way round it is: one half of the product
+// believes the feature is on and the other half believes it is off, and neither
+// logs anything.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Directories that are not source. */
+const SKIP_DIRS = new Set(['node_modules', '.next', '.turbo', 'dist', 'coverage', '.git']);
+const SOURCE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+
+function walkSource(root: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const abs = join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRS.has(entry.name)) walkSource(abs, out);
+      continue;
+    }
+    if (!entry.isFile() || !SOURCE_EXT.test(entry.name)) continue;
+    // Test files legitimately ASSIGN and DELETE these env vars to exercise the
+    // parser (`process.env.X = 'TRUE'`), which is not a reader and must not be
+    // mistaken for one. Known blind spot, stated rather than hidden: a strict
+    // READ inside a test file would not be caught — no test file gates a
+    // feature, so nothing a user can reach depends on one.
+    if (/\.test\.(ts|tsx|js|jsx|mjs|cjs)$/.test(entry.name)) continue;
+    out.push(abs);
+  }
+  return out;
+}
+
+/**
+ * Source with comments removed — a proper block-comment state machine, not a
+ * line filter. Every file in this repo explains its flag in a docblock directly
+ * above the line that reads it, so a whole-file grep would match the PROSE and
+ * pass on its own justification. This is the difference between a guard and a
+ * decoration.
+ *
+ * Returns 1-indexed lines so a failure can name the offending line.
+ */
+function codeLines(src: string): Array<{ n: number; text: string }> {
+  const out: Array<{ n: number; text: string }> = [];
+  let inBlock = false;
+  src.split('\n').forEach((raw, i) => {
+    let line = raw;
+    if (inBlock) {
+      const close = line.indexOf('*/');
+      if (close === -1) {
+        out.push({ n: i + 1, text: '' });
+        return;
+      }
+      line = line.slice(close + 2);
+      inBlock = false;
+    }
+    line = line.replace(/\/\*.*?\*\//g, ' ');
+    const open = line.indexOf('/*');
+    if (open !== -1) {
+      line = line.slice(0, open);
+      inBlock = true;
+    }
+    // Trailing `//` comment — but never the `//` in a `https://` URL.
+    const lineComment = line.search(/(^|[^:])\/\//);
+    if (lineComment !== -1) line = line.slice(0, line.indexOf('//', lineComment));
+    out.push({ n: i + 1, text: line });
+  });
+  return out;
+}
+
+/**
+ * `process.env.FLAG` NOT followed by another identifier character — so
+ * `NEXT_PUBLIC_SUITE` cannot match `NEXT_PUBLIC_SUITE_BETA`. A prefix match is
+ * how a guard ends up quietly reporting on the wrong symbol.
+ */
+function readsOf(text: string, flag: string): number {
+  return text.match(new RegExp(`process\\.env\\.${flag}(?![A-Za-z0-9_])`, 'g'))?.length ?? 0;
+}
+
+const CONVERTED_FLAGS = [...new Set(CONVERTED.flatMap(([, envs]) => envs))].sort();
+const HELD_STRICT_FLAGS = [...new Set(HELD_STRICT.map(([, env]) => env))].sort();
+
+type Reader = { rel: string; n: number; text: string };
+
+function collectReaders(flags: readonly string[]): Map<string, Reader[]> {
+  const found = new Map<string, Reader[]>(flags.map((f) => [f, []]));
+  for (const abs of walkSource(WEB)) {
+    const src = readFileSync(abs, 'utf8');
+    // Cheap pre-filter — most files mention none of these.
+    if (!flags.some((f) => src.includes(f))) continue;
+    const rel = abs.slice(WEB.length + 1);
+    for (const { n, text } of codeLines(src)) {
+      for (const flag of flags) {
+        if (readsOf(text, flag) > 0) found.get(flag)!.push({ rel, n, text: text.trim() });
+      }
+    }
+  }
+  return found;
+}
+
+test('every reader of a CONVERTED flag goes through the shared parser — no half-pairs', () => {
+  const readers = collectReaders(CONVERTED_FLAGS);
+  const offenders: string[] = [];
+  const unread: string[] = [];
+
+  for (const flag of CONVERTED_FLAGS) {
+    const sites = readers.get(flag)!;
+    // A flag with zero readers means the sweep matched NOTHING for it — a
+    // renamed file or a broken matcher — and a loop over an empty list passes
+    // for free. Fail instead: silence here is the failure mode this whole test
+    // exists to stop.
+    if (sites.length === 0) {
+      unread.push(flag);
+      continue;
+    }
+    for (const site of sites) {
+      const lenient = (
+        site.text.match(new RegExp(`envFlagEnabled\\(process\\.env\\.${flag}(?![A-Za-z0-9_])`, 'g'))
+          ?? []
+      ).length;
+      if (lenient < readsOf(site.text, flag)) {
+        offenders.push(`${site.rel}:${site.n} — ${flag} — ${site.text}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    unread,
+    [],
+    'these registered flags have no reader under apps/web at all — either the ' +
+      'feature was deleted (drop the registry row) or the sweep stopped seeing ' +
+      'it, in which case it is guarding nothing:\n' + unread.join('\n'),
+  );
+  assert.deepEqual(
+    offenders,
+    [],
+    'these read a CONVERTED flag WITHOUT the shared parser, so typing TRUE / 1 / ' +
+      'yes / on turns the feature on for the sites that were converted and leaves ' +
+      'it off here — one half of the product offering what the other half refuses:\n' +
+      offenders.join('\n'),
+  );
+});
+
+test('every reader of a HELD_STRICT flag stays strict — the hold has no leak either', () => {
+  const readers = collectReaders(HELD_STRICT_FLAGS);
+  const offenders: string[] = [];
+  const unread: string[] = [];
+
+  for (const flag of HELD_STRICT_FLAGS) {
+    const sites = readers.get(flag)!;
+    if (sites.length === 0) {
+      unread.push(flag);
+      continue;
+    }
+    for (const site of sites) {
+      const strict = (
+        site.text.match(
+          new RegExp(`process\\.env\\.${flag}(?![A-Za-z0-9_])\\s*[!=]==\\s*'true'`, 'g'),
+        ) ?? []
+      ).length;
+      if (strict < readsOf(site.text, flag)) {
+        offenders.push(`${site.rel}:${site.n} — ${flag} — ${site.text}`);
+      }
+    }
+  }
+
+  assert.deepEqual(unread, [], `held-strict flags with no reader at all:\n${unread.join('\n')}`);
+  assert.deepEqual(
+    offenders,
+    [],
+    'these widen a flag that is deliberately held strict. Each HELD_STRICT flag ' +
+      'gates a compliance or owner decision (DPO sign-off, CSAM enrolment, the ' +
+      'full-res sweep), so widening what counts as ON is that decision being made ' +
+      'by a find-and-replace:\n' + offenders.join('\n'),
+  );
+});
+
+/**
+ * SCOPE CONTROL for the two sweeps above — a test of the guard's own machinery.
+ *
+ * The sweeps are only worth anything if `codeLines` really removes comments and
+ * `readsOf` really refuses a prefix. If either quietly stopped working, both
+ * sweeps would go green over a repo full of violations and look identical to a
+ * clean one. So assert the machinery directly, on a fixture, rather than
+ * trusting it.
+ */
+test('the sweep machinery: comments are removed, prefixes are not matched', () => {
+  const fixture = [
+    "// process.env.NEXT_PUBLIC_SUITE === 'true'   ← a line comment",
+    '/**',
+    " * Docblock: this used to read process.env.NEXT_PUBLIC_SUITE === 'true'.",
+    ' */',
+    "const real = process.env.NEXT_PUBLIC_SUITE === 'true';",
+    "const trailing = 1; // process.env.NEXT_PUBLIC_SUITE === 'true'",
+    "const longer = process.env.NEXT_PUBLIC_SUITE_BETA === 'true';",
+    "const url = 'https://example.test/a'; // not a comment before the ://",
+    "/* inline */ const inline = process.env.NEXT_PUBLIC_SUITE === 'true';",
+  ].join('\n');
+
+  const lines = codeLines(fixture);
+  assert.equal(lines.length, 9, 'line numbering must survive comment stripping');
+
+  const hits = lines.filter((l) => readsOf(l.text, 'NEXT_PUBLIC_SUITE') > 0).map((l) => l.n);
+  // Only the three REAL reads (lines 5 and 9) survive; the comment on line 6
+  // does not, the docblock on lines 2-4 does not, and line 7 is a different
+  // variable whose name merely starts with the one we asked about.
+  assert.deepEqual(hits, [5, 9], 'exactly the executable reads must be seen');
+
+  assert.equal(readsOf("process.env.NEXT_PUBLIC_SUITE_BETA === 'true'", 'NEXT_PUBLIC_SUITE'), 0);
+  assert.equal(readsOf("process.env.NEXT_PUBLIC_SUITE === 'true'", 'NEXT_PUBLIC_SUITE'), 1);
+  // The URL line must not be truncated at its `//`, or the stripper would be
+  // deleting real code and hiding violations behind it.
+  assert.ok(lines[7]!.text.includes('https://example.test/a'));
+});
+
+test('no flag is registered as BOTH converted and held strict', () => {
+  const both = CONVERTED_FLAGS.filter((f) => HELD_STRICT_FLAGS.includes(f));
+  assert.deepEqual(both, [], `contradictory registry rows for: ${both.join(', ')}`);
 });
 
 /**

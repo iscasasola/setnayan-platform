@@ -7,6 +7,7 @@ import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/rate-limit';
 import { emitNotification } from '@/lib/notification-emit';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * Guest QR self-rotation (build ④ · owner-signed 2026-07-23: rotation
@@ -19,6 +20,16 @@ import { emitNotification } from '@/lib/notification-emit';
  *
  * FLAG: GUEST_QR_SELF_ROTATE (default OFF) — while off this action is inert
  * and the hub button never renders.
+ *
+ * ⚠ THIS READ AND THE ONE IN app/[slug]/page.tsx ARE A PAIR AND MUST AGREE.
+ * page.tsx decides whether "Lost your QR? Get a new one" is OFFERED; this
+ * decides whether pressing it WORKS. On 2026-08-09 they disagreed: page.tsx
+ * had been widened to the shared reader while this line still demanded the
+ * literal string 'true', so with GUEST_QR_SELF_ROTATE=TRUE a guest whose
+ * invitation QR had leaked was shown the offer, typed ROTATE to confirm, and
+ * got "Something went wrong" — the 'disabled' refusal renders as the generic
+ * error. Both halves now read through lib/env-flag.ts, and
+ * lib/env-flag.test.ts sweeps the repo for any third reader that disagrees.
  *
  * POSSESSION CHECK (always on, independent of GUEST_SESSION_TOKEN_CHECK):
  * the session's embedded qr_token must equal the guest row's CURRENT
@@ -42,7 +53,7 @@ type RotateRpcResult = {
 };
 
 export async function rotateMyGuestQr(slug: string): Promise<SelfRotateResult> {
-  if (process.env.GUEST_QR_SELF_ROTATE !== 'true') {
+  if (!envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)) {
     return { ok: false, reason: 'disabled' };
   }
 

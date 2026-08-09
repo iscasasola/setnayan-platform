@@ -8,6 +8,9 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
+import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
+import { isReservedSlug } from '@/lib/reserved-slugs';
+import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
   OPEN_SHOP_EMAIL_RE,
@@ -88,7 +91,17 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const shopName = clean(formData.get('shop_name'));
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
+  // ── THE ADDRESS IS CHOSEN, NOT MINTED (owner 2026-08-10: "slug cannot be
+  //    renamed so they need to pick their preferred slug") ─────────────────
+  // Normalised through the SAME mirror the wizard previewed with, so what the
+  // vendor read on screen is what the column receives. Falls back to the shop
+  // name's own slug when the field arrives blank — an empty address is not a
+  // choice, and the database would mint one anyway.
+  const chosenSlug =
+    clipBusinessSlug(slugifyBusinessName(clean(formData.get('business_slug'), 32))) ??
+    clipBusinessSlug(slugifyBusinessName(shopName));
   const contactName = clean(formData.get('contact_name'));
+  const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
@@ -96,6 +109,17 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.
   if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl) {
     redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
+  }
+  // The address can never be renamed, so a bad one is permanent. Shape first,
+  // then the reserved-word refusal: a reserved address is a DEAD address, not a
+  // shadowed route — `app/[slug]/page.tsx` answers notFound() for reserved words
+  // BEFORE it looks for a vendor, so the shop would be unreachable forever with
+  // no way out.
+  if (chosenSlug && !VENDOR_SLUG_RE.test(chosenSlug)) {
+    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugShape));
+  }
+  if (chosenSlug && isReservedSlug(chosenSlug)) {
+    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
   }
   // ── ACCEPT A LEAF *OR* A COARSE CATEGORY ───────────────────────────────────
   // The picker (owner 2026-08-09) posts a canonical LEAF; the flat select it
@@ -251,14 +275,43 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // unconditional `logo_url: logoUrl` would NULL an existing logo whenever the
   // wizard is re-run (mode 'complete') without re-uploading — breaking this
   // module's own "blanks never clobber" contract and losing vendor data.
+  // Optional and guarded the same way: a blank must not wipe a position an
+  // existing shop already set when the wizard is re-run.
+  // Written ALONGSIDE business_name, which is what stops the database trigger
+  // minting its own: `tg_vendor_profiles_generate_business_slug` returns early
+  // when NEW.business_slug is already set. Guarded like the rest — a blank
+  // must not null an address an existing shop already holds.
+  if (chosenSlug) patch.business_slug = chosenSlug;
+  if (contactPosition) patch.business_owner_position = contactPosition;
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
+  // ── The dropped pin, when there is one (owner 2026-08-10) ──────────────────
+  // Guarded like the two above: the wizard only posts these when the vendor
+  // actually placed a pin, and an absent pair must never NULL coordinates an
+  // admin already set — this action's "blanks never clobber" contract.
+  // Parsed and range-checked here rather than trusted: they arrive from a form,
+  // and a NaN would be written straight into a numeric column.
+  const lat = Number(formData.get('hq_latitude'));
+  const lng = Number(formData.get('hq_longitude'));
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    patch.hq_latitude = lat;
+    patch.hq_longitude = lng;
+  }
   const { error: updErr } = await admin
     .from('vendor_profiles')
     .update(patch)
     .eq('vendor_profile_id', vendorProfileId);
   if (updErr) {
-    redirect(`/open-shop?error=${encodeURIComponent(updErr.message)}`);
+    // A lost race on the address is the ONE failure here a vendor can fix
+    // themselves, and the raw Postgres text ("duplicate key value violates
+    // unique constraint …") tells them nothing. Availability was checked while
+    // they typed, so this only fires when someone claimed it in between.
+    const dup =
+      updErr.code === '23505' || /duplicate key|unique constraint/i.test(updErr.message ?? '');
+    redirect(
+      '/open-shop?error=' +
+        encodeURIComponent(dup ? OPEN_SHOP_ERRORS.slugTaken : updErr.message),
+    );
   }
 
   revalidatePath('/vendor-dashboard');

@@ -12,6 +12,7 @@ import {
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { AddressPreview } from './address-preview';
+import { CityPin } from './city-pin';
 import {
   ServicePicker,
   type PickerParentView,
@@ -52,6 +53,7 @@ export function OpenShopWizard({
   serviceLabels,
   serviceTree = [],
   savedServiceLabel = null,
+  existingSlug = null,
   eventTypeOptions,
   vendorProfileId,
   logoDisplayMap,
@@ -68,6 +70,9 @@ export function OpenShopWizard({
   serviceTree?: PickerParentView[];
   /** Display name for an already-saved pick, so a re-run shows a NAME. */
   savedServiceLabel?: string | null;
+  /** The address this shop ALREADY holds. Present = it is settled and cannot
+   *  be changed (owner 2026-08-10), so the picker renders read-only. */
+  existingSlug?: string | null;
   /** The event types a vendor can serve (admin-driven roster). */
   eventTypeOptions: { key: string; label: string; emoji: string }[];
   /** Owned shop id (null before the row exists) — scopes the logo R2 prefix. */
@@ -81,6 +86,7 @@ export function OpenShopWizard({
     eventTypes: string[];
     locationCity: string;
     contactName: string;
+    contactPosition: string;
     contactPhone: string;
     contactEmail: string;
   };
@@ -203,6 +209,53 @@ export function OpenShopWizard({
         <form action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
           {/* Step 1 — always mounted so values survive step switches. */}
           <div className={step === 1 ? 'space-y-4' : 'hidden'}>
+            <div className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Shop logo
+                {OPEN_SHOP_LOGO_REQUIRED ? (
+                  <span className="ml-1 text-terracotta">*</span>
+                ) : (
+                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                    optional
+                  </span>
+                )}
+              </span>
+              <FileUpload
+                bucket="media"
+                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
+                name="logo_url"
+                currentValue={logoUrl || null}
+                initialDisplayUrls={logoDisplayMap ?? {}}
+                onChange={(v) =>
+                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
+                }
+                maxSizeMB={10}
+                compressImage
+                acceptedTypes={[
+                  'image/png',
+                  'image/jpeg',
+                  'image/webp',
+                  'image/heic',
+                  'image/heif',
+                ]}
+                variant="square"
+                qrGuard
+              />
+              {/* ⚠ This used to end "…you'll need it to publish your shop and to
+                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
+                  such control for them anywhere, and approval is what makes a
+                  shop public. It was the last survivor of the same false idea
+                  removed from the two QR surfaces on 2026-08-09; a sweep for
+                  "publish your profile/page" missed it because this one says
+                  "publish your SHOP". Getting verified is the true and only
+                  reason the logo is required — it is one of the business-profile
+                  fields, and the profile must be complete before documents can
+                  be submitted. */}
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Needed before your shop is approved — add it now or later.
+              </span>
+            </div>
+
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Shop name<span className="ml-1 text-terracotta">*</span>
@@ -220,7 +273,7 @@ export function OpenShopWizard({
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,
                   because a save-the-date already points at it. */}
-              <AddressPreview shopName={shopName} />
+              <AddressPreview shopName={shopName} existingSlug={existingSlug} />
             </label>
 
             <div className="block space-y-1.5">
@@ -331,53 +384,6 @@ export function OpenShopWizard({
               </span>
             </div>
 
-            <div className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Shop logo
-                {OPEN_SHOP_LOGO_REQUIRED ? (
-                  <span className="ml-1 text-terracotta">*</span>
-                ) : (
-                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    optional
-                  </span>
-                )}
-              </span>
-              <FileUpload
-                bucket="media"
-                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
-                name="logo_url"
-                currentValue={logoUrl || null}
-                initialDisplayUrls={logoDisplayMap ?? {}}
-                onChange={(v) =>
-                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
-                }
-                maxSizeMB={10}
-                compressImage
-                acceptedTypes={[
-                  'image/png',
-                  'image/jpeg',
-                  'image/webp',
-                  'image/heic',
-                  'image/heif',
-                ]}
-                variant="square"
-                qrGuard
-              />
-              {/* ⚠ This used to end "…you'll need it to publish your shop and to
-                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
-                  such control for them anywhere, and approval is what makes a
-                  shop public. It was the last survivor of the same false idea
-                  removed from the two QR surfaces on 2026-08-09; a sweep for
-                  "publish your profile/page" missed it because this one says
-                  "publish your SHOP". Getting verified is the true and only
-                  reason the logo is required — it is one of the business-profile
-                  fields, and the profile must be complete before documents can
-                  be submitted. */}
-              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Needed before your shop is approved — add it now or later.
-              </span>
-            </div>
-
             <button
               type="button"
               onClick={next}
@@ -392,13 +398,36 @@ export function OpenShopWizard({
           <div className={step === 2 ? 'space-y-4' : 'hidden'}>
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Owner name<span className="ml-1 text-terracotta">*</span>
+                Your name<span className="ml-1 text-terracotta">*</span>
               </span>
               <input
                 name="contact_name"
                 defaultValue={defaults.contactName}
                 maxLength={128}
                 placeholder="e.g. Ana Reyes"
+                className="input-field"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Your position
+                <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                  optional
+                </span>
+              </span>
+              {/* Owner 2026-08-10: "just text box so we know what their position
+                  is." Free text, not a dropdown — no canonical list of PH
+                  small-business roles covers the real answers, and a picker here
+                  would refuse the true one to keep the data tidy. Optional: no
+                  existing shop has one, so requiring it would block every
+                  returning vendor on a field that did not exist when they
+                  registered. */}
+              <input
+                name="contact_position"
+                defaultValue={defaults.contactPosition}
+                maxLength={64}
+                placeholder="e.g. Owner"
                 className="input-field"
               />
             </label>
@@ -432,18 +461,17 @@ export function OpenShopWizard({
               />
             </label>
 
-            <label className="block space-y-1">
+            <div className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                City<span className="ml-1 text-terracotta">*</span>
+                Where you are<span className="ml-1 text-terracotta">*</span>
               </span>
-              <input
-                name="location_city"
-                defaultValue={defaults.locationCity}
-                maxLength={64}
-                placeholder="Quezon City"
-                className="input-field"
-              />
-            </label>
+              {/* Owner 2026-08-10: "city should be the exact map location. which
+                  will provide their city." Free text is how a marketplace ends
+                  up with "QC", "Quezon city" and "Q.C." as three places. The pin
+                  writes the city; the field stays editable so a rural pin that
+                  resolves to a province can be corrected. */}
+              <CityPin defaultCity={defaults.locationCity} />
+            </div>
 
             <div className="flex items-center gap-2">
               <button

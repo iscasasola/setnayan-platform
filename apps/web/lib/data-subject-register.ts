@@ -157,7 +157,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
     purpose:
       'Let someone standing at the party top up the shared shot pool or reload the camera in their hand, and let an admin match their payment to the right order before any shots are granted.',
     retention:
-      'Held with the payment record, and NO code deletes it. The only retention sweep in the app (chat, 5 years — lib/retention-sweep.ts) expressly skips any event carrying an order, on the 10-year BIR books-of-account floor, so the order, the receipt and the uploaded screenshot outlive the event by design. The shots they buy follow the ordinary Papic media rule (lib/papic-fullres-drop.ts). Note that erasing the guest record does NOT remove this: papic_guest_orders.guest_id is ON DELETE SET NULL, so the typed name and the screenshot survive on the payment record.',
+      'Split, and not in the direction the money trail suggests. The buyer record itself is DELETED WITH THE EVENT: papic_guest_orders.event_id is ON DELETE CASCADE (migration 20271019639608), and an admin deleting an event is a hard delete (app/admin/events/actions.ts · deleteEvent), so one admin pressing Delete removes that row and takes the typed name (payer_name) and the access link with it — no notice, no sweep, no schedule. What survives is the payment trail, because orders.event_id is ON DELETE SET NULL: the order, the payment row and the uploaded screenshot (payments.screenshot_url, plus the object itself in R2, which nothing deletes) stay, with the event link nulled. The typed NAME survives only where the payment had already been approved — approval copies it to receipts.issued_to_name (app/admin/payments/actions.ts), and receipts hang off the order, not the event. No sweep touches any of it: the only retention sweep in the app (chat, 5 years — lib/retention-sweep.ts) expressly skips any event carrying an order, on the 10-year BIR books-of-account floor. Erasing the GUEST record removes none of it either — papic_guest_orders.guest_id is ON DELETE SET NULL. The shots they buy follow the ordinary Papic media rule (lib/papic-fullres-drop.ts).',
     disposalDateSettled: false,
   },
 
@@ -200,19 +200,31 @@ export const REQUIRED_DATA_SUBJECT_CATEGORIES: readonly DataSubjectCategoryKey[]
 ];
 
 /**
- * Tables that carry a free-text NAME column and have NO foreign key to
- * `public.users` — i.e. a person the app can record without an account.
- * The guard scans the migration corpus for exactly that shape; each hit must be
- * accounted for here or by a register entry's `identityAnchors`.
+ * Tables that carry a free-text NAME column. The guard scans the migration
+ * corpus for exactly that shape; each hit must be accounted for here or by a
+ * register entry's `identityAnchors`.
  *
  * These are the ones whose "name" is NOT a person.
+ *
+ * ⚠ THE SCAN USED TO SKIP ANY TABLE WITH A FOREIGN KEY TO `public.users`, on the
+ * theory that such a table describes an account holder and the account holder is
+ * already a declared category. That theory hid the single biggest person table on
+ * the platform: `public.people` carries `claimed_by_user_id` and
+ * `created_by_user_id`, both NULLABLE, and its own comment says most Persons stay
+ * unclaimed — "a guest, a relative, a lola who never signs up". An OPTIONAL link
+ * to an account is not an account. The skip is gone; the four tables it used to
+ * hide are classified explicitly below and in UNCLASSIFIED_PERSON_TABLES.
  */
 export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> = {
+  api_keys: 'The label an integration is given ("Zapier prod"), not a person.',
   communities: 'The name of a Samahan community, not of a person.',
+  events:
+    'The title of an event ("Ice & Claire\'s Wedding"). It can contain the customers\' names, but the customer is already a declared category and the event record is listed among their personal data — the event is not a separate data subject.',
   households: 'A household label the couple types ("The Cruz Family") — a grouping, not an individual.',
   panood_screens: 'The name of a livestream screen/output, not of a person.',
   patiktok_music_tracks: 'A music track title.',
   service_catalog: 'The display name of a purchasable service.',
+  setnayan_pay_methods: 'The display name of a payment rail ("GCash"), not a person.',
   supplier_vendor_skus: 'The display name of a supplier SKU.',
   vendor_event_sets: 'The name of a vendor-authored set of event offerings.',
   venue_directory: 'The name of a venue (a place).',
@@ -220,16 +232,18 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
 };
 
 /**
- * Account-less PEOPLE the app can record who are NOT yet assigned a register
- * category. This is a RATCHET, not a clean bill of health: the guard asserts it
- * never GROWS, so a new person-bearing table cannot land unnoticed — but every
- * name on it is an open question for the DPO, not a settled exclusion.
+ * PEOPLE the app can record who are NOT yet assigned a register category. This
+ * is a RATCHET, not a clean bill of health: the guard asserts it never GROWS, so
+ * a new person-bearing table cannot land unnoticed — but every name on it is an
+ * open question for the DPO, not a settled exclusion.
  *
  * ⚠ Do not add to this list to make CI green. Adding a row here is a statement
  * that a real person's data is stored with no declared category, which is the
  * exact defect this file was written to end.
  */
 export const UNCLASSIFIED_PERSON_TABLES: Readonly<Record<string, string>> = {
+  people:
+    'The durable Person node (migration 20270513460125) and the largest person store on the platform: display_name, first_name, last_name, email, phone, profile photo and birth_date. The table\'s own comment says a Person exists with or without an account and that most stay unclaimed — "a guest, a relative, a lola who never signs up" — so this is a named third party who may never touch the app and whose record does not end when any event does. It was invisible to the scan until 2026-08-09 because its OPTIONAL claimed_by_user_id / created_by_user_id links made it look like an account holder. DPO: an unclaimed Person is not obviously any of the five categories; it needs its own, and birth_date makes the minors question live before Phase-2 connections ship.',
   couple_waitlist_signups:
     'A prospective customer who joined the pre-launch waitlist: full name + email, submitted from the public form before any account exists. Not a customer yet, and not covered by any of the five categories. DPO: declare, or fold into "customers".',
   dependents:

@@ -51,15 +51,21 @@ function Row({ field, value }: { field: string; value: unknown }) {
   );
 }
 
+function FieldTable({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="sn-tile overflow-x-auto !p-0">
+      <table className="w-full border-collapse px-4">
+        <tbody className="[&_th]:pl-4 [&_td]:pr-4">{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
       <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
-      <div className="sn-tile overflow-x-auto !p-0">
-        <table className="w-full border-collapse px-4">
-          <tbody className="[&_th]:pl-4 [&_td]:pr-4">{children}</tbody>
-        </table>
-      </div>
+      <FieldTable>{children}</FieldTable>
     </section>
   );
 }
@@ -155,21 +161,31 @@ export default async function ComplianceDataSheetPage() {
         <Row field="Effectivity date of designation" value={f.dpo_designation_date} />
       </Block>
 
-      <Block title="B.3 — Scale of processing">
-        <Row field="Total number of employees" value={f.headcount} />
-        <Row field="Staff with data access" value={f.staff_with_data_access} />
-        <Row field="Total number of data subjects (live)" value={totalSubjects} />
-        <Row field="Active biometric face vectors (live)" value={faces} />
-      </Block>
+      {/* B.3 is ONE section. "Categories of data subjects" is a ROW INSIDE B.3 in
+          the adopted registration sheet (NPC_Compliance/03_DPO_Designation_and_
+          NPCRS_ADOPTED_2026-07-24.md line 185) — not a section of its own. It was
+          briefly rendered as a second block also numbered B.3, which would have
+          printed a filed document with two different B.3s. The categories table
+          below is the expansion of that row, kept under this heading.
 
-      {/* B.3 — Categories of data subjects. Rendered from lib/data-subject-register,
-          which is the single register the guard holds against the schema. Do NOT
-          re-type the categories here: a second copy is how the written record came
-          to name four kinds of person while the code collected from five. */}
-      <section className="space-y-2">
+          It renders from lib/data-subject-register, the single register the guard
+          holds against the schema. Do NOT re-type the categories here: a second
+          copy is how the written record came to name four kinds of person while
+          the code collected from five. */}
+      <section className="space-y-3">
         <h2 className="text-base font-semibold tracking-tight text-ink">
-          B.3 — Categories of data subjects
+          B.3 — Scale of processing
         </h2>
+        <FieldTable>
+          <Row field="Total number of employees" value={f.headcount} />
+          <Row field="Staff with data access" value={f.staff_with_data_access} />
+          <Row field="Total number of data subjects (live)" value={totalSubjects} />
+          <Row field="Active biometric face vectors (live)" value={faces} />
+        </FieldTable>
+
+        <h3 className="pt-1 text-sm font-semibold tracking-tight text-ink">
+          Categories of data subjects
+        </h3>
         <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead>
@@ -216,7 +232,15 @@ export default async function ComplianceDataSheetPage() {
         </div>
       </section>
 
-      <Block title="B.4 — Breach response">
+      {/* NOT "B.4". The adopted registration sheet has no B-numbered field for
+          breach response — its B.4 is "does the system process sensitive personal
+          information", which is the "B.4 / B.5 — Processing declarations" block
+          further down. This page had invented the number, so two sections claimed
+          B.4 on a printed filing. The number is REMOVED rather than replaced: the
+          breach team and contacts belong to the Data Breach Management Policy
+          (NPC_Compliance/04_…), and picking a different B-number would be
+          inventing a second claim to fix the first. */}
+      <Block title="Breach response (Data Breach Management Policy)">
         <Row field="Breach response team" value={f.breach_team} />
         <Row field="Breach contacts" value={f.breach_contacts} />
       </Block>

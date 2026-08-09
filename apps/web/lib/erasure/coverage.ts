@@ -239,6 +239,10 @@ export const VENDOR_PROFILE_PII_SCRUB = {
   contact_phone: null,
   logo_url: null,
   business_owner_name: null,
+  // Added with the column (2026-08-10). It is a role attached to a NAMED
+  // person — leaving "Owner" behind on a profile whose owner name has just
+  // been erased is the same name-drift gap the block below records.
+  business_owner_position: null,
   location_city: null,
   is_published: false,
   // ── missed by name-drift, added 2026-07-26 ──

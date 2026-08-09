@@ -105,11 +105,11 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
-  if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
+  if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
   // Logo gate reads the SHARED flag (client wizard reads the same one), so the
   // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.
   if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
   }
   // The address can never be renamed, so a bad one is permanent. Shape first,
   // then the reserved-word refusal: a reserved address is a DEAD address, not a
@@ -117,10 +117,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // BEFORE it looks for a vendor, so the shop would be unreachable forever with
   // no way out.
   if (chosenSlug && !VENDOR_SLUG_RE.test(chosenSlug)) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugShape));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugShape));
   }
   if (chosenSlug && isReservedSlug(chosenSlug)) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
   }
   // ── ASK ALL FOUR NAMESPACES, NOT JUST OUR OWN TABLE ────────────────────────
   // The UNIQUE index covers `vendor_profiles.business_slug` and nothing else.
@@ -173,24 +173,26 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     }
   }
   if (!coarseService) {
-    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
-  // `&step=2` keeps a step-2 rejection ON step 2. Without it the wizard
-  // remounts at step 1 and silently discards all three step-2 values, because
-  // none of them have been written to the DB the `defaults` prop reads from.
+  // ── EVERY REJECTION NAMES THE STEP THAT OWNS THE FIELD (1–4) ──────────────
+  // Without it the wizard remounts at step 1 and silently discards everything
+  // typed on later steps, because none of it has been written to the DB the
+  // `defaults` prop reads from. With four steps the cost of getting this wrong
+  // quadrupled: a step-4 rejection landing on step 1 throws away three screens.
   // Needed even with the client gate, since the server rejects shapes the
   // client accepts (and any DB error redirects here too).
   if (!contactName)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
   if (!contactEmail)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
   const locationCity = clean(formData.get('location_city'), 64);
   // Required as of 2026-07-21: a city-less listing cannot be ranked, filtered
   // by couples, or given a screen-name namespace — it is invisible in practice.
   if (!locationCity)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
 
   // Event types the shop serves — the signal that makes a NON-wedding vendor
   // discoverable (the marketplace ?event_type= filter reads vendor_profiles.

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Store } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -23,13 +23,18 @@ import { becomeVendor } from '../actions';
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
  * 2026-07-05 owner-required basics folded in — logo + company email are now
- * collected here, not deferred to My Shop). Two compact steps, one
- * always-mounted form (inputs persist across steps, one submit at the end):
+ * collected here, not deferred to My Shop). FOUR compact steps, one question
+ * each, on ONE always-mounted form (inputs persist across steps; one submit at
+ * the end):
  *
- *   1 · Your shop         — shop name · logo (OPTIONAL) · primary service
- *                           (pick 1)
- *   2 · How couples reach you — owner name · contact number · company email
- *                              (all required) · location (optional)
+ *   1 · Your shop      — logo · shop name · web address (chosen, permanent)
+ *   2 · What you do    — primary service · events you serve
+ *   3 · Who you are    — name (from the account) · position · number · email
+ *   4 · Where you are  — map pin, which names the city
+ *
+ * Was two steps until 2026-08-10. The owner sketched six; two of those pairs
+ * were one question each, and one would have been a single optional field. See
+ * `validateStep` for the reasoning that landed on four.
  *
  * Everything else (website, social links, exact HQ pin, EST, portfolio,
  * documents) continues on My Shop — the profile checklist + Get-verified
@@ -48,8 +53,13 @@ import { becomeVendor } from '../actions';
  * primary-service labels come from the admin taxonomy (serviceLabels), falling
  * back to the in-code names.
  */
+/** Four steps, one question each. See `validateStep` for why not six or two. */
+export type Step = 1 | 2 | 3 | 4;
+const TOTAL_STEPS = 4;
+
 export function OpenShopWizard({
   mode,
+  accountName = null,
   serviceLabels,
   serviceTree = [],
   savedServiceLabel = null,
@@ -91,14 +101,21 @@ export function OpenShopWizard({
     contactEmail: string;
   };
   error?: string;
-  /** From `?step=` — the server sends `&step=2` when it rejects a step-2 field,
-   *  so the wizard resumes there instead of discarding those values. */
-  initialStep?: 1 | 2;
+  /** The signed-in account's own name. Shown READ-ONLY when present (owner
+   *  2026-08-10: "your name (automatic from their account)") — presented, not
+   *  asked. Falls back to an editable input when the account has none, because
+   *  a locked EMPTY required field is a dead end. */
+  accountName?: string | null;
+  /** From `?step=` — the server sends `&step=N` when it rejects a field, so the
+   *  wizard resumes on that step instead of discarding what was typed. */
+  initialStep?: Step;
 }) {
-  // Seeded from the `?step=` param so a SERVER rejection of a step-2 field
-  // re-renders at step 2 instead of dumping the vendor back to step 1 with
-  // their three step-2 values gone.
-  const [step, setStep] = useState<1 | 2>(initialStep === 2 ? 2 : 1);
+  // Seeded from `?step=` so a SERVER rejection re-renders on the step that owns
+  // the rejected field, instead of dumping the vendor back to the start with
+  // everything they typed on later steps gone.
+  const [step, setStep] = useState<Step>(
+    initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
+  );
   const [shopName, setShopName] = useState(defaults.shopName);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
@@ -112,55 +129,82 @@ export function OpenShopWizard({
   const toggleEvent = (k: string) =>
     setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
   const [stepError, setStepError] = useState<string | null>(null);
+  // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
+  // read any step's inputs live instead of duplicating them all into state.
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /**
+   * ── ONE QUESTION PER STEP (owner 2026-08-10) ──────────────────────────────
+   * Four, not the six the owner first sketched and not two:
+   *   1 your shop        logo · name · address
+   *   2 what you do      primary service · events
+   *   3 who you are      name · position · number · email
+   *   4 where you are    the map
+   *
+   * The six collapsed because two pairs were one question each — "primary
+   * service" and "events you serve" are both *what do you do*, and name /
+   * position / number / email are all *how do we reach you*. And with the name
+   * coming from the account, the owner's step 4 would have been a single
+   * OPTIONAL box: a whole screen and a Continue tap for a field most will skip.
+   * Two was rejected on height: a logo dropzone, a name, an address and a map on
+   * one screen is the long scroll the split exists to prevent.
+   *
+   * Validation is per-step and uses the SHARED strings, so a vendor is never
+   * told about a problem on a screen they cannot see. The server stays
+   * authoritative — this only saves the round trip.
+   */
+  const validateStep = (n: Step): string | null => {
+    if (n === 1) {
+      if (!shopName.trim()) return OPEN_SHOP_ERRORS.shopName;
+      // Same shared flag the server action gates on — the two can't drift.
+      if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) return OPEN_SHOP_ERRORS.logo;
+      return null;
+    }
+    if (n === 2) return service ? null : OPEN_SHOP_ERRORS.service;
+    if (n === 3) {
+      const read = (name: string) =>
+        (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
+      if (!read('contact_name').trim()) return OPEN_SHOP_ERRORS.contactName;
+      if (!read('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
+      if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
+      return null;
+    }
+    const city =
+      (formRef.current?.elements.namedItem('location_city') as HTMLInputElement | null)?.value ?? '';
+    return city.trim() ? null : OPEN_SHOP_ERRORS.locationCity;
+  };
 
   const next = () => {
-    if (!shopName.trim()) {
-      setStepError(OPEN_SHOP_ERRORS.shopName);
-      return;
-    }
-    // Same shared flag the server action gates on — the two can't drift.
-    if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) {
-      setStepError(OPEN_SHOP_ERRORS.logo);
-      return;
-    }
-    if (!service) {
-      setStepError(OPEN_SHOP_ERRORS.service);
+    const err = validateStep(step);
+    if (err) {
+      setStepError(err);
       return;
     }
     setStepError(null);
-    setStep(2);
+    setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
+  };
+
+  const back = () => {
+    setStepError(null);
+    setStep((n) => (n > 1 ? ((n - 1) as Step) : n));
   };
 
   /**
-   * Step 2 had NO client validation while the server rejected three of its
-   * fields — so a blank phone or `juan@gmail` round-tripped to the server and
-   * came back as a step-1 remount with everything retyped. This mirrors next()
-   * using the SHARED strings + regex, so the two layers cannot disagree.
-   * The server remains authoritative; this only stops the pointless round trip.
+   * The final gate. Walks EVERY step, not just the last one — a vendor can reach
+   * step 4 and submit without the intermediate screens ever having been
+   * validated (they can go back, clear a field, and jump forward). On a failure
+   * it moves to the step that owns the field, so the message is never about a
+   * screen the vendor cannot see.
    */
   const submitGate = (e: React.FormEvent<HTMLFormElement>) => {
-    const form = e.currentTarget;
-    const read = (name: string) =>
-      (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
-    if (!read('contact_name').trim()) {
-      setStepError(OPEN_SHOP_ERRORS.contactName);
-      e.preventDefault();
-      return;
-    }
-    if (!read('contact_phone').trim()) {
-      setStepError(OPEN_SHOP_ERRORS.contactPhone);
-      e.preventDefault();
-      return;
-    }
-    if (!isValidOpenShopEmail(read('contact_email'))) {
-      setStepError(OPEN_SHOP_ERRORS.contactEmail);
-      e.preventDefault();
-      return;
-    }
-    if (!read('location_city').trim()) {
-      setStepError(OPEN_SHOP_ERRORS.locationCity);
-      e.preventDefault();
-      return;
+    for (const n of [1, 2, 3, 4] as Step[]) {
+      const err = validateStep(n);
+      if (err) {
+        setStepError(err);
+        setStep(n);
+        e.preventDefault();
+        return;
+      }
     }
     setStepError(null);
   };
@@ -171,30 +215,40 @@ export function OpenShopWizard({
         className="w-full max-w-lg rounded-2xl border p-5 sm:p-7"
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <span
-            aria-hidden
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-          >
-            <Store className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
-            Step {step} of 2
-          </span>
-        </div>
+        {/* ── PROGRESS, NOT PROSE (owner 2026-08-10) ────────────────────────
+            The storefront icon, the "Open your shop" headline, the "Free during
+            launch" blurb and the "How couples reach you" title are all gone —
+            owner: "remove these kind of details: (less is more)". With ONE
+            question per step the field label already is the title, which is what
+            makes removing them safe rather than disorienting.
 
-        <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-          {step === 1 ? 'Open your shop' : 'How couples reach you'}
-        </h1>
-        {/* Step 2 gets NO subtitle: its four labels say everything, and the old
-            one ("plus where you already live online") described website + social
-            fields that moved to the dashboard in July — stale, not just wordy. */}
-        {step === 1 ? (
-          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
-            Free during launch — about a minute.
-          </p>
-        ) : null}
+            "Step 1 of 2" is replaced by four segments that fill. The SHAPE
+            carries the count, so no words have to; `aria-valuenow` + the label
+            keep that fact available to a screen reader, which cannot see it. */}
+        <div
+          className="mb-6 flex gap-1.5"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={TOTAL_STEPS}
+          aria-valuenow={step}
+          aria-label={`Step ${step} of ${TOTAL_STEPS}`}
+        >
+          {([1, 2, 3, 4] as Step[]).map((n) => (
+            <span
+              key={n}
+              className="h-1 flex-1 overflow-hidden rounded-full"
+              style={{ background: 'var(--m-line)' }}
+            >
+              <span
+                className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                style={{
+                  width: n <= step ? '100%' : '0%',
+                  background: 'var(--m-orange-deep)',
+                }}
+              />
+            </span>
+          ))}
+        </div>
 
         {(error || stepError) && (
           <p
@@ -208,6 +262,8 @@ export function OpenShopWizard({
 
         <form action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
           {/* Step 1 — always mounted so values survive step switches. */}
+          {/* 1 · Your shop. Always mounted, like every panel — inputs persist across
+              steps and there is ONE submit at the end. */}
           <div className={step === 1 ? 'space-y-4' : 'hidden'}>
             <div className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -255,7 +311,6 @@ export function OpenShopWizard({
                 Needed before your shop is approved — add it now or later.
               </span>
             </div>
-
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Shop name<span className="ml-1 text-terracotta">*</span>
@@ -275,7 +330,10 @@ export function OpenShopWizard({
                   because a save-the-date already points at it. */}
               <AddressPreview shopName={shopName} existingSlug={existingSlug} />
             </label>
-
+          </div>
+          {/* 2 · What you do. Service and events are the same question asked twice;
+              splitting them would add a tap and remove no thinking. */}
+          <div className={step === 2 ? 'space-y-4' : 'hidden'}>
             <div className="block space-y-1.5">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Primary service<span className="ml-1 text-terracotta">*</span>
@@ -331,7 +389,6 @@ export function OpenShopWizard({
                 Pick one — add more later.
               </span>
             </div>
-
             <div className="block space-y-1.5">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Events you serve
@@ -383,30 +440,33 @@ export function OpenShopWizard({
                 Pick all that apply.
               </span>
             </div>
-
-            <button
-              type="button"
-              onClick={next}
-              className="button-primary inline-flex w-full items-center justify-center gap-2 py-2.5 text-sm"
-            >
-              Continue
-              <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            </button>
           </div>
-
-          {/* Step 2 */}
-          <div className={step === 2 ? 'space-y-4' : 'hidden'}>
+          {/* 3 · Who you are, and how to reach you. */}
+          <div className={step === 3 ? 'space-y-4' : 'hidden'}>
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Your name<span className="ml-1 text-terracotta">*</span>
               </span>
               <input
                 name="contact_name"
-                defaultValue={defaults.contactName}
+                // Owner 2026-08-10: "your name (automatic from their account)".
+                // READONLY, not disabled — a disabled input submits NOTHING, and
+                // this field is required, so disabling it would post a blank name
+                // and bounce the vendor with a message about a box they cannot
+                // type in. Falls back to editable when the account has no name:
+                // a locked EMPTY required field is a dead end.
+                readOnly={!!accountName}
+                defaultValue={accountName ?? defaults.contactName}
                 maxLength={128}
                 placeholder="e.g. Ana Reyes"
                 className="input-field"
+                style={accountName ? { background: 'var(--m-paper-2)', color: 'var(--m-slate)' } : undefined}
               />
+              {accountName ? (
+                <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  From your account.
+                </span>
+              ) : null}
             </label>
 
             <label className="block space-y-1">
@@ -460,7 +520,10 @@ export function OpenShopWizard({
                 className="input-field"
               />
             </label>
-
+          </div>
+          {/* 4 · Where you are. Its own step because the map is the one element that
+              needs full attention and cannot be made smaller. */}
+          <div className={step === 4 ? 'space-y-4' : 'hidden'}>
             <div className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Where you are<span className="ml-1 text-terracotta">*</span>
@@ -472,24 +535,43 @@ export function OpenShopWizard({
                   resolves to a province can be corrected. */}
               <CityPin defaultCity={defaults.locationCity} />
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
+
+          {/* One nav row for every step. Back appears from step 2; the primary
+              button becomes the real submit only on the last one — a
+              SubmitButton on an earlier step would post a half-filled form. */}
+          <div className="flex items-center gap-2 pt-1">
+            {step > 1 ? (
               <button
                 type="button"
-                onClick={() => setStep(1)}
-                className="inline-flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-ink/60 hover:bg-ink/5"
+                onClick={back}
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-ink/60 hover:bg-ink/5"
+                style={{ borderColor: 'var(--m-line)' }}
+                aria-label="Back"
               >
                 <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Back
               </button>
+            ) : null}
+            {step < TOTAL_STEPS ? (
+              <button
+                type="button"
+                onClick={next}
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              </button>
+            ) : (
               <SubmitButton
-                className="button-primary flex-1 justify-center py-2.5 text-sm"
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
                 pendingLabel="Opening your shop…"
               >
-                {mode === 'create' ? 'Open my shop — free' : 'Save and continue'}
+                Open my shop — free
               </SubmitButton>
-            </div>
+            )}
           </div>
+
         </form>
 
       </div>

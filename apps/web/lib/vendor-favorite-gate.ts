@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * Vendor-favorites subscription gate — the SINGLE SOURCE OF TRUTH for "may this
@@ -42,7 +43,7 @@ import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 
 /** Server-only activation flag. Default OFF → no vendor is ever hidden. */
 export function favoritesSubscriptionGateEnabled(): boolean {
-  return process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE === 'true';
+  return envFlagEnabled(process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE);
 }
 
 export type VendorSubRow = {

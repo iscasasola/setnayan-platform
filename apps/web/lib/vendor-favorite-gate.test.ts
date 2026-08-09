@@ -65,15 +65,19 @@ test('a lapsed paid tier (expiry in the past) is NOT favoritable', () => {
   }
 });
 
-test('activation flag defaults OFF and only "true" enables it', () => {
+test('activation flag defaults OFF and accepts any yes-spelling', () => {
   const prev = process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE;
   try {
     delete process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE;
     assert.equal(favoritesSubscriptionGateEnabled(), false, 'unset → OFF');
-    process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE = 'true';
-    assert.equal(favoritesSubscriptionGateEnabled(), true, "'true' → ON");
-    process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE = '1';
-    assert.equal(favoritesSubscriptionGateEnabled(), false, "'1' must NOT enable");
+    for (const v of ['true', 'TRUE', '1', 'yes', 'on']) {
+      process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE = v;
+      assert.equal(favoritesSubscriptionGateEnabled(), true, `"${v}" → ON`);
+    }
+    for (const v of ['false', '0', 'no', 'off', '', 'ture']) {
+      process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE = v;
+      assert.equal(favoritesSubscriptionGateEnabled(), false, `"${v}" must NOT enable`);
+    }
   } finally {
     if (prev === undefined) delete process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE;
     else process.env.VENDOR_FAVORITES_SUBSCRIPTION_GATE = prev;

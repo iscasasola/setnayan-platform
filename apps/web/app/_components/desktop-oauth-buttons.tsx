@@ -12,10 +12,11 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { signInWithProviderDesktop, type DesktopOAuthProvider } from '@/lib/desktop-oauth';
+import { envFlagEnabled } from '@/lib/env-flag';
 
-const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === 'true';
-const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
-const FACEBOOK_ENABLED = process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED === 'true';
+const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
+const APPLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED);
+const FACEBOOK_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED);
 
 const BTN_LIGHT =
   'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';

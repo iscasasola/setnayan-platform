@@ -165,6 +165,7 @@ import {
   COMPATIBLE_CEREMONY_TYPE_LABEL as CEREMONY_TYPE_LABELS,
   COMPATIBLE_VENUE_SETTING_LABEL as VENUE_SETTING_LABELS,
 } from '@/lib/vendor-compatibility';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 export const dynamic = 'force-dynamic';
 
@@ -787,7 +788,7 @@ export async function renderVendorBySlug({
   // route will notFound() (the profile page skips its verified-gate for owner-
   // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
   const canShowBooth =
-    process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true' &&
+    envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE) &&
     boothTierCanBrand(vendor.tier_state ?? null) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';

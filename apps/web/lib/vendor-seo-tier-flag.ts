@@ -21,6 +21,8 @@
  * Kept in its own module (no imports) so `lib/vendor-seo-tier.ts` stays a pure,
  * env-free, clock-free decision layer that runs under `tsx --test`.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function isVendorSeoTierGateEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE);
 }

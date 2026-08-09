@@ -8,14 +8,17 @@
  * the pre-existing raw-image booth poster (lib/booth-poster.ts).
  *
  * Unlike NEXT_PUBLIC_SEATING_3D (a kill-switch — ON unless the exact string
- * 'false'), this is a LAUNCH flag: OFF by default, ON only for the exact string
- * 'true'. Shipping DARK means: with the flag off, NOTHING about the 3D booth
+ * 'false'), this is a LAUNCH flag: OFF by default, ON for any of the spellings
+ * lib/env-flag.ts accepts (`true` / `TRUE` / `1` / `yes` / `on`) and OFF for
+ * everything else. Shipping DARK means: with the flag off, NOTHING about the 3D booth
  * changes — the structured poster never mounts, and the raw-poster path is
  * untouched.
  *
  * NEXT_PUBLIC_ so the client renderer (BoothMesh) and any server surface read
  * one value.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function boothStudioEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_BOOTH_STUDIO_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_BOOTH_STUDIO_ENABLED);
 }

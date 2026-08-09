@@ -7,6 +7,7 @@
 // DO hand-edit to add NEW slots / fix a default; keep keys stable (overrides key off them).
 
 import type { NavSlotDefault } from './nav-registry-types';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; nav slot
@@ -19,7 +20,7 @@ import type { NavSlotDefault } from './nav-registry-types';
  * off them, and an explicit admin rename still wins). Flag off → byte-identical
  * "Studio" defaults; /studio routes themselves stay reachable either way.
  */
-const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+const SUITE_NAV_ON = envFlagEnabled(process.env.NEXT_PUBLIC_SUITE);
 
 export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   {

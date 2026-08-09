@@ -28,12 +28,16 @@ test('packageCreditEnabled: OFF when unset (dark by default)', () => {
   withEnv(undefined, () => assert.equal(packageCreditEnabled(), false));
 });
 
-test("packageCreditEnabled: ON only for the exact string 'true'", () => {
-  withEnv('true', () => assert.equal(packageCreditEnabled(), true));
+test('packageCreditEnabled: ON for any spelling that means yes', () => {
+  for (const value of ['true', 'True', 'TRUE', '1', 'yes', 'on']) {
+    withEnv(value, () =>
+      assert.equal(packageCreditEnabled(), true, `expected ON for ${JSON.stringify(value)}`),
+    );
+  }
 });
 
 test('packageCreditEnabled: near-misses stay OFF', () => {
-  for (const value of ['True', 'TRUE', '1', 'yes', 'on', '', 'false']) {
+  for (const value of ['', 'false', '0', 'no', 'off', 'ture', 'enabled']) {
     withEnv(value, () =>
       assert.equal(packageCreditEnabled(), false, `expected OFF for ${JSON.stringify(value)}`),
     );

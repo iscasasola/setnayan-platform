@@ -40,13 +40,17 @@ const CONTROLLER = 'app/panood/control/[eventId]/page.tsx';
 test('🔒 DEFAULT OFF — an unset environment is today’s behaviour', (t) => {
   delete process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY;
   assert.equal(liveStudioPoolOnly(), false);
-  // And only the exact string 'true' arms it — never a stray 'false'/'1'/'yes'.
-  for (const v of ['false', '1', 'yes', 'TRUE', '']) {
+  // A stray 'false' / '0' / '' must never arm it. (It reads through the shared
+  // lenient parser, so 'TRUE' / '1' / 'yes' DO arm it — and arming CLOSES the
+  // BYO consent door, so the forgiving direction here is the restrictive one.)
+  for (const v of ['false', '0', 'no', 'off', '']) {
     process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY = v;
     assert.equal(liveStudioPoolOnly(), false, `"${v}" must not arm a compliance boundary`);
   }
-  process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY = 'true';
-  assert.equal(liveStudioPoolOnly(), true);
+  for (const v of ['true', 'TRUE', '1', 'yes']) {
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY = v;
+    assert.equal(liveStudioPoolOnly(), true, `"${v}" must arm it`);
+  }
   t.after(() => {
     delete process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY;
   });

@@ -29,6 +29,7 @@
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tierRank, type VendorTier } from '@/lib/vendor-tier-caps';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /** The paid tiers a vendor free window can promote every vendor to. */
 export type PromotedVendorTier = 'solo' | 'pro' | 'enterprise';
@@ -69,7 +70,7 @@ function mapWindow(row: Record<string, unknown>): PromoFreeWindow {
  * NEXT_PUBLIC_ needed. Default OFF — the feature is fully inert until flipped.
  */
 export function isPromoFreeWindowsEnabled(): boolean {
-  return process.env.PROMO_FREE_WINDOWS_ENABLED === 'true';
+  return envFlagEnabled(process.env.PROMO_FREE_WINDOWS_ENABLED);
 }
 
 /**

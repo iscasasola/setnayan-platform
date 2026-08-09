@@ -194,6 +194,9 @@ function clipDropEnabled(): boolean {
   // only, not one clip touched). Deleting clip data begins only when an operator
   // flips this env var. The master kill-switch (PAPIC_FULLRES_DROP_ENABLED='false')
   // still turns ALL deletion off, clips included (it forces dry-run).
+  // DELIBERATELY NOT converted to the lenient reader (lib/env-flag.ts): this
+  // arms an IRREVERSIBLE replacement of full-res clip originals, so widening
+  // what counts as "armed" is an owner decision, not a parsing bugfix.
   return process.env.PAPIC_CLIP_DROP_ENABLED === 'true';
 }
 

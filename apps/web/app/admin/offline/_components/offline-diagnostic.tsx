@@ -21,6 +21,7 @@ import {
   type ServiceCode,
   type SyncRunSummary,
 } from '@/lib/offline/types';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 type Status = {
   daemonEnabled: boolean;
@@ -55,7 +56,7 @@ export default function OfflineDiagnostic() {
     if (typeof window === 'undefined') return;
 
     const daemonEnabled =
-      process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED === 'true';
+      envFlagEnabled(process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED);
     const idbAvailable = typeof indexedDB !== 'undefined';
 
     let cancelled = false;

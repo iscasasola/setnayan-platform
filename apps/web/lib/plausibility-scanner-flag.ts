@@ -19,6 +19,8 @@
  * one value. Pure + secret-free (mirrors verified-median-flag.ts) so it is
  * unit-testable under `tsx --test`.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function plausibilityScannerEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PLAUSIBILITY_SCANNER_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PLAUSIBILITY_SCANNER_ENABLED);
 }

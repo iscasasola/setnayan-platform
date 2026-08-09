@@ -24,13 +24,14 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { BoothShowcaseLoader } from './booth-showcase-loader';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 export const dynamic = 'force-dynamic';
 
 /** Flag-gated (off by default) — the public showcase route doesn't exist until
  *  the owner has eyeballed the WebGL booth. Exported so /v/[slug] hides its
  *  "Walk into my booth" link in lock-step. */
-export const PLAN3D_BOOTH_SHOWCASE_ENABLED = process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true';
+export const PLAN3D_BOOTH_SHOWCASE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE);
 
 type Props = { params: Promise<{ slug: string }> };
 

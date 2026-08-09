@@ -18,6 +18,8 @@
  * additionally suppressed in demo mode (admins browsing demo vendors must still
  * see them regardless of tier) — see the call site in /vendors/page.tsx.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function isVendorSearchGateEnabled(): boolean {
-  return process.env.VENDOR_TIER_SEARCH_GATE === 'true';
+  return envFlagEnabled(process.env.VENDOR_TIER_SEARCH_GATE);
 }

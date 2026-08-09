@@ -7,6 +7,7 @@ import {
   type SecretIntegrationDef,
   type OAuthResolveSpec,
 } from '@/lib/integrations/registry';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 // Integration Activation Console — PR1 (email slice).
 //
@@ -108,7 +109,7 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
   } catch {
     // DB unreachable / column absent (pre-migration) → env fallback below.
   }
-  return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+  return envFlagEnabled(process.env.SETNAYAN_AI_PAYWALL_ENABLED);
 }
 
 // ── 🔒 REMOVED 2026-08-01 · the Setnayan-AI per-USER subscription flag ───────

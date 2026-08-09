@@ -20,6 +20,8 @@
  * prefill (debutante gender/birthdate, etc.) stays behind the separate,
  * counsel-gated NEXT_PUBLIC_DEPENDENT_PEOPLE flag and is never unlocked by this.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function onboardingV2BriefEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED);
 }

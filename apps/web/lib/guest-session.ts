@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 const COOKIE_NAME = 'setnayan_guest_session';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30-day post-event window
@@ -27,7 +28,7 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30
  * sessions, not to add a new single point of failure.
  */
 function guestSessionTokenCheckEnabled(): boolean {
-  return process.env.GUEST_SESSION_TOKEN_CHECK === 'true';
+  return envFlagEnabled(process.env.GUEST_SESSION_TOKEN_CHECK);
 }
 
 const sessionTokenMatchesDb = cache(

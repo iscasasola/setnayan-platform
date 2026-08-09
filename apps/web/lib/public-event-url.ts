@@ -23,6 +23,7 @@
 // ============================================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * The cutover flag. OFF (default) → legacy bare-root `/{slug}` everywhere.
@@ -30,7 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * client-side share widget can read it too; every consumer today is server-side.
  */
 export function isUserNestingCutoverEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_U_NESTING_CUTOVER === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_U_NESTING_CUTOVER);
 }
 
 /**

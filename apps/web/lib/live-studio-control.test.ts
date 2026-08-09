@@ -439,12 +439,16 @@ test('ROUTER — the env wrapper reads the launch flag, and only "true" flips it
     process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'false';
     assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
 
-    // Anything that isn't exactly 'true' must NOT retire a live, selling surface.
-    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'TRUE';
+    // A value that does not mean yes must NOT retire a live, selling surface.
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'ture';
     assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
 
-    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'true';
-    assert.equal(liveStudioControllerHref('E1'), liveStudioControlPath('E1'));
+    // …but every spelling that plainly means yes must flip it, or an owner who
+    // typed TRUE gets a silent no-op — the bug lib/env-flag.ts exists to close.
+    for (const v of ['true', 'TRUE', '1', 'yes', 'on']) {
+      process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = v;
+      assert.equal(liveStudioControllerHref('E1'), liveStudioControlPath('E1'), `"${v}" must flip it`);
+    }
   } finally {
     if (prior === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
     else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prior;

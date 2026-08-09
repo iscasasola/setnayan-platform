@@ -48,6 +48,7 @@ import {
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
 import { isExploreReplanEnabled } from './explore-replan-flag';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -57,7 +58,7 @@ import { isExploreReplanEnabled } from './explore-replan-flag';
  * client (no hydration split). Mirrors: customer-nav-config.ts (desktop rail) +
  * lib/nav-registry-defaults.ts (registry label default).
  */
-const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+const SUITE_NAV_ON = envFlagEnabled(process.env.NEXT_PUBLIC_SUITE);
 
 export type CustomerMenuKey =
   // Plan phase

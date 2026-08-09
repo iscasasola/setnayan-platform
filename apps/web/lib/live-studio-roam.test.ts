@@ -212,17 +212,19 @@ test('groupZonesByVenue puts venue-less zones under a null group', () => {
 
 // ── 4. Flag ───────────────────────────────────────────────────────────────
 
-test('liveStudioRoamEnabled is strict-true gated (default OFF)', () => {
+test('liveStudioRoamEnabled is default OFF, ON for any yes-spelling', () => {
   const prev = process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
   try {
     delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
     assert.equal(liveStudioRoamEnabled(), false);
-    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'false';
-    assert.equal(liveStudioRoamEnabled(), false);
-    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = '1';
-    assert.equal(liveStudioRoamEnabled(), false); // only the literal 'true' enables
-    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'true';
-    assert.equal(liveStudioRoamEnabled(), true);
+    for (const v of ['false', '0', 'no', 'off', '', 'ture']) {
+      process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = v;
+      assert.equal(liveStudioRoamEnabled(), false, `"${v}" must stay OFF`);
+    }
+    for (const v of ['true', 'TRUE', '1', 'yes', 'on']) {
+      process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = v;
+      assert.equal(liveStudioRoamEnabled(), true, `"${v}" must enable`);
+    }
   } finally {
     if (prev === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
     else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prev;

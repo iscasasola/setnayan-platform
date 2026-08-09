@@ -19,6 +19,8 @@
  * client/route checks). Parked until the owner flips it alongside the anon-draft
  * rollout (the gates lean on the anonymous-session model — see lib/anon-onboarding).
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function registerGatesEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_REGISTER_GATES_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_REGISTER_GATES_ENABLED);
 }

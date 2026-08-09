@@ -26,9 +26,11 @@
  * exempt so a legitimate batch flush never trips it.
  */
 
+import { envFlagEnabled } from '@/lib/env-flag';
+
 /** Master switch. Default OFF → the gate is inert until the owner opts in. */
 export function inquiryGateEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_INQUIRY_GATE_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_INQUIRY_GATE_ENABLED);
 }
 
 /**
@@ -37,7 +39,7 @@ export function inquiryGateEnabled(): boolean {
  * Purely additive UI, default OFF → the vendor inbox looks exactly as today.
  */
 export function leadTrustBadgeEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_LEAD_TRUST_BADGE_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_LEAD_TRUST_BADGE_ENABLED);
 }
 
 /**

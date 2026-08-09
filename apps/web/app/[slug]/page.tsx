@@ -69,6 +69,7 @@ import { PrivateLanding } from './_components/private-landing';
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
 // dissolved into it. See _components/site-body.tsx.
 import { SiteBody } from './_components/site-body';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -844,7 +845,7 @@ async function InvitationBody({
             ? `/${event.slug}/hub`
             : null
         }
-        selfRotateEnabled={process.env.GUEST_QR_SELF_ROTATE === 'true'}
+        selfRotateEnabled={envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)}
         dayOfLive={dayOfPhase === 'live'}
         slug={event.slug ?? slug}
         // Resolved from the SAME two inputs as the menu itself (site-body.tsx),

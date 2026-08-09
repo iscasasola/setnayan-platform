@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventSkuActive } from '@/lib/entitlements';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * apps/web/lib/panood-camera-seats.ts
@@ -48,7 +49,7 @@ export const PANOOD_CAMERA_CLAIM_PATH = '/panood/cam';
  * SAME flag — one source of truth.
  */
 export function panoodCameraAnonEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED);
 }
 
 /**
@@ -63,7 +64,7 @@ export function panoodCameraAnonEnabled(): boolean {
  * owner-locked); nothing is recorded or stored.
  */
 export function panoodStreamingEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PANOOD_STREAMING_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PANOOD_STREAMING_ENABLED);
 }
 
 /**

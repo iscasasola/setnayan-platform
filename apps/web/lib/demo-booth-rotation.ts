@@ -18,6 +18,7 @@
  */
 
 import type { VendorCategory } from './vendors';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /** How long a rotation window lasts — the demo booths change lineup this often
  *  (and are identical for every visitor within the window, so a vendor can point
@@ -131,4 +132,4 @@ export function selectDemoRotation(
 /** Build-time flag (default OFF → the homepage demo shows its normal sample
  *  booths, byte-identical). SEPARATE from Part A's lab flag: the public homepage
  *  is more sensitive, so demo-room ads flip on their own. */
-export const PLAN3D_DEMO_ADS_ENABLED = process.env.NEXT_PUBLIC_PLAN3D_DEMO_ADS === 'true';
+export const PLAN3D_DEMO_ADS_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_DEMO_ADS);

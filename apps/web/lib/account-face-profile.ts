@@ -33,6 +33,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Default OFF: returns true ONLY when the env var is exactly 'true'.
  */
 export function accountFaceProfileEnabled(): boolean {
+  // DELIBERATELY NOT converted to the lenient reader (lib/env-flag.ts): this
+  // gates BIOMETRIC processing, so widening what counts as "on" is a DPO
+  // decision, not a parsing bugfix.
   return process.env.NEXT_PUBLIC_ACCOUNT_FACE_PROFILE_ENABLED === 'true';
 }
 

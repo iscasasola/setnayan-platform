@@ -19,5 +19,8 @@
  * lead-trust-badge PR. NEXT_PUBLIC_ so client + server read the same flag.
  */
 export function deviceFingerprintEnabled(): boolean {
+  // DELIBERATELY NOT converted to the lenient reader (lib/env-flag.ts): this
+  // begins a NEW data-collection practice and must stay shut until DPO
+  // sign-off, so widening what counts as "on" is a DPO decision.
   return process.env.NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED === 'true';
 }

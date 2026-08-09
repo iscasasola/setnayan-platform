@@ -25,6 +25,8 @@
  * server action (which guards the new columns) read the SAME flag — one source of
  * truth, no client/server drift. Inlined at build time.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function experienceQuizEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED);
 }

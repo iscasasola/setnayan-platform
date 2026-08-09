@@ -14,6 +14,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,6 +67,59 @@ test('the hand-typed half is still a strict part of the whole list', () => {
     assert.ok(RESERVED_SLUGS.has(word), `${word} fell out of the combined list`);
   }
   assert.ok(DB_MIRRORED_RESERVED_SLUGS.size > 50, 'precondition: the mirrored half was read');
+});
+
+/**
+ * A FIXTURE TREE, because the real one cannot prove this.
+ *
+ * The reader used to look at the DIRECT CHILDREN of `apps/web/app` only, so a
+ * page inside a Next.js route group — `app/(marketing)/foo/page.tsx`, which
+ * serves `/foo` — was invisible to it AND to the test above, which asks the
+ * same reader. Both would have stayed green while `/foo` sat unprotected.
+ * `apps/web/app` has no top-level group today, so only a built tree can fail
+ * this. Build one.
+ */
+function withFixtureApp(
+  paths: string[],
+  run: (appDir: string) => void,
+): void {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'setnayan-reserved-'));
+  try {
+    for (const rel of paths) {
+      const full = path.join(root, rel);
+      mkdirSync(path.dirname(full), { recursive: true });
+      writeFileSync(full, '// fixture\n');
+    }
+    run(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('a page inside a route group is still a top-level word', () => {
+  withFixtureApp(
+    [
+      '(marketing)/foo/page.tsx',
+      '(marketing)/(nested)/bar/page.tsx',
+      '@modal/baz/page.tsx',
+      'plain/page.tsx',
+      'api-ish/deep/route.ts',
+    ],
+    (appDir) => {
+      const words: string[] = routeSlugsFromDisk(appDir);
+      assert.deepEqual(words, ['api-ish', 'bar', 'baz', 'foo', 'plain']);
+    },
+  );
+});
+
+test('a route group itself is never reserved, and non-serving folders are skipped', () => {
+  withFixtureApp(
+    ['(marketing)/foo/page.tsx', '_components/thing.tsx', 'empty-shell/notes.md'],
+    (appDir) => {
+      const words: string[] = routeSlugsFromDisk(appDir);
+      assert.deepEqual(words, ['foo'], 'only the words that actually serve a URL');
+    },
+  );
 });
 
 test('the reserved check is case-insensitive and exact-match only', () => {

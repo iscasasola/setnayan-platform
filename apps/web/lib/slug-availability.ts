@@ -57,19 +57,23 @@ function sameId(a: string | null | undefined, b: string | null | undefined): boo
 }
 
 /**
- * TRUE when the word still carries a live forwarding row that does NOT belong
- * to the caller — i.e. a printed invitation or a shared link still points at it.
+ * The forwarding ledger's answer, kept in THREE states rather than two.
  *
- * Fails closed: an unreadable ledger returns TRUE.
+ * `isSlugForwarding` below collapses `'unverified'` into `true` (fail closed),
+ * which is the right answer for a yes/no caller — but a caller that is LOOPING
+ * over candidate names needs to tell "this one word is spoken for" apart from
+ * "the ledger is unreadable, so no word can be checked". Collapsing them makes
+ * an outage look like 100 separate collisions and burns 100 round trips before
+ * handing out an entirely UNCHECKED fallback name. See `generateUniqueSlug`.
  *
  * `.eq` — not `.ilike` — so a crafted segment containing `%` or `_` cannot act
  * as a LIKE wildcard and match somebody else's rename row.
  */
-export async function isSlugForwarding(
+export async function probeSlugForwarding(
   admin: SupabaseClient,
   slug: string,
   exclusions: SlugExclusions = {},
-): Promise<boolean> {
+): Promise<'clear' | 'forwarding' | 'unverified'> {
   const lower = slug.toLowerCase();
   const { data, error } = await admin
     .from('slug_change_log')
@@ -78,10 +82,26 @@ export async function isSlugForwarding(
     .gt('redirect_until', new Date().toISOString())
     .limit(50);
 
-  if (error) return true; // fail closed — we cannot prove the word is free
+  if (error) return 'unverified'; // we cannot prove the word is free
   const rows = (data ?? []) as { entity_id: string | null }[];
   const mine = [exclusions.eventId, exclusions.vendorProfileId, exclusions.userId];
-  return rows.some((row) => !mine.some((id) => sameId(id, row.entity_id)));
+  return rows.some((row) => !mine.some((id) => sameId(id, row.entity_id)))
+    ? 'forwarding'
+    : 'clear';
+}
+
+/**
+ * TRUE when the word still carries a live forwarding row that does NOT belong
+ * to the caller — i.e. a printed invitation or a shared link still points at it.
+ *
+ * Fails closed: an unreadable ledger returns TRUE.
+ */
+export async function isSlugForwarding(
+  admin: SupabaseClient,
+  slug: string,
+  exclusions: SlugExclusions = {},
+): Promise<boolean> {
+  return (await probeSlugForwarding(admin, slug, exclusions)) !== 'clear';
 }
 
 /**
@@ -124,7 +144,9 @@ export async function findSlugConflict(
   const personId = (person.data as { user_id?: string } | null)?.user_id ?? null;
   if (personId && !sameId(exclusions.userId, personId)) return 'taken_by_person';
 
-  if (await isSlugForwarding(admin, lower, exclusions)) return 'forwarding';
+  const forwarding = await probeSlugForwarding(admin, lower, exclusions);
+  if (forwarding === 'unverified') return 'unverified';
+  if (forwarding === 'forwarding') return 'forwarding';
 
   return null;
 }

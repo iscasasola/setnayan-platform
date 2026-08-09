@@ -25,7 +25,7 @@ import {
   isSlugForwarding,
   type SlugConflict,
 } from './slug-availability';
-import { isSlugTaken } from './slugs';
+import { SlugNamespaceUnreadableError, generateUniqueSlug, isSlugTaken } from './slugs';
 
 const WEB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -104,6 +104,92 @@ test('another wedding, shop or person already holding the word blocks it', async
       'ana-and-luis',
     ),
     'taken_by_person',
+  );
+});
+
+/**
+ * ⚠ THE CREATE PATH IS A DIFFERENT FUNCTION AND IT ASKED A SHORTER QUESTION.
+ *
+ * `isSlugTaken` — reached by EVERY event creation through `generateUniqueSlug`
+ * — queried `events` and the forwarding ledger and nothing else. Because
+ * `app/[slug]/page.tsx` resolves the EVENT first, an auto-minted wedding name
+ * that happened to equal a live shop's address silently took over that shop's
+ * public page, one that is in our sitemap.
+ */
+test('the CREATE path refuses a word a shop or a person already holds', async () => {
+  assert.equal(
+    await isSlugTaken(
+      fakeAdmin({
+        ...freeWorld,
+        vendor_profiles: { data: { vendor_profile_id: 'vp-1' }, error: null },
+      }),
+      'bb-gandang-hari',
+    ),
+    true,
+    'a new wedding must not be minted onto a live shop’s public address',
+  );
+  assert.equal(
+    await isSlugTaken(
+      fakeAdmin({ ...freeWorld, users: { data: { user_id: 'usr-1' }, error: null } }),
+      'bb-gandang-hari',
+    ),
+    true,
+    'a new wedding must not be minted onto someone’s handle',
+  );
+  assert.equal(
+    await isSlugTaken(fakeAdmin(freeWorld), 'bb-gandang-hari'),
+    false,
+    'precondition: the same word is free when nobody holds it',
+  );
+});
+
+test('the CREATE path asks all four namespaces, not two', async () => {
+  const seen: string[] = [];
+  await isSlugTaken(fakeAdmin(freeWorld, seen), 'ana-and-luis');
+  assert.deepEqual(
+    [...new Set(seen)].sort(),
+    ['events', 'slug_change_log', 'users', 'vendor_profiles'],
+  );
+});
+
+test('the auto-minted name skips a word a shop holds and takes the next one', async () => {
+  // The shop probe answers for EVERY candidate, so the first free name is the
+  // one produced once the shop's word is out of the way.
+  let calls = 0;
+  const admin = {
+    from(table: string) {
+      const builder: Record<string, unknown> = {};
+      for (const m of ['select', 'ilike', 'eq', 'gt', 'order']) builder[m] = () => builder;
+      const answer = () => {
+        if (table !== 'vendor_profiles') {
+          return Promise.resolve(table === 'slug_change_log' ? noRows : empty);
+        }
+        calls += 1;
+        // Only the FIRST candidate ("ana-and-luis") is the shop's address.
+        return Promise.resolve(
+          calls === 1 ? { data: { vendor_profile_id: 'vp-1' }, error: null } : empty,
+        );
+      };
+      builder.limit = answer;
+      builder.maybeSingle = answer;
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+
+  assert.equal(await generateUniqueSlug(admin, 'Ana and Luis'), 'ana-and-luis-2');
+});
+
+test('an unreadable namespace refuses to mint rather than guessing', async () => {
+  // Fail closed, and fail FAST: looping 100 candidates through an unreadable
+  // database cannot succeed, and the 100th path returns a name never checked
+  // against anything.
+  await assert.rejects(
+    () =>
+      generateUniqueSlug(
+        fakeAdmin({ ...freeWorld, events: { data: null, error: { message: 'boom' } } }),
+        'Ana and Luis',
+      ),
+    (err: unknown) => err instanceof SlugNamespaceUnreadableError,
   );
 });
 
@@ -186,6 +272,28 @@ test('a lookup that FAILS is not proof the word is free', async () => {
     true,
     'an unreadable forwarding ledger must refuse, not allow',
   );
+  assert.equal(
+    await findSlugConflict(
+      fakeAdmin({ ...freeWorld, slug_change_log: { data: null, error: { message: 'boom' } } }),
+      'ana-and-luis',
+    ),
+    'unverified',
+    'an unreadable ledger is not the same fact as "somebody is forwarding here"',
+  );
+
+  // ⚠ AND THE CREATE PATH, WHICH HAD THE SAME HOLE IN ITS OWN COPY OF THE
+  // QUERY: it destructured `{ data }` and dropped `error`, so an unreadable
+  // events table came back `data: null` and the word was handed out.
+  for (const table of ['events', 'vendor_profiles', 'users', 'slug_change_log'] as const) {
+    assert.equal(
+      await isSlugTaken(
+        fakeAdmin({ ...freeWorld, [table]: { data: null, error: { message: 'boom' } } }),
+        'ana-and-luis',
+      ),
+      true,
+      `an unreadable ${table} must refuse to hand the word out, not hand it out`,
+    );
+  }
 });
 
 // --- the rename path must keep checking -------------------------------------

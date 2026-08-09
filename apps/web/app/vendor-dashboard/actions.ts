@@ -32,6 +32,7 @@ import {
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
 import { parseVendorSlug } from '@/lib/vendor-slug';
+import { SLUG_CONFLICT_MESSAGE, findSlugConflict } from '@/lib/slug-availability';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -776,11 +777,12 @@ export async function updateVendorWebsiteField(
   // (Pro gate).
   const { data: row } = await supabase
     .from('vendor_profiles')
-    .select('business_slug, services, portfolio_r2_keys, tier_state')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
     .eq('user_id', user.id)
     .maybeSingle();
   const rowTyped = row as
     | {
+        vendor_profile_id?: string | null;
         business_slug?: string | null;
         services?: string[] | null;
         portfolio_r2_keys?: string[] | null;
@@ -789,6 +791,10 @@ export async function updateVendorWebsiteField(
     | null;
   const currentServices = (rowTyped?.services ?? []) as string[];
   const currentSlug = rowTyped?.business_slug ?? null;
+  // The id of the shop we are about to WRITE, read from the SAME row the write
+  // targets (`user_id = user.id`) — so "this address is already mine" can never
+  // be decided from an id supplied by the form.
+  const ownProfileId = rowTyped?.vendor_profile_id ?? null;
   const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
   const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
 
@@ -859,6 +865,21 @@ export async function updateVendorWebsiteField(
         parsed = parseSlug(formData.get('business_slug'));
       } catch (e) {
         return { ok: false, error: (e as Error).message };
+      }
+      // ⚠ FORMAT + RESERVED WAS NOT ENOUGH. A shop, a wedding and a person all
+      // live at setnayan.com/{word}, and this path only ever checked the shape,
+      // the reserved list and (via the unique index) other SHOPS. So a shop
+      // could claim a live wedding's address, a person's handle, or a retired
+      // address still forwarding printed invitations — landing those guests on
+      // a stranger's business page.
+      //
+      // The exclusion is `ownProfileId`, read from the same row this action
+      // updates, so re-saving the address you already hold is not a conflict.
+      if (parsed) {
+        const conflict = await findSlugConflict(createAdminClient(), parsed, {
+          vendorProfileId: ownProfileId,
+        });
+        if (conflict) return { ok: false, error: SLUG_CONFLICT_MESSAGE[conflict] };
       }
       patch = { business_slug: parsed };
       nextSlug = parsed;

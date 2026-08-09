@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { SLUG_CONFLICT_MESSAGE, findSlugConflict } from '@/lib/slug-availability';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   normalizeReligion,
@@ -371,13 +371,6 @@ export async function updateUserSlug(formData: FormData) {
       )}#url-slug`,
     );
   }
-  if (RESERVED_SLUGS.has(requested)) {
-    return redirect(
-      `/dashboard/profile?slug_error=${encodeURIComponent(
-        'That handle is reserved. Please pick another.',
-      )}#url-slug`,
-    );
-  }
 
   const supabase = await createClient();
   const {
@@ -416,18 +409,23 @@ export async function updateUserSlug(formData: FormData) {
     );
   }
 
-  // Case-insensitive uniqueness across ALL accounts (admin client so the probe
-  // sees rows the caller's RLS would hide).
-  const { data: clash } = await admin
-    .from('users')
-    .select('user_id')
-    .ilike('slug', requested)
-    .neq('user_id', user.id)
-    .maybeSingle();
-  if (clash) {
+  // ⚠ THIS USED TO ASK ONE TABLE. Weddings (`events.slug`), shops
+  // (`vendor_profiles.business_slug`) and people (`users.slug`) all live at
+  // setnayan.com/{word}, so checking `users` alone let a person claim a live
+  // wedding's address, a live shop's address, or a retired address that is
+  // still forwarding printed invitations. It also DISCARDED the probe's
+  // `error` — Supabase resolves `{ error }` rather than throwing, so a failed
+  // read looked exactly like "nobody holds it".
+  //
+  // `findSlugConflict` asks all four (reserved · events · shops · people ·
+  // forwarding ledger) with the admin client — it must see rows this caller's
+  // RLS hides, or "free" would only mean "invisible to you" — and fails closed.
+  // The exclusion is the AUTHENTICATED user's own id, not anything posted.
+  const conflict = await findSlugConflict(admin, requested, { userId: user.id });
+  if (conflict) {
     return redirect(
       `/dashboard/profile?slug_error=${encodeURIComponent(
-        'That handle is already taken. Please pick another.',
+        SLUG_CONFLICT_MESSAGE[conflict],
       )}#url-slug`,
     );
   }

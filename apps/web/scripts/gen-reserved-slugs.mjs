@@ -32,6 +32,23 @@ const END = '// <<< END GENERATED ROUTE SLUGS';
  */
 const CLAIMABLE = /^[a-z0-9-]+$/;
 
+/**
+ * Folders that add NO segment to the URL, so whatever sits inside them is
+ * still a TOP-LEVEL word: Next.js route groups `(marketing)` and parallel-route
+ * slots `@modal`. `app/(marketing)/foo/page.tsx` serves `/foo`.
+ *
+ * ⚠ WHY THIS MATTERS. The first cut read only the direct children of `app/` and
+ * skipped these entirely, so a page inside a route group would have served a
+ * real URL that nothing reserved — with this file's own test still green. That
+ * is exactly the hand-typed-list blindness the generator exists to end, one
+ * level deeper. (No top-level group exists today, so this changes no output
+ * now; the fixture test is what proves it would.)
+ *
+ * `(.)photo` / `(..)photo` are INTERCEPTING routes, not groups — the anchors
+ * keep them out, and they are not path-transparent.
+ */
+const PATH_TRANSPARENT = (name) => /^\([^().]+\)$/.test(name) || name.startsWith('@');
+
 /** True when the folder actually renders a URL somewhere beneath it. */
 function servesAUrl(dir) {
   let entries;
@@ -49,20 +66,48 @@ function servesAUrl(dir) {
   return false;
 }
 
+/**
+ * Collect every word that is a FIRST URL SEGMENT beneath `dir`, descending
+ * through path-transparent folders (route groups / parallel slots) so the words
+ * they contain are counted at the level they actually serve.
+ */
+function collectTopLevel(dir, out, depth = 0) {
+  // Guard against a pathological nest; real trees are 1–2 groups deep.
+  if (depth > 6) return;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const name = entry.name;
+    const full = path.join(dir, name);
+    if (!entry.isDirectory() && !safeIsDir(full)) continue;
+    if (PATH_TRANSPARENT(name)) {
+      collectTopLevel(full, out, depth + 1);
+      continue;
+    }
+    if (!CLAIMABLE.test(name)) continue;
+    if (!servesAUrl(full)) continue;
+    out.add(name);
+  }
+}
+
+function safeIsDir(full) {
+  try {
+    return statSync(full).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /** The set of top-level route words that exist on disk right now. */
 export function routeSlugsFromDisk(appDir = APP_DIR) {
   if (!existsSync(appDir)) throw new Error(`app directory not found: ${appDir}`);
-  const words = [];
-  for (const entry of readdirSync(appDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const name = entry.name;
-    if (!CLAIMABLE.test(name)) continue;
-    const full = path.join(appDir, name);
-    if (!statSync(full).isDirectory()) continue;
-    if (!servesAUrl(full)) continue;
-    words.push(name);
-  }
-  return words.sort();
+  const out = new Set();
+  collectTopLevel(appDir, out);
+  return [...out].sort();
 }
 
 function renderBlock(words) {

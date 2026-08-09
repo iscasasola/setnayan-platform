@@ -9,15 +9,25 @@
  * two of those operators would never appear on air. Nothing threw. Nothing
  * logged. Nobody was told. The number existed the whole time.
  *
+ * ⭐ THE SECOND WAY (2026-08-08). The first fix bound the result and then read
+ * ONE field off it — `.notice` — which only ever describes the CAP path. The
+ * other way a camera goes missing is a YouTube refusal, which sets `.detail`
+ * and **breaks the provisioning loop**: every remaining zone is neither created,
+ * nor reused, nor counted in `skippedOverCap`, so `.notice` is null and the host
+ * gets the same plain green tick. Worse, the guard here asserted on the source
+ * text `notice = provisioned.notice;` — it PINNED THE DEFECT IN. That assertion
+ * is gone; § 2b stubs a ProvisionResult and exercises the real function.
+ *
  * WHAT THIS GUARDS, AND WHY IT IS SHAPED LIKE THIS. A number COMPUTED and
  * discarded is exactly the defect, so asserting that `skippedOverCap` is
  * calculated would pass on the broken code. Every assertion below follows the
  * value along the only path that ends in a human reading it:
  *
- *   1. the pure sentence      — cameraDropNotice()      (behaviour)
- *   2. onto the result        — provisionRoamBroadcasts (source, comments stripped)
- *   3. out of the action      — goLivePanood            (source, comments stripped)
- *   4. onto the two screens   — GoLiveCard · TransportRow (source, comments stripped)
+ *   1.  the pure sentence     — cameraDropNotice()        (behaviour)
+ *   2.  onto the result       — provisionRoamBroadcasts   (source, comments stripped)
+ *   2b. BOTH drop paths       — hostNoticeFromProvision() (behaviour · stubbed result)
+ *   3.  out of the action     — goLivePanood              (source, comments stripped)
+ *   4.  onto the two screens  — GoLiveCard · TransportRow (source, comments stripped)
  *
  * Hops 2–4 are source assertions because the wiring cannot be exercised here:
  * `provisionRoamBroadcasts`'s loop dynamically imports `live-studio-channel-grants`
@@ -39,7 +49,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { cameraDropNotice } from './live-studio-roam-provision';
+import {
+  cameraDropNotice,
+  hostNoticeFromProvision,
+  type ProvisionResult,
+} from './live-studio-roam-provision';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
@@ -117,7 +131,121 @@ test('a failed provision reports no dropped cameras rather than a stale one', ()
 });
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   3 · THE COUNT LEAVES THE ACTION — goLivePanood no longer discards the result
+   2b · ⭐ THE SECOND WAY A CAMERA GOES MISSING — behaviour, not source text
+   ══════════════════════════════════════════════════════════════════════════════
+
+   The first fix bound the provision result and then read ONE field off it. But
+   provisioning loses cameras two ways:
+
+     · THE CAP     → skippedOverCap → `notice`.                    Reported.
+     · THE REFUSAL → a YouTube error sets `detail` and BREAKS THE
+                     LOOP, so every remaining zone is neither
+                     created, nor reused, nor counted anywhere,
+                     and `notice` comes back NULL.                 Silent.
+
+   So the shape below is stubbed and exercised — a `ProvisionResult` literal in,
+   the host-visible sentence out. The old guard here asserted on the source text
+   `notice = provisioned.notice;`, which pinned the NARROW READ in place: the
+   defect was literally what the test required. Behaviour first, wiring second.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/** A provisioning outcome, defaults = a clean multi-camera run. */
+function provision(over: Partial<ProvisionResult> = {}): ProvisionResult {
+  return {
+    ok: true,
+    channelPoolId: 7,
+    created: 4,
+    reused: 0,
+    skippedOverCap: 0,
+    published: 4,
+    reason: null,
+    detail: null,
+    notice: null,
+    ...over,
+  };
+}
+
+test('a YouTube refusal mid-loop REACHES THE HOST — nothing was counted, so nothing was said', () => {
+  // Exactly the break-the-loop shape: ok:false, a detail, and a null notice
+  // because the abandoned zones never incremented skippedOverCap.
+  const notice = hostNoticeFromProvision(
+    provision({
+      ok: false,
+      created: 1,
+      reason: 'youtube_error',
+      detail: 'YouTube refused a broadcast for "Reception".',
+      notice: null,
+    }),
+  );
+  assert.ok(notice, 'a failed provision must not come back as a plain green tick');
+  assert.notEqual(notice.trim(), '');
+  assert.match(notice, /Reception/, "the host must learn WHICH camera didn't make it");
+});
+
+test('BOTH ways at once are BOTH reported — neither sentence swallows the other', () => {
+  const notice = hostNoticeFromProvision(
+    provision({
+      ok: false,
+      reason: 'youtube_error',
+      detail: 'YouTube refused a broadcast for "Reception".',
+      notice: cameraDropNotice({ skippedOverCap: 2, carried: 4, cap: 4 }),
+    }),
+  );
+  assert.ok(notice);
+  assert.match(notice, /\b2 of your 6 cameras\b/, 'the cap drop must survive');
+  assert.match(notice, /Reception/, 'the refusal must survive');
+});
+
+test('a clean run still says NOTHING — a warning on a perfect broadcast is noise', () => {
+  assert.equal(hostNoticeFromProvision(provision()), null);
+});
+
+test('an ok run never leaks a detail, even if one is set', () => {
+  assert.equal(hostNoticeFromProvision(provision({ ok: true, detail: 'bookkeeping note' })), null);
+});
+
+test('"no camera channels yet" is NOT dressed up as a dropped camera', () => {
+  // The roam flag is on for every host, and most have zero camera zones. Folding
+  // this in would put a warning on every ordinary single-camera go-live, which is
+  // how a host learns to skim past the banner that matters.
+  assert.equal(
+    hostNoticeFromProvision(
+      provision({
+        ok: false,
+        created: 0,
+        published: 0,
+        reason: 'no_zones',
+        detail: 'This event has no camera channels yet.',
+        notice: null,
+      }),
+    ),
+    null,
+  );
+  assert.equal(
+    hostNoticeFromProvision(
+      provision({ ok: false, created: 0, published: 0, reason: 'flag_off', detail: 'Live Studio is not enabled.', notice: null }),
+    ),
+    null,
+  );
+});
+
+test('a Setnayan-side provisioning failure IS the host’s business — their cameras are dark', () => {
+  for (const reason of ['no_channel_available', 'channel_not_connected'] as const) {
+    const notice = hostNoticeFromProvision(
+      provision({ ok: false, created: 0, published: 0, reason, detail: `Something went wrong (${reason}).`, notice: null }),
+    );
+    assert.ok(notice, `${reason} must not be silent — every camera the host set up is off air`);
+    assert.match(notice, new RegExp(reason));
+  }
+});
+
+test('an empty or whitespace detail cannot produce a blank banner', () => {
+  assert.equal(hostNoticeFromProvision(provision({ ok: false, reason: 'youtube_error', detail: '   ' })), null);
+  assert.equal(hostNoticeFromProvision(provision({ ok: false, reason: 'youtube_error', detail: null })), null);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   3 · THE SENTENCE LEAVES THE ACTION — goLivePanood folds BOTH ways in
    ══════════════════════════════════════════════════════════════════════════════ */
 
 const ACTIONS = 'app/dashboard/[eventId]/studio/panood/setup/actions.ts';
@@ -132,7 +260,18 @@ test('goLivePanood keeps the provision result and returns the notice to the scre
     /const provisioned = await provisionRoamBroadcasts\(/,
     'the result must be BOUND — `await provisionRoamBroadcasts(...)` on its own line is how the count was lost',
   );
-  assert.match(fn, /notice = provisioned\.notice;/, 'the notice must be lifted out of the provision result');
+  // The WHOLE result goes through the folder, so both drop paths are worded.
+  assert.match(
+    fn,
+    /notice = hostNoticeFromProvision\(provisioned\);/,
+    'the whole result must go through the folder — every branch of hostNoticeFromProvision is exercised above',
+  );
+  // ⭐ THE REGRESSION. Reading one field back off the result is the defect this
+  // section was rewritten for; the previous guard REQUIRED that exact line.
+  assert.ok(
+    !/notice\s*=\s*provisioned\.(notice|detail)\b/.test(fn),
+    'reading a single field off the provision result is the discard, one level in',
+  );
   assert.match(
     fn,
     /return \{ ok: true, notice \};/,

@@ -13,6 +13,7 @@ import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
 import {
   getHeldChannelAccessToken,
+  hostNoticeFromProvision,
   provisionRoamBroadcasts,
   releasePoolChannelIfIdle,
   resolveEventBroadcastToken,
@@ -358,13 +359,17 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
     // returns a reason object; it does not throw and it does not change this
     // action's result.
     //
-    // ⚠ THE RESULT IS READ NOW — see `cameraDropNotice`. Discarding it is how a
-    // host set up six cameras, got a green tick, and had two never appear.
+    // ⚠ THE WHOLE RESULT IS READ NOW — see `hostNoticeFromProvision`. Reading
+    // only `.notice` was the same discard one level in: the cap is the ONE way
+    // a camera goes missing that `.notice` describes, and a YouTube refusal
+    // BREAKS THE PROVISIONING LOOP, so every remaining camera is dropped without
+    // ever being counted and `.notice` comes back null. That is how a host set
+    // up six cameras, got a plain green tick, and had four never appear.
     const provisioned = await provisionRoamBroadcasts(admin, eventId, {
       titlePrefix: 'Setnayan Live',
       scheduledStartTime: scheduledStartAt,
     });
-    notice = provisioned.notice;
+    notice = hostNoticeFromProvision(provisioned);
   }
 
   // (h) Refresh the setup page (so the OBS card appears) + the public page embed.

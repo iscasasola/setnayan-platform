@@ -478,6 +478,51 @@ export function cameraDropNotice(input: {
 }
 
 /**
+ * ⚠ THE SECOND WAY A CAMERA GOES MISSING — and the one place both are worded.
+ *
+ * `provisionRoamBroadcasts` loses cameras TWO different ways and only one of
+ * them was ever counted:
+ *
+ *   1. THE CAP. A zone over the pool channel's `concurrent_cap` increments
+ *      `skippedOverCap`, which becomes `notice`. Reported.
+ *   2. THE REFUSAL. A YouTube error (or an insert that is not the idempotency
+ *      23505) sets `youtubeError` and **breaks the loop** — so every zone after
+ *      it is neither created, nor reused, nor counted in `skippedOverCap`. The
+ *      result comes back `ok: false` with a `detail`, and `notice` is `null`.
+ *
+ * Its caller read only `.notice`, so way 2 produced exactly the silence way 1
+ * was fixed for: a plain green tick over cameras that never appeared. This
+ * function is the single place a ProvisionResult becomes the one sentence a
+ * host reads, so neither way can be wired up without the other.
+ *
+ * `detail` is passed through VERBATIM — it is already written host-safe and
+ * never carries a token or stream key ("YouTube refused a broadcast for
+ * \"Reception\"."). Re-wording it here would be a second copy to drift.
+ *
+ * ⚠ `no_zones` and `flag_off` are deliberately NOT folded in. They mean the
+ * host never set up multi-camera at all, so nothing of theirs went missing —
+ * and the roam flag is on for EVERY host, so "This event has no camera channels
+ * yet." would ride on top of every ordinary single-camera go-live. That is the
+ * noise `cameraDropNotice` refuses to emit for the same reason: noise is how a
+ * real warning gets skimmed past.
+ */
+export function hostNoticeFromProvision(
+  provisioned: Pick<ProvisionResult, 'ok' | 'notice' | 'detail' | 'reason'>,
+): string | null {
+  const parts: string[] = [];
+  const dropped = provisioned.notice?.trim();
+  if (dropped) parts.push(dropped);
+
+  const silentlyIntentional = provisioned.reason === 'no_zones' || provisioned.reason === 'flag_off';
+  if (provisioned.ok === false && !silentlyIntentional) {
+    const detail = provisioned.detail?.trim();
+    if (detail) parts.push(detail);
+  }
+
+  return parts.length === 0 ? null : parts.join(' ');
+}
+
+/**
  * ⭐ Provision one YouTube broadcast per camera zone on a Setnayan-owned pool
  * channel, then re-mirror the public manifest through the § 4d publish gate.
  *

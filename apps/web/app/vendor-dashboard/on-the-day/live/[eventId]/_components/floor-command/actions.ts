@@ -15,16 +15,30 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
+import { advanceRefusalMessage } from '@/lib/run-of-show';
+import { isBookedCoordinatorOnEvent } from '@/lib/run-of-show-gate';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
 
 export type FloorActionResult = { ok: boolean; error?: string; message?: string };
 
-/** Resolve the caller to the booked COORDINATOR on this event, or explain. */
+/**
+ * Resolve the caller to the booked COORDINATOR on this event, or explain.
+ *
+ * ⚠ THE BOOKED CHECK USED A DIFFERENT TABLE FROM EVERY OTHER SURFACE. It read
+ * `vendor_schedule_pool_bookings` (a held date) while the run-of-show gate reads
+ * `event_vendors.status IN ('contracted', …)` through
+ * `current_coordinator_booked_event_ids()`. Those two lifecycles are offset, so
+ * a real coordinator could pass here and be refused by the action a line later
+ * — a control that animates and does nothing. One shared source now answers it,
+ * the same one the server action enforces.
+ *
+ * The profile + tile reads stay: they are what turns "no" into a sentence that
+ * names the reason.
+ */
 async function requireCoordinator(eventId: string) {
   const supabase = await createClient();
   const {
@@ -38,8 +52,7 @@ async function requireCoordinator(eventId: string) {
     return { error: 'Only the coordinator can run the floor.' as const };
   }
 
-  const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
-  if (!bookings.some((b) => b.eventId === eventId)) {
+  if (!(await isBookedCoordinatorOnEvent(supabase, eventId))) {
     return { error: 'You are not booked on this event.' as const };
   }
 
@@ -64,12 +77,13 @@ export async function floorAdvanceBlock(
 
   const res = await advanceScheduleBlock(eventId, blockId);
 
-  // The RPC reports its own no-ops rather than throwing; surface them as
-  // sentences so a double-tap on the floor is explained, not silent.
-  if (res.status === 'noop_live_in_progress') {
-    return { ok: false, error: 'Finish the block that is running first.' };
-  }
-  if (res.status === 'not_signed_in') return { ok: false, error: 'Not signed in.' };
+  // 🔴 EVERY UNNAMED STATUS USED TO FALL THROUGH TO `{ ok: true }`. It mapped
+  // three by name, so `not_the_coordinator` — and anything added later — was
+  // reported as a clean run on the live floor while nothing had moved. The
+  // shared mapper inverts that: only the success statuses are success, and each
+  // refusal arrives as a sentence.
+  const refusal = advanceRefusalMessage(res);
+  if (refusal) return { ok: false, error: refusal };
   if (res.status === 'already') return { ok: true, message: 'Already done.' };
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);

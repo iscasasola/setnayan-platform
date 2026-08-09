@@ -59,6 +59,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+import { isBookedCoordinatorOnEvent } from '@/lib/run-of-show-gate';
 import {
   CardTabs,
   PipelineStrip,
@@ -682,6 +683,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       actual_start_at: b.actual_start_at ?? null,
     }));
 
+  // 🔒 WHO SEES THE ADVANCE CONTROL. This was passed unconditionally, so every
+  // booked supplier — caterer, florist, the band — was shown the button that
+  // runs the couple's programme. The answer now comes from the SAME shared gate
+  // the server action enforces, so the screen and the action cannot disagree
+  // (and the floor console, which used to read a different table, agrees too).
+  const canAdvanceRunOfShow = await isBookedCoordinatorOnEvent(supabase, eventId);
+
   const relevance = new Map(
     allBlocks.map((b) => [b.block_id, blockRelevance(b, brief.booked_categories)]),
   );
@@ -1051,6 +1059,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         mineOnly={mineOnly}
         mineCount={mineCount}
         runOfShowBlocks={runOfShowBlocks}
+        canAdvanceRunOfShow={canAdvanceRunOfShow}
         callTime={callTime}
         callTimeAlreadyRequested={callTimeAlreadyRequested}
         suggestions={suggestions}
@@ -2542,6 +2551,7 @@ function ScheduleTab(props: {
   mineOnly: boolean;
   mineCount: number;
   runOfShowBlocks: RunOfShowBlock[];
+  canAdvanceRunOfShow: boolean;
   callTime: ReturnType<typeof deriveCallTime>;
   callTimeAlreadyRequested: boolean;
   suggestions: SuggestionRow[];
@@ -2560,6 +2570,7 @@ function ScheduleTab(props: {
     mineOnly,
     mineCount,
     runOfShowBlocks,
+    canAdvanceRunOfShow,
     callTime,
     callTimeAlreadyRequested,
     suggestions,
@@ -2623,7 +2634,12 @@ function ScheduleTab(props: {
 
         {runOfShowBlocks.length > 0 ? (
           <div className="mt-3">
-            <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance compact />
+            <RunOfShowHeader
+              eventId={eventId}
+              initial={runOfShowBlocks}
+              canAdvance={canAdvanceRunOfShow}
+              compact
+            />
           </div>
         ) : null}
 

@@ -210,3 +210,59 @@ export function driftLabel(driftMinutes: number | null): string | null {
   const unit = n === 1 ? 'min' : 'min';
   return driftMinutes > 0 ? `${n} ${unit} behind` : `${n} ${unit} ahead`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   THE ADVANCE OUTCOME — pure, so both the header and the floor console read a
+   refusal the same way.
+
+   🔴 A REFUSAL WAS ANNOUNCED AS "Saved". The header threw the action's result
+   away and let the save veil finish with its default success beat, so a caller
+   the gate had just turned down watched a tick land and believed the programme
+   had moved. The floor console had the same hole from the other end: it mapped
+   three statuses by name and let everything else fall through to `{ ok: true }`,
+   so `not_the_coordinator` was reported as a clean run on the live floor.
+
+   One list, checked by BOTH — anything not named here is a refusal, which is the
+   direction that fails safe when a future status is added.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The statuses that mean the timeline really did move (or was already there).
+ * `advance_schedule_block` returns 'started' | 'ok' | 'already'.
+ */
+export const ADVANCE_SUCCESS_STATUSES = ['ok', 'started', 'already'] as const;
+
+/**
+ * The two statuses the ACTION's own gate returns. Declared here, in the pure
+ * module both sides already import, so the writer and the reader of each status
+ * are never two hand-typed strings that can drift apart into a refusal nothing
+ * recognises.
+ */
+export const ADVANCE_REFUSED_NOT_COORDINATOR = 'not_the_coordinator';
+export const ADVANCE_REFUSED_BLOCK_NOT_ON_EVENT = 'block_not_on_event';
+
+/** Sentences for the refusals we can name. */
+const ADVANCE_REFUSAL_COPY: Record<string, string> = {
+  [ADVANCE_REFUSED_NOT_COORDINATOR]: 'Only the coordinator can advance the run of show.',
+  [ADVANCE_REFUSED_BLOCK_NOT_ON_EVENT]: 'That moment is not part of this event.',
+  not_signed_in: 'Sign in again to advance the run of show.',
+  noop_live_in_progress: 'Finish the moment that is running first.',
+};
+
+/**
+ * The sentence to SHOW for an advance result, or null when it succeeded.
+ *
+ * Never returns an empty string for a refusal — an empty notice renders as
+ * nothing, which is the silent-refusal bug wearing a different hat.
+ */
+export function advanceRefusalMessage(
+  result: { status?: string | null; message?: string | null } | null | undefined,
+): string | null {
+  const status = result?.status ?? '';
+  if ((ADVANCE_SUCCESS_STATUSES as readonly string[]).includes(status)) return null;
+  const named = ADVANCE_REFUSAL_COPY[status];
+  if (named) return named;
+  const message = result?.message?.trim();
+  if (message) return message;
+  return 'Could not advance the run of show. Reload and try again.';
+}

@@ -1,15 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { Radio, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Radio, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  advanceRefusalMessage,
   deriveRunOfShow,
   driftLabel,
   type RunOfShowBlock,
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
-import { useSaveLoader } from '@/components/sd-loader';
+import { useLoader } from '@/components/sd-loader';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
 /**
@@ -23,10 +24,12 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * INSERT/UPDATE/DELETE re-pulls the blocks via a server action, so advancing on
  * one device lights up on every open surface within ~500ms.
  *
- * `canAdvance` gates the "Start next" / "End & advance" control to the
- * host/coordinator (and the booked vendor, who is also allowed by the RPC). The
- * RPC is single-winner + idempotent, so a stray click from a second device is a
- * benign no-op.
+ * `canAdvance` decides whether the "Start next" / "End & advance" control is
+ * DRAWN. It is a screen convenience, never the permission: `advanceScheduleBlock`
+ * re-checks the caller server-side against `lib/run-of-show-gate.ts` and every
+ * caller passes `canAdvance` from that same shared gate. The RPC is
+ * single-winner + idempotent, so a stray click from a second device is a benign
+ * no-op — and a refusal is RENDERED (see `refusal` below), never swallowed.
  *
  * `initial` is computed in the server render so the header shows correct state
  * on first paint before the channel connects.
@@ -45,7 +48,15 @@ export function RunOfShowHeader({
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
   const [live, setLive] = useState(false);
   const [pending, startTransition] = useTransition();
-  const save = useSaveLoader();
+  // The sentence a refused advance leaves on screen. Before this existed the
+  // action's refusal was thrown away and the veil finished with "Saved" — a
+  // guest, or a supplier the gate had just turned down, watched a success tick
+  // land while the programme had not moved an inch.
+  const [refusal, setRefusal] = useState<string | null>(null);
+  // ⚠ NOT `useSaveLoader`: its `showDone` is decided BEFORE the work runs, and
+  // whether this deserves a success beat is decided by the RESULT. Driving the
+  // overlay directly keeps that decision where the answer is.
+  const { show, complete, hide } = useLoader();
   // A wall-clock tick (60s) so the drift label re-reads "now" even without a
   // realtime event — purely cosmetic; run-state is the source of truth.
   const [, setTick] = useState(0);
@@ -105,11 +116,23 @@ export function RunOfShowHeader({
   if (blocks.length === 0) return null;
 
   const onAdvance = (blockId: string) => {
+    setRefusal(null);
     startTransition(async () => {
-      await save.run(() => advanceScheduleBlock(eventId, blockId), {
-        steps: ['Advancing the timeline'],
-        hint: 'Saving',
-      });
+      show({ steps: ['Advancing the timeline'], hint: 'Saving' });
+      let notice: string | null;
+      try {
+        notice = advanceRefusalMessage(await advanceScheduleBlock(eventId, blockId));
+      } catch {
+        notice = 'Could not reach the timeline. Check your signal and try again.';
+      }
+      if (notice) {
+        // A REFUSAL GETS NO SUCCESS BEAT. `hide()` is `showDone: false` —
+        // dismiss the veil without the "Saved ✓" it would otherwise draw.
+        hide();
+        setRefusal(notice);
+        return;
+      }
+      complete();
       await refetch();
     });
   };
@@ -225,6 +248,19 @@ export function RunOfShowHeader({
           ) : null}
           {pending ? <span className="text-xs text-ink/45">Updating…</span> : null}
         </div>
+      ) : null}
+
+      {/* WHERE A REFUSAL IS SEEN. Rendered outside the `canAdvance` branch on
+          purpose: if the control is ever shown to someone the action turns
+          down, the sentence must still have somewhere to land. */}
+      {refusal ? (
+        <p
+          role="status"
+          className="mt-3 flex items-start gap-2 rounded-xl border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-xs text-ink/75"
+        >
+          <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" />
+          <span>{refusal}</span>
+        </p>
       ) : null}
     </section>
   );

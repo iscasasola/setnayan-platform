@@ -37,6 +37,7 @@ import {
 } from './vendor-compatibility';
 import { VENUE_SETTINGS } from './venue-settings';
 import { ALLOWED_CEREMONY_VALUES } from './faith-registry';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -179,10 +180,11 @@ test('the public badge derives its labels instead of re-typing them', () => {
  * and this test pins that instead. Same failure prevented, one layer earlier.
  */
 test('no full-payload action writes these columns behind the vendor’s back', () => {
-  const src = read('app/vendor-dashboard/actions.ts')
-    // Strip comments: the tombstone explaining the deletion names both columns.
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  // Strip comments: the tombstone explaining the deletion names both columns.
+  // Through the shared lexer, NOT a regex — the regex this line used to inline
+  // was measured deleting 1,163 lines of real code across the codebase, and
+  // missing trailing `//` entirely. See lib/strip-comments.ts.
+  const src = stripComments(read('app/vendor-dashboard/actions.ts'));
   assert.ok(
     !/compatible_(venue_settings|ceremony_types)\s*:/.test(src),
     'A vendor-dashboard action writes the compatibility columns again. Only a ' +

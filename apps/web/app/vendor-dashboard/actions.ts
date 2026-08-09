@@ -295,11 +295,13 @@ function parseServices(
  * (2026-07-02). Each checklist row edits ONE field in place instead of deep-
  * linking to the full /profile form.
  *
- * WHY a separate action (not saveVendorProfile): `saveVendorProfile` is a FULL-
- * FORM action — it reads every column from FormData and writes a complete
- * payload, so submitting a single field would null the other eight. This action
- * writes ONLY the one target column (+ updated_at), and re-runs ONLY that
- * field's side-effects, mirroring `saveVendorProfile` EXACTLY and nothing more:
+ * WHY a separate action (not saveVendorProfile): `saveVendorProfile` WAS a
+ * FULL-FORM action — it read every column from FormData and wrote a complete
+ * payload, so submitting a single field would null the other eight. That is why
+ * this one was built, and ultimately why the other was deleted on 2026-08-09
+ * (see the tombstone above). This action writes ONLY the one target column
+ * (+ updated_at), and re-runs ONLY that field's side-effects, which mirrored
+ * `saveVendorProfile` EXACTLY and nothing more:
  *   - maps_pin (hq_address) → best-effort Nominatim geocode of hq_latitude/longitude,
  *     UNLESS the form posts a vendor-pinned hq_latitude/hq_longitude (the My Shop
  *     map picker) — those save directly and the server geocode is skipped
@@ -311,9 +313,11 @@ function parseServices(
  *   - logo → NO repost-hash: the repost-watch scope excludes logos (only
  *     portfolio + service covers are hashed, per the 2026-07-01 lock), and the
  *     full form doesn't hash the logo either.
- * It never sets `is_published`, so it can't accidentally publish/unpublish. It
- * returns a VALUE (never redirects) so the client toasts + collapses in place.
- * `saveVendorProfile` stays the untouched full-form escape hatch.
+ * It never sets `is_published`, so it can't accidentally publish/unpublish —
+ * the property the full form did NOT have, and the reason that one is gone
+ * (`lib/vendor-publish-guard.test.ts` now enforces it for every vendor-scoped
+ * action, this one included). It returns a VALUE (never redirects) so the
+ * client toasts + collapses in place.
  *
  * Signature is `(prevState, formData)` for `useActionState`. `field` + the value
  * arrive as form inputs; value input names match the /profile form so the exact

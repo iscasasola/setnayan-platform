@@ -26,7 +26,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Lock } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebNudgeBanner } from '@/app/vendor-dashboard/_components/web-nudge-banner';
 import { isNativeApp } from '@/lib/capacitor';
@@ -63,9 +64,17 @@ function mobileSrp(webPrice: number): number {
 export function SubscriptionCards({
   cards,
   cycle,
+  verified,
 }: {
   cards: SubscriptionCardData[];
   cycle: 'monthly' | 'annual';
+  /**
+   * `vendor_profiles.verification_state === 'verified'`. Mirrors the DB's own
+   * NOT_VERIFIED gate in `create_vendor_subscription` — this prop only decides
+   * what the card SHOWS; the refusal itself stays in the database, so a stale or
+   * spoofed `true` still cannot buy a plan.
+   */
+  verified: boolean;
 }) {
   const [native, setNative] = useState(false);
 
@@ -195,15 +204,38 @@ export function SubscriptionCards({
                 ))}
               </ul>
 
-              <form action={startSubscriptionPurchase} className="mt-5">
-                <input type="hidden" name="sku_code" value={card.sku} />
-                <SubmitButton
-                  className="button-primary w-full"
-                  pendingLabel="Starting…"
-                >
-                  {baseLabel}
-                </SubmitButton>
-              </form>
+              {/* ── SAY THE RULE BEFORE THE CLICK, NOT AFTER ─────────────────
+                  `create_vendor_subscription` raises NOT_VERIFIED for a shop
+                  that isn't approved, and the action turns that into "Verify
+                  your shop before subscribing". The rule is right and enforced
+                  in the database — but until 2026-08-09 this card still showed a
+                  live Upgrade button to an unverified vendor, so the only way to
+                  learn the rule was to pick a plan and be refused. A gate the
+                  screen doesn't mention is indistinguishable from a bug. */}
+              {verified ? (
+                <form action={startSubscriptionPurchase} className="mt-5">
+                  <input type="hidden" name="sku_code" value={card.sku} />
+                  <SubmitButton
+                    className="button-primary w-full"
+                    pendingLabel="Starting…"
+                  >
+                    {baseLabel}
+                  </SubmitButton>
+                </form>
+              ) : (
+                <div className="mt-5 space-y-2">
+                  <Link
+                    href="/vendor-dashboard/shop#get-verified"
+                    className="button-primary flex w-full items-center justify-center gap-1.5"
+                  >
+                    <Lock className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    Get verified first
+                  </Link>
+                  <p className="text-center text-xs text-ink/55">
+                    Plans open up once Setnayan approves your shop.
+                  </p>
+                </div>
+              )}
             </section>
           );
         })}

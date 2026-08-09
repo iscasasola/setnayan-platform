@@ -20,6 +20,9 @@ import {
   UpcomingSchedules,
 } from './_components/overview-sections';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
+import { VendorFirstSteps } from './_components/first-steps';
+import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
+import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
@@ -135,13 +138,14 @@ export default async function VendorOverviewPage() {
   let data;
   let spotlightAwards;
   let earnings: VendorEarningsSummary | null;
+  let firstSteps: FirstStepsRail | null;
   try {
     // The decision feed, Spotlight Award banner, and earnings summary all key
     // off the same vendor_profile_id and have no dependency on each other —
     // fetch them in parallel (2026-07-01 perf). Awards + earnings fail soft
     // (→ [] / null) so a failed read only hides that widget instead of tripping
     // the overview-unavailable page.
-    [data, spotlightAwards, earnings] = await timer.track('overview-data', () => Promise.all([
+    [data, spotlightAwards, earnings, firstSteps] = await timer.track('overview-data', () => Promise.all([
       fetchVendorOverviewData(
         supabase,
         profile.vendor_profile_id,
@@ -149,6 +153,10 @@ export default async function VendorOverviewPage() {
       ),
       fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
       fetchVendorEarningsSummary(supabase, profile.vendor_profile_id).catch(() => null),
+      // The order-of-operations rail. Null on a verified shop (it short-circuits
+      // after one cheap read) and null on any failure — a nudge must never be
+      // what takes the vendor's home page down.
+      fetchVendorFirstStepsState(supabase, profile).catch(() => null),
     ]));
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -221,7 +229,13 @@ export default async function VendorOverviewPage() {
         <p className="max-w-[56ch] pt-0.5 text-[12.5px] text-ink/55">
           {heroInquiries > 0
             ? 'Here’s what needs you today.'
-            : "You're all caught up — new leads land here the moment a couple unlocks you."}
+            : firstSteps
+              ? // An unverified shop is invisible to every couple, so "you're all
+                // caught up — new leads land here" was a promise that could not
+                // come true: it told a vendor to wait for something that will
+                // never arrive until they finish the steps below.
+                'No couple can find you yet — your first steps are below.'
+              : "You're all caught up — new leads land here the moment a couple unlocks you."}
         </p>
         {milestone ? (
           <div className="pt-1.5">
@@ -247,6 +261,12 @@ export default async function VendorOverviewPage() {
           </div>
         ) : null}
       </header>
+
+      {/* First steps — the order of operations, ABOVE the focal tile and the
+          feed. For a shop that isn't approved yet those are all zeros and an
+          empty feed, so the one useful thing on this page is what to do next.
+          Renders nothing once the shop is verified (rail is null). */}
+      {firstSteps ? <VendorFirstSteps rail={firstSteps} /> : null}
 
       {/* Focal — "Today at {shop}", the single obsidian tile (§ 1.3). Blooms
           last; its gold CTA anchors to the What's-new feed below. */}

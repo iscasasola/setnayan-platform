@@ -100,10 +100,14 @@ export async function VendorQrSection({
       />
     );
   } else {
+    // Reached only when the shop has no slug. The copy used to say "publish your
+    // business profile first", which named a control that does not exist for a
+    // vendor (see the note in ../invite/page.tsx) AND described the wrong
+    // condition — this branch has always keyed on the slug alone.
     const publishPrompt = (
       <div className="text-sm text-ink/70">
-        Publish your business profile first — your QR is built from your public
-        page.{' '}
+        Name your shop first — your QR is built from your shop&rsquo;s web
+        address.{' '}
         <Link
           href="/vendor-dashboard/shop"
           className="font-medium text-terracotta hover:underline"

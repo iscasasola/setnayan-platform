@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Globe, Store } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Store } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -163,7 +162,7 @@ export function OpenShopWizard({
   return (
     <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
       <div
-        className="w-full max-w-lg rounded-2xl border p-7"
+        className="w-full max-w-lg rounded-2xl border p-5 sm:p-7"
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -180,13 +179,16 @@ export function OpenShopWizard({
         </div>
 
         <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-          {step === 1 ? 'Open your shop on Setnayan' : 'How couples reach you'}
+          {step === 1 ? 'Open your shop' : 'How couples reach you'}
         </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
-          {step === 1
-            ? 'This takes about a minute — just the basics, free during launch.'
-            : 'A name, number, and email couples can trust — plus where you already live online.'}
-        </p>
+        {/* Step 2 gets NO subtitle: its four labels say everything, and the old
+            one ("plus where you already live online") described website + social
+            fields that moved to the dashboard in July — stale, not just wordy. */}
+        {step === 1 ? (
+          <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+            Free during launch — about a minute.
+          </p>
+        ) : null}
 
         {(error || stepError) && (
           <p
@@ -210,7 +212,7 @@ export function OpenShopWizard({
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
                 maxLength={128}
-                placeholder="Your studio / company name"
+                placeholder="e.g. Banawe Florals"
                 className="input-field"
                 autoFocus
               />
@@ -220,56 +222,6 @@ export function OpenShopWizard({
                   because a save-the-date already points at it. */}
               <AddressPreview shopName={shopName} />
             </label>
-
-            <div className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Shop logo
-                {OPEN_SHOP_LOGO_REQUIRED ? (
-                  <span className="ml-1 text-terracotta">*</span>
-                ) : (
-                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    (optional for now)
-                  </span>
-                )}
-              </span>
-              <FileUpload
-                bucket="media"
-                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
-                name="logo_url"
-                currentValue={logoUrl || null}
-                initialDisplayUrls={logoDisplayMap ?? {}}
-                onChange={(v) =>
-                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
-                }
-                maxSizeMB={10}
-                compressImage
-                acceptedTypes={[
-                  'image/png',
-                  'image/jpeg',
-                  'image/webp',
-                  'image/heic',
-                  'image/heif',
-                ]}
-                variant="square"
-                qrGuard
-              />
-              {/* ⚠ This used to end "…you'll need it to publish your shop and to
-                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
-                  such control for them anywhere, and approval is what makes a
-                  shop public. It was the last survivor of the same false idea
-                  removed from the two QR surfaces on 2026-08-09; a sweep for
-                  "publish your profile/page" missed it because this one says
-                  "publish your SHOP". Getting verified is the true and only
-                  reason the logo is required — it is one of the business-profile
-                  fields, and the profile must be complete before documents can
-                  be submitted. */}
-              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                PNG, JPEG, HEIC, or WebP up to 10&nbsp;MB — <strong>PNG and WebP keep a
-                transparent background</strong>, which looks best on a vendor card.
-                Couples see this everywhere. You can add it later from My Shop — but
-                Setnayan needs it before your shop can be approved.
-              </span>
-            </div>
 
             <div className="block space-y-1.5">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -323,7 +275,7 @@ export function OpenShopWizard({
                 </select>
               )}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Just one for now — add the rest from My Shop.
+                Pick one — add more later.
               </span>
             </div>
 
@@ -346,7 +298,7 @@ export function OpenShopWizard({
                   keeps a long name from widening its whole column. */}
               <div
                 className="grid gap-1.5"
-                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))' }}
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(8.5rem, 1fr))' }}
               >
                 {eventTypeOptions.map((e) => {
                   const on = events.includes(e.key);
@@ -375,7 +327,54 @@ export function OpenShopWizard({
                 })}
               </div>
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Couples planning these events can find you. Pick all that apply — change it anytime from My Shop.
+                Pick all that apply.
+              </span>
+            </div>
+
+            <div className="block space-y-1">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Shop logo
+                {OPEN_SHOP_LOGO_REQUIRED ? (
+                  <span className="ml-1 text-terracotta">*</span>
+                ) : (
+                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                    optional
+                  </span>
+                )}
+              </span>
+              <FileUpload
+                bucket="media"
+                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
+                name="logo_url"
+                currentValue={logoUrl || null}
+                initialDisplayUrls={logoDisplayMap ?? {}}
+                onChange={(v) =>
+                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
+                }
+                maxSizeMB={10}
+                compressImage
+                acceptedTypes={[
+                  'image/png',
+                  'image/jpeg',
+                  'image/webp',
+                  'image/heic',
+                  'image/heif',
+                ]}
+                variant="square"
+                qrGuard
+              />
+              {/* ⚠ This used to end "…you'll need it to publish your shop and to
+                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
+                  such control for them anywhere, and approval is what makes a
+                  shop public. It was the last survivor of the same false idea
+                  removed from the two QR surfaces on 2026-08-09; a sweep for
+                  "publish your profile/page" missed it because this one says
+                  "publish your SHOP". Getting verified is the true and only
+                  reason the logo is required — it is one of the business-profile
+                  fields, and the profile must be complete before documents can
+                  be submitted. */}
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Needed before your shop is approved — add it now or later.
               </span>
             </div>
 
@@ -399,7 +398,7 @@ export function OpenShopWizard({
                 name="contact_name"
                 defaultValue={defaults.contactName}
                 maxLength={128}
-                placeholder="Owner / representative full name"
+                placeholder="e.g. Ana Reyes"
                 className="input-field"
               />
             </label>
@@ -435,7 +434,7 @@ export function OpenShopWizard({
 
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Location
+                City<span className="ml-1 text-terracotta">*</span>
               </span>
               <input
                 name="location_city"
@@ -445,14 +444,6 @@ export function OpenShopWizard({
                 className="input-field"
               />
             </label>
-
-            <p
-              className="rounded-lg border p-3 text-xs"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)', color: 'var(--m-slate)' }}
-            >
-              You can upgrade your business further anytime — add your website, social links,
-              photos, services and pricing from your dashboard.
-            </p>
 
             <div className="flex items-center gap-2">
               <button
@@ -473,12 +464,6 @@ export function OpenShopWizard({
           </div>
         </form>
 
-        <p className="mt-4 text-center text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          <Link href="/vendors" className="inline-flex items-center gap-1 font-medium text-terracotta hover:underline">
-            <Globe className="h-3 w-3" strokeWidth={2} aria-hidden />
-            See what vendors get
-          </Link>
-        </p>
       </div>
     </main>
   );

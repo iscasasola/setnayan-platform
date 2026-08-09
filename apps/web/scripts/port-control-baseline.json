@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e5afbf6d8",
+  "generatedFromRef": "5069fb269",
   "routeCount": 400,
-  "destinations": 674,
-  "actions": 512,
-  "blocks": 3511,
+  "destinations": 675,
+  "actions": 513,
+  "blocks": 3525,
   "routes": {
     "/": {
       "files": [
@@ -2381,6 +2381,7 @@
         "/admin/vendors"
       ],
       "actions": [
+        "setVendorFoundingSupplier",
         "setVendorTier"
       ],
       "blocks": [
@@ -2614,6 +2615,7 @@
     },
     "/blog": {
       "files": [
+        "blog/_components/story-card.tsx",
         "blog/page.tsx"
       ],
       "destinations": [
@@ -2641,11 +2643,13 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
-        "/signup"
+        "/signup",
+        "/u/[seg]/c/[seg]"
       ],
       "actions": [],
       "blocks": [
         "Block",
+        "ChapterEmbedFrame",
         "Image",
         "JournalPartnerCredit",
         "Link",
@@ -6790,21 +6794,24 @@
     },
     "/open-shop": {
       "files": [
+        "open-shop/_components/address-preview.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
+        "open-shop/_components/service-picker.tsx",
         "open-shop/actions.ts",
+        "open-shop/address-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [
-        "/vendors"
-      ],
+      "destinations": [],
       "actions": [
         "becomeVendor"
       ],
       "blocks": [
+        "AddressCheck",
+        "AddressPreview",
         "FileUpload",
         "HTMLFormElement",
-        "Link",
         "OpenShopWizard",
+        "ServicePicker",
         "SubmitButton"
       ]
     },
@@ -6940,6 +6947,7 @@
         "Date",
         "FacebookDualStreamCard",
         "FeedMap",
+        "GoLiveResult",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLVideoElement",
@@ -7333,6 +7341,7 @@
     "/realstories": {
       "files": [
         "realstories/_components/gallery.tsx",
+        "realstories/_components/journal-rail.tsx",
         "realstories/_components/share-buttons.tsx",
         "realstories/_components/stories-search.tsx",
         "realstories/_components/storytellers-shelf.tsx",
@@ -7350,11 +7359,13 @@
         "HTMLDivElement",
         "HTMLInputElement",
         "HTMLVideoElement",
+        "JournalRail",
         "Link",
         "PinterestGlyph",
         "RealStoriesGallery",
         "SectionHead",
         "StoriesSearch",
+        "StoryCard",
         "StorytellerTile",
         "StorytellersShelf",
         "Tile",
@@ -7840,6 +7851,7 @@
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/eager-disclosure.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
+        "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
@@ -7921,6 +7933,7 @@
         "LockBody",
         "LockedBody",
         "LockedQrGenerator",
+        "Marker",
         "MediaTile",
         "NavFab",
         "NotConnected",
@@ -7941,6 +7954,7 @@
         "Sk",
         "SpotlightAwardBanner",
         "State",
+        "StepRow",
         "SubmitButton",
         "SwitcherPlaqueTrigger",
         "SyncResult",
@@ -7950,6 +7964,7 @@
         "VendorAvatar",
         "VendorBottomNav",
         "VendorEnergyStats",
+        "VendorFirstSteps",
         "VendorNavFab",
         "VendorSidebar",
         "VendorSidebarFooter",
@@ -9287,19 +9302,23 @@
         "vendor-dashboard/shop/_components/editable-row.tsx",
         "vendor-dashboard/shop/_components/manage-tiles.tsx",
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
+        "vendor-dashboard/shop/_components/public-line-card.tsx",
         "vendor-dashboard/shop/_components/reach-map.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
         "vendor-dashboard/shop/_components/verify-section.tsx",
+        "vendor-dashboard/shop/_components/visibility-card.tsx",
         "vendor-dashboard/shop/_components/voice-match-card.tsx",
         "vendor-dashboard/shop/_components/voice-match-section.tsx",
         "vendor-dashboard/shop/_components/website-editor.tsx",
         "vendor-dashboard/shop/autoreply-actions.ts",
         "vendor-dashboard/shop/inline-docs-actions.ts",
         "vendor-dashboard/shop/page.tsx",
+        "vendor-dashboard/shop/public-line-actions.ts",
         "vendor-dashboard/shop/radius-actions.ts",
-        "vendor-dashboard/shop/venue-match-actions.ts"
+        "vendor-dashboard/shop/venue-match-actions.ts",
+        "vendor-dashboard/shop/visibility-actions.ts"
       ],
       "destinations": [
         "/open-shop",
@@ -9366,6 +9385,8 @@
         "PlainInput",
         "ProfileChecklistEditor",
         "ProposalsSurface",
+        "PublicLineCard",
+        "PublicLineSaveResult",
         "ReachMap",
         "ReceiptLine",
         "RegNumberSaveResult",
@@ -9392,6 +9413,7 @@
         "Suspense",
         "Switch",
         "TeamPanel",
+        "ToggleRow",
         "ToolKey",
         "ToolTile",
         "VendorAvatar",
@@ -9401,6 +9423,8 @@
         "VenueMatchSaveResult",
         "VerifySection",
         "VideoLinksEditor",
+        "VisibilityCard",
+        "VisibilitySaveResult",
         "VoiceGate",
         "VoiceMatchCard",
         "VoiceMatchSection",
@@ -9424,6 +9448,7 @@
       ],
       "destinations": [
         "/vendor-dashboard/deep-search",
+        "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription/custom",
         "/vendor-dashboard/subscription?cycle=[seg]"
       ],

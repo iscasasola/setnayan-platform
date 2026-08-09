@@ -30,7 +30,19 @@ const SURFACES: { key: string; label: string; hint: string }[] = [
   { key: 'gallery', label: 'Gallery', hint: 'Papic photo gallery' },
 ];
 
-const GENERIC_SURFACES = new Set(['seating', 'budget', 'schedule', 'day_of', 'gallery']);
+// Prefill for a type with no saved profile row yet. 'website' is REQUIRED here,
+// not a taste call: day_of + gallery are pages OF the public event site and
+// 'website' carries the only "go live" control, so the old default (which
+// omitted it) handed every new event type a combination the save path now
+// refuses — and, before that refusal existed, a public page nobody could open.
+const GENERIC_SURFACES = new Set([
+  'website',
+  'seating',
+  'budget',
+  'schedule',
+  'day_of',
+  'gallery',
+]);
 
 type Params = Promise<{ eventType: string }>;
 type SearchParams = Promise<{ ok?: string; error?: string }>;

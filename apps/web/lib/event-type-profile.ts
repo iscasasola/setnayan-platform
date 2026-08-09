@@ -366,6 +366,59 @@ export function surfaceEnabled(
 }
 
 /**
+ * Surfaces that RENDER ON the public event site and therefore cannot stand on
+ * their own. `day_of` and `gallery` are not independent switches: both are
+ * pages of the couple's public event website, and `website` is the surface that
+ * makes that site editable and carries the ONLY "go live" control in the
+ * product. Enabling either while `website` is off produces a page that is built
+ * but can never be opened by a guest — the dead end migration
+ * 20271102084500 repaired for `simple_event` after the owner hit it
+ * (2026-08-02: "the host of the event cannot launch his on the day website").
+ *
+ * That migration repaired the rows that already existed. This constant is how
+ * the rule is enforced going FORWARD, at the admin save path.
+ */
+export const SURFACES_THAT_RENDER_ON_THE_WEBSITE: readonly ProfileSurface[] = [
+  'day_of',
+  'gallery',
+];
+
+/**
+ * The website-dependent surfaces present in `surfaces` while `website` is NOT.
+ * Empty array = the combination is launchable. Works off a raw surface list so
+ * the admin editor can validate a FormData selection before anything is saved.
+ */
+export function surfacesStrandedWithoutWebsite(
+  surfaces: readonly string[],
+): ProfileSurface[] {
+  if (surfaces.includes('website')) return [];
+  return SURFACES_THAT_RENDER_ON_THE_WEBSITE.filter((s) => surfaces.includes(s));
+}
+
+/** Same rule against a resolved profile — reuses {@link surfaceEnabled}. */
+export function profileSurfacesStrandedWithoutWebsite(
+  profile: EventTypeProfile,
+): ProfileSurface[] {
+  if (surfaceEnabled(profile, 'website')) return [];
+  return SURFACES_THAT_RENDER_ON_THE_WEBSITE.filter((s) => surfaceEnabled(profile, s));
+}
+
+/** Human-readable refusal for the admin editor. Names what to change. */
+export function strandedWithoutWebsiteMessage(
+  stranded: readonly ProfileSurface[],
+): string {
+  const names = stranded
+    .map((s) => (s === 'day_of' ? 'Day-of page' : 'Gallery'))
+    .join(' and ');
+  const verb = stranded.length > 1 ? 'both render' : 'renders';
+  return (
+    `Can't save: ${names} ${verb} on the event's public website, and Website is ` +
+    `switched off — the host would have no way to make the page live, so guests ` +
+    `could never open it. Tick Website, or untick ${names}.`
+  );
+}
+
+/**
  * Server helper: the EventTypeProfile for an event id (fetches its event_type).
  * A missing event / read error degrades to WEDDING_PROFILE so existing wedding
  * flows are unaffected. Cached per request + per eventId. (Iteration 0053 P2.)

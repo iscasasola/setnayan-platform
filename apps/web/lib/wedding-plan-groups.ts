@@ -57,6 +57,7 @@ export type PlanGroupId =
   | 'photography'
   | 'attire'
   | 'hair_makeup'
+  | 'wellness_fitness'
   // Style + program tier
   | 'florals_decor'
   | 'stylist'
@@ -72,6 +73,7 @@ export type PlanGroupId =
   | 'led_background'
   // Extras tier
   | 'cocktail_booths'
+  | 'guest_booth'
   | 'photobooth'
   | 'cake'
   | 'bridal_car'
@@ -297,6 +299,16 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     catalogTile: 'hmua',
     subcategoryHint: 'bridal_hmua',
   },
+  {
+    id: 'wellness_fitness',
+    label: 'Wellness & fitness',
+    hint: 'Spa, gym, derma, dental, nutrition — the months-out glow-up before the fittings.',
+    tier: 'big_bookings',
+    categories: ['wellness_fitness'],
+    monthsBefore: 6,
+    catalogFolder: 'look',
+    catalogTile: 'wellness_fitness',
+  },
 
   // ════════ Style + program tier ════════
   {
@@ -453,6 +465,15 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     catalogFolder: 'booths',
     catalogTile: 'mobile_bar',
     subcategoryHint: 'mobile_bar',
+  },
+  {
+    id: 'guest_booth',
+    label: 'Guest booths & activities',
+    hint: 'Henna, nail bar, arcade, tarot, caricature, massage chairs — the things guests queue up for.',
+    tier: 'extras',
+    categories: ['guest_booth'],
+    monthsBefore: 3,
+    catalogFolder: 'booths',
   },
   {
     id: 'photobooth',

@@ -20,6 +20,7 @@
  */
 
 import type { VendorCategory } from '@/lib/vendors';
+import { categoryForBranch } from '@/lib/vendor-branch-category';
 import { optionDeltaCentavos, pickBounds } from './package-credit';
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -123,11 +124,46 @@ export const PACKAGE_CANONICAL_TO_VENDOR_CATEGORY: Record<string, VendorCategory
  * Unmapped strings fall through to 'misc' — the row still cascades and
  * surfaces on the Logistics planning card, the host just sees a generic
  * label instead of a specific bucket.
+ *
+ * ⚠ LEAF-KEYED, AND IT COVERS 52 OF 246 LIVE LEAVES (measured 2026-08-09).
+ * It was built for PACKAGES, where the leaves are a known short list, and it is
+ * correct for that. Do NOT reach for it to classify an arbitrary service — 194
+ * live leaves land in `misc` here. Use `vendorCategoryForLeaf` below, which
+ * falls back to the leaf's BRANCH and covers all of them.
  */
 export function resolveVendorCategory(
   canonicalService: string,
 ): VendorCategory {
   return PACKAGE_CANONICAL_TO_VENDOR_CATEGORY[canonicalService] ?? 'misc';
+}
+
+/**
+ * The coarse category for ANY live service — the one to use outside packages.
+ *
+ * Owner ruling 2026-08-09: *"fix the taxonomy if needed. we do not like having
+ * categories under misc."*
+ *
+ * Order matters and both steps are load-bearing:
+ *  1. the LEAF map, when it knows this exact service. It is the more specific
+ *     answer — the "Photo & Video" branch holds photography AND videography
+ *     leaves, and only the leaf can tell them apart.
+ *  2. the leaf's BRANCH otherwise. A branch map needs 70 entries instead of 246
+ *     and, crucially, **a service an admin adds tomorrow inherits its branch
+ *     with no code change** — which is precisely how the leaf map fell 194
+ *     behind the database in the first place.
+ *
+ * `misc` remains reachable only for a service whose branch is unknown to
+ * `BRANCH_TO_VENDOR_CATEGORY` — a genuinely new branch. That is not a silent
+ * default: `tests/db/no-service-lands-in-misc.db.test.ts` reads the LIVE
+ * taxonomy and fails the build when it happens.
+ */
+export function vendorCategoryForLeaf(
+  canonicalService: string,
+  tileId: string | null | undefined,
+): VendorCategory {
+  const fromLeaf = PACKAGE_CANONICAL_TO_VENDOR_CATEGORY[canonicalService];
+  if (fromLeaf) return fromLeaf;
+  return categoryForBranch(tileId) ?? 'misc';
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */

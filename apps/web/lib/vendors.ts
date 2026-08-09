@@ -48,6 +48,8 @@ export type VendorCategory =
   | 'event_insurance'
   | 'personal_accident_insurance'
   | 'restaurant_reservation'
+  | 'wellness_fitness'
+  | 'guest_booth'
   | 'misc';
 
 export type VendorStatus =
@@ -103,6 +105,8 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'event_insurance',
   'personal_accident_insurance',
   'restaurant_reservation',
+  'wellness_fitness',
+  'guest_booth',
   'misc',
 ];
 
@@ -151,6 +155,8 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   event_insurance: 'Event insurance',
   personal_accident_insurance: 'Personal accident insurance',
   restaurant_reservation: 'Restaurant (reservation)',
+  wellness_fitness: 'Wellness & fitness',
+  guest_booth: 'Guest booths & activities',
   misc: 'Miscellaneous',
 };
 
@@ -402,12 +408,13 @@ export const SERVICE_GROUPS: ReadonlyArray<{
       'event_insurance',
       'personal_accident_insurance',
       'travel_insurance',
+      'wellness_fitness',
     ],
   },
   {
     key: 'other',
     label: 'Other',
-    members: ['gifts_and_giveaways', 'reveal_element', 'misc'],
+    members: ['gifts_and_giveaways', 'guest_booth', 'reveal_element', 'misc'],
   },
 ];
 

@@ -55,7 +55,7 @@ Status markers used throughout: **✅ built** · **⚠️ built but thin — ver
 
 - **0% commission (locked).** Setnayan never takes a cut of a vendor booking and never holds the money. → vendor revenue comes ONLY from **subscriptions + tokens**. This is why the free/paid line *is* the business model.
 - **Model: "Free to join, subscribe to scale."** Free-Verified must be *more generous than most competitors' paid plans* (marketplace-liquidity land-grab). Paid tiers gate *scale + growth*, never the basics (being found / messaged).
-- **Answering monetization (CORRECTED by §6 audit — origin/main).** There is **no token-free answering tier.** Every answering tier is `inAppGated=true`: Verified answers up to **10/week** (each still burns a region-banded token ₱100/200/300); **Solo/Pro/Enterprise = unlimited VOLUME**, each answer still burns a token. So the earlier "**Solo = unlimited answering, no tokens**" linchpin is **FALSE in code** — Solo's real edge over Verified is unlimited volume + `servicesPerLeaf` 3 vs 2 + expanded reach/analytics. **⚠ Name-reveal is NO LONGER a Solo edge** — per the "open it up" lock (Vendor_Subscription_Ladder_2026-07-22 §3), a vendor's name is NEVER gated: Verified now shows its real business name day-1 too (`nameMode 'screen'→'true'`), so name-reveal has moved off the upgrade ladder entirely. Owner decision open (see §6).
+- **Answering monetization — ⚠️ THIS BULLET IS SUPERSEDED. RE-CORRECTED 2026-08-09: ANSWERING IS FREE ON EVERY TIER, AND TOKENS NO LONGER EXIST.** The vendor token currency was retired outright (pack sale retired by `20270910266901`, owner 2026-07-21; the currency finished off 2026-08-07), and both accept RPCs now force the burn to **zero** for every tier — `unlock_vendor_event` and `unlock_vendor_event_free` each set `v_tokens := 0` unconditionally, so the debit branch is unreachable. **Verified against prod 2026-08-09: `token_redemptions_log` has 0 rows and `vendor_event_unlocks` has 0 rows that ever burned one.** The inbox is also ungated entirely (owner 2026-07-24) — no tier wall, no weekly cap — so the Verified 10/week limit below is history too. ⇒ **Solo's "unlimited answering, no per-lead tokens" linchpin is now TRUE**, though not as an upgrade lever: it is true for everyone. Solo's real edge over Verified is `servicesPerLeaf` 3 vs 2, the team seat, expanded reach/analytics, and the pipeline limits in § 2. _Superseded text, kept so the history reads straight: "There is no token-free answering tier. Every answering tier is `inAppGated=true`… the earlier 'Solo = unlimited answering, no tokens' linchpin is FALSE in code"_ — Solo's real edge over Verified is unlimited volume + `servicesPerLeaf` 3 vs 2 + expanded reach/analytics. **⚠ Name-reveal is NO LONGER a Solo edge** — per the "open it up" lock (Vendor_Subscription_Ladder_2026-07-22 §3), a vendor's name is NEVER gated: Verified now shows its real business name day-1 too (`nameMode 'screen'→'true'`), so name-reveal has moved off the upgrade ladder entirely. Owner decision open (see §6).
 - **"Setnayan AI" is a CUSTOMER product**, and it's **deterministic (rule-based), not an LLM** (locked). On the vendor page it's an *indirect* benefit: couples who plan with Setnayan AI arrive matched to your fit and further along = better leads. The vendor never "uses AI."
 - **Proposals: "Basic Proposal Builder" (Solo, shipped, zero-LLM template+merge) vs "Advanced Proposal Drafting" (Pro).** The label **"AI Proposal Builder"/"AI proposal drafting" is retired** — it overclaimed a `Zero LLM` feature. "Advanced" = multi-option packages, dynamic line-item pricing, branded PDF + e-sign, conditional inclusions (buildable, non-AI). 🔭 build before claiming.
 - **Prices are provisional / admin-managed** — read from the live catalog DB (`getVendorPrices`), never hardcoded. Ladder B (locked 2026-07-01): Solo ₱999 · Pro ₱2,499 · **Enterprise ₱7,499** (per 28d) · annual Solo ₱9,999 / Pro ₱24,999 / **Ent ₱74,999**. **Enterprise is a bounded "larger range" (NOT unlimited); a Custom "Talk to us" tier sits above it** (see §2).
@@ -74,20 +74,56 @@ Tier identities: **Solo = operate · Pro = grow · Enterprise = scale.**
 **Discovery & matching** — appear in matched searches · matched on fit not fame · "no reviews" ≠ risky · hidden-until-you-reply · real fillable shortlist · hand-curated ops intros · **free weekly couple unlocks** · precision matching by attributes ✅`vendor-service-attributes`
 **Credibility** — verified badge (free during launch) · profile + microsite · portfolio (≤10) · star ratings · recent-reviews carousel ✅`vendor-reviews-preview` · earned badges New/Verified/Top Pick/Most Booked ✅`vendor-badges` · experience-tier badge ✅`vendor-experience` · "recommended by N couples" ✅`vendor-recommendations` · fair Bayesian rating ✅`vendor-activity`
 **Bring your business** — import past clients free ✅`vendor-invites` · past weddings → reviews · claim-QR · "verified wedding" pill
-**Get contacted + close** — one pipeline (request→chat→quote→accept) · reply-speed shown & ranks · pre-qualified inquiries · service packages + 1 category · set-your-price-once · **Basic Proposal Builder is Solo (see below)** · payment-options display ✅`vendor-payment-methods` · real-time notifications ✅`notifications` · email alerts ✅`vendor-email-triggers` · availability helps couples pick a date ✅`vendor-availability` · basic calendar · song bank/repertoire (music acts only) ✅`repertoire` · control visibility ✅`vendor-visibility` · your own Performance panel ✅`vendor-stats-panel` · redeem codes ✅`redeem-code` · manpower gigs ✅`manpower`
+**Get contacted + close** — one pipeline (request→chat→quote→accept) · reply-speed shown & ranks · pre-qualified inquiries · service packages + 1 category · set-your-price-once · **Basic Proposal Builder is Solo (see below)** · payment-options display ✅`vendor-payment-methods` · real-time notifications ✅`notifications` · email alerts ✅`vendor-email-triggers` · availability helps couples pick a date ✅`vendor-availability` · basic calendar · song bank/repertoire (music acts only) ✅`repertoire` · control visibility ✅`vendor-visibility` · your own Performance panel ✅`vendor-stats-panel` · redeem codes ✅`redeem-code` · manpower gigs ✅`manpower` · **1 live client per date** (see the pipeline-limits note below) · **no waitlist** on dates you're booked out on
 **Exposure when booked** — credited to guests as "vendors who made this day" ✅`event-vendor-credits` · appear in couple's planner + budget ✅`vendors-plan-budget`
 **Always true (all tiers)** — 0% commission · never hold money · no EWT/2307 (vendor is income recipient; tax-docs surface retired 2026-05-29) · logo (not personal photo) in chat · ~~read files in-thread~~ (⚠ NOT built — thread file-attachments don't exist yet; do not claim as live · 2026-07-01) · coordinator per-thread join · event types unlock over time · merit-only ranking · can't-buy-your-way-up
-**Usage (all tiers)** — boost radius **Local** · 7-day boosters · token packs · pay-per-lead answering after weekly unlocks
+**Usage (all tiers)** — boost radius **Local** · 7-day boosters · ~~token packs · pay-per-lead answering after weekly unlocks~~ (⚠ RETIRED — the token currency is gone and answering is free on every tier · corrected 2026-08-09)
 
 ### ⭐ SOLO — ₱999/28d · *operate, friction-free*
-**+** **1 team seat** (operator + one helper — owner 2026-07-02) · **Unlimited answering — no per-lead tokens** (linchpin) · full portfolio · calendar .ics export + hybrid scheduling · bookable time slots ✅`vendor-time-slots` · **Basic Proposal Builder (templates + merge tokens)** ✅`vendor-proposals` (Zero LLM) · set your own payment schedules ✅`vendor-service-payment-schedules` · in-app contracts + e-sign ✅`contracts` · client CRM ✅`clients` · earnings dashboard ✅`earnings` · see couple's mood board before quoting ✅`moodboard-library` · file sharing with couples · post-event recaps ✅`recaps` · bookings pipeline dashboard ✅`bookings` · Performance **trends over time** · boost **20 km**
+**+** **1 team seat** (operator + one helper — owner 2026-07-02) · ~~**Unlimited answering — no per-lead tokens** (linchpin)~~ (⚠ no longer a Solo edge — true on EVERY tier since tokens were retired · 2026-08-09) · full portfolio · calendar .ics export + hybrid scheduling · bookable time slots ✅`vendor-time-slots` · **Basic Proposal Builder (templates + merge tokens)** ✅`vendor-proposals` (Zero LLM) · set your own payment schedules ✅`vendor-service-payment-schedules` · in-app contracts + e-sign ✅`contracts` · client CRM ✅`clients` · earnings dashboard ✅`earnings` · see couple's mood board before quoting ✅`moodboard-library` · file sharing with couples · post-event recaps ✅`recaps` · bookings pipeline dashboard ✅`bookings` · Performance **trends over time** · **3 live clients per date** · **waitlist up to 1 couple** per full date · boost **20 km**
 
 ### ★ PRO — ₱2,499/28d · *grow (team + intelligence + reach)*
-**+** 3 categories + 3 team seats (roles + privacy redaction) · **Advanced Proposal Drafting** 🔭 · category benchmarks ⚠️ · demand pulse ⚠️ · conversion-vs-peers 🔭 · editorial tagging → Real Stories ✅`realstories-vendor`/⚠️ · reverse-image theft watch ⚠️ · onboarding bundle maker ⚠️ · specialized per-category toolkits ⚠️ · co-listing with Productions ✅`partnerships` · custom slug + Bid Button · full written reviews · multiple events/day · additional branches ✅`branches` · same-day work opt-in ✅`same-day-vendors` · vendor referrals ✅`vendor-recommendations` · priority support · boost **50 km**
+**+** 3 categories + 3 team seats (roles + privacy redaction) · **Advanced Proposal Drafting** 🔭 · category benchmarks ⚠️ · demand pulse ⚠️ · conversion-vs-peers 🔭 · editorial tagging → Real Stories ✅`realstories-vendor`/⚠️ · reverse-image theft watch ⚠️ · onboarding bundle maker ⚠️ · specialized per-category toolkits ⚠️ · co-listing with Productions ✅`partnerships` · custom slug + Bid Button · full written reviews · multiple events/day · additional branches ✅`branches` · same-day work opt-in ✅`same-day-vendors` · vendor referrals ✅`vendor-recommendations` · priority support · **5 live clients per date** · **waitlist up to 3 couples** per full date · boost **50 km**
 
 ### ⬢ ENTERPRISE — ₱7,499/28d · *scale as an org (bounded "larger range")*
-**+** all categories · **up to 10 team seats** (extra seats **+₱250/28d** each — seat price owner-decided 2026-07-04; PR #2623 builds it) + multi-admin governance ✅`vendor-team` · shareable bid links · quarterly business review · contract intelligence 🔭 · priority dispute handling + account management · **reach up to 100 km** (owner re-capped 2026-07-04 — nationwide is sold in Custom, §11) · **up to 300 portfolio photos** · **up to 8 events per category**
+**+** all categories · **up to 10 team seats** (extra seats **+₱250/28d** each — seat price owner-decided 2026-07-04; PR #2623 builds it) + multi-admin governance ✅`vendor-team` · shareable bid links · quarterly business review · contract intelligence 🔭 · priority dispute handling + account management · **reach up to 100 km** (owner re-capped 2026-07-04 — nationwide is sold in Custom, §11) · **up to 300 portfolio photos** · **up to 8 events per category** · **10 live clients per date** · **waitlist up to 5 couples** per full date
 _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 2026-07-01: 10 seats / 300 photos / 8 events per category.** `agentAccounts` is now the finite **10** in code (`vendor-tier-caps.ts`); extra seats beyond 10 are a **+₱500/28d** paid add-on (owner 2026-07-02 · billing flow pending)._
+
+> ### 📋 Pipeline limits — the two numbers added 2026-08-09 (owner)
+>
+> | | live clients per date | waitlist per date |
+> |---|---|---|
+> | Free · Verified | 1 | — |
+> | Solo | 3 | 1 |
+> | Pro | 5 | 3 |
+> | Enterprise · Custom | 10 | 5 |
+>
+> **"Live clients per date" is the WHITELIST** in the § T1.1 sense
+> (`Service_Schedule_and_Quotation_Flow_2026-06-02`): customers the vendor has
+> **accepted but not yet locked in** for that day — pending demand they are still
+> pursuing. It is informational and never blocks the date. A slot frees the moment
+> they lock one in or decline someone (§ T1.4 decline-the-others-first).
+> ⚠ **This is NOT the calendar's `whitelist` DAY STATE** ("approve bookings on this
+> day first"). Same word, different feature; the day state is **not** capped.
+>
+> **"Waitlist" is the Booked-Out Waitlist** — couples queued on a date the vendor is
+> already full on, of whom the vendor may accept N. Free has none, so a Free vendor's
+> full dates simply read *unavailable* to couples.
+>
+> ⚠ **THE INBOX IS STILL NEVER GATED** (the "open it up" lock, § 3). Any vendor on any
+> plan answers any couple, with no weekly cap. What these numbers bound is depth **on
+> one date**, not access. But note honestly: at Free = 1, the *second* couple asking
+> about the *same* date cannot be accepted until the first is locked in or declined.
+>
+> 🛑 **SHIPPED SWITCHED OFF** (`platform_settings.vendor_tier_pipeline_caps_enabled`,
+> default FALSE) — every vendor in prod is `tier_state='free'` today, so turning it on
+> would cap the founder's own test shops. PR #4263 · migration `20271121655918`.
+>
+> 🔑 **Do not re-type these numbers anywhere.** They live in `TIER_CAPS`
+> (`lib/vendor-tier-caps.ts`) and `vendor_tier_limit()` in SQL, and a db test derives
+> from the first to check the second. This table is a READING of that grid, not a
+> second source — if it disagrees with the code, the code is right and this is stale.
+
 > **All tier caps are MAXIMUM CEILINGS, not defaults** (owner 2026-07-01). A higher tier only *raises the limit* — the vendor operates below it by choice; nothing is forced. The events cap is scoped **per category** (⚠ code's current axis is `slotsPerDay` = per-day; dashboard to reconcile "events per category" vs the per-day slot model when wiring).
 
 ### ✦ CUSTOM — "Talk to us" (negotiated · from ₱8,999/28d)

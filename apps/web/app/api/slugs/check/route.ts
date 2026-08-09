@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isValidSlug } from '@/lib/slugs';
+import { isSlugTaken, isValidSlug } from '@/lib/slugs';
+import { isSlugForwarding } from '@/lib/slug-availability';
 import { clientIp } from '@/lib/client-ip';
 import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
 
@@ -66,7 +67,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (!clash) {
-    return NextResponse.json({ status: 'available', slug });
+    // ⚠ NO EVENT OWNS IT — THAT IS NOT THE SAME AS FREE. A renamed event keeps
+    // forwarding its old address for 90 days, so the word is still carrying
+    // printed invitations and shared links. Handing it to a new couple lands
+    // those guests on a stranger's page.
+    const forwarding = await isSlugForwarding(admin, slug, { eventId: entityId || null });
+    if (!forwarding) {
+      return NextResponse.json({ status: 'available', slug });
+    }
+    const suggestions = await suggestAlternatives(admin, slug);
+    return NextResponse.json({ status: 'taken', suggestions });
   }
 
   if (entityId && clash.event_id === entityId) {
@@ -96,12 +106,9 @@ async function suggestAlternatives(
   for (const candidate of tries) {
     if (candidates.length >= 3) break;
     if (!isValidSlug(candidate)) continue;
-    const { data } = await admin
-      .from('events')
-      .select('event_id')
-      .ilike('slug', candidate)
-      .maybeSingle();
-    if (!data) candidates.push(candidate);
+    // isSlugTaken covers the forwarding ledger too — never suggest a word that
+    // is still redirecting someone else's guests.
+    if (!(await isSlugTaken(admin, candidate))) candidates.push(candidate);
   }
   return candidates;
 }

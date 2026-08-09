@@ -6,6 +6,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
+import { findSlugConflict } from '@/lib/slug-availability';
 
 function randomHex(bytes = 16): string {
   const buf = new Uint8Array(bytes);
@@ -142,15 +143,16 @@ export async function updateEventSlug(
 
   const admin = createAdminClient();
 
-  // Make sure no other event already owns the slug.
-  const { data: clash } = await admin
-    .from('events')
-    .select('event_id')
-    .ilike('slug', requested)
-    .neq('event_id', eventId)
-    .maybeSingle();
-  if (clash) {
-    redirect(`/dashboard/${eventId}/invitation?slug_error=taken`);
+  // ⚠ THIS FORM USED TO CHECK THE SHAPE AND THE EVENTS TABLE, AND NOTHING ELSE.
+  // No reserved-word check (a wedding could rename itself onto /creators or
+  // /open-shop — both live pages in our sitemap), no shop-address check, no
+  // person-handle check, and no check for a retired address that is still
+  // forwarding printed invitations. `findSlugConflict` is the one answer for
+  // the one shared namespace; the CREATE path and the live availability
+  // endpoint ask the same question.
+  const conflict = await findSlugConflict(admin, requested, { eventId });
+  if (conflict) {
+    redirect(`/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(conflict)}`);
   }
 
   // Read the old slug so we can log it.

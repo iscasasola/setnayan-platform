@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { RESERVED_SLUGS } from './reserved-slugs';
+import { isSlugForwarding, type SlugExclusions } from './slug-availability';
 
 const SLUG_PATTERN = /^[a-z0-9-]{3,32}$/;
 
@@ -53,12 +54,26 @@ export async function generateUniqueSlug(
   return `${base}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function isSlugTaken(admin: SupabaseClient, slug: string): Promise<boolean> {
+/**
+ * Is this word unavailable for a new event?
+ *
+ * ⚠ A RETIRED ADDRESS IS NOT FREE. Renaming an event leaves a forwarding row
+ * live for 90 days (`slug_change_log.redirect_until`), so the old word still
+ * carries printed invitations and shared links. Handing it to a new couple
+ * lands those guests on a stranger's page — checking `events` alone said the
+ * word was free the moment its owner let go of it.
+ */
+export async function isSlugTaken(
+  admin: SupabaseClient,
+  slug: string,
+  exclusions: SlugExclusions = {},
+): Promise<boolean> {
   const lower = slug.toLowerCase();
   const { data } = await admin
     .from('events')
     .select('event_id')
     .ilike('slug', lower)
     .maybeSingle();
-  return !!data;
+  if (data) return true;
+  return isSlugForwarding(admin, lower, exclusions);
 }

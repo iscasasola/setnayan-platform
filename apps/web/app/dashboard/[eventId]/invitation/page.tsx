@@ -16,6 +16,7 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { eventSkuActive } from '@/lib/entitlements';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
 import { getDayOfPhase } from '@/lib/day-of-mode';
+import { SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
 import { SlugField } from './_components/slug-field';
@@ -35,10 +36,12 @@ type Props = {
   }>;
 };
 
+// One refusal reason, one sentence — sourced from the availability module so a
+// reason added there can never arrive here with no copy and render as its own
+// bare key ("forwarding"). A refusal nobody can read is a refusal in silence.
 const SLUG_ERROR_COPY: Record<string, string> = {
-  invalid_format:
-    'Slugs must be 3–32 characters: lowercase letters, numbers, and hyphens only.',
-  taken: 'That slug is already taken by another event.',
+  ...SLUG_CONFLICT_MESSAGE,
+  taken: 'That address is already taken by another event.',
 };
 
 const MONO_ERROR_COPY: Record<string, string> = {

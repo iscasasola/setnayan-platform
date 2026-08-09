@@ -30,6 +30,8 @@ import { HomeReskin } from './_components/home/HomeReskin';
 import { HomeSpotlightStrip } from './_components/home/HomeSpotlightStrip';
 import { getHomePricingData } from './_components/home/pricing-data';
 import { fetchHomepageSpotlight } from '@/lib/spotlight-awards';
+import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { publishedBlogArticles } from '@/lib/blog';
 import { fetchPublishedBackgroundVideos } from '@/lib/background-videos';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
@@ -166,10 +168,19 @@ export default async function HomePage() {
   //                                 falling back to the gradient scene).
   //   • fetchHomepageSpotlight    — public Spotlight strip; DOUBLE-GATED + inert by
   //                                 default (returns []).
-  const [pricing, bg, spotlightVendors] = await Promise.all([
+  // Real published weddings for the homepage rail. The four that shipped here
+  // were HARDCODED — "Claire & Ice", "Maria & Jose", "Lena turns 18", "The Reyes
+  // Reunion" — so a real couple publishing their day changed nothing on the front
+  // page. `loadPublishedShowcases` is the reader /realstories already uses, and it
+  // fails soft to [] (it even catches the admin-client constructor), so a failed
+  // read and a genuinely empty archive both arrive as zero. That is the right
+  // direction here: below the threshold the rail renders a written invitation
+  // instead of a grid, and an invitation is honest in both cases.
+  const [pricing, bg, spotlightVendors, showcases] = await Promise.all([
     getHomePricingData(),
     fetchPublishedBackgroundVideos(),
     fetchHomepageSpotlight(),
+    loadPublishedShowcases(4).catch(() => []),
   ]);
 
   const bgVideos = {
@@ -204,7 +215,15 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
-      <HomeReskin pricing={pricing} bgVideos={bgVideos} />
+      {/* `articles` is a SYNCHRONOUS read — the Journal is git-tracked markdown,
+          so it has no failure mode at all and its count is known at build time.
+          Nothing to fail soft; no "could not load" state is possible. */}
+      <HomeReskin
+        pricing={pricing}
+        bgVideos={bgVideos}
+        showcases={showcases}
+        articles={publishedBlogArticles().slice(0, 3)}
+      />
       <HomeSpotlightStrip vendors={spotlightVendors} />
     </>
   );

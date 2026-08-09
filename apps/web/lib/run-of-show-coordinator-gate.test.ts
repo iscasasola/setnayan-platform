@@ -1,126 +1,77 @@
 /**
- * ONLY THE COORDINATOR ADVANCES THE RUN OF SHOW (owner ruling · build item 54).
+ * run-of-show-coordinator-gate.test.ts — REPLACED 2026-08-10.
  *
- * The database function `advance_schedule_block` admits FOUR classes:
- *   host/couple ∪ delegate-with-schedule:'edit' ∪ ANY BOOKED VENDOR ∪ admin.
- * The third arm is every supplier contracted on the wedding — the caterer and
- * the florist can advance the night's programme. Until now the only thing
- * standing in the way was a screen (and on the vendor client workspace not even
- * that: `canAdvance` is passed unconditionally there). A server action is a
- * public HTTP endpoint; a hidden button is not a permission.
+ * This file used to assert the SHAPE of `mayAdvanceRunOfShow()` inside
+ * `app/_actions/run-of-show.ts`: that the function existed, that the gate call
+ * appeared before the RPC call, and so on. It was careful about the obvious trap
+ * — it stripped comments and sliced function bodies so prose could not satisfy it.
  *
- * `advanceScheduleBlock` now re-checks the same arms with the vendor one
- * narrowed to the BOOKED COORDINATOR, via the SECURITY DEFINER helper
- * `current_coordinator_booked_event_ids()` that the day-of requests inbox
- * already uses (migration 20271013100000 · `'coordinator' = ANY(vp.services)`).
+ * It still could not fail. An adversarial reviewer beat it twice with one
+ * one-token sabotage — **keep the call, discard its result** — and separately by
+ * deleting the entire authorization block. The suite stayed green both times
+ * while a wedding guest could advance the programme mid-ceremony.
  *
- * These assertions are deliberately SCOPED TO THE EXECUTED CODE — each one
- * slices the function body it is about, so the long docblock that explains the
- * bug can never satisfy the test that is supposed to catch the bug coming back.
+ * 🔑 A SOURCE-SHAPE ASSERTION IS NOT A GUARD. It pins how the code LOOKS, and
+ * every failure that mattered here was about what it DOES.
+ *
+ * The real coverage now lives in two files that run the code and read what comes
+ * back, and both go red under all four sabotages:
+ *
+ *   • `run-of-show-advance-gate.test.ts` — the decision as a pure function, over
+ *     the row shapes production actually produces (including the coordinator
+ *     membership row that every accepted host invite mints).
+ *   • `run-of-show-advance.test.ts` — the whole path with stubbed clients, pinning
+ *     the property nothing pinned before: **on a refusal,
+ *     `advance_schedule_block` is never called.**
+ *
+ * What remains here is the one rule that is genuinely structural and cannot be
+ * expressed as behaviour: there must be exactly ONE gate, and it must not be
+ * re-inlined into the action. Two copies of a permission check is precisely how
+ * the day-of console and the floor console came to disagree about who counts as a
+ * booked coordinator.
  */
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '_actions', 'run-of-show.ts'), 'utf8');
+const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Comments stripped — an assertion must never be satisfied by prose. */
-const strip = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const ACTION = readFileSync(join(WEB, 'app/_actions/run-of-show.ts'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/.*$/gm, '');
 
-/**
- * The body of a top-level function in this module, comments removed: from its
- * `export? async function <name>` header to the next top-level declaration.
- */
-function body(name: string): string {
-  const header = new RegExp(`(?:export )?async function ${name}\\b`);
-  const start = SRC.search(header);
-  assert.notEqual(start, -1, `${name}() is gone from app/_actions/run-of-show.ts`);
-  // Start AFTER the header line so the search for the next top-level
-  // declaration cannot re-find this one.
-  const openLine = SRC.indexOf('\n', start);
-  const rest = SRC.slice(openLine);
-  const nextTop = rest.search(/\n(?:export )?(?:async function|const|type|function) /);
-  return strip(nextTop === -1 ? rest : rest.slice(0, nextTop));
-}
-
-const ADVANCE = body('advanceScheduleBlock');
-const GATE = body('mayAdvanceRunOfShow');
-
-// ── 1 · The action checks the role at all ───────────────────────────────────
-
-test('advanceScheduleBlock consults the role gate', () => {
+test('the action delegates to the single gate rather than carrying its own', () => {
   assert.match(
-    ADVANCE,
-    /mayAdvanceRunOfShow\(/,
-    'the advance action no longer checks who is calling — every booked supplier ' +
-      'can advance the programme again (the DB gate still admits them)',
+    ACTION,
+    /runAdvance\(/,
+    'the action stopped calling runAdvance — if the gate moved again, move the two ' +
+      'behavioural test files with it; if it was inlined here, that is a second copy ' +
+      'and the reason this rule exists',
   );
 });
 
-test('the role gate runs BEFORE the advance RPC, and refuses', () => {
-  const gateAt = ADVANCE.indexOf('mayAdvanceRunOfShow(');
-  const rpcAt = ADVANCE.indexOf("rpc('advance_schedule_block'");
-  assert.notEqual(rpcAt, -1, 'the advance RPC call is gone');
+test('the action does not re-implement the permission check inline', () => {
+  for (const smell of [
+    /from\(\s*['"]event_members['"]\s*\)/,
+    /from\(\s*['"]event_moderators['"]\s*\)/,
+    /current_coordinator_booked_event_ids/,
+  ]) {
+    assert.ok(
+      !smell.test(ACTION),
+      `a permission read matching ${smell} is back inside the server action. There ` +
+        `must be exactly one gate — lib/run-of-show-advance.ts — or the two copies ` +
+        `will drift.`,
+    );
+  }
+});
+
+test('the action never calls the advance RPC directly', () => {
   assert.ok(
-    gateAt !== -1 && gateAt < rpcAt,
-    'the role check must run before the timeline is touched, not after',
+    !/rpc\(\s*['"]advance_schedule_block['"]/.test(ACTION),
+    'the action calls advance_schedule_block itself — that is a path around the gate',
   );
-  // A check whose failure branch does nothing is decoration — it must return a
-  // refusal the caller can show, not fall through into the RPC.
-  const guarded = ADVANCE.slice(gateAt, rpcAt);
-  assert.match(
-    guarded,
-    /return\s*\{[\s\S]*ADVANCE_REFUSED_NOT_COORDINATOR/,
-    'a failed role check must return the refusal status, not carry on',
-  );
-});
-
-// ── 2 · The gate is the NARROW one ──────────────────────────────────────────
-
-test('the vendor arm is narrowed to the booked COORDINATOR', () => {
-  assert.match(
-    GATE,
-    /rpc\('current_coordinator_booked_event_ids'\)/,
-    "the coordinator-only helper is what makes this a narrowing; without it the " +
-      'gate either locks the coordinator out or lets every supplier back in',
-  );
-});
-
-test('the gate never falls back to the every-booked-supplier helper', () => {
-  assert.doesNotMatch(
-    GATE,
-    /current_vendor_booked_event_ids/,
-    'that helper is EVERY booked supplier — the exact arm this build removes',
-  );
-});
-
-test('the people who legitimately run the day are still admitted', () => {
-  // Host/couple (an event_members row — what current_event_ids() reads) and the
-  // delegate coordinator the owner directive admitted in 20270917100000. Losing
-  // either turns the couple's own advance button into a dead control.
-  assert.match(GATE, /from\('event_members'\)/, 'the host/couple arm is gone');
-  assert.match(GATE, /from\('event_moderators'\)/, 'the delegate coordinator arm is gone');
-  assert.match(
-    GATE,
-    /resolveAreaLevel\([\s\S]*?'schedule',?\s*\)\s*===\s*'edit'/,
-    "the delegate arm must require schedule:'edit', not merely a delegate row",
-  );
-});
-
-// ── 3 · The helper it leans on really is coordinator-only ───────────────────
-
-test('current_coordinator_booked_event_ids really does require the coordinator tile', () => {
-  // If a later migration widens that helper, this gate silently becomes the old
-  // every-supplier gate again while every assertion above still passes.
-  const sql = readFileSync(
-    join(HERE, '..', '..', '..', 'supabase', 'migrations', '20271013100000_day_of_requests_stream.sql'),
-    'utf8',
-  );
-  const fn = sql.slice(sql.indexOf('FUNCTION public.current_coordinator_booked_event_ids()'));
-  const def = fn.slice(0, fn.indexOf('$$;'));
-  assert.match(def, /'coordinator' = ANY \(vp\.services\)/);
 });

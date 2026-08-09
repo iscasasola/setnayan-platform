@@ -61,6 +61,10 @@ export const OPEN_SHOP_ERRORS = {
   // on; unused by the wizard while the logo is optional at registration.
   logo: 'Add your shop logo.',
   service: 'Pick your primary service.',
+  // The address is CHOSEN at onboarding and can never be renamed (owner
+  // 2026-08-10), so both refusals have to be actionable in the moment.
+  slugShape: 'Your web address needs 3–32 letters, numbers or hyphens.',
+  slugTaken: 'That web address is taken — pick another.',
   contactName: 'Add the owner name.',
   contactPhone: 'Add a contact number.',
   contactEmail: 'Add a valid company email.',

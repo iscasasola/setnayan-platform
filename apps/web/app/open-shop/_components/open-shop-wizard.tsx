@@ -53,6 +53,7 @@ export function OpenShopWizard({
   serviceLabels,
   serviceTree = [],
   savedServiceLabel = null,
+  existingSlug = null,
   eventTypeOptions,
   vendorProfileId,
   logoDisplayMap,
@@ -69,6 +70,9 @@ export function OpenShopWizard({
   serviceTree?: PickerParentView[];
   /** Display name for an already-saved pick, so a re-run shows a NAME. */
   savedServiceLabel?: string | null;
+  /** The address this shop ALREADY holds. Present = it is settled and cannot
+   *  be changed (owner 2026-08-10), so the picker renders read-only. */
+  existingSlug?: string | null;
   /** The event types a vendor can serve (admin-driven roster). */
   eventTypeOptions: { key: string; label: string; emoji: string }[];
   /** Owned shop id (null before the row exists) — scopes the logo R2 prefix. */
@@ -269,7 +273,7 @@ export function OpenShopWizard({
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,
                   because a save-the-date already points at it. */}
-              <AddressPreview shopName={shopName} />
+              <AddressPreview shopName={shopName} existingSlug={existingSlug} />
             </label>
 
             <div className="block space-y-1.5">

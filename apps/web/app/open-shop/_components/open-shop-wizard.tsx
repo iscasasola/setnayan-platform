@@ -279,13 +279,29 @@ export function OpenShopWizard({
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Events you serve
               </span>
-              <div className="flex flex-wrap gap-1.5">
+              {/* ── EVEN COLUMNS, NOT A RAGGED WRAP (owner 2026-08-09) ────────
+                  These were `flex flex-wrap` pills, so each row packed a
+                  different number of differently-sized chips — "Celebration ·
+                  Travel · Corporate" on one line, "Wedding · Debut" on the next.
+                  Nothing lined up and the list read as noise rather than a set
+                  of choices.
+
+                  `auto-fit` + `minmax` is the auto-adapting checklist the owner
+                  asked for: the browser fits as many equal columns as the width
+                  allows — 2 on a narrow phone, 3–4 on a wide one — with every
+                  cell the same size and every row aligned. No breakpoint list to
+                  maintain, and it cannot go ragged. `truncate` on the label
+                  keeps a long name from widening its whole column. */}
+              <div
+                className="grid gap-1.5"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))' }}
+              >
                 {eventTypeOptions.map((e) => {
                   const on = events.includes(e.key);
                   return (
                     <label
                       key={e.key}
-                      className="cursor-pointer select-none rounded-full border px-3 py-1 text-sm transition-colors"
+                      className="flex cursor-pointer select-none items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-colors"
                       style={
                         on
                           ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
@@ -300,8 +316,8 @@ export function OpenShopWizard({
                         onChange={() => toggleEvent(e.key)}
                         className="hidden"
                       />
-                      <span aria-hidden className="mr-1">{e.emoji}</span>
-                      {e.label}
+                      <span aria-hidden className="shrink-0">{e.emoji}</span>
+                      <span className="truncate">{e.label}</span>
                     </label>
                   );
                 })}

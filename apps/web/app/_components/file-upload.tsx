@@ -719,6 +719,27 @@ export function FileUpload({
   const dropzoneHeight = variant === 'square' ? 'min-h-[160px]' : 'min-h-[120px]';
   const atCapacity = items.length + inFlight.length >= effectiveMaxFiles;
 
+  /**
+   * Show the upload AS the field instead of as a filename row: one image, in a
+   * square single-file field, that actually resolved a display URL.
+   *
+   * Every clause is load-bearing. `!multiple` because a gallery needs a
+   * scannable list, not N hero images. `square` because that is the logo/avatar
+   * shape; `wide` is the evidence lane where filenames are the point.
+   * `isImage` because a PDF or an audio file has nothing to show — audio in
+   * particular already gets a real player in the row, which this would hide.
+   * And `displayUrl` because without it an <img> renders a broken-image glyph,
+   * which is worse than the thumbnail row it replaced.
+   */
+  const first = items[0];
+  const isSingleImagePreview =
+    !multiple &&
+    variant === 'square' &&
+    items.length === 1 &&
+    !!first &&
+    isImage(first.contentType) &&
+    !!first.displayUrl;
+
   return (
     <div className="space-y-2">
       {label ? (
@@ -813,9 +834,61 @@ export function FileUpload({
         </div>
       ) : null}
 
-      {(items.length > 0 || inFlight.length > 0) && (
-        <ul className="grid gap-2 sm:grid-cols-2">
+      {/* ── THE PICTURE TAKES THE FIELD'S PLACE (owner 2026-08-09) ───────────
+          On a single-image `square` field — a shop logo — the dropzone vanishes
+          at capacity and everything the user got back was a 48px thumbnail in a
+          filename row. They had just chosen a picture and could not actually SEE
+          it, which is the one thing that tells them the right file went up.
+          Here the upload fills the field it replaced, at the size the dropzone
+          was, with Replace and Remove under it.
+
+          Scoped deliberately: single file, `square`, image only. `wide`
+          evidence lists and multi-file galleries keep the compact rows, where a
+          filename is what you scan and a big preview per item would bury the
+          list. */}
+      {items.length > 0 && isSingleImagePreview ? (
+        <div className="space-y-2">
           {items.map((item) => (
+            <div key={item.id} className="space-y-2">
+              <span
+                className={`flex ${dropzoneHeight} w-full items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-cream p-2`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.displayUrl}
+                  alt={item.filename}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </span>
+              <div className="flex items-center justify-between gap-3">
+                <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
+                  <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                  <span className="truncate">Uploaded</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-danger-700"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* In-flight rows ALWAYS render, even when the finished upload will take
+          the field: the spinner is the only feedback during the upload itself,
+          and `isSingleImagePreview` needs a completed item so it is false for
+          the whole time a file is uploading. Guarding the whole block on it
+          would have blanked the field mid-upload. */}
+      {(inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {/* Skipped when the big preview owns the completed item — otherwise a
+              replacement upload would show the picture AND its own filename row
+              at the same time. */}
+          {(isSingleImagePreview ? [] : items).map((item) => (
             <li
               key={item.id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-cream p-3"

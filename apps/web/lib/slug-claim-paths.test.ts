@@ -74,7 +74,7 @@ let writes: Write[] = [];
 
 const M = Module as unknown as { _load: (...args: unknown[]) => unknown };
 const realLoad = M._load;
-M._load = function patchedLoad(request: unknown, ...rest: unknown[]) {
+M._load = function patchedLoad(this: unknown, request: unknown, ...rest: unknown[]) {
   // `server-only` is provided by the Next bundler and does not resolve here.
   if (request === 'server-only') return {};
   if (request === '@/lib/supabase/admin') {

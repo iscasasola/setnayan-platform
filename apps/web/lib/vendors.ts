@@ -481,7 +481,25 @@ export function displayServiceLabel(service: string): string {
   if (CATEGORY_SET.has(service)) {
     return VENDOR_CATEGORY_LABEL[service as VendorCategory];
   }
-  return service;
+  // ── NEVER PRINT A DATABASE KEY AT A COUPLE (2026-08-09) ───────────────────
+  // This used to `return service` raw. `services` is a TEXT[] and already holds
+  // canonical LEAF keys in production (`SetnaProd` advertises `pabati`), and
+  // they are rendered straight onto the public shop page's "Services offered"
+  // chips, the marketplace card, and into schema.org JSON-LD. So a couple —
+  // and Google — saw `pre_nup_photographer`.
+  //
+  // The /open-shop picker now stores a leaf deliberately, which would have made
+  // that universal instead of occasional, so it is fixed in the same change.
+  //
+  // Humanised, not looked up: the pretty name lives in
+  // `canonical_service_schemas.display_name_en`, which needs a database round
+  // trip this pure function cannot make. Callers that HAVE the taxonomy should
+  // prefer its label; this is the floor, and "Pre Nup Photographer" is a far
+  // better floor than the key. `displayServiceLabel` has no test pinning the
+  // passthrough (checked), so nothing depended on the raw value.
+  return service
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function isCanonicalService(service: string): boolean {

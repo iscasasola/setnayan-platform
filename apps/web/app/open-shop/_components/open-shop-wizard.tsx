@@ -12,6 +12,11 @@ import {
 } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import {
+  ServicePicker,
+  type PickerParentView,
+  type PickerLeafView,
+} from './service-picker';
 import { becomeVendor } from '../actions';
 
 /**
@@ -45,6 +50,8 @@ import { becomeVendor } from '../actions';
 export function OpenShopWizard({
   mode,
   serviceLabels,
+  serviceTree = [],
+  savedServiceLabel = null,
   eventTypeOptions,
   vendorProfileId,
   logoDisplayMap,
@@ -55,6 +62,12 @@ export function OpenShopWizard({
   /** 'create' = no shop yet · 'complete' = shop exists but was never named. */
   mode: 'create' | 'complete';
   serviceLabels?: Record<string, string>;
+  /** parent -> branch -> leaf tree (first-party SKUs already stripped).
+   *  Empty = the taxonomy read failed; the wizard falls back to the flat
+   *  select so a hiccup can never block a vendor from opening a shop. */
+  serviceTree?: PickerParentView[];
+  /** Display name for an already-saved pick, so a re-run shows a NAME. */
+  savedServiceLabel?: string | null;
   /** The event types a vendor can serve (admin-driven roster). */
   eventTypeOptions: { key: string; label: string; emoji: string }[];
   /** Owned shop id (null before the row exists) — scopes the logo R2 prefix. */
@@ -83,6 +96,10 @@ export function OpenShopWizard({
   const [shopName, setShopName] = useState(defaults.shopName);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
+  // The picked leaf's LABEL, held alongside its key so the chosen row reads
+  // as a name the moment it is tapped — the key alone would print
+  // snake_case at the vendor.
+  const [pickedLabel, setPickedLabel] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>(
     defaults.eventTypes?.length ? defaults.eventTypes : ['wedding'],
   );
@@ -247,33 +264,61 @@ export function OpenShopWizard({
               </span>
             </div>
 
-            <label className="block space-y-1">
+            <div className="block space-y-1.5">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Primary service<span className="ml-1 text-terracotta">*</span>
               </span>
-              <select
-                name="primary_service"
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-                className="input-field"
-              >
-                <option value="" disabled>
-                  Pick the one thing you&rsquo;re known for
-                </option>
-                {SERVICE_GROUPS.map((g) => (
-                  <optgroup key={g.key} label={g.label}>
-                    {g.members.map((m) => (
-                      <option key={m} value={m}>
-                        {serviceLabels?.[m] ?? VENDOR_CATEGORY_LABEL[m]}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              {/* ── DRILL, DON'T SCROLL (owner 2026-08-09) ────────────────────
+                  "primary service must branch from parent category until it
+                  reaches leaf category." This was a flat <select> over ~45
+                  COARSE categories; the real taxonomy is 15 groups -> 70
+                  branches -> ~237 specific services, and a vendor could not say
+                  what they actually do. The picker walks the real tree.
+
+                  The flat select survives as the FALLBACK for an empty tree (a
+                  failed taxonomy read). Deleting it would turn a read hiccup
+                  into "you cannot open a shop", which is far worse than a
+                  coarser choice for one session. */}
+              {serviceTree.length > 0 ? (
+                <>
+                  <input type="hidden" name="primary_service" value={service} />
+                  <ServicePicker
+                    tree={serviceTree}
+                    value={service}
+                    labelForValue={
+                      pickedLabel ?? (service ? (savedServiceLabel ?? null) : null)
+                    }
+                    onPick={(leaf: PickerLeafView | null) => {
+                      setService(leaf?.canonicalService ?? '');
+                      setPickedLabel(leaf?.label ?? null);
+                    }}
+                  />
+                </>
+              ) : (
+                <select
+                  name="primary_service"
+                  value={service}
+                  onChange={(e) => setService(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="" disabled>
+                    Pick the one thing you&rsquo;re known for
+                  </option>
+                  {SERVICE_GROUPS.map((g) => (
+                    <optgroup key={g.key} label={g.label}>
+                      {g.members.map((m) => (
+                        <option key={m} value={m}>
+                          {serviceLabels?.[m] ?? VENDOR_CATEGORY_LABEL[m]}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 Just one for now — add the rest from My Shop.
               </span>
-            </label>
+            </div>
 
             <div className="block space-y-1.5">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>

@@ -7,6 +7,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
+import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
+import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
   OPEN_SHOP_EMAIL_RE,
   OPEN_SHOP_ERRORS,
@@ -95,7 +97,31 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl) {
     redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
   }
-  if (!primaryService || !CATEGORY_SET.has(primaryService)) {
+  // ── ACCEPT A LEAF *OR* A COARSE CATEGORY ───────────────────────────────────
+  // The picker (owner 2026-08-09) posts a canonical LEAF; the flat select it
+  // falls back to still posts a coarse category. Both are valid, and the leaf is
+  // RE-RESOLVED SERVER-SIDE against the same filtered tree the picker offered —
+  // never trusted from the post. That single lookup is what makes a hand-rolled
+  // POST unable to smuggle in:
+  //   • a first-party `setnayan_*` key, which would set `is_setnayan_service` on
+  //     vendor_market_stats and silently EXCLUDE the shop from /explore forever;
+  //   • a retired or marketplace-hidden leaf, already pruned upstream;
+  //   • a leaf paired with someone else's branch — the coarse category is
+  //     derived from the tile the TREE says, not the one the form said.
+  let pickedLeaf: string | null = null;
+  let coarseService: string | null = null;
+  if (primaryService && CATEGORY_SET.has(primaryService)) {
+    coarseService = primaryService;
+  } else if (primaryService) {
+    const leaf = await resolvePickedLeaf(primaryService);
+    if (leaf) {
+      pickedLeaf = leaf.canonicalService;
+      // Guaranteed non-'misc' for every live leaf by
+      // tests/db/no-service-lands-in-misc.db.test.ts.
+      coarseService = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId);
+    }
+  }
+  if (!coarseService) {
     redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
   // `&step=2` keeps a step-2 rejection ON step 2. Without it the wizard
@@ -197,9 +223,21 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // fresh — the full picker on My Shop adds more).
   const existingServices =
     ((existing as { services?: string[] } | null)?.services ?? []).filter(Boolean);
-  const services = existingServices.includes(primaryService)
-    ? existingServices
-    : [primaryService, ...existingServices];
+  // BOTH the coarse category and the specific leaf go in, coarse FIRST.
+  //   • index 0 is read as "the primary service" by the shop hero, the
+  //     marketplace card and the overview — and `?category=` filters with
+  //     `.contains('services', [coarse])`, so the coarse value must be present
+  //     or the shop is missing from its own category browse.
+  //   • the leaf must ALSO be present: `?tile=` filters with `.overlaps()`
+  //     against canonical leaf keys, so a coarse-only shop is invisible to every
+  //     tile-scoped browse — the more specific the couple's search, the more
+  //     certainly they would miss it.
+  // Order is deliberate and de-duplicated; a re-run never grows the array.
+  const wanted = [coarseService, ...(pickedLeaf ? [pickedLeaf] : [])];
+  const services = [
+    ...wanted,
+    ...existingServices.filter((s) => !wanted.includes(s)),
+  ];
   const patch: Record<string, unknown> = {
     business_name: shopName,
     business_owner_name: contactName,

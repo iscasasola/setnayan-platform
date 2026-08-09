@@ -8,7 +8,8 @@ import { parseVideoLink } from '@/lib/video-embed';
  * "Featured videos" editor — a repeater of up to 10 external video URL inputs.
  *
  * Each row emits a hidden-less plain `<input name="gallery_video_links">`, so
- * `formData.getAll('gallery_video_links')` in `saveVendorProfile` returns every
+ * `formData.getAll('gallery_video_links')` in `updateVendorProfileField`
+ * ('gallery_videos') returns every
  * entry (matching the <FileUpload multiple/> → getAll pattern already used for
  * the portfolio). Blank rows are dropped server-side; each surviving URL is
  * re-validated through `parseVideoLink` there too, so this client validation is

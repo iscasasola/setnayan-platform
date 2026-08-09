@@ -47,11 +47,11 @@ const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 /**
  * Every file that still RESTATES the list as literals.
  *
- * `app/vendor-dashboard/actions.ts` left this list on 2026-08-05: its copy now
- * derives from `lib/vendor-compatibility.ts`, which re-exports VENUE_SETTINGS.
- * A derived copy cannot drift, so checking it for literals would fail on
- * correct code — the fastest way to get a guard deleted. The import itself is
- * asserted below instead, so the file cannot quietly go back to hand-typing.
+ * The vendor side left this list on 2026-08-05: its copy derives from
+ * `lib/vendor-compatibility.ts`, which re-exports VENUE_SETTINGS. A derived
+ * copy cannot drift, so checking it for literals would fail on correct code —
+ * the fastest way to get a guard deleted. The import itself is asserted below
+ * instead, so the file cannot quietly go back to hand-typing.
  */
 const ALLOWLISTS = [
   'app/dashboard/(account)/create-event/actions.ts',
@@ -71,8 +71,16 @@ test('every server-side allowlist holds the whole vocabulary', () => {
   }
 });
 
+/**
+ * ⚠ This pointed at `app/vendor-dashboard/actions.ts` until 2026-08-09, when
+ * the orphaned full-form `saveVendorProfile` was deleted and took the last
+ * vendor-side allowlist reference in that file with it. The allowlist now lives
+ * with its ONLY writer — the card that actually renders the checkboxes — which
+ * is where it should have been all along. Repointed rather than dropped: a
+ * guard deleted because its subject moved is a guard that stops guarding.
+ */
 test("the vendor allowlist derives the list, and hasn't gone back to typing it", () => {
-  const src = read('app/vendor-dashboard/actions.ts');
+  const src = read('app/vendor-dashboard/shop/venue-match-actions.ts');
   assert.ok(
     /from '@\/lib\/vendor-compatibility'/.test(src),
     'The vendor save action stopped importing the shared vocabulary. Whatever ' +

@@ -4,8 +4,9 @@
  *
  * `compatible_venue_settings` / `compatible_ceremony_types` shipped in
  * iteration 0043. Explore filters on them, the public profile renders badges
- * from them, `saveVendorProfile` validates them — and the only form that ever
- * posted them was retired 2026-07-05, taking the write path with it. Nothing
+ * from them, the retired `saveVendorProfile` validated them — and the only form
+ * that ever posted them went out 2026-07-05, taking the write path with it. (The
+ * action followed on 2026-08-09; see the block near the foot of this file.) Nothing
  * errored. Both live shops simply kept whatever their seed row held (the
  * identical `["banquet_hall","garden","heritage"]`, one of them on a profile
  * named "(FIXTURE)"), so the marketplace's venue matching ran on a fixture.
@@ -158,29 +159,55 @@ test('the public badge derives its labels instead of re-typing them', () => {
   );
 });
 
-// ── THE ORPHANED FULL-FORM ACTION MUST NOT WIPE WHAT IT DOESN’T ASK ─────────
+// ── ONLY A FORM THAT ASKS MAY WRITE THESE TWO ───────────────────────────────
 
-test('saveVendorProfile only writes compatibility when the form declared it asked', () => {
-  const src = read('app/vendor-dashboard/actions.ts');
-  // Match the CONDITIONAL SPREAD, not the bare name. The first cut of this
-  // assertion was /compatible_fields_present/ — which the explanatory COMMENT
-  // above the guard satisfies all by itself, so replacing the condition with
-  // `true` left the test green. A name appearing is not a name being used.
+/**
+ * This block used to guard the ORPHANED FULL-FORM ACTION. `saveVendorProfile`
+ * built a whole-row payload and wrote both columns from whatever the submission
+ * happened to carry; since `parseCompatibility` maps "absent" to NULL and the
+ * marketplace reads NULL as OPEN TO ALL, any form wired to it without these
+ * checkboxes would not have cleared a shop's answer — it would have replaced it
+ * with "we take every venue and every ceremony", on a save reporting success.
+ * The 2026-08-05 fix fenced that write behind an explicit
+ * `compatible_fields_present` marker rather than removing it.
+ *
+ * The action itself was deleted 2026-08-09: it had had no caller since
+ * 2026-07-05, and `is_published` sat in the same payload as the identical
+ * absent-means-false hazard on a column the vendor UI has no control for at all
+ * (see `vendor-publish-guard.test.ts`). So the fence is no longer the thing to
+ * assert — the ABSENCE of the write is strictly stronger than a guarded write,
+ * and this test pins that instead. Same failure prevented, one layer earlier.
+ */
+test('no full-payload action writes these columns behind the vendor’s back', () => {
+  const src = read('app/vendor-dashboard/actions.ts')
+    // Strip comments: the tombstone explaining the deletion names both columns.
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
   assert.ok(
-    /\.\.\.\(formData\.get\('compatible_fields_present'\)\s*\n?\s*\?/.test(src),
-    'The full-form save writes both compatibility columns unconditionally again. ' +
-      'It builds a FULL payload, and parseCompatibility maps "absent" to NULL — ' +
-      'so the day it is wired to a form without these checkboxes it does not ' +
-      'clear the shop’s answer, it silently widens the shop to EVERY venue and ' +
-      'ceremony, reporting success.',
+    !/compatible_(venue_settings|ceremony_types)\s*:/.test(src),
+    'A vendor-dashboard action writes the compatibility columns again. Only a ' +
+      'form that RENDERS the checkboxes may write them — otherwise "the vendor ' +
+      'unticked everything" and "this form never asked" are the identical ' +
+      'FormData, and the write silently widens the shop to every venue and ' +
+      'ceremony instead of clearing its answer. The writer is ' +
+      'shop/venue-match-actions.ts, whose card always renders them (asserted ' +
+      'above). If a second writer is genuinely needed, gate it on an explicit ' +
+      'hidden marker — never on the checkboxes themselves, which post nothing ' +
+      'when unticked and would make CLEARING impossible instead.',
   );
-  // Keyed on the marker, NOT on the checkboxes: an unticked checkbox posts
-  // nothing, so `has('compatible_venue_settings')` cannot tell "cleared" from
-  // "never asked" — guarding on it would make clearing impossible instead.
+});
+
+test('the live writer keys on the checkboxes, because its card always renders them', () => {
+  const src = read('app/vendor-dashboard/shop/venue-match-actions.ts');
+  // The inverse of the rule above, and the reason the rule is about FORMS and
+  // not about columns: on a card that always shows the boxes, absent genuinely
+  // does mean the vendor unticked them, so `getAll` is the correct read and a
+  // presence marker would be dead weight.
   assert.ok(
-    !/formData\.has\('compatible_(venue_settings|ceremony_types)'\)/.test(src),
-    'The guard keys on the checkboxes themselves. An unticked box posts nothing, ' +
-      'so a vendor clearing every tick would be indistinguishable from a form ' +
-      'that never rendered them — and clearing would silently stop working.',
+    /formData\.getAll\('compatible_venue_settings'\)/.test(src) &&
+      /formData\.getAll\('compatible_ceremony_types'\)/.test(src),
+    'The venue-match action stopped reading the posted checkboxes. If the read ' +
+      'moved, move this assertion with it — a writer nobody checks is how these ' +
+      'columns spent months holding a seed fixture.',
   );
 });

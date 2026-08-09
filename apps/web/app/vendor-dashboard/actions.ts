@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
-import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,12 +11,8 @@ import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
-  BUSINESS_PROFILE_LABELS,
-  fetchOwnVendorProfile,
-} from '@/lib/vendor-profile';
-import {
-  LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
   fetchVerifiedLock,
   isLockedIdentityFieldKey,
@@ -25,11 +20,6 @@ import {
 import { geocodeNominatim } from '@/lib/geo';
 import { parseVideoLink } from '@/lib/video-embed';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import {
-  ALLOWED_CEREMONY_TYPES,
-  ALLOWED_VENUE_SETTINGS,
-  parseCompatibility,
-} from '@/lib/vendor-compatibility';
 import {
   MICROSITE_ABOUT_MAX,
   MICROSITE_FEATURED_EDITORIALS_MAX,
@@ -113,17 +103,12 @@ async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
 // Iteration 0043 — wedding-type compatibility tags.
 //
 // The vocabulary and the parse MOVED to `lib/vendor-compatibility.ts` on
-// 2026-08-05, when a form that actually posts these two columns was finally
-// built (My Shop → Business Profile → "Weddings you're a fit for"). They used
-// to be hand-typed here AND, in different words, on the public vendor page —
-// and the public copy had silently drifted three ceremony values and one venue
-// behind this one. One source now feeds the picker, this allowlist and the
-// badge, so a shop cannot tick a box whose value the public page can't name.
-//
-// `ALLOWED_CEREMONY_TYPES` derives from the faith registry, which is itself
-// locked to the `events_ceremony_type_check` DB constraint (migration
-// 20261120000000_faith_worldwide_expansion). `ALLOWED_VENUE_SETTINGS` derives
-// from `lib/venue-settings.ts`, the couple's own list.
+// 2026-08-05; the last consumer in THIS file went with `saveVendorProfile` on
+// 2026-08-09 (see the tombstone below). The vendor-side allowlist now lives
+// with its only writer, `shop/venue-match-actions.ts` — the card that actually
+// renders the checkboxes, where "absent" honestly means "the vendor unticked
+// it" instead of "this form never asked". `lib/venue-settings.test.ts` asserts
+// the import THERE, so the list still cannot go back to being hand-typed.
 
 /**
  * Parses the repeated hidden inputs the <FileUpload> widget emits for the
@@ -252,389 +237,58 @@ function parseServices(
   return out;
 }
 
-export async function saveVendorProfile(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  let business_slug: string | null;
-  try {
-    business_slug = parseSlug(formData.get('business_slug'));
-  } catch (e) {
-    return redirect(
-      `/vendor-dashboard/profile?error=${encodeURIComponent((e as Error).message)}`,
-    );
-  }
-
-  const hq_address = nullIfBlank(formData.get('hq_address'));
-  const location_city = nullIfBlank(formData.get('location_city'));
-
-  // Tier caps (Phase B portfolio + Phase C #4 custom slug). Soft-probe
-  // tier_state + the current business_slug in one query (neither is in
-  // FULL_VENDOR_PROFILE_SELECT). One read, reused for both caps below.
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, business_slug, vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  const tierRowTyped = tierRow as
-    | {
-        tier_state?: string | null;
-        business_slug?: string | null;
-        // SEC-1: needed to pin every portfolio ref to this vendor's own folder.
-        vendor_profile_id?: string | null;
-      }
-    | null;
-  const caps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
-  const portfolioMax = caps.portfolioPhotos;
-
-  // Phase C #4 — a custom website slug is a PRO/ENTERPRISE feature
-  // (caps.customWebsiteName). FREE/VERIFIED may keep their existing slug but
-  // cannot CHANGE it — reject only the change, never error on an unchanged
-  // save (so a downgrade never blocks ordinary profile edits).
-  const currentSlug = tierRowTyped?.business_slug ?? null;
-  if (!caps.customWebsiteName && business_slug !== currentSlug) {
-    return redirect(
-      `/vendor-dashboard/profile?error=${encodeURIComponent(
-        'A custom website address is a Pro feature. Upgrade to change your slug.',
-      )}`,
-    );
-  }
-
-  // Verified-lock (owner 2026-07-02): once a shop is VERIFIED its 8 identity
-  // fields lock server-side — the vendor files a correction request instead
-  // (vendor_correction_requests → /admin/corrections). Probed here so the
-  // experience-reset + publish gate + payload strip below can all honor it.
-  // fetchVerifiedLock is defensive: any read hiccup = NOT locked (never brick
-  // an ordinary save on a probe failure).
-  const identityLocked = await fetchVerifiedLock(supabase, user.id);
-
-  // Business owner / representative name — a required Business Profile field.
-  const business_owner_name = nullIfBlank(formData.get('business_owner_name'));
-
-  // Year started — a core required Business Profile field, ALWAYS parsed
-  // (independent of the experience-verification flag). Public profile shows
-  // "X years in business".
-  const yearRaw = formData.get('in_business_since_year');
-  let in_business_since_year: number | null = null;
-  if (typeof yearRaw === 'string' && yearRaw.trim()) {
-    const y = Number(yearRaw.trim());
-    if (Number.isInteger(y) && y >= 1900 && y <= 2100) in_business_since_year = y;
-  }
-
-  // Declared experience extras (service-card trust signal) — flag-gated + schema-
-  // dependent (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED). Changing the declared YEAR
-  // invalidates any prior admin DTI-verification (the confirmed year no longer
-  // matches), so we clear it → the badge falls back to "self-reported" until an
-  // admin re-confirms. `in_business_since_year` itself is written from the core
-  // field above, not here.
-  let experienceFields: Record<string, unknown> = {};
-  if (vendorExperienceEnabled()) {
-    const wedRaw = formData.get('weddings_done_approx');
-    let weddings_done_approx: number | null = null;
-    if (typeof wedRaw === 'string' && wedRaw.trim()) {
-      const w = Number(wedRaw.trim());
-      if (Number.isInteger(w) && w >= 0) weddings_done_approx = Math.min(w, 100000);
-    }
-    const { data: prior } = await supabase
-      .from('vendor_profiles')
-      .select('in_business_since_year')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const priorYear = (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
-    experienceFields = {
-      weddings_done_approx,
-      // When identity is verified-locked the year is NOT written below, so a
-      // differing form value must not clear the admin's DTI verification.
-      ...(priorYear !== in_business_since_year && !identityLocked
-        ? { experience_verified_at: null, experience_verified_by: null }
-        : {}),
-    };
-  }
-
-  // Extra canonical leaves the picker is currently allowed to offer (tradition /
-  // specialty leaves). DB-driven + fallback-safe; empty on any hiccup, which
-  // makes parseServices behave exactly as before. Mirrors the picker's set in
-  // app/vendor-dashboard/profile/page.tsx so the two never disagree.
-  const extraCanonicalSet = await resolveExtraCanonicalSet();
-
-  const payload = {
-    business_name: nonBlank(formData.get('business_name'), 128),
-    business_slug,
-    tagline: nullIfBlank(formData.get('tagline')),
-    logo_url: parseLogoValue(formData.get('logo_url')),
-    services: parseServices(formData.get('services'), extraCanonicalSet),
-    business_owner_name,
-    in_business_since_year,
-    location_city,
-    hq_address,
-    website: nullIfBlank(formData.get('website')),
-    contact_email: nullIfBlank(formData.get('contact_email')),
-    contact_phone: nullIfBlank(formData.get('contact_phone')),
-    is_published: formData.get('is_published') === 'on',
-    // SEC-1: refs are pinned to this vendor's own media folder. The `?? ''`
-    // fail-closed default cannot cost a vendor their gallery: `vendor_profile_id`
-    // is the PK of a row selected by this user's OWN user_id, so it is non-null
-    // whenever the row exists — and when it does NOT exist the write below is an
-    // `UPDATE … .eq('user_id')` that touches 0 rows, so nothing is persisted
-    // either way. Fail-closed, never "publish whatever was posted".
-    portfolio_r2_keys: parsePortfolioRefs(
-      formData.getAll('portfolio_r2_keys'),
-      portfolioMax,
-      tierRowTyped?.vendor_profile_id ?? '',
-    ),
-    // Featured videos — external URLs (YouTube/Vimeo inline · IG/FB/TikTok
-    // link-out). Validated + capped at 10 to match the DB CHECK. Additive
-    // 2026-07-05; not a locked-identity field, so it stays editable post-verify.
-    gallery_video_links: parseVideoLinks(
-      formData.getAll('gallery_video_links'),
-    ),
-    // ── COMPATIBILITY: ABSENT ≠ EMPTY (hazard closed 2026-08-05) ────────────
-    // These two are the only fields on this payload whose editor does NOT live
-    // in this action's own form any more — a shop sets them on the dedicated
-    // "Weddings you're a fit for" card (`shop/venue-match-actions.ts`).
-    //
-    // `parseCompatibility` maps "nothing ticked" to NULL, and the marketplace
-    // reads NULL as OPEN TO ALL. So a submission that simply does not CARRY
-    // these checkboxes — which is every form that could ever call this
-    // orphaned full-form action again — would not clear the shop's answer, it
-    // would silently REPLACE it with "we take every venue and every ceremony".
-    // A shop that had narrowed itself to beach weddings would quietly start
-    // matching ballrooms, with a save that reported success.
-    //
-    // So: write these ONLY when the form declares that it ASKED. Omitting a key
-    // from the patch leaves the column untouched, which is the honest reading
-    // of a form that never put the question on screen.
-    //
-    // The declaration is an explicit hidden marker, NOT `formData.has(…)` on
-    // the checkboxes themselves: an unticked checkbox posts NOTHING, so "the
-    // form had the boxes and the vendor cleared them all" and "the form never
-    // had the boxes" are the identical FormData. Keying on the checkboxes would
-    // therefore make CLEARING impossible — the opposite failure, equally quiet.
-    // A future form that renders these fields must post
-    // `compatible_fields_present`.
-    ...(formData.get('compatible_fields_present')
-      ? {
-          compatible_ceremony_types: parseCompatibility(
-            formData.getAll('compatible_ceremony_types'),
-            ALLOWED_CEREMONY_TYPES,
-          ),
-          compatible_venue_settings: parseCompatibility(
-            formData.getAll('compatible_venue_settings'),
-            ALLOWED_VENUE_SETTINGS,
-          ),
-        }
-      : {}),
-    // event_types is NOT written here anymore — coverage is the source
-    // (owner-locked 2026-07-02). It's recomputed as the union across the
-    // vendor's coverages by syncProfileEventTypes in services/coverage-actions.ts.
-    // Social Sharing Program (20261203000000) — opt OUT of the verification
-    // celebration post on Setnayan's Facebook page (unticked = featured;
-    // Free unnamed · Pro+ named per the hybrid-anonymity doctrine).
-    social_feature_opt_out: formData.get('social_feature_opt_out') === 'on',
-    // Same-day "Get help" opt-in (Event Lifecycle Menu PR5, 20270104000000) —
-    // willing to take same-day / day-of jobs → surfaces in the couple's Day-of
-    // Get-help shortlist (verified + paid tier only). Default off.
-    same_day_available: formData.get('same_day_available') === 'on',
-    ...experienceFields,
-    updated_at: new Date().toISOString(),
-  };
-
-  // Verified-lock strip (owner 2026-07-02): remove the 8 locked identity keys
-  // from the write so the full form's OTHER writes (is_published, tagline,
-  // portfolio, opt-outs, compatibility arrays, slug) keep working — a verified
-  // vendor's identity edits are preserved-as-current, never applied, and the
-  // redirect below surfaces the "Request a correction" notice. The current DB
-  // values are read first so the publish gate can still evaluate completeness.
-  type LockedIdentitySnapshot = {
-    business_name: string | null;
-    business_owner_name: string | null;
-    hq_address: string | null;
-    contact_phone: string | null;
-    contact_email: string | null;
-    services: string[] | null;
-    in_business_since_year: number | null;
-    logo_url: string | null;
-  };
-  let lockedCurrent: LockedIdentitySnapshot | null = null;
-  if (identityLocked) {
-    try {
-      const { data: cur } = await supabase
-        .from('vendor_profiles')
-        .select(
-          'business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url',
-        )
-        .eq('user_id', user.id)
-        .maybeSingle();
-      lockedCurrent = (cur as LockedIdentitySnapshot | null) ?? null;
-    } catch {
-      lockedCurrent = null;
-    }
-    const strip = payload as unknown as Record<string, unknown>;
-    for (const key of LOCKED_IDENTITY_FIELD_KEYS) delete strip[key];
-  }
-
-  // Effective identity values for the publish gate — the CURRENT DB values
-  // when locked (they're what stays written), the form payload otherwise.
-  const eff = identityLocked
-    ? {
-        logo_url: lockedCurrent?.logo_url ?? null,
-        business_name: lockedCurrent?.business_name ?? '',
-        business_owner_name: lockedCurrent?.business_owner_name ?? null,
-        hq_address: lockedCurrent?.hq_address ?? null,
-        contact_phone: lockedCurrent?.contact_phone ?? null,
-        contact_email: lockedCurrent?.contact_email ?? null,
-        services: lockedCurrent?.services ?? [],
-        in_business_since_year: lockedCurrent?.in_business_since_year ?? null,
-      }
-    : {
-        logo_url: payload.logo_url,
-        business_name: payload.business_name,
-        business_owner_name,
-        hq_address,
-        contact_phone: payload.contact_phone,
-        contact_email: payload.contact_email,
-        services: payload.services,
-        in_business_since_year,
-      };
-
-  // Business Profile publish gate (vendor onboarding · owner 2026-06-28; Logo
-  // added + relabelled 2026-07-02; documents REMOVED 2026-07-03): a vendor can
-  // go LIVE once the 8 identity fields are complete. Verification documents no
-  // longer gate publication — they moved to the My Shop "Get verified" section
-  // and gate only the verified BADGE (owner-approved redesign: "profile
-  // complete → couples can find and contact you; get verified to earn the
-  // badge"). If they tick "publish" while incomplete, we still save their
-  // edits but keep them unpublished and tell them what's missing — never
-  // silently publish a half-built profile. Labels come from the shared
-  // BUSINESS_PROFILE_LABELS so this gate and the completion card never drift.
-  let publishBlockedMissing: string[] = [];
-  if (payload.is_published) {
-    const missing: string[] = [];
-    // Lock-aware effective values (B2): when identity is locked the gate
-    // evaluates the CURRENT DB values, not the stripped form payload.
-    // Documents deliberately absent (2026-07-03): verification gates only the
-    // badge, never publication.
-    if (!eff.logo_url) missing.push(BUSINESS_PROFILE_LABELS.logo);
-    if (!eff.business_name) missing.push(BUSINESS_PROFILE_LABELS.business_name);
-    if (!eff.business_owner_name) missing.push(BUSINESS_PROFILE_LABELS.business_owner_name);
-    if (!eff.hq_address) missing.push(BUSINESS_PROFILE_LABELS.maps_pin);
-    if (!eff.contact_phone) missing.push(BUSINESS_PROFILE_LABELS.contact_phone);
-    if (!eff.contact_email) missing.push(BUSINESS_PROFILE_LABELS.contact_email);
-    if (eff.services.length === 0) missing.push(BUSINESS_PROFILE_LABELS.services);
-    if (!eff.in_business_since_year) missing.push(BUSINESS_PROFILE_LABELS.in_business_since_year);
-    if (missing.length > 0) {
-      payload.is_published = false;
-      publishBlockedMissing = missing;
-    }
-  }
-
-  // QR-in-media guard (owner-locked 2026-07-03): website media may not embed
-  // the vendor's invite/lock QR. Scan only refs NOT already stored (an
-  // unchanged gallery re-save costs nothing) — the authoritative server-side
-  // reject; the <FileUpload qrGuard> client check is fast feedback only.
-  // vendorQrGuardRejects fails OPEN on scanner trouble, never blocking an
-  // honest save (the admin retro-scan is the backstop).
-  {
-    const { data: curMedia } = await supabase
-      .from('vendor_profiles')
-      .select('portfolio_r2_keys, logo_url')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const cur = curMedia as
-      | { portfolio_r2_keys?: string[] | null; logo_url?: string | null }
-      | null;
-    const stored = new Set((cur?.portfolio_r2_keys ?? []).filter(Boolean));
-    const toScan = payload.portfolio_r2_keys.filter((r) => !stored.has(r));
-    // logo_url is absent from payload when identity is verified-locked (the
-    // strip above) — the optional chain skips it cleanly then.
-    if (payload.logo_url && payload.logo_url !== cur?.logo_url) {
-      toScan.push(payload.logo_url);
-    }
-    if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
-      return redirect(
-        `/vendor-dashboard/profile?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
-      );
-    }
-  }
-
-  const { error } = await supabase
-    .from('vendor_profiles')
-    .update(payload)
-    .eq('user_id', user.id);
-
-  if (error) {
-    return redirect(
-      `/vendor-dashboard/profile?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  // 2026-05-21 — auto-geocode the HQ when the vendor saves. Best-effort:
-  // a Nominatim miss or network blip just leaves hq_latitude/longitude
-  // unchanged. The save itself never fails on geocode errors. Prefers
-  // hq_address (street-level) over location_city (city-level) for better
-  // resolution. Admin-supplied coords (if any) are NOT clobbered here —
-  // this UPDATE only fires when the geocoder actually returns something.
-  // When identity is verified-locked the form's hq_address was NOT written, so
-  // it must not drive the geocode either (coords would drift from the stored
-  // address). City-level geocode stays available.
-  const geocodeQuery = identityLocked ? location_city : hq_address ?? location_city;
-  if (geocodeQuery) {
-    const geo = await geocodeNominatim(geocodeQuery);
-    if (geo) {
-      const admin = createAdminClient();
-      await admin
-        .from('vendor_profiles')
-        .update({
-          hq_latitude: geo.latitude,
-          hq_longitude: geo.longitude,
-        })
-        .eq('user_id', user.id);
-    }
-  }
-
-  // Reverse-image repost-watch: hash the portfolio gallery + flag cross-vendor,
-  // non-demo perceptual matches, post-response (cron-free). Scheduled BEFORE the
-  // redirect (which throws to unwind) and self-swallowing so it never affects
-  // the save. Re-saving with an unchanged gallery is cheap — already-hashed refs
-  // are skipped inside the task.
-  if (payload.portfolio_r2_keys.length > 0) {
-    const { data: idRow } = await supabase
-      .from('vendor_profiles')
-      .select('vendor_profile_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const vendorProfileId =
-      (idRow as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
-    if (vendorProfileId) {
-      const portfolioRefs = payload.portfolio_r2_keys;
-      after(() =>
-        hashAndScanVendorImages({
-          vendorProfileId,
-          refs: portfolioRefs,
-          surface: 'portfolio',
-        }),
-      );
-    }
-  }
-
-  revalidatePath('/vendor-dashboard/profile');
-  if (publishBlockedMissing.length > 0) {
-    // Saved, but publishing was blocked — surface exactly what's still missing.
-    redirect(
-      `/vendor-dashboard/profile?saved=1&publish_blocked=${encodeURIComponent(
-        publishBlockedMissing.join(', '),
-      )}`,
-    );
-  }
-  if (identityLocked) {
-    // Other edits saved; identity fields were preserved — surface the notice.
-    redirect('/vendor-dashboard/profile?saved=1&identity_locked=1');
-  }
-  redirect('/vendor-dashboard/profile?saved=1');
-}
+/**
+ * ── `saveVendorProfile` — DELETED 2026-08-09. Do not bring it back. ─────────
+ *
+ * It was the server action behind the full `/vendor-dashboard/profile` form,
+ * retired 2026-07-05. The route became a redirect stub to My Shop; the action
+ * outlived it by five weeks with NO CALLER, still exported from a `'use server'`
+ * module whose other exports are wired to client components.
+ *
+ * WHY DELETED RATHER THAN PATCHED. It built a FULL payload from FormData and
+ * `UPDATE`d the whole thing, so every column it named was written from whatever
+ * the submission happened to carry — and absence is not emptiness:
+ *
+ *   • THREE blind booleans, `<key> = formData.get('<key>') === 'on'`, where a
+ *     submission that never carried the checkbox writes FALSE:
+ *       - `is_published`         → unpublishes the shop
+ *       - `social_feature_opt_out` → silently opts the shop OUT of the
+ *         verification celebration post
+ *       - `same_day_available`   → drops the shop from the couple's Day-of
+ *         "Get help" shortlist
+ *     There is no `name="is_published"` control anywhere in the VENDOR UI (the
+ *     app's only one is the ADMIN page, app/admin/vendors/[id]/edit/page.tsx),
+ *     and none at all for the other two. So EVERY possible caller was a caller
+ *     that would have written all three to false.
+ *   • TWELVE more columns nulled by absence — tagline, website, contact_email,
+ *     contact_phone, location_city, hq_address, logo_url, services,
+ *     business_owner_name, in_business_since_year, portfolio_r2_keys,
+ *     gallery_video_links.
+ *   • It bypassed the per-field validators that replaced it: a submission with
+ *     no `business_name` wrote `''`, which `updateVendorProfileField` refuses
+ *     outright ("Shop name is required") precisely because the publish gate
+ *     depends on that field being non-blank.
+ *
+ * The compatibility pair was already fenced off in 2026-08-05 under a comment
+ * headed "COMPATIBILITY: ABSENT ≠ EMPTY" — the same class of bug, found twice,
+ * fixed for two of fifteen columns. Fencing the remaining thirteen one key at a
+ * time would have left a full-form escape hatch nobody calls and everybody has
+ * to keep re-auditing. Deleting the function closes all fifteen at once.
+ *
+ * NOTHING WAS LOST that a vendor can still reach: the identity + gallery fields
+ * live on `updateVendorProfileField`; `business_slug` + microsite on
+ * `updateVendorWebsiteField`; venue/ceremony fit on
+ * `shop/venue-match-actions.ts`; the founding date on `updateBusinessStartDate`.
+ * ⚠ Four columns it named have NO live writer and did not gain one here —
+ * `tagline`, `website`, `social_feature_opt_out`, `same_day_available`. They
+ * had none before this deletion either (the action had no caller), so this is a
+ * PRE-EXISTING gap being recorded, not one being created.
+ *
+ * The `is_published` half of this is locked by `lib/vendor-publish-guard.test.ts`,
+ * which fails on any formData-derived write to that column from a vendor-scoped
+ * action. Publishing is an ADMIN decision (/admin/verify writes
+ * `public_visibility` + `verification_state`, the live marketplace gate).
+ */
 
 /**
  * The inline single-field patch behind the My Shop → Business Profile editor

@@ -95,10 +95,23 @@ test('an empty vendor id allows NOTHING — the fail-closed default', () => {
   );
 });
 
-test('the WIRING: both call sites pass a vendor id into the shared parser', () => {
+test('the WIRING: the call site passes a vendor id into the shared parser', () => {
   // The parser is module-private, so its enforcement is verified through the
   // policy above; this pins that the enforcement is actually reached. Guard the
   // consumer, not just the rule.
+  //
+  // ⚠ COUNT CHANGED 2026-08-09: 2 call sites → 1. The second was the full-form
+  // `saveVendorProfile`, deleted that day — it had had no caller since
+  // 2026-07-05 and wrote fifteen columns from whatever a submission carried.
+  // The remaining caller is `updateVendorProfileField` ('portfolio'), the live
+  // My Shop editor. Lowered deliberately and with the reason written down; if
+  // this ever needs raising again, the new call site must thread the id too.
+  //
+  // Still fails in BOTH directions. Too many: a call site that skipped the id
+  // would not compile (the parameter is required), but a NEW one is exactly the
+  // moment to re-read this rule. Zero: a portfolio nobody can save, or worse, a
+  // save that stopped filtering refs by tenancy — the bug this file exists for,
+  // where one vendor's public gallery could serve another vendor's DTI scan.
   const src = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'vendor-dashboard', 'actions.ts'),
     'utf8',
@@ -111,10 +124,10 @@ test('the WIRING: both call sites pass a vendor id into the shared parser', () =
   assert.match(src, /const policy = vendorOwnedMediaPolicy\(vendorProfileId\);/);
   assert.match(src, /if \(!parseClientRef\(trimmed, policy\)\) continue;/, 'refs must be filtered by the policy');
   const calls = src.match(/parsePortfolioRefs\(/g) ?? [];
-  assert.equal(calls.length, 3, 'expected the definition + exactly 2 call sites');
+  assert.equal(calls.length, 2, 'expected the definition + exactly 1 call site');
   assert.equal(
     (src.match(/vendor_profile_id \?\? ''/g) ?? []).length,
-    2,
-    'both call sites must thread the vendor id',
+    1,
+    'the call site must thread the vendor id',
   );
 });

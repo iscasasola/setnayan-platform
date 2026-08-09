@@ -148,11 +148,6 @@ export const routes = {
       index: () => `/api/health`,
       deep: () => `/api/health/deep`,
     },
-    internal: {
-      patiktok: {
-        processJob: () => `/api/internal/patiktok/process-job`,
-      },
-    },
     ledBackground: {
       save: () => `/api/led-background/save`,
     },

@@ -160,7 +160,7 @@
 | YouTube/Drive/TikTok OAuth | `app/api/oauth/youtube/callback/route.ts:40` | `oauth_grants` upsert | `?youtube_error=` | Operational | Single-use state row deleted |
 | `/api/v1/reviews` POST | `app/api/v1/reviews/route.ts:53` | `vendor_reviews` insert | apiErrorResponse + SELF_REVIEW_BLOCKED | Operational | Foundation route (0033) — no internal client by design |
 | **Persona/Veriff webhooks** | `app/api/webhooks/persona/route.ts:50` | **none (Sentry breadcrumb)** | `{ok:true,stubbed:true}` 200 | Missing (intentional) | No DB write / no signature check — documented owner-pending stub |
-| **Patiktok process-job** | `app/api/internal/patiktok/process-job/route.ts:112` | `patiktok_jobs` claim; render = `completed-stub` | 401/500 JSON | **Risk (documented)** | Job claim works; actual clip render is `TODO(0017-phase2)` — would "complete" with no output if ever enqueued |
+| **Patiktok process-job** | DELETED 2026-08-09 | — | — | Resolved | The stub route marked real render jobs `completed` with a placeholder `output_url`. Nothing called it (no cron, no fetch). Deleted; the browser render + `finalizePatiktokRenderJob` is now the only completion writer, pinned by `lib/patiktok-render-completion-writer.test.ts` |
 
 ---
 
@@ -184,7 +184,7 @@
 | 12 | LOW | promoteCategoryRequest TOCTOU | `app/admin/taxonomy/actions.ts:496` | Add `.eq('status','pending')` to the write |
 | 13 | LOW | Decline / revoke host-invite ignore update error | `app/host/accept/[token]/actions.ts:108`, `app/dashboard/[eventId]/hosts/actions.ts:163` | Capture + surface the error |
 | 14 | LOW | Host-invite signup link uses `email` not `prefill_email` | `app/host/accept/[token]/page.tsx:168` | Rename query param so invitee email pre-fills |
-| 15 | INFO | Persona/Veriff webhook stubs; patiktok render stub | `app/api/webhooks/{persona,veriff}/route.ts`, `app/api/internal/patiktok/process-job/route.ts:112` | Intentional placeholders — wire before those features ship |
+| 15 | INFO | Persona/Veriff webhook stubs (patiktok render stub DELETED 2026-08-09) | `app/api/webhooks/{persona,veriff}/route.ts` | Intentional placeholders — wire before those features ship |
 
 ---
 

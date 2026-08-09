@@ -107,6 +107,22 @@ export default async function OpenShopPage({
   // shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its
   // flat select rather than blocking a vendor from opening a shop.
   const serviceTree = await getOpenShopServiceTree().catch(() => []);
+  // The signed-in account's own name — shown read-only on step 3 rather than
+  // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
+  // the right behaviour for an account that has no display name yet.
+  const accountName = await (async () => {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('display_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const n = (data as { display_name?: string | null } | null)?.display_name?.trim();
+      return n || null;
+    } catch {
+      return null;
+    }
+  })();
   // A re-run must show the NAME of the saved service, not its stored key.
   const savedService = row?.services?.[0] ?? '';
   const savedServiceLabel =
@@ -121,6 +137,7 @@ export default async function OpenShopPage({
       mode={row ? 'complete' : 'create'}
       serviceLabels={serviceLabels}
       serviceTree={serviceTree}
+      accountName={accountName}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
       eventTypeOptions={eventTypeOptions}
@@ -141,7 +158,7 @@ export default async function OpenShopPage({
         contactEmail: row?.contact_email ?? user.email ?? '',
       }}
       error={error}
-      initialStep={step === '2' ? 2 : 1}
+      initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
     />
   );
 }

@@ -72,16 +72,20 @@ test('an existing address cannot be changed', async () => {
   assert.equal(await slugOf(id), 'banaweflorals', 'the address moved anyway');
 });
 
-test('an existing address cannot be cleared either', async () => {
-  // An address that vanishes is as broken as one that moves, and nothing in the
-  // product has a reason to do it — so NULL is refused too, not just a rename.
-  const id = await newShop('Kai Cakes', 'kaicakes');
-  await assert.rejects(
-    () =>
-      db.query(`UPDATE public.vendor_profiles SET business_slug = NULL WHERE vendor_profile_id = $1`, [id]),
-    /SHOP_ADDRESS_IMMUTABLE/,
-  );
-  assert.equal(await slugOf(id), 'kaicakes');
+test('clearing it IS allowed — that is erasure, not a rename', () => {
+  // ⚠ This asserted the OPPOSITE first, and CI caught it: `lib/erasure/coverage.ts`
+  // nulls `business_slug` when anonymising a vendor who has asked to be deleted.
+  // Refusing that would have broken an RA 10173 erasure to enforce a rule about
+  // renaming — which the owner never stated. The ruling was that an address
+  // cannot be MOVED, not that a shop cannot cease to exist.
+  return (async () => {
+    const id = await newShop('Leaving Soon Weddings', 'leavingsoonweddings');
+    await db.query(
+      `UPDATE public.vendor_profiles SET business_slug = NULL WHERE vendor_profile_id = $1`,
+      [id],
+    );
+    assert.equal(await slugOf(id), null, 'erasure could not clear the address');
+  })();
 });
 
 test('the FIRST write is allowed — that is the creation path', async () => {

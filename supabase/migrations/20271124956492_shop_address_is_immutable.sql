@@ -13,12 +13,18 @@
 -- through PostgREST today**, with no UI involved. A promise the database does not
 -- keep is not a promise. This trigger is where the rule actually lives.
 --
--- WHAT IT REFUSES: any UPDATE that changes a business_slug which is already set.
--- Setting one for the first time (NULL → value) is the creation path and stays
--- open — that is `/open-shop` writing the vendor's chosen address, and the
--- generator trigger minting a fallback. Clearing one (value → NULL) is refused
--- too: an address that vanishes is as broken as one that moves, and nothing in
--- the product has a reason to do it.
+-- WHAT IT REFUSES: renaming — an UPDATE that moves an already-set business_slug
+-- to a DIFFERENT value. Two things stay open:
+--   • NULL → value, the creation path (`/open-shop`, and the generator).
+--   • value → NULL, which is ERASURE.
+--
+-- ⚠ THE SECOND ONE IS NOT A CONCESSION, IT IS A CORRECTION. This trigger first
+-- refused clearing too, on the reasoning that "an address that vanishes is as
+-- broken as one that moves". CI disagreed, correctly: `lib/erasure/coverage.ts`
+-- sets `business_slug: null` as part of anonymising a vendor who has asked to be
+-- deleted. Refusing that would have broken an RA 10173 erasure — a compliance
+-- path — to enforce a rule the owner never stated. The ruling was that an
+-- address cannot be RENAMED; it said nothing about a shop ceasing to exist.
 --
 -- ── WHY THIS MATTERS MORE THAN A TIDY RULE ──────────────────────────────────
 -- The address is printed. Save-the-dates go out 6–12 months ahead, QR codes are
@@ -60,6 +66,13 @@ BEGIN
   -- First write. The creation path (/open-shop) and the generator trigger both
   -- land here, and both are legitimate.
   IF OLD.business_slug IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Clearing it is ERASURE, not a rename — `lib/erasure/coverage.ts` nulls this
+  -- column when anonymising a vendor who asked to be deleted. Refusing it would
+  -- break an RA 10173 request to enforce a rule about renaming.
+  IF NEW.business_slug IS NULL THEN
     RETURN NEW;
   END IF;
 

@@ -12,7 +12,7 @@ Removing it from `PRO_WEBSITE_FIELDS` — the obvious reading of *"it is no long
 
 `vendor_profiles_owner` is `FOR ALL` on `user_id = auth.uid()` and the column carries the `authenticated` grant — so **any vendor on any tier could PATCH `business_slug` straight through PostgREST**, no UI involved. Deleting the form would have left the promise unkept.
 
-Migration `20271124956492` adds `vendor_profiles_business_slug_immutable`: an already-set address cannot be changed **or cleared**. First write (NULL → value) stays open — that is creation, and the generator. Escape hatch is a **per-statement** `SET LOCAL setnayan.allow_slug_change = 'on'`, modelled on the shipped `guard_vendor_tier_no_silent_downgrade`, so the default stays closed. Deliberately **not** a role check: `is_admin()` reads `auth.uid()`, which is NULL under service_role, so an is_admin() hatch would be open to every server action and shut to the actual admin — precisely backwards.
+Migration `20271124956492` adds `vendor_profiles_business_slug_immutable`: an already-set address cannot be **renamed**. First write (NULL → value) stays open — that is creation, and the generator. Escape hatch is a **per-statement** `SET LOCAL setnayan.allow_slug_change = 'on'`, modelled on the shipped `guard_vendor_tier_no_silent_downgrade`, so the default stays closed. Deliberately **not** a role check: `is_admin()` reads `auth.uid()`, which is NULL under service_role, so an is_admin() hatch would be open to every server action and shut to the actual admin — precisely backwards.
 
 ### 🔴 A latent rename inside the PR that had just merged
 
@@ -37,3 +37,11 @@ Public surfaces corrected: the tier matrix row **"Custom URL / slug"** is remove
 Verified: **7295/7295** unit · 8/8 the new DB immutability suite (incl. a neutralisation that disables the trigger and watches the rename go through) · 7/7 the app-side guard · 10/10 the moved handout contract · all 20 `lint-*.mjs` · migration guard · `tsc` clean.
 
 SPEC IMPACT: `Vendor_Monetization_Model_LOCKED_2026-07-25.md` + `apps/web/VENDOR_TIERS_AND_BENEFITS.md` — custom slug removed as a Pro benefit by owner ruling. `DECISION_LOG.md` row added.
+
+### 🔴 The guard's first version broke erasure — CI caught it
+
+It refused **clearing** the address too, on the reasoning that "an address that vanishes is as broken as one that moves". That was over-reach past the ruling, and it had a compliance cost: `lib/erasure/coverage.ts` sets `business_slug: null` when anonymising a vendor who has asked to be deleted. The trigger would have **refused an RA 10173 erasure** in order to enforce a rule about renaming — which the owner never stated. The ruling was that an address cannot be MOVED, not that a shop cannot cease to exist.
+
+Narrowed to renames only: `NULL → value` (creation) and `value → NULL` (erasure) both pass; `value → different value` is refused. The db suite now asserts the corrected rule, and `erasure-completeness.db.test.ts` passes 35/35.
+
+🔑 **The failure came from a fixture named `leavingsoonweddings`** — a shop being wound down. The test that caught it was not testing this trigger at all; it was testing that erasure completes. **A guard is not only judged by what it blocks.**

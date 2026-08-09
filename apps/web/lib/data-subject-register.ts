@@ -212,8 +212,10 @@ export const REQUIRED_DATA_SUBJECT_CATEGORIES: readonly DataSubjectCategoryKey[]
  * the platform: `public.people` carries `claimed_by_user_id` and
  * `created_by_user_id`, both NULLABLE, and its own comment says most Persons stay
  * unclaimed — "a guest, a relative, a lola who never signs up". An OPTIONAL link
- * to an account is not an account. The skip is gone; the four tables it used to
- * hide are classified explicitly below and in UNCLASSIFIED_PERSON_TABLES.
+ * to an account is not an account. The skip is gone. Measured before removing it,
+ * it hid exactly FIVE tables: `users` (already anchored by the customer, vendor
+ * and internal entries), `api_keys`, `events` and `setnayan_pay_methods` (now
+ * declared below), and `people` (now in UNCLASSIFIED_PERSON_TABLES).
  */
 export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> = {
   api_keys: 'The label an integration is given ("Zapier prod"), not a person.',

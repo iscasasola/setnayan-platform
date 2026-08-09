@@ -3,6 +3,10 @@ import Link from 'next/link';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  DATA_SUBJECT_REGISTER,
+  DATA_SUBJECT_REGISTER_ORDER,
+} from '@/lib/data-subject-register';
 import type { SubProcessor } from '../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -157,6 +161,60 @@ export default async function ComplianceDataSheetPage() {
         <Row field="Total number of data subjects (live)" value={totalSubjects} />
         <Row field="Active biometric face vectors (live)" value={faces} />
       </Block>
+
+      {/* B.3 — Categories of data subjects. Rendered from lib/data-subject-register,
+          which is the single register the guard holds against the schema. Do NOT
+          re-type the categories here: a second copy is how the written record came
+          to name four kinds of person while the code collected from five. */}
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold tracking-tight text-ink">
+          B.3 — Categories of data subjects
+        </h2>
+        <div className="sn-tile overflow-x-auto !p-0">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-ink/15 text-left text-[11px] uppercase tracking-[0.12em] text-ink/55">
+                <th className="px-4 py-2 font-medium">Category</th>
+                <th className="px-4 py-2 font-medium">Personal data collected</th>
+                <th className="px-4 py-2 font-medium">Purpose</th>
+                <th className="px-4 py-2 font-medium">Retention (as enforced)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DATA_SUBJECT_REGISTER_ORDER.map((key) => {
+                const c = DATA_SUBJECT_REGISTER[key];
+                return (
+                  <tr key={key} className="border-b border-ink/10 last:border-0 align-top">
+                    <td className="px-4 py-2 text-ink/90">
+                      {c.label}
+                      <span className="mt-0.5 block text-[11px] text-ink/50">
+                        {c.holdsAccount ? 'Holds a Setnayan account' : 'No Setnayan account'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-ink/80">
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        {c.personalData.map((d) => (
+                          <li key={d}>{d}</li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="px-4 py-2 text-ink/80">{c.purpose}</td>
+                    <td className="px-4 py-2 text-ink/80">
+                      {c.retention}
+                      {c.disposalDateSettled ? null : (
+                        <span className="mt-1 block text-[11px] italic text-ink/50">
+                          {TBD} — no automatic disposal date exists in code; the DPO
+                          must settle one before filing.
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <Block title="B.4 — Breach response">
         <Row field="Breach response team" value={f.breach_team} />

@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
-import { goLivePanood, endPanoodBroadcast } from '@/app/dashboard/[eventId]/studio/panood/setup/actions';
+import {
+  goLivePanood,
+  endPanoodBroadcast,
+  type GoLiveResult,
+} from '@/app/dashboard/[eventId]/studio/panood/setup/actions';
 
 /**
  * TRANSPORT — the approved single-screen controller's go-live control
@@ -61,14 +65,21 @@ export function TransportRow({
   connectHref: string;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // A SUCCESS the host still needs to know about — today, cameras the Setnayan
+  // channel could not carry. That count existed and was thrown away, so an
+  // operator with a QR code turned up on the day and never appeared on air.
+  // Separate from `error`: the broadcast went out, there is nothing to retry.
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
-  function run(fn: () => Promise<{ ok: true } | { error: string }>, step: string) {
+  function run(fn: () => Promise<GoLiveResult>, step: string) {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await save.run(fn, { steps: [step], hint: 'Please wait' });
       if ('error' in result) setError(result.error);
+      else setNotice(result.notice ?? null);
       // On success the action revalidates this path — the server re-renders with
       // the new broadcast state, so no client navigation is needed.
     });
@@ -119,6 +130,18 @@ export function TransportRow({
         >
           <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           <span>{error}</span>
+        </p>
+      ) : null}
+
+      {/* Cameras the channel refused to carry. role="status", not "alert" — the
+          show is on air; this is a thing to fix, not a thing that failed. */}
+      {notice ? (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-[color:var(--sn-warning)]/40 bg-[var(--sn-warning-soft)] px-3 py-2 text-xs text-[color:var(--sn-warning-deep)]"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          <span>{notice}</span>
         </p>
       ) : null}
     </div>

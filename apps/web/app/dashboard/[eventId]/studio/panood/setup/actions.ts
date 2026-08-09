@@ -178,7 +178,13 @@ export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> 
 // scope is gated behind Google's verified-app review: until that clears, the
 // token is null for non-test users and this must degrade gracefully, not 500.
 
-export type GoLiveResult = { ok: true } | { error: string };
+/**
+ * `notice` is a SUCCESS-PATH warning, not an error: the broadcast really did go
+ * out, but something about it is not what the host asked for and they can still
+ * act on it. Today its one producer is the dropped-camera count — see
+ * `cameraDropNotice`. Optional so every other caller of this type is unchanged.
+ */
+export type GoLiveResult = { ok: true; notice?: string | null } | { error: string };
 
 export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // (a) Host-only. requireHostMembership redirects (throws) for non-hosts.
@@ -205,6 +211,10 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // selling on it, and a host who already connected their own channel must keep
   // working. Flag OFF → this block is skipped entirely and the line below is the
   // byte-identical original behaviour.
+  // A success-path warning for the host, filled in at step (g) below. Declared
+  // here so the single `return { ok: true, notice }` at the bottom is the only
+  // place a success is built — a second return would be a second place to forget.
+  let notice: string | null = null;
   let accessToken: string | null = null;
   let usedPoolChannel = false;
   if (liveStudioRoamEnabled()) {
@@ -347,10 +357,14 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
     // provisioning hiccup must never be the reason it did not go out. A failure
     // returns a reason object; it does not throw and it does not change this
     // action's result.
-    await provisionRoamBroadcasts(admin, eventId, {
+    //
+    // ⚠ THE RESULT IS READ NOW — see `cameraDropNotice`. Discarding it is how a
+    // host set up six cameras, got a green tick, and had two never appear.
+    const provisioned = await provisionRoamBroadcasts(admin, eventId, {
       titlePrefix: 'Setnayan Live',
       scheduledStartTime: scheduledStartAt,
     });
+    notice = provisioned.notice;
   }
 
   // (h) Refresh the setup page (so the OBS card appears) + the public page embed.
@@ -359,7 +373,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
-  return { ok: true };
+  return { ok: true, notice };
 }
 
 /**

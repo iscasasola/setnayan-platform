@@ -104,12 +104,6 @@ const TICKER_WORDS = [
   'Every moment',
 ];
 
-const STORIES = [
-  { g: 'hr-g1', lab: 'Edition 01 · Wedding', ti: 'Claire & Ice', su: 'La Castellana, Negros · December' },
-  { g: 'hr-g2', lab: 'Edition 02 · Wedding', ti: 'Maria & Jose', su: 'A garden in Tagaytay' },
-  { g: 'hr-g3', lab: 'Edition 03 · Debut', ti: 'Lena turns 18', su: 'A candlelit night in Cebu' },
-  { g: 'hr-g4', lab: 'Edition 04 · Reunion', ti: 'The Reyes Reunion', su: 'Three generations, one long table' },
-];
 
 function reduceMotion() {
   return (
@@ -133,9 +127,16 @@ export type HomeBgVideos = { main: string | null; pillars: (string | null)[] };
 export function HomeReskin({
   pricing,
   bgVideos,
+  showcases = [],
+  articles = [],
 }: {
   pricing: PricingData;
   bgVideos?: HomeBgVideos;
+  /** Real published weddings. Empty = none yet OR the read failed — both render
+   *  the written invitation rather than a grid, which is honest either way. */
+  showcases?: ReadonlyArray<{ href: string; coupleNames: string; city: string | null; dateLabel: string | null }>;
+  /** Journal articles. Git-tracked markdown, so this cannot fail — only be short. */
+  articles?: ReadonlyArray<{ slug: string; title: string; excerpt?: string }>;
 }) {
   const mainVideo = bgVideos?.main ?? null;
   const pillarVideos = bgVideos?.pillars ?? [];
@@ -550,6 +551,21 @@ export function HomeReskin({
               dock tile remains the entry point to the story takeover; the
               'setnayan-ai' overlay in HomeOverlays is dormant until an entry
               point returns. */}
+          {/* ── The three destinations that had NO way in ─────────────────
+              Before this, the entire public site offered four outbound links
+              and no menu: start planning, real stories, privacy, download.
+              /explore, /realstories and /blog were all live, all public, and
+              all reachable only by knowing the address. The Journal in
+              particular was linked from NOWHERE on this page.
+
+              These are real <Link>s, not overlays, because each is a place you
+              go and stay — unlike Prices/Download/Vendors, which the owner
+              locked as popups in 2026-06-30 ("login should be like the rest of
+              the upper menu — a popup"). That ruling was about the popups; it
+              did not say the site should have no destinations. */}
+          <Link href="/explore">Find vendors</Link>
+          <Link href="/realstories">Real weddings</Link>
+          <Link href="/blog">Journal</Link>
           <button onClick={() => setOverlay('prices')}>Prices</button>
           <button onClick={() => setOverlay('download')}>Download</button>
           <button onClick={() => setOverlay('vendors')}>Vendors</button>
@@ -753,21 +769,64 @@ export function HomeReskin({
           <p className="hr-pdef" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
             A living archive of real celebrations, each one unique in feeling, faith, and place.
           </p>
-          <div className="hr-grid2">
-            {STORIES.map((s) => (
-              <Link href="/realstories" className="hr-storyc" key={s.ti}>
-                <div className={`hr-img ${s.g}`} />
-                <div className="hr-ov" />
-                <div className="hr-c">
-                  <div className="hr-lab">{s.lab}</div>
-                  <div className="hr-ti">{s.ti}</div>
-                  <div className="hr-su">{s.su}</div>
-                  <span className="hr-lm hr-glass-dark">Read the story</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {/* REAL published weddings. This grid used to render four HARDCODED
+              couples, so a real couple publishing their day changed nothing on
+              the front page — and the examples would have stayed on the site
+              beside the real ones, indistinguishable.
+
+              Threshold of TWO: a two-column grid holding one card reads as
+              broken rather than sparse. Below it, a written invitation — which
+              is also the honest thing to show when the read failed, since a
+              failure and an empty archive arrive identically here. */}
+          {showcases.length >= 2 ? (
+            <div className="hr-grid2">
+              {showcases.map((w, i) => (
+                <Link href={w.href} className="hr-storyc" key={w.href}>
+                  <div className={`hr-img hr-g${(i % 4) + 1}`} />
+                  <div className="hr-ov" />
+                  <div className="hr-c">
+                    <div className="hr-lab">
+                      {[w.city, w.dateLabel].filter(Boolean).join(' · ')}
+                    </div>
+                    <div className="hr-ti">{w.coupleNames}</div>
+                    <span className="hr-lm hr-glass-dark">Read the story</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="hr-pdef" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              The first celebrations are being filmed now. When a couple publishes
+              their day, it appears here — told by them, and by everyone who came.
+            </p>
+          )}
         </section>
+
+        {/* ── The Journal ────────────────────────────────────────────────
+            Live and public at /blog, and until now linked from NOWHERE on this
+            page — you had to know the address.
+
+            Threshold of TWO, same reasoning as the stories rail: a strip with a
+            single article on it reads as broken. Unlike the stories, this cannot
+            fail — the Journal is git-tracked markdown, so the count is known at
+            build time and there is no read to go wrong. */}
+        {articles.length >= 2 ? (
+          <section className="hr-stories">
+            <div className="hr-pnum">The Journal</div>
+            <h2 className="hr-pname">What we've learned, written down.</h2>
+            <div className="hr-grid2">
+              {articles.map((a) => (
+                <Link href={`/blog/${a.slug}`} className="hr-storyc" key={a.slug}>
+                  <div className="hr-c">
+                    <div className="hr-ti">{a.title}</div>
+                    {a.excerpt ? <div className="hr-su">{a.excerpt}</div> : null}
+                    <span className="hr-lm hr-glass-dark">Read it</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* Pricing (free-floor; no hardcoded numbers — overlay reads catalog) */}
         <section className="hr-pillar" id="hr-pricing">

@@ -288,7 +288,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Pabati** — ${R('PABATI')} per day. Guest-recorded greeting videos.
 - **Kwento** — ${R('KWENTO')} (whole event). Guest-contributed stories and messages.
 - **Papic One** — dedicated cameras for the people you trust. First 3 cameras free, then ${R('PAPIC_CAMERA_MINI_DAY')} for a 50-shot camera or ${R('PAPIC_ONE_100')} for a 100-shot camera. Add as many as you like.
-- **Papic Pool** — one shared shot pool for every guest's phone: ${R('PAPIC_GUEST')} for 3,000 shots · ${R('PAPIC_GUEST_6K')} for 6,000 · ${R('PAPIC_GUEST_10K')} for 10,000. Every capture spends points (1 photo = 1 point, one 10-second clip = 7 points). 6-month access window.
+- **Papic Pool** — one shared shot pool for every guest's phone: ${R('PAPIC_GUEST')} for 3,000 shots · ${R('PAPIC_GUEST_6K')} for 6,000 · ${R('PAPIC_GUEST_10K')} for 10,000. Every capture spends points (1 photo = 1 point, one 10-second clip = 8 points). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
 
 ## The mood board is free

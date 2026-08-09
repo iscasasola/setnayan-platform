@@ -11,6 +11,10 @@ import {
   retireEventTypeCore,
   unretireEventTypeCore,
 } from '@/lib/event-types-mutations';
+import {
+  surfacesStrandedWithoutWebsite,
+  strandedWithoutWebsiteMessage,
+} from '@/lib/event-type-profile';
 
 /**
  * Setnayan HQ · Event Types actions — CRUD over `event_type_vocab`, the
@@ -405,6 +409,15 @@ export async function upsertEventTypeProfile(formData: FormData) {
   const enabled_surfaces = PROFILE_SURFACES.filter(
     (s) => formData.get(`surface_${s}`) === 'on',
   );
+  // A day-of page or a gallery with no website is a page nobody can ever open:
+  // both RENDER ON the public event site, and 'website' carries the only "go
+  // live" control. REFUSE rather than silently ticking Website — the admin must
+  // see which choice they are making. (Item 81; the same combination already
+  // stranded simple_event once, repaired by migration 20271102084500.)
+  const stranded = surfacesStrandedWithoutWebsite(enabled_surfaces);
+  if (stranded.length > 0) {
+    profileRedirect(key, 'error', strandedWithoutWebsiteMessage(stranded));
+  }
   const onboarding_flow_key = cleanOptional(formData.get('onboarding_flow_key'), 60);
   const role_set_key = cleanOptional(formData.get('role_set_key'), 60);
 

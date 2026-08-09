@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   ADMIN_QUEUE_META,
+  compareQueuePriority,
   computeDueState,
   getAdminQueueDigest,
   type AdminQueueDueState,
@@ -19,6 +20,14 @@ import { StatusPill } from './charts';
  * between the nav badges, /admin/work, and this zone). Urgency = the same
  * computeDueState SLA math: overdue → act (blush) · due-soon → watch
  * (champagne) · ok → open-but-inside-SLA · clear → folded into one line.
+ *
+ * 🔑 THE ORDER IS NOT THIS FILE'S TO DECIDE. This zone used to keep a private
+ * STATE_RANK that put `unknown` ABOVE `ok` — the exact inverse of the shared
+ * rule, so a queue whose count merely failed to read was presented here as
+ * MORE urgent than a queue with real open work inside its SLA, while the same
+ * queue set on /admin and /admin/work said the opposite. It now sorts with
+ * compareQueuePriority (lib/admin/queue-counts.ts), the one comparator all
+ * three surfaces share. Enforced by lib/admin/queue-priority.test.ts.
  *
  * MANUAL WATCH-LIST: the credits/limits/renewals the platform cannot read
  * (Suno has no balance API; domain registrars and key rotations live outside
@@ -72,14 +81,6 @@ const STATE_STYLE: Record<
   unknown: { border: 'var(--m-line)', dot: 'var(--m-slate-4)', word: 'unknown' },
 };
 
-const STATE_RANK: Record<AdminQueueDueState, number> = {
-  overdue: 0,
-  'due-soon': 1,
-  unknown: 2,
-  ok: 3,
-  clear: 4,
-};
-
 export async function ActionCenterZone() {
   const digest = await getAdminQueueDigest();
   const nowMs = Date.now();
@@ -89,10 +90,14 @@ export async function ActionCenterZone() {
     const sla = ADMIN_QUEUE_META[def.key]?.slaHours ?? 48;
     const state = computeDueState(row, sla, nowMs);
     return { ...def, row, state };
-  }).sort(
-    (a, b) =>
-      STATE_RANK[a.state] - STATE_RANK[b.state] ||
-      (b.row.count ?? 0) - (a.row.count ?? 0),
+  }).sort((a, b) =>
+    // Urgency band, then busiest inside the band. A full tie returns 0, so the
+    // stable sort falls back to QUEUE_CARDS declaration order — same tie-break
+    // this zone always had.
+    compareQueuePriority(
+      { dueState: a.state, count: a.row.count },
+      { dueState: b.state, count: b.row.count },
+    ),
   );
 
   const active = cards.filter((c) => c.state !== 'clear');

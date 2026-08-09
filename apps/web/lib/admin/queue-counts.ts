@@ -351,14 +351,20 @@ export function computeDueState(
 /**
  * SINGLE SOURCE OF TRUTH for how urgent one queue is against another.
  *
- * 🔑 TWO SURFACES RANKED THE SAME QUEUES IN OPPOSITE ORDERS. The command center
- * (/admin/work) ranked overdue-first and kept its own private DUE_RANK table;
- * the Overview's "busiest queues" preview (/admin) sorted on open count alone.
- * The same admin reading both was told two different things were the most
- * urgent thing to do — and /admin/work's own docblock claimed the two "agree by
- * construction". Whichever screen they happened to open decided what they did
- * first. The overdue-first rule wins because it is the one derived from a real
- * promise (slaHours); volume is only the tie-break inside a band.
+ * 🔑 THREE SURFACES RANKED THE SAME QUEUES IN DIFFERENT ORDERS. The command
+ * center (/admin/work) ranked overdue-first and kept its own private DUE_RANK
+ * table; the Overview's "busiest queues" preview (/admin) sorted on open count
+ * alone; and the App Performance cockpit's Action Center kept a THIRD table
+ * that put `unknown` above `ok`. The same admin reading any two was told
+ * different things were the most urgent thing to do — and /admin/work's own
+ * docblock claimed they "agree by construction". Whichever screen they happened
+ * to open decided what they did first. The overdue-first rule wins because it is
+ * the one derived from a real promise (slaHours); volume is only the tie-break
+ * inside a band.
+ *
+ * ⚠ The first unification missed the cockpit because the guard's surface list
+ * was hand-typed. lib/admin/queue-priority.test.ts now DERIVES that list from
+ * disk — do not replace it with a literal.
  *
  * Lower number = ranks earlier. `unknown` (count unavailable) sits BELOW open
  * work but ABOVE clear: a degraded read must not be presented as either urgent
@@ -381,11 +387,11 @@ export type RankableQueue = {
 };
 
 /**
- * Comparator both admin surfaces sort by: urgency band first, then busiest
+ * Comparator every admin surface sorts by: urgency band first, then busiest
  * inside the band. Returns 0 on a full tie so the CALLER's declaration order
- * breaks it (Array.prototype.sort is stable) — the two surfaces list their
- * queues in different orders on purpose, and that is the only difference left
- * between them.
+ * breaks it (Array.prototype.sort is stable) — the surfaces list their queues
+ * in different orders on purpose, and that is the only difference left between
+ * them.
  */
 export function compareQueuePriority(a: RankableQueue, b: RankableQueue): number {
   const ra = QUEUE_DUE_RANK[a.dueState ?? 'unknown'];

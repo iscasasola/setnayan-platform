@@ -378,3 +378,77 @@ export async function setVendorTier(formData: FormData): Promise<void> {
   revalidatePath('/admin/vendors');
   redirect(`/admin/vendors/${vendorId}/plan?tier=${tier}`);
 }
+
+/**
+ * Grant / remove the founding-supplier override (`vendor_profiles.is_founder`).
+ *
+ * 🚨 THIS IS THE MISSING HANDLE. The override shipped on 2026-06-09 with a
+ * migration, a column comment and two live readers in
+ * `app/vendor-dashboard/services/actions.ts` — and NOTHING in the app ever wrote
+ * it. The only row that has ever carried it was set by a hardcoded UUID inside
+ * migration 20261013000000, so no second business could ever receive the perk.
+ * Same shape as `papic_face_mode` (stored nothing for seven weeks) and
+ * `live_media_public` (hid the broadcast from every uninvited visitor): a
+ * read-only column typechecks, has RLS, has tested readers, and simply always
+ * takes the false branch. Registered in `lib/gates-have-handles.test.ts` so it
+ * cannot go writer-less again.
+ *
+ * WHAT IT ACTUALLY GRANTS, precisely: unlimited parent-categories and unlimited
+ * services-per-leaf on service creation/edit. Nothing else — the old token-gate
+ * bypass in `unlock_vendor_event` was dropped at migration 20270221294989, and
+ * the token currency is retired entirely. It is NOT a tier: it composes on top
+ * of `tier_state`, so it neither promotes nor demotes a paying vendor, and it
+ * moves no money.
+ *
+ * Service-role client because `vendor_profiles` has no admin write policy for
+ * this column; audit-logged like every other admin mutation here.
+ */
+export async function setVendorFoundingSupplier(formData: FormData): Promise<void> {
+  const { adminUserId } = await requireAdmin();
+  const vendorId = String(formData.get('vendor_id') ?? '').trim();
+  const raw = String(formData.get('is_founder') ?? '').trim();
+  if (vendorId.length === 0) throw new Error('Missing vendor_id.');
+  // Explicit on/off rather than a checkbox: an unchecked box posts NOTHING, so
+  // a checkbox-shaped control cannot tell "remove it" apart from "the form did
+  // not include the field", and would silently remove the perk on any partial
+  // submit.
+  if (raw !== 'on' && raw !== 'off') throw new Error('Invalid founding-supplier value.');
+  const next = raw === 'on';
+
+  const admin = createAdminClient();
+  // ⚠ Supabase RESOLVES with `{ error }` — it does not throw — so a rejected
+  // read arrives as `data: null` and would read exactly like "vendor not found".
+  const { data: before, error: readErr } = await admin
+    .from('vendor_profiles')
+    .select('is_founder, business_name, public_id')
+    .eq('vendor_profile_id', vendorId)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!before) throw new Error('Vendor not found.');
+
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({ is_founder: next })
+    .eq('vendor_profile_id', vendorId);
+  if (error) throw new Error(error.message);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: next ? 'vendor_founding_supplier_grant' : 'vendor_founding_supplier_revoke',
+    target_id: vendorId,
+    actor_user_id: adminUserId,
+    metadata: {
+      business_name: before.business_name,
+      public_id: before.public_id,
+      from_is_founder:
+        (before as { is_founder?: boolean | null }).is_founder === true,
+      to_is_founder: next,
+    },
+  });
+  if (auditErr) {
+    console.error('[setVendorFoundingSupplier] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/vendors/${vendorId}/plan`);
+  revalidatePath('/admin/vendors');
+  redirect(`/admin/vendors/${vendorId}/plan?founding=${next ? 'granted' : 'removed'}`);
+}

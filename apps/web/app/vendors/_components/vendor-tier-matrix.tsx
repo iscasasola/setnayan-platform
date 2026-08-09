@@ -163,7 +163,11 @@ function buildLimitsGroup(): Group {
             ? NO
             : val(`${c.inAppCustomersPerWeek}`),
       ),
-      row('Full written reviews shown', (c) => (c.reviewCommentsViewable ? YES : NO)),
+      // ⛔ "Full written reviews shown" was a row here until 2026-08-09. It
+      // advertised a vendor's own reviews as something they could BUY, which is
+      // the opposite of the merit-first ranking lock. Reviews are now shown on
+      // every tier and there is nothing to compare, so the row is gone rather
+      // than turned into a column of identical ticks. Do not re-add it.
       row('Custom URL / slug', (c) => (c.customWebsiteName ? YES : NO)),
     ],
   };

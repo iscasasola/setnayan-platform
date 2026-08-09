@@ -2553,11 +2553,12 @@ export async function renderVendorBySlug({
           reviews={orderedReviews}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
-          /* Phase C review-display gate (vendor-tier-caps · surface layer).
-             showStars: Free hides the star average + per-review star rows.
-             showComments: Free + Verified hide review bodies + axis stats +
-             vendor replies (Pro/Enterprise show them). Gated here, NOT in the
-             review libs, so the vendor dashboard self-view stays ungated. */
+          /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (owner ruling
+             re-confirmed 2026-08-09): reviews are never hidden or unlocked by
+             what a vendor pays. Both caps are now true on every tier, so these
+             stay wired only to keep the component's shape — and because
+             `reviews-are-never-tiered.test.ts` pins them true, a Free shop can
+             never silently lose its stars or its written reviews again. */
           showStars={viewerTierCaps.reviewStarsCounted}
           showComments={viewerTierCaps.reviewCommentsViewable}
           recommendingCouples={recommendingCouples}
@@ -3373,31 +3374,20 @@ function ReviewsSection({
         <TrackRecord events={completedEvents} />
       ) : null}
 
-      {/* Phase C: Free vendors (showStars=false) hide the star metrics
-          entirely — no average, no histogram. The per-card "new" treatment
-          on the marketplace already signals these vendors have no shown
-          rating; the microsite simply omits the metrics block. */}
       {showStars ? (
         <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} />
       ) : null}
 
-      {/* Phase C: review bodies/comments are gated separately (showComments).
-          When OFF (Free + Verified), the per-review detail (body, axis stats,
-          vendor reply) is suppressed — but for Free (showStars also OFF) we
-          drop the review list entirely since nothing reviewable would render.
-          Verified (showStars ON, showComments OFF) still shows the star rows
-          without the comment bodies. */}
-      {!showStars && !showComments ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
-          <p className="text-sm text-ink/65">
-            Reviews unlock when this vendor upgrades their Setnayan plan.
-          </p>
-          <p className="mt-1 text-xs text-ink/45">
-            Bookings through Setnayan generate a review request 24 hours after
-            the event.
-          </p>
-        </div>
-      ) : reviews.length === 0 ? (
+      {/* ⛔ THE "UPGRADE TO UNLOCK REVIEWS" PANEL IS GONE (2026-08-09).
+          It rendered whenever both caps were off — i.e. on every Free vendor —
+          and told couples, on that vendor's own page, "Reviews unlock when this
+          vendor upgrades their Setnayan plan." A shop's reputation is not a
+          thing it can buy; the owner's merit-first lock says reviews are never
+          tiered, and both caps are now true on every tier, so this branch could
+          only ever be dead code carrying a false promise. Removed rather than
+          left unreachable — an unreachable branch with wrong copy is one
+          refactor away from being reachable again. */}
+      {reviews.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
           <p className="text-sm text-ink/65">This vendor still has no review.</p>
           <p className="mt-1 text-xs text-ink/45">

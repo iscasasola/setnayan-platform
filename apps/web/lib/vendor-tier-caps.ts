@@ -124,9 +124,28 @@ export interface TierCaps {
    * render site, so the flag-dark fallback stays in exactly one place.
    */
   seoLevel: VendorSeoLevel;
-  /** Review star average is counted/shown. */
+  /**
+   * 🔒 TRUE FOR EVERY TIER, PERMANENTLY — owner ruling, re-confirmed 2026-08-09:
+   * reviews are **never** ranked, hidden or unlocked by what a vendor pays.
+   *
+   * These two flags used to gate reviews by tier: a Free shop showed no star
+   * average and no review list at all, and Free + Verified hid every written
+   * review body. The public tier table even advertised "Full written reviews
+   * shown" as a paid perk, and a Free vendor's page told couples "Reviews
+   * unlock when this vendor upgrades their Setnayan plan."
+   *
+   * That is a paid vendor's reputation looking better than an unpaid one's for
+   * money rather than merit — the exact thing the merit-first ranking lock
+   * exists to prevent. Settled while **production held ZERO reviews and two
+   * vendors** (checked, 2026-08-09), so nothing a couple ever saw changes. It
+   * would have been expensive to undo after the first real review.
+   *
+   * The fields are kept rather than deleted so the shape stays stable for the
+   * tier matrix and so `reviews-are-never-tiered.test.ts` has something to pin.
+   * If you are about to set either to `false`, you are reversing an owner lock.
+   */
   reviewStarsCounted: boolean;
-  /** Review free-text comments are viewable. */
+  /** See above — never tiered. */
   reviewCommentsViewable: boolean;
   website: WebsiteMode;
   /** Custom website name/slug. */
@@ -224,8 +243,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
-    reviewStarsCounted: false,
-    reviewCommentsViewable: false,
+    reviewStarsCounted: true,
+    reviewCommentsViewable: true,
     website: 'basic',
     customWebsiteName: false,
     inquireLink: true,
@@ -269,7 +288,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
     reviewStarsCounted: true,
-    reviewCommentsViewable: false,
+    reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: false,
     inquireLink: true,
@@ -307,7 +326,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     // the free basic indexability. AEO stays Pro+.
     seoLevel: 'enhanced',
     reviewStarsCounted: true,
-    reviewCommentsViewable: false,
+    reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: false,
     inquireLink: true,

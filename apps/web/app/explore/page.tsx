@@ -635,10 +635,10 @@ type VendorCardRow = {
    *  vendor_profiles (free | verified | pro | enterprise). NOT carried by
    *  the vendor_market_stats view, so pulled in the SAME vendor_profiles
    *  follow-up batch as verification_state / name_revealed_at / screen_name.
-   *  Drives (a) the day-1 name reveal (isTrueNameTier → pro/enterprise show
-   *  real business_name) and (b) the review-display gate (tierCaps
-   *  reviewStarsCounted — Free hides its star rating + review count). Null =
-   *  pre-migration deploy → free → hidden + gated. */
+   *  Drives the day-1 name reveal (isTrueNameTier → pro/enterprise show the
+   *  real business_name). It no longer drives any review gate — reviews are
+   *  merit-only on every tier (owner ruling re-confirmed 2026-08-09). Null =
+   *  pre-migration deploy → free → name still hidden. */
   tier_state?: string | null;
   /** Resolved public URL for the vendor's hero service photo
    *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
@@ -2517,24 +2517,27 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // tier-aware ORDER BY in a view that exposes tier_state (deferred).
   // Array#sort is stable in V8 so equal-key rows keep their SQL order.
   if (filters.sort === 'highest_rated' || filters.sort === 'most_reviews') {
-    const gatedRatingOf = (v: VendorCardRow): number =>
-      tierCaps(v.tier_state ?? null).reviewStarsCounted
-        ? Number(v.avg_rating_overall ?? 0)
-        : 0;
-    const gatedReviewsOf = (v: VendorCardRow): number =>
-      tierCaps(v.tier_state ?? null).reviewStarsCounted ? (v.review_count ?? 0) : 0;
+    // 🔒 NO LONGER GATED BY TIER (owner ruling re-confirmed 2026-08-09).
+    // These two used to zero out a Free vendor's rating and review count before
+    // sorting, so a shop with genuine five-star reviews sank below a paying one
+    // with none. Reviews are merit-only on every tier now; the raw values are
+    // used directly. The helpers stay so the sort below reads the same, but the
+    // word "gated" is gone from their names — a value that is not gated must
+    // never keep reading as one.
+    const ratingOf = (v: VendorCardRow): number => Number(v.avg_rating_overall ?? 0);
+    const reviewsOf = (v: VendorCardRow): number => v.review_count ?? 0;
     visible = [...visible].sort((a, b) => {
       // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
       //    first-party rows never reach this array (filtered in the query).
-      // 2. GATED rating / review sort.
+      // 2. Rating / review sort — merit only, never tier-adjusted.
       if (filters.sort === 'highest_rated') {
-        const r = gatedRatingOf(b) - gatedRatingOf(a);
+        const r = ratingOf(b) - ratingOf(a);
         if (r !== 0) return r;
-        return gatedReviewsOf(b) - gatedReviewsOf(a); // volume tiebreak
+        return reviewsOf(b) - reviewsOf(a); // volume tiebreak
       }
-      const c = gatedReviewsOf(b) - gatedReviewsOf(a);
+      const c = reviewsOf(b) - reviewsOf(a);
       if (c !== 0) return c;
-      return gatedRatingOf(b) - gatedRatingOf(a);
+      return ratingOf(b) - ratingOf(a);
     });
   }
 
@@ -2891,29 +2894,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
-              /* Phase C review-display gate (vendor-tier-caps · surface-layer
-                 gate). Stars/count show only when reviewStarsCounted (Free =
-                 hidden → card renders "new"); review comment bodies (the
-                 carousel) show only when reviewCommentsViewable (Free +
-                 Verified hidden, Pro/Ent shown). Gated here, NOT in the shared
-                 review libs, so the vendor's own dashboard self-view stays
-                 ungated. `?? null` → free → hidden. */
-              const vCaps = tierCaps(v.tier_state ?? null);
+              /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
+                 It hid a Free vendor's stars and count (the card rendered
+                 "new") and emptied the review carousel for Free + Verified.
+                 Reviews are merit-only on every tier now. */
               // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
               // star average + review count read the TRUSTED (receipt-backed,
               // arm's-length) stat, so fake / self-dealt reviews can't inflate
               // the number couples see. Same source the couple_trusted / top_pick
-              // badges use. Still gated by tier (Free hides stars → "new").
+              // badges use.
+              //
+              // 🔒 NOT TIER-GATED (owner ruling re-confirmed 2026-08-09). Until
+              // today a Free vendor's card zeroed its rating and count and read
+              // as "new" however many real reviews it had, and its review
+              // carousel was emptied — a paid shop's reputation looked better
+              // than an unpaid one's for money rather than merit. The trusted
+              // stat is the only filter that belongs here.
               const vTrusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
-              const gatedRating = vCaps.reviewStarsCounted
-                ? Number(vTrusted?.avg ?? 0)
-                : 0;
-              const gatedReviewCount = vCaps.reviewStarsCounted
-                ? (vTrusted?.count ?? 0)
-                : 0;
-              const gatedReviews = vCaps.reviewCommentsViewable
-                ? (reviewsByVendorId.get(v.vendor_profile_id) ?? [])
-                : [];
+              const cardRating = Number(vTrusted?.avg ?? 0);
+              const cardReviewCount = vTrusted?.count ?? 0;
+              const cardReviews = reviewsByVendorId.get(v.vendor_profile_id) ?? [];
               return (
                 <li key={v.vendor_profile_id}>
                   {/* 2026-05-22 quick-view redesign — VendorCard
@@ -2923,15 +2923,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                       the owner directive (CLAUDE.md decision log). */}
                   <VendorCard
                     vendor={v}
-                    rating={gatedRating}
-                    reviewCount={gatedReviewCount}
+                    rating={cardRating}
+                    reviewCount={cardReviewCount}
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
-                    reviews={gatedReviews}
+                    reviews={cardReviews}
                   />
                 </li>
               );

@@ -411,6 +411,12 @@ export type ProvisionResult = {
   reason: ProvisionFailure | null;
   /** Human-readable, safe to show an admin. Never contains a token or stream key. */
   detail: string | null;
+  /**
+   * ⚠ THE DROPPED-CAMERA SENTENCE — plain English, host-safe, null when nothing
+   * was dropped. See `cameraDropNotice` below for why this is on the RESULT and
+   * not merely derivable from `skippedOverCap`.
+   */
+  notice: string | null;
 };
 
 function failure(reason: ProvisionFailure, detail: string, channelPoolId: number | null = null): ProvisionResult {
@@ -423,7 +429,52 @@ function failure(reason: ProvisionFailure, detail: string, channelPoolId: number
     published: 0,
     reason,
     detail,
+    notice: null,
   };
+}
+
+/**
+ * ⚠ SOMEBODY IS TOLD WHEN A CAMERA IS DROPPED.
+ *
+ * `provisionRoamBroadcasts` has always counted the zones it refused because the
+ * pool channel's `concurrent_cap` was already full — and then thrown the number
+ * away. Its only caller (`goLivePanood`) discarded the whole result. So a host
+ * could name six camera channels, hand six QR codes to six people, press Go
+ * live, see a green success, and two of those operators would simply never
+ * appear. Nothing errored, nothing was logged, nothing was shown.
+ *
+ * This turns that count into the sentence the host reads. PURE, so the wording
+ * is unit-testable and cannot drift between the two screens that show it (the
+ * setup card and the controller's transport row).
+ *
+ * Returns null when nothing was dropped — a "0 cameras were left out" banner on
+ * a perfectly good broadcast is noise, and noise is how a real warning gets
+ * skimmed past.
+ *
+ * `carried` is passed rather than assumed equal to `cap`: a zone that already
+ * had a stream is counted as reused BEFORE the cap check, so the number actually
+ * riding the channel can sit one or two above the cap. The denominator the host
+ * reads must be the cameras they really set up, not a number we inferred.
+ */
+export function cameraDropNotice(input: {
+  /** ProvisionResult.skippedOverCap. */
+  skippedOverCap: number;
+  /** created + reused — the channels that DID make it onto the channel. */
+  carried: number;
+  /** The pool channel's concurrent_cap. */
+  cap: number;
+}): string | null {
+  const dropped = Math.trunc(input.skippedOverCap);
+  if (!Number.isFinite(dropped) || dropped <= 0) return null;
+  const total = Math.max(dropped + Math.max(0, Math.trunc(input.carried)), dropped);
+  const cap = Math.max(0, Math.trunc(input.cap));
+  const wasWere = dropped === 1 ? 'is' : 'are';
+  const cameraWord = cap === 1 ? 'camera' : 'cameras';
+  return (
+    `${dropped} of your ${total} cameras ${wasWere} not being broadcast — ` +
+    `this channel carries ${cap} ${cameraWord} at a time. ` +
+    `Turn off the cameras you don't need, then go live again.`
+  );
 }
 
 /**
@@ -614,5 +665,8 @@ export async function provisionRoamBroadcasts(
     published,
     reason: youtubeError ? 'youtube_error' : null,
     detail: youtubeError,
+    // The count stops being discarded HERE. Carried on the result so the caller
+    // has a sentence to show, not a number it has to decide how to word.
+    notice: cameraDropNotice({ skippedOverCap, carried: created + reused, cap }),
   };
 }

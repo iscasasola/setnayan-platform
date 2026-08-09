@@ -59,6 +59,11 @@ export function GoLiveCard({
   streamKey: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // A SUCCESS that is not the whole story. Today: cameras the pool channel could
+  // not carry, which used to be counted and silently discarded — the operator
+  // turned up on the day and simply never appeared. Kept separate from `error`
+  // because the broadcast DID go out; this is not a failure to retry.
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showKey, setShowKey] = useState(false);
   const save = useSaveLoader();
@@ -82,12 +87,14 @@ export function GoLiveCard({
 
   function handleGoLive() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await save.run(() => goLivePanood(eventId), {
         steps: ['Going live'],
         hint: 'Please wait',
       });
       if ('error' in result) setError(result.error);
+      else setNotice(result.notice ?? null);
       // On success the action revalidates the path → the page re-renders with
       // the active broadcast + OBS card. No client navigation needed.
     });
@@ -95,6 +102,7 @@ export function GoLiveCard({
 
   function handleEnd() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await save.run(() => endPanoodBroadcast(eventId), {
         steps: ['Ending the broadcast'],
@@ -161,6 +169,18 @@ export function GoLiveCard({
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>{error}</span>
+        </p>
+      ) : null}
+
+      {/* Cameras the channel could not carry. role="status" (not "alert") — the
+          broadcast is live; this is a thing to fix, not a thing that failed. */}
+      {notice ? (
+        <p
+          role="status"
+          className="inline-flex items-start gap-2 rounded-xl border border-[color:var(--sn-warning)]/40 bg-[var(--sn-warning-soft)] px-4 py-3 text-sm text-[color:var(--sn-warning-deep)]"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>{notice}</span>
         </p>
       ) : null}
 

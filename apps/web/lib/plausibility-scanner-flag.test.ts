@@ -25,13 +25,14 @@ test('plausibilityScannerEnabled: OFF by default (unset → dark)', () => {
   withEnv(undefined, () => assert.equal(plausibilityScannerEnabled(), false));
 });
 
-test("plausibilityScannerEnabled: ON only for the exact string 'true'", () => {
-  withEnv('true', () => assert.equal(plausibilityScannerEnabled(), true));
+test('plausibilityScannerEnabled: ON for any spelling that means yes', () => {
+  for (const v of ['true', 'TRUE', 'True', '1', 'yes', 'on']) {
+    withEnv(v, () => assert.equal(plausibilityScannerEnabled(), true, `"${v}" must enable`));
+  }
 });
 
 test('plausibilityScannerEnabled: any other value stays OFF', () => {
-  withEnv('false', () => assert.equal(plausibilityScannerEnabled(), false));
-  withEnv('1', () => assert.equal(plausibilityScannerEnabled(), false));
-  withEnv('TRUE', () => assert.equal(plausibilityScannerEnabled(), false, 'case-sensitive'));
-  withEnv('', () => assert.equal(plausibilityScannerEnabled(), false));
+  for (const v of ['false', '0', 'no', 'off', '', 'ture']) {
+    withEnv(v, () => assert.equal(plausibilityScannerEnabled(), false, `"${v}" must stay OFF`));
+  }
 });

@@ -16,5 +16,9 @@
  * business knowing whether the check is on.
  */
 export function knownHashMatchEnabled(): boolean {
+  // DELIBERATELY NOT converted to the lenient reader (lib/env-flag.ts): this
+  // gate may only be opened after the owner enrols with a hash provider AND
+  // signs the NPC Circular 16-02 processor agreement, so widening what counts
+  // as "on" is a compliance decision, not a parsing bugfix.
   return process.env.CSAM_HASH_MATCH_ENABLED === 'true';
 }

@@ -18,8 +18,10 @@
  * from the flow) and the server actions read the SAME flag — one source of
  * truth, no client/server drift.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function anonOnboardingEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ANON_ONBOARDING_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_ANON_ONBOARDING_ENABLED);
 }
 
 /**

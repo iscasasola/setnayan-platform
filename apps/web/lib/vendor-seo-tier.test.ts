@@ -62,17 +62,19 @@ test('gate OFF renders the exact <priority> string the sitemap emits today', () 
 
 // ── the flag module itself ───────────────────────────────────────────────────
 
-test('activation flag defaults OFF and only the literal "true" enables it', () => {
+test('activation flag defaults OFF and accepts any yes-spelling', () => {
   const original = process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE;
   try {
     delete process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE;
     assert.equal(isVendorSeoTierGateEnabled(), false, 'unset ⇒ OFF');
-    for (const v of ['', '1', 'yes', 'TRUE', 'True', 'false']) {
+    for (const v of ['', 'false', '0', 'no', 'off', 'ture']) {
       process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE = v;
       assert.equal(isVendorSeoTierGateEnabled(), false, `"${v}" must not enable`);
     }
-    process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE = 'true';
-    assert.equal(isVendorSeoTierGateEnabled(), true);
+    for (const v of ['true', 'TRUE', 'True', '1', 'yes', 'on']) {
+      process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE = v;
+      assert.equal(isVendorSeoTierGateEnabled(), true, `"${v}" must enable`);
+    }
   } finally {
     if (original === undefined) delete process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE;
     else process.env.NEXT_PUBLIC_VENDOR_SEO_TIER_GATE = original;

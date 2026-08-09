@@ -35,6 +35,7 @@ import {
   Scale,
   type LucideIcon,
 } from 'lucide-react';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 export const metadata = { title: 'Suite' };
 export const dynamic = 'force-dynamic';
@@ -211,7 +212,7 @@ export default async function SuitePage({ params }: Props) {
   // (VERCEL_ENV==='preview') so the owner can review the PR without setting env
   // vars — production is never 'preview', so prod stays dark.
   const suiteOn =
-    process.env.NEXT_PUBLIC_SUITE === 'true' || process.env.VERCEL_ENV === 'preview';
+    envFlagEnabled(process.env.NEXT_PUBLIC_SUITE) || process.env.VERCEL_ENV === 'preview';
   if (!suiteOn) notFound();
 
   const { eventId } = await params;

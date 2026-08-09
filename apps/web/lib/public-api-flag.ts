@@ -1,4 +1,5 @@
 import 'server-only';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * The "No public API endpoints in V1" lock (repo CLAUDE.md · iteration 0033
@@ -20,7 +21,7 @@ import 'server-only';
  * /api/v1/billing/initialize-maya (session + event-membership gated, checkout).
  */
 export function isPublicApiEnabled(): boolean {
-  return process.env.PUBLIC_API_ENABLED === 'true';
+  return envFlagEnabled(process.env.PUBLIC_API_ENABLED);
 }
 
 /** Opaque 404 when the public API is disabled — indistinguishable from a nonexistent route. */

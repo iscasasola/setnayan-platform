@@ -58,15 +58,17 @@
  * (spec § 4k) and it becomes more pressing the moment this flips, not less.
  */
 
+import { envFlagEnabled } from '@/lib/env-flag';
+
 /**
  * Is Live Studio restricted to Setnayan-owned channels — i.e. may a couple still
  * connect their own YouTube channel?
  *
- * `true` ⇒ the BYO connect door is closed, no non-org user can reach Google's
+ * ON ⇒ the BYO connect door is closed, no non-org user can reach Google's
  * consent screen, and the Internal-audience verification exemption holds.
  */
 export function liveStudioPoolOnly(): boolean {
-  return process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY);
 }
 
 /**

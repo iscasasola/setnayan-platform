@@ -6,8 +6,12 @@
  * can land, be reviewed and be exercised on preview before any vendor can
  * create a package that the live couple-side configurator would then render.
  *
- * Strict `=== 'true'`, so unset / '1' / 'yes' all mean OFF. Default OFF.
+ * Default OFF. Read through the shared lenient parser (lib/env-flag.ts), so
+ * `true` / `TRUE` / `1` / `yes` / `on` all mean ON and everything else — unset,
+ * empty, a typo — means OFF.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function packageAuthoringEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PACKAGE_AUTHORING === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PACKAGE_AUTHORING);
 }

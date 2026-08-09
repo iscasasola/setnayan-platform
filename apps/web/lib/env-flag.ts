@@ -27,14 +27,26 @@
  * compliance-sensitive features, so an unrecognised value must never be read as
  * permission. Widening the ON set is a decision; narrowing it is a bugfix.
  *
- * ── NOT A MASS MIGRATION ─────────────────────────────────────────────────────
- * ⚠ Deliberately NOT applied to every strict flag in one sweep. Some may be set
- * to a variant like `TRUE` in an environment nobody has audited, and widening
- * their readers would **silently activate** whatever they gate — several of
- * which are unfinished or gated on DPO sign-off. Converting a flag is therefore
- * a per-flag decision that needs someone to check the value first, not a
- * find-and-replace. `lib/env-flag.test.ts` keeps the inventory of what is still
- * strict so the sweep can be done deliberately.
+ * ── STILL NOT A MASS MIGRATION ───────────────────────────────────────────────
+ * ⚠ The adoption pass on 2026-08-09 was done ONE FLAG AT A TIME, not as a
+ * find-and-replace, because widening a reader **silently activates** whatever
+ * the flag gates if some environment already holds a variant like `TRUE`. Five
+ * env flags were therefore left strict ON PURPOSE, each with a one-line note at
+ * its own reader saying why:
+ *
+ *   CSAM_HASH_MATCH_ENABLED                  contract-gated (NPC Circular 16-02)
+ *   NEXT_PUBLIC_ACCOUNT_FACE_PROFILE_ENABLED biometric — DPO decision
+ *   NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED   new collection — DPO decision
+ *   PAPIC_CLIP_DROP_ENABLED (×2 readers)     arms an irreversible drop
+ *
+ * Converting any of those is a compliance/owner decision, not a bugfix. The
+ * same rule binds the next one: read the site, then convert.
+ *
+ * ── WHAT THIS IS NOT FOR ─────────────────────────────────────────────────────
+ * Kill-switches written `!== 'false'` (default ON) are a DIFFERENT shape, and
+ * running them through this reader would INVERT their default. And form-field
+ * comparisons (`formData.get('x') === 'true'`) read values this app itself
+ * emitted — nobody types those, so there is nothing to be forgiving about.
  */
 
 /** The values that mean ON. Case-insensitive, trimmed. */

@@ -28,6 +28,7 @@ import {
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { envFlagEnabled } from '@/lib/env-flag';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -101,7 +102,7 @@ export default async function AdminIntegrationsPage({
   const paywallDb =
     (settingsRes.data?.setnayan_ai_paywall_enabled as boolean | null | undefined) ??
     null;
-  const paywallEnvOn = process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+  const paywallEnvOn = envFlagEnabled(process.env.SETNAYAN_AI_PAYWALL_ENABLED);
   const paywallEffectiveOn =
     typeof paywallDb === 'boolean' ? paywallDb : paywallEnvOn;
   const paywallMode = paywallDb === true ? 'on' : paywallDb === false ? 'off' : 'env';

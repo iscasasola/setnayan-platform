@@ -79,6 +79,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { customerGuestsBadge } from '@/lib/nav-badges';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
@@ -92,7 +93,7 @@ import { customerGuestsBadge } from '@/lib/nav-badges';
  * value on server + client (no hydration split). Mirror: lib/customer-menu.ts
  * (mobile SSOT) + lib/nav-registry-defaults.ts (registry label default).
  */
-const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+const SUITE_NAV_ON = envFlagEnabled(process.env.NEXT_PUBLIC_SUITE);
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — one

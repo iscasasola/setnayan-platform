@@ -40,6 +40,7 @@ import {
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
 import { orgSameAs } from '@/lib/seo/org-same-as';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -631,7 +632,7 @@ export default async function RootLayout({
           surprised by a second SW or Background Sync permission prompt.
           Flip NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED='true' in env to enable.
         */}
-        {process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED === 'true' ? (
+        {envFlagEnabled(process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED) ? (
           <OfflineDaemonMount />
         ) : null}
         <Script id="sw-register" strategy="afterInteractive">

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * apps/web/lib/live-studio-roam.ts
@@ -36,7 +37,7 @@ import { isYouTubeVideoId } from '@/lib/panood-watch';
  * SAME flag — one source of truth.
  */
 export function liveStudioRoamEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED);
 }
 
 /** Zone lifecycle (mirrors the live_studio_roam_zones CHECK constraint). */

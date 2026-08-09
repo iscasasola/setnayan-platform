@@ -6,6 +6,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * OAuth provider button row — Google + Apple + Facebook.
@@ -106,9 +107,9 @@ const BTN_LIGHT =
 // rendered with no per-request auth context. Next.js inlines
 // NEXT_PUBLIC_* at build time so the flags work cleanly on both the
 // edge and the server runtime.
-const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === 'true';
-const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
-const FACEBOOK_ENABLED = process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED === 'true';
+const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
+const APPLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED);
+const FACEBOOK_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED);
 
 /**
  * Whether at least one OAuth provider is enabled. /login + /signup

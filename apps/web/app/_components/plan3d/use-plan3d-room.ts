@@ -34,10 +34,11 @@ import {
   type GreetMsg,
   type RoomPeer,
 } from '@/lib/plan3d-room';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /** Build-time flag. Next.js inlines NEXT_PUBLIC_* so an unset flag is a
  *  byte-identical off path. Default OFF (the desktop-oauth-buttons idiom). */
-export const PLAN3D_SHARED_ROOM_ENABLED = process.env.NEXT_PUBLIC_PLAN3D_SHARED_ROOM === 'true';
+export const PLAN3D_SHARED_ROOM_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_SHARED_ROOM);
 
 export type LocalPlayer = { id: string; name: string; color: string };
 

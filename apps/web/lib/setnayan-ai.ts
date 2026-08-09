@@ -26,6 +26,8 @@
  * the env-only read (`isSetnayanAiPaywallEnabled()`), byte-identical to before.
  */
 
+import { envFlagEnabled } from '@/lib/env-flag';
+
 /** `events.planning_mode` value that means the couple manually turned AI OFF. */
 export const PLANNING_MODE_MANUAL = 'manual';
 
@@ -42,7 +44,7 @@ export const PLANNING_MODE_MANUAL = 'manual';
  * synthetic tour) and so the leaf predicates can default without going async.
  */
 export function isSetnayanAiPaywallEnabled(): boolean {
-  return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+  return envFlagEnabled(process.env.SETNAYAN_AI_PAYWALL_ENABLED);
 }
 
 /**

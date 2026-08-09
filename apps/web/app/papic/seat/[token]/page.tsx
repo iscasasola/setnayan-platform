@@ -10,6 +10,7 @@ import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -34,7 +35,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
   const bridgeEnabled =
-    bridge === 'demo' || process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED === 'true';
+    bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED);
 
   const supabase = await createClient();
   const {

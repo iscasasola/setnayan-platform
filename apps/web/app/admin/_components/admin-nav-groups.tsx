@@ -82,6 +82,7 @@ import {
 } from 'lucide-react';
 
 import type { NavGroup } from '@/app/_components/nav/types';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 export const ADMIN_NAV_GROUPS: NavGroup[] = [
   // ── SPINE ─────────────────────────────────────────────────────────────
@@ -440,9 +441,10 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       // connect a Google account. CONDITIONAL on the Live Studio flag, deliberately:
       // the route itself notFound()s when the flag is off, and a nav row pointing at
       // a 404 is worse than no row. Flag off ⇒ this surface does not exist at all.
-      // Uses the inlined NEXT_PUBLIC_ literal rather than lib/live-studio-roam's
-      // helper because this module is imported by the 'use client' sidebar.
-      ...(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true'
+      // Reads the inlined NEXT_PUBLIC_ literal directly (through the shared
+      // lenient parser) rather than lib/live-studio-roam's helper, because this
+      // module is imported by the 'use client' sidebar.
+      ...(envFlagEnabled(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED)
         ? [
             {
               key: 'live-studio-channels',

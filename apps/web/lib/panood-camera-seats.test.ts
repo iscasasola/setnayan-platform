@@ -141,14 +141,19 @@ test('panoodCameraAnonEnabled is OFF by default (env unset)', () => {
   if (prev !== undefined) process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;
 });
 
-test('panoodCameraAnonEnabled is ON only for the exact "true" string', () => {
+test('panoodCameraAnonEnabled reads through the shared lenient parser', () => {
+  // Was "only the exact string true". That is the bug lib/env-flag.ts closed:
+  // an owner who typed TRUE got no error and no feature. ON is now any spelling
+  // that plainly means yes; everything else — including a typo — is still OFF.
   const prev = process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
-  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = 'true';
-  assert.equal(panoodCameraAnonEnabled(), true);
-  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = '1';
-  assert.equal(panoodCameraAnonEnabled(), false, '"1" must not enable the flag');
-  process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = 'TRUE';
-  assert.equal(panoodCameraAnonEnabled(), false, 'case-sensitive — only "true"');
+  for (const v of ['true', 'TRUE', '1', 'yes', 'on', ' true ']) {
+    process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = v;
+    assert.equal(panoodCameraAnonEnabled(), true, `"${v}" must enable the flag`);
+  }
+  for (const v of ['false', '0', 'no', 'off', '', 'ture']) {
+    process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = v;
+    assert.equal(panoodCameraAnonEnabled(), false, `"${v}" must NOT enable the flag`);
+  }
   if (prev === undefined) delete process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
   else process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;
 });

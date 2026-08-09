@@ -23,9 +23,10 @@ import {
   applyVendorTierPromotion,
   getPromotedVendorTierNow,
 } from './promo-free-windows';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 export function isVendorFeatureGateEnabled(): boolean {
-  return process.env.VENDOR_TIER_FEATURE_GATE === 'true';
+  return envFlagEnabled(process.env.VENDOR_TIER_FEATURE_GATE);
 }
 
 /**

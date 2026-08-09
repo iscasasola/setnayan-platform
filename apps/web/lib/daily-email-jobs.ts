@@ -393,6 +393,10 @@ function retentionDays(): number {
 // audience must include clip-aging events when clips are droppable, and must NOT
 // warn prematurely when the clip drop is still off.
 function clipDropEnabled(): boolean {
+  // DELIBERATELY NOT converted to the lenient reader (lib/env-flag.ts) — it must
+  // read PAPIC_CLIP_DROP_ENABLED exactly as lib/papic-fullres-drop.ts does, and
+  // that one is held strict because it arms an irreversible drop. Change both or
+  // neither, or the warning audience stops matching the sweep.
   return process.env.PAPIC_CLIP_DROP_ENABLED === 'true';
 }
 

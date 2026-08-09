@@ -19,10 +19,11 @@
 import { type VendorCategory, VENDOR_CATEGORY_LABEL } from './vendors';
 import { primaryTileForVendorCategory } from './vendor-category-taxonomy';
 import { WEDDING_TILE_SLUG } from './taxonomy';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /** Build-time flag (Next.js inlines NEXT_PUBLIC_*). Default OFF → the couple lab
  *  never computes or renders ghost booths, byte-identical to today. */
-export const PLAN3D_BOOTH_ADS_ENABLED = process.env.NEXT_PUBLIC_PLAN3D_BOOTH_ADS === 'true';
+export const PLAN3D_BOOTH_ADS_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_ADS);
 
 /**
  * The DOMAIN of ghost booths — the core reception-floor vendor categories that

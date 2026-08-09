@@ -22,6 +22,8 @@
  * lock/money path are a separate wave, and that wave reads THIS function
  * rather than inventing a second env var.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function packageCreditEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PACKAGE_CREDIT === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_PACKAGE_CREDIT);
 }

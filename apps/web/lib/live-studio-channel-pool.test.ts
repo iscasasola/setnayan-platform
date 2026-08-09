@@ -512,7 +512,7 @@ test('flag OFF · the admin surface does not exist, and nothing links to it', ()
   const nav = repoFile('app/admin/_components/admin-nav-groups.tsx');
   assert.match(
     nav,
-    /process\.env\.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true'[\s\S]{0,400}live-studio-channels/,
+    /envFlagEnabled\(process\.env\.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED\)[\s\S]{0,400}live-studio-channels/,
     'the nav entry must be conditional — a row pointing at a 404 is worse than no row',
   );
   const actions = repoFile('app/admin/live-studio-channels/actions.ts');

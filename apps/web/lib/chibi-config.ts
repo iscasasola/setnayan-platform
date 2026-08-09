@@ -34,6 +34,7 @@
  */
 
 import { SKIN_TONES, HAIR_COLORS } from './figure-rig';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flag — the switch every chibi PR shares
@@ -43,7 +44,7 @@ import { SKIN_TONES, HAIR_COLORS } from './figure-rig';
  *  NEXT_PUBLIC_* so an unset flag is a byte-identical off path (the
  *  PLAN3D_SHARED_ROOM idiom). Default OFF. NOTHING consumes this in PR-1 —
  *  it is the declared gate the later rig-swap / maker / reader PRs share. */
-export const FIGURE_CHIBI_ENABLED = process.env.NEXT_PUBLIC_FIGURE_CHIBI === 'true';
+export const FIGURE_CHIBI_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_FIGURE_CHIBI);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Catalogs (append-only — stored configs must never dangle)

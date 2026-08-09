@@ -20,6 +20,7 @@
  */
 
 import { getDayOfPhase } from './day-of-mode';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * The 12 canonical widget types in the V1 landing-page render. This list
@@ -328,7 +329,7 @@ export function widgetShouldRender(row: InvitationWidgetRow | null): boolean {
 // event date passes. Each phase shows a different subset of widgets per the
 // element×phase matrix in Wedding_Website_Lifecycle_Spec_2026-06-07 §2.
 //
-// EVERYTHING here is inert until WEBSITE_PHASES_ENABLED === 'true'. The
+// EVERYTHING here is inert until WEBSITE_PHASES_ENABLED is set to an ON value. The
 // renderer at [slug]/page.tsx only consults widgetInPhase / getLifecyclePhase
 // when isWebsitePhasesEnabled() returns true; with the flag off (the
 // default) the page renders byte-for-byte as it does today.
@@ -390,12 +391,12 @@ export function widgetInPhase(type: WidgetType, phase: LifecyclePhase): boolean 
 
 /**
  * Feature flag for the website lifecycle-phase engine. OFF by default —
- * only the literal string 'true' enables it. Read once per render at the
+ * enabled by any spelling lib/env-flag.ts accepts. Read once per render at the
  * page-component level + threaded down so the value is stable across the
  * tree.
  */
 export function isWebsitePhasesEnabled(): boolean {
-  return process.env.WEBSITE_PHASES_ENABLED === 'true';
+  return envFlagEnabled(process.env.WEBSITE_PHASES_ENABLED);
 }
 
 /**

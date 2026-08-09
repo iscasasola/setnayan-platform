@@ -22,6 +22,8 @@
  * Pure + secret-free on purpose (mirrors seating-3d-flag.ts): unit-testable
  * under `tsx --test`, callable from server or client.
  */
+import { envFlagEnabled } from '@/lib/env-flag';
+
 export function verifiedMedianEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED === 'true';
+  return envFlagEnabled(process.env.NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED);
 }

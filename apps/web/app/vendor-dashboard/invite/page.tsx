@@ -55,8 +55,11 @@ export default async function VendorQrGeneratorPage({
   // read "Publish your business profile first". THERE IS NO SUCH BUTTON: the
   // only `name="is_published"` control in the entire app is on the ADMIN vendor
   // edit page, and the one vendor-side action that ever wrote the column
-  // (`saveVendorProfile`) has had no caller since the My Shop inline-edit
-  // rewrite. Approving a shop doesn't set it either — /admin/verify writes
+  // (`saveVendorProfile`) had no caller from the My Shop inline-edit rewrite
+  // until it was deleted outright, later the same day as this fix — it wrote the
+  // column from an absent checkbox, so any form wired to it would have
+  // UNPUBLISHED the shop (`lib/vendor-publish-guard.test.ts` now forbids the
+  // shape). Approving a shop doesn't set it either — /admin/verify writes
   // public_visibility + verification_state and never touches this column. So the
   // screen asked the vendor to press something that does not exist for them, and
   // the owner's own fully-verified shop sits at is_published = false today and

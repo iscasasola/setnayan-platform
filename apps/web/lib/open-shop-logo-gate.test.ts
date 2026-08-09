@@ -17,13 +17,21 @@
  *   • VERIFICATION  — `verificationSubmitMissing` refuses to submit while the
  *     profile is incomplete, so a logo-less vendor cannot reach pending_review
  *     even with every required document uploaded.
- *   • PUBLISH       — the save-time gate in app/vendor-dashboard/actions.ts
- *     checks the same field set via BUSINESS_PROFILE_LABELS; that set is
- *     asserted here to still contain the logo.
+ *   • PUBLISH       — ⚠ CORRECTED 2026-08-09. This used to read "the save-time
+ *     gate in app/vendor-dashboard/actions.ts checks the same field set via
+ *     BUSINESS_PROFILE_LABELS". That gate lived inside `saveVendorProfile`,
+ *     which had had NO CALLER since 2026-07-05 and was deleted 2026-08-09 — so
+ *     the sentence described a check that could not run, and had not run for
+ *     five weeks before it was written out of the codebase. Publication is an
+ *     ADMIN action (app/admin/vendors/actions.ts, from a form that renders a
+ *     real `is_published` checkbox) and that path has never consulted profile
+ *     completeness. The logo obligation is therefore carried by the two gates
+ *     above, both of which genuinely run; BUSINESS_PROFILE_LABELS is still
+ *     asserted below because the CHECKLIST and the completion card share it.
  *
  * If someone drops the logo from the checklist to "make onboarding easier",
- * these fail on purpose: that one edit would let a logo-less shop publish AND
- * get verified.
+ * these fail on purpose: that one edit would hide the obligation AND let a
+ * logo-less shop get verified.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,13 +96,16 @@ test('a logo-less profile is still visibly incomplete, by name', () => {
   assert.ok(c.items.some((i) => i.key === 'logo' && i.ok === false));
 });
 
-test('the logo is one of the fields the publish gate checks', () => {
-  // app/vendor-dashboard/actions.ts pushes BUSINESS_PROFILE_LABELS.logo onto
-  // `missing` and forces is_published=false. Both surfaces read this label
-  // set, so keeping the key here keeps them locked together.
+test('the logo keeps the same name on the checklist and on the completion card', () => {
+  // Renamed 2026-08-09 — see the PUBLISH note above: this asserted a coupling to
+  // a publish gate that had not been reachable since 2026-07-05. The coupling
+  // that IS live is checklist ↔ label: `businessProfileChecklist` decides the
+  // item exists, BUSINESS_PROFILE_LABELS decides what the vendor is told it is
+  // called, and `verificationSubmitMissing` refuses on the result. Drop the key
+  // from either side and the obligation goes quiet rather than wrong.
   assert.equal(BUSINESS_PROFILE_LABELS.logo, 'Logo');
   const keys = businessProfileChecklist(profileWithoutLogo()).items.map((i) => i.key);
-  assert.ok(keys.includes('logo'), 'publish gate and checklist must share the logo item');
+  assert.ok(keys.includes('logo'), 'checklist and label set must share the logo item');
 });
 
 test('a logo-less vendor cannot submit for verification, even with all docs in', () => {

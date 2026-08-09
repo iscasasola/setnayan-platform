@@ -259,7 +259,9 @@ export async function archiveVendor(formData: FormData) {
  * experience_verified_at + the confirming admin, which flips the card badge
  * from "self-reported" to a verified trust check. Flag + schema gated
  * (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED + migration 20270209420471). The
- * declared year auto-unverifies on the vendor's next change (saveVendorProfile).
+ * declared year auto-unverifies on the vendor's next change — the inline
+ * `updateVendorProfileField` ('in_business_since_year'), which is the only
+ * writer since the full-form `saveVendorProfile` was deleted 2026-08-09.
  */
 export async function verifyVendorExperience(formData: FormData) {
   const actor = await requireAdmin();

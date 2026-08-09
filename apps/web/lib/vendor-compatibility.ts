@@ -7,8 +7,9 @@
  * Both columns shipped in iteration 0043 with a reader, a filter, a validator
  * and a public badge — and **no writer**. The full-form editor that once posted
  * them (`/vendor-dashboard/profile`) was retired 2026-07-05, its action
- * (`saveVendorProfile`) has had no caller since, and the inline editor that
- * replaced it never carried these two fields. So for months every shop matched
+ * (`saveVendorProfile`) had no caller from that day until it was deleted
+ * 2026-08-09, and the inline editor that replaced it never carried these two
+ * fields. So for months every shop matched
  * on whatever the seed happened to leave in the column: both live profiles hold
  * the IDENTICAL array `["banquet_hall","garden","heritage"]` and one of them is
  * literally named "(FIXTURE)". The marketplace's venue matching was running on

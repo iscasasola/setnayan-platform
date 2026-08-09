@@ -45,6 +45,8 @@ import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { VenueMatchCard } from './_components/venue-match-card';
+import { PublicLineCard } from './_components/public-line-card';
+import { VisibilityCard } from './_components/visibility-card';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
   fetchVendorTeam,
@@ -213,6 +215,16 @@ type ShopData = {
   branchPay: PayInfo;
   recommendedByShops: number;
   team: TeamMember[];
+  /** Public one-liner under the shop name (`tagline`). */
+  tagline: string | null;
+  /** The shop's OWN website (`website`), not its Setnayan page. */
+  website: string | null;
+  /** Opted into the couple's Day-of "Get help" shortlist. */
+  sameDayAvailable: boolean;
+  /** Declined the verification celebration post on Setnayan's socials. */
+  socialFeatureOptOut: boolean;
+  /** The celebration post already went out — a later opt-out can't recall it. */
+  socialAlreadyFeatured: boolean;
 };
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
@@ -243,6 +255,32 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
   } catch {
     tier = null;
+  }
+
+  // Visibility preferences — deliberately a SEPARATE soft-probe, not columns
+  // added to FULL_VENDOR_PROFILE_SELECT: a column lagging a migration there
+  // fails the whole projection and drops the page to the LEGACY select, which
+  // would silently strip hq_* and the 0043 compat columns from every panel.
+  // Failure here degrades to the column defaults and nothing else.
+  let sameDayAvailable = false;
+  let socialFeatureOptOut = false;
+  let socialAlreadyFeatured = false;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('same_day_available, social_feature_opt_out, social_featured_at')
+      .eq('vendor_profile_id', vendorId)
+      .maybeSingle();
+    const row = data as {
+      same_day_available?: boolean | null;
+      social_feature_opt_out?: boolean | null;
+      social_featured_at?: string | null;
+    } | null;
+    sameDayAvailable = row?.same_day_available === true;
+    socialFeatureOptOut = row?.social_feature_opt_out === true;
+    socialAlreadyFeatured = row?.social_featured_at != null;
+  } catch {
+    /* pre-migration or read hiccup — fall back to the column defaults */
   }
 
   const weekStart = startOfWeekIso();
@@ -605,6 +643,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     businessStartDate,
     compatibleVenueSettings: profile.compatible_venue_settings ?? null,
     compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,
+    tagline: profile.tagline,
+    website: profile.website,
+    sameDayAvailable,
+    socialFeatureOptOut,
+    socialAlreadyFeatured,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -843,6 +886,29 @@ async function ShopHome({
             <VenueMatchCard
               initialVenueSettings={data.compatibleVenueSettings}
               initialCeremonyTypes={data.compatibleCeremonyTypes}
+            />
+            {/* The public one-liner + the shop's own website. Not checklist
+                items, for the same reason as the card above — and not inline
+                identity fields either: the verified lock would put a rebrand
+                behind an admin correction ticket. Both columns are read by the
+                public page, Explore and three v1 API routes, and neither had a
+                writer a real vendor could reach after /profile was retired. */}
+            <PublicLineCard
+              initialTagline={data.tagline}
+              initialWebsite={data.website}
+            />
+            {/* Day-of shortlist opt-in + the social celebration opt-out. Both
+                only ACT on a verified shop, so routing them through the
+                verified-locked inline editor would have made them settable
+                only by the vendors they can never apply to. */}
+            <VisibilityCard
+              initialSameDayAvailable={data.sameDayAvailable}
+              initialSocialFeatureOptOut={data.socialFeatureOptOut}
+              isVerified={data.isVerified}
+              // Mirrors findSameDayVendors' `.neq('tier_state','free')`, which
+              // in Postgres also excludes a NULL tier — so NULL is not paid.
+              isPaidTier={data.tier != null && data.tier !== 'free'}
+              alreadyFeatured={data.socialAlreadyFeatured}
             />
           </>
         }

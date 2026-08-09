@@ -136,6 +136,34 @@ html.hr-snap {
   width: 20px;
   height: 20px;
 }
+/* Logo pill WITH the visible wordmark (homepage only — site-nav.tsx reuses
+   .hr-logo for the glyph-only pill on the other marketing routes, so these
+   rules are scoped to the extra .hr-logo-wm class and never widen it). */
+.home-reskin .hr-nav .hr-logo-wm {
+  width: auto;
+  gap: 9px;
+  padding: 0 17px 0 14px;
+}
+.home-reskin .hr-nav .hr-wordmark {
+  font-family: var(--hr-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+/* Below ~700px the six nav links already consume the whole bar, so the pill
+   returns to the glyph-only square. The name still reads on small screens —
+   the "What is Setnayan?" section states it in prose. */
+@media (max-width: 700px) {
+  .home-reskin .hr-nav .hr-logo-wm {
+    width: 46px;
+    gap: 0;
+    padding: 0;
+  }
+  .home-reskin .hr-nav .hr-wordmark {
+    display: none;
+  }
+}
 .home-reskin .hr-nav .hr-links {
   display: flex;
   gap: 4px;

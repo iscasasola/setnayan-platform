@@ -32,6 +32,27 @@ No full-payload action was reintroduced. The existing guard on that shape is `li
 - The **text** fields use `formData.has()` per key — sound *only* because a rendered text input always posts, so "present and empty" (clear it) and "never rendered" (leave it alone) are genuinely distinguishable.
 - The **checkboxes** cannot use that test: an unticked box posts nothing, so `=== 'on'` reads identically for "the vendor unticked it" and "the form never asked". They are gated on an explicit hidden `visibility_fields_present` marker, checked before the write — same shape as `compatible_fields_present` in `saveVendorProfile`. Without it, any future caller posting an unrelated FormData would silently re-enable social posting for a vendor who had opted out, with a save that reported success.
 
+### Measured against prod, not inferred (2026-08-09)
+
+Both live shops in `setnayan-prod`, at the time of this change:
+
+| | SetnaProd | Saysay Live Band & Hosting (FIXTURE) |
+|---|---|---|
+| `verification_state` | verified | verified |
+| `tier_state` | free | solo |
+| claimed (`user_id` set) | yes | yes |
+| `same_day_available` | false | false |
+| `social_feature_opt_out` | false | false |
+| `social_featured_at` | **set — already posted** | null |
+| `tagline` / `website` | null / null | null / null |
+
+Four things this pins down that reading the code could only suggest:
+
+1. **The consent gap is not hypothetical — it already fired.** `SetnaProd` was posted to Setnayan's public Facebook/Instagram while `social_feature_opt_out` was FALSE and no control existed to change it. The new card's `alreadyFeatured` copy path exists for exactly this row, and says plainly that ticking the box now stops future features but cannot recall the post that went out.
+2. **The verified lock would have hit 100% of live vendors.** Both shops are `verified`, so had these four been added to `INLINE_PROFILE_FIELDS`, *every* shop on the platform would have been shown a control it could not use.
+3. **`tagline` was unwritable for every live shop.** Both are claimed (`user_id` non-null), and the only surviving writer, `saveUnclaimedVendorProfile`, is gated `.is('user_id', null)`. Neither row was reachable by it.
+4. **The Day-of shortlist goes from zero possible matches to one eligible vendor.** `findSameDayVendors` needs verified + non-free; only Saysay (solo) qualifies. SetnaProd is free-tier, so ticking the box will correctly still not surface it.
+
 ### Also corrected
 
 `changelog.d/open-shop-onboarding-logo-email.md` claimed *"Website + social remain fully editable in the dashboard: `website` at `vendor-dashboard/profile/page.tsx` (Website field → `saveVendorProfile`)"*. That entry is dated **2026-07-05** — the same day the route was retired, so the claim was false when written. Onboarding dropped its website field on the strength of a dashboard editor that was being removed in the same breath. Struck, with a dated correction note.

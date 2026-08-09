@@ -12,6 +12,7 @@ import {
 } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { AddressPreview } from './address-preview';
 import {
   ServicePicker,
   type PickerParentView,
@@ -213,6 +214,11 @@ export function OpenShopWizard({
                 className="input-field"
                 autoFocus
               />
+              {/* The shop name IS the web address (owner 2026-08-09). Showing it
+                  while they type is the only moment a vendor can still choose a
+                  different name over it — afterwards the address is permanent,
+                  because a save-the-date already points at it. */}
+              <AddressPreview shopName={shopName} />
             </label>
 
             <div className="block space-y-1">
@@ -258,9 +264,10 @@ export function OpenShopWizard({
                   fields, and the profile must be complete before documents can
                   be submitted. */}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                PNG, JPEG, HEIC, or WebP up to 10&nbsp;MB. Couples see this on every vendor
-                card. You can add it later from My Shop — but Setnayan needs it before
-                your shop can be approved.
+                PNG, JPEG, HEIC, or WebP up to 10&nbsp;MB — <strong>PNG and WebP keep a
+                transparent background</strong>, which looks best on a vendor card.
+                Couples see this everywhere. You can add it later from My Shop — but
+                Setnayan needs it before your shop can be approved.
               </span>
             </div>
 

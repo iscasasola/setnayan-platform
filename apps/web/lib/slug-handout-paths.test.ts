@@ -154,12 +154,37 @@ function callsAndUsesConflictCheck(src: string): boolean {
   return new RegExp(`\\bif\\s*\\(\\s*!?${name}\\b`).test(after);
 }
 
-test('the SHOP rename asks the shared question, and acts on the answer', () => {
+test('the SHOP path that hands out an address asks the shared question', () => {
+  // ⚠ THIS MOVED, IT WAS NOT WEAKENED (2026-08-10). It used to point at
+  // `app/vendor-dashboard/actions.ts`, the My Shop RENAME. That rename no longer
+  // exists — a shop address is chosen once and is permanent (owner, twice) — so
+  // pointing at the old file would assert a contract on a path that is gone, and
+  // deleting the test would drop the contract entirely. Creation is now the ONLY
+  // path that hands out a shop address, so the contract lives there.
+  //
+  // The stakes went UP with the move, which is why it is still here: the unique
+  // index covers vendor slugs alone, `app/[slug]` resolves an EVENT before a
+  // vendor, and the address can never be changed afterwards. A shop that takes a
+  // wedding's word is permanently unreachable with no way out.
   assert.ok(
-    callsAndUsesConflictCheck(code('app/vendor-dashboard/actions.ts')),
-    'the shop address save checks shape and reserved words only again — a shop ' +
-      'can take a wedding\'s address, or one still forwarding. (Or it calls the ' +
-      'check and throws the answer away, which is the same thing.)',
+    callsAndUsesConflictCheck(code('app/open-shop/actions.ts')),
+    'shop creation checks shape and reserved words only again — a new shop can ' +
+      "take a wedding's address, a person's, or one still forwarding, and can " +
+      'never be moved off it. (Or it calls the check and throws the answer away, ' +
+      'which is the same thing.)',
+  );
+});
+
+test('the retired SHOP rename has not quietly come back', () => {
+  // The other half of the move: if a rename reappears in the website editor it
+  // would be a second address-handout path, and this file would be guarding only
+  // the one it knows about.
+  const src = code('app/vendor-dashboard/actions.ts');
+  assert.ok(
+    !/case 'business_slug'\s*:/.test(src),
+    'a business_slug writer is back in the website editor — the address is ' +
+      'permanent (owner 2026-08-10), and a second handout path would need its ' +
+      'own conflict check',
   );
 });
 

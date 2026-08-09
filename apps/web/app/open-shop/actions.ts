@@ -10,6 +10,7 @@ import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
 import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
+import { findSlugConflict } from '@/lib/slug-availability';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
@@ -121,6 +122,32 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (chosenSlug && isReservedSlug(chosenSlug)) {
     redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
   }
+  // ── ASK ALL FOUR NAMESPACES, NOT JUST OUR OWN TABLE ────────────────────────
+  // The UNIQUE index covers `vendor_profiles.business_slug` and nothing else.
+  // Weddings (`events.slug`), people (`users.slug`) and retired-but-still-
+  // FORWARDING addresses share the one namespace at `setnayan.com/{word}` — and
+  // `app/[slug]/page.tsx` resolves an EVENT BEFORE a vendor. So a shop that took
+  // a wedding's word would pass the unique index, be written, and then be
+  // permanently unreachable: its own page shadowed by the wedding, with no
+  // rename to escape through because the address is now immutable.
+  //
+  // This inherits the contract `lib/slug-handout-paths.test.ts` used to hold
+  // over the My Shop rename. The rename is gone (owner 2026-08-10); creation is
+  // now the ONLY path that hands out a shop address, so the check moved here
+  // with it rather than being deleted along with the path it guarded.
+  //
+  // Admin client because an anonymous or half-registered vendor cannot read the
+  // other three tables under RLS, and "free" from a denied read is the `count: 0`
+  // trap — an RLS denial and an empty result are the same value.
+  if (chosenSlug) {
+    const conflict = await findSlugConflict(createAdminClient(), chosenSlug);
+    // `unverified` = a probe we could not run. It is NOT proof the word is free,
+    // and this address can never be changed afterwards — so it fails closed.
+    if (conflict) {
+      redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
+    }
+  }
+
   // ── ACCEPT A LEAF *OR* A COARSE CATEGORY ───────────────────────────────────
   // The picker (owner 2026-08-09) posts a canonical LEAF; the flat select it
   // falls back to still posts a coarse category. Both are valid, and the leaf is
@@ -205,9 +232,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services')
+    .select('vendor_profile_id, services, business_slug')
     .eq('user_id', user.id);
-  const owned = (ownedRows ?? []) as Array<{ vendor_profile_id: string; services?: string[] }>;
+  const owned = (ownedRows ?? []) as Array<{
+    vendor_profile_id: string;
+    services?: string[];
+    business_slug?: string | null;
+  }>;
   const existing = owned[0] ?? null;
   let vendorProfileId = existing?.vendor_profile_id ?? null;
   if (!vendorProfileId) {
@@ -281,7 +312,24 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // minting its own: `tg_vendor_profiles_generate_business_slug` returns early
   // when NEW.business_slug is already set. Guarded like the rest — a blank
   // must not null an address an existing shop already holds.
-  if (chosenSlug) patch.business_slug = chosenSlug;
+  // ⛔ AN ADDRESS IS WRITTEN ONCE AND NEVER MOVED (owner 2026-08-10, twice:
+  //    "slug cannot be renamed", "whatever they choose here will be permanent").
+  //
+  // The `existing?.business_slug` half is the load-bearing one. `chosenSlug`
+  // falls back to the SHOP NAME's slug when the form posts none — which is
+  // exactly what a re-run does, because the wizard renders the address
+  // read-only once a shop has one and submits no field. Without this check the
+  // fallback would quietly overwrite a live address with a fresh slug of the
+  // name: every printed QR, save-the-date and shared link pointing at the old
+  // one dies, silently, on a screen that promised the address was permanent.
+  //
+  // Unreachable through the UI today — `page.tsx` redirects any shop that has a
+  // business_name away from the wizard, and the slug trigger only fires on a
+  // named shop. But this is a server action reachable by direct POST, and
+  // "unreachable" has been wrong here before. The database trigger added in
+  // 20271125090000 is the real boundary; this is the polite refusal in front of
+  // it.
+  if (chosenSlug && !existing?.business_slug) patch.business_slug = chosenSlug;
   if (contactPosition) patch.business_owner_position = contactPosition;
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;

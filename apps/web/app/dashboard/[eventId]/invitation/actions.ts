@@ -168,14 +168,30 @@ export async function updateEventSlug(
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error: updateErr } = await supabase
+  // ⚠ AN UPDATE THAT CHANGES NOTHING IS NOT AN ERROR. This runs on the CALLER's
+  // client, so if RLS does not admit them to this event the statement matches
+  // ZERO rows and Supabase returns no error at all. Without the `.select()` the
+  // action then wrote a 90-day forwarding row for a rename that never happened
+  // and redirected `?slug_saved=1` — the couple was told their new address was
+  // live while the old one still served the page, and a word was retired out of
+  // the pool for nothing.
+  const { data: updatedRows, error: updateErr } = await supabase
     .from('events')
     .update({ slug: requested, updated_at: new Date().toISOString() })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
 
   if (updateErr) {
     redirect(
       `/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(updateErr.message)}`,
+    );
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    redirect(
+      `/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(
+        'We couldn’t save that address. Please refresh and try again.',
+      )}`,
     );
   }
 

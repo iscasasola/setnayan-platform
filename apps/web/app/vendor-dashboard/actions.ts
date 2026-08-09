@@ -32,6 +32,7 @@ import {
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
 import { parseVendorSlug } from '@/lib/vendor-slug';
+import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -774,13 +775,22 @@ export async function updateVendorWebsiteField(
   // One read, reused below: current services (constrain featured picks to owned
   // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
   // (Pro gate).
-  const { data: row } = await supabase
+  const { data: row, error: rowError } = await supabase
     .from('vendor_profiles')
-    .select('business_slug, services, portfolio_r2_keys, tier_state')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
     .eq('user_id', user.id)
     .maybeSingle();
+  // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
+  // resolves `{ error }` rather than throwing, so an unchecked failure leaves
+  // `vendor_profile_id` null and the availability probe then sees the vendor's
+  // OWN row as somebody else's: a Pro vendor re-saving the address they already
+  // hold is told it belongs to another business.
+  if (rowError) {
+    return { ok: false, error: 'We couldn’t load your shop just now. Please try again.' };
+  }
   const rowTyped = row as
     | {
+        vendor_profile_id?: string | null;
         business_slug?: string | null;
         services?: string[] | null;
         portfolio_r2_keys?: string[] | null;
@@ -859,6 +869,22 @@ export async function updateVendorWebsiteField(
         parsed = parseSlug(formData.get('business_slug'));
       } catch (e) {
         return { ok: false, error: (e as Error).message };
+      }
+      // 🔒 ASK ALL FOUR NAMESPACES, NOT JUST OUR OWN TABLE.
+      // `parseSlug` checks the shape and the reserved list and stops there, so
+      // until now a shop could take a word a wedding already held, a person
+      // already held, or — worst — one still FORWARDING from a rename, which
+      // sends every printed invitation carrying it to a stranger's business
+      // page. `findSlugConflict` runs on the admin client because an RLS denial
+      // and an empty read are the same value: "free" would otherwise only mean
+      // "invisible to you".
+      if (parsed) {
+        const conflict = await findSlugConflict(createAdminClient(), parsed, {
+          vendorProfileId: rowTyped?.vendor_profile_id ?? null,
+        });
+        if (conflict) {
+          return { ok: false, error: SLUG_CONFLICT_MESSAGE[conflict] };
+        }
       }
       patch = { business_slug: parsed };
       nextSlug = parsed;

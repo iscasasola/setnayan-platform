@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   normalizeReligion,
@@ -416,18 +417,22 @@ export async function updateUserSlug(formData: FormData) {
     );
   }
 
-  // Case-insensitive uniqueness across ALL accounts (admin client so the probe
-  // sees rows the caller's RLS would hide).
-  const { data: clash } = await admin
-    .from('users')
-    .select('user_id')
-    .ilike('slug', requested)
-    .neq('user_id', user.id)
-    .maybeSingle();
-  if (clash) {
+  // 🔒 ASK ALL FOUR NAMESPACES, NOT JUST `users`.
+  //
+  // Weddings, shops and people all live at `setnayan.com/{word}`. This checked
+  // `users` alone, so a person could take a word a wedding or a shop already
+  // held — and, worst, one still FORWARDING from a rename, which sends every
+  // printed invitation carrying it to a stranger's profile. There is one such
+  // word live in production right now.
+  //
+  // Admin client on purpose: an RLS denial and an empty read are the same
+  // value, so "free" would otherwise only mean "invisible to you". And it fails
+  // closed — a probe it could not run returns `unverified`, which refuses.
+  const conflict = await findSlugConflict(admin, requested, { userId: user.id });
+  if (conflict) {
     return redirect(
       `/dashboard/profile?slug_error=${encodeURIComponent(
-        'That handle is already taken. Please pick another.',
+        SLUG_CONFLICT_MESSAGE[conflict],
       )}#url-slug`,
     );
   }

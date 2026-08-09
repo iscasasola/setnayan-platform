@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { RESERVED_SLUGS } from './reserved-slugs';
-import { isSlugForwarding, type SlugExclusions } from './slug-availability';
+import { findSlugConflict, type SlugExclusions } from './slug-availability';
 
 const SLUG_PATTERN = /^[a-z0-9-]{3,32}$/;
 
@@ -38,42 +38,58 @@ export async function generateUniqueSlug(
   if (base.length > 28) base = base.slice(0, 28).replace(/-+$/, '');
 
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
-    if (candidate.length > 32) {
-      const trimmed = base.slice(0, 32 - String(attempt + 1).length - 1);
-      const c2 = `${trimmed}-${attempt + 1}`;
-      const taken = await isSlugTaken(admin, c2);
-      if (!taken) return c2;
-      continue;
-    }
-    const taken = await isSlugTaken(admin, candidate);
-    if (!taken) return candidate;
+    const raw = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    const candidate =
+      raw.length > 32
+        ? `${base.slice(0, 32 - String(attempt + 1).length - 1)}-${attempt + 1}`
+        : raw;
+
+    const conflict = await findSlugConflict(admin, candidate);
+    if (conflict === null) return candidate;
+
+    // 🩹 AN UNREADABLE NAMESPACE IS NOT A TAKEN WORD, AND IT MUST NOT LOOP.
+    // Every probe fails closed, so one broken read makes all 100 candidates
+    // look taken — 400 queries, then the unchecked fallback below anyway. Bail
+    // straight to a high-entropy address instead.
+    //
+    // ⚠ AND IT MUST NOT THROW. A previous attempt raised here; nothing catches
+    // it. All five callers (`create-event/actions.ts` ×2, `onboarding/wedding`,
+    // `onboarding/simple`, `onboarding/_shared/commit-event`) do a bare `await`,
+    // two of them returning `{ok:false,error}` their wizard renders and three
+    // redirecting with `?error=`. A throw bypasses both, and Next redacts the
+    // message in production — so a failed read of any of three unrelated tables
+    // would have crashed the entire event-creation funnel where it used to
+    // degrade. A couple with an ugly address can rename; a couple who cannot
+    // create their wedding at all has nowhere to go.
+    if (conflict === 'unverified') break;
   }
 
-  // Pathological fallback — use a random suffix.
-  return `${base}-${Math.random().toString(36).slice(2, 8)}`;
+  // Pathological fallback: 10 random base-36 characters (~3.6 × 10¹⁵) rather
+  // than 6, because this value is NOT checked against anything.
+  return `${base.slice(0, 20).replace(/-+$/, '')}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 /**
  * Is this word unavailable for a new event?
  *
- * ⚠ A RETIRED ADDRESS IS NOT FREE. Renaming an event leaves a forwarding row
- * live for 90 days (`slug_change_log.redirect_until`), so the old word still
- * carries printed invitations and shared links. Handing it to a new couple
- * lands those guests on a stranger's page — checking `events` alone said the
- * word was free the moment its owner let go of it.
+ * 🔑 ONE ANSWER, FOUR NAMESPACES. Weddings, shops and people all live at
+ * `setnayan.com/{word}`, and a retired word keeps forwarding for 90 days. This
+ * used to ask TWO of the four — `events` and the forwarding ledger — while
+ * `findSlugConflict` right beside it asked all four. So the CREATE path could
+ * auto-mint a new wedding onto a LIVE SHOP'S ADDRESS, and because
+ * `app/[slug]/page.tsx` resolves the event first and only then falls through to
+ * the vendor renderer, that wedding silently took over the shop's public page —
+ * a page that is in our sitemap.
+ *
+ * ⚠ IT ALSO DISCARDED `error`. Supabase resolves `{ error }` rather than
+ * throwing, so a failed read of `events` returned `data: null` and the word
+ * read as FREE — the one direction that hands out an address somebody owns.
+ * `findSlugConflict` fails closed on every probe.
  */
 export async function isSlugTaken(
   admin: SupabaseClient,
   slug: string,
   exclusions: SlugExclusions = {},
 ): Promise<boolean> {
-  const lower = slug.toLowerCase();
-  const { data } = await admin
-    .from('events')
-    .select('event_id')
-    .ilike('slug', lower)
-    .maybeSingle();
-  if (data) return true;
-  return isSlugForwarding(admin, lower, exclusions);
+  return (await findSlugConflict(admin, slug, exclusions)) !== null;
 }

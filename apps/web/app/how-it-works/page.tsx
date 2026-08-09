@@ -226,6 +226,19 @@ export default async function HowItWorksPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOW_IT_WORKS_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
+        {/* Locale switch — the RETURN path. Both Taglish pages already link back
+            to English; neither English page linked forward, so the Taglish
+            edition was unreachable from where every visitor actually lands.
+            Reciprocal hreflang, same treatment as the Taglish side. */}
+        <div className="mx-auto w-full max-w-4xl px-4 pt-4 text-right sm:px-6 lg:px-8">
+          <Link
+            href="/tl/how-it-works"
+            hrefLang="tl-PH"
+            className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+          >
+            Taglish
+          </Link>
+        </div>
 
         {/* Hero — moved into the client motion island (HowItWorksHero) so no
             render-prop function crosses the server→client boundary (fixed the

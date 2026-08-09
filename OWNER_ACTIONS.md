@@ -305,7 +305,7 @@ The 4 variable names + what each gates:
 - `ENCRYPTION_KEY` — `apps/web/lib/encryption.ts` AES-256-GCM OAuth token storage
 - `CRON_SECRET` — `/api/admin/cron/*` endpoints
 - `OAUTH_REFRESH_CRON_SECRET` — `/api/cron/oauth-refresh`
-- `INTERNAL_WORKER_SECRET` — `/api/internal/patiktok/process-job`
+- `INTERNAL_WORKER_SECRET` — `/api/telemetry/auto-resolve` (the Patiktok `process-job` stub that also used this was deleted 2026-08-09)
 
 Save the freshly-generated values to your password manager FIRST, then paste into Vercel.
 

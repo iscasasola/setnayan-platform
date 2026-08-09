@@ -18,14 +18,17 @@ import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
 //
 // Replaces the client-side mock in render-form.tsx with a real INSERT into
 // `patiktok_render_jobs` (table created in the Phase 1 migration). The job
-// row starts at status='queued'; the worker that drains the queue (ffmpeg /
-// Remotion vertical-reel render → R2 upload) is the next deliverable — see
-// `app/api/internal/patiktok/process-job/route.ts` for the worker seam.
+// row starts at status='queued'. The render itself runs IN THE GUEST'S BROWSER
+// (WebCodecs / MediaRecorder) and the job is closed out by
+// `finalizePatiktokRenderJob` below — the only writer that may set
+// status='completed' on a Patiktok job. There is deliberately NO server-side
+// queue-draining worker: the stub that used to sit at
+// `app/api/internal/patiktok/process-job` was deleted because it marked jobs
+// completed with a placeholder output_url, i.e. it destroyed real jobs.
+// Guarded by `lib/patiktok-render-completion-writer.test.ts`.
 //
-// Phase 2 wiring is intentionally minimal: validate the input, confirm the
-// caller is a couple on the event, insert the row. No render orchestration,
-// no R2 calls, no music selection — those follow in subsequent commits inside
-// this iteration.
+// Submission wiring is intentionally minimal: validate the input, confirm the
+// caller is a couple on the event, insert the row.
 
 export async function submitPatiktokRender(formData: FormData) {
   const eventId = formData.get('event_id');

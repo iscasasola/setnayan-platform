@@ -231,7 +231,33 @@ export const EVENT_PAPERWORK_PII_NULLS = {
  */
 export const VENDOR_PROFILE_PII_SCRUB = {
   // ── original 10 ──
-  business_name: '',
+  //
+  // ⚠ `business_name` IS DELIBERATELY ABSENT — owner ruling 2026-08-10, made
+  // after the tension below was put to them in writing and reaffirmed.
+  //
+  // The rule: *"their old shop's name will never be deleted (unless manual
+  // delete by admin)."* A closed shop keeps its identity so the address it held
+  // means something for the year it is reserved, and so an admin looking at a
+  // dormant record can tell which business it was rather than reading a blank.
+  //
+  // 🔴 THE COST, STATED RATHER THAN BURIED: a sole-proprietor shop is very
+  // often the person's own name — "Maria Santos Photography" — so on those
+  // shops this leaves personal data behind after someone exercised their legal
+  // right to have it removed. Every other identifying field still goes:
+  // `business_owner_name`, contact email and phone, address, coordinates, tax
+  // identifiers, logo. What survives is the TRADING NAME of a business, which
+  // is a public commercial identity rather than a private fact — the argument
+  // that makes this defensible, and the argument counsel would have to accept.
+  //
+  // The DPO is the owner, so this is their call to make. It is recorded in
+  // DECISION_LOG.md with the date and the wording, and it is reversible by
+  // deleting this comment and restoring one line.
+  //
+  // 🔑 `business_slug` STILL GOES, and that is not an inconsistency. The name
+  // is kept as a record; the ADDRESS is a scarce, claimable word that must be
+  // released after a year — it is held in `slug_change_log` for exactly that
+  // long, then frees itself. Keeping it on the row instead would reserve it
+  // forever, which is the opposite of what was asked for.
   business_slug: null,
   tagline: null,
   website: null,

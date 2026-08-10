@@ -346,8 +346,39 @@ test('go-live provisions the ROAM broadcasts — the mirror finally has a caller
   // a published promise and must not depend on multi-cam provisioning succeeding.
   const persistAt = fn.indexOf('await createPanoodBroadcast(');
   assert.ok(persistAt > -1 && fn.indexOf('await provisionRoamBroadcasts(') > persistAt);
-  // Flag-gated.
-  assert.match(fn, /if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,1400}provisionRoamBroadcasts/);
+  // Flag-gated — asserted by BRACE MATCHING, not by character distance.
+  //
+  // ⚠ This used to read `/if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,1400}provisionRoamBroadcasts/`,
+  // i.e. "the call appears within 1400 characters of the gate". That is not the
+  // property — the property is that the call is INSIDE the gated block — and the
+  // proxy broke the moment a comment was added above the call (2026-08-10),
+  // failing a change that moved nothing. A guard that fails on prose trains you
+  // to loosen it, which is how the real assertion gets thrown away.
+  // ⚠ goLivePanood has TWO `if (liveStudioRoamEnabled())` blocks — the token
+  // lookup near the top and the provisioning one near the bottom. The old
+  // distance regex anchored on the FIRST and matched 1400 characters straight
+  // out the other side of it, so it would have passed with the call ungated
+  // entirely. Every gate is checked now, and at least one must CONTAIN the call.
+  const code = codeOf(fn);
+  const blocks: string[] = [];
+  for (const m of code.matchAll(/if \(liveStudioRoamEnabled\(\)\) \{/g)) {
+    let depth = 0;
+    for (let i = code.indexOf('{', m.index); i < code.length; i += 1) {
+      if (code[i] === '{') depth += 1;
+      else if (code[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          blocks.push(code.slice(m.index, i));
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(blocks.length > 0, 'the roam flag gate must still be here');
+  assert.ok(
+    blocks.some((b) => /provisionRoamBroadcasts\(/.test(b)),
+    'provisioning must sit INSIDE a roam flag gate',
+  );
 });
 
 test('🚨 ENDING a broadcast never claims a channel, and never releases one', () => {

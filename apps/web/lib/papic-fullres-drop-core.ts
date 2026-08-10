@@ -32,7 +32,12 @@ export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
  * the longest so "three months" is true for every wedding date, not most.
  *
  * It can only ever KEEP files longer. It can never cause an earlier deletion —
- * the sweep takes GREATEST(first_capture + retention, event_date + this).
+ * the sweep takes GREATEST(first_capture + retention, event_LAST_day + this),
+ * where the last day is `events.event_end_date` when the celebration spans
+ * several days and `events.event_date` otherwise (owner 2026-08-10: *"3 months
+ * after the event ends"*). Counting from the FIRST day, as this said until
+ * 2026-08-10, shortchanged a multi-day event's closing night by exactly the
+ * length of the event.
  */
 export const FULL_RES_POST_EVENT_GRACE_DAYS = 92;
 
@@ -458,8 +463,21 @@ export type PapicDropItem = DropCandidate & {
    * ⚠ NOT a delete flag. Declining only lets this original be replaced by its
    * compressed copy at the normal point; the photo itself is never deleted and
    * the compressed copy is kept five years for everyone, paid or not.
+   *
+   * 🚨 REQUIRED, NOT OPTIONAL — and that is the whole fix. It shipped as
+   * `?: string | null` and NOT ONE of the four mappers below assigned it, so on
+   * every real sweep Item it was `undefined`. The sweep's gate reads
+   * `keep && !it.preserve_declined_at`, and `!undefined` is `true`, so the
+   * per-capture choice collapsed back into the old all-or-nothing per-event
+   * behaviour: a couple could decline a capture and the sweep would preserve it
+   * anyway. Nothing threw, nothing logged, and the type system had nothing to
+   * say because an absent optional field is legal.
+   *
+   * Making it required is the mechanism, not the paperwork: a future fifth
+   * mapper that forgets this field now fails to compile instead of silently
+   * re-introducing the same dead control. Do NOT put the `?` back.
    */
-  preserve_declined_at?: string | null;
+  preserve_declined_at: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -484,6 +502,7 @@ export function seatPhotoItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
+    preserve_declined_at: asStr(r.preserve_declined_at),
   };
 }
 
@@ -505,6 +524,7 @@ export function guestPhotoItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
+    preserve_declined_at: asStr(r.preserve_declined_at),
   };
 }
 
@@ -530,6 +550,7 @@ export function seatClipItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
+    preserve_declined_at: asStr(r.preserve_declined_at),
   };
 }
 
@@ -554,5 +575,6 @@ export function guestClipItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
+    preserve_declined_at: asStr(r.preserve_declined_at),
   };
 }

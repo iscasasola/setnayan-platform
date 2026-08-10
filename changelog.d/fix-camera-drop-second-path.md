@@ -44,3 +44,18 @@ banned words in a comment, correctly stayed green (0).
 
 SPEC IMPACT: None — the promise that a host is told when a camera drops was
 already the decision; one of the two ways it could drop never reached them.
+
+### Also: a sibling guard that measured character distance
+
+`lib/live-studio-channel-pool.test.ts` asserted the roam flag gate with
+`/if \(liveStudioRoamEnabled\(\)\) \{[\s\S]{0,1400}provisionRoamBroadcasts/` —
+"the call appears within 1400 characters of a gate." Adding a comment above the
+call broke it, failing a change that moved nothing; a guard that fails on prose
+trains you to loosen it, which is how the real assertion gets thrown away.
+
+Worse, `goLivePanood` has **two** `liveStudioRoamEnabled()` blocks, and the
+regex anchored on the first — the token lookup — then matched 1400 characters
+straight out the other side of it. **It would have passed with provisioning
+ungated entirely.** It now brace-matches every gate and requires one to CONTAIN
+the call. Mutation-tested: replacing the provisioning gate with `if (true)` —
+exactly what the old proxy allowed — turns it red.

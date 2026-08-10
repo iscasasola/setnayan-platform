@@ -273,11 +273,11 @@ function harvestAdminDetails(src: string): string[] {
   const out = new Set<string>();
   // failure('reason', '…detail…'   — the detail is the second argument.
   for (const m of code.matchAll(/\bfailure\(\s*'[a-z_]+'\s*,\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g)) {
-    out.add(m[2]);
+    if (m[2]) out.add(m[2]);
   }
   // The two youtubeError assignments, which become `detail` on the loop's result.
   for (const m of code.matchAll(/youtubeError\s*=\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g)) {
-    out.add(m[2]);
+    if (m[2]) out.add(m[2]);
   }
   return [...out];
 }

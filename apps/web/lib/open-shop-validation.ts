@@ -65,8 +65,15 @@ export const OPEN_SHOP_ERRORS = {
   // 2026-08-10), so both refusals have to be actionable in the moment.
   slugShape: 'Your web address needs 3–32 letters, numbers or hyphens.',
   slugTaken: 'That web address is taken — pick another.',
-  contactName: 'Add the owner name.',
+  // The field is labelled "Your name" and is filled from the signed-in
+  // account. "Owner name" named a person the vendor cannot see on screen, so
+  // a correct refusal read as a refusal of the WRONG box — owner 2026-08-10:
+  // "we only ask Your name." The string dates from when the field was called
+  // owner name; the label moved and the message did not.
+  contactName: 'Add your name.',
   contactPhone: 'Add a contact number.',
   contactEmail: 'Add a valid company email.',
   locationCity: 'Add the city you serve.',
+  // Only reachable once a pin exists — a geocode the vendor never looked at.
+  locationConfirm: 'Check the address on the map, then tap “Yes, that’s right”.',
 } as const;

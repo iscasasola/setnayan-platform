@@ -130,7 +130,20 @@ export function OpenShopWizard({
   );
   const toggleEvent = (k: string) =>
     setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
-  const [stepError, setStepError] = useState<string | null>(null);
+  /**
+   * ONE banner, seeded from the SERVER and owned by the client thereafter.
+   *
+   * 🪤 It used to be TWO values rendered as `stepError ?? error`, where `error`
+   * is a bare prop fed from `?error=` that nothing could clear. So a vendor who
+   * was bounced by the server, fixed the field and passed the step watched the
+   * identical red sentence STAY ON SCREEN — indistinguishable from the form
+   * still refusing them. Setting `stepError` to null fell straight back to the
+   * stale server message.
+   *
+   * This matters MORE now that step 3 works, not less: the vendor can finally
+   * reach the submit, so the server can finally redirect with `?error=`.
+   */
+  const [banner, setBanner] = useState<string | null>(error ?? null);
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
@@ -171,23 +184,61 @@ export function OpenShopWizard({
       if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
       return null;
     }
-    const city =
-      (formRef.current?.elements.namedItem('location_city') as HTMLInputElement | null)?.value ?? '';
-    return city.trim() ? null : OPEN_SHOP_ERRORS.locationCity;
+    const el = (name: string) =>
+      formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
+    const city = el('location_city')?.value ?? '';
+    if (!city.trim()) return OPEN_SHOP_ERRORS.locationCity;
+    // ── A MACHINE GUESS MUST BE AGREED TO (owner 2026-08-10) ─────────────────
+    // The vendor pressed Enter, the form submitted, and a shop was created
+    // before they could see whether the address was right. `location_confirmed`
+    // exists only once they have answered "Are you in X?", so a geocode nobody
+    // looked at can no longer carry a shop past this step. A hand-typed city
+    // with no pin has nothing to confirm and passes on the line above.
+    const pinned = !!el('hq_latitude')?.value;
+    if (pinned && !el('location_confirmed')?.value) return OPEN_SHOP_ERRORS.locationConfirm;
+    return null;
+  };
+
+  /**
+   * ── 🔴 ENTER MUST NOT SUBMIT THIS FORM ─────────────────────────────────────
+   * Owner 2026-08-10, on step 4: *"when i tried searching on the map and pressed
+   * enter, it just completed without me seeing if the address was correct."*
+   *
+   * A single-visible-input form implicitly submits on Enter — and because all
+   * four steps live on ONE form with the real submit button on the last one,
+   * Enter in the ADDRESS box did not search: **it created the shop**, at an
+   * address the vendor had not yet checked, from a screen that looked like a
+   * search field. The address lookup is debounced and automatic, so Enter had
+   * nothing legitimate to do there at all.
+   *
+   * Enter now advances instead — the same thing Continue does, including its
+   * validation — and on the LAST step it does nothing, so the shop is only ever
+   * created by pressing the button that says so.
+   *
+   * Textareas keep their newline, and any real button keeps its own Enter
+   * behaviour (activating that button, not the form).
+   */
+  const onFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement | null;
+    const tag = t?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') return;
+    e.preventDefault();
+    if (step < TOTAL_STEPS) next();
   };
 
   const next = () => {
     const err = validateStep(step);
     if (err) {
-      setStepError(err);
+      setBanner(err);
       return;
     }
-    setStepError(null);
+    setBanner(null);
     setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
   };
 
   const back = () => {
-    setStepError(null);
+    setBanner(null);
     setStep((n) => (n > 1 ? ((n - 1) as Step) : n));
   };
 
@@ -202,13 +253,13 @@ export function OpenShopWizard({
     for (const n of [1, 2, 3, 4] as Step[]) {
       const err = validateStep(n);
       if (err) {
-        setStepError(err);
+        setBanner(err);
         setStep(n);
         e.preventDefault();
         return;
       }
     }
-    setStepError(null);
+    setBanner(null);
   };
 
   return (
@@ -252,13 +303,13 @@ export function OpenShopWizard({
           ))}
         </div>
 
-        {(error || stepError) && (
+        {banner && (
           <p
             className="mt-4 rounded-lg border p-3 text-xs"
             style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)', color: 'var(--m-ink)' }}
             role="alert"
           >
-            {stepError ?? error}
+            {banner}
           </p>
         )}
 
@@ -273,6 +324,7 @@ export function OpenShopWizard({
           ref={formRef}
           action={becomeVendor}
           onSubmit={submitGate}
+          onKeyDown={onFormKeyDown}
           className="mt-5 space-y-4"
         >
           {/* Step 1 — always mounted so values survive step switches. */}

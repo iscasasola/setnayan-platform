@@ -10,6 +10,7 @@ import { SecureAccountBanner } from './_components/secure-account-banner';
 import { PendingVendorInquiryDispatcher } from './_components/pending-vendor-inquiry-dispatcher';
 import { AnonGateProvider } from '@/app/_components/anon-gate/anon-gate-context';
 import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
+import { fetchUserRoleSummary } from '@/lib/roles';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -112,9 +113,40 @@ export default async function DashboardLayout({
     redirect('/login?error=Account+deleted');
   }
 
-  // Vendors belong on the vendor-side tree.
+  // ── VENDORS BELONG ON THE VENDOR-SIDE TREE — BUT ONLY REAL ONES ───────────
+  //
+  // 🔴 THIS SENT A SIGNED-IN ACCOUNT INTO AN INFINITE REDIRECT, AND IT TOOK THE
+  // SITE DOWN FOR THAT USER. Safari eventually gave up with "Load cannot follow
+  // more than 20 redirections"; before that it surfaced as a
+  // `history.replaceState` storm, because the client router counts every hop.
+  //
+  // The cause was TWO DIFFERENT DEFINITIONS OF "IS A VENDOR":
+  //   • here      — the `users.account_type` LABEL
+  //   • there     — whether a shop or a team seat actually EXISTS
+  //     (vendor-dashboard/layout.tsx: `if (!switcherData.context.hasVendor)
+  //      redirect('/dashboard')`)
+  //
+  // An account can satisfy one and not the other: delete someone's shop and the
+  // label stays 'vendor' while the access is gone. This side then said "you are
+  // a vendor, go there", that side said "you have no shop, come back", and
+  // neither was wrong on its own. Reproduced in production 2026-08-10 on a test
+  // account whose shop had been deleted without resetting its label.
+  //
+  // 🔑 THE FIX IS ONE RULE, NOT A BIGGER CONDITION ON EACH SIDE. This now asks
+  // the same question the vendor tree asks — `hasVendorAccess`, which is true
+  // only when a `vendor_profiles` row or a `vendor_team_members` row exists —
+  // so the two can no longer disagree about the same person.
+  //
+  // The cheap label is still checked FIRST, so a customer pays nothing: the
+  // authoritative lookup only runs for accounts already claiming to be vendors.
+  // An account whose label says vendor but which owns nothing now simply stays
+  // here, on the couple dashboard, which is a real place with a real way out —
+  // instead of bouncing between two doors that each point at the other.
   if (profile?.account_type === 'vendor') {
-    redirect('/vendor-dashboard');
+    const roles = await fetchUserRoleSummary(supabase, user.id);
+    if (roles.hasVendorAccess) {
+      redirect('/vendor-dashboard');
+    }
   }
 
   // Login-driven ghosting check (no cron) — runs after the response, gated

@@ -1252,8 +1252,27 @@ export default async function LauncherPage({
                 <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Yours to run
               </p>
-              {spaces.length > 0 ? (
+              {/* CREATE YOUR SHOP — the create-door for an account with no shop
+                  (found 2026-08-10: a customer had no way to open one).
+                  Owner 2026-08-10: "place a button on the user home where the
+                  shop button will be … but instead of entering a shop. Create
+                  your shop."
+
+                  So it renders IN the shop-row slot — first inside the same
+                  divided list, ABOVE the HQ row, which is exactly where a real
+                  shop row is pushed (shops are appended before HQ). It is not a
+                  separate block below the list: an admin with no shop would
+                  otherwise read it AFTER HQ, which is not where the shop button
+                  goes. Same idiom as CreateSamahanRow / BecomeStorytellerRow,
+                  both already in this file for the same reason.
+
+                  `hasVendorAccess` is the same flag the shop rows are gated on,
+                  so the create-door and a real shop row can never both render.
+                  The container condition keeps a team-member-only account (no
+                  owned shop rows, no create-door) from rendering an empty div. */}
+              {spaces.length > 0 || !roles.hasVendorAccess ? (
                 <div className="mt-2 divide-y divide-ink/[0.07]">
+                  {!roles.hasVendorAccess ? <OpenShopRow /> : null}
                   {spaces.map((space) => (
                     <SpaceRow
                       key={space.id ?? space.href + space.title}
@@ -1262,14 +1281,6 @@ export default async function LauncherPage({
                   ))}
                 </div>
               ) : null}
-              {/* OPEN YOUR SHOP — the create-door for an account with no shop
-                  (found 2026-08-10: a customer had no way to open one).
-                  Sits exactly where a real shop row sits, so the tile has the
-                  same shape before and after — the CreateSamahanRow /
-                  BecomeStorytellerRow idiom, both already in this file for the
-                  same reason. `hasVendorAccess` is the same flag the shop rows
-                  above are gated on, so the two can never both render. */}
-              {!roles.hasVendorAccess ? <OpenShopRow /> : null}
               {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
                   the group of your shop, hq, and creators lab, and favorite
                   vendors." They were previously only advertised (never shown)
@@ -2006,7 +2017,13 @@ function CreateSamahanRow() {
 }
 
 /**
- * The "Open your shop" doorway — /open-shop for an account that has no shop.
+ * The "Create your shop" doorway — /open-shop for an account that has no shop.
+ *
+ * ⚠ THE LABEL IS AN OWNER INSTRUCTION (2026-08-10), not a style choice. It read
+ * "Open your shop" for one release and the owner corrected it: in a list where
+ * every other row takes you INTO something, "Open your shop" reads as "go to my
+ * shop" — the one thing this row does not do. "Create" says it is not there yet.
+ * The route stays /open-shop; that is a URL, not copy.
  *
  * ── WHY THIS EXISTS (2026-08-10) ───────────────────────────────────────────
  * /open-shop is a FINISHED wizard that handles exactly this case ("logged in,
@@ -2036,7 +2053,7 @@ function OpenShopRow() {
         <Store aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-ink">Open your shop</span>
+        <span className="block text-sm font-bold text-ink">Create your shop</span>
         <span className="block text-xs leading-snug text-ink/55">
           List your business for free. Setnayan reviews new shops before they go
           live to couples.

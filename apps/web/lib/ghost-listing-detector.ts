@@ -70,7 +70,12 @@ export async function scanForGhostListings(): Promise<{
     const { data: vendorsRaw } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, contact_email, logo_url, updated_at')
-      .eq('is_published', true)
+      // 🚨 WAS `.eq('is_published', true)` — a column the approval flow never
+      // sets, so this scanned ZERO vendors and returned "0 scanned, 0 flagged"
+      // as though it had looked. A detector that finds nothing and a detector
+      // that runs on an empty set are the same output.
+      .eq('public_visibility', 'verified')
+      .eq('verification_state', 'verified')
       .eq('is_demo', false);
     const vendors = (vendorsRaw ?? []) as VendorRow[];
     if (vendors.length === 0) return { vendorsScanned: 0, flagsUpserted: 0 };

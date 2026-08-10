@@ -3041,8 +3041,14 @@ export async function searchMarketplaceVendorsByName(
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, logo_url, location_city')
     .ilike('business_name', `%${trimmed}%`)
-    .eq('is_published', true)
-    .in('public_visibility', ['verified', 'coming_soon'])
+    // 🚨 WAS `.eq('is_published', true).in('public_visibility', ['verified',
+    // 'coming_soon'])` — two defects in one chain. `is_published` is set by
+    // nothing in the approval flow, so this search returned NOTHING for every
+    // couple who typed a real shop's name; and 'coming_soon' was retired on
+    // 2026-07-27 (migration 20271013500000) because under the old rules it
+    // exposed unapproved shops. Now one definition, matching the RLS.
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified')
     .order('business_name', { ascending: true })
     .limit(16); // Over-fetch — filter event-vendors below, then slice to 8.
 

@@ -15,6 +15,7 @@ import {
   importVendorToEventShortlist,
   listHostEvents,
 } from '@/lib/vendor-couple-invite';
+import { isShopLive } from '@/lib/vendor-visibility';
 
 function backToInvite(slug: string, status: string, scope = ''): never {
   const sep = scope ? `&${scope}` : '';
@@ -48,13 +49,18 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
 
   const admin = createAdminClient();
 
-  // Resolve the vendor from the public slug (published profiles only).
+  // Resolve the vendor from the public slug (APPROVED shops only).
+  //
+  // ⚠ This is the SECOND half of the same gate — the page refuses first, this
+  // refuses on submit. Both read `is_published` until 2026-08-11, which nothing
+  // in the approval flow sets, so both refused every vendor. Keep the two in
+  // step: a page that renders and an action that refuses is worse than either.
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, is_published')
+    .select('vendor_profile_id, public_visibility, verification_state')
     .eq('business_slug', slug)
     .maybeSingle();
-  if (!vendor || !vendor.is_published) backToInvite(slug, 'not_found', scope);
+  if (!vendor || !isShopLive(vendor)) backToInvite(slug, 'not_found', scope);
 
   // Ownership: the chosen event must be one the user actually hosts.
   const hostEvents = await listHostEvents(admin, user!.id);

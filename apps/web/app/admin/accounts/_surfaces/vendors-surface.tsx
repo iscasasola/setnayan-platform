@@ -7,6 +7,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
+  isShopLive,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -67,13 +68,24 @@ export async function VendorsSurface({
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,public_visibility,created_at',
+      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,verification_state,created_at',
     )
     .not('user_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(200);
-  if (status === 'published') query = query.eq('is_published', true);
-  if (status === 'draft') query = query.eq('is_published', false);
+  // 🚨 BOTH TABS WERE KEYED ON `is_published`, which the approval flow never
+  // sets — so Published was permanently EMPTY and Draft was every shop in the
+  // system, including approved ones. An admin filtering to "published" saw a
+  // blank list and had no reason to doubt it.
+  if (status === 'published') {
+    query = query.eq('public_visibility', 'verified').eq('verification_state', 'verified');
+  }
+  if (status === 'draft') {
+    // Anything that is not both-verified. PostgREST `.or()` over the negations —
+    // a shop verified on one column and not the other belongs in Draft, because
+    // it is not live.
+    query = query.or('public_visibility.neq.verified,verification_state.neq.verified');
+  }
   if (q.length > 0) {
     // PostgREST's `.or()` parses the string as comma-separated filters
     // where each is `field.operator.value`. Raw user input would let a
@@ -101,7 +113,7 @@ export async function VendorsSurface({
     admin
       .from('vendor_profiles')
       .select(
-        'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,public_visibility,created_at',
+        'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,verification_state,created_at',
       )
       .is('user_id', null)
       .order('created_at', { ascending: false })
@@ -357,7 +369,9 @@ export async function VendorsSurface({
                         </SubmitButton>
                       </ConfirmForm>
                     ) : null}
-                    {v.is_published ? (
+                    {/* Was `v.is_published` — the dead column, so this badge
+                        never appeared on ANY shop, however thoroughly approved. */}
+                    {isShopLive(v) ? (
                       <span className="ml-auto rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
                         Published
                       </span>
@@ -499,8 +513,12 @@ type VendorRow = {
   services: string[];
   location_city: string | null;
   contact_email: string | null;
-  is_published: boolean;
+  // `is_published` is DELIBERATELY ABSENT. It is the dead column: nothing in the
+  // approval flow writes it, so the badge it used to drive said "not published"
+  // about every approved shop in the system. Liveness is public_visibility +
+  // verification_state, read through `isShopLive`.
   public_visibility: VendorPublicVisibility;
+  verification_state: string | null;
   created_at: string;
 };
 

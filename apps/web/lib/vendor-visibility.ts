@@ -107,3 +107,69 @@ export function parseVisibility(value: unknown): VendorPublicVisibility {
   }
   return DEFAULT_PRIVATE_VISIBILITY;
 }
+
+/**
+ * ─── THE ONE DEFINITION OF "THIS SHOP IS LIVE" ──────────────────────────────
+ *
+ * Mirrors the database's own rule EXACTLY. `vendor_profiles_public_read`
+ * (20271013500000) reads:
+ *
+ *     public_visibility = 'verified' AND verification_state = 'verified'
+ *
+ * Both columns, deliberately: `public_visibility` is the marketplace/moderation
+ * state and `verification_state` is the readiness decision, so no single
+ * mis-set column can expose an unapproved shop. `/admin/verify` writes the two
+ * together and is the only path that should.
+ *
+ * ─── WHY THIS FUNCTION EXISTS ───────────────────────────────────────────────
+ * Because there was a SECOND definition, and it was dead. `is_published` is a
+ * legacy column this module's own docblock has described as superseded since
+ * 2026-05-15 — but seven live code paths were still gating on it, and NOTHING
+ * in the approval flow ever sets it. Its only writer is a tick-box on
+ * `/admin/vendors/[id]/edit`; `/admin/verify` never touches it. Measured
+ * 2026-08-11: the owner's own fully-verified shop sits at is_published = false.
+ *
+ * So approving a shop listed it on /explore and left these seven dead:
+ *   • the vendor's invite landing page — 404 for EVERY vendor
+ *   • the invite's claim action — the same refusal one step later
+ *   • the couple's add-a-vendor-by-name search — found nothing, ever
+ *   • ghost-listing detection — scanned an empty set and returned "0 scanned"
+ *   • fraud detection — the same empty set
+ *   • the admin population count — "vendors published" was permanently 0
+ *   • the admin Published/Draft tabs — Published always empty
+ *
+ * 🔑 THE FAILURE SHAPE: none of the seven errored. A dead gate and a genuinely
+ * empty result are the same value. This is the same disease as the phantom
+ * column, the phantom enum value and the phantom RPC argument — the query is
+ * REFUSED or returns nothing, and the only symptom is an absence.
+ *
+ * 🔑 AND IT IS THE 2026-08-09 OUTAGE AGAIN: two definitions of "is a vendor"
+ * pointed the dashboards at each other. Two definitions of "this shop is live"
+ * pointed a vendor's own customers at a 404.
+ *
+ * ⚠ DERIVE, NEVER RE-TYPE. If you find yourself writing `is_published` or
+ * spelling out both columns at a call site, use this instead —
+ * `lib/one-definition-of-live.test.ts` fails on either shape.
+ */
+export function isShopLive(row: {
+  public_visibility?: unknown;
+  verification_state?: unknown;
+} | null | undefined): boolean {
+  if (!row) return false;
+  // Fail closed on both halves: parseVisibility resolves anything unreadable to
+  // `hidden`, and the state half is an explicit equality rather than a parse, so
+  // a null/absent/misspelled state can never read as verified.
+  return (
+    parseVisibility(row.public_visibility) === 'verified' &&
+    row.verification_state === 'verified'
+  );
+}
+
+/**
+ * The columns `isShopLive` needs, for a PostgREST `.select()`.
+ *
+ * A select that omits one of these makes the predicate silently fail closed —
+ * an absent column is `undefined`, which is not 'verified'. Naming the pair
+ * once is what stops a call site selecting only half of it.
+ */
+export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as const;

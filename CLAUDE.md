@@ -137,7 +137,11 @@ Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. 
 - **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct charm pricing (-1 endings).
 - **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
 - **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
-- **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com` + `setnayan.ph`. Brand strings centralized in `brand.config.ts`.
+- **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
+  `setnayan.ph`** — owner, verbatim, 2026-08-11: *"we do not have setnayan.ph"*. This line
+  claimed both for months and sent sessions looking for DNS that was never ours. It is
+  unregistered, so anyone can take it; whether to buy it is an open owner call, not a fact.
+  Brand strings centralized in `brand.config.ts`.
 - **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
 - **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
 - **No SMS in V1.** Email-only via Resend.

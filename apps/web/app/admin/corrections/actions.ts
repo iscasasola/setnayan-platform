@@ -47,6 +47,11 @@ function parseRequestedValue(
     case 'hq_address':
     case 'contact_phone':
       return trimmed ? trimmed.slice(0, 256) : null;
+    // 64 to match the column, and the same limit the signup wizard enforces —
+    // a value that fits one screen and not the other would be approved here and
+    // rejected on the vendor's next save.
+    case 'location_city':
+      return trimmed ? trimmed.slice(0, 64) : null;
     case 'contact_email': {
       if (!trimmed) return null;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {

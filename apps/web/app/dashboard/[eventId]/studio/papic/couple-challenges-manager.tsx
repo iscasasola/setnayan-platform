@@ -7,6 +7,9 @@
 
 import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { papicMissionCost } from '@/lib/papic-cameras';
+import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventPabatiActive } from '@/lib/pabati';
@@ -133,9 +136,24 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
   // in `offBoard` — but its own "Hidden from guests" line already explains why,
   // and it is the couple's own doing. `waiting` is the surprising set: active,
   // approved, and still not shown, because the 20 slots are full.
+  // ⚠ WHAT THIS BOARD COMMITS A GUEST TO SPEND. Every live challenge is a shot
+  // out of the ONE shared pool, and until now this screen said nothing about
+  // that: the board is in Set up, the balance is in Cameras, and a couple could
+  // sign their guests up for hundreds of shots without a number in sight.
+  // Derived from papicMissionCost — never a hand-typed 8.
   const onBoard = missions.filter((m) => m.board_slot !== null);
   const offBoard = missions.filter((m) => m.board_slot === null);
   const waiting = offBoard.filter((m) => m.is_active);
+
+  // Cost of the board a guest actually sees, per guest. Fail-soft: the pool read
+  // degrades to "absent" on any error and we then say nothing about a balance
+  // rather than printing a confident zero — a zero here reads as "you have no
+  // shots left", which would be a lie told at the worst moment.
+  const boardCostPerGuest = onBoard
+    .filter((m) => m.is_active)
+    .reduce((sum, m) => sum + papicMissionCost(m.capture_kind), 0);
+  const pool = await fetchEventPoolStatus(createAdminClient(), eventId);
+  const poolRemaining = pool.applies ? pool.remainingPoints : null;
 
   // ── The story picker ──────────────────────────────────────────────────────
   // Every story question Setnayan supplies, minus the ones this event already
@@ -189,6 +207,30 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
         write your own, and hide any you don&rsquo;t want — booth challenges
         appear here as you book vendors.
       </p>
+
+      {/* ⚠ THE COST, ON THE SCREEN THAT SPENDS IT. The board lives here in Set
+          up; the shared pool lives over in Cameras. A couple could sign their
+          guests up for hundreds of shots without a number in sight. Numbers are
+          derived — never a hand-typed 8. */}
+      {boardCostPerGuest > 0 ? (
+        <p className="mt-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-2 text-xs text-ink/75">
+          A guest who does every challenge on the board spends{' '}
+          <span className="font-semibold tabular-nums">{boardCostPerGuest}</span>{' '}
+          {boardCostPerGuest === 1 ? 'shot' : 'shots'} from your shared pool
+          {poolRemaining !== null ? (
+            <>
+              {' '}— you have{' '}
+              <span className="font-semibold tabular-nums">
+                {poolRemaining.toLocaleString('en-PH')}
+              </span>{' '}
+              left.
+            </>
+          ) : (
+            '.'
+          )}{' '}
+          A photo costs one; a video costs more.
+        </p>
+      ) : null}
 
       {/* Author your own */}
       <form action={createCoupleChallengeAction} className="mt-4 space-y-2">

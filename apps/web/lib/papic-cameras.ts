@@ -775,6 +775,35 @@ export function papicCaptureCost(kind: 'photo' | 'clip'): number {
 }
 
 /**
+ * ⚠ WHAT A CHALLENGE COSTS THE COUPLE'S SHARED POOL.
+ *
+ * Every mission a couple puts on the board is a shot a guest will spend, and the
+ * shots come out of the ONE shared pool. Until 2026-08-10 the authoring screen
+ * said nothing about that: the board lives in Set up, the balance lives in
+ * Cameras, and a couple could commit their guests to hundreds of shots on a
+ * screen with no number anywhere on it.
+ *
+ * 🔑 DERIVED FROM papicCaptureCost, NEVER RE-TYPED. A second hand-written 8 is
+ * how the screen and the till come to disagree.
+ *
+ * `pabati` is a video greeting — recorded on camera, so it costs what a clip
+ * costs. Spelled out rather than defaulted, because a kind added later must be a
+ * deliberate decision about money, not whatever the fallback happened to be.
+ */
+export function papicMissionCost(kind: 'photo' | 'clip' | 'pabati' | null | undefined): number {
+  switch (kind) {
+    case 'clip':
+    case 'pabati':
+      return papicCaptureCost('clip');
+    case 'photo':
+      return papicCaptureCost('photo');
+    default:
+      // No kind recorded yet — the guest board treats it as a photo.
+      return papicCaptureCost('photo');
+  }
+}
+
+/**
  * Postgres "function does not exist" (42883) / PostgREST schema-cache miss
  * (PGRST202) — the ONE carve-out where the points gate fails OPEN: during the
  * seam cutover a deploy can briefly run app code ahead of the migration, and

@@ -365,6 +365,12 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
     // BREAKS THE PROVISIONING LOOP, so every remaining camera is dropped without
     // ever being counted and `.notice` comes back null. That is how a host set
     // up six cameras, got a plain green tick, and had four never appear.
+    //
+    // ⛔ AND DO NOT REACH FOR `.detail` HERE. It is ADMIN copy — it names the
+    // Admin → Live Studio channels screen and an env flag. Sending a couple to a
+    // screen they cannot open is worse than the silence: silence leaves them
+    // asking, an impossible instruction leaves them trying. The host's wording
+    // comes from the reason plus a count, never from an admin string.
     const provisioned = await provisionRoamBroadcasts(admin, eventId, {
       titlePrefix: 'Setnayan Live',
       scheduledStartTime: scheduledStartAt,

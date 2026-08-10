@@ -409,8 +409,20 @@ export type ProvisionResult = {
   /** Entries in the manifest AFTER the § 4d publish gate. 1 for a free host. */
   published: number;
   reason: ProvisionFailure | null;
-  /** Human-readable, safe to show an admin. Never contains a token or stream key. */
+  /**
+   * ⚠ ADMIN-ONLY. Never contains a token or stream key, but it DOES name admin
+   * screens and env flags ("Connect or release one in Admin → Live Studio
+   * channels.", "…(NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED)."). It is not host copy
+   * and must not be shown to a couple — see `provisionFailureSentence`.
+   */
   detail: string | null;
+  /**
+   * ⚠ THE CAMERAS THAT WERE NEITHER STARTED, REUSED, NOR CAPPED — i.e. the ones
+   * the break-the-loop path silently abandons. `skippedOverCap` counts the cap;
+   * nothing counted these until now, which is why a refusal reached the host as
+   * a plain green tick.
+   */
+  notStarted: number;
   /**
    * ⚠ THE DROPPED-CAMERA SENTENCE — plain English, host-safe, null when nothing
    * was dropped. See `cameraDropNotice` below for why this is on the RESULT and
@@ -419,7 +431,12 @@ export type ProvisionResult = {
   notice: string | null;
 };
 
-function failure(reason: ProvisionFailure, detail: string, channelPoolId: number | null = null): ProvisionResult {
+function failure(
+  reason: ProvisionFailure,
+  detail: string,
+  channelPoolId: number | null = null,
+  notStarted = 0,
+): ProvisionResult {
   return {
     ok: false,
     channelPoolId,
@@ -429,6 +446,7 @@ function failure(reason: ProvisionFailure, detail: string, channelPoolId: number
     published: 0,
     reason,
     detail,
+    notStarted,
     notice: null,
   };
 }
@@ -478,53 +496,88 @@ export function cameraDropNotice(input: {
 }
 
 /**
- * ⚠ THE SECOND WAY A CAMERA GOES MISSING — and the one place both are worded.
+ * ⚠ `detail` IS ADMIN COPY. THIS IS THE HOST'S.
  *
- * `provisionRoamBroadcasts` loses cameras TWO different ways and only one of
- * them was ever counted:
+ * The first repair of the dropped-camera silence folded `provisioned.detail`
+ * into the host's notice VERBATIM, on the grounds that it was "already written
+ * host-safe". It is not, and the type says so one screen up: `detail` is
+ * documented "safe to show an admin". Two of the five strings prove it —
  *
- *   1. THE CAP. A zone over the pool channel's `concurrent_cap` increments
- *      `skippedOverCap`, which becomes `notice`. Reported.
- *   2. THE REFUSAL. A YouTube error (or an insert that is not the idempotency
- *      23505) sets `youtubeError` and **breaks the loop** — so every zone after
- *      it is neither created, nor reused, nor counted in `skippedOverCap`. The
- *      result comes back `ok: false` with a `detail`, and `notice` is `null`.
+ *   'No verified Setnayan channel is free right now. Connect or release one in
+ *    Admin → Live Studio channels.'
+ *   'Live Studio is not enabled (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED).'
  *
- * Its caller read only `.notice`, so way 2 produced exactly the silence way 1
- * was fixed for: a plain green tick over cameras that never appeared. This
- * function is the single place a ProvisionResult becomes the one sentence a
- * host reads, so neither way can be wired up without the other.
+ * — an internal screen the couple cannot open, and an environment flag. Sending
+ * a couple to Admin → Live Studio channels is worse than the silence it
+ * replaced: silence leaves them asking, an impossible instruction leaves them
+ * trying.
  *
- * `detail` is passed through VERBATIM — it is already written host-safe and
- * never carries a token or stream key ("YouTube refused a broadcast for
- * \"Reception\"."). Re-wording it here would be a second copy to drift.
+ * 🔑 SO THE HOST SENTENCE IS BUILT FROM THE REASON AND A COUNT, NOT FROM COPY.
+ * Same shape as `cameraDropNotice` directly above: numbers in, one plain
+ * sentence out, nothing to keep in sync with an admin string and nothing that
+ * changes behaviour when someone rewords a log line.
  *
- * ⚠ `no_zones` and `flag_off` are deliberately NOT folded in. They mean the
- * host never set up multi-camera at all, so nothing of theirs went missing —
- * and the roam flag is on for EVERY host, so "This event has no camera channels
- * yet." would ride on top of every ordinary single-camera go-live. That is the
- * noise `cameraDropNotice` refuses to emit for the same reason: noise is how a
- * real warning gets skimmed past.
+ * ⚠ `no_zones` and `flag_off` return null ON PURPOSE. They mean the host never
+ * set up multi-camera at all, so nothing of theirs went missing — and the roam
+ * flag is on for EVERY host, so folding them would ride a warning on top of
+ * every ordinary single-camera go-live. Noise is how a real warning gets skimmed
+ * past; that is the same reason `cameraDropNotice` refuses to emit for zero.
  *
  * ⏭ KNOWN, NOT FIXED HERE: `no_zones` is overloaded upstream — the zones read
  * returns it BOTH for "this event has no camera channels yet" AND for a failed
- * read of the zones table. So a DB read failure is suppressed with the empty
- * case. Splitting them needs a new `ProvisionFailure` member inside
- * `provisionRoamBroadcasts`, which is a wider change than this repair; keying
- * the split off the two `detail` strings instead would make behaviour depend on
- * copy, which is worse.
+ * read of that table, so a DB read failure is suppressed with the empty case.
+ * Splitting them needs a new `ProvisionFailure` member; keying the split off the
+ * two `detail` strings instead would make behaviour depend on copy, which is the
+ * exact mistake this function exists to undo.
+ */
+export function provisionFailureSentence(
+  reason: ProvisionFailure | null,
+  notStarted: number,
+): string | null {
+  // How many cameras this costs the host, worded for someone who is about to
+  // hand out QR codes. 0 means we could not tell — never claim a number then.
+  const n = Number.isFinite(notStarted) && notStarted > 0 ? Math.floor(notStarted) : 0;
+  const cameras = n === 0 ? 'Some cameras' : n === 1 ? '1 camera' : `${n} cameras`;
+
+  switch (reason) {
+    // Deliberate silence — see the header.
+    case 'no_zones':
+    case 'flag_off':
+    case null:
+      return null;
+    case 'no_channel_available':
+      return `${cameras} could not start — Setnayan has no broadcast channel free right now. Your stream is not running. Try Go live again in a few minutes, and tell Setnayan if it keeps happening.`;
+    case 'channel_not_connected':
+      return `${cameras} could not start — this event's Setnayan broadcast channel needs reconnecting. Your stream is not running. Tell Setnayan so they can reconnect it.`;
+    case 'youtube_error':
+      return `${cameras} did not start. Anyone shooting on ${n === 1 ? 'it' : 'them'} will not appear in the stream — check your camera list before you begin.`;
+    default: {
+      // An unhandled reason must never fall through to silence: silence is the
+      // whole bug. TypeScript makes this unreachable; a new union member added
+      // without a sentence lands here instead of disappearing.
+      const _exhaustive: never = reason;
+      void _exhaustive;
+      return `${cameras} could not start. Check your camera list before you begin, and tell Setnayan if anyone is missing.`;
+    }
+  }
+}
+
+/**
+ * The one place a ProvisionResult becomes the single sentence a host reads, so
+ * neither way of losing a camera — the cap, or the refusal that breaks the loop
+ * — can be wired up without the other.
  */
 export function hostNoticeFromProvision(
-  provisioned: Pick<ProvisionResult, 'ok' | 'notice' | 'detail' | 'reason'>,
+  provisioned: Pick<ProvisionResult, 'ok' | 'notice' | 'reason' | 'notStarted'>,
 ): string | null {
   const parts: string[] = [];
+
   const dropped = provisioned.notice?.trim();
   if (dropped) parts.push(dropped);
 
-  const silentlyIntentional = provisioned.reason === 'no_zones' || provisioned.reason === 'flag_off';
-  if (provisioned.ok === false && !silentlyIntentional) {
-    const detail = provisioned.detail?.trim();
-    if (detail) parts.push(detail);
+  if (provisioned.ok === false) {
+    const failed = provisionFailureSentence(provisioned.reason, provisioned.notStarted);
+    if (failed) parts.push(failed);
   }
 
   return parts.length === 0 ? null : parts.join(' ');
@@ -591,6 +644,8 @@ export async function provisionRoamBroadcasts(
     return failure(
       'no_channel_available',
       'No verified Setnayan channel is free right now. Connect or release one in Admin → Live Studio channels.',
+      null,
+      zones.length,
     );
   }
 
@@ -612,6 +667,7 @@ export async function provisionRoamBroadcasts(
       'channel_not_connected',
       'The Setnayan channel for this event is not connected to YouTube (or its access needs renewing).',
       channel.id,
+      zones.length,
     );
   }
 
@@ -706,7 +762,11 @@ export async function provisionRoamBroadcasts(
   if (youtubeError && created === 0 && reused === 0) {
     // Total failure with nothing riding on the channel → give it back.
     await releasePoolChannelIfIdle(admin, eventId);
-    return { ...failure('youtube_error', youtubeError, channel.id), published };
+    return {
+      ...failure('youtube_error', youtubeError, channel.id, zones.length - skippedOverCap),
+      published,
+      skippedOverCap,
+    };
   }
 
   return {
@@ -718,6 +778,9 @@ export async function provisionRoamBroadcasts(
     published,
     reason: youtubeError ? 'youtube_error' : null,
     detail: youtubeError,
+    // Whatever the loop never reached. Zero on every clean run, including the
+    // capped one — a capped zone is reported by `notice`, not abandoned.
+    notStarted: zones.length - created - reused - skippedOverCap,
     // The count stops being discarded HERE. Carried on the result so the caller
     // has a sentence to show, not a number it has to decide how to word.
     notice: cameraDropNotice({ skippedOverCap, carried: created + reused, cap }),

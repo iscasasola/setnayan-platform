@@ -1,28 +1,46 @@
-## 2026-08-08 · fix(live-studio): the OTHER way a camera goes missing now reaches the host
+## 2026-08-10 · fix(live-studio): the OTHER way a camera goes missing now reaches the host — in the host's own words
 
-`goLivePanood` bound the provisioning result and then read ONE field off it —
-`.notice` — which only ever describes the CAP path (`skippedOverCap`). Cameras
-go missing a second way: a YouTube refusal sets `detail` and **breaks the
-provisioning loop**, so every remaining zone is neither created, nor reused, nor
-counted in `skippedOverCap`. `.notice` comes back `null` and the host gets the
-same plain green tick the first fix was written to remove — the identical
-discard, one level in.
+`provisionRoamBroadcasts` loses cameras **two** ways and only one was ever
+reported. The cap increments `skippedOverCap`, which becomes `notice`. A YouTube
+refusal sets `youtubeError` and **breaks the loop**, so every remaining zone is
+neither created, nor reused, nor counted anywhere — the result comes back
+`ok: false` with `notice: null`, and `goLivePanood` read only `.notice`. A host
+could set up six cameras, press Go live, see a plain green tick, and have four
+never appear. `hostNoticeFromProvision` now puts the whole result through one
+place, so neither way can be wired up without the other.
 
-- New pure `hostNoticeFromProvision(result)` in `lib/live-studio-roam-provision.ts`
-  folds `detail` into the sentence whenever `ok === false`, and joins it with the
-  cap notice when both fired. `detail` passes through verbatim (already host-safe,
-  never carries a token or stream key), so there is no second copy to drift.
-  `no_zones` / `flag_off` are deliberately NOT folded: the roam flag is on for
-  every host and most have zero camera zones, so folding them would put a warning
-  on every ordinary single-camera go-live — the noise `cameraDropNotice` already
-  refuses to emit.
-- `goLivePanood` passes the WHOLE result through it.
-- **The old guard pinned the defect IN**: it asserted on the source text
-  `notice = provisioned.notice;`. Replaced with behavioural tests over a stubbed
-  `ProvisionResult` (both drop paths, both at once, both suppressions, blank
-  detail), plus a regression assertion — scoped to the executing region — that
-  reading a single field back off the result is gone.
-- Both renderers (`go-live-card.tsx`, `transport-row.tsx`) already read
-  `result.notice`, so nothing on the screen side changed.
+**And the count is real.** `ProvisionResult` gains `notStarted` — the zones the
+loop walked away from (`zones.length - created - reused - skippedOverCap`),
+filled at all four return sites. Nothing counted them before, which is why the
+refusal path had nothing to say.
 
-SPEC IMPACT: None.
+**⛔ `detail` IS ADMIN COPY AND IS NEVER SHOWN TO A COUPLE.** The first cut of
+this repair folded `provisioned.detail` in verbatim, on the reasoning that it was
+"already written host-safe". The type says otherwise one screen up — documented
+"safe to show an admin" — and two of the five real strings prove it: one sends
+the reader to **"Admin → Live Studio channels"**, a screen a couple cannot open,
+and one names `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED`. An impossible instruction
+is worse than the silence it replaced: silence leaves them asking, an instruction
+leaves them trying. The host sentence is now built by
+`provisionFailureSentence(reason, notStarted)` — numbers and a reason in, one
+plain sentence out — the same shape as `cameraDropNotice` beside it, with nothing
+to keep in sync with an admin string.
+
+**The guard asserted the defect — twice.** It required the host banner to contain
+the admin text (`/Reception/`) and to contain the **machine token**
+(`new RegExp(reason)`, i.e. the couple reads the words `no_channel_available`).
+A test that demands the bug will never report it. § 2c now asserts the property:
+no `detail` string can reach the host under any reason, and host copy may not
+name an admin screen, an env flag, a table or a machine token. **The admin
+strings are harvested from source, not typed into the test** — the same lesson as
+the admin queue guard the same week: a hand-typed list is silent about whatever
+nobody typed into it.
+
+Mutation-tested, baseline green and every sabotage verified applied: fold
+`detail` verbatim (7 fail) · drop the fold entirely, the pre-fix shape (5) ·
+`notStarted` always 0 (1) · post-zones failures forget the count (1) · remove the
+`no_zones`/`flag_off` silence (1) · fold on success (5) · **scope control** —
+banned words in a comment, correctly stayed green (0).
+
+SPEC IMPACT: None — the promise that a host is told when a camera drops was
+already the decision; one of the two ways it could drop never reached them.

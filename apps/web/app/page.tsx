@@ -47,6 +47,13 @@ const HOME_DESCRIPTION =
 export const metadata = {
   title: HOME_TITLE,
   description: HOME_DESCRIPTION,
+  // 🔒 Restated, not inherited-by-luck. `applicationName` renders
+  // <meta name="application-name"> — one of the two places a machine reader
+  // (and Google's OAuth homepage review) looks for the app's NAME. It is set on
+  // the root layout and would normally cascade, but stating it on the single
+  // page the reviewer is sent to means a future layout edit cannot quietly
+  // remove it from THIS url. Guarded by app/home-brand-name.test.ts.
+  applicationName: 'Setnayan',
   alternates: { canonical: '/' },
   keywords: [
     'Filipino wedding planning',
@@ -61,14 +68,42 @@ export const metadata = {
     'keep wedding photos safe',
     'Filipino life events app',
   ],
+  // 🚨 `openGraph` and `twitter` are REPLACED wholesale by the child segment,
+  // not deep-merged — next/dist/lib/metadata/resolve-metadata.js does
+  // `target.openGraph = resolveOpenGraph(source.openGraph, …)` on a plain
+  // `case 'openGraph':`. So until 2026-08-09 this three-key object silently
+  // DELETED the root layout's og:site_name ("Setnayan"), og:type, og:locale and
+  // the 1200×630 og:image — on the homepage ONLY, which is the one page where
+  // the brand name matters most. Measured on the live site 2026-08-09: `/`
+  // served og:title, og:description and og:url and NOTHING else, and
+  // twitter:card had degraded to the tiny "summary" thumbnail because Next's
+  // auto-fill could no longer see a large image. Every other public page was
+  // correct, which is exactly why nobody noticed.
+  // 🔑 If you add a key to the layout's openGraph, add it here too — an
+  // override object must be COMPLETE, not a patch. Guarded by
+  // app/home-brand-name.test.ts.
   openGraph: {
+    type: 'website',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     url: '/',
+    images: [
+      {
+        url: '/brand/og-card.webp',
+        width: 1200,
+        height: 630,
+        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
+        type: 'image/webp',
+      },
+    ],
   },
   twitter: {
+    card: 'summary_large_image',
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
+    images: ['/brand/og-card.webp'],
   },
 };
 

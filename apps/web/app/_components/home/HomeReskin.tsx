@@ -534,9 +534,9 @@ export function HomeReskin({
       {/* ── Floating glass nav ── */}
       <nav className="hr-nav">
         <button
-          className="hr-logo hr-glass-dark"
-          aria-label="Home"
-          title="Home"
+          className="hr-logo hr-logo-wm hr-glass-dark"
+          aria-label="Setnayan · Home"
+          title="Setnayan · Home"
           onClick={goHome}
         >
           {/* Official Setnayan mark (filled glyph, paints in currentColor). The
@@ -545,6 +545,18 @@ export function HomeReskin({
               white on the cinematic gate and ink once opened — the same adaptive
               behavior the old 3-dot placeholder had. */}
           <SetnayanMark className="h-5 w-5" aria-hidden="true" />
+          {/* 🔒 THE VISIBLE APP NAME — do not remove, and do not replace with an
+              image. Google's OAuth "App Homepage" checklist requires the app
+              name shown on the consent screen ("Setnayan") to be VISIBLE on the
+              homepage, and until 2026-08-09 the top of this page rendered the
+              glyph alone: the live HTML carried aria-label="Home" on the button
+              and aria-hidden on the mark, so the product's own name appeared
+              nowhere above the fold — not to a reviewer, not to a screen reader,
+              not to a first-time visitor. That was half of why brand
+              verification was refused on 2026-07-25 (the other half, "explain
+              the purpose of your app", is answered by #what-is-setnayan below).
+              Guarded by app/home-brand-name.test.ts. */}
+          <span className="hr-wordmark">Setnayan</span>
         </button>
         <div className="hr-links hr-glass-dark">
           {/* Setnayan AI was removed from the nav (owner 2026-07-03) — the Suri
@@ -952,7 +964,12 @@ export function HomeReskin({
               (auth/youtube.upload was dropped 2026-07-25; see
               YOUTUBE_OAUTH_SCOPES in lib/panood-youtube.ts.) */}
           <p className="hr-adef hr-anote">
-            <em>Why Setnayan asks for YouTube access:</em> Live Studio is optional and off by
+            {/* The label names BOTH grants since 2026-08-09 — the paragraph
+                gained the Drive sentence, and a lead-in that says "YouTube"
+                over a paragraph covering two permissions reads to a reviewer
+                as an undisclosed one. */}
+            <em>Why Setnayan asks for YouTube and Google Drive access:</em> Live Studio is
+            optional and off by
             default. It uses one Google permission — the YouTube account-management permission,{' '}
             <code>https://www.googleapis.com/auth/youtube</code> — and Setnayan uses it only to set
             up and run Live Studio broadcasts: see which channel is connected, create the live
@@ -965,8 +982,15 @@ export function HomeReskin({
             the couple’s own streaming software does that. Setnayan does not upload videos to
             anyone’s channel, does not read anything else on a connected channel, never sells
             YouTube data or uses it to train AI, and shares nothing beyond the broadcast link the
-            couple asked us to put on their event page. Full details are in our{' '}
-            <Link href="/privacy">Privacy Policy</Link>.
+            couple asked us to put on their event page. Setnayan also offers an
+            optional Google Drive connection, so photos land in a folder the
+            couple owns — it uses the narrowest Drive permission Google offers,{' '}
+            <code>https://www.googleapis.com/auth/drive.file</code>, which lets
+            Setnayan touch only the files it created itself. Both connections in
+            plain words:{' '}
+            <Link href="/privacy/google-access">What connecting Google does</Link>
+            . Full details are in our <Link href="/privacy">Privacy Policy</Link>
+            .
           </p>
         </section>
 

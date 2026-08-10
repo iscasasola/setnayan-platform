@@ -88,6 +88,12 @@ const NAV_ROUTES = new Set<string>([
   // SiteHeader, a page-local footer, or no chrome at all — they join the one
   // marketing shell so no footer link lands back on the old website.
   '/privacy',
+  // /privacy/google-access — the short "what connecting Google does" summary
+  // handed to Google's OAuth reviewer (2026-08-09). A NAV_ROUTE, not a
+  // FOOTER_ONLY prefix: it is a standalone legal page like its /privacy parent,
+  // and a bare page with no nav and no footer is the first thing a reviewer
+  // reads as an abandoned URL.
+  '/privacy/google-access',
   '/terms',
   '/refunds',
   '/cookies',

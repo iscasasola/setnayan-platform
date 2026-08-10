@@ -231,6 +231,17 @@ export type PgliteRestClient = {
     delete(): Builder;
     insert(payload: Record<string, unknown>): PromiseLike<PgResult>;
   };
+  /**
+   * A stored-function call, resolved BY ARGUMENT NAME exactly as PostgREST does.
+   *
+   * 🔑 THE NAMES ARE THE CONTRACT, WHICH IS WHY THIS CALLS THE REAL FUNCTION
+   * INSTEAD OF PRETENDING. A live user-facing bug ran for weeks because a route
+   * posted eight named arguments to a function that took seven: PostgREST found
+   * no candidate, the call failed before the body ran, and nothing threw. An
+   * adapter that accepted any name would make every erasure test agree with a
+   * call production would reject.
+   */
+  rpc(fn: string, args?: Record<string, unknown>): PromiseLike<PgResult>;
   auth: {
     admin: {
       updateUserById(userId: string, attrs: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
@@ -269,6 +280,32 @@ export async function createPgliteRestClient(db: PGlite): Promise<PgliteRestClie
             }));
         },
       };
+    },
+    rpc(fn: string, args: Record<string, unknown> = {}): PromiseLike<PgResult> {
+      const params: unknown[] = [];
+      const named = Object.keys(args).map((name) => {
+        // Named notation (`f(p_x => $1)`) is what makes this a real test of the
+        // argument names. A name that is not a plain identifier cannot be one
+        // PostgREST would accept either, so refusing it here is the same answer
+        // production gives, arrived at sooner.
+        if (!/^[a-z_][a-z0-9_]*$/.test(name)) {
+          throw new Error(`rpc(${fn}): "${name}" is not a valid argument name`);
+        }
+        params.push(args[name]);
+        return `${name} => $${params.length}`;
+      });
+      const sql = `SELECT public."${fn}"(${named.join(', ')})`;
+      statements.push(sql);
+      return db
+        .query(sql, params)
+        .then((r) => ({ data: (r.rows ?? []) as unknown, error: null }) as PgResult)
+        // Errors come back as DATA, never as a throw — that asymmetry is the
+        // reason the last-admin refusal was swallowed in production, and a
+        // harness that threw here would hide the very shape under test.
+        .catch((e: unknown) => ({
+          data: null,
+          error: { message: e instanceof Error ? e.message : String(e) },
+        }));
     },
     auth: {
       admin: {

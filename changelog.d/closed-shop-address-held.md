@@ -34,6 +34,14 @@ The refusal has its own wording — *"That address belonged to a shop that has c
 
 `fakeAdmin` ignored `.eq()`, so both probes over `slug_change_log` saw the same rows and whichever ran first won — a rename fixture came back as a closed shop. Not wrong in production, where Postgres filters, but **the tests could no longer tell the two apart, which is the whole thing they exist to check.** The double now honours the one filter under test.
 
+### 🪤 CI caught what I did not run
+
+The first push failed `typecheck + lint` with **`admin.rpc is not a function`**. The erasure suite drives `purge.ts` through a PGlite stand-in for the Supabase client, and that stand-in implemented `.from()` and nothing else — so the moment erasure started calling a stored function, every test using it died in its `before` hook.
+
+🔑 **I ran the NEW test and not the EXISTING suite that exercises the file I changed.** The new one passed because it calls the function directly in SQL; the old one broke because it goes through the client. Running what you wrote is not the same as running what you touched.
+
+The stand-in now has an `rpc` that resolves **by argument name**, exactly as PostgREST does — and returns failures as **data, never a throw**, because that asymmetry is precisely what swallowed the last-admin refusal in production. Proven by mutation: renaming `p_user_id` to `p_userid` in the caller turns two tests red, which is the phantom-argument class of bug that ran here for weeks with green CI.
+
 ### Verification
 
 10 database tests that **run the SQL**, because every part of this defect lived there: a trigger raising, a client resolving that into `{ error }` instead of throwing, and a caller treating a returned error as a non-event.

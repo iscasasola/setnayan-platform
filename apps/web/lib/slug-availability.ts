@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isReservedSlug } from './reserved-slugs';
+import { CLOSED_SHOP_SLUG_ENTITY_TYPE } from './closed-shop-slug';
 
 /**
  * ONE availability answer for the ONE top-level namespace.
@@ -27,6 +28,7 @@ export type SlugConflict =
   | 'taken_by_shop'
   | 'taken_by_person'
   | 'forwarding'
+  | 'retired_shop'
   | 'unverified';
 
 export const SLUG_FORMAT = /^[a-z0-9-]{3,32}$/;
@@ -49,6 +51,12 @@ export const SLUG_CONFLICT_MESSAGE: Record<SlugConflict, string> = {
   taken_by_person: 'That address already belongs to someone’s profile. Please pick another.',
   forwarding:
     'That address was used before and still sends visitors to its old page. Please pick another.',
+  // Deliberately NOT the forwarding wording. A closed shop's address sends
+  // nobody anywhere — saying it does would be a plain untruth to whoever tried
+  // to take it, and the difference is the only thing that explains why the word
+  // frees up later.
+  retired_shop:
+    'That address belonged to a shop that has closed. It becomes free again a year after it closed.',
   unverified: 'We couldn’t check that address just now. Please try again.',
 };
 
@@ -123,6 +131,27 @@ export async function findSlugConflict(
   if (person.error) return 'unverified';
   const personId = (person.data as { user_id?: string } | null)?.user_id ?? null;
   if (personId && !sameId(exclusions.userId, personId)) return 'taken_by_person';
+
+  // A CLOSED shop's address is held for a year (owner-locked 2026-08-10).
+  // Checked BEFORE the forwarding probe purely so the caller gets the true
+  // reason: both rows live in the same ledger and `isSlugForwarding` would
+  // match this one too, then explain it with wording about redirects that do
+  // not exist.
+  const retired = await admin
+    .from('slug_change_log')
+    .select('entity_id')
+    .eq('entity_type', CLOSED_SHOP_SLUG_ENTITY_TYPE)
+    .eq('old_slug', lower)
+    .gt('redirect_until', new Date().toISOString())
+    .limit(50);
+  // Fails closed, like the forwarding probe beside it: an unreadable ledger
+  // cannot prove the word is free, and handing out a held address is worse than
+  // asking someone to try again.
+  if (retired.error) return 'unverified';
+  const retiredRows = (retired.data ?? []) as { entity_id: string | null }[];
+  if (retiredRows.some((r) => !sameId(exclusions.vendorProfileId, r.entity_id))) {
+    return 'retired_shop';
+  }
 
   if (await isSlugForwarding(admin, lower, exclusions)) return 'forwarding';
 

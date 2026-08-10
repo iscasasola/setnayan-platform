@@ -861,8 +861,10 @@ export default function PrivacyPage() {
 
             ⚠ The anchor differs from the schedule and the CODE is authority:
             the sweep runs 6 months from the event's FIRST CAPTURE (an
-            engagement shoot starts it), floored at 3 MONTHS after the event
-            date. Stated here the way it actually behaves.
+            engagement shoot starts it), floored at 3 MONTHS after the day the
+            event ENDS — its end date when the celebration spans several days,
+            else its start date (owner 2026-08-10). Stated here the way it
+            actually behaves.
 
             ⚠ FLOOR RAISED 30 DAYS → 3 MONTHS (owner 2026-08-07: "still preserve
             3 months all their photos in high res before we compress it"), in the
@@ -898,7 +900,7 @@ export default function PrivacyPage() {
               <strong>Photos and video</strong> — the{' '}
               <strong>full-resolution originals</strong> are kept for{' '}
               <strong>6 months</strong> from the event&rsquo;s first photo (never
-              less than <strong>3 months</strong> after the event itself), and are
+              less than <strong>3 months</strong> after the event ends), and are
               then replaced by a compressed copy. That{' '}
               <strong>compressed gallery stays online, free, for 5 years</strong> —
               we do not delete your photos. Past 5 years, keeping everything stored

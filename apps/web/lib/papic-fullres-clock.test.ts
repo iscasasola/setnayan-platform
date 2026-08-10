@@ -1,9 +1,11 @@
 /**
  * HIGH-RES ORIGINALS EXPIRE PER EVENT, NOT PER PHOTO.
  *
- * 🔒 CURRENT RULE — owner, 2026-08-07. READ THIS ONE:
+ * 🔒 CURRENT RULE — owner, 2026-08-07, amended 2026-08-10. READ THIS ONE:
  *   • high-res is kept **6 months from the event's FIRST capture**, and
- *   • **never less than 3 months after the event date itself**, and
+ *   • **never less than 3 months after the event ENDS** — the last day, which
+ *     for a multi-day celebration is not the day it started (owner 2026-08-10:
+ *     *"3 months after the event ends"*), and
  *   • cameras may start shooting **6 months before** the event.
  *
  * ⚠ SUPERSEDED, KEPT ONLY SO THE NUMBERS BELOW READ CORRECTLY — owner 2026-08-02:
@@ -34,7 +36,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -46,10 +48,43 @@ import { PAPIC_CAPTURE_MONTHS_BEFORE } from './papic-window';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const sql = readFileSync(
-  join(WEB, '../../supabase/migrations/20271102113000_fullres_clock_is_per_event_not_per_photo.sql'),
-  'utf8',
-);
+
+/**
+ * 🔑 THE GUARD FOLLOWS THE FUNCTION — it does not pin a filename.
+ *
+ * This suite used to read `20271102113000_fullres_clock_is_per_event_not_per_
+ * photo.sql` by name. That migration is APPLIED, so it can never be edited, and
+ * on 2026-08-10 the floor moved to the event's END date in a NEW migration. A
+ * name-pinned guard would have gone on cheerfully asserting the superseded body
+ * — green, and describing a rule the database no longer runs. That is the
+ * "a decision recorded in one place and contradicted in another" failure, in a
+ * test.
+ *
+ * So: find every migration that (re)defines the function and take the LAST one
+ * in filename order — which is the order both `db push --include-all` and the
+ * PGlite replay converge on, so it is the body actually in force.
+ */
+const MIGRATIONS = join(WEB, '../../supabase/migrations');
+const FN = 'papic_events_past_fullres_clock';
+
+function latestClockMigration(): { name: string; body: string } {
+  const defining = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((name) => ({ name, body: readFileSync(join(MIGRATIONS, name), 'utf8') }))
+    // A migration DEFINES the function only if it contains the CREATE, not
+    // merely a mention of the name in a comment or a GRANT.
+    .filter((m) => new RegExp(`CREATE OR REPLACE FUNCTION public\\.${FN}\\b`).test(m.body));
+  assert.ok(
+    defining.length >= 1,
+    `no migration defines public.${FN} — either it was deleted or this scan is wrong`,
+  );
+  return defining[defining.length - 1]!;
+}
+
+const clock = latestClockMigration();
+const sql = clock.body;
+
 const noComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
@@ -119,26 +154,79 @@ test('🪤 the floor is a GREATEST in SQL, not a subtraction in TypeScript', () 
   // in the database. That is the stronger check: a phantom argument name makes
   // PostgREST match no candidate at all and the call fails before the body runs.
 
-  // The floor's actual arithmetic: event_date + N days.
+  // The floor's actual arithmetic: the event's LAST day + N days.
+  //
+  // ⚠ RE-POINTED 2026-08-10, NOT LOOSENED. This previously read
+  // /\bevent_date\b … \+ make_interval\(…p_post_event_days…\)/ and it was
+  // correct for the rule of the day. The owner then corrected the rule — the
+  // floor counts from when the event ENDS — so the date term is now a derived
+  // `event_last_day`. The premise (the floor must be REAL arithmetic in the
+  // predicate, not a sentence in a comment) is unchanged; only the term moved.
   assert.match(
     bare,
     // [\s\S], not [^\n]: the clause is wrapped across two lines in the migration.
-    // \b after event_date: without it, renaming the column to `event_dateX` — a
-    // phantom identifier, the exact shape of three live bugs on this project —
-    // still matched on the prefix and the sabotage run went green.
-    /\bevent_date\b[\s\S]{0,60}\+\s*make_interval\(days\s*=>\s*GREATEST\(p_post_event_days,\s*0\)\)/,
-    'the floor must ADD p_post_event_days to event_date in the predicate. ' +
-      'Without this the three-month promise lives only in a comment.',
+    // \b around event_last_day: without it, renaming the column to
+    // `event_last_dayX` — a phantom identifier, the exact shape of four live
+    // bugs on this project — still matches on the prefix and the sabotage run
+    // goes green. This suite has already been fooled that way once.
+    /\bevent_last_day\b[\s\S]{0,60}\+\s*make_interval\(days\s*=>\s*GREATEST\(p_post_event_days,\s*0\)\)/,
+    'the floor must ADD p_post_event_days to the event\'s LAST day in the ' +
+      'predicate. Without this the three-month promise lives only in a comment.',
   );
 
   // A tautology anywhere in the predicate makes the floor unreachable while
   // leaving every string above it intact — the exact way the first draft was
   // fooled.
+  //
+  // ⚠ WIDENED 2026-08-10, AND ONLY BECAUSE A SABOTAGE RUN CAUGHT IT. This read
+  // /\bOR\s+(TRUE\b|1\s*=\s*1)/ — trailing form only. Writing `TRUE OR
+  // f.event_last_day IS NULL` neuters the floor identically and went straight
+  // through: 16/16 green while a real Postgres run of the same body expired four
+  // events that must not have been. `OR` is commutative and the guard was not.
+  // 🔑 A must-NOT-match guard is only as wide as the shapes you thought of, which
+  // is exactly why the executing db test beside it is the primary one.
   assert.doesNotMatch(
     bare,
-    /\bOR\s+(TRUE\b|1\s*=\s*1)/i,
+    /\b(?:OR\s+(?:TRUE\b|1\s*=\s*1)|(?:TRUE|1\s*=\s*1)\s+OR\b)/i,
     'a tautology short-circuits the floor: the clause is still there to read, ' +
       'and originals become droppable the moment the first-capture clock ends.',
+  );
+});
+
+test('🔒 the floor counts from the event\'s LAST day, not its first', () => {
+  // Owner correction 2026-08-10: "3 months after the event ENDS."
+  //
+  // events.event_date is the FIRST day; events.event_end_date (NULL = one-day)
+  // is the last. The shipped clock read only the first, so a multi-day
+  // celebration — travel is the multi-day type — gave its closing day LESS than
+  // the promised three months, by exactly the length of the event. Silent: the
+  // gallery still works, because the compressed copy is what replaces the
+  // original. Only someone asking for a print-quality file would find out.
+  //
+  // ⚠ The SEMANTICS are proven by an executing test against a real Postgres
+  // (tests/db/papic-fullres-clock-event-end.db.test.ts) — that one inserts a
+  // multi-day event and calls the function. THIS assertion exists so the shape
+  // cannot be quietly reverted in a migration nobody runs the db suite against.
+  const bare = sql.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  assert.match(
+    bare,
+    /GREATEST\(\s*COALESCE\(\s*e\.event_end_date,\s*e\.event_date\s*\),\s*e\.event_date\s*\)\s+AS\s+event_last_day\b/,
+    'the last day must be GREATEST(COALESCE(event_end_date, event_date), ' +
+      'event_date). COALESCE is the owner\'s fallback (no end date → the start ' +
+      'date). GREATEST is the one-way valve: a malformed end date EARLIER than ' +
+      'the start can then only be ignored, never shorten the promise. Dropping ' +
+      'either half is how this silently goes back to flooring on day one.',
+  );
+
+  // And the NULL branch must be about the SAME derived term. Flooring on
+  // event_last_day while null-checking event_date would make an event with an
+  // end date and no start date fall through to "no floor at all".
+  assert.match(
+    bare,
+    /\bf\.event_last_day\s+IS\s+NULL\b/,
+    'the "no date at all" escape hatch must test the same derived last day the ' +
+      'floor uses, or the two disagree for exactly the rows the fix is about',
   );
 });
 

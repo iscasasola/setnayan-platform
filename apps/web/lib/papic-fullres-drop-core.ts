@@ -32,7 +32,12 @@ export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
  * the longest so "three months" is true for every wedding date, not most.
  *
  * It can only ever KEEP files longer. It can never cause an earlier deletion —
- * the sweep takes GREATEST(first_capture + retention, event_date + this).
+ * the sweep takes GREATEST(first_capture + retention, event_LAST_day + this),
+ * where the last day is `events.event_end_date` when the celebration spans
+ * several days and `events.event_date` otherwise (owner 2026-08-10: *"3 months
+ * after the event ends"*). Counting from the FIRST day, as this said until
+ * 2026-08-10, shortchanged a multi-day event's closing night by exactly the
+ * length of the event.
  */
 export const FULL_RES_POST_EVENT_GRACE_DAYS = 92;
 

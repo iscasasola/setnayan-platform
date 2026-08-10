@@ -335,3 +335,215 @@ test('an unranked story is still REACHABLE — the couple picker can add it', as
   );
   assert.equal(Number(dup.rows[0]!.n), 1, 'one row per library question per event');
 });
+
+// ---------------------------------------------------------------------------
+// THE BOARD AS THE COUPLE'S SCREEN LISTS IT (2026-08-10).
+//
+// The couple's manager used to show ONE flat list in creation order. It now
+// shows the guest's order and splits off what does not fit — so these assert
+// that both halves of that split are real states of the data, not a story the
+// UI tells. If "Not showing" can never happen, the section is noise; if it can
+// happen and the old flat list existed, a couple was reading challenges that
+// reached nobody.
+// ---------------------------------------------------------------------------
+
+test('a fresh board fills exactly 20 contiguous slots, in rank order', async () => {
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
+     VALUES ('Board Order Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+
+  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+
+  const slots = await db.query<{ board_slot: number; priority_rank: number | null; library_id: number }>(
+    `SELECT m.board_slot, l.priority_rank, m.library_id
+       FROM public.papic_missions m
+       JOIN public.papic_challenge_library l ON l.library_id = m.library_id
+      WHERE m.event_id = $1 AND m.board_slot IS NOT NULL
+      ORDER BY m.board_slot`,
+    [eventId],
+  );
+  assert.equal(slots.rows.length, 20, 'a fresh board is exactly 20');
+  // Contiguous 1..20 — a hole would show as a skipped number on the couple's list.
+  assert.deepEqual(
+    slots.rows.map((r) => r.board_slot),
+    Array.from({ length: 20 }, (_, i) => i + 1),
+  );
+  // The screen says "In this order, on their phone." That is only true if the
+  // slot order really is the rank order.
+  const ranked = slots.rows.filter((r) => r.priority_rank !== null);
+  assert.deepEqual(
+    ranked.map((r) => r.priority_rank),
+    [...ranked.map((r) => r.priority_rank)].sort((a, b) => (a ?? 0) - (b ?? 0)),
+    'ranked challenges appear in rank order',
+  );
+  // And the six ranked stories are among them, in their ranks.
+  assert.equal(ranked.length, 20 - slots.rows.filter((r) => r.priority_rank === null).length);
+});
+
+test('past 20, the overflow really does sit off-board — the "Not showing" group is real', async () => {
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
+     VALUES ('Overflow Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+
+  // The couple adds five of their own on top of a full board.
+  for (let i = 1; i <= 5; i++) {
+    await db.query(
+      `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
+       VALUES ($1, 'prompt', 'couple', $2, true, true)`,
+      [eventId, `Our own challenge number ${i}. Ten seconds.`],
+    );
+  }
+  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+
+  const counts = await db.query<{ on_board: number | string; off_board: number | string }>(
+    `SELECT count(*) FILTER (WHERE board_slot IS NOT NULL) AS on_board,
+            count(*) FILTER (WHERE board_slot IS NULL)     AS off_board
+       FROM public.papic_missions WHERE event_id = $1 AND approved AND is_active`,
+    [eventId],
+  );
+  const onBoard = Number(counts.rows[0]!.on_board);
+  const offBoard = Number(counts.rows[0]!.off_board);
+  assert.equal(onBoard, 20, 'the board stays capped at 20');
+  assert.ok(
+    offBoard > 0,
+    'active, approved challenges CAN sit off-board — which is exactly what the old flat list hid',
+  );
+
+  // The couple's own picks win their lane, so their five are all on the board
+  // and Setnayan's are the ones that yield. Worth asserting: if it were the
+  // other way round, "hide one above to make room" would be useless advice.
+  const ownOff = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_missions
+      WHERE event_id = $1 AND source = 'couple' AND is_active AND board_slot IS NULL`,
+    [eventId],
+  );
+  assert.equal(Number(ownOff.rows[0]!.n), 0, "the couple's own picks are never the ones pushed off");
+});
+
+test('hiding a challenge frees its slot for the one that was waiting', async () => {
+  // The advice the screen gives — "hide one above to make room" — has to work.
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
+     VALUES ('Make Room Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+
+  const waitingBefore = await db.query<{ mission_id: string }>(
+    `SELECT mission_id FROM public.papic_missions
+      WHERE event_id = $1 AND is_active AND board_slot IS NULL LIMIT 1`,
+    [eventId],
+  );
+  // A fresh board has no overflow, so make some: add one couple pick.
+  if (waitingBefore.rows.length === 0) {
+    await db.query(
+      `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active)
+       VALUES ($1, 'prompt', 'couple', 'One more. Ten seconds.', true, true)`,
+      [eventId],
+    );
+    await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+  }
+
+  const before = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_missions
+      WHERE event_id = $1 AND is_active AND board_slot IS NULL`,
+    [eventId],
+  );
+  assert.ok(Number(before.rows[0]!.n) > 0, 'something is waiting');
+
+  // Hide one that IS on the board, then rebuild.
+  await db.query(
+    `UPDATE public.papic_missions SET is_active = false
+      WHERE mission_id = (SELECT mission_id FROM public.papic_missions
+                           WHERE event_id = $1 AND board_slot IS NOT NULL
+                             AND source = 'setnayan' LIMIT 1)`,
+    [eventId],
+  );
+  await db.query(`SELECT public.ensure_papic_board($1, false)`, [eventId]);
+
+  const after = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_missions
+      WHERE event_id = $1 AND is_active AND board_slot IS NOT NULL`,
+    [eventId],
+  );
+  assert.equal(Number(after.rows[0]!.n), 20, 'the freed slot is taken by the one that was waiting');
+});
+
+// ---------------------------------------------------------------------------
+// 🚨 THE GUEST-PATH BOARD BUILD (fixed 2026-08-10).
+//
+// The guest route calls ensure_papic_board through the SERVICE-ROLE client,
+// because a Papic guest is zero-account — there is no auth.uid() to present.
+// ensure_papic_board's first act used to be `PERFORM ensure_papic_auto_missions`,
+// and on 2026-08-01 that function was hardened so a NULL session is a REFUSAL.
+// So the nested call raised, the board transaction aborted, the route's
+// `.catch(() => 0)` swallowed it, and the reader FAIL-SOFTED to "show every
+// mission by created_at" — a plausible-looking list. Result: no library
+// challenge and no booth mission ever reached a guest, and nothing looked wrong.
+//
+// These four assert the fix AND that it did not reopen the door the 2026-08-01
+// hardening closed. The first one is the regression guard: revert the migration
+// and it goes red immediately.
+// ---------------------------------------------------------------------------
+
+test('the SERVER can build a board with no session — the guest path', async () => {
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
+     VALUES ('Server Path Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+
+  // auth.uid() is NULL here — exactly what the service-role admin client presents.
+  const built = await db.query<{ n: number }>(
+    `SELECT public.ensure_papic_board($1, false) AS n`,
+    [eventId],
+  );
+  assert.equal(built.rows[0]!.n, 20, 'the server must be able to build the board');
+
+  const rows = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_missions
+      WHERE event_id = $1 AND source = 'setnayan' AND board_slot IS NOT NULL`,
+    [eventId],
+  );
+  assert.equal(Number(rows.rows[0]!.n), 20, "Setnayan's challenges must reach the board");
+});
+
+test('the PUBLIC auto-missions RPC still refuses a sessionless caller (2026-08-01 stands)', async () => {
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting)
+     VALUES ('Public Door Event', 'wedding', 'civil', 'banquet_hall') RETURNING event_id`,
+  );
+  await assert.rejects(
+    () => db.query(`SELECT public.ensure_papic_auto_missions($1)`, [ev.rows[0]!.event_id]),
+    /not authorized/,
+    'the public door must stay shut to a missing session — the fix moved the CALL, not the guard',
+  );
+});
+
+test('the internal step is not reachable by anon or authenticated', async () => {
+  // It carries no authorization of its own, so its only protection is the
+  // revoke. If a grant ever reappears, a logged-in stranger could generate
+  // booth missions on any event.
+  const g = await db.query<{ grantee: string }>(
+    `SELECT grantee FROM information_schema.role_routine_grants
+      WHERE routine_schema = 'public'
+        AND routine_name = 'papic_generate_booth_missions_unchecked'
+        AND grantee IN ('anon','authenticated','PUBLIC')`,
+  );
+  assert.equal(g.rows.length, 0, `internal step is granted to: ${g.rows.map((r) => r.grantee).join(', ')}`);
+});
+
+test('the board builder is not reachable by anon', async () => {
+  // "NULL uid means the trusted server" is only safe while anon cannot call it.
+  const g = await db.query<{ grantee: string }>(
+    `SELECT grantee FROM information_schema.role_routine_grants
+      WHERE routine_schema = 'public' AND routine_name = 'ensure_papic_board'
+        AND grantee IN ('anon','PUBLIC')`,
+  );
+  assert.equal(g.rows.length, 0, `ensure_papic_board is granted to: ${g.rows.map((r) => r.grantee).join(', ')}`);
+});

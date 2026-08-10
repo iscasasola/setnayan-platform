@@ -9,7 +9,14 @@ import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote } from 'lucide-re
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { displayChallengePrompt, type PapicMissionSource } from '@/lib/papic-missions';
+import { eventPabatiActive } from '@/lib/pabati';
+import { ensurePapicBoard } from '@/lib/papic-games';
+import {
+  BOARD_SIZE,
+  displayChallengePrompt,
+  type CaptureKind,
+  type PapicMissionSource,
+} from '@/lib/papic-missions';
 import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
@@ -54,6 +61,19 @@ type MissionRow = {
   source: PapicMissionSource;
   prompt: string;
   is_active: boolean;
+  /** The guest board position, 1..20. NULL = this challenge exists but is NOT
+   *  being shown to guests — see the split below. */
+  board_slot: number | null;
+  capture_kind: CaptureKind | null;
+};
+
+/** What the guest is asked to DO. A story and a photo errand are different acts
+ *  and the couple's list has to say which — "Brag about the bride for ten
+ *  seconds" and "Catch the cake" read as the same kind of item otherwise. */
+const KIND_LABEL: Record<CaptureKind, string> = {
+  photo: 'Photo',
+  clip: 'On camera',
+  pabati: 'Video greeting',
 };
 
 const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> = {
@@ -67,16 +87,55 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
   if (!papicGamesEnabled()) return null;
 
   const supabase = await createClient();
+
+  // 🔑 BUILD THE BOARD BEFORE LISTING IT, or this screen lists the wrong thing.
+  //
+  // `board_slot` is written by ensure_papic_board, and until 2026-08-10 the ONLY
+  // caller was the guest route — so for the whole planning period, when the
+  // couple is actually curating, every slot is NULL. Listing that state honestly
+  // would tell a couple none of their challenges reach guests; listing it
+  // without slots at all (what this screen used to do) tells them nothing and
+  // silently misrepresents the order.
+  //
+  // The resolver's own auth guard names the couple and coordinator, so this is
+  // the caller it was written for. It is idempotent, advisory-locked per event,
+  // and MATERIALIZE-ONCE/NEVER-DELETE — a de-selection is board_slot = NULL, not
+  // a row delete — so calling it on a page render neither duplicates nor
+  // destroys anything. `pabatiActive` is computed server-side here, exactly as
+  // the guest route does it; a wrong value would show Pabati on a board that
+  // will not carry it. Fail-soft on error (the wrapper returns 0), and the list
+  // below still renders — just without positions.
+  const pabatiActive = await eventPabatiActive(supabase, eventId);
+  await ensurePapicBoard(supabase, eventId, pabatiActive);
+
   // Approved missions only — live or hidden. Pending vendor challenges
   // (approved=false) belong to the approval panel, not the curation list.
-  const { data } = await supabase
+  //
+  // Ordered the way a GUEST sees them (board_slot), not the way they happened to
+  // be created. Creation order is an implementation detail of when a vendor got
+  // booked; it means nothing to the couple and matched no other screen.
+  const { data, error: missionsErr } = await supabase
     .from('papic_missions')
-    .select('mission_id,source,prompt,is_active')
+    .select('mission_id,source,prompt,is_active,board_slot,capture_kind')
     .eq('event_id', eventId)
     .eq('approved', true)
+    .order('board_slot', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
 
+  // A rejected read resolves with `{ error }` and null data — it never throws.
+  // `?? []` alone would render "No challenges yet", which is a confident lie
+  // about an event that may have twenty.
   const missions = (data ?? []) as MissionRow[];
+  const missionsReadable = !missionsErr;
+
+  // The split the couple actually needs: what guests see, and what does not fit.
+  // A hidden challenge is excluded from the board by the resolver, so it lands
+  // in `offBoard` — but its own "Hidden from guests" line already explains why,
+  // and it is the couple's own doing. `waiting` is the surprising set: active,
+  // approved, and still not shown, because the 20 slots are full.
+  const onBoard = missions.filter((m) => m.board_slot !== null);
+  const offBoard = missions.filter((m) => m.board_slot === null);
+  const waiting = offBoard.filter((m) => m.is_active);
 
   // ── The story picker ──────────────────────────────────────────────────────
   // Every story question Setnayan supplies, minus the ones this event already
@@ -215,88 +274,154 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
         </div>
       ) : null}
 
-      {/* Curate the live set */}
-      {missions.length > 0 ? (
-        <ul className="mt-4 space-y-2">
-          {missions.map((m) => {
-            // The Record above is exhaustive over PapicMissionSource, so this
-            // only fires on a value the database allows and TypeScript has not
-            // heard of. It must NOT fall back to another source's badge —
-            // defaulting to `vendor` is exactly how Setnayan's own
-            // recommendations came to be labelled as a vendor's.
-            const badge =
-              SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/60' };
-            return (
-              <li
-                key={m.mission_id}
-                className={`rounded-xl border border-ink/10 bg-cream/70 p-3 ${
-                  m.is_active ? '' : 'opacity-60'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.cls}`}
-                    >
-                      {badge.label}
-                    </span>
-                    {/* The story challenges store a {who} side token that the
-                        guest reader swaps per guest. The couple is not a side,
-                        so they see the neutral wording — never the raw token. */}
-                    <p className="mt-1 text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
-                    {!m.is_active ? (
-                      <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {/* Hide / show — curation for every source. */}
-                    <form action={setCoupleChallengeActiveAction}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="mission_id" value={m.mission_id} />
-                      <input
-                        type="hidden"
-                        name="active"
-                        value={m.is_active ? 'false' : 'true'}
-                      />
-                      <button
-                        type="submit"
-                        title={m.is_active ? 'Hide from guests' : 'Show to guests'}
-                        aria-label={m.is_active ? 'Hide from guests' : 'Show to guests'}
-                        className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
-                      >
-                        {m.is_active ? (
-                          <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />
-                        ) : (
-                          <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
-                        )}
-                      </button>
-                    </form>
-                    {/* Delete — only the couple's own. */}
-                    {m.source === 'couple' ? (
-                      <form action={deleteCoupleChallengeAction}>
-                        <input type="hidden" name="event_id" value={eventId} />
-                        <input type="hidden" name="mission_id" value={m.mission_id} />
-                        <button
-                          type="submit"
-                          title="Delete"
-                          aria-label="Delete challenge"
-                          className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
-                        >
-                          <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
+      {/* ── The list, in two groups ──────────────────────────────────────────
+          It used to be ONE flat list in creation order, which answered neither
+          question a couple actually has: what will my guests see, and in what
+          order. Worse, the 20-slot board silently drops the overflow, so a
+          couple could read a list of 24 with no hint that four of them reach
+          nobody. Same order as the guest board, and the overflow says so. */}
+      {!missionsReadable ? (
+        <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+          We couldn&rsquo;t load your challenges just now. Refresh the page &mdash;
+          nothing has changed.
+        </p>
+      ) : missions.length === 0 ? (
         <p className="mt-4 text-sm text-ink/45">
           No challenges yet — add one above, or they&rsquo;ll appear as you book vendors.
         </p>
+      ) : (
+        <>
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-ink">
+              What your guests see{onBoard.length > 0 ? ` · ${onBoard.length}` : ''}
+            </h4>
+            <p className="mt-0.5 text-xs text-ink/55">In this order, on their phone.</p>
+            {onBoard.length > 0 ? (
+              <ul className="mt-2 space-y-2">
+                {onBoard.map((m) => (
+                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-ink/45">
+                Nothing is showing yet — unhide one below, or add a challenge above.
+              </p>
+            )}
+          </div>
+
+          {offBoard.length > 0 ? (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-ink">
+                Not showing · {offBoard.length}
+              </h4>
+              <p className="mt-0.5 text-xs text-ink/55">
+                {waiting.length > 0
+                  ? `Your guests see ${BOARD_SIZE} challenges at a time. ${
+                      waiting.length === 1
+                        ? 'This one is waiting for a free spot'
+                        : `These ${waiting.length} are waiting for a free spot`
+                    } — hide one above to make room.`
+                  : 'Hidden by you. Tap the eye to bring one back.'}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {offBoard.map((m) => (
+                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
+  );
+}
+
+/** One row of the couple's list. Extracted so the on-board and not-showing
+ *  groups render identically — two copies of this markup is how the two groups
+ *  would quietly drift apart. */
+function ChallengeRow({ m, eventId }: { m: MissionRow; eventId: string }) {
+  // The Record is exhaustive over PapicMissionSource, so this only fires on a
+  // value the database allows and TypeScript has not heard of. It must NOT fall
+  // back to another source's badge — defaulting to `vendor` is exactly how
+  // Setnayan's own recommendations came to be labelled as a vendor's.
+  const badge = SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/60' };
+  const kind = m.capture_kind ? KIND_LABEL[m.capture_kind] : null;
+
+  return (
+    <li
+      className={`rounded-xl border border-ink/10 bg-cream/70 p-3 ${
+        m.is_active ? '' : 'opacity-60'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          {/* The guest's position, so this list and their phone agree. */}
+          {m.board_slot !== null ? (
+            <span
+              aria-hidden
+              className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold tabular-nums text-ink/55"
+            >
+              {m.board_slot}
+            </span>
+          ) : null}
+          <div className="min-w-0">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.cls}`}
+              >
+                {badge.label}
+              </span>
+              {kind ? (
+                <span className="inline-block rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
+                  {kind}
+                </span>
+              ) : null}
+            </span>
+            {/* The story challenges store a {who} side token that the guest
+                reader swaps per guest. The couple is not a side, so they see the
+                neutral wording — never the raw token. */}
+            <p className="mt-1 text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
+            {!m.is_active ? (
+              <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Hide / show — curation for every source. */}
+          <form action={setCoupleChallengeActiveAction}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="mission_id" value={m.mission_id} />
+            <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
+            <button
+              type="submit"
+              title={m.is_active ? 'Hide from guests' : 'Show to guests'}
+              aria-label={m.is_active ? 'Hide from guests' : 'Show to guests'}
+              className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
+            >
+              {m.is_active ? (
+                <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />
+              ) : (
+                <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
+              )}
+            </button>
+          </form>
+          {/* Delete — only the couple's own. */}
+          {m.source === 'couple' ? (
+            <form action={deleteCoupleChallengeAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              <button
+                type="submit"
+                title="Delete"
+                aria-label="Delete challenge"
+                className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
+              >
+                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </div>
+    </li>
   );
 }

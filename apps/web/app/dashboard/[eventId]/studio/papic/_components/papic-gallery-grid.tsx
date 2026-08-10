@@ -6,6 +6,7 @@ import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/p
 import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras';
 import {
   PRESERVATION_BLOCK_PHP,
+  PRESERVATION_BLOCK_POINTS,
   allowancePoints,
   blocksNeeded,
 } from '@/lib/papic-storage-telemetry';
@@ -363,26 +364,29 @@ function ShowcaseToggle({
 }
 
 /**
- * ⚠ WHAT IS BEING KEPT SHARP, AND WHAT THAT COSTS — counted over the WHOLE
- * event, priced in PAPIC CREDITS.
+ * ⚠ WHAT THE COUPLE HAS CHOSEN TO KEEP, AND WHAT IT WOULD COST.
  *
- * Owner, 2026-08-10: *"1 credit = 1 photo, 8 credits = 10 sec video. the
- * preservation will follow those. 500/year for every 5000 credits worth of
- * preserved photo and video."*
+ * Owner, 2026-08-10, twice: preservation is priced in Papic credits — *"1 credit
+ * = 1 photo, 8 credits = 10 sec video… 500/year for every 5000 credits worth"* —
+ * and it is **opt-in**: *"then start with nothing. they will pick which they want
+ * to preserve."*
  *
- * 🔑 A COUNT OF ITEMS IS NOT A BILL. "412 kept" says nothing about what a couple
- * owes, because one 10-second video costs EIGHT times what a photo costs. The
- * credits figure is weighted from the same constants the capture path charges
- * with, and the price from `PRESERVATION_BLOCK_PHP` — never re-typed here.
+ * 🔑 SO THIS STARTS AT ZERO AND ONLY GOES UP. The earlier build kept everything
+ * by default and asked couples to remove what they did not want, which under a
+ * PAID model quietly enrolled every couple into a bill for a selection they had
+ * never made. Nothing is chosen until they choose it.
  *
- * 🚨 IT USED TO COUNT THE GALLERY ARRAY, which is capped at 120 per source, so
- * at any real wedding every figure was wrong — and wrong in the direction that
- * looks plausible. It now renders NOTHING when the count is unavailable: a zero
- * reads as "you are keeping none of your photos", which is the alarming thing to
- * say when the truth is "we could not count".
+ * 🔑 A COUNT OF ITEMS IS NOT A BILL. One 10-second video costs eight times a
+ * photo, so the credits figure is weighted from the same constants the capture
+ * path charges with, and the price comes from PRESERVATION_BLOCK_PHP. Nothing
+ * here is re-typed.
  *
- * ⚠ NO "FOREVER" (retired 2026-08-07) and no claim that anything is deleted —
- * releasing a capture only changes its size.
+ * 🚨 AND IT USED TO COUNT THE GALLERY ARRAY, capped at 120 per source, so at any
+ * real wedding every figure was wrong — plausibly wrong, the kind nobody
+ * questions. It renders NOTHING when the count is unavailable rather than a zero
+ * that would read as a fact.
+ *
+ * ⚠ NO "FOREVER" (retired 2026-08-07) and no claim that anything is deleted.
  */
 function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }) {
   if (!totals || totals.total === 0) return null;
@@ -390,38 +394,53 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
   const blocks = blocksNeeded(totals.keptCredits);
   const annualPhp = blocks * PRESERVATION_BLOCK_PHP;
   const covered = allowancePoints(blocks);
+  const nonePicked = totals.kept === 0;
 
   return (
     <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="text-xs font-medium text-ink/80">
-          <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
-          <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> kept at full
-          size
+          {nonePicked ? (
+            <>Nothing chosen to keep at full size yet</>
+          ) : (
+            <>
+              <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
+              <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> chosen to
+              keep at full size
+            </>
+          )}
         </p>
-        <p className="font-mono text-xs text-ink/55">
-          {totals.keptCredits.toLocaleString('en-PH')} / {covered.toLocaleString('en-PH')} credits
-        </p>
+        {nonePicked ? null : (
+          <p className="font-mono text-xs text-ink/55">
+            {totals.keptCredits.toLocaleString('en-PH')} / {covered.toLocaleString('en-PH')} credits
+          </p>
+        )}
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-        <div
-          className="h-full bg-success-500"
-          style={{ width: `${Math.min(100, Math.round((totals.keptCredits / covered) * 100))}%` }}
-        />
-      </div>
+      {nonePicked ? null : (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+          <div
+            className="h-full bg-success-500"
+            style={{ width: `${Math.min(100, Math.round((totals.keptCredits / covered) * 100))}%` }}
+          />
+        </div>
+      )}
       <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
-        Everything is kept at full size until three months after your event ends — that part is
-        included. <strong className="font-medium text-ink/70">After that</strong>, keeping this
-        much at full size would be {formatPhp(annualPhp)} a year
-        {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is one
-        credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}. Release anything you don&rsquo;t need
-        kept and it stays in your gallery, only smaller — nothing is ever deleted.
-        {totals.released > 0 ? (
+        Every photo and video is kept at full size until three months after your event ends — that
+        part is included. <strong className="font-medium text-ink/70">After that</strong>, they
+        become smaller copies unless you choose to keep them.{' '}
+        {nonePicked ? (
+          <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
+          {PAPIC_POINTS_PER_CLIP}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
+          credits&rsquo; worth is {formatPhp(PRESERVATION_BLOCK_PHP)} a year.</>
+        ) : (
           <>
-            {' '}You have released{' '}
-            <span className="tabular-nums">{totals.released.toLocaleString('en-PH')}</span>.
+            Keeping what you have chosen would be {formatPhp(annualPhp)} a year
+            {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is
+            one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}.
           </>
-        ) : null}
+        )}{' '}
+        Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only
+        smaller.
       </p>
     </div>
   );

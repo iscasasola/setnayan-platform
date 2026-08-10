@@ -356,7 +356,7 @@ export async function runFullResDropSweep(
   const [seat, guest] = await Promise.all([
     admin
       .from('papic_photos')
-      .select('photo_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at')
+      .select('photo_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .eq('photo_type', 'photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
@@ -370,7 +370,7 @@ export async function runFullResDropSweep(
       .limit(limit),
     admin
       .from('papic_guest_captures')
-      .select('capture_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at')
+      .select('capture_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .or('media_type.is.null,media_type.eq.photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
@@ -482,8 +482,8 @@ export async function runFullResDropSweep(
     // ── WHO KEEPS THEIR ORIGINALS (owner-locked 2026-08-10) ─────────────────
     // A paid event preserves its captures — but PER CAPTURE now, not
     // all-or-nothing. The couple picks what keeps full resolution, and **if
-    // nothing is picked, everything is**: `preserve_declined_at` records only
-    // what they took OUT, so absent means preserved and a capture taken tomorrow
+    // ⚠ OPT-IN (owner 2026-08-10): `preserved_at` records what the couple CHOSE
+    // to keep, so absent means NOT preserved and a capture taken tomorrow
     // is protected without anyone touching it.
     //
     // ⚠ This CHANGED shipped behaviour: until today a paid event skipped every
@@ -495,7 +495,7 @@ export async function runFullResDropSweep(
       keep = await eventSkuActive(admin, it.event_id, KEEP_FULL_RES_SKU).catch(() => false);
       keepCache.set(it.event_id, keep);
     }
-    if (keep && !it.preserve_declined_at) {
+    if (it.preserved_at) {
       skippedKeepFullRes += 1;
       continue;
     }

@@ -150,3 +150,55 @@ Guarded: the copy must say "would be", must name the free window as included,
 must state when it ends in the owner's own words, and a bare "costs ₱X a year" is
 rejected. Mutation-tested both ways — restoring the standing-bill wording, and
 dropping the free-window sentence — each caught.
+
+### ⛔ REVERSED 2026-08-10 — preservation is OPT-IN. The default is NOTHING.
+
+Owner: *"then start with nothing. they will pick which they want to preserve."*
+
+This reverses the same day's earlier *"if nothing is picked, pick all"*, and the
+reversal is right: preservation costs ₱500/year per 5,000 credits, and **you do
+not auto-enrol somebody into a bill.** Keep-everything-by-default meant a couple
+who never opened the picker was silently holding a paid selection they had never
+made — which is exactly the misreading the conditional wording above was papering
+over. Starting from nothing removes the problem instead of rewording it.
+
+🔑 **THE COLUMN IS REPLACED, NOT REINTERPRETED.** `preserve_declined_at` means
+"took this OUT"; the stored fact is now the opposite. Keeping the name and
+flipping the meaning would leave every query result and audit line reading
+backwards — *when a stored value's NAME is what misleads, rename the value.*
+Migration `20271127689103` adds `preserved_at`, indexes the picked rows, and
+drops the old column. **Verified safe in prod first:** 14 photos, **0** declines,
+0 guest captures — nothing to carry across, no back-fill owed.
+
+**What a couple who does nothing now gets:** originals until the locked floor
+(6 months from first capture, never less than 3 months after the event ends),
+then compressed copies. **Nothing is deleted**; the compressed gallery is free
+for five years either way.
+
+⚠ **A guard's premise changed, so it was RE-POINTED, not deleted.**
+`preserve-picks.test.ts` was built on the old rule and even banned an opt-in
+`preserved_at` column by name. Every assertion survives, inverted; the ban now
+covers the opt-OUT column, for the same reason it once covered the opt-in one.
+
+🚨 **And it was reading a migration BY FILENAME** — so the moment the default
+reversed, it would have gone on asserting a superseded file, green, describing a
+rule the database no longer runs. It now **finds** the last migration that
+defines the column. A name-pinned guard outlives the thing it guards.
+
+🚨 **Mutation testing found the worst defect of the day, which review would not
+have.** Inverting the ternary in the write — so tapping "keep this" records the
+opposite — broke no type, failed no test, and reads fine. It would have
+compressed exactly the photos a couple deliberately chose to keep, while sparing
+the ones they ignored. A new guard asserts the write direction, and names which
+way round it went when it fails.
+
+Mutation-tested four ways, baseline green, every sabotage verified applied:
+back to opt-out in the sweep (caught) · the write inverted (caught, after the new
+guard) · the opt-out column reintroduced alongside (caught) · the sweep no longer
+selecting the column (caught).
+
+Exposure baseline regenerated in the same commit — the diff is a **one-for-one
+rename**, same grants, nothing widened.
+
+SPEC IMPACT: reverses the 2026-08-10 "if nothing is picked, pick all" row in
+`DECISION_LOG.md`; a superseding row is added there.

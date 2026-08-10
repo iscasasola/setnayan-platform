@@ -1529,7 +1529,8 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
  *
  * 🔒 OWNER-LOCKED 2026-08-10: *"they can pick which one to preserve"* and *"if
  * nothing is picked, pick all."* The column stores only the DECLINE, so absent
- * means preserved; this writes or clears that mark for a single capture.
+ * ⚠ OPT-IN (owner 2026-08-10): the column records the PICK, so absent means
+ * NOT preserved. This sets or clears that pick for a single capture.
  *
  * ⚠ THIS IS NOT A DELETE. Declining lets the normal sweep replace this ORIGINAL
  * with the compressed copy that already exists. The photo stays in the gallery,
@@ -1591,7 +1592,7 @@ export async function setCapturePreserved(formData: FormData) {
 
   const { error: writeErr } = await admin
     .from(table)
-    .update({ preserve_declined_at: preserve ? null : new Date().toISOString() })
+    .update({ preserved_at: preserve ? new Date().toISOString() : null })
     .eq(idCol, captureId)
     .eq('event_id', eventId);
 

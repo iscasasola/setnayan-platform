@@ -38,7 +38,8 @@ export type GalleryPhoto = {
    * Is this capture's ORIGINAL still kept at full resolution?
    *
    * TRUE by default — "if nothing is picked, pick all" (owner 2026-08-10). The
-   * database stores the DECLINE, so absent means preserved; this flips it back to
+   * database stores the PICK (opt-in, owner 2026-08-10), so absent means NOT
+   * preserved; this reads it as
    * the positive the screen actually talks in.
    *
    * ⚠ Already-replaced originals read FALSE and cannot be turned back on: the
@@ -85,7 +86,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserve_declined_at',
+        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -93,7 +94,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserve_declined_at',
+        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -215,9 +216,10 @@ export async function fetchPapicGallery(
         : null,
       kind: isClip ? 'clip' : 'photo',
       // "If nothing is picked, pick all" — the column stores only the DECLINE,
-      // so absent means preserved. An original already replaced by its
-      // compressed copy is not preserved and cannot become so again.
-      preserved: !r.preserve_declined_at && !r.full_res_dropped_at,
+      // ⚠ OPT-IN: the column records what the couple CHOSE to keep, so absent
+      // means NOT preserved. An original already replaced by its compressed
+      // copy is not preserved and cannot become so again — the file is gone.
+      preserved: !!r.preserved_at && !r.full_res_dropped_at,
       alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'seat',
       tagged: Boolean(tagSrc),
@@ -256,7 +258,7 @@ export async function fetchPapicGallery(
           })
         : null,
       kind: isClip ? 'clip' : 'photo',
-      preserved: !r.preserve_declined_at && !r.full_res_dropped_at,
+      preserved: !!r.preserved_at && !r.full_res_dropped_at,
       alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'guest',
       tagged: Boolean(tagSrc),
@@ -430,9 +432,9 @@ export async function fetchTeaserFrames(
  * exactly the alarming thing to say when the truth is "we could not count".
  */
 export type PreservationTotals = {
-  /** Captures still held at full resolution (the default). */
+  /** Captures the couple has CHOSEN to keep at full resolution. Starts at 0. */
   kept: number;
-  /** Captures the couple has released. */
+  /** Captures not chosen — under opt-in this starts as every one of them. */
   released: number;
   /** kept + released — the couple's own captures that still have an original. */
   total: number;
@@ -459,7 +461,7 @@ export async function fetchPreservationTotals(
   // count one table's clips as photos.
   const countOf = async (
     table: 'papic_photos' | 'papic_guest_captures',
-    declined: boolean,
+    picked: boolean,
     clipsOnly: boolean | null,
   ): Promise<number | null> => {
     const kindCol = table === 'papic_photos' ? 'photo_type' : 'media_type';
@@ -468,7 +470,7 @@ export async function fetchPreservationTotals(
       .select('event_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('full_res_dropped_at', null);
-    q = declined ? q.not('preserve_declined_at', 'is', null) : q.is('preserve_declined_at', null);
+    q = picked ? q.not('preserved_at', 'is', null) : q.is('preserved_at', null);
     if (clipsOnly === true) q = q.eq(kindCol, 'clip');
     if (clipsOnly === false) q = q.neq(kindCol, 'clip');
     const { count, error } = await q;
@@ -477,23 +479,24 @@ export async function fetchPreservationTotals(
     return error ? null : (count ?? 0);
   };
 
-  const [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatGone, guestGone] =
+  const [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatUnpicked, guestUnpicked] =
     await Promise.all([
-      countOf('papic_photos', false, false),
-      countOf('papic_photos', false, true),
-      countOf('papic_guest_captures', false, false),
-      countOf('papic_guest_captures', false, true),
-      countOf('papic_photos', true, null),
-      countOf('papic_guest_captures', true, null),
+      countOf('papic_photos', true, false),
+      countOf('papic_photos', true, true),
+      countOf('papic_guest_captures', true, false),
+      countOf('papic_guest_captures', true, true),
+      countOf('papic_photos', false, null),
+      countOf('papic_guest_captures', false, null),
     ]);
 
-  const parts = [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatGone, guestGone];
+  const parts = [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatUnpicked, guestUnpicked];
   if (parts.some((n) => n === null)) return null;
 
   const keptPhotos = seatKeptPhotos! + guestKeptPhotos!;
   const keptClips = seatKeptClips! + guestKeptClips!;
   const kept = keptPhotos + keptClips;
-  const released = seatGone! + guestGone!;
+  // ⚠ OPT-IN: this is what the couple has NOT chosen, which starts as everything.
+  const released = seatUnpicked! + guestUnpicked!;
 
   return {
     kept,

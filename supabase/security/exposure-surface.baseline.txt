@@ -2900,7 +2900,7 @@ col	public.papic_guest_captures.media_type	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.moderation_state	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.orig_bytes	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.poster_r2_key	anon=SIU authenticated=SIU
-col	public.papic_guest_captures.preserve_declined_at	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.preserved_at	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.r2_object_key	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_x	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_y	anon=SIU authenticated=SIU
@@ -2996,7 +2996,7 @@ col	public.papic_photos.paparazzi_seat_id	anon=SIU authenticated=SIU
 col	public.papic_photos.photo_id	anon=SIU authenticated=SIU
 col	public.papic_photos.photo_type	anon=SIU authenticated=SIU
 col	public.papic_photos.poster_r2_key	anon=SIU authenticated=SIU
-col	public.papic_photos.preserve_declined_at	anon=SIU authenticated=SIU
+col	public.papic_photos.preserved_at	anon=SIU authenticated=SIU
 col	public.papic_photos.r2_object_key	anon=SIU authenticated=SIU
 col	public.papic_photos.size_bytes	anon=SIU authenticated=SIU
 col	public.papic_photos.superseded_at	anon=SIU authenticated=SIU

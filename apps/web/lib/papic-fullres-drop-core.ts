@@ -458,26 +458,31 @@ export type PapicDropItem = DropCandidate & {
   orig_bytes: number | null;
   /**
    * Set when the couple took this capture OUT of full-resolution preservation.
-   * NULL = preserved — the default, because "if nothing is picked, pick all".
+   * ⚠ OPT-IN (owner 2026-08-10): NULL = NOT preserved, which is the default.
+   * Preservation is a paid option and nobody is auto-enrolled into a bill.
    *
-   * ⚠ NOT a delete flag. Declining only lets this original be replaced by its
-   * compressed copy at the normal point; the photo itself is never deleted and
-   * the compressed copy is kept five years for everyone, paid or not.
+   * ⚠ NOT a delete flag. Not choosing a capture only lets this original be
+   * replaced by its compressed copy at the normal point; the photo itself is
+   * never deleted and the compressed copy is kept five years for everyone, paid
+   * or not.
    *
    * 🚨 REQUIRED, NOT OPTIONAL — and that is the whole fix. It shipped as
    * `?: string | null` and NOT ONE of the four mappers below assigned it, so on
-   * every real sweep Item it was `undefined`. The sweep's gate reads
-   * `keep && !it.preserve_declined_at`, and `!undefined` is `true`, so the
-   * per-capture choice collapsed back into the old all-or-nothing per-event
-   * behaviour: a couple could decline a capture and the sweep would preserve it
-   * anyway. Nothing threw, nothing logged, and the type system had nothing to
-   * say because an absent optional field is legal.
+   * every real sweep Item it was `undefined`, so the per-capture choice
+   * collapsed back into the old all-or-nothing per-event behaviour and a
+   * couple's pick did nothing at all. Nothing threw, nothing logged, and the
+   * type system had nothing to say because an absent optional field is legal.
+   *
+   * (That gate then read `keep && !it.preserve_declined_at` — the opt-OUT model.
+   * The owner reversed it the same day and the column is now `preserved_at`,
+   * read directly. The lesson about optionality is unchanged and is why this
+   * field survived the rename still required.)
    *
    * Making it required is the mechanism, not the paperwork: a future fifth
    * mapper that forgets this field now fails to compile instead of silently
    * re-introducing the same dead control. Do NOT put the `?` back.
    */
-  preserve_declined_at: string | null;
+  preserved_at: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -502,7 +507,7 @@ export function seatPhotoItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
-    preserve_declined_at: asStr(r.preserve_declined_at),
+    preserved_at: asStr(r.preserved_at),
   };
 }
 
@@ -524,7 +529,7 @@ export function guestPhotoItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
-    preserve_declined_at: asStr(r.preserve_declined_at),
+    preserved_at: asStr(r.preserved_at),
   };
 }
 
@@ -550,7 +555,7 @@ export function seatClipItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
-    preserve_declined_at: asStr(r.preserve_declined_at),
+    preserved_at: asStr(r.preserved_at),
   };
 }
 
@@ -575,6 +580,6 @@ export function guestClipItem(r: Row): PapicDropItem {
     captured_at: r.captured_at as string,
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
-    preserve_declined_at: asStr(r.preserve_declined_at),
+    preserved_at: asStr(r.preserved_at),
   };
 }

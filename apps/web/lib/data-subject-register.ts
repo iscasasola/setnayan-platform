@@ -85,7 +85,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
     purpose:
       'Run the event the customer is planning: the account, the event page, the guest list, the suppliers they book, and the money they pay Setnayan for services.',
     retention:
-      'No automatic clock on the account. Chat is purged at 5 years (lib/retention-sweep.ts), except where the event carries a payment record — those events are held under the 10-year BIR books-of-account floor. Photos: the full-resolution original is replaced by a compressed copy 6 months from first capture, never sooner than 3 months after the event (lib/papic-fullres-drop.ts); the photo itself is never deleted. Everything else is cleared on an erasure request (lib/erasure/purge.ts).',
+      'No automatic clock on the account. Chat is purged at 5 years (lib/retention-sweep.ts), except where the event carries a payment record — those events are held under the 10-year BIR books-of-account floor. Photos: the full-resolution original is replaced by a compressed copy 6 months from first capture, never sooner than 3 months after the day the event ends — its end date where the celebration spans several days, else its start date (lib/papic-fullres-drop.ts); the photo itself is never deleted. Everything else is cleared on an erasure request (lib/erasure/purge.ts).',
     disposalDateSettled: false,
   },
 

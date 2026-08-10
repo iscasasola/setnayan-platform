@@ -58,7 +58,13 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 //     failed / missing → defer. Drive state unreadable → defer. (A read failure
 //     must never authorize a deletion.)
 //   • only for an event whose 6-month clock has run out AND which is at least
-//     30 days past its event date (papic_events_past_fullres_clock).
+//     FULL_RES_POST_EVENT_GRACE_DAYS (three months) past the day the event
+//     ENDED — its end date when the celebration spans several days, else its
+//     start date (papic_events_past_fullres_clock). ⚠ This line read "30 days
+//     past its event date": both halves went stale. The floor became three
+//     months on 2026-08-07, and it moved off the event's FIRST day on
+//     2026-08-10, because a multi-day celebration's closing night was getting
+//     less than the promised three months.
 //   • the R2 delete resolves a known bucket or declines.
 // ============================================================================
 
@@ -255,8 +261,11 @@ export type FullResDropSummary = {
  *
  * Thin wrapper over `papic_events_past_fullres_clock`, which owns the rule:
  * 6 months from the event's FIRST capture, and never sooner than
- * FULL_RES_POST_EVENT_GRACE_DAYS after the event date so the couple always gets
- * their download grace.
+ * FULL_RES_POST_EVENT_GRACE_DAYS after the day the event ENDED so the couple
+ * always gets their download grace. "Ended" is `events.event_end_date` when the
+ * celebration spans several days and `events.event_date` otherwise (owner
+ * 2026-08-10: *"3 months after the event ends"*) — for a one-day wedding the two
+ * are the same, which is why reading only the start date never showed.
  *
  * ⚠ FAIL-CLOSED, and this is the important part. On any error — a missing
  * function, an unreadable row, a transport hiccup — this returns an EMPTY list,

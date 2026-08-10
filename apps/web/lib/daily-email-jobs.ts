@@ -409,6 +409,15 @@ function clipDropEnabled(): boolean {
  * expired". Pulling back only ONE offset would give zero lead time on any event
  * where the post-event term binds.
  *
+ * 🔑 CALLING THE SAME FUNCTION IS WHAT KEEPS THIS HONEST. When the floor moved
+ * from the event's start day to the day it ENDS (owner 2026-08-10), this job
+ * followed with no edit — because it does not compute the rule, it asks for it.
+ * A hand-typed copy of the arithmetic here would have started warning couples
+ * about a compression date the sweep no longer used, and warning LATER than the
+ * sweep runs is the one direction that costs someone their originals.
+ * `tests/db/papic-fullres-clock-event-end.db.test.ts` proves the pulled-back
+ * call stays a superset of the sweep's.
+ *
  * Returns `null` on any error — the caller then warns nobody this pass. A missed
  * nudge is recoverable next run; telling a couple their originals go in two
  * weeks when they do not is not.
@@ -490,7 +499,9 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
   if (agingEventIds.length === 0) return { candidates: 0, sent: 0 };
 
   // ⚠ THE QUERIES ABOVE ONLY KNOW captured_at. The DROP's clock is
-  // `max(first_capture + retention, event_date + FULL_RES_POST_EVENT_GRACE_DAYS)`
+  // `max(first_capture + retention, event_LAST_day + FULL_RES_POST_EVENT_GRACE_DAYS)`
+  // — the last day being the event's end date when it spans several days, else
+  // its start date (owner 2026-08-10, "3 months after the event ends")
   // — so for an engagement shoot months before the wedding, the post-event term
   // binds and the photo is NOT droppable when its own age says it is. Warning on
   // age alone would still be early for exactly the case the owner asked about.

@@ -153,7 +153,9 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
                 1. A "30-day window" that starts when photos land in Drive. NO
                    SUCH RULE EXISTS anywhere in the product. The real clock runs
                    6 months from the event's FIRST capture, floored at 3 months
-                   after the event, and it is about OUR copy, not a download.
+                   after the event ENDS (its end date when the celebration spans
+                   several days, else its start date — owner 2026-08-10), and it
+                   is about OUR copy, not a download.
                 2. "Setnayan compresses the Drive originals". We never touch the
                    couple's own Drive folder — we only ADD to it. The sweep
                    removes our own R2 original and actually DEFERS when the Drive
@@ -173,7 +175,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
               Every photo stays in your Setnayan gallery, free, for 5 years. About{' '}
               <span className="font-mono font-semibold">6 months</span> after
               your first photo is taken — and never sooner than 3 months after
-              your event — we swap the full-resolution original for a compressed
+              your event ends — we swap the full-resolution original for a compressed
               copy, and we keep that copy indefinitely. Anything already in your
               Drive folder is yours: we only add to it, and never compress or
               remove what&rsquo;s there.

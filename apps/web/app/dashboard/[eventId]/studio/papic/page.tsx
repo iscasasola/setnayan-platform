@@ -140,6 +140,19 @@ type Props = {
     papic_window_error?: string;
     /** Which room to open — see _lib/rooms.ts. Anything unrecognised is ignored. */
     tab?: string;
+    // ⚠ THESE NINE WERE EMITTED AND READ BY NOTHING. Every one is redirected
+    // back by an action on this route, and not one appeared in this type — so
+    // changing the Papic look, the photo quality, face matching, showcase state,
+    // vendor visibility or guest cameras all saved AND FAILED in silence.
+    style_set?: string;
+    style_error?: string;
+    quality_set?: string;
+    quality_error?: string;
+    showcase_set?: string;
+    showcase_error?: string;
+    faceTagging?: string;
+    vendorMedia?: string;
+    guestCameras?: string;
   }>;
 };
 
@@ -191,6 +204,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     limited_error: limitedError,
     papic_window_saved: papicWindowSaved,
     papic_window_error: papicWindowError,
+    style_set: styleSet,
+    style_error: styleError,
+    quality_set: qualitySet,
+    quality_error: qualityError,
+    showcase_set: showcaseSet,
+    showcase_error: showcaseError,
+    faceTagging,
+    vendorMedia,
+    guestCameras,
   } = search;
 
   const supabase = await createClient();
@@ -524,6 +546,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         limitedError={limitedError}
         papicWindowSaved={papicWindowSaved}
         papicWindowError={papicWindowError}
+        styleSet={styleSet}
+        styleError={styleError}
+        qualitySet={qualitySet}
+        qualityError={qualityError}
+        showcaseSet={showcaseSet}
+        showcaseError={showcaseError}
+        faceTagging={faceTagging}
+        vendorMedia={vendorMedia}
+        guestCameras={guestCameras}
       />
 
       {/* Photos — the room they come back to for years. */}
@@ -1081,6 +1112,15 @@ function StatusBanners({
   limitedError,
   papicWindowSaved,
   papicWindowError,
+  styleSet,
+  styleError,
+  qualitySet,
+  qualityError,
+  showcaseSet,
+  showcaseError,
+  faceTagging,
+  vendorMedia,
+  guestCameras,
 }: {
   driveConnected: boolean;
   driveDisconnected: boolean;
@@ -1097,6 +1137,15 @@ function StatusBanners({
   limitedError: string | undefined;
   papicWindowSaved: string | undefined;
   papicWindowError: string | undefined;
+  styleSet: string | undefined;
+  styleError: string | undefined;
+  qualitySet: string | undefined;
+  qualityError: string | undefined;
+  showcaseSet: string | undefined;
+  showcaseError: string | undefined;
+  faceTagging: string | undefined;
+  vendorMedia: string | undefined;
+  guestCameras: string | undefined;
 }) {
   const ok =
     'inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900';
@@ -1117,7 +1166,20 @@ function StatusBanners({
     limitedSynced !== undefined ||
     limitedError ||
     papicWindowSaved !== undefined ||
-    papicWindowError;
+    papicWindowError ||
+    // ⚠ THE BAIL-OUT IS HALF THE BUG. Adding a banner below without adding its
+    // param here returns null before anything renders — the confirmation would
+    // be written, passed in, and still never shown. That is exactly how these
+    // nine got lost the first time.
+    styleSet ||
+    styleError ||
+    qualitySet ||
+    qualityError ||
+    showcaseSet ||
+    showcaseError ||
+    faceTagging ||
+    vendorMedia ||
+    guestCameras;
   if (!hasAny) return null;
 
   return (
@@ -1172,6 +1234,105 @@ function StatusBanners({
                   ? `You can start up to ${PAPIC_CAPTURE_MONTHS_BEFORE} months before your event — pick a later start date.`
                   : 'Could not save the window — please try again.'}
         </p>
+      ) : null}
+
+      {/* ⚠ NINE CONFIRMATIONS THAT WENT NOWHERE. Each of these was already being
+          written into the URL by an action and read by nothing at all — so a
+          couple changing their Papic look, their photo quality, face matching,
+          showcase state, vendor visibility or guest cameras got no answer
+          whether it worked or failed. Wording is plain English: what a PERSON
+          did, never the name of the thing that stores it. */}
+
+      {styleSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Look saved — every camera at your event shoots it from now on.
+        </p>
+      ) : null}
+      {styleError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Could not save that look — please try again.
+        </p>
+      ) : null}
+
+      {qualitySet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Photo quality saved. It applies to photos taken from now on — the ones
+          already in your gallery are never changed.
+        </p>
+      ) : null}
+      {qualityError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Could not save that photo quality — please try again.
+        </p>
+      ) : null}
+
+      {showcaseSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {showcaseSet === 'removed'
+            ? 'Taken out of your public memory orb.'
+            : 'Added to your public memory orb — it goes live once the guest in it has agreed to public sharing too.'}
+        </p>
+      ) : null}
+      {showcaseError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {showcaseError === 'missing_photo'
+            ? 'That clip is no longer in your gallery.'
+            : 'Could not change that — please try again.'}
+        </p>
+      ) : null}
+
+      {faceTagging ? (
+        faceTagging === 'error' ? (
+          <p className={bad}>
+            <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+            Could not change face matching — please try again.
+          </p>
+        ) : (
+          <p className={ok}>
+            <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {faceTagging === 'off'
+              ? 'Face matching is off for your event. Guests can still be tagged by scanning a QR.'
+              : 'Face matching is on. Guests who add a selfie get their photos found for them.'}
+          </p>
+        )
+      ) : null}
+
+      {vendorMedia ? (
+        vendorMedia === 'error' ? (
+          <p className={bad}>
+            <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+            Could not change that — please try again.
+          </p>
+        ) : (
+          <p className={ok}>
+            <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {vendorMedia === 'hidden'
+              ? 'Your vendors’ photos are hidden from your gallery.'
+              : 'Your vendors’ photos are showing in your gallery.'}
+          </p>
+        )
+      ) : null}
+
+      {guestCameras ? (
+        guestCameras === 'error' ? (
+          <p className={bad}>
+            <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+            Could not change when guests can shoot — please try again.
+          </p>
+        ) : (
+          <p className={ok}>
+            <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            {guestCameras === 'early'
+              ? 'Guests can shoot before your event day as well.'
+              : 'Guests can shoot on your event day.'}
+          </p>
+        )
       ) : null}
 
       {papicError === 'min_extras' ? (

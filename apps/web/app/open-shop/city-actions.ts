@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { reverseGeocodeNominatim } from '@/lib/geo';
+import { geocodeAddressWithCity, reverseGeocodeNominatim } from '@/lib/geo';
 
 /**
  * Drop a pin → get the city.
@@ -46,4 +46,41 @@ export async function detectShopCity(lat: number, lng: number): Promise<Detected
 
   const r = await reverseGeocodeNominatim(lat, lng);
   return { city: r?.city ?? '', address: r?.displayName ?? '' };
+}
+
+/**
+ * Type an address → get the pin and the city.
+ *
+ * Owner 2026-08-10: *"for the address. we want them to just type their address
+ * so it will show on the pin."* This is the primary path now; dragging the pin
+ * (`detectShopCity` above) became the fine-tune rather than the way in.
+ *
+ * 🔑 TYPING IS THE RIGHT DEFAULT FOR A PHONE. Finding your own shop by panning a
+ * map at 375px is fiddly and slow, and a vendor already knows their address by
+ * heart — they type it once and the map catches up. The pin stays draggable
+ * because a geocoder lands on the street, not the unit.
+ *
+ * Same gate and the same honesty as its sibling: signed-in only (an ungated
+ * action is an open geocoding proxy pointed at a free community service), and a
+ * miss returns nulls rather than a guess. A vendor whose address does not
+ * resolve must still be able to finish — the city field stays theirs to type.
+ */
+export type LocatedAddress = {
+  lat: number | null;
+  lng: number | null;
+  city: string;
+  address: string;
+};
+
+export async function locateShopAddress(query: string): Promise<LocatedAddress> {
+  const empty: LocatedAddress = { lat: null, lng: null, city: '', address: '' };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return empty;
+
+  const r = await geocodeAddressWithCity(query);
+  if (!r) return empty;
+  return { lat: r.latitude, lng: r.longitude, city: r.city, address: r.displayName };
 }

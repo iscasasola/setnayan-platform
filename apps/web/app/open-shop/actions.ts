@@ -335,6 +335,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (contactPosition) patch.business_owner_position = contactPosition;
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
+  // The address the vendor typed (owner 2026-08-10). Guarded like the rest — a
+  // blank must not wipe an address an admin or a later edit already set.
+  const hqAddress = clean(formData.get('hq_address'), 200);
+  if (hqAddress) patch.hq_address = hqAddress;
   // ── The dropped pin, when there is one (owner 2026-08-10) ──────────────────
   // Guarded like the two above: the wizard only posts these when the vendor
   // actually placed a pin, and an absent pair must never NULL coordinates an

@@ -95,6 +95,7 @@ export function OpenShopWizard({
     primaryService: string;
     eventTypes: string[];
     locationCity: string;
+    hqAddress: string;
     contactName: string;
     contactPosition: string;
     contactPhone: string;
@@ -533,7 +534,7 @@ export function OpenShopWizard({
                   up with "QC", "Quezon city" and "Q.C." as three places. The pin
                   writes the city; the field stays editable so a rural pin that
                   resolves to a province can be corrected. */}
-              <CityPin defaultCity={defaults.locationCity} />
+              <CityPin defaultCity={defaults.locationCity} defaultAddress={defaults.hqAddress} />
             </div>
           </div>
 

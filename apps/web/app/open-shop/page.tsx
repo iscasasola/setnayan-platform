@@ -48,7 +48,7 @@ export default async function OpenShopPage({
   const { data: owned } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email',
+      'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -60,6 +60,7 @@ export default async function OpenShopPage({
     services?: string[] | null;
     event_types?: string[] | null;
     location_city?: string | null;
+    hq_address?: string | null;
     business_owner_name?: string | null;
     business_owner_position?: string | null;
     contact_phone?: string | null;
@@ -152,6 +153,7 @@ export default async function OpenShopPage({
         // brand-new shop starts on the sensible ['wedding'] default.
         eventTypes: row?.event_types?.length ? row.event_types : ['wedding'],
         locationCity: row?.location_city ?? '',
+        hqAddress: row?.hq_address ?? '',
         contactName: row?.business_owner_name ?? '',
         contactPosition: row?.business_owner_position ?? '',
         contactPhone: row?.contact_phone ?? '',

@@ -165,6 +165,97 @@ export async function geocodeNominatim(query: string): Promise<GeocodeResult | n
   }
 }
 
+/**
+ * Forward-geocode a typed address AND get its city, in ONE request.
+ *
+ * Owner 2026-08-10: *"for the address. we want them to just type their address
+ * so it will show on the pin."* — the vendor types where they are, the pin
+ * follows, and the city comes out of the same answer.
+ *
+ * 🔑 WHY NOT `geocodeNominatim` + `reverseGeocodeNominatim`. That pair works and
+ * was the obvious composition, but it is TWO round trips to a free community
+ * service with a 1 req/sec usage policy, for one thing the vendor typed —
+ * doubling our request rate to get a field the first response can already carry.
+ * `addressdetails=1` is the whole difference: same endpoint, same UA, same
+ * timeout, one call.
+ *
+ * `geocodeNominatim` is deliberately left alone: its callers (admin vendor save,
+ * corrections) want coordinates only, its contract says so, and widening a
+ * shared function to suit one new caller is how a shared function stops being
+ * predictable.
+ *
+ * Best-effort, like its siblings: `null` on a miss, and the CITY may be empty
+ * even on a hit — Nominatim resolves plenty of rural Philippine addresses to a
+ * point without naming a municipality. Callers must let the vendor type the
+ * city themselves rather than treating an empty string as a failure.
+ */
+export type GeocodedAddress = {
+  latitude: number;
+  longitude: number;
+  /** Best-guess city/municipality; '' when the provider names none. */
+  city: string;
+  /** The provider's full display name for what it matched. */
+  displayName: string;
+};
+
+export async function geocodeAddressWithCity(
+  query: string,
+): Promise<GeocodedAddress | null> {
+  const trimmed = query.trim();
+  // Two characters cannot identify a place and would spend a request on noise
+  // while the vendor is still typing the first word.
+  if (trimmed.length < 3) return null;
+
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set('q', trimmed);
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('countrycodes', 'ph');
+  url.searchParams.set('addressdetails', '1');
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Setnayan/1.0 (https://www.setnayan.com; iscasasolaii@gmail.com)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+
+    const json: unknown = await res.json();
+    if (!Array.isArray(json) || json.length === 0) return null;
+
+    const first = json[0] as {
+      lat?: string;
+      lon?: string;
+      display_name?: string;
+      address?: Record<string, string>;
+    };
+    const lat = Number(first.lat);
+    const lng = Number(first.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+    // Same widening ladder as the reverse lookup, so a pin dropped by hand and
+    // an address typed by hand name the place the same way.
+    const a = first.address ?? {};
+    const city =
+      a.city ?? a.town ?? a.municipality ?? a.village ?? a.county ?? a.state ?? '';
+
+    return {
+      latitude: lat,
+      longitude: lng,
+      city: typeof city === 'string' ? city : '',
+      displayName:
+        typeof first.display_name === 'string' ? first.display_name : trimmed,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const NOMINATIM_REVERSE_ENDPOINT =
   'https://nominatim.openstreetmap.org/reverse';
 

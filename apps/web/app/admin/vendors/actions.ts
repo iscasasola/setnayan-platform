@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { parsePhPhone } from '@/lib/ph-phone';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -242,7 +243,18 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
   const locationCity = nullIfBlank(formData.get('location_city'));
   const hqAddress = nullIfBlank(formData.get('hq_address'));
   const contactEmail = nullIfBlank(formData.get('contact_email'));
-  const contactPhone = nullIfBlank(formData.get('contact_phone'));
+  const contactPhoneRaw = nullIfBlank(formData.get('contact_phone'));
+  // Same rule as everywhere else. An admin seeding a shop is the one path that
+  // could otherwise plant a number the vendor themselves would be refused for —
+  // and the vendor inherits it on claim, so the bad value arrives wearing our
+  // own approval.
+  const parsedPhone = contactPhoneRaw ? parsePhPhone(contactPhoneRaw) : null;
+  if (contactPhoneRaw && !parsedPhone?.ok) {
+    throw new Error(
+      'That contact number isn’t a Philippine number. Use 09XX XXX XXXX, or a landline with its area code.',
+    );
+  }
+  const contactPhone = parsedPhone?.ok ? parsedPhone.e164 : null;
   const services = parseCsvList(formData.get('services'));
   const isPublished = formData.get('is_published') === 'on';
 

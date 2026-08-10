@@ -33,6 +33,8 @@ import {
 } from '@/lib/vendor-microsite';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { parseCoordPair } from '@/lib/parse-coord';
+import { parsePhPhone } from '@/lib/ph-phone';
+import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -462,7 +464,25 @@ export async function updateVendorProfileField(
       break;
     }
     case 'contact_phone': {
-      patch = { contact_phone: nullIfBlank(formData.get('contact_phone')) };
+      // ── THE SAME RULE AS SIGNUP, BECAUSE IT IS THE SAME NUMBER ─────────────
+      // Owner-locked 2026-08-10: the contact number must be a real Philippine
+      // one. Validating it only where a shop is CREATED would have meant a
+      // vendor could pass the rule on day one and then replace the number with
+      // anything the next day, on this screen — which is the more likely path,
+      // since this is where a number actually gets changed.
+      //
+      // Validated here for the same reason the email beneath it is: the inline
+      // editor submits with noValidate, so nothing in the browser is checking.
+      const rawPhone = nullIfBlank(formData.get('contact_phone'));
+      if (rawPhone) {
+        const parsed = parsePhPhone(rawPhone);
+        if (!parsed.ok) return { ok: false, error: OPEN_SHOP_ERRORS.contactPhoneNotPh };
+        // Stored canonically, so the same number typed four ways is one value
+        // here and at signup rather than two spellings of the same shop.
+        patch = { contact_phone: parsed.e164 };
+      } else {
+        patch = { contact_phone: null };
+      }
       break;
     }
     case 'contact_email': {

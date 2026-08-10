@@ -10,6 +10,7 @@ import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
 import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
+import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
@@ -101,7 +102,11 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const chosenSlug =
     clipBusinessSlug(slugifyBusinessName(clean(formData.get('business_slug'), 32))) ??
     clipBusinessSlug(slugifyBusinessName(shopName));
-  const contactName = clean(formData.get('contact_name'));
+  // Capitalised at the SOURCE, not just on screen (owner 2026-08-10). This name
+  // is read back by the shop page, the marketplace card and every message to a
+  // couple — fixing it only in the input would leave "ana reyes" stored and
+  // shown everywhere else.
+  const contactName = titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null;
   const contactPosition = clean(formData.get('contact_position'), 64);
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));

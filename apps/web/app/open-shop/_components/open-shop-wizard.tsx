@@ -11,6 +11,7 @@ import {
 } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
 import { CityPin } from './city-pin';
 import {
@@ -261,7 +262,19 @@ export function OpenShopWizard({
           </p>
         )}
 
-        <form action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
+        {/* ⚠ `ref={formRef}` IS LOAD-BEARING, NOT DECORATION. `validateStep` reads
+            steps 3 and 4 off this element by name. It was declared and read but
+            never ATTACHED when the four-step restructure landed, so
+            `formRef.current` was null, every read returned '', and step 3
+            refused a name that was plainly in the box — with the vendor unable
+            to continue at all. Nothing threw; the guard simply always failed.
+            Pinned by `four-steps.test.ts`. */}
+        <form
+          ref={formRef}
+          action={becomeVendor}
+          onSubmit={submitGate}
+          className="mt-5 space-y-4"
+        >
           {/* Step 1 — always mounted so values survive step switches. */}
           {/* 1 · Your shop. Always mounted, like every panel — inputs persist across
               steps and there is ONE submit at the end. */}
@@ -296,6 +309,7 @@ export function OpenShopWizard({
                   'image/heif',
                 ]}
                 variant="square"
+                roundPreview
                 qrGuard
               />
               {/* ⚠ This used to end "…you'll need it to publish your shop and to
@@ -457,7 +471,14 @@ export function OpenShopWizard({
                 // type in. Falls back to editable when the account has no name:
                 // a locked EMPTY required field is a dead end.
                 readOnly={!!accountName}
-                defaultValue={accountName ?? defaults.contactName}
+                // Capitalised on BLUR, not per keystroke: rewriting the box
+                // while a thumb is mid-word fights the typist and moves the
+                // caret. They see the stored form the moment they move on, and
+                // the server applies the same rule regardless.
+                onBlur={(e) => {
+                  e.currentTarget.value = titleCasePersonName(e.currentTarget.value);
+                }}
+                defaultValue={titleCasePersonName(accountName ?? defaults.contactName)}
                 maxLength={128}
                 placeholder="e.g. Ana Reyes"
                 className="input-field"

@@ -1,5 +1,7 @@
 'use client';
 
+import { STALE_RELOAD_KEY } from '@/lib/stale-bundle';
+
 // Lazy-loads Sentry's browser SDK after the page has become interactive.
 //
 // Why this exists:
@@ -109,6 +111,25 @@ function scheduleIdle(cb: () => void): () => void {
 }
 
 export function DeferredObservability() {
+  // ── THE STALE-BUNDLE MARKER IS CLEARED HERE ──────────────────────────────
+  // The error boundaries reload ONCE per session when a tab is left holding
+  // JavaScript a deploy has replaced. Reaching this component means the app
+  // rendered, so that reload worked (or was never needed) and the next genuine
+  // occurrence — after some later deploy, in the same long-lived session —
+  // must get its own one reload rather than being told it already had one.
+  //
+  // It lives here rather than in a component of its own because this one is
+  // already mounted on every route by the root tree, and a second always-on
+  // client component to clear one key is a chunk everyone downloads.
+  useEffect(() => {
+    try {
+      window.sessionStorage.removeItem(STALE_RELOAD_KEY);
+    } catch {
+      // Private mode, or storage disabled. The marker simply never persists,
+      // which degrades to today's behaviour rather than breaking anything.
+    }
+  }, []);
+
   useEffect(() => {
     if (!SENTRY_DSN) return;
 

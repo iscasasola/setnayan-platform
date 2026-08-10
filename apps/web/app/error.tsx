@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+
+import { isStaleBundleError, reloadForStaleBundle } from '@/lib/stale-bundle';
 import Link from 'next/link';
 
 // Root error boundary — brand-voice per feedback_setnayan_no_dev_text_post_launch
@@ -16,6 +18,20 @@ type Props = {
 
 export default function RootError({ error, reset }: Props) {
   useEffect(() => {
+    // ── A STALE OPEN TAB IS NOT A CRASH ──────────────────────────────────────
+    // We deploy on every merge, and a page already open keeps asking for the
+    // JavaScript filenames that existed when it loaded. After a deploy those
+    // are gone, so the browser throws and this boundary mounts — on a site that
+    // is serving perfectly. The owner hit exactly this twice in one day and
+    // both times reasonably concluded we were down.
+    //
+    // One reload picks up the current build. Guarded to fire ONCE per session:
+    // if the new build throws too, reloading every time is an infinite refresh
+    // on a page nobody can read or escape, which is worse than the message it
+    // replaces.
+    if (typeof window !== 'undefined' && isStaleBundleError(error)) {
+      if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+    }
     // Sentry SDK auto-captures via the global handler. The `digest` is the
     // server-side error ID Next.js emits — surfaces in Sentry breadcrumb if
     // a customer mentions it in support.

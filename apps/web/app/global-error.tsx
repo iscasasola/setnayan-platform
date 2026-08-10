@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 
+import { isStaleBundleError, reloadForStaleBundle } from '@/lib/stale-bundle';
+
 // Global error boundary — Next.js mounts this when the root layout itself
 // throws (the only error class root error.tsx can't catch, because it lives
 // INSIDE the layout). Must include its own <html> + <body> because the
@@ -19,6 +21,20 @@ type Props = {
 
 export default function GlobalError({ error, reset }: Props) {
   useEffect(() => {
+    // ── A STALE OPEN TAB IS NOT A CRASH ──────────────────────────────────────
+    // We deploy on every merge, and a page already open keeps asking for the
+    // JavaScript filenames that existed when it loaded. After a deploy those
+    // are gone, so the browser throws and this boundary mounts — on a site that
+    // is serving perfectly. The owner hit exactly this twice in one day and
+    // both times reasonably concluded we were down.
+    //
+    // One reload picks up the current build. Guarded to fire ONCE per session:
+    // if the new build throws too, reloading every time is an infinite refresh
+    // on a page nobody can read or escape, which is worse than the message it
+    // replaces.
+    if (typeof window !== 'undefined' && isStaleBundleError(error)) {
+      if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+    }
     if (process.env.NODE_ENV === 'development') {
       console.error('[global error boundary]', error);
     }

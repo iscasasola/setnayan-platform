@@ -73,7 +73,7 @@ function rowsFromTemplate(
 }
 
 // ── 1 · Movie Night, exactly as the owner created it ─────────────────────────
-// Real prod row 9b41095a-3f51-4baa-8b91-ffc718f5dfa9: event_type `date`,
+// Real prod row 9b41095a…: event_type `date`,
 // event_date NULL, date_candidates ['2026-08-01'] (which is what the checklist
 // page anchors on for non-wedding types), created_at 2026-08-01T09:16:22Z,
 // 4 seeded items at offsets 7/5/3/1.

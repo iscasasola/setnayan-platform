@@ -11,7 +11,7 @@
  *     `dueDateForItem`, which returns null without a date — so every task
  *     counted as not-overdue.
  *
- * Reproduced in prod on event 9b41095a-3f51-4baa-8b91-ffc718f5dfa9 ("Movie
+ * Reproduced in prod on event 9b41095a… ("Movie
  * Night", event_type `date`, event_date NULL, date_candidates ['2026-08-01']):
  * the page computed due dates for all four tasks, the card reported 0 overdue.
  * Under-reporting is the safe direction, which is exactly why it survived — but

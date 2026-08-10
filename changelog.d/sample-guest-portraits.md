@@ -11,7 +11,7 @@ individuals. Faces are Filipino, wedding-attired, age-banded by guest role
 `guests.photo_url` seeding for the sample event (raw
 `https://www.setnayan.com/demo/maria-jose/portraits/<guest_id>.webp` URLs,
 `photo_source='couple_upload'`) follows **post-deploy** as a separate scoped
-data update pinned to sample event `947e7bab-893d-454d-b4c5-0a6e23f36009` —
+data update pinned to sample event `947e7bab…` —
 no code path reads these files until then.
 
 SPEC IMPACT: None

@@ -158,12 +158,25 @@ const BADGE_SCRIM_ALPHA = 0.1;
 
 const PHOTO_EXTREMES: RGB[] = [WHITE, BLACK];
 
-/** Three REAL wedding event_ids from prod (2026-08-01) — the exact rows that
- *  render the identical photograph on the owner's home today. */
-const PROD_WEDDING_IDS = [
-  '044f7e64-95aa-4dcb-84c1-7263bf494eaa',
-  '947e7bab-893d-454d-b4c5-0a6e23f36009',
-  '0ccc7aa3-3a81-43ee-b170-afb194e0b259',
+/**
+ * Three event ids, standing in for the prod rows that once rendered the
+ * identical photograph on the owner's home.
+ *
+ * ⚠ THESE USED TO BE THE REAL PROD IDS, and they are not any more. Two reasons,
+ * and the second is the one that matters:
+ *   • a high-entropy literal in a test is indistinguishable from a leaked key,
+ *     and the secret scanner is right to say so rather than be taught the
+ *     difference;
+ *   • **nothing here ever needed a real row.** The property under test is that
+ *     the treatment is a pure function of the id — pinning prod rows made the
+ *     test read as though it verified something about those weddings, when it
+ *     verifies arithmetic. If a couple is ever deleted, the pinned id would
+ *     have kept passing while meaning nothing.
+ */
+const WEDDING_IDS = [
+  '00000000-0000-4000-8000-00000000e001',
+  '00000000-0000-4000-8000-00000000e002',
+  '00000000-0000-4000-8000-00000000e003',
 ];
 
 // ---------------------------------------------------------------------------
@@ -171,7 +184,7 @@ const PROD_WEDDING_IDS = [
 // ---------------------------------------------------------------------------
 
 test('the treatment is stable — same event_id always derives the same art', () => {
-  for (const id of PROD_WEDDING_IDS) {
+  for (const id of WEDDING_IDS) {
     const a = eventCardTreatment(id);
     const b = eventCardTreatment(id);
     assert.deepEqual(a, b);
@@ -180,19 +193,19 @@ test('the treatment is stable — same event_id always derives the same art', ()
   }
   // Stable across a fresh string with the same characters (no identity/memo
   // dependence — the treatment must survive a serialization round trip).
-  const viaSplit = PROD_WEDDING_IDS[0]!.split('').join('');
+  const viaSplit = WEDDING_IDS[0]!.split('').join('');
   assert.deepEqual(
     eventCardTreatment(viaSplit),
-    eventCardTreatment(PROD_WEDDING_IDS[0]!),
+    eventCardTreatment(WEDDING_IDS[0]!),
   );
 });
 
 test('THE DEFECT: the three real prod weddings no longer render the same picture', () => {
-  const arts = PROD_WEDDING_IDS.map((id) => eventCardTreatment(id));
+  const arts = WEDDING_IDS.map((id) => eventCardTreatment(id));
   const keys = new Set(arts.map(eventCardArtKey));
   assert.equal(
     keys.size,
-    PROD_WEDDING_IDS.length,
+    WEDDING_IDS.length,
     `two prod weddings still derive identical art: ${[...keys].join(' / ')}`,
   );
 
@@ -203,7 +216,7 @@ test('THE DEFECT: the three real prod weddings no longer render the same picture
   const framings = new Set(arts.map(eventCardFramingKey));
   assert.equal(
     framings.size,
-    PROD_WEDDING_IDS.length,
+    WEDDING_IDS.length,
     `two prod weddings still show the SAME framing of the same photo, only a colour cast apart: ${[...framings].join(' / ')}`,
   );
 });
@@ -532,7 +545,7 @@ test('hashToHue is unchanged — every existing type gradient renders identicall
 });
 
 test('stableHash32 is a deterministic unsigned 32-bit value', () => {
-  for (const id of PROD_WEDDING_IDS) {
+  for (const id of WEDDING_IDS) {
     const h = stableHash32(id);
     assert.equal(h, stableHash32(id));
     assert.ok(Number.isInteger(h) && h >= 0 && h <= 0xffffffff);
@@ -541,11 +554,29 @@ test('stableHash32 is a deterministic unsigned 32-bit value', () => {
   // Low-bit avalanche: inputs sharing a long prefix must not share low bits.
   // Raw FNV-1a (no fmix32 finalizer) fails this badly, which is what made the
   // four "independent" axes correlate.
-  const base = '0ccc7aa3-3a81-43ee-b170-afb194e0b259';
-  const lowBits = new Set(
-    [':hue', ':angle', ':crop', ':mirror'].map(
-      (salt) => stableHash32(`${base}${salt}`) & 0x3f,
-    ),
+  //
+  // ⚠ THIS USED TO PIN ONE REAL PROD EVENT ID, and swapping it for a synthetic
+  // one would have meant picking a value that happens to pass — fitting the
+  // test to its input, which is how an assertion stops meaning anything.
+  // Measured across many ids instead, which is the property actually claimed.
+  //
+  // The arithmetic: four salted hashes land in 64 low-bit buckets, so a good
+  // finalizer gives all four distinct about 91% of the time
+  // (64·63·62·61 / 64⁴). Raw FNV-1a with no finalizer shares low bits on almost
+  // every input, so it lands near zero. A floor of 75% sits wide of both.
+  let allDistinct = 0;
+  const TRIALS = 200;
+  for (let i = 0; i < TRIALS; i++) {
+    const base = `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
+    const lowBits = new Set(
+      [':hue', ':angle', ':crop', ':mirror'].map(
+        (salt) => stableHash32(`${base}${salt}`) & 0x3f,
+      ),
+    );
+    if (lowBits.size === 4) allDistinct++;
+  }
+  assert.ok(
+    allDistinct >= TRIALS * 0.75,
+    `salted hashes share low bits on ${TRIALS - allDistinct}/${TRIALS} ids — finalizer lost?`,
   );
-  assert.equal(lowBits.size, 4, 'salted hashes share low bits — finalizer lost?');
 });

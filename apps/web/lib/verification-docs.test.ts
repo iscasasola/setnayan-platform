@@ -19,9 +19,13 @@ const ACTIONS = readFileSync(
   'utf8',
 );
 
-const VP = '51858369-2970-466b-99a2-a6713a7ea1bb';
-const GOV = `vendors/${VP}/verification/government_id.jpg`;
-const DTI = `vendors/${VP}/verification/dti_certificate.pdf`;
+// Synthetic. Was a real prod vendor_profile_id — the live shop `setnaprod` —
+// which this test never needed: it only builds object KEYS to check the prefix
+// rules, so any uuid-shaped value does the same work without putting a real
+// row in the repo.
+const VENDOR_SHOP = '00000000-0000-4000-8000-00000000ce11';
+const GOV = `vendors/${VENDOR_SHOP}/verification/government_id.jpg`;
+const DTI = `vendors/${VENDOR_SHOP}/verification/dti_certificate.pdf`;
 
 const obj = (key: string) => ({ key, size: 1024, lastModified: null });
 
@@ -32,7 +36,7 @@ const obj = (key: string) => ({ key, size: 1024, lastModified: null });
 
 test('a real upload key yields its vendor and its slot', () => {
   assert.deepEqual(parseVerificationKey(GOV), {
-    vendorProfileId: VP,
+    vendorProfileId: VENDOR_SHOP,
     slot: 'government_id',
   });
 });

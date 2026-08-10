@@ -32,7 +32,7 @@ import {
 } from './std-seal';
 import { R2_SEALED_SEGMENT, pathPrefixIsAcceptable } from './r2-client-ref';
 
-const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+const EVENT = '00000000-0000-4000-8000-00000000e001';
 const NONCE = 'a1b2c3d4-0000-4000-8000-000000000001';
 const BUCKET = 'setnayan-media';
 const SOURCE = `events/${EVENT}/std-video/016d9fc1-clip.mp4`;

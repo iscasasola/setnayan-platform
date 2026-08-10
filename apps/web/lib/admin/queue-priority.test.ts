@@ -15,8 +15,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   QUEUE_DUE_RANK,
@@ -34,15 +34,40 @@ function codeOnly(src: string): string {
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
-const SURFACES = [
-  { name: '/admin/work (command center)', path: 'app/admin/work/page.tsx' },
-  { name: '/admin (overview)', path: 'app/admin/page.tsx' },
-] as const;
+/**
+ * 🔑 THE SURFACE LIST IS DERIVED FROM DISK, NOT TYPED HERE.
+ *
+ * It used to be two hand-written entries, and that is exactly how a THIRD
+ * surface hid: `app/admin/app-performance/_components/action-center.tsx` carried
+ * its own rank table ranking `unknown` ABOVE `ok` — the inverse of the shared
+ * rule — over the same fifteen queues, the same digest and the same
+ * `computeDueState`. The guard reported clean the whole time, because nobody had
+ * typed that path into it.
+ *
+ * A hand-typed list is silent about whatever nobody typed into it. So: any file
+ * under `app/admin` that reads the queue vocabulary IS a ranking surface, and
+ * has to answer for itself.
+ */
+function adminFiles(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next') continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) adminFiles(full, out);
+    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full);
+  }
+  return out;
+}
 
-const sources = SURFACES.map((s) => ({
-  ...s,
-  code: codeOnly(readFileSync(resolve(WEB_ROOT, s.path), 'utf8')),
-}));
+const sources = adminFiles(resolve(WEB_ROOT, 'app/admin'))
+  .map((full) => ({
+    name: relative(WEB_ROOT, full),
+    path: relative(WEB_ROOT, full),
+    code: codeOnly(readFileSync(full, 'utf8')),
+  }))
+  // A ranking surface is one that reads the queue vocabulary AND orders it.
+  .filter((f) => /computeDueState|AdminQueueDueState/.test(f.code) && /\.sort\(/.test(f.code));
+
+const SURFACES = sources;
 
 test('the comment stripper actually strips (the guard cannot pass on its own prose)', () => {
   const stripped = codeOnly(

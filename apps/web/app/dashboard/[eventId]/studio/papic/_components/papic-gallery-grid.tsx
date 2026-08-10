@@ -1,12 +1,14 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Play, Download, Sparkles, X, Loader2 } from 'lucide-react';
+import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
+import { papicCaptureCost } from '@/lib/papic-cameras';
+import { PRESERVATION_BLOCK_POINTS } from '@/lib/papic-storage-telemetry';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { setClipShowcaseApproval, setGuestClipShowcaseApproval } from '../actions';
+import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -17,6 +19,8 @@ const FILTERS = [
   { id: 'tagged', label: 'Photos of us' },
   { id: 'untagged', label: 'Untagged' },
   { id: 'videos', label: 'Videos' },
+  // "Where we will see the preserved photo/video" — owner 2026-08-10.
+  { id: 'preserved', label: 'Kept sharp' },
 ] as const;
 type FilterId = (typeof FILTERS)[number]['id'];
 
@@ -57,6 +61,7 @@ export function PapicGalleryGrid({
     if (filter === 'tagged') return p.tagged;
     if (filter === 'untagged') return !p.tagged;
     if (filter === 'videos') return p.kind === 'clip';
+    if (filter === 'preserved') return p.preserved === true;
     return true;
   });
 
@@ -104,6 +109,8 @@ export function PapicGalleryGrid({
           </span>
         </p>
       ) : null}
+
+      <PreservationMeterLine photos={photos} />
 
       {shown.length === 0 ? (
         <p className="text-sm text-ink/55">No photos in this view yet.</p>
@@ -162,6 +169,19 @@ export function PapicGalleryGrid({
                     source={p.source}
                     approved={Boolean(p.showcaseApproved)}
                     consented={Boolean(p.showcaseConsent)}
+                  />
+                ) : null}
+
+                {/* Keep this original at full resolution, or release it. Vendor
+                    documentation captures are excluded: they are the vendor's
+                    own files on their own retention, not the couple's to hold. */}
+                {eventId && p.source !== 'vendor' ? (
+                  <PreserveToggle
+                    eventId={eventId}
+                    captureId={p.id}
+                    source={p.source}
+                    preserved={p.preserved !== false}
+                    alreadyCompressed={Boolean(p.alreadyCompressed)}
                   />
                 ) : null}
                 {/* Photos save straight from the tile; clips download from the
@@ -324,6 +344,120 @@ function ShowcaseToggle({
         }
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </button>
+    </form>
+  );
+}
+
+/**
+ * How much of the paid allowance the couple's kept originals use.
+ *
+ * 🗣 A PERCENTAGE OF A COUNT — never a gigabyte, and never a raw point total.
+ * Owner 2026-08-10: *"do not price by drive. price by number of photos and
+ * videos"*, and ₱500 buys 5,000 Papic points. The points are DERIVED from
+ * `papicCaptureCost`, the same currency every camera spends, so this line can
+ * never disagree with what a capture actually cost.
+ *
+ * ⚠ Shown to everyone, not only payers. A couple who has bought nothing still
+ * sees what they are holding — the bar is what makes "you are over what you paid
+ * for" legible before it matters, rather than a surprise six months later.
+ */
+function PreservationMeterLine({ photos }: { photos: GalleryPhoto[] }) {
+  const kept = photos.filter((p) => p.preserved);
+  const points = kept.reduce(
+    (n, p) => n + papicCaptureCost(p.kind === 'clip' ? 'clip' : 'photo'),
+    0,
+  );
+  if (photos.length === 0) return null;
+
+  const allowance = PRESERVATION_BLOCK_POINTS;
+  const pct = Math.round((points / allowance) * 100);
+  const over = points > allowance;
+
+  return (
+    <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs font-medium text-ink/80">
+          {kept.length} of {photos.length} kept at full resolution
+        </p>
+        <p className={over ? 'font-mono text-xs text-terracotta' : 'font-mono text-xs text-ink/55'}>
+          {pct}%
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+        <div
+          className={over ? 'h-full bg-terracotta' : 'h-full bg-success-500'}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
+        {over
+          ? 'You are keeping more than one year of preservation covers. Release a few, or add another year — nothing is lost either way: everything stays in your gallery, just smaller.'
+          : 'Everything is kept sharp by default. Anything you release stays in your gallery — it simply stops being held at full size.'}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Keep this ONE capture's original at full resolution, or release it.
+ *
+ * 🗣 THE WORDS MATTER MORE THAN THE CONTROL. Releasing does NOT delete a photo —
+ * it lets the original be replaced by the compressed copy that already exists,
+ * and the photo stays in the gallery for five years either way. The owner has
+ * corrected that vocabulary twice, so nothing here says "delete" or "remove".
+ *
+ * 🪤 AND IT CANNOT BE UNDONE ONCE THE SWEEP HAS RUN. Re-keeping a capture whose
+ * original is already gone cannot bring the resolution back, so the tooltip says
+ * so before the tap rather than after. A capture in that state renders as a
+ * plain, unclickable marker — the server refuses it too, but a control that
+ * accepts a tap and changes nothing is the thing worth not building.
+ */
+function PreserveToggle({
+  eventId,
+  captureId,
+  source,
+  preserved,
+  alreadyCompressed,
+}: {
+  eventId: string;
+  captureId: string;
+  source: 'seat' | 'guest';
+  preserved: boolean;
+  alreadyCompressed: boolean;
+}) {
+  if (alreadyCompressed) {
+    return (
+      <span
+        title="This one is already stored smaller. That cannot be undone — the full-size original is gone."
+        aria-label="Already stored smaller"
+        className="absolute right-1 top-1 inline-flex items-center justify-center rounded-full bg-black/35 p-1 text-cream/50 ring-1 ring-white/20"
+      >
+        <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      </span>
+    );
+  }
+  const title = preserved
+    ? 'Kept at full resolution. Tap to release — it stays in your gallery, just smaller, and that cannot be undone later.'
+    : 'Released — it will be stored smaller. Tap to keep it at full resolution.';
+  return (
+    <form action={setCapturePreserved} className="absolute right-1 top-1">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="capture_id" value={captureId} />
+      <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="preserve" value={preserved ? 'no' : 'yes'} />
+      <button
+        type="submit"
+        title={title}
+        aria-label={title}
+        aria-pressed={preserved}
+        className={
+          preserved
+            ? 'inline-flex items-center justify-center rounded-full bg-success-500 p-1 text-cream ring-1 ring-white/70'
+            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-cream/85 ring-1 ring-white/40 hover:bg-black/65'
+        }
+      >
+        <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </button>
     </form>
   );

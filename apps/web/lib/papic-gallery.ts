@@ -33,6 +33,19 @@ export type GalleryPhoto = {
    */
   saveUrl?: string | null;
   kind: 'photo' | 'clip';
+  /**
+   * Is this capture's ORIGINAL still kept at full resolution?
+   *
+   * TRUE by default — "if nothing is picked, pick all" (owner 2026-08-10). The
+   * database stores the DECLINE, so absent means preserved; this flips it back to
+   * the positive the screen actually talks in.
+   *
+   * ⚠ Already-replaced originals read FALSE and cannot be turned back on: the
+   * file is gone. The tile must say so rather than offer a toggle that lies.
+   */
+  preserved?: boolean;
+  /** The original has ALREADY been replaced by its compressed copy — nothing to keep. */
+  alreadyCompressed?: boolean;
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
   // papic_guest_captures. (Photos never carry a showcase gate.) 'vendor' = a
@@ -71,7 +84,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
+        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserve_declined_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -79,7 +92,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
+        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserve_declined_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -200,6 +213,11 @@ export async function fetchPapicGallery(
           })
         : null,
       kind: isClip ? 'clip' : 'photo',
+      // "If nothing is picked, pick all" — the column stores only the DECLINE,
+      // so absent means preserved. An original already replaced by its
+      // compressed copy is not preserved and cannot become so again.
+      preserved: !r.preserve_declined_at && !r.full_res_dropped_at,
+      alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'seat',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
@@ -237,6 +255,8 @@ export async function fetchPapicGallery(
           })
         : null,
       kind: isClip ? 'clip' : 'photo',
+      preserved: !r.preserve_declined_at && !r.full_res_dropped_at,
+      alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'guest',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),

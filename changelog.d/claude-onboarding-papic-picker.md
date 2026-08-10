@@ -74,6 +74,69 @@ NO checkout in onboarding"* ruling. The rest of both stands: `PAYWALL_SCREENS` i
 is untouched and the retired bundle / à-la-carte tail stays out of the funnel. What comes back is
 ONE product's ladder, on the screen that was already showing it.
 
-SPEC IMPACT: `DECISION_LOG.md` row for 2026-08-11 (the reversal + the picker shape) and
-`Onboarding_Papic_AI_Cards_BUILD_SPEC_2026-07-27.md` § 3 Card 1, whose "**Action:** none. It is
-already on. The card informs." is now superseded.
+## 2026-08-11 · feat(papic): the Pool ladder runs to 30,000, and Papic One has ONE price
+
+Two owner decisions the same session, both applied to the picker above.
+
+**Pool — nine rungs.** Owner: *"so for papic pool, it will be 3000, 6000, 10000, 13000, 16000,
+20000 23000, 26000, 30000"*, at ₱1,000 per step (owner-confirmed against the three already live).
+The shape is the existing 3k/6k/10k block repeated three times, so ₱3,000 buys 10,000 credits at
+every point on the ladder — this **lengthens** it, it does not reprice it. The three live rungs are
+untouched. Migration `20271129155172`.
+
+🔑 **The picker needed NO code change** — `poolStepCount` is derived from the rung list, so the
+stepper walks whatever the catalog resolves to. Proved with a nine-rung case rather than asserted.
+Adding a rung is a migration and a hook line, nothing else.
+
+**Papic One — one price.** Owner: *"…remove the 100 pesos. let's just have one price for papic one."*
+then, correcting himself minutes later: *"sorry. my mistake. it should not be 100 for 50 pesos. it is
+**150** papic credits for 50 pesos."* Supersedes the 2026-07-29
+two-rung ladder **and** the flat "₱1 = 1 shot" rule with it. Rate moves ₱1.00 → ₱0.333 per credit — now within ~11%
+of the Pool rather than 3×, so a dedicated camera costs essentially what the shared pot costs and
+the small premium is all that is charged for "unshared, with its own QR". A reload is
+the same rung at the same price; there is deliberately no separate reload SKU. Migration
+`20271129422037`. The picker's size chips vanished on their own (they only render above one rung).
+
+🔑 **A NEW CODE `PAPIC_ONE_150` WAS CUT; BOTH OLD RUNGS RETIRE.** The first draft reused
+`PAPIC_ONE_100` — right while the figure was 100, wrong the instant it became 150, because it would
+have left a stored value whose NAME states a different number from the one it holds. Same failure
+that forced the `sponsored_included` rename. **When the number in a code's name changes, cut a new
+code.** ✅ Retiring both was verified safe against PROD, not assumed: zero `orders` rows on
+`PAPIC_ONE_100`, `PAPIC_CAMERA_MINI_DAY` or `PAPIC_CAMERAS`, and `papic_one_orders` empty.
+
+🔒 **`PAPIC_CAMERA_MINI_DAY` is deactivated, NOT deleted, and is still load-bearing** — the legacy
+multi-camera grant reads it, and every 'mini' seat is stamped with it as a `sku_code`. Its constant
+was `PAPIC_ONE_50_SKU`; renamed to `PAPIC_ONE_LEGACY_MINI_SKU` because "50" is now the PESO figure
+of the *surviving* rung, so the old name pointed at the exact opposite of what it meant. Both
+retired codes keep their activation hooks so any pre-existing order could still convert.
+
+⚠ **The Papic One migration's FILENAME says `hundred_credits` and is wrong** — the correction
+arrived after the file was allocated, and an applied migration's name can never be edited. The
+correction is at the top of the file that does the work. **Trust the SQL, never the filename.**
+
+### 🚨 The thing that would have silently taken ₱9,000 and granted nothing
+
+`activateOrderSku` dispatches on an EXACT `service_key` map and ends `if (!hook) return; // default
+no-op`. A rung that is live in both tables but **absent from that map** is fully purchasable and
+grants **zero** credits: the couple pays, an admin approves, the order goes `paid`, and the pool
+stays empty. Nothing throws, nothing logs, no alert fires — a no-op is the *designed* behaviour for
+a key that owns no capability. The migration alone would have put six unfunded rungs on sale.
+
+🛡 `papic-rungs-are-fundable.db.test.ts` (7 tests, **mutation-tested** — deleting one hook line
+turns it red) now spans the gap: replayed migrations for what is SELLABLE, module source for what
+is FUNDED. Neither half can see this alone. It also pins the owner's exact ladder, pins Papic One
+at exactly one rung, and proves the legacy grant still funds its seats now that the MINI rung is
+inactive.
+
+🪤 **The migration failed on first replay** — `papic_pass_tiers.service_code` has a foreign key to
+`platform_retail_catalog_v2`, so the catalog rows must be inserted **first**. Caught by the PGlite
+replay, which is the only place that ordering is exercised before a deploy tries it on prod.
+
+⚠ Two shipped tests were **correctly failing** because they encoded the superseded rules (the
+three-rung Pool, and "₱1 per photo on both rungs"). Updated to the new rules with the reason
+recorded inline — not weakened, and each gained an assertion it did not have before.
+
+SPEC IMPACT: applied — `DECISION_LOG.md` rows for 2026-08-11 (the picker, the nine-rung ladder, the
+Papic One single price); `Onboarding_Papic_AI_Cards_BUILD_SPEC_2026-07-27.md` § 3 Card 1 ("Action:
+none. The card informs.") and its § 0 rung/rule table; `Papic_Promotion_Surfaces_BUILD_SPEC_2026-07-29.md`
+§ 1; `WHATS_NEXT_Card_Family_Handoff_2026-07-29.md`.

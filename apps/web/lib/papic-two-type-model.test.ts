@@ -27,7 +27,7 @@ import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from '../tests/db/replay-migrations';
 import { papicCaptureCost, PAPIC_FREE_ONE_CAMERA_INDEX } from './papic-cameras';
-import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from './papic-one';
+import { PAPIC_ONE_LEGACY_MINI_SKU, PAPIC_ONE_SKU } from './papic-one';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -111,10 +111,20 @@ test('Papic POOL rungs come from the catalog, at the owner numbers, all repeatab
   );
   assert.deepEqual(
     rows.rows.map((r) => [r.service_code, Number(r.price), Number(r.points), r.is_active]),
+    // ⚠ EXTENDED 2026-08-11 (owner): "3000, 6000, 10000, 13000, 16000, 20000
+    // 23000, 26000, 30000", ₱1,000 per step. The three original rungs are
+    // UNCHANGED — this lengthened the ladder, it did not reprice it, and that
+    // is the thing worth checking here. Migration 20271129155172.
     [
       ['PAPIC_GUEST', 1000, 3000, true],
       ['PAPIC_GUEST_6K', 2000, 6000, true],
       ['PAPIC_GUEST_10K', 3000, 10000, true],
+      ['PAPIC_GUEST_13K', 4000, 13000, true],
+      ['PAPIC_GUEST_16K', 5000, 16000, true],
+      ['PAPIC_GUEST_20K', 6000, 20000, true],
+      ['PAPIC_GUEST_23K', 7000, 23000, true],
+      ['PAPIC_GUEST_26K', 8000, 26000, true],
+      ['PAPIC_GUEST_30K', 9000, 30000, true],
     ],
   );
   // Every rung is a repeatable TOP-UP now, so none may still be gated behind
@@ -140,7 +150,7 @@ test('Papic POOL rungs come from the catalog, at the owner numbers, all repeatab
   );
 });
 
-test('Papic ONE is ₱1 per photo, flat, on both rungs — and 250 is gone', async () => {
+test('Papic ONE is ONE rung — 150 credits for ₱50 — and 250 is gone', async () => {
   const rows = await db.query<{ service_code: string; price: string; points: number }>(
     `SELECT c.service_code, c.retail_price_php AS price, t.points
        FROM public.platform_retail_catalog_v2 c
@@ -150,12 +160,29 @@ test('Papic ONE is ₱1 per photo, flat, on both rungs — and 250 is gone', asy
   );
   assert.deepEqual(
     rows.rows.map((r) => [r.service_code, Number(r.price), Number(r.points)]),
-    [
-      [PAPIC_ONE_50_SKU, 50, 50],
-      [PAPIC_ONE_100_SKU, 100, 100],
-    ],
+    // ⚠ SUPERSEDED 2026-08-11 (owner): "100 papic credits for 50 pesos … remove
+    // the 100 pesos. let's just have one price for papic one." The two-rung
+    // ladder AND the flat "₱1 = 1 credit" rule that went with it are both gone;
+    // the rate is now ₱0.333 per credit on the single surviving rung —
+    // within ~11% of the Pool's ₱0.30, where it used to be 3×.
+    // Migration 20271129422037.
+    [[PAPIC_ONE_SKU, 50, 150]],
   );
-  for (const r of rows.rows) assert.equal(Number(r.price) / Number(r.points), 1);
+  assert.equal(rows.rows.length, 1, 'a second sellable rung means the ₱100 offer came back');
+
+  // The 50-credit rung is retired, and must be un-sellable in BOTH places —
+  // catalog-dark alone is not a fence, because resolveRetailChargeCentavos()
+  // prices by service_code without checking is_active.
+  for (const table of ['platform_retail_catalog_v2', 'papic_one_tiers']) {
+    assert.equal(
+      await one<boolean>(
+        `SELECT is_active FROM public.${table} WHERE service_code = '${PAPIC_ONE_LEGACY_MINI_SKU}'`,
+      ),
+      false,
+      `${PAPIC_ONE_LEGACY_MINI_SKU} is still live in ${table} — the superseded ` +
+        `₱50/50-credit offer is back on the ladder beside the ₱50/100-credit one`,
+    );
+  }
 
   // The retired ₱100 -> 250 conversion must not survive as a live value.
   assert.equal(
@@ -266,12 +293,12 @@ test('a RELOAD adds to the same camera — same seat, same QR, more shots', asyn
        (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
      VALUES ($1, $2, $3, 'Papic One reload', 100, 'paid', $4)
      RETURNING order_id`,
-    [eventId, userId.rows[0]!.id, PAPIC_ONE_100_SKU, `SN${randomUUID().slice(0, 12).toUpperCase()}`],
+    [eventId, userId.rows[0]!.id, PAPIC_ONE_SKU, `SN${randomUUID().slice(0, 12).toUpperCase()}`],
   );
   await db.query(
     `INSERT INTO public.papic_one_orders (order_id, event_id, seat_id, service_code, points, is_reload)
      VALUES ($1, $2, $3, $4, 100, TRUE)`,
-    [orderId, eventId, seatId, PAPIC_ONE_100_SKU],
+    [orderId, eventId, seatId, PAPIC_ONE_SKU],
   );
 
   assert.equal(
@@ -373,12 +400,12 @@ test('the free Papic One camera is ONE camera with 5 shots, however often it run
        (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
      VALUES ($1, $2, $3, 'Papic One reload of the free camera', 50, 'paid', $4)
      RETURNING order_id`,
-    [eventId, userId, PAPIC_ONE_50_SKU, `SN${randomUUID().slice(0, 12).toUpperCase()}`],
+    [eventId, userId, PAPIC_ONE_LEGACY_MINI_SKU, `SN${randomUUID().slice(0, 12).toUpperCase()}`],
   );
   await db.query(
     `INSERT INTO public.papic_one_orders (order_id, event_id, seat_id, service_code, points, is_reload)
      VALUES ($1, $2, $3, $4, 50, TRUE)`,
-    [orderId, eventId, first, PAPIC_ONE_50_SKU],
+    [orderId, eventId, first, PAPIC_ONE_LEGACY_MINI_SKU],
   );
   await db.query(`SELECT public.papic_grant_camera_points($1, $2)`, [eventId, orderId]);
   assert.equal(Number(await cameraRemaining(first)), 50, 'the reload revives the free camera');

@@ -20,7 +20,11 @@ import {
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
-import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from '@/lib/papic-one';
+import {
+  PAPIC_ONE_SKU,
+  PAPIC_ONE_LEGACY_MINI_SKU,
+  PAPIC_ONE_LEGACY_100_SKU,
+} from '@/lib/papic-one';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
   isVendorAiAddonActive,
@@ -867,6 +871,19 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
+  // 🚨 THE LADDER TO 30,000 (owner 2026-08-11 · migration 20271129155172).
+  // EVERY SELLABLE POOL RUNG MUST APPEAR IN THIS MAP. `activateOrderSku` ends
+  // `if (!hook) return; // default no-op`, so a rung that is on sale and absent
+  // here takes the couple's money, marks the order paid, and grants ZERO shots —
+  // no throw, no log, nothing to notice but an empty pool. Adding a rung is a
+  // migration AND a line here, and `papic-rungs-are-fundable.db.test.ts`
+  // fails the build if the two ever drift apart.
+  PAPIC_GUEST_13K: grantPapicPassPoints,
+  PAPIC_GUEST_16K: grantPapicPassPoints,
+  PAPIC_GUEST_20K: grantPapicPassPoints,
+  PAPIC_GUEST_23K: grantPapicPassPoints,
+  PAPIC_GUEST_26K: grantPapicPassPoints,
+  PAPIC_GUEST_30K: grantPapicPassPoints,
   // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
   // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
   // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement
@@ -884,8 +901,14 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // instead of forking per SKU. Every shape writes seat-scoped grants, which is
   // what keeps a One camera's shots out of the shared pool.
   PAPIC_CAMERAS: grantPapicCameraPoints,
-  [PAPIC_ONE_50_SKU]: grantPapicCameraPoints,
-  [PAPIC_ONE_100_SKU]: grantPapicCameraPoints,
+  // ONE price since 2026-08-11 (150 credits ₱50 · migration 20271129422037).
+  [PAPIC_ONE_SKU]: grantPapicCameraPoints,
+  // The two retired rungs keep their hooks, exactly as PAPIC_GUEST_TOPUP does:
+  // neither is purchasable, but an order minted before the change must still
+  // convert on approval. Their deactivated tier rows are what make that
+  // conversion resolve to the value they were sold at rather than a new one.
+  [PAPIC_ONE_LEGACY_MINI_SKU]: grantPapicCameraPoints,
+  [PAPIC_ONE_LEGACY_100_SKU]: grantPapicCameraPoints,
 
   // ── NO LIVE-STUDIO CAMERA HOOK, on purpose (2026-08-06) ─────────────────────
   //

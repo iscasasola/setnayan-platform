@@ -10,8 +10,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  PAPIC_ONE_50_SKU,
-  PAPIC_ONE_100_SKU,
+  PAPIC_ONE_LEGACY_MINI_SKU,
+  PAPIC_ONE_SKU,
   isPapicOneSku,
   normalisePapicOneTiers,
   papicOneOrderRow,
@@ -42,20 +42,20 @@ test('point currency: 1 photo = 1 pt · one 10-second clip = 8 pts', () => {
 // ── rung → points ──────────────────────────────────────────────────────────
 
 const TIERS = normalisePapicOneTiers([
-  { service_code: PAPIC_ONE_100_SKU, points: 100, sort_order: 20 },
-  { service_code: PAPIC_ONE_50_SKU, points: 50, sort_order: 10 },
+  { service_code: PAPIC_ONE_SKU, points: 100, sort_order: 20 },
+  { service_code: PAPIC_ONE_LEGACY_MINI_SKU, points: 50, sort_order: 10 },
 ]);
 
 test('One rungs resolve to their points, cheapest first', () => {
   assert.deepEqual(
     TIERS.map((t) => [t.serviceCode, t.points]),
     [
-      [PAPIC_ONE_50_SKU, 50],
-      [PAPIC_ONE_100_SKU, 100],
+      [PAPIC_ONE_LEGACY_MINI_SKU, 50],
+      [PAPIC_ONE_SKU, 100],
     ],
   );
-  assert.equal(papicOnePointsForSkuIn(TIERS, PAPIC_ONE_50_SKU), 50);
-  assert.equal(papicOnePointsForSkuIn(TIERS, PAPIC_ONE_100_SKU), 100);
+  assert.equal(papicOnePointsForSkuIn(TIERS, PAPIC_ONE_LEGACY_MINI_SKU), 50);
+  assert.equal(papicOnePointsForSkuIn(TIERS, PAPIC_ONE_SKU), 100);
 });
 
 test('a non-One SKU resolves to NULL, never 0', () => {
@@ -64,25 +64,25 @@ test('a non-One SKU resolves to NULL, never 0', () => {
   assert.equal(papicOnePointsForSkuIn(TIERS, 'PAPIC_GUEST_6K'), null);
   assert.equal(papicOnePointsForSkuIn(TIERS, ''), null);
   assert.equal(isPapicOneSku('PAPIC_GUEST_6K', TIERS), false);
-  assert.equal(isPapicOneSku(PAPIC_ONE_50_SKU, TIERS), true);
+  assert.equal(isPapicOneSku(PAPIC_ONE_LEGACY_MINI_SKU, TIERS), true);
 });
 
 test('unusable rung rows are dropped rather than sold', () => {
   const messy = normalisePapicOneTiers([
-    { service_code: PAPIC_ONE_50_SKU, points: 50, sort_order: 10 },
+    { service_code: PAPIC_ONE_LEGACY_MINI_SKU, points: 50, sort_order: 10 },
     { service_code: '', points: 999, sort_order: 1 }, // no code
     { service_code: 'PAPIC_ONE_ZERO', points: 0, sort_order: 2 }, // no shots
     { service_code: 'PAPIC_ONE_NULL', points: null, sort_order: 3 },
   ]);
-  assert.deepEqual(messy.map((t) => t.serviceCode), [PAPIC_ONE_50_SKU]);
+  assert.deepEqual(messy.map((t) => t.serviceCode), [PAPIC_ONE_LEGACY_MINI_SKU]);
 });
 
 test('₱1 per photo, flat — the owner ratio holds on both rungs', () => {
   // Pinned as a RATIO against the catalog prices the migration asserts, so a
   // reprice of one rung without the other is visible here and not only in prod.
   const priceFor = new Map([
-    [PAPIC_ONE_50_SKU, 50],
-    [PAPIC_ONE_100_SKU, 100],
+    [PAPIC_ONE_LEGACY_MINI_SKU, 50],
+    [PAPIC_ONE_SKU, 100],
   ]);
   for (const t of TIERS) {
     assert.equal(priceFor.get(t.serviceCode)! / t.points, 1);
@@ -130,7 +130,7 @@ test('the order row snapshots the rung, and records which mode it was', () => {
     orderId: 'o1',
     eventId: 'e1',
     seatId: SEAT_A,
-    serviceCode: PAPIC_ONE_100_SKU,
+    serviceCode: PAPIC_ONE_SKU,
     points: 100,
     isReload: true,
   });
@@ -138,7 +138,7 @@ test('the order row snapshots the rung, and records which mode it was', () => {
     order_id: 'o1',
     event_id: 'e1',
     seat_id: SEAT_A,
-    service_code: PAPIC_ONE_100_SKU,
+    service_code: PAPIC_ONE_SKU,
     points: 100,
     is_reload: true,
   });
@@ -147,7 +147,7 @@ test('the order row snapshots the rung, and records which mode it was', () => {
       orderId: 'o2',
       eventId: 'e1',
       seatId: SEAT_B,
-      serviceCode: PAPIC_ONE_50_SKU,
+      serviceCode: PAPIC_ONE_LEGACY_MINI_SKU,
       points: 50,
       isReload: false,
     }).is_reload,

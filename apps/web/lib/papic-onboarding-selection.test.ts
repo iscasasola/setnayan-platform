@@ -118,6 +118,63 @@ test('a selection whose rung was deactivated falls back to FREE, not another run
   assert.equal(poolPriceAt(POOL, poolStepOf(POOL, stale)), 0);
 });
 
+test('the ladder is DATA — a nine-rung Pool needs no code change', () => {
+  // Owner 2026-08-11 extended the Pool to 3k · 6k · 10k · 13k · 16k · 20k · 23k
+  // · 26k · 30k. Nothing in this module knows how many rungs there are, and this
+  // test exists to keep it that way: `poolStepCount` is derived, not a constant,
+  // so lengthening the ladder is a migration and nothing else. Prices are left
+  // as a linear placeholder here ON PURPOSE — pinning the real ones would make
+  // this suite fail the next time the owner reprices, which is the coupling
+  // papic-copy-guardrails exists to stop.
+  const NINE: PapicTypeView = {
+    ...POOL,
+    rungs: [3_000, 6_000, 10_000, 13_000, 16_000, 20_000, 23_000, 26_000, 30_000].map(
+      (points, i) => ({ key: `R${i}`, points, pricePhp: (i + 1) * 1_000 }),
+    ),
+  };
+
+  assert.equal(poolStepCount(NINE), 10, 'the free floor plus nine rungs');
+
+  // Walk the whole ladder with + and check every landing.
+  let s = EMPTY_PAPIC_SELECTION;
+  const seen: Array<{ shots: number; php: number }> = [];
+  for (let i = 0; i < 12; i += 1) {
+    s = stepPool(NINE, s, +1);
+    const step = poolStepOf(NINE, s);
+    seen.push({ shots: poolShotsAt(NINE, step), php: poolPriceAt(NINE, step) });
+  }
+
+  // It reaches the top and STOPS there — twelve presses on a nine-rung ladder
+  // must not wrap, overflow, or land on a rung that is not on the list.
+  assert.equal(poolStepOf(NINE, s), 9);
+  assert.equal(poolShotsAt(NINE, 9), NINE.freePoints + 30_000);
+  for (const { shots, php } of seen) {
+    assert.ok(
+      NINE.rungs.some((r) => r.points + NINE.freePoints === shots && r.pricePhp === php),
+      `landed on ${shots} shots at ${php} — not a rung on the ladder`,
+    );
+  }
+
+  // Every step is strictly bigger and strictly dearer than the one below it.
+  // A ladder that ever goes DOWN as you press + is the kind of thing an ordering
+  // mistake in a migration produces, and it would read as a bug in the button.
+  for (let step = 2; step <= 9; step += 1) {
+    assert.ok(
+      poolShotsAt(NINE, step) > poolShotsAt(NINE, step - 1),
+      `step ${step} offers no more shots than step ${step - 1}`,
+    );
+    assert.ok(
+      poolPriceAt(NINE, step) > poolPriceAt(NINE, step - 1),
+      `step ${step} costs no more than step ${step - 1}`,
+    );
+  }
+
+  // And − walks all the way back to free without stranding them mid-ladder.
+  for (let i = 0; i < 12; i += 1) s = stepPool(NINE, s, -1);
+  assert.equal(poolStepOf(NINE, s), 0);
+  assert.equal(poolPriceAt(NINE, 0), 0);
+});
+
 // ── papic one ──────────────────────────────────────────────────────────────
 
 test('the camera count defaults to the free camera alone, at no charge', () => {

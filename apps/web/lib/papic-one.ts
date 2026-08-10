@@ -7,15 +7,31 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * The sibling of lib/papic-pass-tiers.ts, which does the same job for the
  * SHARED Papic Pool rungs.
  *
- * ── THE MODEL (owner-locked 2026-07-29) ──────────────────────────────────
- *   free : ONE free One camera per event, 5 dedicated points.
- *   paid : 50 pts ₱50 · 100 pts ₱100 — PER CAMERA, ₱1 per photo flat, and no
- *          cap on how many an event buys.
- *   RELOADABLE: the same two rungs top up a camera that ALREADY exists,
- *          including the free one. That is the whole reason this module has a
- *          notion of a "target": a reload must not mint a second QR mid-event,
- *          because the guest holding the first one would be shooting at a dead
- *          camera while the couple's new shots sat somewhere they can't reach.
+ * ── THE MODEL (owner-locked 2026-08-11 · supersedes 2026-07-29) ──────────
+ *   free : ONE free One camera per event, 5 dedicated credits.
+ *   paid : ONE PRICE — 150 credits for ₱50, PER CAMERA. No second rung, no
+ *          cap on how many cameras an event buys.
+ *   RELOAD: 150 credits for ₱50 — the SAME rung. Buying a camera and topping
+ *          one up are the same transaction at the same price, which is why
+ *          there is no separate reload SKU and must never be one.
+ *
+ *   Owner, verbatim: *"can we adjust papic one … let's just have one price for
+ *   papic one."* then, correcting himself minutes later: *"sorry. my mistake. it
+ *   should not be 100 for 50 pesos. it is 150 papic credits for 50 pesos."*
+ *
+ *   ⚠ WHAT THIS REPLACED, so it is not re-derived from an older comment: the
+ *   2026-07-29 lock was TWO rungs (50 pts ₱50 · 100 pts ₱100) under a flat
+ *   "₱1 = 1 credit" rule. Both are gone. The rate is now **₱0.333 per credit** —
+ *   within ~11% of the shared Pool's ₱0.30, where it used to be 3×. A dedicated
+ *   camera now costs essentially what the shared pot costs, and that small
+ *   premium is all that is charged for "unshared, with its own QR". Deliberate:
+ *   the gap has to be small enough that a couple can say yes to both in one
+ *   onboarding screen.
+ *
+ *   RELOADABLE, and why this module has a notion of a "target": a reload must
+ *   not mint a second QR mid-event, because the guest holding the first one
+ *   would be shooting at a dead camera while the couple's new credits sat
+ *   somewhere they cannot reach.
  *
  * ── WHERE THE NUMBERS LIVE ───────────────────────────────────────────────
  * Points come from `public.papic_one_tiers` (admin-editable, migration
@@ -34,9 +50,51 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * by anybody else.
  */
 
-/** The two live One rungs. Codes are LOCKED (never-rename lock). */
-export const PAPIC_ONE_50_SKU = 'PAPIC_CAMERA_MINI_DAY';
-export const PAPIC_ONE_100_SKU = 'PAPIC_ONE_100';
+/**
+ * ⚠ ONE PRICE SINCE 2026-08-11. Owner: *"100 papic credits for 50 pesos … remove
+ * the 100 pesos. let's just have one price for papic one."* Papic One is a
+ * SINGLE rung — 100 credits, ₱50, per camera — and a reload buys exactly the
+ * same thing at the same price. The 2026-07-29 two-rung ladder (50 ₱50 · 100
+ * ₱100) and the flat "₱1 = 1 credit" rule it carried are both superseded;
+ * migration 20271129422037 is where that landed.
+ *
+ * Codes are LOCKED (never-rename lock), which is why the retired one is still
+ * spelled out below rather than deleted.
+ */
+export const PAPIC_ONE_SKU = 'PAPIC_ONE_150';
+
+/**
+ * 🔒 RETIRED 2026-08-11 — kept because a retired rung keeps its activation hook,
+ * so an order minted before the change can still convert. Prod held ZERO orders
+ * on it when it was retired (checked, not assumed), but "there are none today"
+ * is not a reason to remove a safety net.
+ *
+ * 🔑 A NEW CODE WAS CUT RATHER THAN REPRICING THIS ONE, and the reason is the
+ * whole point: `PAPIC_ONE_100` means "100 credits". Putting 150 in it would
+ * leave a stored value whose NAME states a different number from the one it
+ * holds — the exact failure that forced the `sponsored_included` rename, because
+ * a comment does not travel with a value into a query result, a log line or an
+ * audit. When the number in the name changes, cut a new code.
+ */
+export const PAPIC_ONE_LEGACY_100_SKU = 'PAPIC_ONE_100';
+
+/**
+ * 🔒 RETIRED AS A RUNG, STILL LOAD-BEARING — do not delete either the constant
+ * or its table row. It is deactivated in `papic_one_tiers`, so it is no longer
+ * purchasable, but two shipped things still read the code itself:
+ *   1. `papic_grant_camera_points` branch (B) resolves the LEGACY multi-camera
+ *      PAPIC_CAMERAS grant through it (falling back to 50 now that the row is
+ *      inactive — the same figure the row held, so legacy orders are unchanged).
+ *   2. `provisionPaidCamerasAdmin` stamps it as the `sku_code` of every 'mini'
+ *      seat it creates, including the ones the onboarding picker provisions. A
+ *      seat's sku_code is a label, not a purchase, so an inactive tier row does
+ *      not affect it.
+ *
+ * ⚠ It was called `PAPIC_ONE_50_SKU`. Renamed because "50" is now the PESO
+ * figure of the 100-credit rung, so the old name read as "the ₱50 one" — which
+ * is the surviving rung, the exact opposite of what it points at.
+ */
+export const PAPIC_ONE_LEGACY_MINI_SKU = 'PAPIC_CAMERA_MINI_DAY';
 
 export type PapicOneTier = {
   serviceCode: string;
@@ -45,12 +103,16 @@ export type PapicOneTier = {
 };
 
 /**
- * Fallbacks — used ONLY when papic_one_tiers is unreadable (pre-migration).
- * Owner-locked 2026-07-29; the DB is the source of truth.
+ * Fallback — used ONLY when papic_one_tiers is unreadable (pre-migration).
+ * Owner-locked 2026-08-11; the DB is the source of truth.
+ *
+ * ONE entry, matching the one active rung. The retired MINI rung is deliberately
+ * absent: a fallback that still listed it would put a superseded ₱50/50-credit
+ * offer back on the ladder on exactly the reads where the database could not be
+ * consulted to say otherwise.
  */
 export const FALLBACK_ONE_TIERS: readonly PapicOneTier[] = Object.freeze([
-  { serviceCode: PAPIC_ONE_50_SKU, points: 50, sortOrder: 10 },
-  { serviceCode: PAPIC_ONE_100_SKU, points: 100, sortOrder: 20 },
+  { serviceCode: PAPIC_ONE_SKU, points: 150, sortOrder: 10 },
 ]);
 
 type OneTierRow = {

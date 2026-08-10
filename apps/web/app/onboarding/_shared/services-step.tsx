@@ -121,9 +121,13 @@ const TYPE_COPY: Record<
       'A named camera with its own QR and its own shots — for your best friend, ' +
       'your ninang, the one person you trust to catch everything. Their shots ' +
       'never draw from the shared pool.',
+    // ⚠ "the same rungs" (plural) was true of the retired two-rung ladder.
+    // Papic One has had ONE price since 2026-08-11, and a reload buys exactly
+    // the same thing at exactly the same price — which is simpler to say and is
+    // the actual product rule, not a simplification of it.
     note:
       'One free camera to try it — then add as many dedicated cameras as you ' +
-      'want, and reload any of them with the same rungs when they run low. No ' +
+      'want, and top any of them up for the same price when they run low. No ' +
       'new QR needed.',
     Icon: UserRound,
   },

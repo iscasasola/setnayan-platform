@@ -3,6 +3,7 @@
 import { Check, Lock } from 'lucide-react';
 import {
   PAPIC_FIDELITY_TIERS,
+  NEW_EVENT_PAPIC_FIDELITY,
   asPapicFidelityTier,
   type PapicFidelityTier,
 } from '@/lib/papic-fidelity';
@@ -16,10 +17,14 @@ import { setPapicQualityTier } from './actions';
  * capture ingest reads (lib/papic-ingest-fidelity.ts). Same form-per-card
  * idiom as StylePicker.
  *
- * Weddings default to Optimal (~12 MP — phone-native, prints to A3), so the
- * Optimal card carries a "Recommended" badge when `recommendOptimal` is set.
- * The stored/DB default stays Full resolution (pre-PR-4 behavior) until the
- * couple actively chooses.
+ * Weddings get a "Recommended" badge on the tier new events start on
+ * (NEW_EVENT_PAPIC_FIDELITY = Optimal, ~12 MP — phone-native, prints to A3)
+ * when `recommendOptimal` is set. Since 2026-08-10 that is also the stored
+ * database default for a newly created event (owner: "photo quality starts at
+ * optimal and not full resolution"); events created before then keep Full
+ * resolution and are never migrated. ALL THREE tiers stay selectable — keeping
+ * the choice is what lets a couple opt into Full resolution, which paid
+ * preservation talks about.
  *
  * Downscale confirm (open-risks invariant "irreversible fidelity downscale
  * confirm"): choosing a downscaling tier means NEW photos won't retain a
@@ -47,7 +52,10 @@ export default function QualityPicker({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {PAPIC_FIDELITY_TIERS.map((t) => {
         const isActive = t.id === active;
-        const isRecommended = recommendOptimal && t.id === 'optimal';
+        // Derived, never re-typed: the badge marks the tier new events start
+        // on, so it can never disagree with what a new event actually gets.
+        const isRecommended =
+          recommendOptimal && t.id === NEW_EVENT_PAPIC_FIDELITY;
         const needsConfirm = t.id !== 'full_res' && !isActive;
         return (
           <form

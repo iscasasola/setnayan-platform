@@ -7,7 +7,7 @@ import { getR2Client, r2Upload } from '@/lib/r2';
 import {
   asPapicFidelityTier,
   fidelityIngestParams,
-  DEFAULT_PAPIC_FIDELITY,
+  FIDELITY_READ_FAILSAFE,
   type PapicFidelityTier,
 } from '@/lib/papic-fidelity';
 
@@ -23,8 +23,13 @@ import {
  * derivatives, Drive sync, downloads, and the gallery all flow from it.
  *
  * Invariants:
- *   • full_res / absent / legacy / pre-migration → NO processing at all —
- *     byte-for-byte today's behavior (the migration default is inert).
+ *   • full_res / absent / legacy / pre-migration / UNREADABLE → NO processing
+ *     at all — the uploaded bytes are stored byte-for-byte.
+ *     ⚠ Since 2026-08-10 the DB column default is 'optimal', so a NEW event
+ *     reaching this module downscales by design (owner ruling). That is a
+ *     legitimate value arriving from a SUCCESSFUL read. It does not change the
+ *     line above: everything that means "we do not know the tier" still lands
+ *     on full_res via FIDELITY_READ_FAILSAFE.
  *   • Only ever DOWNSCALES: a photo already within the tier's long-edge cap is
  *     left verbatim (no upscale, no pointless second lossy pass — the
  *     one-compression-pass rule).
@@ -47,7 +52,15 @@ export type IngestFidelityOutcome =
 /**
  * Read the event's fidelity tier — defensively. A pre-migration env (column
  * absent → PostgREST error), a missing row, or an unexpected value all resolve
- * to the default tier (full_res = today's behavior). Never throws.
+ * to FIDELITY_READ_FAILSAFE. Never throws.
+ *
+ * 🔒 THE FALLBACK IS THE FAIL-SAFE, NOT THE NEW-EVENT DEFAULT. This is an
+ * ERROR path, and the only thing this module ever does with a tier is
+ * DOWNSCALE. Returning 'optimal' here would mean a transient database failure
+ * permanently shrinks somebody's wedding originals — irreversibly, silently,
+ * with nothing thrown and nothing logged. 'full_res' means "do nothing to the
+ * bytes", so the worst a failed read can cost us is disk. Never point this at
+ * NEW_EVENT_PAPIC_FIDELITY, however tempting the name looks.
  */
 export async function readEventFidelityTier(
   eventId: string,
@@ -59,12 +72,12 @@ export async function readEventFidelityTier(
       .select('papic_quality_tier')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (error) return DEFAULT_PAPIC_FIDELITY;
+    if (error) return FIDELITY_READ_FAILSAFE;
     return asPapicFidelityTier(
       (data as { papic_quality_tier?: string } | null)?.papic_quality_tier,
     );
   } catch {
-    return DEFAULT_PAPIC_FIDELITY;
+    return FIDELITY_READ_FAILSAFE;
   }
 }
 

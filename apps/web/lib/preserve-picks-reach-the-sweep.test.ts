@@ -251,7 +251,7 @@ test('THE CLIP SELECTS FETCH THE COLUMN — a row without it can only read as "k
   );
   for (const [, table, list] of captureSelects) {
     assert.ok(
-      list.includes('preserve_declined_at'),
+      (list ?? '').includes('preserve_declined_at'),
       `the ${table} capture SELECT stopped fetching preserve_declined_at. The ` +
         'column then arrives undefined, every capture reads as "not declined", ' +
         'and the couple\'s choice silently stops reaching the sweep.',

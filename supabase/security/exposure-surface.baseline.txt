@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6243
+# facts: 6245
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     672
-#   col       4506
+#   col       4508
 #   policy    840
 #   view      9
 #   func      212
@@ -2900,6 +2900,7 @@ col	public.papic_guest_captures.media_type	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.moderation_state	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.orig_bytes	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.poster_r2_key	anon=SIU authenticated=SIU
+col	public.papic_guest_captures.preserve_declined_at	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.r2_object_key	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_x	anon=SIU authenticated=SIU
 col	public.papic_guest_captures.subject_center_y	anon=SIU authenticated=SIU
@@ -2995,6 +2996,7 @@ col	public.papic_photos.paparazzi_seat_id	anon=SIU authenticated=SIU
 col	public.papic_photos.photo_id	anon=SIU authenticated=SIU
 col	public.papic_photos.photo_type	anon=SIU authenticated=SIU
 col	public.papic_photos.poster_r2_key	anon=SIU authenticated=SIU
+col	public.papic_photos.preserve_declined_at	anon=SIU authenticated=SIU
 col	public.papic_photos.r2_object_key	anon=SIU authenticated=SIU
 col	public.papic_photos.size_bytes	anon=SIU authenticated=SIU
 col	public.papic_photos.superseded_at	anon=SIU authenticated=SIU

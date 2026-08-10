@@ -20,8 +20,21 @@
  * Extracted from the component so it is provable. The rule lived as a callback
  * inside a `setState`, where nothing could break it on purpose.
  */
-export function addressFromPin(typed: string, found: string): string | null {
-  if (typed.trim()) return null; // their words win, always
+export function addressFromPin(
+  typed: string,
+  found: string,
+  /**
+   * True when the text currently in the box was written by us from an earlier
+   * pin. Ours to replace; theirs is not.
+   *
+   * Added after the first version left the FIRST street in the box when a
+   * vendor tapped a second spot — the box and the confirmation card showed two
+   * different addresses at once, and the shop was filed with a street that did
+   * not match its own pin.
+   */
+  oursToReplace = false,
+): string | null {
+  if (typed.trim() && !oursToReplace) return null; // their words win, always
   const next = found.trim();
   return next ? next : null;
 }

@@ -73,7 +73,12 @@ export const OPEN_SHOP_ERRORS = {
   contactName: 'Add your name.',
   contactPhone: 'Add a contact number.',
   contactEmail: 'Add a valid company email.',
-  locationCity: 'Add the city you serve.',
+  // ⚠ WAS "Add the city you serve." — a coverage question, on a step headed
+  // "Where you are", for a box that is checked against the vendor's DTI, BIR
+  // and Mayor's Permit and is locked afterwards. It invited "Metro Manila" or a
+  // city they travel to into a field that must say where they physically are —
+  // and prod already shows a vendor putting the wrong thing in this box.
+  locationCity: 'Add the city your business is in.',
   // Owner-locked 2026-08-10: the pin is REQUIRED, and confirming it is what
   // completes the step. Two separate refusals because they are two separate
   // things to do — telling someone to "confirm" when there is nothing on the

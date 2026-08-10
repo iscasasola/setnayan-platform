@@ -123,6 +123,29 @@ export function CityPin({
    * tapped, for no reason they can see.
    */
   const echo = useRef(false);
+  /**
+   * Which pin-resolution is the current one.
+   *
+   * Every path that moves the pin bumps this before awaiting. A reply that
+   * comes back for an older pin finds its number stale and writes nothing —
+   * otherwise a slow answer for the spot they tapped first overwrites the spot
+   * they tapped second, and the card ends up describing a place the pin is no
+   * longer on.
+   */
+  const resolveSeq = useRef(0);
+  /**
+   * True when the address in the box was written by US from a pin, rather than
+   * typed by the vendor.
+   *
+   * 🔑 IT DECIDES WHO OWNS THE TEXT. What a vendor typed is theirs and is never
+   * overwritten. What we derived from a pin belongs to that pin — so when the
+   * pin moves, it has to move with it. Without this, tapping a second spot left
+   * the FIRST street in the box while the card below showed the second one and
+   * the second one's coordinates were saved: two different addresses on screen
+   * at once, and a shop filed with a street that does not match its pin. That
+   * pair is exactly what a reviewer holds against the Mayor's Permit later.
+   */
+  const addressIsOurs = useRef(false);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [missed, setMissed] = useState(false);
@@ -169,11 +192,33 @@ export function CityPin({
   };
 
   const resolve = async (lat: number, lng: number) => {
+    const seq = (resolveSeq.current += 1);
     setPin({ lat, lng });
+    // ── CLEARED SYNCHRONOUSLY, BEFORE ANYTHING IS AWAITED ────────────────────
+    // 🔴 THIS USED TO RUN *AFTER* THE LOOKUP, AND THAT WAS A LIVE DEFECT I
+    // SHIPPED. `setPin` is synchronous, so the confirmation card appeared the
+    // instant the map was tapped — with the PREVIOUS answer still in it, and
+    // its button live. Tap "Yes, that's right" in that second or two on mobile
+    // data and the green tick appeared, then vanished on its own when the
+    // lookup landed and ran `setConfirmed(false)` over the top. Press "Open my
+    // shop" in between and you were refused with *"Check the address on the
+    // map, then tap Yes, that's right"* — about a button you had just pressed,
+    // with nothing on screen explaining it.
+    //
+    // 🔑 MOVING THE PIN VOIDS THE OLD AGREEMENT AND THE OLD CARD AT THE SAME
+    // INSTANT IT MOVES THE PIN. A confirmation is about a place; the moment the
+    // place changes there is nothing left to have agreed to, and leaving either
+    // one standing for the length of a network round trip is what let a
+    // stale question be answered.
+    setConfirmed(false);
+    setProposed(null);
     setDetecting(true);
     setMissed(false);
     try {
       const r = await detectShopCity(lat, lng);
+      // A newer pin was dropped while this was in flight — that one owns the
+      // card now.
+      if (seq !== resolveSeq.current) return;
       // An empty city is a MISS, not an answer. Blanking a city the vendor
       // already typed because a rural pin resolved to nothing would take away
       // work they did — so on a miss the existing value stands and we say so.
@@ -191,19 +236,22 @@ export function CityPin({
       // words for their own address, and a geocoder's phrasing does not get to
       // replace it.
       setAddress((current) => {
-        const next = addressFromPin(current, r.address);
+        const next = addressFromPin(current, r.address, addressIsOurs.current);
         if (next === null) return current;
         echo.current = true;
+        addressIsOurs.current = true;
         return next;
       });
-      // Dragging the pin is choosing a different place; the previous
-      // confirmation was about the previous spot.
-      setConfirmed(false);
+      // (`confirmed` and `proposed` were already cleared above, before the
+      // await — clearing them again here is what created the race.)
       setProposed(r.city || r.address ? { city: r.city, address: r.address } : null);
     } catch {
-      setMissed(true);
+      if (seq === resolveSeq.current) setMissed(true);
     } finally {
-      setDetecting(false);
+      // Only the current resolution may take the spinner down. An older one
+      // finishing late would clear it while the newer lookup is still running,
+      // and the card would open on an answer that has not arrived.
+      if (seq === resolveSeq.current) setDetecting(false);
     }
   };
 
@@ -357,7 +405,12 @@ export function CityPin({
       <input
         name="hq_address"
         value={address}
-        onChange={(e) => setAddress(e.target.value)}
+        onChange={(e) => {
+          // They are typing, so the text is theirs again and no pin may
+          // overwrite it.
+          addressIsOurs.current = false;
+          setAddress(e.target.value);
+        }}
         maxLength={200}
         placeholder="Type your address"
         className="input-field"
@@ -429,7 +482,13 @@ export function CityPin({
           a hypothetical one. A pin the machine cannot name is still a pin the
           vendor can vouch for — so the card asks "is this the right spot?" and
           takes their word for it. */}
-      {pin && !confirmed ? (
+      {/* 🔑 NOT WHILE THE LOOKUP IS STILL RUNNING. The card used to appear the
+          instant the map was tapped, showing the previous answer, with a live
+          Yes button — so a fast tap answered a question that was never about
+          this pin, and the agreement was overwritten a second later. Waiting
+          for `detecting` to clear costs a second and removes the window
+          entirely. The spinner below already says what is happening. */}
+      {pin && !confirmed && !detecting ? (
 
         <div
           className="space-y-2 rounded-xl border p-3"

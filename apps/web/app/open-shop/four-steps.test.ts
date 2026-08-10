@@ -158,3 +158,101 @@ test('every field validateStep asks for actually exists on the form', () => {
       'the value comes back undefined and the step can never pass',
   );
 });
+
+test('the error banner can be CLEARED — one value, not two', () => {
+  // 🪤 The banner used to render `stepError ?? error`, where `error` is a bare
+  // prop fed from `?error=` that nothing can clear. A vendor bounced by the
+  // server, who then fixed the field and passed the step, watched the identical
+  // red sentence stay on screen — indistinguishable from still being refused.
+  //
+  // Reintroducing the fallback is a one-character-looking change (`??`) that
+  // silently restores a message the vendor can never get rid of, so it is pinned
+  // rather than left to review.
+  const visible = WIZARD.replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+  assert.ok(
+    !/stepError\s*\?\?\s*error/.test(visible),
+    'the banner falls back to the un-clearable `error` prop again',
+  );
+  assert.ok(
+    /useState<string \| null>\(error \?\? null\)/.test(visible),
+    'the banner is no longer SEEDED from the server error — a server rejection ' +
+      'would arrive with nothing shown at all, which is worse than a stale one',
+  );
+});
+
+test('the refusal names the field the vendor can actually see', () => {
+  // Owner 2026-08-10: "we only ask Your name." A refusal that names a box which
+  // is not on screen reads as the form rejecting the wrong thing.
+  const VALIDATION = readFileSync('lib/open-shop-validation.ts', 'utf8');
+  assert.ok(
+    !/contactName:\s*'Add the owner name\.'/.test(VALIDATION),
+    'the refusal says "owner name" while the field is labelled "Your name"',
+  );
+  const label = /Your name<span/.test(WIZARD);
+  assert.ok(label, 'the field label changed — re-check that the refusal still matches it');
+});
+
+test('🔴 Enter cannot submit the form', () => {
+  // Owner 2026-08-10: "when i tried searching on the map and pressed enter, it
+  // just completed without me seeing if the address was correct." A form
+  // implicitly submits on Enter, and with all four steps on ONE form the submit
+  // button is the LAST step's — so Enter in the address box created the shop.
+  assert.ok(
+    /onKeyDown=\{onFormKeyDown\}/.test(WIZARD),
+    'the form no longer intercepts Enter — pressing it in any text field will ' +
+      'submit and create the shop, at whatever address is on screen',
+  );
+  assert.ok(
+    /if \(e\.key !== 'Enter'\) return;[\s\S]{0,400}e\.preventDefault\(\)/.test(WIZARD),
+    'the Enter handler no longer calls preventDefault — implicit submission is back',
+  );
+  // And it must NOT advance past the last step, or Enter becomes the submit
+  // button again by another route.
+  assert.ok(
+    /if \(step < TOTAL_STEPS\) next\(\)/.test(WIZARD),
+    'the Enter handler advances unconditionally — on the last step that is a submit',
+  );
+});
+
+test('a machine-guessed location must be confirmed before the step passes', () => {
+  // Owner: "once i place the map, maybe we can ask if they are located in x city
+  // and to accept." A geocode nobody looked at must not be able to carry a shop
+  // past this step — that is precisely how one was created at an unchecked
+  // address.
+  assert.ok(
+    /location_confirmed/.test(WIZARD),
+    'validateStep(4) no longer requires the location to be confirmed',
+  );
+  assert.ok(
+    /location_confirmed/.test(CITY_PIN),
+    'CityPin no longer emits the confirmation the gate reads — the gate would ' +
+      'refuse every vendor instead, which is the same bug pointing the other way',
+  );
+  // The confirmation must be conditional on a pin: a hand-typed city has
+  // nothing to confirm, and demanding it would trap vendors whose address the
+  // geocoder cannot find at all.
+  assert.ok(
+    /const pinned = !!el\('hq_latitude'\)\?\.value/.test(WIZARD),
+    'the confirmation is demanded unconditionally — a vendor whose address does ' +
+      'not geocode can never pass step 4',
+  );
+});
+
+test('the map repaints when its step becomes visible', () => {
+  // All four panels are always mounted; step 4 is display:none until reached.
+  // Leaflet measures its container ONCE, so a map created at 0×0 believes it is
+  // 0×0 forever — no tiles, no pin, nothing moves. To the vendor that reads as
+  // "the map does not update as I type", with no error to explain it.
+  assert.ok(
+    /invalidateSize/.test(CITY_PIN),
+    'CityPin never calls invalidateSize — the map is created inside a hidden ' +
+      'panel and will render blank',
+  );
+  assert.ok(
+    /ResizeObserver/.test(CITY_PIN),
+    'the invalidateSize call is not driven by a ResizeObserver, so nothing fires ' +
+      'it at the moment the panel stops being hidden',
+  );
+});

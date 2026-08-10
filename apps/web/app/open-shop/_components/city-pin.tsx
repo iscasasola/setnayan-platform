@@ -2,7 +2,9 @@
 
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
-import { Crosshair, Loader2, MapPin } from 'lucide-react';
+import { Check, Crosshair, Loader2, MapPin } from 'lucide-react';
+
+import { addressFromPin } from '@/lib/pin-address';
 
 import { detectShopCity, locateShopAddress } from '../city-actions';
 
@@ -65,9 +67,19 @@ const DEFAULT_CENTER: [number, number] = [14.5995, 120.9842];
 export function CityPin({
   defaultCity,
   defaultAddress = '',
+  active = true,
 }: {
   defaultCity: string;
   defaultAddress?: string;
+  /**
+   * True once this step is the one on screen. Belt AND braces with the
+   * ResizeObserver: a ResizeObserver fires on a SIZE change, and while that does
+   * happen when `display:none` lifts, relying on it alone makes the map's
+   * correctness depend on an observer firing at the right moment in a browser we
+   * have not tested. This is the explicit signal — when the step becomes
+   * visible, re-measure.
+   */
+  active?: boolean;
 }) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -77,6 +89,29 @@ export function CityPin({
   const [city, setCity] = useState(defaultCity);
   const [locating, setLocating] = useState(false);
   const [noMatch, setNoMatch] = useState(false);
+  /**
+   * What the lookup PROPOSED, and whether the vendor has agreed to it.
+   *
+   * Owner 2026-08-10: *"once i place the map, maybe we can ask if they are
+   * located in x city and to accept."* — after they pressed Enter, the form
+   * submitted and the shop was created before they could see whether the
+   * address was even right.
+   *
+   * So a machine guess is now a PROPOSAL, not a decision. `proposed` holds what
+   * the geocoder found; `confirmed` is the vendor saying yes. Any new lookup or
+   * pin drag clears the confirmation, because it is a different place.
+   */
+  const [proposed, setProposed] = useState<{ city: string; address: string } | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const raf2 = useRef<number | null>(null);
+  /**
+   * Set when WE wrote the address box, so the type→pin effect skips that one
+   * change. Without it, filling the box from a tapped pin re-geocodes the text
+   * we just derived from that pin and moves the pin to wherever the geocoder
+   * lands — a vendor watching their own pin drift away from the spot they
+   * tapped, for no reason they can see.
+   */
+  const echo = useRef(false);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [missed, setMissed] = useState(false);
@@ -133,6 +168,27 @@ export function CityPin({
       // work they did — so on a miss the existing value stands and we say so.
       if (r.city) setCityValue(r.city);
       else setMissed(true);
+      // ── A PIN WITH NO ADDRESS IS NOT WHAT WAS ASKED FOR ───────────────────
+      // Owner 2026-08-10: *"we just want them to pin the address so we can
+      // verify with their documents when they send it after."* A vendor who
+      // taps the map instead of typing was submitting coordinates and a city
+      // and NO address — so the reviewer holding a Mayor's Permit had a dot on
+      // a map and a city name to check a full street address against. The
+      // lookup already knows the street; write it down.
+      //
+      // Only when the box is EMPTY. Whatever the vendor typed is their own
+      // words for their own address, and a geocoder's phrasing does not get to
+      // replace it.
+      setAddress((current) => {
+        const next = addressFromPin(current, r.address);
+        if (next === null) return current;
+        echo.current = true;
+        return next;
+      });
+      // Dragging the pin is choosing a different place; the previous
+      // confirmation was about the previous spot.
+      setConfirmed(false);
+      setProposed(r.city || r.address ? { city: r.city, address: r.address } : null);
     } catch {
       setMissed(true);
     } finally {
@@ -146,6 +202,10 @@ export function CityPin({
   // address cannot overwrite a newer one — otherwise typing "Banawe" then
   // "Banawe Street QC" can settle on the pin for "Banawe".
   useEffect(() => {
+    if (echo.current) {
+      echo.current = false;
+      return;
+    }
     const q = address.trim();
     if (q.length < 3) {
       setNoMatch(false);
@@ -164,6 +224,9 @@ export function CityPin({
             // already typed because a rural address resolved without a
             // municipality would take away their work.
             if (r.city) setCityValue(r.city);
+            // A new place means the old agreement no longer applies.
+            setConfirmed(false);
+            setProposed({ city: r.city, address: r.address });
           } else {
             setNoMatch(true);
           }
@@ -183,8 +246,25 @@ export function CityPin({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
+  // Re-measure on becoming visible. Two frames, deliberately: the first runs
+  // before the browser has finished laying the panel out, so a single
+  // invalidateSize can still measure the old zero size.
+  useEffect(() => {
+    if (!active) return;
+    const a = requestAnimationFrame(() => {
+      mapRef.current?.invalidateSize();
+      const b = requestAnimationFrame(() => mapRef.current?.invalidateSize());
+      raf2.current = b;
+    });
+    return () => {
+      cancelAnimationFrame(a);
+      if (raf2.current) cancelAnimationFrame(raf2.current);
+    };
+  }, [active]);
+
   useEffect(() => {
     let cancelled = false;
+    let ro: ResizeObserver | null = null;
     (async () => {
       const mod = await import('leaflet');
       const L: LeafletModule = (mod as unknown as { default?: LeafletModule }).default ?? mod;
@@ -207,9 +287,27 @@ export function CityPin({
         placePin(e.latlng.lat, e.latlng.lng);
       });
       mapRef.current = map;
+
+      // ── 🔴 A MAP BORN INSIDE A HIDDEN PANEL HAS NO SIZE ────────────────────
+      // All four steps are always mounted; step 4 is `display:none` until the
+      // vendor reaches it. Leaflet measures its container ONCE at creation, so a
+      // map created at 0×0 keeps believing it is 0×0 — tiles never paint, the
+      // pin never appears, and moving the view does nothing visible. To the
+      // vendor that is "the map does not update as I type", with no error to
+      // explain it.
+      //
+      // The shipped My Shop picker already solves this with a ResizeObserver
+      // (`vendor-dashboard/shop/_components/editable-row.tsx`); this copies that
+      // fix rather than inventing one. It fires when the panel stops being
+      // hidden, which is the exact moment the size becomes real.
+      if (typeof ResizeObserver !== 'undefined' && mapDivRef.current) {
+        ro = new ResizeObserver(() => mapRef.current?.invalidateSize());
+        ro.observe(mapDivRef.current);
+      }
     })();
     return () => {
       cancelled = true;
+      ro?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
       markerRef.current = null;
@@ -266,7 +364,7 @@ export function CityPin({
       ) : null}
 
       <div className="relative overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-        <div ref={mapDivRef} className="h-[180px] w-full" />
+        <div ref={mapDivRef} className="h-[240px] w-full" />
         <button
           type="button"
           onClick={useMyLocation}
@@ -298,6 +396,58 @@ export function CityPin({
         className="input-field"
         aria-label="City"
       />
+
+      {/* ── CONFIRM THE PLACE (owner 2026-08-10) ───────────────────────────────
+          A geocoder's answer is a guess, and this one is about where the
+          vendor's business physically is. Shown as a question with the matched
+          address in full, because "Quezon City" alone cannot tell you whether it
+          found YOUR street. The step cannot be passed until this is answered —
+          `location_confirmed` is what `validateStep(4)` reads. */}
+      {proposed && !confirmed ? (
+        <div
+          className="space-y-2 rounded-xl border p-3"
+          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+        >
+          <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
+            {proposed.city ? (
+              <>
+                Are you in <strong>{proposed.city}</strong>?
+              </>
+            ) : (
+              <>Is this the right spot?</>
+            )}
+          </p>
+          {proposed.address ? (
+            <p className="text-xs leading-snug" style={{ color: 'var(--m-slate)' }}>
+              {proposed.address}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setConfirmed(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+            style={{ background: 'var(--m-orange-deep)', color: 'white' }}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+            Yes, that&rsquo;s right
+          </button>
+          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+            Not quite? Edit the address above or drag the pin.
+          </p>
+        </div>
+      ) : null}
+
+      {confirmed ? (
+        <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--m-sage-deep)' }}>
+          <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+          Location confirmed
+        </span>
+      ) : null}
+
+      {/* Read by the step gate. Present ONLY once the vendor has agreed — a
+          geocode that nobody looked at must not be able to pass the step, which
+          is exactly how a shop got created at an unverified address. */}
+      {confirmed ? <input type="hidden" name="location_confirmed" value="yes" /> : null}
 
       {pin ? (
         <>

@@ -379,12 +379,20 @@ export async function runFullResDropSweep(
   // row must already have a web copy (clip_web_r2_key NOT NULL) to be a candidate;
   // clipEligibleForDrop + the HEAD custody check re-verify before any delete. When
   // clipsEnabled is false these reads never run and no clip can be dropped.
+  //
+  // 🚨 THESE TWO SELECTS MUST FETCH preserve_declined_at, exactly as the photo
+  // selects above do. They did not, and the consequence was silent and one-sided:
+  // preservation applied to photos and could never apply to VIDEO, so a couple who
+  // chose to keep a clip sharp would have watched it be compressed anyway. The
+  // owner's ruling is "chosen photos AND videos" — one word, both queries. A
+  // column absent from the select arrives `undefined` on the row, which reads as
+  // "not declined" and looks exactly like a couple who chose nothing.
   const [seatClips, guestClips] = clipsEnabled
     ? await Promise.all([
         admin
           .from('papic_photos')
           .select(
-            'photo_id, event_id, photo_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
+            'photo_id, event_id, photo_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at',
           )
           .eq('photo_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -397,7 +405,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
+            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at',
           )
           .eq('media_type', 'clip')
           .is('full_res_dropped_at', null)

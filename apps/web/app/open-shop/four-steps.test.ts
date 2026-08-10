@@ -24,6 +24,9 @@ import { readFileSync } from 'node:fs';
 const ACTIONS = readFileSync('app/open-shop/actions.ts', 'utf8');
 const WIZARD = readFileSync('app/open-shop/_components/open-shop-wizard.tsx', 'utf8');
 const PAGE = readFileSync('app/open-shop/page.tsx', 'utf8');
+// The city + address inputs live in CityPin, not the wizard — a field the
+// wizard validates may legitimately be rendered by a child component.
+const CITY_PIN = readFileSync('app/open-shop/_components/city-pin.tsx', 'utf8');
 
 /** Which step each shared error string belongs to. */
 const OWNS: Record<string, number> = {
@@ -114,4 +117,44 @@ test('the removed chrome has not crept back', () => {
     assert.ok(!visible.includes(gone), `"${gone}" is back on the form`);
   }
   assert.ok(!/from 'lucide-react';[\s\S]{0,80}Store/.test(WIZARD), 'the shop icon is back');
+});
+
+test('🔴 the form ref is ATTACHED, not just declared', () => {
+  // THIS SHIPPED BROKEN. `validateStep` reads steps 3 and 4 off `formRef` by
+  // field name. The ref was declared and read but never attached to the <form>,
+  // so `formRef.current` was null, every read returned '', and step 3 refused a
+  // name that was plainly in the box. The vendor could not continue AT ALL.
+  //
+  // 🔑 IT FAILED SILENTLY IN THE WORST WAY: optional chaining meant no crash, no
+  // console error, and a validation message that named a real field — so it read
+  // as "the form is being strict", not "the form is broken". tsc is happy with a
+  // declared-and-unused ref, and eslint is too.
+  assert.ok(
+    /ref=\{formRef\}/.test(WIZARD),
+    'formRef is not attached to the <form>. validateStep reads every step-3 and ' +
+      'step-4 field through it, so without this the wizard rejects correctly ' +
+      'filled fields and nobody can finish onboarding.',
+  );
+  // And it must be on the FORM, not on some other element — a ref attached to a
+  // <div> types fine here and still returns null from `.elements`.
+  const formTag = WIZARD.slice(WIZARD.indexOf('<form'), WIZARD.indexOf('<form') + 240);
+  assert.ok(
+    formTag.includes('ref={formRef}'),
+    'formRef is attached somewhere, but not to the <form> element itself',
+  );
+});
+
+test('every field validateStep asks for actually exists on the form', () => {
+  // The other half of the same failure: a ref that IS attached still returns
+  // undefined for a name nobody rendered — a rename of `contact_phone` would
+  // reintroduce the identical dead end, one field at a time.
+  const asked = [...WIZARD.matchAll(/read\('([a-z_]+)'\)/g)].map((m) => m[1]!);
+  assert.ok(asked.length >= 3, `validateStep reads suspiciously few fields: ${asked}`);
+  const missing = asked.filter((n) => !new RegExp(`name="${n}"`).test(WIZARD + CITY_PIN));
+  assert.deepEqual(
+    missing,
+    [],
+    `validateStep reads fields that no input renders: ${missing.join(', ')} — ` +
+      'the value comes back undefined and the step can never pass',
+  );
 });

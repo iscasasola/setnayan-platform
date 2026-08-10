@@ -108,6 +108,15 @@ export type FileUploadProps = {
   /** Visual variant — `square` is good for logos, `wide` for evidence. */
   variant?: 'square' | 'wide';
   /**
+   * Show the finished upload as a CIRCLE (owner 2026-08-10: "Profile Logo must
+   * be cropped to a round image").
+   *
+   * Opt-in rather than applied to every `square` field, because `square` is also
+   * used for evidence photos and government IDs where a circular crop would hide
+   * the corners of a document — the part that carries the seal.
+   */
+  roundPreview?: boolean;
+  /**
    * Apply the SETNAYAN watermark to each uploaded image before sending it
    * to R2. Per owner directive 2026-05-21: all photos posted on the app
    * get auto-watermarked EXCEPT event photos. Vendor marketplace photos
@@ -273,6 +282,7 @@ export function FileUpload({
   help,
   disabled = false,
   variant = 'square',
+  roundPreview = false,
   watermark = false,
   compressVideo = false,
   compressImage = false,
@@ -850,16 +860,36 @@ export function FileUpload({
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="space-y-2">
-              <span
-                className={`flex ${dropzoneHeight} w-full items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-cream p-2`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.displayUrl}
-                  alt={item.filename}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </span>
+              {roundPreview ? (
+                // Circular, and `object-cover` so the image FILLS the circle —
+                // `object-contain` would letterbox a wide logo inside it and show
+                // the vendor a shape they will not get. This is a crop preview,
+                // so it has to crop.
+                <span className="flex w-full justify-center py-1">
+                  <span
+                    className="flex h-[132px] w-[132px] items-center justify-center overflow-hidden rounded-full border bg-cream"
+                    style={{ borderColor: 'var(--m-line)' }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.displayUrl}
+                      alt={item.filename}
+                      className="h-full w-full object-cover"
+                    />
+                  </span>
+                </span>
+              ) : (
+                <span
+                  className={`flex ${dropzoneHeight} w-full items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-cream p-2`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.displayUrl}
+                    alt={item.filename}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </span>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
                   <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />

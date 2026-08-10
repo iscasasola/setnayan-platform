@@ -70,7 +70,14 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
   }
 
   // Photos — what the couple can see and who else can see it.
-  if (has('showcase_set') || has('showcase_error') || has('vendorMedia')) {
+  if (
+    has('showcase_set') ||
+    has('showcase_error') ||
+    has('vendorMedia') ||
+    // Preservation is chosen from the gallery, so its answer belongs there.
+    has('preserve_set') ||
+    has('preserve_error')
+  ) {
     return 'photos';
   }
 

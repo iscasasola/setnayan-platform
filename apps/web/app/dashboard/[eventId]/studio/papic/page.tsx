@@ -154,6 +154,8 @@ type Props = {
     faceTagging?: string;
     vendorMedia?: string;
     guestCameras?: string;
+    preserve_set?: string;
+    preserve_error?: string;
   }>;
 };
 
@@ -214,6 +216,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     faceTagging,
     vendorMedia,
     guestCameras,
+    preserve_set: preserveSet,
+    preserve_error: preserveError,
   } = search;
 
   const supabase = await createClient();
@@ -563,6 +567,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         faceTagging={faceTagging}
         vendorMedia={vendorMedia}
         guestCameras={guestCameras}
+        preserveSet={preserveSet}
+        preserveError={preserveError}
       />
 
       {/* Photos — the room they come back to for years. */}
@@ -1129,6 +1135,8 @@ function StatusBanners({
   faceTagging,
   vendorMedia,
   guestCameras,
+  preserveSet,
+  preserveError,
 }: {
   driveConnected: boolean;
   driveDisconnected: boolean;
@@ -1154,6 +1162,8 @@ function StatusBanners({
   faceTagging: string | undefined;
   vendorMedia: string | undefined;
   guestCameras: string | undefined;
+  preserveSet: string | undefined;
+  preserveError: string | undefined;
 }) {
   const ok =
     'inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900';
@@ -1187,7 +1197,9 @@ function StatusBanners({
     showcaseError ||
     faceTagging ||
     vendorMedia ||
-    guestCameras;
+    guestCameras ||
+    preserveSet ||
+    preserveError;
   if (!hasAny) return null;
 
   return (
@@ -1341,6 +1353,25 @@ function StatusBanners({
               : 'Guests can shoot on your event day.'}
           </p>
         )
+      ) : null}
+
+      {preserveSet ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {preserveSet === 'released'
+            ? 'Released — this one becomes a smaller copy after your event. It stays in your gallery.'
+            : 'Saved — this one stays at full size.'}
+        </p>
+      ) : null}
+      {preserveError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {preserveError === 'already_compressed'
+            ? 'That one is already a smaller copy — its full-size original has been replaced, and that cannot be undone.'
+            : preserveError === 'not_found'
+              ? 'That photo is no longer in your gallery.'
+              : 'Could not save that choice — please try again.'}
+        </p>
       ) : null}
 
       {papicError === 'min_extras' ? (

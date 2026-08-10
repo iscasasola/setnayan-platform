@@ -202,3 +202,33 @@ rename**, same grants, nothing widened.
 
 SPEC IMPACT: reverses the 2026-08-10 "if nothing is picked, pick all" row in
 `DECISION_LOG.md`; a superseding row is added there.
+
+### Rebased onto main 2026-08-10 — and three real defects surfaced in the process
+
+Rebasing this onto the merged sweep/retention work produced two conflicts and
+three genuine defects. All three were caught by guards, not by reading:
+
+1. 🚨 **I had dropped the PAID check from the sweep.** Inverting to opt-in, the
+   gate became `if (it.preserved_at)` — so ticking boxes would have protected
+   originals **for free**, when preservation costs ₱500/year per 5,000 credits.
+   The inherited executing test caught it. It is now `keep && it.preserved_at`,
+   and the source-pinned assertion demands **both halves** with a message saying
+   why each matters.
+2. 🚨 **The rename missed the two CLIP selects.** The photo selects were
+   formatted on one line and the clip selects across several, so a
+   whole-string replace fixed two of four — and the clip half would have arrived
+   `undefined`, exactly the video-shaped miss this feature has now had twice. The
+   guard that DERIVES the four capture queries from source caught it.
+3. 🚨 **The picker's own two outcomes were never shown.** `preserve_set` and
+   `preserve_error` were emitted by the action and read by nothing — the same
+   defect this project fixed for nine other params hours earlier, reintroduced by
+   new code. My own guards from that fix caught it on my own work.
+
+Conflicts resolved by keeping the better half of each: the dead
+`eventOwnsPapicSeats` import stays dead, and `PapicDropItem.preserved_at` keeps
+main's **required** typing (a fifth mapper that forgets it fails to compile)
+under this branch's opt-in name.
+
+A guard whose premise the reversal overturned was **re-pointed, not deleted** —
+and it had been reading a migration BY FILENAME, so it would have gone on
+asserting a superseded file, green. It now finds the migration in force.

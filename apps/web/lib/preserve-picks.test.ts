@@ -109,10 +109,11 @@ test('THE SWEEP READS THE COLUMN — a pick nothing reads is not a pick', () => 
 test('the skip is PER CAPTURE, not all-or-nothing per event', () => {
   assert.match(
     SWEEP,
-    /if\s*\(\s*it\.preserved_at\s*\)/,
-    'the paid-event skip is back to all-or-nothing. A couple who declined a ' +
-      'capture would keep it at full resolution anyway, so the picker would do ' +
-      'nothing at all — a control that changes no outcome.',
+    /if\s*\(\s*keep\s*&&\s*it\.preserved_at\s*\)/,
+    'the paid-event skip must be PAID **and** PICKED. Dropping `keep` lets a ' +
+      'couple protect originals for free by ticking boxes — preservation is a ' +
+      'paid option. Dropping `it.preserved_at` goes back to all-or-nothing, so ' +
+      'the picker changes no outcome. Both halves, or the control is a lie.',
   );
 });
 

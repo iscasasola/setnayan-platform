@@ -401,7 +401,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_photos')
           .select(
-            'photo_id, event_id, photo_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at',
+            'photo_id, event_id, photo_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserved_at',
           )
           .eq('photo_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -414,7 +414,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserve_declined_at',
+            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserved_at',
           )
           .eq('media_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -495,7 +495,11 @@ export async function runFullResDropSweep(
       keep = await eventSkuActive(admin, it.event_id, KEEP_FULL_RES_SKU).catch(() => false);
       keepCache.set(it.event_id, keep);
     }
-    if (it.preserved_at) {
+    // ⚠ PAID **AND** PICKED. Dropping the entitlement check while inverting to
+    // opt-in would have let a couple protect originals for free by ticking
+    // boxes — preservation is a paid option (₱500/year per 5,000 credits). The
+    // pick expresses the choice; the entitlement is what makes it bite.
+    if (keep && it.preserved_at) {
       skippedKeepFullRes += 1;
       continue;
     }

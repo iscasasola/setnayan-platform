@@ -16,8 +16,12 @@ import { join } from 'node:path';
 const WEB = process.cwd();
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
-test('signup checks it', () => {
-  assert.match(read('app/open-shop/actions.ts'), /parsePhPhone\(/);
+test('signup checks it — against the country the pin landed in', () => {
+  // ⚠ This asserted `parsePhPhone(` directly. Signup now goes through
+  // `parseVendorPhone`, which picks the rule from the shop's country — the seam
+  // that makes a second country a new entry rather than a change at every call
+  // site. Pinning the old name would have blocked exactly that.
+  assert.match(read('app/open-shop/actions.ts'), /parseVendorPhone\(/);
 });
 
 test('My Shop checks it — the screen where a number actually changes', () => {

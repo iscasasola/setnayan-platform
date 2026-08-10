@@ -147,6 +147,16 @@ export function CityPin({
    */
   const addressIsOurs = useRef(false);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
+  /**
+   * ISO-3166 alpha-2 of whatever the pin resolved to.
+   *
+   * Recorded rather than assumed: the geocoder has always returned it and the
+   * app has always discarded it, so "this vendor is in the Philippines" has
+   * been true only because the lookups are restricted to PH. Captured now,
+   * while one value is correct, so opening a second country is a value flowing
+   * through rather than a schema change under live data.
+   */
+  const [country, setCountry] = useState('');
   const [detecting, setDetecting] = useState(false);
   const [missed, setMissed] = useState(false);
 
@@ -245,6 +255,7 @@ export function CityPin({
       // (`confirmed` and `proposed` were already cleared above, before the
       // await — clearing them again here is what created the race.)
       setProposed(r.city || r.address ? { city: r.city, address: r.address } : null);
+      if (r.country) setCountry(r.country);
     } catch {
       if (seq === resolveSeq.current) setMissed(true);
     } finally {
@@ -286,6 +297,7 @@ export function CityPin({
             // A new place means the old agreement no longer applies.
             setConfirmed(false);
             setProposed({ city: r.city, address: r.address });
+            if (r.country) setCountry(r.country);
           } else {
             setNoMatch(true);
           }
@@ -546,6 +558,9 @@ export function CityPin({
         <>
           <input type="hidden" name="hq_latitude" value={pin.lat} />
           <input type="hidden" name="hq_longitude" value={pin.lng} />
+          {/* Posted only alongside a real pin: a country with no coordinates
+              would be a claim about a place nobody marked. */}
+          {country ? <input type="hidden" name="hq_country" value={country} /> : null}
         </>
       ) : null}
 

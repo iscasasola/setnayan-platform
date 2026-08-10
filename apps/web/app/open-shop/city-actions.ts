@@ -35,17 +35,17 @@ import { geocodeAddressWithCity, reverseGeocodeNominatim } from '@/lib/geo';
  * it fills is a normal text input the vendor can correct. A pin must never be
  * able to LOCK a vendor out of naming the city they actually serve.
  */
-export type DetectedCity = { city: string; address: string };
+export type DetectedCity = { city: string; address: string; country: string };
 
 export async function detectShopCity(lat: number, lng: number): Promise<DetectedCity> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { city: '', address: '' };
+  if (!user) return { city: '', address: '', country: '' };
 
   const r = await reverseGeocodeNominatim(lat, lng);
-  return { city: r?.city ?? '', address: r?.displayName ?? '' };
+  return { city: r?.city ?? '', address: r?.displayName ?? '', country: r?.country ?? '' };
 }
 
 /**
@@ -70,10 +70,12 @@ export type LocatedAddress = {
   lng: number | null;
   city: string;
   address: string;
+  /** ISO-3166 alpha-2 of the match — recorded rather than assumed. */
+  country: string;
 };
 
 export async function locateShopAddress(query: string): Promise<LocatedAddress> {
-  const empty: LocatedAddress = { lat: null, lng: null, city: '', address: '' };
+  const empty: LocatedAddress = { lat: null, lng: null, city: '', address: '', country: '' };
   const supabase = await createClient();
   const {
     data: { user },
@@ -82,5 +84,5 @@ export async function locateShopAddress(query: string): Promise<LocatedAddress> 
 
   const r = await geocodeAddressWithCity(query);
   if (!r) return empty;
-  return { lat: r.latitude, lng: r.longitude, city: r.city, address: r.displayName };
+  return { lat: r.latitude, lng: r.longitude, city: r.city, address: r.displayName, country: r.country };
 }

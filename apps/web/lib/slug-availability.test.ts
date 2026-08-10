@@ -33,18 +33,47 @@ type Probe = { data: unknown; error: unknown };
 const empty: Probe = { data: null, error: null };
 const noRows: Probe = { data: [], error: null };
 
-/** Minimal chainable stand-in for the admin client's query builder. */
+/**
+ * Minimal chainable stand-in for the admin client's query builder.
+ *
+ * ⚠ IT HONOURS `.eq('entity_type', …)`, AND IT HAS TO. `slug_change_log` now
+ * holds two different kinds of row — a RENAME, which forwards visitors to where
+ * something went, and a CLOSED SHOP's address, which forwards nobody anywhere
+ * and is only being held so nobody else takes it. Two probes read that table and
+ * they differ ONLY by that filter.
+ *
+ * A stub that ignored it returned the same rows to both, so whichever probe ran
+ * first won and a rename fixture came back as a closed shop. Not a wrong answer
+ * in production — Postgres filters — but the tests could no longer tell the two
+ * apart, which is the whole thing they exist to check. **A double that ignores
+ * the one filter under test makes every result meaningless in the same
+ * direction.**
+ */
 function fakeAdmin(tables: Record<string, Probe>, seen: string[] = []): SupabaseClient {
   return {
     from(table: string) {
       seen.push(table);
       const result = tables[table] ?? empty;
       const builder: Record<string, unknown> = {};
-      for (const method of ['select', 'ilike', 'eq', 'gt', 'neq', 'order']) {
+      let entityType: string | null = null;
+      for (const method of ['select', 'ilike', 'gt', 'neq', 'order']) {
         builder[method] = () => builder;
       }
-      builder.limit = () => Promise.resolve(result);
-      builder.maybeSingle = () => Promise.resolve(result);
+      builder.eq = (column: string, value: unknown) => {
+        if (column === 'entity_type') entityType = String(value);
+        return builder;
+      };
+      // A fixture row declares its own kind; one that does not is a rename,
+      // which is what every row in this table was before closures existed.
+      const filtered = (): Probe => {
+        if (entityType === null || !Array.isArray(result.data)) return result;
+        const rows = (result.data as Array<{ entity_type?: string }>).filter(
+          (r) => (r.entity_type ?? 'event') === entityType,
+        );
+        return { data: rows, error: result.error };
+      };
+      builder.limit = () => Promise.resolve(filtered());
+      builder.maybeSingle = () => Promise.resolve(filtered());
       return builder;
     },
   } as unknown as SupabaseClient;
@@ -248,4 +277,73 @@ test('every refusal reason has a sentence a person can read', () => {
     'utf8',
   ).replace(/^\s*\/\/.*$/gm, '');
   assert.match(page, /\.\.\.SLUG_CONFLICT_MESSAGE/);
+});
+
+// --- closed shops (owner-locked 2026-08-10) ---------------------------------
+
+test('a CLOSED shop keeps its address, and it is refused for its own reason', async () => {
+  // Owner: "the slug will be kept for the closed shop. slug will be available
+  // again after 1 year from date of deletion." A shop's address is printed on
+  // cards and pasted into messages months ahead — handing it to a different
+  // company the minute the business closes points all of that at a stranger.
+  const world = {
+    ...freeWorld,
+    slug_change_log: {
+      data: [{ entity_id: 'shop-that-closed', entity_type: 'vendor_closed' }],
+      error: null,
+    },
+  };
+  assert.equal(await findSlugConflict(fakeAdmin(world), 'banaweflorals'), 'retired_shop');
+  assert.equal(
+    await isSlugTaken(fakeAdmin(world), 'banaweflorals'),
+    true,
+    'the CREATE path must refuse a held address too, not just the rename form',
+  );
+});
+
+test('a closed shop is not described as forwarding — it sends nobody anywhere', async () => {
+  // 🔑 SAME ANSWER, WRONG REASON, AND THE REASON IS THE WHOLE MESSAGE. Both
+  // rows live in one ledger and the forwarding probe matches on old_slug alone,
+  // so if it ran first every closed address would be explained with wording
+  // about redirects that do not exist — and would never mention that the word
+  // frees up in a year.
+  const world = {
+    ...freeWorld,
+    slug_change_log: {
+      data: [{ entity_id: 'shop-that-closed', entity_type: 'vendor_closed' }],
+      error: null,
+    },
+  };
+  const reason = await findSlugConflict(fakeAdmin(world), 'banaweflorals');
+  assert.notEqual(reason, 'forwarding');
+  assert.match(SLUG_CONFLICT_MESSAGE[reason as SlugConflict], /year/i);
+});
+
+test('the shop that closed can still take its own address back', async () => {
+  const world = {
+    ...freeWorld,
+    slug_change_log: {
+      data: [{ entity_id: 'shop-mine', entity_type: 'vendor_closed' }],
+      error: null,
+    },
+  };
+  assert.equal(
+    await findSlugConflict(fakeAdmin(world), 'banaweflorals', { vendorProfileId: 'shop-mine' }),
+    null,
+  );
+});
+
+test('a rename is still a rename — the new probe does not swallow the old one', async () => {
+  const world = {
+    ...freeWorld,
+    slug_change_log: { data: [{ entity_id: 'evt-someone-else', entity_type: 'event' }], error: null },
+  };
+  assert.equal(await findSlugConflict(fakeAdmin(world), 'ana-and-luis'), 'forwarding');
+});
+
+test('an unreadable ledger never reads as free', async () => {
+  // Fails closed, like the forwarding probe beside it: handing out a held
+  // address is worse than asking someone to try again.
+  const world = { ...freeWorld, slug_change_log: { data: null, error: { message: 'boom' } } };
+  assert.equal(await findSlugConflict(fakeAdmin(world), 'banaweflorals'), 'unverified');
 });

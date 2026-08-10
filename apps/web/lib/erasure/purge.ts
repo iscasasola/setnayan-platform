@@ -44,6 +44,10 @@
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { distinctGuestIds, distinctPersonIds } from '@/lib/account-erasure';
 import {
+  CLOSED_SHOP_SLUG_ENTITY_TYPE,
+  closedShopSlugHeldUntil,
+} from '@/lib/closed-shop-slug';
+import {
   EVENTS_OWNER_PII_NULLS,
   EVENT_PAPERWORK_PII_NULLS,
   EVENT_MODERATOR_SELF_NULLS,
@@ -659,6 +663,45 @@ export async function purgeUserOwnedRecords(
       .eq('user_id', targetUserId),
   );
 
+  // ── HOLD THE SHOP'S ADDRESS BEFORE THE SCRUB TAKES IT ─────────────────────
+  // Owner-locked 2026-08-10: *"their old shop's name will never be deleted
+  // (unless manual delete by admin). so the slug will be kept for the closed
+  // shop. slug will be available again after 1 year from date of deletion."*
+  //
+  // ORDER IS THE WHOLE THING. The scrub two statements below sets
+  // `business_slug` to NULL, and once it is null there is nothing left to read
+  // — the address would be free for anyone to take that same minute. Reserving
+  // afterwards is not a smaller bug, it is the same bug with extra steps.
+  //
+  // Why this matters beyond tidiness: a shop's address is printed on invitation
+  // cards and shared in messages months before the day. Handing it to a
+  // stranger the moment a business closes points every one of those at somebody
+  // else's shop.
+  const { data: closing, error: closingErr } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_slug')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (closingErr) {
+    await auditFail('vendor-slug-hold-lookup', closingErr.message);
+  } else {
+    const row = closing as { vendor_profile_id?: string; business_slug?: string | null } | null;
+    if (row?.vendor_profile_id && row.business_slug?.trim()) {
+      await step('vendor-slug-hold', () =>
+        admin.from('slug_change_log').insert({
+          entity_type: CLOSED_SHOP_SLUG_ENTITY_TYPE,
+          entity_id: row.vendor_profile_id!,
+          old_slug: row.business_slug!.trim().toLowerCase(),
+          // NOT NULL, and nothing reads it for a closure — the resolver filters
+          // to entity_type 'event' and routes via entity_id, never this. Same
+          // value so the row cannot be misread as a move to somewhere else.
+          new_slug: row.business_slug!.trim().toLowerCase(),
+          redirect_until: closedShopSlugHeldUntil(),
+        }),
+      );
+    }
+  }
+
   // vendor_profiles — the user's OWN shop (user_id is UNIQUE = sole owner). Scrub
   // the contact PII, blank the NOT NULL name, and unpublish it from the
   // marketplace. The shell stays for team continuity (DPO note in the PR).
@@ -740,6 +783,27 @@ export async function purgeUserOwnedRecords(
         .eq(column, targetUserId),
     );
   }
+
+  // ── THE SEAT THAT COULD NOT BE REMOVED ────────────────────────────────────
+  // `vendor_team_members` is in SUBJECT_ROW_DELETES below and the plain delete
+  // there was REFUSED for every real person: the last-admin guard fires, and
+  // every shop in production has exactly one admin — whoever opened it. The
+  // refusal returns as an error rather than throwing, `step()` audits it and
+  // carries on, and erasure then recorded `user_erased` while the account was
+  // still an admin of a live shop.
+  //
+  // Owner ruling 2026-08-10: *"Yes, allow wipe."* The shop is left with no
+  // admin, which is the honest outcome — the person who ran it asked to leave.
+  //
+  // Runs BEFORE the loop so the generic delete that follows finds nothing and
+  // succeeds trivially. The entry stays in SUBJECT_ROW_DELETES on purpose: it
+  // IS a subject-row delete, the coverage guardrails are derived from that list,
+  // and quietly removing it to route around a failure is how a table stops
+  // being checked at all.
+  const { error: seatErr } = await admin.rpc('erase_vendor_seats', {
+    p_user_id: targetUserId,
+  });
+  if (seatErr) await auditFail('vendor-team-seats-erase', seatErr.message);
 
   // Rows whose whole subject IS the person. Keeping one after erasure is
   // keeping a dossier on someone who asked to be forgotten.

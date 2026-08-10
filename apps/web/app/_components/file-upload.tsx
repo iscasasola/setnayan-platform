@@ -727,6 +727,26 @@ export function FileUpload({
   }
 
   const dropzoneHeight = variant === 'square' ? 'min-h-[160px]' : 'min-h-[120px]';
+
+  /**
+   * ── THE EMPTY SLOT IS THE SHAPE OF THE RESULT (owner 2026-08-10) ───────────
+   * *"make the logo upload widget not rectangle but circle so they can already
+   * imagine before uploading."*
+   *
+   * `roundPreview` already made the picture round AFTER upload, which meant the
+   * one moment a vendor was choosing an image — deciding whether their wordmark
+   * fits, whether the edges survive a crop — was the one moment we showed them
+   * a rectangle. They found out it was a circle after committing to a file.
+   *
+   * 🔑 A DROP TARGET IS A PROMISE ABOUT THE OUTPUT. Showing a shape the result
+   * will never take is a small lie that costs a re-upload, and it costs it to
+   * everyone whose logo is a wide wordmark — which is most of them.
+   *
+   * Reuses `roundPreview` rather than adding a prop: it already means "this
+   * image is displayed as a circle", and a second flag would let the two drift
+   * into disagreeing about the same picture.
+   */
+  const roundDropzone = roundPreview && variant === 'square' && !multiple;
   const atCapacity = items.length + inFlight.length >= effectiveMaxFiles;
 
   /**
@@ -776,7 +796,14 @@ export function FileUpload({
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
-          className={`flex ${dropzoneHeight} w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-cream px-4 py-6 text-center transition-colors ${
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed bg-cream text-center transition-colors ${
+            roundDropzone
+              ? // A real circle: fixed square footprint so `rounded-full` cannot
+                // become a lozenge on a wide container, and centred because a
+                // left-aligned circle reads as a stray bullet rather than a slot.
+                'mx-auto aspect-square h-[160px] w-[160px] rounded-full px-3 py-3'
+              : `${dropzoneHeight} w-full rounded-xl px-4 py-6`
+          } ${
             disabled
               ? 'cursor-not-allowed opacity-60'
               : isDragging
@@ -789,20 +816,34 @@ export function FileUpload({
             className={`h-8 w-8 ${isDragging ? 'text-terracotta' : 'text-ink/45'}`}
             strokeWidth={1.5}
           />
-          <span className="text-sm font-medium text-ink/75">
+          <span className={`font-medium text-ink/75 ${roundDropzone ? 'text-xs' : 'text-sm'}`}>
             {isDragging
               ? 'Drop to upload'
-              : multiple
-                ? 'Drop files or click to choose'
-                : 'Drop a file or click to choose'}
+              : roundDropzone
+                ? // Shorter because the corners are gone: the same sentence that
+                  // fits a 160px-wide box does not fit a 160px-wide CIRCLE, and
+                  // the usable width at the top and bottom of one is far less
+                  // than its diameter.
+                  'Add your logo'
+                : multiple
+                  ? 'Drop files or click to choose'
+                  : 'Drop a file or click to choose'}
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            {acceptedTypes
-              .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
-              .join(' · ')}{' '}
-            · up to {maxSizeMB} MB
-            {multiple ? ` · max ${effectiveMaxFiles}` : ''}
-          </span>
+          {/* The formats-and-size line moves OUTSIDE a round slot. Five format
+              names in a monospaced caps line is wider than a 160px circle at
+              any point, so inside one it either wraps into a column or spills
+              over the dashed edge — and a slot whose own text does not fit
+              reads as broken rather than as a shape. It still ships, just
+              beneath, where it has the full width. */}
+          {roundDropzone ? null : (
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              {acceptedTypes
+                .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
+                .join(' · ')}{' '}
+              · up to {maxSizeMB} MB
+              {multiple ? ` · max ${effectiveMaxFiles}` : ''}
+            </span>
+          )}
           <input
             ref={fileInputRef}
             id={inputId}
@@ -814,6 +855,15 @@ export function FileUpload({
             className="sr-only"
           />
         </label>
+      ) : null}
+
+      {roundDropzone && !atCapacity ? (
+        <span className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          {acceptedTypes
+            .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
+            .join(' · ')}{' '}
+          · up to {maxSizeMB} MB
+        </span>
       ) : null}
 
       {error ? (

@@ -74,6 +74,11 @@ export const OPEN_SHOP_ERRORS = {
   contactPhone: 'Add a contact number.',
   contactEmail: 'Add a valid company email.',
   locationCity: 'Add the city you serve.',
+  // Owner-locked 2026-08-10: the pin is REQUIRED, and confirming it is what
+  // completes the step. Two separate refusals because they are two separate
+  // things to do — telling someone to "confirm" when there is nothing on the
+  // map yet is a dead end dressed as an instruction.
+  locationPin: 'Place your pin on the map — type your address, or tap the map.',
   // Only reachable once a pin exists — a geocode the vendor never looked at.
   locationConfirm: 'Check the address on the map, then tap “Yes, that’s right”.',
 } as const;

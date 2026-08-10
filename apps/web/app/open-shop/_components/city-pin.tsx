@@ -56,13 +56,23 @@ const DEFAULT_CENTER: [number, number] = [14.5995, 120.9842];
  * `location_city` is what the marketplace actually filters on; the coordinates
  * are extra precision. So the text input keeps `name="location_city"` and stays
  * editable, and the pin only ever WRITES INTO it. A vendor can:
- *   • drop a pin and accept what comes back,
- *   • drop a pin and correct the wording,
- *   • or ignore the map entirely and type their city.
- * All three submit the same field. The map cannot lock anyone out of naming the
- * city they serve — Nominatim's rural Philippine coverage returns a province or
- * a barangay often enough that making the pin mandatory would refuse real
- * businesses.
+ *   • drop a pin and accept what comes back, or
+ *   • drop a pin and correct the wording.
+ * Both submit the same field.
+ *
+ * ⚠ THIS PARAGRAPH USED TO SAY THE PIN WAS OPTIONAL — *"or ignore the map
+ * entirely and type their city … the map cannot lock anyone out"*. **Owner
+ * reversed it 2026-08-10: a pin is REQUIRED, and confirming it is what
+ * completes the step.** Corrected here rather than added below it, because a
+ * file that states a rule at the top and contradicts it further down gets read
+ * from whichever half you land on first.
+ *
+ * The old paragraph's REASON was sound and is answered rather than ignored:
+ * Nominatim's rural Philippine coverage really does miss, so a mandatory pin
+ * must never depend on the geocoder succeeding. It does not — tapping the map
+ * always places a pin, and the confirmation card now appears for ANY pin, named
+ * or not. The city box also stays editable, so a lookup that returns a province
+ * can still be corrected by hand.
  */
 export function CityPin({
   defaultCity,
@@ -380,7 +390,7 @@ export function CityPin({
             style={{ background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)', color: 'var(--m-slate)' }}
           >
             <MapPin className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Type your address above, or tap to place the pin
+            Type your address above, or tap the map to place your pin
           </span>
         ) : null}
       </div>
@@ -397,19 +407,29 @@ export function CityPin({
         aria-label="City"
       />
 
-      {/* ── CONFIRM THE PLACE (owner 2026-08-10) ───────────────────────────────
+      {/* ── CONFIRM THE PLACE (owner-locked 2026-08-10) ────────────────────────
           A geocoder's answer is a guess, and this one is about where the
           vendor's business physically is. Shown as a question with the matched
           address in full, because "Quezon City" alone cannot tell you whether it
           found YOUR street. The step cannot be passed until this is answered —
-          `location_confirmed` is what `validateStep(4)` reads. */}
-      {proposed && !confirmed ? (
+          `location_confirmed` is what `validateStep(4)` reads.
+
+          🔑 GATED ON THE PIN, NOT ON THE LOOKUP. It used to appear only when the
+          geocoder returned something (`proposed`). Now that the pin is REQUIRED,
+          that would have been a dead end with no way out: a vendor who taps a
+          spot the geocoder cannot name gets no card, so nothing to confirm, so
+          the step can never be completed and no message explains why. Rural
+          Philippine coverage misses often enough that this is a real vendor, not
+          a hypothetical one. A pin the machine cannot name is still a pin the
+          vendor can vouch for — so the card asks "is this the right spot?" and
+          takes their word for it. */}
+      {pin && !confirmed ? (
         <div
           className="space-y-2 rounded-xl border p-3"
           style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
         >
           <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-            {proposed.city ? (
+            {proposed?.city ? (
               <>
                 Are you in <strong>{proposed.city}</strong>?
               </>
@@ -417,7 +437,7 @@ export function CityPin({
               <>Is this the right spot?</>
             )}
           </p>
-          {proposed.address ? (
+          {proposed?.address ? (
             <p className="text-xs leading-snug" style={{ color: 'var(--m-slate)' }}>
               {proposed.address}
             </p>

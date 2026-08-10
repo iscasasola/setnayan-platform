@@ -230,13 +230,24 @@ test('a machine-guessed location must be confirmed before the step passes', () =
     'CityPin no longer emits the confirmation the gate reads — the gate would ' +
       'refuse every vendor instead, which is the same bug pointing the other way',
   );
-  // The confirmation must be conditional on a pin: a hand-typed city has
-  // nothing to confirm, and demanding it would trap vendors whose address the
-  // geocoder cannot find at all.
+  // ⚠ REVERSED 2026-08-10. This used to assert the confirmation was CONDITIONAL
+  // on a pin (`const pinned = …`), on the reasoning that demanding it would trap
+  // a vendor whose address the geocoder cannot find. The owner has since made
+  // the pin mandatory, and the trap that reasoning warned about is closed a
+  // different way: the confirmation card now appears for ANY pin, named or not,
+  // so tapping the map always produces something to confirm.
+  //
+  // The rule is no longer asserted by reading this file's text at all — it is a
+  // real function with its own tests (lib/open-shop-location-gate.test.ts), so
+  // it can be broken on purpose and seen to fail. What remains here is only
+  // that the wizard still DELEGATES to it.
   assert.ok(
-    /const pinned = !!el\('hq_latitude'\)\?\.value/.test(WIZARD),
-    'the confirmation is demanded unconditionally — a vendor whose address does ' +
-      'not geocode can never pass step 4',
+    /locationStepError\(\{/.test(WIZARD),
+    'the wizard no longer delegates step 4 to the tested location rule',
+  );
+  assert.ok(
+    /hasPin: !!el\('hq_latitude'\)\?\.value/.test(WIZARD),
+    'the wizard must feed the real pin field into the rule',
   );
 });
 

@@ -568,7 +568,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // client-named id to verify.
   if (!seatMode) {
     const tenancy = tenancyForPathPrefix(pathPrefix);
-    if (tenancy) {
+    // ── `profile-photo/<authUserId>` is answered WITHOUT a query ─────────────
+    // The prefix names a person, and we already know who is calling, so the
+    // tenancy question is just "is that you?". Deliberately not a read against
+    // `users`: a row there is created by a trigger, and a check that depends on
+    // that row existing would refuse the very first upload of a brand-new
+    // account — trading one silent refusal for a rarer, harder one. Comparing
+    // ids is stricter, needs no RLS, and cannot be wrong.
+    if (tenancy?.kind === 'user') {
+      if (tenancy.id !== user.id) {
+        return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+      }
+    } else if (tenancy) {
       // Each kind is checked against ITS OWN table, through the caller's own
       // client so RLS decides. An order id checked against `events` can only
       // ever come back empty — that is the live break this branch fixes, and
@@ -586,11 +597,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 .select('order_id')
                 .eq('order_id', tenancy.id)
                 .maybeSingle()
-            : await supabase
-                .from('chat_threads')
-                .select('thread_id')
-                .eq('thread_id', tenancy.id)
-                .maybeSingle();
+            : tenancy.kind === 'vendor'
+              ? // A vendor's own shop. Same principle as the other three: the
+                // read runs on the CALLER's client, so RLS is the tenancy check
+                // — a vendor reaches their own row, an admin reaches any, and a
+                // stranger naming someone else's shop id gets nothing back and
+                // the same non-specific refusal. Without this arm the id was
+                // checked against `events`, which it can never match, so every
+                // vendor upload — logo, portfolio, payment QR, booth poster and
+                // the verification documents themselves — was refused 403.
+                await supabase
+                  .from('vendor_profiles')
+                  .select('vendor_profile_id')
+                  .eq('vendor_profile_id', tenancy.id)
+                  .maybeSingle()
+              : await supabase
+                  .from('chat_threads')
+                  .select('thread_id')
+                  .eq('thread_id', tenancy.id)
+                  .maybeSingle();
       if (!owned) {
         // Non-specific on purpose (r2-client-ref house style): a caller must not
         // be able to use this endpoint to learn whether an id exists.

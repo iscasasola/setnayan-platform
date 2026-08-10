@@ -59,6 +59,8 @@ export type UploadTenancy =
   | { kind: 'event'; id: string }
   | { kind: 'thread'; id: string }
   | { kind: 'order'; id: string }
+  | { kind: 'vendor'; id: string }
+  | { kind: 'user'; id: string }
   | null;
 
 /**
@@ -94,6 +96,60 @@ const THREAD_ROOTS = new Set(['chat']);
 const ORDER_ROOTS = new Set(['payments']);
 
 /**
+ * ── 🔴 THE SECOND TIME THE FALL-THROUGH DEFAULT BROKE A LIVE UPLOAD ─────────
+ *
+ * Everything a vendor sends about their own shop is filed under
+ * `vendors/<vendorProfileId>/…` — the logo on My Shop, portfolio and service
+ * photos, the payment QR code, the booth poster, and **the DTI registration,
+ * BIR 2303 and Mayor's Permit that verification runs on.**
+ *
+ * `vendors` was in neither set above, so it fell through to `kind: 'event'`
+ * carrying a **vendor** id, and the route checked that id against `events`.
+ * A vendor_profile_id is `gen_random_uuid()` and has nothing to do with the
+ * events table, so the read returned nothing every single time and the endpoint
+ * answered **403 "That upload location isn't allowed."** — for a vendor
+ * uploading to their own shop.
+ *
+ * 🔑 THE COST WAS THE WHOLE PIPELINE, NOT ONE BUTTON. Documents are the gate to
+ * approval, and approval is the gate to a shop being public — the owner's model
+ * is *"their website will be live upon verification."* With the document upload
+ * refused, **no vendor could ever be verified**, so no shop could ever go live.
+ * Nothing threw and nothing logged: the box turned red on one screen.
+ *
+ * ⚠ MEASURED, NOT REASONED. Production holds
+ * `r2://setnayan-media/vendors/51858369-…/logo/…` for the shop `setnaprod`.
+ * That UUID is its **vendor_profile_id**, and it matches no row in `events` or
+ * `chat_threads`. The object exists only because it was uploaded before this
+ * guard shipped; the identical upload is refused today.
+ *
+ * 🔑 SAME LESSON AS `payments/<orderId>`, ONE PREFIX LATER: *"an event check is
+ * the stricter one for every current caller"* was true when written and is
+ * falsified by every new prefix, without a line of this file changing. A
+ * fall-through default is a claim about callers that do not exist yet.
+ */
+const VENDOR_ROOTS = new Set(['vendors']);
+
+/**
+ * ── AND THE THIRD ONE, FOUND BY SWEEPING INSTEAD OF STOPPING ────────────────
+ *
+ * `profile-photo/<authUserId>` carries a **user** id. Same fall-through, same
+ * outcome: checked against `events`, matched nothing, refused 403 — so
+ * **nobody could change their profile picture**, couple or vendor, on the one
+ * screen that offers it.
+ *
+ * 🔑 THIS IS THE ARGUMENT FOR SWEEPING EVERY ROOT RATHER THAN FIXING THE ONE
+ * THAT WAS REPORTED. `vendors` was found because a vendor's logo key looked odd
+ * in a database row I happened to be reading. Nothing pointed at profile
+ * photos; the same audit found it only because the next step was to enumerate
+ * all eighteen prefix roots and ask what id each one actually carries. Sixteen
+ * were fine — fourteen genuinely carry an event id, and `merchant-qr/<kind>`,
+ * `onboarding/background-music`, `papic/seat-N`, `taxonomy/<slug>` and
+ * `refinements/<leafKey>` carry no UUID at all, so this module correctly says
+ * nothing about them.
+ */
+const USER_ROOTS = new Set(['profile-photo']);
+
+/**
  * Resolve the tenancy a sanitised `pathPrefix` implies.
  *
  * Takes the **first** UUID segment. A prefix carrying two ids
@@ -112,6 +168,8 @@ export function tenancyForPathPrefix(sanitizedPrefix: string): UploadTenancy {
   const id = segments[idIndex]!;
   if (THREAD_ROOTS.has(root)) return { kind: 'thread', id };
   if (ORDER_ROOTS.has(root)) return { kind: 'order', id };
+  if (VENDOR_ROOTS.has(root)) return { kind: 'vendor', id };
+  if (USER_ROOTS.has(root)) return { kind: 'user', id };
   return { kind: 'event', id };
 }
 

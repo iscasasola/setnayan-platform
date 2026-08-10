@@ -22,10 +22,14 @@ import { tenancyForPathPrefix, isUuid, UPLOAD_TENANCY_REFUSAL } from './upload-p
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
-const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa'; // a real prod event id shape
+const EVENT = '00000000-0000-4000-8000-00000000e001';
 const ORDER = '7f3d1c2e-9a4b-4c8d-b1e5-2f6a8c0d4e91';
 
-const THREAD = '947e7bab-893d-454d-b4c5-0a6e23f36009';
+// ⚠ Both of these were REAL PROD EVENT IDS — including this one, which the
+// test used as a THREAD id. Nothing noticed, because the resolver only ever
+// looks at the SHAPE of the segment. That is the tidiest possible proof that a
+// real row was never needed here.
+const THREAD = '00000000-0000-4000-8000-00000000c4a7';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · THE SHAPE RULE
@@ -118,10 +122,11 @@ test('the id must be a real UUID — near-misses are not ids', () => {
   assert.equal(isUuid('not-a-uuid'), false);
   assert.equal(isUuid('seat-3'), false);
   assert.equal(isUuid('bdo'), false);
-  assert.equal(isUuid('044f7e64-95aa-4dcb-84c1'), false, 'truncated');
+  assert.equal(isUuid('00000000-0000-4000-8000'), false, 'truncated');
   assert.equal(isUuid(`${EVENT}x`), false, 'trailing junk');
   // A v4-shaped string with a bad variant nibble is not a UUID we mint.
-  assert.equal(isUuid('044f7e64-95aa-4dcb-04c1-7263bf494eaa'), false);
+  // Variant nibble 0 instead of 8–b: shaped like a uuid, is not one.
+  assert.equal(isUuid('00000000-0000-4000-0000-00000000e001'), false);
   assert.equal(tenancyForPathPrefix('locked-qr-proof'), null);
 });
 

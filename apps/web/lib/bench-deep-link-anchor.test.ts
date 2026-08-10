@@ -69,7 +69,7 @@ test('anchor ids — leaf and folder are distinct namespaces', () => {
 });
 
 test('anchor ids — the owner-reported categories all resolve', () => {
-  // Prod event 044f7e64-95aa-4dcb-84c1-7263bf494eaa lists Reception venue ·
+  // Prod event 044f7e64… lists Reception venue ·
   // Ceremony venue · Catering · Photo & Video. `deepLinkTileForGroup` maps those
   // plan groups onto these catalogue tiles (see your-team.test.ts).
   assert.deepEqual(

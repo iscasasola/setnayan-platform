@@ -68,8 +68,8 @@ import {
 } from './std-media';
 import { pathPrefixIsAcceptable, R2_SEALED_SEGMENT } from './r2-client-ref';
 
-const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
-const OTHER_EVENT = '947e7bab-893d-454d-b4c5-0a6e23f36009';
+const EVENT = '00000000-0000-4000-8000-00000000e001';
+const OTHER_EVENT = '00000000-0000-4000-8000-00000000e002';
 
 const VIDEO = `r2://setnayan-media/events/${EVENT}/std-video/016d9fc1-clip.mp4`;
 const POSTER = `r2://setnayan-media/events/${EVENT}/std-video-poster/3fc03b1b-poster.jpg`;

@@ -147,7 +147,7 @@ test('the policy points at the sink, and locks the cheap wins', () => {
 
 test('routeShapeOf strips every identifying segment', () => {
   assert.equal(
-    routeShapeOf('https://www.setnayan.com/dashboard/044f7e64-95aa-4dcb-84c1-7263bf494eaa/seating'),
+    routeShapeOf('https://www.setnayan.com/dashboard/00000000-0000-4000-8000-00000000e001/seating'),
     '/dashboard/:id/seating',
     'a UUID event id must never reach the log',
   );
@@ -193,7 +193,7 @@ test('the summary now carries the path, and the route logs it', () => {
     'csp-report': {
       'effective-directive': 'img-src',
       'blocked-uri': 'r2://setnayan-media/some/key.jpg',
-      'document-uri': 'https://www.setnayan.com/dashboard/044f7e64-95aa-4dcb-84c1-7263bf494eaa/seating',
+      'document-uri': 'https://www.setnayan.com/dashboard/00000000-0000-4000-8000-00000000e001/seating',
     },
   });
   const summary = cspViolationSummary(report);

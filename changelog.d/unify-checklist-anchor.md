@@ -15,7 +15,7 @@ computed real due dates for exactly the events the card could not date at all �
 `dueDateForItem(null, …)` returns null, every task counted as not-overdue, and
 the card said **0**.
 
-**Reproduced in prod** on event `9b41095a-3f51-4baa-8b91-ffc718f5dfa9` ("Movie
+**Reproduced in prod** on event `9b41095a…` ("Movie
 Night", `event_type='date'`, `event_date` NULL, `date_candidates
 ['2026-08-01']`): the page listed due dates for all 4 tasks, the card reported 0
 overdue.

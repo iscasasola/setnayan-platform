@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { sharedJoinLinkState } from '@/lib/shared-join-link';
 
 // Papic · the printable POSTER (owner-locked 2026-08-01).
 //
@@ -41,9 +42,29 @@ export default async function PapicPoolPosterPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, slug')
+    .select('display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // ⚠ NEVER PRINT A DEAD QR. This is the worst place the 2026-08-10 bug landed:
+  // a poster goes on a table at a real party, and a private event's join link
+  // answers "Link not found" to everyone who scans it. There is no way to
+  // correct a printed sheet. If the link cannot work, bounce back to /crew,
+  // which now says WHY and links to the screen that fixes it — one explanation,
+  // not a second copy of it on a print stylesheet.
+  const { data: joinTokenRow } = await supabase
+    .from('event_join_tokens')
+    .select('token, revoked_at, expires_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const posterLink = sharedJoinLinkState({
+    event: (event ?? {}) as Parameters<typeof sharedJoinLinkState>[0]['event'],
+    tokenValid:
+      !!joinTokenRow?.token &&
+      !joinTokenRow.revoked_at &&
+      (!joinTokenRow.expires_at || new Date(joinTokenRow.expires_at) > new Date()),
+  });
+  if (!posterLink.usable) redirect(`/dashboard/${eventId}/studio/papic/crew`);
 
   // ⚠ The poster encodes the EVENT SITE's own join link, not a bespoke Papic
   // token. The first version minted its own and pointed at a standalone camera —
@@ -51,6 +72,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   // rotatable, and lands the scanner somewhere strictly better: the guest site,
   // where they get a camera AND their own QR to be tagged by AND a gallery of
   // photos of them. The standalone camera gave only the first of the three.
+  // Non-null by construction: `posterLink.usable` is false without a slug.
   const slug = (event as { slug?: string | null } | null)?.slug ?? null;
   if (!slug) redirect(`/dashboard/${eventId}/studio/papic/crew`);
 

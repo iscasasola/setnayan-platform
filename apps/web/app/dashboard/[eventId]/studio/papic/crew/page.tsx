@@ -19,6 +19,7 @@ import {
 } from '@/lib/papic-seats';
 import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -72,10 +73,28 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
   const { data: eventRow } = await supabase
     .from('events')
-    .select('slug')
+    .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
   const eventSlug = (eventRow as { slug?: string | null } | null)?.slug ?? null;
+
+  // ⚠ CAN THE POSTER QR ACTUALLY BE SCANNED? Until 2026-08-10 this page printed
+  // it from the slug alone, so a PRIVATE event handed the host a QR that opens
+  // to "Link not found" — the invite door refuses private events by design
+  // (2026-08-06) and nothing here knew. See lib/shared-join-link.ts.
+  const { data: joinTokenRow } = await supabase
+    .from('event_join_tokens')
+    .select('token, revoked_at, expires_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const joinTokenValid =
+    !!joinTokenRow?.token &&
+    !joinTokenRow.revoked_at &&
+    (!joinTokenRow.expires_at || new Date(joinTokenRow.expires_at) > new Date());
+  const posterLink = sharedJoinLinkState({
+    event: (eventRow ?? {}) as Parameters<typeof sharedJoinLinkState>[0]['event'],
+    tokenValid: joinTokenValid,
+  });
 
   const ownsPack = await eventPapicSeatsActive(supabase, eventId);
   const seats = await fetchPapicSeats(supabase, eventId);
@@ -146,7 +165,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
   //
   // Requires a slug (the site's address). No slug ⇒ no poster, rather than a QR
   // pointing nowhere.
-  const posterUrl = eventSlug ? `${appUrl}/${eventSlug}/invite` : null;
+  const posterUrl = posterLink.usable ? `${appUrl}/${eventSlug}/invite` : null;
   const poolJoinUrl = posterUrl;
   const poolQrSvg = poolJoinUrl ? await renderUrlQrSvg(poolJoinUrl, 200) : null;
 
@@ -283,6 +302,40 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                 <p className="pt-1 text-xs text-ink/50">
                   Anyone holding this code can shoot. Reprint from a fresh code
                   if it ends up somewhere you didn&rsquo;t intend.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : posterLink.notice ? (
+          /* ⚠ SAY WHY, DO NOT JUST VANISH. The QR used to be printed from the
+             slug alone, so a private event handed the host a code that opens to
+             "Link not found" — and simply hiding it here would be the same
+             silence one step earlier: the host would ask where the shared code
+             went, or print an old one. The door's refusal is deliberate; only
+             its silence was the defect. */
+          <div className="rounded-2xl border-2 border-dashed border-ink/20 bg-ink/[0.02] p-5 sm:p-6">
+            <div className="flex flex-wrap items-start gap-4">
+              <CircleAlert
+                aria-hidden
+                className="mt-0.5 h-6 w-6 shrink-0 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <div className="min-w-0 flex-1 space-y-2">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  One code for everyone — not working yet
+                </h2>
+                <p className="max-w-prose text-sm text-ink/70">{posterLink.notice}</p>
+                {posterLink.state === 'private' ? (
+                  <Link
+                    href={`/dashboard/${eventId}/website`}
+                    className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+                  >
+                    Open your event website settings
+                  </Link>
+                ) : null}
+                <p className="pt-1 text-xs text-ink/50">
+                  The named cameras below still work — this only affects the one
+                  shared code.
                 </p>
               </div>
             </div>

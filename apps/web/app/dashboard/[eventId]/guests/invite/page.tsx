@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { InviteLink } from './_components/invite-link';
 import { RegenerateQrButton } from './_components/regenerate-qr-button';
 
@@ -41,7 +42,11 @@ export default async function GuestInvitePage({ params }: Props) {
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const [tokenRes, pendingRes, eventRes] = await Promise.all([
-    supabase.from('event_join_tokens').select('token').eq('event_id', eventId).maybeSingle(),
+    supabase
+      .from('event_join_tokens')
+      .select('token, revoked_at, expires_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
     // Unlisted joiners waiting to be reconciled (the Confirm stage) — Invite/Join
     // v2: real guest rows optimistically admitted whose name didn't match.
     supabase
@@ -50,7 +55,11 @@ export default async function GuestInvitePage({ params }: Props) {
       .eq('event_id', eventId)
       .eq('entry_source', 'self_added_unlisted')
       .is('deleted_at', null),
-    supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
+    supabase
+      .from('events')
+      .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
 
   if (tokenRes.error) {
@@ -62,6 +71,20 @@ export default async function GuestInvitePage({ params }: Props) {
     );
   }
 
+  // ⚠ CAN THIS LINK ACTUALLY BE OPENED? Until 2026-08-10 this page printed the
+  // QR from the slug alone. On a PRIVATE event both doors refuse — the branded
+  // /{slug}/invite page and the opaque /join token action alike — so the host
+  // was handed a code that answers "Link not found" to every guest, with no
+  // explanation. See lib/shared-join-link.ts.
+  const inviteLink = sharedJoinLinkState({
+    event: (eventRes.data ?? {}) as Parameters<typeof sharedJoinLinkState>[0]['event'],
+    tokenValid:
+      !!tokenRes.data?.token &&
+      !(tokenRes.data as { revoked_at?: string | null }).revoked_at &&
+      (!(tokenRes.data as { expires_at?: string | null }).expires_at ||
+        new Date((tokenRes.data as { expires_at: string }).expires_at) > new Date()),
+  });
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Branded invite link when the event has a public slug (e.g. /cale-ice/invite) —
   // the /[slug]/invite route resolves the token server-side, so it stays out of
@@ -69,12 +92,19 @@ export default async function GuestInvitePage({ params }: Props) {
   const slug = (eventRes.data?.slug as string | null) ?? null;
   // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
   const ownerSlug = slug ? await resolveEventOwnerSlug(createAdminClient(), eventId) : null;
-  const joinUrl = slug
-    ? `${appUrl}${publicEventPath(slug, ownerSlug)}/invite`
-    : tokenRes.data?.token
-      ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
-      : null;
+  // ⚠ GATED ON `usable`, NOT ON THE SLUG. A slug is a NAME, handed out at
+  // creation; it says nothing about whether a guest opening the link sees
+  // anything. Building the URL behind the check means there is no dead link in
+  // scope to accidentally render later.
+  const joinUrl = !inviteLink.usable
+    ? null
+    : slug
+      ? `${appUrl}${publicEventPath(slug, ownerSlug)}/invite`
+      : tokenRes.data?.token
+        ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
+        : null;
   const pendingClaims = pendingRes.count ?? 0;
+
 
   // SVG QR of the join link — crisp at any size, ~3KB inline, no client JS.
   const qrSvg = joinUrl
@@ -107,7 +137,7 @@ export default async function GuestInvitePage({ params }: Props) {
         </p>
       </header>
 
-      {joinUrl ? (
+      {joinUrl && inviteLink.usable ? (
         <div className="mt-6 rounded-xl border border-ink/10 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
             {qrSvg ? (
@@ -138,11 +168,27 @@ export default async function GuestInvitePage({ params }: Props) {
           </div>
         </div>
       ) : (
-        <div className="mt-6 rounded-xl border border-ink/10 bg-ink/[0.02] p-8 text-center">
-          <p className="text-sm text-ink/60">
-            Your invite link isn&rsquo;t ready yet. Try again in a moment — if it keeps not
-            showing, your event may still be setting up.
+        /* ⚠ "TRY AGAIN IN A MOMENT" WAS THE WRONG ADVICE FOR THE COMMONEST CASE.
+           This branch used to say the link "isn't ready yet… your event may
+           still be setting up" no matter WHY it was missing — so a host whose
+           event is private was told to wait for something that would never
+           happen, while the QR they already handed out answered "Link not
+           found" to every guest. `inviteLink.notice` names the real reason and
+           the thing they can change; the old wording survives only as the
+           genuine unknown case. */
+        <div className="mt-6 rounded-xl border border-ink/10 bg-ink/[0.02] p-6 text-center sm:p-8">
+          <p className="mx-auto max-w-prose text-sm text-ink/70">
+            {inviteLink.notice ??
+              'Your invite link isn’t ready yet. Try again in a moment — if it keeps not showing, your event may still be setting up.'}
           </p>
+          {inviteLink.state === 'private' ? (
+            <Link
+              href={`/dashboard/${eventId}/website`}
+              className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+            >
+              Open your event website settings
+            </Link>
+          ) : null}
         </div>
       )}
 

@@ -526,9 +526,14 @@ function FieldControl({
     case 'business_owner_name':
       return (
         <Field
-          label="Business owner"
+          label="Your name"
           htmlFor="business_owner_name"
-          help="Kept private — never shown publicly."
+          // Owner-locked 2026-08-10: the vendor's name IS their account name.
+          // Saying so here is what makes that true to the person rather than
+          // only in the database — otherwise "Business owner" reads as a
+          // separate field they might set differently, which is exactly the
+          // drift the rule exists to stop.
+          help="This is your account name. Kept private — never shown publicly."
         >
           <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
         </Field>

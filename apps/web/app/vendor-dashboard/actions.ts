@@ -404,7 +404,29 @@ export async function updateVendorProfileField(
       break;
     }
     case 'business_owner_name': {
-      patch = { business_owner_name: nullIfBlank(formData.get('business_owner_name')) };
+      // ── ONE NAME, TWO ROWS, KEPT IDENTICAL (owner-locked 2026-08-10) ───────
+      // "vendor's name is their account name."
+      //
+      // 🔑 THE OBVIOUS READING OF THAT RULE WOULD HAVE BEEN A DEAD END. Locking
+      // this box and pointing at the account profile is what "not editable"
+      // sounds like — but a vendor CANNOT REACH that page:
+      // `/vendor-dashboard/profile` permanently redirects to My Shop, and the
+      // couple-side profile lives under a layout that bounces anyone with a
+      // shop back to the vendor tree. Locking here would have left the name
+      // uneditable everywhere, by anyone, forever.
+      //
+      // So this box IS the account name editor for a vendor — the one surface
+      // they can actually reach. Editing it writes both rows, so the two can
+      // never drift into disagreeing about the same person, which is the whole
+      // point of the rule.
+      const nextName = nullIfBlank(formData.get('business_owner_name'));
+      patch = { business_owner_name: nextName };
+      // Best-effort on the account row: a failure here must not cost the vendor
+      // the edit they just made. Worst case the two disagree until the next
+      // save, which is where they started.
+      if (nextName) {
+        await supabase.from('users').update({ display_name: nextName }).eq('user_id', user.id);
+      }
       break;
     }
     case 'maps_pin': {

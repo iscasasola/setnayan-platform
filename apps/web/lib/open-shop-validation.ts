@@ -72,6 +72,11 @@ export const OPEN_SHOP_ERRORS = {
   // owner name; the label moved and the message did not.
   contactName: 'Add your name.',
   contactPhone: 'Add a contact number.',
+  // Owner-locked 2026-08-10: the number must belong to where the shop is. Names
+  // both accepted shapes, because "invalid" alone leaves someone re-typing the
+  // same number wondering what is wrong with it.
+  contactPhoneNotPh:
+    'That doesn’t look like a Philippine number. Use 09XX XXX XXXX, or your landline with its area code.',
   contactEmail: 'Add a valid company email.',
   // ⚠ WAS "Add the city you serve." — a coverage question, on a step headed
   // "Where you are", for a box that is checked against the vendor's DTI, BIR

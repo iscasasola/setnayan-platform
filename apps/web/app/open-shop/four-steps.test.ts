@@ -37,6 +37,10 @@ const OWNS: Record<string, number> = {
   service: 2,
   contactName: 3,
   contactPhone: 3,
+  // Owner-locked 2026-08-10: the number must belong to where the shop is. Same
+  // step as the number itself — a refusal that sends someone to a different
+  // screen than the box it is about is a refusal they cannot act on.
+  contactPhoneNotPh: 3,
   contactEmail: 3,
   locationCity: 4,
 };

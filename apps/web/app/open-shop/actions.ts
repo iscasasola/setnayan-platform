@@ -13,6 +13,7 @@ import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
 import { parseCoordPair } from '@/lib/parse-coord';
+import { parsePhPhone } from '@/lib/ph-phone';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
@@ -107,9 +108,41 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // is read back by the shop page, the marketplace card and every message to a
   // couple — fixing it only in the input would leave "ana reyes" stored and
   // shown everywhere else.
-  const contactName = titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null;
+  const typedName = titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null;
+  //
+  // ── THE VENDOR'S NAME IS THEIR ACCOUNT NAME (owner-locked 2026-08-10) ──────
+  // "vendor's name is their account name. so it should not be editable."
+  //
+  // 🔑 THE READ-ONLY BOX ON SCREEN WAS NEVER ENOUGH, AND HAD NEVER ONCE
+  // ENGAGED. `readOnly` is a property of an input, not a rule: this action is a
+  // server action reachable by direct POST, so the name arrived from the form
+  // whatever the screen did. And it fell back to editable whenever the account
+  // had no name — which, measured in production, is EVERY account: not one
+  // `users.display_name` was set, including the owner's. A lock that only holds
+  // when a column is populated, on a column nothing populates, is a lock that
+  // has never been shut.
+  //
+  // So the rule is enforced here instead: the ACCOUNT NAME WINS, always, and
+  // the form is only consulted when the account has none.
+  const accountName = await (async () => {
+    const { data } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    return titleCasePersonName(
+      ((data as { display_name?: string | null } | null)?.display_name ?? '').trim(),
+    ) || null;
+  })();
+  const contactName = accountName ?? typedName;
   const contactPosition = clean(formData.get('contact_position'), 64);
-  const contactPhone = clean(formData.get('contact_phone'), 32);
+  const contactPhoneRaw = clean(formData.get('contact_phone'), 32);
+  // ── THE NUMBER MUST BELONG TO WHERE THE SHOP IS (owner 2026-08-10) ────────
+  // Stored in its canonical `+63…` form rather than as typed, so the same
+  // number written four ways is one value — which is what makes it comparable
+  // later, and what stops a couple seeing a different spelling than an admin.
+  const phone = contactPhoneRaw ? parsePhPhone(contactPhoneRaw) : null;
+  const contactPhone = phone?.ok ? phone.e164 : contactPhoneRaw;
   const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
   // Logo gate reads the SHARED flag (client wizard reads the same one), so the
@@ -192,6 +225,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
     redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
+  if (!phone?.ok)
+    redirect(
+      '/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
+    );
   if (!contactEmail)
     redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
   const locationCity = clean(formData.get('location_city'), 64);
@@ -301,6 +338,23 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     ...wanted,
     ...existingServices.filter((s) => !wanted.includes(s)),
   ];
+  // ── AND THE FIRST NAME GIVEN ESTABLISHES THE ACCOUNT NAME ─────────────────
+  // Every production account has a blank `display_name`, so "it comes from your
+  // account" would otherwise be a promise about a field nobody has ever filled.
+  // Opening a shop is the one place the app asks a vendor for their name, so
+  // that answer becomes the account's name — and from then on this branch never
+  // runs again and the name is read-only everywhere, changed only on the
+  // account profile where it belongs.
+  //
+  // Best-effort: a failure here must not cost someone their shop. It only means
+  // the account name is established on the next save instead of this one.
+  if (!accountName && contactName) {
+    await supabase
+      .from('users')
+      .update({ display_name: contactName })
+      .eq('user_id', user.id);
+  }
+
   const patch: Record<string, unknown> = {
     business_name: shopName,
     business_owner_name: contactName,

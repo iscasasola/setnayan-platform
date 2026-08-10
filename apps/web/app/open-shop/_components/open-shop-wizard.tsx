@@ -14,6 +14,7 @@ import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
 import { locationStepError } from '@/lib/open-shop-location-gate';
+import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
 import {
   ServicePicker,
@@ -182,6 +183,10 @@ export function OpenShopWizard({
         (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
       if (!read('contact_name').trim()) return OPEN_SHOP_ERRORS.contactName;
       if (!read('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
+      // Checked here as well as on the server: a vendor should learn their
+      // number is wrong while they are still looking at it, not after the whole
+      // form round-trips and drops them back with a banner.
+      if (!isPhPhone(read('contact_phone'))) return OPEN_SHOP_ERRORS.contactPhoneNotPh;
       if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
       return null;
     }

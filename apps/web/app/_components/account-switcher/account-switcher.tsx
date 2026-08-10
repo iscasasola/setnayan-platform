@@ -190,6 +190,31 @@ function SwitcherPanelBody({
               <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
             </Link>
           ) : null}
+          {/* Open your shop — the SAME defect as Your Story above, in the same
+              panel, found 2026-08-10: /open-shop is a finished wizard whose only
+              doorways in the entire app were the PUBLIC /vendors marketing page
+              and /vendor-dashboard/shop — which you can only reach if you
+              already have a shop. A signed-in customer had no way in.
+              (The `no-vendor → /open-shop` redirect in shop/page.tsx is dead
+              code: the vendor-dashboard LAYOUT bounces a non-vendor to
+              /dashboard before that page ever runs.)
+
+              This link — not the launcher tile — is what reaches a couple with
+              exactly ONE event: they are redirected straight into that event and
+              never see the launcher at all. The switcher is on every surface.
+
+              Shown only to someone who has no shop; a vendor already gets the
+              "Shop" console tile in the rail above. Hidden for anon-drafts,
+              matching Your Story. */}
+          {!data.isAnonymous && !data.context.hasVendor ? (
+            <Link
+              href="/open-shop"
+              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+              onClick={close}
+            >
+              <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Open your shop
+            </Link>
+          ) : null}
           {data.isAnonymous ? (
             <Link
               href="/signup"

@@ -1262,6 +1262,14 @@ export default async function LauncherPage({
                   ))}
                 </div>
               ) : null}
+              {/* OPEN YOUR SHOP — the create-door for an account with no shop
+                  (found 2026-08-10: a customer had no way to open one).
+                  Sits exactly where a real shop row sits, so the tile has the
+                  same shape before and after — the CreateSamahanRow /
+                  BecomeStorytellerRow idiom, both already in this file for the
+                  same reason. `hasVendorAccess` is the same flag the shop rows
+                  above are gated on, so the two can never both render. */}
+              {!roles.hasVendorAccess ? <OpenShopRow /> : null}
               {/* SAVED VENDORS — owner 2026-07-31: "saved vendors can be with
                   the group of your shop, hq, and creators lab, and favorite
                   vendors." They were previously only advertised (never shown)
@@ -1988,6 +1996,51 @@ function CreateSamahanRow() {
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-[color:var(--sn-ink-500)] group-hover:text-ink">
         Create a Samahan
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="h-[15px] w-[15px] shrink-0 text-[color:var(--sn-ink-400)] transition-[transform,color] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-mulberry"
+      />
+    </Link>
+  );
+}
+
+/**
+ * The "Open your shop" doorway — /open-shop for an account that has no shop.
+ *
+ * ── WHY THIS EXISTS (2026-08-10) ───────────────────────────────────────────
+ * /open-shop is a FINISHED wizard that handles exactly this case ("logged in,
+ * no shop → the onboarding wizard"). Its only doorways in the whole app were
+ * the PUBLIC /vendors marketing page and /vendor-dashboard/shop — a page you
+ * can only reach if you already have a shop. So a signed-in customer could not
+ * get there at all, and this tile is headed "Yours to run" under a Store glyph:
+ * the shop is the thing it most implies and the one thing it did not offer.
+ *
+ * The same wayfinding defect, twice before, in this same file — Creator's Lab
+ * (verdict 2026-07-16 B4) and Samahan. A page ships with its doorway.
+ *
+ * COPY IS HONEST. "For free" is the shipped promise on /vendors ("List your
+ * business for free"). The review line is NOT a hedge — a new shop is created
+ * hidden + unverified and only an admin can publish it (owner 2026-07-27,
+ * confirmed against prod 2026-08-08), so promising couples would see them
+ * straight away would be the overstated-copy mistake this repo keeps paying
+ * for. It matches what My Shop already tells the vendor.
+ */
+function OpenShopRow() {
+  return (
+    <Link
+      href="/open-shop"
+      className="sn-press group -mx-2 flex items-center gap-[11px] rounded-xl px-2 py-2.5 transition-[background-color,transform] hover:translate-x-0.5 hover:bg-white/70"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/20 text-[color:var(--sn-ink-400)]">
+        <Store aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-ink">Open your shop</span>
+        <span className="block text-xs leading-snug text-ink/55">
+          List your business for free. Setnayan reviews new shops before they go
+          live to couples.
+        </span>
       </span>
       <ArrowUpRight
         aria-hidden

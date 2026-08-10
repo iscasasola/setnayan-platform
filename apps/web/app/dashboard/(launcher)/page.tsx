@@ -908,7 +908,7 @@ export default async function LauncherPage({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    context: { hasVendor: false, vendorName: null, isAdmin: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
   const [shellRes, switcherData] = await Promise.all([
     getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),
@@ -1266,13 +1266,19 @@ export default async function LauncherPage({
                   goes. Same idiom as CreateSamahanRow / BecomeStorytellerRow,
                   both already in this file for the same reason.
 
-                  `hasVendorAccess` is the same flag the shop rows are gated on,
-                  so the create-door and a real shop row can never both render.
-                  The container condition keeps a team-member-only account (no
-                  owned shop rows, no create-door) from rendering an empty div. */}
-              {spaces.length > 0 || !roles.hasVendorAccess ? (
+                  Gated on `canOpenShop` — shops they OWN measured against the
+                  cap — NOT on `!hasVendorAccess`. `hasVendorAccess` is also
+                  true for a TEAM MEMBER of someone else's shop who owns
+                  nothing, so gating on it hid this door from exactly the people
+                  most likely to want their own (a second shooter, an
+                  assistant). Someone who already owns a shop reads
+                  `canOpenShop === false` and gets their real shop row instead,
+                  so the create-door and a real shop row still never both
+                  render. The container condition keeps an account with neither
+                  (a team member at the cap) from rendering an empty div. */}
+              {spaces.length > 0 || roles.canOpenShop ? (
                 <div className="mt-2 divide-y divide-ink/[0.07]">
-                  {!roles.hasVendorAccess ? <OpenShopRow /> : null}
+                  {roles.canOpenShop ? <OpenShopRow /> : null}
                   {spaces.map((space) => (
                     <SpaceRow
                       key={space.id ?? space.href + space.title}

@@ -55,9 +55,9 @@ test('the account switcher offers /open-shop to someone with no shop', () => {
   // in the rail above, and offering both is two doors to two different places
   // wearing the same word.
   assert.ok(
-    src.includes('!data.context.hasVendor'),
-    'The open-shop link must be gated on having no shop, or a vendor sees ' +
-      '"Open your shop" next to their existing Shop console.',
+    src.includes('data.context.canOpenShop'),
+    'The link must be gated on canOpenShop (shops OWNED vs the cap), not on ' +
+      '!hasVendor — see the shared-flag test below.',
   );
 });
 
@@ -69,9 +69,9 @@ test('the launcher offers /open-shop to someone with no shop', () => {
       'it offers everything EXCEPT the shop.',
   );
   assert.ok(
-    src.includes('!roles.hasVendorAccess ? <OpenShopRow />'),
-    'The row must be gated on the same flag the real shop rows use, so the ' +
-      'create-door and a real shop row can never both render.',
+    src.includes('roles.canOpenShop ? <OpenShopRow />'),
+    'The row must be gated on canOpenShop, not !hasVendorAccess — see the ' +
+      'shared-flag test below.',
   );
   // Owner 2026-08-10: "place a button on the user home WHERE THE SHOP BUTTON
   // WILL BE". That means inside the divided row list, ahead of the HQ row —
@@ -84,6 +84,43 @@ test('the launcher offers /open-shop to someone with no shop', () => {
     'The create-door must render INSIDE the row list and BEFORE the mapped ' +
       'space rows — that is where a real shop row sits.',
   );
+});
+
+/**
+ * THE BUG THIS PAIR OF GATES EXISTS TO PREVENT.
+ *
+ * `hasVendorAccess` / `hasVendor` is true when the user owns a shop **OR sits
+ * on any `vendor_team_members` row**. `canOpenShop` counts only shops they OWN
+ * against `MAX_SHOPS_PER_USER`. For a team member who owns nothing the two
+ * disagree: `hasVendor` is TRUE, `canOpenShop` is TRUE.
+ *
+ * Gating the create-door on `!hasVendor` therefore hid it from exactly the
+ * people most likely to want their own shop — a second shooter, an assistant,
+ * anyone a vendor added to their team — while the cap allowed them one. It
+ * shipped that way in the first release of this doorway (2026-08-10) and was
+ * caught the same day. Prod had 0 people in that state, so nobody was blocked.
+ *
+ * A future reader "simplifying" these two conditions back to `!hasVendor` gets
+ * this test.
+ */
+test('neither doorway gates on hasVendor — that flag includes team members', () => {
+  for (const [name, path] of [
+    ['switcher', SWITCHER],
+    ['launcher', LAUNCHER],
+  ] as const) {
+    const visible = readFileSync(path, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    // The create-door's own condition must not be written in terms of the
+    // access flag. Both spellings appear in this repo.
+    assert.ok(
+      !/!\s*(data\.context\.hasVendor|roles\.hasVendorAccess)\s*\?\s*<OpenShopRow/.test(
+        visible,
+      ),
+      `${name}: the create-door is gated on !hasVendor again — that hides it ` +
+        `from a team member who owns no shop but is allowed one.`,
+    );
+  }
 });
 
 /**

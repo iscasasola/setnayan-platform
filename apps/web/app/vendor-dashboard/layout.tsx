@@ -62,7 +62,7 @@ export default async function VendorDashboardLayout({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    context: { hasVendor: true, vendorName: null, isAdmin: false },
+    context: { hasVendor: true, vendorName: null, isAdmin: false, canOpenShop: false },
   };
 
   // Server-render timing (2026-07-01) — one structured stdout line per layout

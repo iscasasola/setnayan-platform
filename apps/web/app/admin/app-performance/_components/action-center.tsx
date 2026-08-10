@@ -4,6 +4,7 @@ import {
   computeDueState,
   getAdminQueueDigest,
   type AdminQueueDueState,
+  compareQueuePriority,
 } from '@/lib/admin/queue-counts';
 
 import { StatusPill } from './charts';
@@ -72,13 +73,18 @@ const STATE_STYLE: Record<
   unknown: { border: 'var(--m-line)', dot: 'var(--m-slate-4)', word: 'unknown' },
 };
 
-const STATE_RANK: Record<AdminQueueDueState, number> = {
-  overdue: 0,
-  'due-soon': 1,
-  unknown: 2,
-  ok: 3,
-  clear: 4,
-};
+// ⛔ THIS SURFACE'S PRIVATE RANK TABLE IS GONE (2026-08-10).
+//
+// It ranked `unknown` ABOVE `ok` — the exact inverse of the shared rule, whose
+// docblock says a degraded read "must not be presented as either urgent or
+// settled". So the same admin reading this cockpit and /admin/work was told two
+// different things were most urgent, and a queue whose count simply failed to
+// load outranked one that was genuinely fine.
+//
+// It is the same fifteen queues, the same digest and the same computeDueState —
+// not a subset. The guard that was supposed to prevent a third copy missed it
+// because its surface list was HAND-TYPED, which is the whole failure in one
+// line. That list is now derived from disk.
 
 export async function ActionCenterZone() {
   const digest = await getAdminQueueDigest();
@@ -91,8 +97,10 @@ export async function ActionCenterZone() {
     return { ...def, row, state };
   }).sort(
     (a, b) =>
-      STATE_RANK[a.state] - STATE_RANK[b.state] ||
-      (b.row.count ?? 0) - (a.row.count ?? 0),
+      compareQueuePriority(
+        { dueState: a.state, count: a.row.count ?? null },
+        { dueState: b.state, count: b.row.count ?? null },
+      ),
   );
 
   const active = cards.filter((c) => c.state !== 'clear');

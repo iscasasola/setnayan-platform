@@ -33,8 +33,26 @@ export async function GET() {
   // The RPC is deliberately NOT granted to `anon`, but that guards the
   // DIRECT-from-browser path. Here we call it SERVER-SIDE via the service-role
   // admin client on behalf of a cookie-validated guest (auth.uid() IS NULL →
-  // the couple/coordinator/admin gate is bypassed for the server), scoped to
+  // ensure_papic_board's OWN gate treats that as the trusted server), scoped to
   // THIS guest's own cookie-derived event — the same trust model as guest-capture.
+  //
+  // 🚨 THIS COMMENT WAS TRUE, THEN SILENTLY WASN'T, FOR NINE DAYS (fixed
+  // 2026-08-10). It used to read "the couple/coordinator/admin gate is bypassed
+  // for the server" as a statement about the whole call. But ensure_papic_board
+  // began by PERFORMing ensure_papic_auto_missions, and on 2026-08-01 THAT
+  // function was hardened — "a missing session is now a REFUSAL, not a bypass".
+  // So every call from here raised, the board transaction aborted, the
+  // `.catch(() => 0)` below swallowed it, and the reader fail-softed to
+  // "no board → show everything by created_at" — a list that looks fine. No
+  // library challenge and no booth mission reached a single guest, and CI was
+  // green throughout because CI never calls the live database.
+  //
+  // 🔑 THE BELIEF THAT ROTTED WAS ABOUT A FUNCTION THIS FILE DOES NOT NAME.
+  // A comment asserting how a callee's callee behaves has no way to notice when
+  // that callee is hardened. The fix put the authorization at the entry points
+  // and gave the board an unchecked internal step; `rpc-argument-names.db.test.ts`
+  // could never have caught this, so a db test now calls this exact path with a
+  // NULL session and asserts a board comes back.
   //
   // Pabati (#5) availability is computed SERVER-SIDE here and passed in — the
   // resolver never trusts a client-supplied flag, and eventSkuActive (a 6-source

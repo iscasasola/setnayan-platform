@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENUE_TYPES, CEREMONY_TYPES, type VenueType } from './_constants';
+import { parseCoordPair } from '@/lib/parse-coord';
 
 /**
  * Admin server actions for the V1 venue_directory (read-only directory of
@@ -56,8 +57,13 @@ function parseForm(formData: FormData): ParsedForm {
   const venueType = String(formData.get('venue_type') ?? '').trim();
   const locationCity = String(formData.get('location_city') ?? '').trim();
   const hqAddress = String(formData.get('hq_address') ?? '').trim();
-  const lat = Number(formData.get('hq_latitude'));
-  const lng = Number(formData.get('hq_longitude'));
+  // Same defect as the vendor wizard's, on a second surface: `Number(null)` and
+  // `Number('')` are both 0, and 0 passes the ±90/±180 checks below — so an
+  // admin who saved this form with the coordinate boxes empty filed the venue
+  // at Null Island rather than being told to fill them in.
+  const pin = parseCoordPair(formData.get('hq_latitude'), formData.get('hq_longitude'));
+  const lat = pin?.lat ?? NaN;
+  const lng = pin?.lng ?? NaN;
   const sourceNote = String(formData.get('source_note') ?? '').trim();
 
   if (!SLUG_RE.test(slug) || slug.length < 2 || slug.length > 80) {

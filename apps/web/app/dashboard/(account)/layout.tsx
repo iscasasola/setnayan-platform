@@ -50,7 +50,7 @@ export default async function AccountDashboardLayout({
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    context: { hasVendor: false, vendorName: null, isAdmin: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
   const [{ unreadCount }, switcherData] = await Promise.all([
     getDashboardShell(user.id),

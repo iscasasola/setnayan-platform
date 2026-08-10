@@ -72,7 +72,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    context: { hasVendor: false, vendorName: null, isAdmin: true },
+    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false },
   };
 
   const [{ data: profile }, unreadCount, switcherData] = await Promise.all([

@@ -203,10 +203,15 @@ function SwitcherPanelBody({
               exactly ONE event: they are redirected straight into that event and
               never see the launcher at all. The switcher is on every surface.
 
-              Shown only to someone who has no shop; a vendor already gets the
-              "Shop" console tile in the rail above. Hidden for anon-drafts,
-              matching Your Story. */}
-          {!data.isAnonymous && !data.context.hasVendor ? (
+              Gated on `canOpenShop` (shops they OWN vs the cap), NOT on
+              `!hasVendor`. `hasVendor` is also true for a TEAM MEMBER of
+              someone else's shop who owns nothing — gating on it hid this door
+              from exactly the people most likely to want their own shop (a
+              second shooter, an assistant), even though the cap allows them
+              one. A vendor who already owns one gets `canOpenShop === false`
+              and sees the "Shop" console tile in the rail above instead.
+              Hidden for anon-drafts, matching Your Story. */}
+          {!data.isAnonymous && data.context.canOpenShop ? (
             <Link
               href="/open-shop"
               className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"

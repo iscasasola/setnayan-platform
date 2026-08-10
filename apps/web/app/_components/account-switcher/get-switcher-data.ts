@@ -36,6 +36,17 @@ export type SwitcherContext = {
   /** Business name of the first vendor profile (for sub-label in context rail) */
   vendorName: string | null;
   isAdmin: boolean;
+  /**
+   * May this person open a shop of their own? Reads `roles.canOpenShop`, which
+   * counts only shops they OWN against MAX_SHOPS_PER_USER.
+   *
+   * ⚠ NOT the same as `!hasVendor`, and that difference is a real defect this
+   * field exists to fix. `hasVendor` is true for a TEAM MEMBER of someone
+   * else's shop, who owns nothing — so gating the "Create your shop" door on
+   * `!hasVendor` hides it from exactly the people most likely to want one
+   * (a second shooter, an assistant), even though the cap allows them one.
+   */
+  canOpenShop: boolean;
 };
 
 export type SwitcherData = {
@@ -183,6 +194,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
     hasVendor: roles.hasVendorAccess,
     vendorName: roles.vendorProfiles[0]?.business_name ?? null,
     isAdmin: roles.hasAdminAccess,
+    canOpenShop: roles.canOpenShop,
   };
 
   return {
@@ -205,7 +217,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       isAnonymous: false,
       photoUrl: null,
       events: [],
-      context: { hasVendor: false, vendorName: null, isAdmin: false },
+      context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
     };
   }
 });

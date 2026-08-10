@@ -109,7 +109,35 @@ const BTN_LIGHT =
 // edge and the server runtime.
 const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 const APPLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED);
-const FACEBOOK_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED);
+/**
+ * 🔴 FACEBOOK IS HARD-OFF — MEASURED BROKEN ON THE LIVE SIGN-IN PAGE 2026-08-10.
+ *
+ * The flag alone is not enough, and the docblock above ("ships OFF") is stale
+ * against production: the environment has it ON, so all three buttons render at
+ * https://www.setnayan.com/login today. Probed directly against the auth server:
+ *
+ *   provider=google   → 302 (configured)
+ *   provider=apple    → 302 (configured)
+ *   provider=facebook → 400  ← a first-time visitor fails at the FIRST screen
+ *
+ * Nobody had configured the Meta credentials in Supabase, so the flag was
+ * offering a door with no room behind it. Owner 2026-08-10: *"we will add this
+ * but after all is built."*
+ *
+ * 🔑 A FLAG SAYS "SHOW IT"; IT CANNOT SAY "IT WORKS." That is why this is a
+ * separate constant rather than a flag flip — the flag's job is the owner's
+ * intent, and this one's job is whether the provider exists. Both must be true.
+ *
+ * TO RE-ENABLE: paste the Meta app credentials into Supabase Studio, confirm
+ * `…/auth/v1/authorize?provider=facebook` answers 302, then set this to `true`
+ * in the SAME change. Do not flip it on the strength of the env flag alone —
+ * that is exactly how it got here.
+ */
+const FACEBOOK_PROVIDER_CONFIGURED = false;
+
+const FACEBOOK_ENABLED =
+  FACEBOOK_PROVIDER_CONFIGURED &&
+  envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED);
 
 /**
  * Whether at least one OAuth provider is enabled. /login + /signup

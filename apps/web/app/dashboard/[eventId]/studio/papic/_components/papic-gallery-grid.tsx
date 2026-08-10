@@ -3,6 +3,13 @@
 import { useRef, useState } from 'react';
 import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
+import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras';
+import {
+  PRESERVATION_BLOCK_PHP,
+  allowancePoints,
+  blocksNeeded,
+} from '@/lib/papic-storage-telemetry';
+import { formatPhp } from '@/lib/budget';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -356,44 +363,64 @@ function ShowcaseToggle({
 }
 
 /**
- * ⚠ WHAT IS BEING KEPT SHARP — counted over the WHOLE event, or not shown.
+ * ⚠ WHAT IS BEING KEPT SHARP, AND WHAT THAT COSTS — counted over the WHOLE
+ * event, priced in PAPIC CREDITS.
  *
- * 🚨 THIS WAS COMPUTED FROM THE GALLERY ARRAY, which is capped at 120 per source.
- * At a real wedding that made "N of M kept" and every percentage built on it
- * plainly wrong — and wrong in the direction that looks plausible. It now takes
- * a server-side count of the couple's own captures, and renders NOTHING when
- * that count is unavailable: a zero here reads as "you are keeping none of your
- * photos", which is the alarming thing to say when the truth is "we could not
- * count".
+ * Owner, 2026-08-10: *"1 credit = 1 photo, 8 credits = 10 sec video. the
+ * preservation will follow those. 500/year for every 5000 credits worth of
+ * preserved photo and video."*
  *
- * ⚠ NO PERCENTAGE, AND NO "FOREVER". The earlier version showed a share of a
- * one-year allowance and told couples their picks stayed full resolution
- * forever. Preservation is a PAID option (owner, 2026-08-10: *"no. not free"*)
- * whose price is not yet set, and "forever" was retired on 2026-08-07. Showing a
- * percentage of an allowance nobody has bought, against a promise we do not
- * make, is two untruths in one line. What is true, and all that is said:
- * everything is kept at full size until three months after the event ends, and
- * releasing something never removes it — only its size changes.
+ * 🔑 A COUNT OF ITEMS IS NOT A BILL. "412 kept" says nothing about what a couple
+ * owes, because one 10-second video costs EIGHT times what a photo costs. The
+ * credits figure is weighted from the same constants the capture path charges
+ * with, and the price from `PRESERVATION_BLOCK_PHP` — never re-typed here.
+ *
+ * 🚨 IT USED TO COUNT THE GALLERY ARRAY, which is capped at 120 per source, so
+ * at any real wedding every figure was wrong — and wrong in the direction that
+ * looks plausible. It now renders NOTHING when the count is unavailable: a zero
+ * reads as "you are keeping none of your photos", which is the alarming thing to
+ * say when the truth is "we could not count".
+ *
+ * ⚠ NO "FOREVER" (retired 2026-08-07) and no claim that anything is deleted —
+ * releasing a capture only changes its size.
  */
 function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }) {
   if (!totals || totals.total === 0) return null;
 
+  const blocks = blocksNeeded(totals.keptCredits);
+  const annualPhp = blocks * PRESERVATION_BLOCK_PHP;
+  const covered = allowancePoints(blocks);
+
   return (
     <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
-      <p className="text-xs font-medium text-ink/80">
-        <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
-        <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> kept at full
-        size
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-xs font-medium text-ink/80">
+          <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
+          <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> kept at full
+          size
+        </p>
+        <p className="font-mono text-xs text-ink/55">
+          {totals.keptCredits.toLocaleString('en-PH')} / {covered.toLocaleString('en-PH')} credits
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+        <div
+          className="h-full bg-success-500"
+          style={{ width: `${Math.min(100, Math.round((totals.keptCredits / covered) * 100))}%` }}
+        />
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
+        A photo is one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}. Keeping this much at
+        full size costs {formatPhp(annualPhp)} a year
+        {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. Everything stays
+        at full size until three months after your event ends — after that, anything you release
+        stays in your gallery, only smaller, and nothing is ever deleted.
         {totals.released > 0 ? (
           <>
-            {' '}— you released{' '}
-            <span className="tabular-nums">{totals.released.toLocaleString('en-PH')}</span>
+            {' '}You have released{' '}
+            <span className="tabular-nums">{totals.released.toLocaleString('en-PH')}</span>.
           </>
         ) : null}
-      </p>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
-        Everything is kept at full size until three months after your event ends. Anything you
-        release stays in your gallery — only its size changes, and nothing is ever deleted.
       </p>
     </div>
   );

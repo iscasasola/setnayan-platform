@@ -88,13 +88,57 @@ test('already-compressed captures are excluded', () => {
   assert.match(counter(), /is\('full_res_dropped_at',\s*null\)/);
 });
 
-test('🚨 the meter shows no percentage and promises no "forever"', () => {
-  // Preservation is a PAID option whose price is not set, and "forever" was
-  // retired by the owner. A share of an allowance nobody bought, against a
-  // promise we do not make, is two untruths in one line.
+test('🚨 the meter prices the selection in CREDITS, derived — never re-typed', () => {
+  // Owner 2026-08-10: 1 credit = 1 photo, 8 credits = a 10-second video, and
+  // preservation is ₱500/year per 5,000 credits' worth. A count of ITEMS is not
+  // a bill — one video costs eight times what a photo costs.
+  const raw = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
+  // ⚠ CLASS NAMES ARE NOT PRICES. A first cut flagged `bg-success-500` as a
+  // hard-coded ₱500. Strip styling before looking for numbers, or the guard
+  // cries wolf on a colour token and teaches you to skim past it.
+  const meter = raw.replace(/className="[^"]*"/g, '').replace(/className=\{[^}]*\}/g, '');
+  // ⚠ ASSERT THE USE, NOT THE PRESENCE. A first cut checked that `keptCredits`
+  // and `blocksNeeded(` merely APPEARED — so swapping the bill to
+  // `blocksNeeded(totals.kept)` (a video billed as a photo, one eighth of the
+  // truth) sailed through, because the word was still on screen elsewhere.
+  // "Keep the call, discard its result" beats every presence check.
+  assert.match(
+    meter,
+    /blocksNeeded\(\s*totals\.keptCredits\s*\)/,
+    'the bill must be computed from CREDITS — item counts bill a video as a photo',
+  );
+  assert.match(meter, /PRESERVATION_BLOCK_PHP/, 'the price must come from the constant');
+  assert.match(
+    meter,
+    /formatPhp\(\s*annualPhp\s*\)/,
+    'the yearly figure must be the derived one, not typed into the copy',
+  );
+  // Any bare peso amount in the copy is a hard-coded price, however it is spelled.
+  assert.ok(
+    !/[₱P]\s?\d/.test(meter),
+    'a peso amount is written into the copy — derive it from the constant',
+  );
+  assert.ok(!/\b5,?000\b/.test(meter), 'the block size is hard-coded — derive it');
+  assert.match(meter, /PAPIC_POINTS_PER_CLIP/, 'the video credit cost must be the constant');
+  assert.ok(
+    !/video is \d/.test(meter),
+    'the video credit cost is written into the copy — use the constant',
+  );
+
+  // …and the credits themselves must be WEIGHTED, or every figure above is a
+  // count of items wearing the word "credits".
+  const counter = codeOnly(LIB).slice(codeOnly(LIB).indexOf('export async function fetchPreservationTotals'));
+  assert.match(
+    counter,
+    /papicCaptureCost\(\s*'clip'\s*\)/,
+    'clips must be weighted at the clip cost — an unweighted sum is not credits',
+  );
+  assert.match(counter, /papicCaptureCost\(\s*'photo'\s*\)/);
+});
+
+test('🚨 the meter promises no "forever" and claims no deletion', () => {
   const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
-  assert.ok(!/forever/i.test(meter), '"forever" was retired — do not reintroduce it');
-  assert.ok(!/%|pct|percent/i.test(meter), 'no percentage of an unbought allowance');
+  assert.ok(!/forever/i.test(meter), '"forever" was retired 2026-08-07 — do not reintroduce it');
   // ⚠ BAN THE CLAIM, NOT THE WORD. A blunt /delete/i ban flagged the sentence
   // "nothing is ever deleted" — which is the exact reassurance the owner asked
   // for, twice ("again. not delete. just compress"). What must never appear is

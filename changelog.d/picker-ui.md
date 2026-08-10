@@ -91,3 +91,41 @@ Mutation-tested six ways, baseline green, every sabotage verified applied:
 counting the capped array again (2 fail) · a failed count becoming zero · a limit
 in the counter · vendor captures counted · "forever" returning · `eventId` made
 optional again.
+
+### Priced 2026-08-10 — the owner set the model
+
+Owner, verbatim: *"papic has number of papic credits. 1 credit = 1 photo, 8
+credits = 10 sec video. the preservation will follow those. 500/year for every
+5000 credits worth of preserved photo and video."*
+
+That closes the open price question, and it is the **same unit a couple already
+buys shots in** — 5,000 credits is 5,000 photos, or 625 videos, or any mix.
+
+🔑 **A COUNT OF ITEMS IS NOT A BILL.** The meter had to be re-weighted before it
+could state a price: one 10-second video costs **eight** times a photo, so "412
+kept" says nothing about what is owed. `fetchPreservationTotals` now counts each
+source **per media kind** — the kind column differs between the two tables
+(`photo_type` vs `media_type`), and one shared literal would have silently
+counted one table's clips as photos — and weights them with the capture path's
+own `papicCaptureCost`.
+
+The meter now shows credits held against the block they fall in, and what that
+costs per year. Every figure derives from `PRESERVATION_BLOCK_POINTS`,
+`PRESERVATION_BLOCK_PHP` and `PAPIC_POINTS_PER_CLIP`; nothing is re-typed.
+
+⚠ **Three of the first four sabotages went straight through the guard**, and
+that is the finding worth recording. It asserted that `keptCredits` and
+`blocksNeeded(` *appeared* — so switching the bill to `blocksNeeded(totals.kept)`,
+which bills a video as a photo and undercharges by up to eight times, passed
+green because the words were still on screen elsewhere. **"Keep the call, discard
+its result" beats every presence check.** It now asserts the exact expression,
+that the peso figure is the derived one, and that the credits are weighted in the
+counter. All four sabotages then failed as they should.
+
+⚠ A separate false alarm: the guard flagged `bg-success-500` as a hard-coded
+₱500. Class names are stripped before looking for numbers — a guard that cries
+wolf on a colour token teaches you to skim past it.
+
+Mutation-tested: bill by item count (caught) · yearly price typed into the copy
+(caught) · block size typed into the copy (caught) · credits left unweighted
+(caught) · video cost typed in (caught) · plus the six from the earlier revision.

@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { papicCaptureCost } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolvePlayRef } from '@/lib/papic-display-ref';
 
@@ -435,6 +436,15 @@ export type PreservationTotals = {
   released: number;
   /** kept + released — the couple's own captures that still have an original. */
   total: number;
+  /**
+   * ⚠ WHAT THE KEPT CAPTURES ARE WORTH IN PAPIC CREDITS — the unit preservation
+   * is PRICED in (owner 2026-08-10: ₱500/year per 5,000 credits' worth).
+   *
+   * 🔑 A COUNT OF ITEMS IS NOT A BILL. One 10-second video costs EIGHT credits
+   * and one photo costs one, so "412 kept" says nothing about what a couple
+   * owes. Weighted here, from the same constants the capture path charges with.
+   */
+  keptCredits: number;
 };
 
 export async function fetchPreservationTotals(
@@ -443,34 +453,54 @@ export async function fetchPreservationTotals(
 ): Promise<PreservationTotals | null> {
   if (!eventId) return null;
 
+  // ⚠ COUNTED PER MEDIA KIND, because the two cost different amounts. The
+  // column differs between the two tables (`photo_type` vs `media_type`) and the
+  // value for a video differs too — a single shared literal here would silently
+  // count one table's clips as photos.
   const countOf = async (
     table: 'papic_photos' | 'papic_guest_captures',
     declined: boolean,
+    clipsOnly: boolean | null,
   ): Promise<number | null> => {
+    const kindCol = table === 'papic_photos' ? 'photo_type' : 'media_type';
     let q = supabase
       .from(table)
       .select('event_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('full_res_dropped_at', null);
     q = declined ? q.not('preserve_declined_at', 'is', null) : q.is('preserve_declined_at', null);
+    if (clipsOnly === true) q = q.eq(kindCol, 'clip');
+    if (clipsOnly === false) q = q.neq(kindCol, 'clip');
     const { count, error } = await q;
     // A rejected query resolves with `{ error }` and a null count — it never
     // throws. Treating that as 0 is how a failed read becomes a confident lie.
     return error ? null : (count ?? 0);
   };
 
-  const [seatKept, seatGone, guestKept, guestGone] = await Promise.all([
-    countOf('papic_photos', false),
-    countOf('papic_photos', true),
-    countOf('papic_guest_captures', false),
-    countOf('papic_guest_captures', true),
-  ]);
+  const [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatGone, guestGone] =
+    await Promise.all([
+      countOf('papic_photos', false, false),
+      countOf('papic_photos', false, true),
+      countOf('papic_guest_captures', false, false),
+      countOf('papic_guest_captures', false, true),
+      countOf('papic_photos', true, null),
+      countOf('papic_guest_captures', true, null),
+    ]);
 
-  if (seatKept === null || seatGone === null || guestKept === null || guestGone === null) {
-    return null;
-  }
+  const parts = [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatGone, guestGone];
+  if (parts.some((n) => n === null)) return null;
 
-  const kept = seatKept + guestKept;
-  const released = seatGone + guestGone;
-  return { kept, released, total: kept + released };
+  const keptPhotos = seatKeptPhotos! + guestKeptPhotos!;
+  const keptClips = seatKeptClips! + guestKeptClips!;
+  const kept = keptPhotos + keptClips;
+  const released = seatGone! + guestGone!;
+
+  return {
+    kept,
+    released,
+    total: kept + released,
+    // Derived from the capture path's own constants — never a re-typed 8.
+    keptCredits:
+      keptPhotos * papicCaptureCost('photo') + keptClips * papicCaptureCost('clip'),
+  };
 }

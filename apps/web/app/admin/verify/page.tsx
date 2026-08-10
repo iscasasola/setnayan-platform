@@ -120,6 +120,7 @@ type VendorVisibilityRow = {
   logo_url: string | null;
   services: string[];
   location_city: string | null;
+  hq_address: string | null;
   contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
@@ -148,6 +149,7 @@ type ApplicationRow = {
     contact_email: string | null;
     contact_phone: string | null;
     location_city: string | null;
+  hq_address: string | null;
     verification_state: VerificationState;
     demotion_count: number;
     inBusinessSinceYear: number | null;
@@ -484,7 +486,7 @@ async function ApplicationsSurface({
     const { data: vendorData } = await admin
       .from('vendor_profiles')
       .select(
-        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,verification_state,demotion_count',
+        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
       )
       .in('vendor_profile_id', vendorIds);
     vendorMap = Object.fromEntries(
@@ -497,6 +499,7 @@ async function ApplicationsSurface({
           contact_email: v.contact_email ?? null,
           contact_phone: v.contact_phone ?? null,
           location_city: v.location_city ?? null,
+          hq_address: v.hq_address ?? null,
           verification_state: parseVerificationState(v.verification_state),
           demotion_count: (v.demotion_count as number | null) ?? 0,
           inBusinessSinceYear: expMap[v.vendor_profile_id]?.year ?? null,
@@ -516,7 +519,7 @@ async function ApplicationsSurface({
     const { data: demotedVendors } = await admin
       .from('vendor_profiles')
       .select(
-        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,verification_state,demotion_count',
+        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
       )
       .eq('verification_state', 'demoted')
       .order('last_demoted_at', { ascending: false })
@@ -528,6 +531,7 @@ async function ApplicationsSurface({
       contact_email: v.contact_email ?? null,
       contact_phone: v.contact_phone ?? null,
       location_city: v.location_city ?? null,
+      hq_address: v.hq_address ?? null,
       verification_state: parseVerificationState(v.verification_state),
       demotion_count: (v.demotion_count as number | null) ?? 0,
       inBusinessSinceYear: null,
@@ -550,6 +554,7 @@ async function ApplicationsSurface({
       contact_email: null,
       contact_phone: null,
       location_city: null,
+      hq_address: null,
       verification_state: 'unverified',
       demotion_count: 0,
       inBusinessSinceYear: null,
@@ -776,6 +781,17 @@ function ApplicationCard({
           ) : null}
           {application.vendor.contact_phone ? (
             <p>{application.vendor.contact_phone}</p>
+          ) : null}
+          {/* ── THE ADDRESS THE VENDOR CLAIMS (2026-08-10) ────────────────────
+              Three of the required documents state a registered business
+              address — DTI/SEC, BIR 2303 and the Mayor's Permit — and comparing
+              them against what the vendor typed is the ONLY thing that makes an
+              address true. The map pin proves nothing: anyone can drop one
+              anywhere. Until now this screen showed the CITY alone, so a
+              reviewer held a permit naming a full street and had nothing on
+              screen to check it against. */}
+          {application.vendor.hq_address ? (
+            <p className="text-ink/80">{application.vendor.hq_address}</p>
           ) : null}
           {application.vendor.location_city ? (
             <p>{application.vendor.location_city}</p>

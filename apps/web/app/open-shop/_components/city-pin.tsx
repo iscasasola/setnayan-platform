@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Crosshair, Loader2, MapPin } from 'lucide-react';
 
 import { addressFromPin } from '@/lib/pin-address';
+import { pinConfirmCopy } from '@/lib/pin-confirm-copy';
 
 import { detectShopCity, locateShopAddress } from '../city-actions';
 
@@ -342,6 +343,11 @@ export function CityPin({
     );
   };
 
+  // What the confirmation card should say about the pin currently placed.
+  // Derived here rather than inline so the rule is one tested decision instead
+  // of a ternary that has to be read twice.
+  const copy = pinConfirmCopy(proposed, address);
+
   return (
     <div className="space-y-2">
       {/* THE ADDRESS IS THE PRIMARY CONTROL (owner 2026-08-10). It leads because
@@ -424,22 +430,30 @@ export function CityPin({
           vendor can vouch for — so the card asks "is this the right spot?" and
           takes their word for it. */}
       {pin && !confirmed ? (
+
         <div
           className="space-y-2 rounded-xl border p-3"
           style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
         >
+          {/* 🔑 THE CARD MUST SHOW SOMETHING TO CHECK THE PIN AGAINST. It used
+              to ask "Is this the right spot?" with nothing underneath whenever
+              the geocoder returned no name — a confirmation with no information
+              in it, which does not check anything and just trains people to tap
+              yes. `pinConfirmCopy` falls back to WHAT THE VENDOR TYPED, which
+              was sitting in the box directly above this card and was being
+              ignored. */}
           <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-            {proposed?.city ? (
+            {copy.city ? (
               <>
-                Are you in <strong>{proposed.city}</strong>?
+                Are you in <strong>{copy.city}</strong>?
               </>
             ) : (
-              <>Is this the right spot?</>
+              <>{copy.question}</>
             )}
           </p>
-          {proposed?.address ? (
+          {copy.detail ? (
             <p className="text-xs leading-snug" style={{ color: 'var(--m-slate)' }}>
-              {proposed.address}
+              {copy.detail}
             </p>
           ) : null}
           <button

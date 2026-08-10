@@ -267,3 +267,43 @@ test('the map repaints when its step becomes visible', () => {
       'it at the moment the panel stops being hidden',
   );
 });
+
+test('the confirmation cannot be answered before the lookup replies', () => {
+  // 🔴 A DEFECT I SHIPPED, found by an adversarial sweep before the owner hit
+  // it. `setPin` is synchronous, so the card used to appear the instant the map
+  // was tapped — carrying the PREVIOUS answer, with a live Yes button. Tap it in
+  // that window on mobile data and the green tick appeared, then vanished when
+  // the lookup landed and cleared `confirmed` over the top. Press "Open my
+  // shop" in between and you were refused about a button you had just pressed.
+  assert.ok(
+    /\{pin && !confirmed && !detecting \? \(/.test(CITY_PIN),
+    'the confirmation card renders while the lookup is still running — a tap on it ' +
+      'answers a question about the previous pin and is then silently undone',
+  );
+});
+
+test('moving the pin voids the old agreement BEFORE anything is awaited', () => {
+  // The other half. Clearing after the await is what created the window; the
+  // moment the place changes there is nothing left to have agreed to.
+  const body = CITY_PIN.slice(
+    CITY_PIN.indexOf('const resolve = async'),
+    CITY_PIN.indexOf('await detectShopCity'),
+  );
+  assert.ok(
+    /setConfirmed\(false\);/.test(body),
+    'the confirmation is cleared only after the network call — that is the race',
+  );
+  assert.ok(
+    /setProposed\(null\);/.test(body),
+    'the previous answer is left on the card during the lookup',
+  );
+});
+
+test('a slow reply for an older pin cannot overwrite a newer one', () => {
+  assert.ok(
+    /const seq = \(resolveSeq\.current \+= 1\);/.test(CITY_PIN) &&
+      /if \(seq !== resolveSeq\.current\) return;/.test(CITY_PIN),
+    'pin resolutions have no generation token — the spot tapped first can win over ' +
+      'the spot tapped second',
+  );
+});

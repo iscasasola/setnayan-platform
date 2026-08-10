@@ -141,7 +141,19 @@ export function AddressPreview({
             // Typed straight into the address, so hold it to the address
             // alphabet as they go — a space or an apostrophe would silently
             // disappear at submit and look like the field ate it.
-            setValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+            //
+            // 🔴 THE HYPHEN USED TO BE ALLOWED HERE, AND IT IS THE ONE
+            // CHARACTER THAT BROKE THE PROMISE THIS LINE EXISTS TO KEEP.
+            // `slugifyBusinessName` strips it (`[^a-z0-9]+`), so someone typing
+            // `banawe-florals` saw `setnayan.com/banawe-florals`, saw the green
+            // Available tick, read "you can't change this later" — and got
+            // `banaweflorals`. **A permanent address, agreed to in one form and
+            // created in another**, with no rename to put it right.
+            //
+            // Two alphabets for one value is the whole defect. There is now a
+            // test that types real strings through both and fails if what
+            // survives this box is not already a fixed point of the mirror.
+            setValue(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
           }}
           maxLength={32}
           spellCheck={false}

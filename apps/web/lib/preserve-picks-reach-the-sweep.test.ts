@@ -11,7 +11,8 @@
  *
  *   *"or, worse, the column is undefined and the skip silently inverts"*
  *
- * That is precisely what happened. `preserve_declined_at` was OPTIONAL on
+ * That is precisely what happened. The column (then `preserve_declined_at`,
+ * now `preserved_at` after the owner reversed the default) was OPTIONAL on
  * `PapicDropItem` and **none of the four production mappers assigned it**, so
  * every real sweep Item carried `undefined`. The gate `keep && !it.preserve_
  * declined_at` then read `!undefined === true` for every capture, collapsing the
@@ -66,7 +67,7 @@ const code = (p: string) =>
 
 const SWEEP = code(join(WEB, 'lib/papic-fullres-drop.ts'));
 
-const DECLINED = '2026-08-10T04:00:00.000Z';
+const PICKED = '2026-08-10T04:00:00.000Z';
 
 type Row = Record<string, unknown>;
 
@@ -84,7 +85,7 @@ const seatPhotoRow = (over: Row = {}): Row => ({
   orig_bytes: 5_000_000,
   captured_at: '2026-02-01T02:00:00.000Z',
   full_res_dropped_at: null,
-  preserve_declined_at: null,
+  preserved_at: null,
   ...over,
 });
 
@@ -97,7 +98,7 @@ const guestPhotoRow = (over: Row = {}): Row => ({
   orig_bytes: 4_000_000,
   captured_at: '2026-02-01T02:00:00.000Z',
   full_res_dropped_at: null,
-  preserve_declined_at: null,
+  preserved_at: null,
   ...over,
 });
 
@@ -114,7 +115,7 @@ const seatClipRow = (over: Row = {}): Row => ({
   orig_bytes: 7_000_000,
   captured_at: '2026-02-01T02:00:00.000Z',
   full_res_dropped_at: null,
-  preserve_declined_at: null,
+  preserved_at: null,
   ...over,
 });
 
@@ -131,7 +132,7 @@ const guestClipRow = (over: Row = {}): Row => ({
   orig_bytes: 8_000_000,
   captured_at: '2026-02-01T02:00:00.000Z',
   full_res_dropped_at: null,
-  preserve_declined_at: null,
+  preserved_at: null,
   ...over,
 });
 
@@ -146,22 +147,22 @@ const MAPPERS = [
  * The sweep's preservation gate, mirrored over a REAL Item. `true` = this capture
  * is SKIPPED, i.e. its original keeps full resolution this sweep.
  *
- * Mirrors `if (keep && !it.preserve_declined_at)` in papic-fullres-drop.ts, whose
+ * Mirrors `if (keep && it.preserved_at)` in papic-fullres-drop.ts, whose
  * literal source text is pinned by preserve-picks.test.ts. `keepActive` is the
  * event's paid Keep-Full-Res entitlement (eventSkuActive HIGH_RES_ARCHIVE).
  */
 const sweepWouldSkip = (it: PapicDropItem, keepActive: boolean): boolean =>
-  keepActive && !it.preserve_declined_at;
+  keepActive && Boolean(it.preserved_at);
 
 // ── THE DEFECT, EXECUTED: the field must survive the mapper ──────────────────
 
 test('EXECUTING: every production mapper CARRIES the couple\'s choice onto the Item', () => {
   for (const { name, map, row } of MAPPERS) {
-    const declined = map(row({ preserve_declined_at: DECLINED }));
+    const picked = map(row({ preserved_at: PICKED }));
     assert.equal(
-      declined.preserve_declined_at,
-      DECLINED,
-      `${name} dropped preserve_declined_at on the floor. The row carries the ` +
+      picked.preserved_at,
+      PICKED,
+      `${name} dropped preserved_at on the floor. The row carries the ` +
         'couple\'s choice and the Item does not, so the sweep reads undefined — ' +
         'which is indistinguishable from "they chose nothing". This is the exact ' +
         'defect that shipped: a picker that changes no outcome.',
@@ -169,7 +170,7 @@ test('EXECUTING: every production mapper CARRIES the couple\'s choice onto the I
 
     const preserved = map(row());
     assert.equal(
-      preserved.preserve_declined_at,
+      preserved.preserved_at,
       null,
       `${name} must normalise an absent decline to null, never undefined — ` +
         'undefined is what made the bug invisible.',
@@ -179,42 +180,56 @@ test('EXECUTING: every production mapper CARRIES the couple\'s choice onto the I
 
 // ── THE CONSEQUENCE, BOTH WAYS ──────────────────────────────────────────────
 
-test('EXECUTING: a DECLINED capture is not skipped — its original may be compressed', () => {
+test('EXECUTING: clearing a pick releases the capture again', () => {
+  // The couple can change their mind before the sweep runs. Clearing the pick
+  // must put the capture back with the unpicked ones — if a cleared pick still
+  // protected the original, "release" would be a button that does nothing, the
+  // mirror image of the defect this whole file exists for.
   for (const { name, map, row } of MAPPERS) {
-    const item = map(row({ preserve_declined_at: DECLINED }));
     assert.equal(
-      sweepWouldSkip(item, true),
+      sweepWouldSkip(map(row({ preserved_at: null })), true),
       false,
-      `${name}: the couple took this capture OUT of preservation on a PAID event, ` +
-        'so the sweep must be allowed to replace its original with the compressed ' +
-        'copy. Skipping it means the choice did nothing.',
+      `${name}: the pick was cleared on a PAID event, so the sweep must be allowed ` +
+        'to replace this original with its compressed copy.',
     );
   }
 });
 
-test('EXECUTING: an un-declined capture on a paid event IS skipped — "pick nothing, keep all"', () => {
+test('EXECUTING: a PICKED capture on a paid event IS skipped', () => {
   for (const { name, map, row } of MAPPERS) {
-    const item = map(row());
     assert.equal(
-      sweepWouldSkip(item, true),
+      sweepWouldSkip(map(row({ preserved_at: PICKED })), true),
       true,
-      `${name}: nothing was declined, so everything is preserved. Paying protects ` +
-        'a couple from the moment they pay, not from the moment they remember to ' +
-        'tick boxes.',
+      `${name}: the couple chose this one and the event is paid, so its original must be kept.`,
+    );
+  }
+});
+
+test('🚨 EXECUTING: an UNPICKED capture is NOT protected, even on a paid event', () => {
+  // Opt-in (owner 2026-08-10): the default is nothing. Paying does not blanket-
+  // protect an event — it makes the couple's picks bite. Treating unpicked as
+  // preserved would silently restore the old keep-everything default and bill
+  // nobody for it.
+  for (const { name, map, row } of MAPPERS) {
+    assert.equal(
+      sweepWouldSkip(map(row()), true),
+      false,
+      `${name}: nothing was picked, so this original is compressed on the normal clock.`,
     );
   }
 });
 
 test('EXECUTING: without the paid entitlement the choice changes nothing either way', () => {
-  // The decline is not an instruction to compress — it is only the withdrawal of
-  // a protection that an unpaid event never had. An unpaid event's originals are
-  // swept on the normal clock whatever the couple picked.
+  // 🚨 PAID **AND** PICKED. A pick alone must not protect anything — preservation
+  // costs ₱500/year per 5,000 credits, and letting a tick-box buy it for free was
+  // a real defect introduced while inverting to opt-in. An unpaid event's
+  // originals are swept on the normal clock whatever the couple picked.
   for (const { name, map, row } of MAPPERS) {
-    assert.equal(sweepWouldSkip(map(row()), false), false, `${name} unpaid + kept`);
+    assert.equal(sweepWouldSkip(map(row()), false), false, `${name} unpaid + unpicked`);
     assert.equal(
-      sweepWouldSkip(map(row({ preserve_declined_at: DECLINED })), false),
+      sweepWouldSkip(map(row({ preserved_at: PICKED })), false),
       false,
-      `${name} unpaid + declined`,
+      `${name} unpaid + PICKED — a pick must not buy protection`,
     );
   }
 });
@@ -225,9 +240,9 @@ test('EXECUTING: a clip Item carries the choice exactly as a photo Item does', (
   // The clip SELECTs omitted the column entirely while the photo SELECTs carried
   // it, so preservation applied to photos and could never apply to video. The
   // mappers are the second half of that path; both halves must agree.
-  const photo = seatPhotoItem(seatPhotoRow({ preserve_declined_at: DECLINED }));
-  const clip = seatClipItem(seatClipRow({ preserve_declined_at: DECLINED }));
-  assert.equal(clip.preserve_declined_at, photo.preserve_declined_at);
+  const photo = seatPhotoItem(seatPhotoRow({ preserved_at: PICKED }));
+  const clip = seatClipItem(seatClipRow({ preserved_at: PICKED }));
+  assert.equal(clip.preserved_at, photo.preserved_at);
   assert.equal(sweepWouldSkip(clip, true), sweepWouldSkip(photo, true));
 });
 
@@ -251,8 +266,8 @@ test('THE CLIP SELECTS FETCH THE COLUMN — a row without it can only read as "k
   );
   for (const [, table, list] of captureSelects) {
     assert.ok(
-      (list ?? '').includes('preserve_declined_at'),
-      `the ${table} capture SELECT stopped fetching preserve_declined_at. The ` +
+      (list ?? '').includes('preserved_at'),
+      `the ${table} capture SELECT stopped fetching preserved_at. The ` +
         'column then arrives undefined, every capture reads as "not declined", ' +
         'and the couple\'s choice silently stops reaching the sweep.',
     );
@@ -264,12 +279,12 @@ test('THE CLIP SELECTS FETCH THE COLUMN — a row without it can only read as "k
 test('the field is REQUIRED on the Item type, so a future mapper cannot forget it', () => {
   const core = readFileSync(join(WEB, 'lib/papic-fullres-drop-core.ts'), 'utf8');
   assert.ok(
-    /preserve_declined_at:\s*string\s*\|\s*null;/.test(core),
-    'preserve_declined_at must be a REQUIRED field on PapicDropItem.',
+    /preserved_at:\s*string\s*\|\s*null;/.test(core),
+    'preserved_at must be a REQUIRED field on PapicDropItem.',
   );
   assert.ok(
-    !/preserve_declined_at\?:/.test(core),
-    'preserve_declined_at is optional again. Optional is how it shipped, and ' +
+    !/preserved_at\?:/.test(core),
+    'preserved_at is optional again. Optional is how it shipped, and ' +
       'optional is why four mappers could all forget it while the compiler stayed ' +
       'silent. Required is the mechanism that makes the next mapper fail to build ' +
       'instead of quietly disarming the picker.',

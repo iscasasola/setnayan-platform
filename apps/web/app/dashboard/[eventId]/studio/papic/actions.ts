@@ -1523,3 +1523,83 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     )}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
   );
 }
+
+/**
+ * Keep — or stop keeping — ONE capture's full-resolution original.
+ *
+ * 🔒 OWNER-LOCKED 2026-08-10: *"they can pick which one to preserve"* and *"if
+ * nothing is picked, pick all."* The column stores only the DECLINE, so absent
+ * ⚠ OPT-IN (owner 2026-08-10): the column records the PICK, so absent means
+ * NOT preserved. This sets or clears that pick for a single capture.
+ *
+ * ⚠ THIS IS NOT A DELETE. Declining lets the normal sweep replace this ORIGINAL
+ * with the compressed copy that already exists. The photo stays in the gallery,
+ * kept five years for everyone, paid or not. Say "compressed", never "deleted" —
+ * the owner has corrected that vocabulary twice.
+ *
+ * 🪤 AND IT IS IRREVERSIBLE ONCE THE SWEEP HAS RUN. If the original is already
+ * gone (`full_res_dropped_at` set), re-including the capture cannot bring the
+ * resolution back, so this REFUSES rather than writing a mark that would quietly
+ * do nothing — a control that accepts a tap and changes nothing is worse than
+ * one that says no.
+ *
+ * 🔑 SCOPED TO THE EVENT, NOT JUST THE ID. The update carries `.eq('event_id',
+ * eventId)` alongside the row id, so a tampered capture id belonging to another
+ * wedding matches zero rows instead of writing there. Authorising one thing and
+ * acting on another is the exact shape that left the run-of-show gate open.
+ */
+export async function setCapturePreserved(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+  const back = `/dashboard/${eventId}/studio/papic`;
+
+  const captureId = String(formData.get('capture_id') ?? '').trim();
+  const source = String(formData.get('source') ?? '').trim();
+  // The checkbox posts nothing when unticked, so read an explicit intent marker
+  // rather than `formData.has()` — an absent box and "leave it alone" are
+  // indistinguishable otherwise, which is how a toggle silently inverts.
+  const preserve = String(formData.get('preserve') ?? '') === 'yes';
+
+  if (!captureId || (source !== 'seat' && source !== 'guest')) {
+    redirect(`${back}?preserve_error=invalid`);
+  }
+
+  const table = source === 'seat' ? 'papic_photos' : 'papic_guest_captures';
+  const idCol = source === 'seat' ? 'photo_id' : 'capture_id';
+
+  const admin = createAdminClient();
+
+  const { data: row, error: readErr } = await admin
+    .from(table)
+    .select(`${idCol}, full_res_dropped_at`)
+    .eq(idCol, captureId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  // Supabase resolves `{ error }` rather than throwing, so an unchecked failure
+  // would read as "no such capture" and silently do nothing.
+  if (readErr) redirect(`${back}?preserve_error=unreadable`);
+  if (!row) redirect(`${back}?preserve_error=not_found`);
+
+  if ((row as { full_res_dropped_at?: string | null }).full_res_dropped_at) {
+    // The original is already the compressed copy. Nothing to keep, and nothing
+    // this can undo — refuse out loud instead of writing a mark that does nothing.
+    redirect(`${back}?preserve_error=already_compressed`);
+  }
+
+  const { error: writeErr } = await admin
+    .from(table)
+    .update({ preserved_at: preserve ? new Date().toISOString() : null })
+    .eq(idCol, captureId)
+    .eq('event_id', eventId);
+
+  if (writeErr) {
+    redirect(`${back}?preserve_error=${encodeURIComponent(writeErr.message.slice(0, 64))}`);
+  }
+
+  revalidatePath(back);
+  redirect(`${back}?preserve_set=${preserve ? 'kept' : 'released'}`);
+}

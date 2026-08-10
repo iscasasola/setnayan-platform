@@ -1,12 +1,20 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Play, Download, Sparkles, X, Loader2 } from 'lucide-react';
-import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
+import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
+import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
+import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras';
+import {
+  PRESERVATION_BLOCK_PHP,
+  PRESERVATION_BLOCK_POINTS,
+  allowancePoints,
+  blocksNeeded,
+} from '@/lib/papic-storage-telemetry';
+import { formatPhp } from '@/lib/budget';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { setClipShowcaseApproval, setGuestClipShowcaseApproval } from '../actions';
+import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -17,6 +25,8 @@ const FILTERS = [
   { id: 'tagged', label: 'Photos of us' },
   { id: 'untagged', label: 'Untagged' },
   { id: 'videos', label: 'Videos' },
+  // "Where we will see the preserved photo/video" — owner 2026-08-10.
+  { id: 'preserved', label: 'Kept sharp' },
 ] as const;
 type FilterId = (typeof FILTERS)[number]['id'];
 
@@ -42,9 +52,17 @@ export function PapicGalleryGrid({
   photos,
   eventId,
   kwentoDensity,
+  preservationTotals,
 }: {
   photos: GalleryPhoto[];
-  eventId?: string;
+  /**
+   * ⚠ REQUIRED. It was optional, so a caller that forgot it silently rendered a
+   * gallery with no preserve toggle, no sparkle and no meter — no build error,
+   * no visible cause. A missing event id must break the build, not the feature.
+   */
+  eventId: string;
+  /** Whole-event preservation counts. Null when the count could not be read. */
+  preservationTotals?: PreservationTotals | null;
   /** Map of photoId → story count. When provided, photos with ≥1 story get a
    *  small density dot in the lower-right corner of their thumbnail. */
   kwentoDensity?: Map<string, number>;
@@ -57,6 +75,7 @@ export function PapicGalleryGrid({
     if (filter === 'tagged') return p.tagged;
     if (filter === 'untagged') return !p.tagged;
     if (filter === 'videos') return p.kind === 'clip';
+    if (filter === 'preserved') return p.preserved === true;
     return true;
   });
 
@@ -104,6 +123,8 @@ export function PapicGalleryGrid({
           </span>
         </p>
       ) : null}
+
+      <PreservationMeterLine totals={preservationTotals ?? null} />
 
       {shown.length === 0 ? (
         <p className="text-sm text-ink/55">No photos in this view yet.</p>
@@ -162,6 +183,19 @@ export function PapicGalleryGrid({
                     source={p.source}
                     approved={Boolean(p.showcaseApproved)}
                     consented={Boolean(p.showcaseConsent)}
+                  />
+                ) : null}
+
+                {/* Keep this original at full resolution, or release it. Vendor
+                    documentation captures are excluded: they are the vendor's
+                    own files on their own retention, not the couple's to hold. */}
+                {eventId && p.source !== 'vendor' ? (
+                  <PreserveToggle
+                    eventId={eventId}
+                    captureId={p.id}
+                    source={p.source}
+                    preserved={p.preserved !== false}
+                    alreadyCompressed={Boolean(p.alreadyCompressed)}
                   />
                 ) : null}
                 {/* Photos save straight from the tile; clips download from the
@@ -324,6 +358,153 @@ function ShowcaseToggle({
         }
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </button>
+    </form>
+  );
+}
+
+/**
+ * ⚠ WHAT THE COUPLE HAS CHOSEN TO KEEP, AND WHAT IT WOULD COST.
+ *
+ * Owner, 2026-08-10, twice: preservation is priced in Papic credits — *"1 credit
+ * = 1 photo, 8 credits = 10 sec video… 500/year for every 5000 credits worth"* —
+ * and it is **opt-in**: *"then start with nothing. they will pick which they want
+ * to preserve."*
+ *
+ * 🔑 SO THIS STARTS AT ZERO AND ONLY GOES UP. The earlier build kept everything
+ * by default and asked couples to remove what they did not want, which under a
+ * PAID model quietly enrolled every couple into a bill for a selection they had
+ * never made. Nothing is chosen until they choose it.
+ *
+ * 🔑 A COUNT OF ITEMS IS NOT A BILL. One 10-second video costs eight times a
+ * photo, so the credits figure is weighted from the same constants the capture
+ * path charges with, and the price comes from PRESERVATION_BLOCK_PHP. Nothing
+ * here is re-typed.
+ *
+ * 🚨 AND IT USED TO COUNT THE GALLERY ARRAY, capped at 120 per source, so at any
+ * real wedding every figure was wrong — plausibly wrong, the kind nobody
+ * questions. It renders NOTHING when the count is unavailable rather than a zero
+ * that would read as a fact.
+ *
+ * ⚠ NO "FOREVER" (retired 2026-08-07) and no claim that anything is deleted.
+ */
+function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }) {
+  if (!totals || totals.total === 0) return null;
+
+  const blocks = blocksNeeded(totals.keptCredits);
+  const annualPhp = blocks * PRESERVATION_BLOCK_PHP;
+  const covered = allowancePoints(blocks);
+  const nonePicked = totals.kept === 0;
+
+  return (
+    <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-xs font-medium text-ink/80">
+          {nonePicked ? (
+            <>Nothing chosen to keep at full size yet</>
+          ) : (
+            <>
+              <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
+              <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> chosen to
+              keep at full size
+            </>
+          )}
+        </p>
+        {nonePicked ? null : (
+          <p className="font-mono text-xs text-ink/55">
+            {totals.keptCredits.toLocaleString('en-PH')} / {covered.toLocaleString('en-PH')} credits
+          </p>
+        )}
+      </div>
+      {nonePicked ? null : (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+          <div
+            className="h-full bg-success-500"
+            style={{ width: `${Math.min(100, Math.round((totals.keptCredits / covered) * 100))}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
+        Every photo and video is kept at full size until three months after your event ends — that
+        part is included. <strong className="font-medium text-ink/70">After that</strong>, they
+        become smaller copies unless you choose to keep them.{' '}
+        {nonePicked ? (
+          <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
+          {PAPIC_POINTS_PER_CLIP}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
+          credits&rsquo; worth is {formatPhp(PRESERVATION_BLOCK_PHP)} a year.</>
+        ) : (
+          <>
+            Keeping what you have chosen would be {formatPhp(annualPhp)} a year
+            {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is
+            one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}.
+          </>
+        )}{' '}
+        Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only
+        smaller.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Keep this ONE capture's original at full resolution, or release it.
+ *
+ * 🗣 THE WORDS MATTER MORE THAN THE CONTROL. Releasing does NOT delete a photo —
+ * it lets the original be replaced by the compressed copy that already exists,
+ * and the photo stays in the gallery for five years either way. The owner has
+ * corrected that vocabulary twice, so nothing here says "delete" or "remove".
+ *
+ * 🪤 AND IT CANNOT BE UNDONE ONCE THE SWEEP HAS RUN. Re-keeping a capture whose
+ * original is already gone cannot bring the resolution back, so the tooltip says
+ * so before the tap rather than after. A capture in that state renders as a
+ * plain, unclickable marker — the server refuses it too, but a control that
+ * accepts a tap and changes nothing is the thing worth not building.
+ */
+function PreserveToggle({
+  eventId,
+  captureId,
+  source,
+  preserved,
+  alreadyCompressed,
+}: {
+  eventId: string;
+  captureId: string;
+  source: 'seat' | 'guest';
+  preserved: boolean;
+  alreadyCompressed: boolean;
+}) {
+  if (alreadyCompressed) {
+    return (
+      <span
+        title="This one is already stored smaller. That cannot be undone — the full-size original is gone."
+        aria-label="Already stored smaller"
+        className="absolute right-1 top-1 inline-flex items-center justify-center rounded-full bg-black/35 p-1 text-cream/50 ring-1 ring-white/20"
+      >
+        <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      </span>
+    );
+  }
+  const title = preserved
+    ? 'Kept at full resolution. Tap to release — it stays in your gallery, just smaller, and that cannot be undone later.'
+    : 'Released — it will be stored smaller. Tap to keep it at full resolution.';
+  return (
+    <form action={setCapturePreserved} className="absolute right-1 top-1">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="capture_id" value={captureId} />
+      <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="preserve" value={preserved ? 'no' : 'yes'} />
+      <button
+        type="submit"
+        title={title}
+        aria-label={title}
+        aria-pressed={preserved}
+        className={
+          preserved
+            ? 'inline-flex items-center justify-center rounded-full bg-success-500 p-1 text-cream ring-1 ring-white/70'
+            : 'inline-flex items-center justify-center rounded-full bg-black/45 p-1 text-cream/85 ring-1 ring-white/40 hover:bg-black/65'
+        }
+      >
+        <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </button>
     </form>
   );

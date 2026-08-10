@@ -1,14 +1,26 @@
 /**
  * preserve-picks.test.ts — WHICH captures keep their full resolution.
  *
- * 🔒 OWNER-LOCKED 2026-08-10: *"they can pick which one to preserve"* and
- * *"if nothing is picked, pick all."*
+ * 🔒 OWNER-LOCKED 2026-08-10, REVERSED THE SAME DAY. The first ruling was *"if
+ * nothing is picked, pick all"*, and this file was built on it: the column
+ * recorded the DECLINE, so absent meant preserved and the default needed no
+ * backfill.
  *
- * So the stored column records the **decline**, not the pick. That inversion is
- * the whole design: `preserve_declined_at IS NULL` means preserved, so the
- * owner's default needs no backfill and is automatically right for captures that
- * do not exist yet. An opt-in `preserved_at` column could not express "pick all"
- * without a backfill that would have to re-run forever.
+ * ⛔ THAT PREMISE IS GONE. Owner, later the same day: *"then start with nothing.
+ * they will pick which they want to preserve."* It followed from pricing
+ * preservation at ₱500/year per 5,000 credits — **you do not auto-enrol somebody
+ * into a bill**, and keep-everything-by-default did exactly that.
+ *
+ * So the column now records the **PICK**: `preserved_at IS NULL` means NOT
+ * preserved, which is the default. Migration `20271127689103` replaces the
+ * column rather than reinterpreting it — a name that says "declined" while
+ * meaning "picked" would make every query result and audit line read backwards.
+ *
+ * ⚠ THE ASSERTIONS BELOW WERE RE-POINTED, NOT DELETED. Each one still guards the
+ * same property; only the direction changed. The ban on the opposite column
+ * remains — it now bans the OPT-OUT one, for the same reason it once banned the
+ * opt-in one: two columns encoding the same decision is how the two come to
+ * disagree.
  *
  * ## What changed in shipped behaviour, and why it was safe today
  *
@@ -25,7 +37,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,21 +52,40 @@ const code = (p: string) =>
 
 const SWEEP = code(join(WEB, 'lib/papic-fullres-drop.ts'));
 
-test('the migration records the DECLINE, so absent means preserved', () => {
-  const sql = readFileSync(
-    join(REPO, 'supabase/migrations/20271125158531_preserve_picks.sql'),
-    'utf8',
-  );
+/**
+ * The migration that CURRENTLY defines the preservation column.
+ *
+ * ⚠ FOUND, NOT NAMED. This test used to read `20271125158531_preserve_picks.sql`
+ * by filename — and when the owner reversed the default the same day, that file
+ * became a superseded body describing a rule the database no longer runs, while
+ * the test went on asserting it, green. A name-pinned guard outlives the thing
+ * it guards. Migrations apply in filename order, so the LAST one to define the
+ * column is the one in force.
+ */
+function currentPreservationMigration(): string {
+  const dir = join(REPO, 'supabase/migrations');
+  const hit = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .reverse()
+    .find((f) => /preserved_at\s+timestamptz/.test(readFileSync(join(dir, f), 'utf8')));
+  assert.ok(hit, 'no migration defines preserved_at — has the column been renamed again?');
+  return readFileSync(join(dir, hit), 'utf8');
+}
+
+test('the migration records the PICK, so absent means NOT preserved', () => {
+  const sql = currentPreservationMigration();
   for (const table of ['public.papic_photos', 'public.papic_guest_captures']) {
     assert.ok(
-      new RegExp(`ALTER TABLE ${table.replace('.', '\\.')}[\\s\\S]{0,120}preserve_declined_at`).test(sql),
-      `${table} did not get preserve_declined_at`,
+      new RegExp(`ALTER TABLE ${table.replace('.', '\\.')}[\\s\\S]{0,120}preserved_at`).test(sql),
+      `${table} did not get preserved_at`,
     );
   }
   assert.ok(
-    !/preserved_at\s+timestamptz/.test(sql),
-    'an opt-in `preserved_at` column is back. It cannot express "if nothing is ' +
-      'picked, pick all" without a backfill that must re-run for every future ' +
+    !/preserve_declined_at\s+timestamptz/.test(sql),
+    'the opt-OUT `preserve_declined_at` column is back. Preservation is opt-in ' +
+      '(owner 2026-08-10) and two columns encoding one decision is how they ' +
+      'come to disagree. The reason this once read the other way round is in ' +
       'capture — which is the reason the decline is stored instead.',
   );
 });
@@ -62,13 +93,13 @@ test('the migration records the DECLINE, so absent means preserved', () => {
 test('THE SWEEP READS THE COLUMN — a pick nothing reads is not a pick', () => {
   // The house failure: a column with no reader, or a reader with no writer.
   for (const sel of [
-    /\.select\('photo_id[^']*preserve_declined_at'\)/,
-    /\.select\('capture_id[^']*preserve_declined_at'\)/,
+    /\.select\('photo_id[^']*preserved_at'\)/,
+    /\.select\('capture_id[^']*preserved_at'\)/,
   ]) {
     assert.match(
       SWEEP,
       sel,
-      'the sweep stopped selecting preserve_declined_at, so every capture reads ' +
+      'the sweep stopped selecting preserved_at, so every capture reads ' +
         'as preserved and nothing is ever compressed — or, worse, the column is ' +
         'undefined and the skip silently inverts',
     );
@@ -78,18 +109,19 @@ test('THE SWEEP READS THE COLUMN — a pick nothing reads is not a pick', () => 
 test('the skip is PER CAPTURE, not all-or-nothing per event', () => {
   assert.match(
     SWEEP,
-    /if\s*\(\s*keep\s*&&\s*!\s*it\.preserve_declined_at\s*\)/,
-    'the paid-event skip is back to all-or-nothing. A couple who declined a ' +
-      'capture would keep it at full resolution anyway, so the picker would do ' +
-      'nothing at all — a control that changes no outcome.',
+    /if\s*\(\s*keep\s*&&\s*it\.preserved_at\s*\)/,
+    'the paid-event skip must be PAID **and** PICKED. Dropping `keep` lets a ' +
+      'couple protect originals for free by ticking boxes — preservation is a ' +
+      'paid option. Dropping `it.preserved_at` goes back to all-or-nothing, so ' +
+      'the picker changes no outcome. Both halves, or the control is a lie.',
   );
 });
 
 test('a decline never reaches the delete path — only the compress path', () => {
-  // preserve_declined_at must not appear anywhere near an actual object delete.
+  // preserved_at must not appear anywhere near an actual object delete.
   // The sweep's whole promise is that it REPLACES an original with a copy that
   // already exists; a decline is permission to do that, never to remove a photo.
-  const deleteIsh = /preserve_declined_at[\s\S]{0,200}?(DeleteObject|\.remove\(|\.delete\(\))/;
+  const deleteIsh = /preserved_at[\s\S]{0,200}?(DeleteObject|\.remove\(|\.delete\(\))/;
   assert.ok(
     !deleteIsh.test(SWEEP),
     'preserve_declined_at is being read next to a delete. Declining preservation ' +
@@ -111,4 +143,39 @@ test('the column is documented as NOT a delete flag, where a reader will look', 
     assert.match(c, /Never a delete flag/i, 'the column comment must say it is not a delete flag');
     assert.match(c, /NULL = preserved/i, 'the comment must state the default');
   }
+});
+
+/**
+ * 🚨 THE WRITE MUST POINT THE SAME WAY AS THE READ.
+ *
+ * The sweep keeps a capture when `preserved_at` is SET. So the action behind the
+ * couple's tap must SET it when they choose to keep, and CLEAR it when they
+ * change their mind. Inverting that one ternary is invisible in review, breaks
+ * no type, fails no other test — and means every photo a couple deliberately
+ * chose to keep is the exact set that gets compressed, while the ones they
+ * ignored survive. The most expensive possible off-by-one.
+ *
+ * It was found by mutation testing this file, not by reading the code.
+ */
+test('🚨 choosing to keep SETS the mark; changing your mind CLEARS it', () => {
+  const src = readFileSync(
+    join(REPO, 'apps/web/app/dashboard/[eventId]/studio/papic/actions.ts'),
+    'utf8',
+  ).replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  const update = src.match(/\.update\(\{\s*preserved_at:[^}]*\}\)/);
+  assert.ok(update, 'the preserve action must still write preserved_at');
+
+  // `preserve` is the couple's intent: true = keep it. The timestamp goes on
+  // that branch, and null on the other. Written as two assertions so the failure
+  // message names WHICH way round it went.
+  assert.match(
+    update[0],
+    /preserve\s*\?\s*new Date\(\)\.toISOString\(\)\s*:\s*null/,
+    'the write is INVERTED — choosing to keep a photo is recording that it may be compressed',
+  );
+  assert.ok(
+    !/preserve\s*\?\s*null/.test(update[0]),
+    'choosing to keep must never clear the mark',
+  );
 });

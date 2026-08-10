@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { papicCaptureCost } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolvePlayRef } from '@/lib/papic-display-ref';
 
@@ -33,6 +34,20 @@ export type GalleryPhoto = {
    */
   saveUrl?: string | null;
   kind: 'photo' | 'clip';
+  /**
+   * Is this capture's ORIGINAL still kept at full resolution?
+   *
+   * TRUE by default — "if nothing is picked, pick all" (owner 2026-08-10). The
+   * database stores the PICK (opt-in, owner 2026-08-10), so absent means NOT
+   * preserved; this reads it as
+   * the positive the screen actually talks in.
+   *
+   * ⚠ Already-replaced originals read FALSE and cannot be turned back on: the
+   * file is gone. The tile must say so rather than offer a toggle that lies.
+   */
+  preserved?: boolean;
+  /** The original has ALREADY been replaced by its compressed copy — nothing to keep. */
+  alreadyCompressed?: boolean;
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
   // papic_guest_captures. (Photos never carry a showcase gate.) 'vendor' = a
@@ -71,7 +86,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
+        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -79,7 +94,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
+        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -200,6 +215,12 @@ export async function fetchPapicGallery(
           })
         : null,
       kind: isClip ? 'clip' : 'photo',
+      // "If nothing is picked, pick all" — the column stores only the DECLINE,
+      // ⚠ OPT-IN: the column records what the couple CHOSE to keep, so absent
+      // means NOT preserved. An original already replaced by its compressed
+      // copy is not preserved and cannot become so again — the file is gone.
+      preserved: !!r.preserved_at && !r.full_res_dropped_at,
+      alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'seat',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
@@ -237,6 +258,8 @@ export async function fetchPapicGallery(
           })
         : null,
       kind: isClip ? 'clip' : 'photo',
+      preserved: !!r.preserved_at && !r.full_res_dropped_at,
+      alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'guest',
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
@@ -384,4 +407,103 @@ export async function fetchTeaserFrames(
     })),
   );
   return frames.filter((f): f is TeaserFrame => Boolean(f.url));
+}
+
+/**
+ * ⚠ HOW MANY CAPTURES ARE BEING KEPT SHARP — counted over the WHOLE event.
+ *
+ * 🚨 THE DEFECT THIS EXISTS TO FIX. The preservation meter was computed from the
+ * gallery array, and `fetchPapicGallery` caps each source at GALLERY_LIMIT (120).
+ * At a real wedding — thousands of captures — "412 of 240 kept" and every
+ * percentage built on it are simply wrong, and wrong in the direction that looks
+ * plausible. A number a couple cannot check is worse than no number.
+ *
+ * ⚠ VENDOR CAPTURES ARE EXCLUDED FROM BOTH HALVES. They belong to the supplier,
+ * are never preservable by the couple, and counting them inflates the
+ * denominator so the couple appears to be keeping less of their own event than
+ * they are.
+ *
+ * ⚠ ALREADY-COMPRESSED CAPTURES ARE EXCLUDED TOO. Once the full-resolution
+ * original has been replaced there is nothing left to keep, so counting it as
+ * "not kept" would invite a couple to act on a choice that no longer exists.
+ *
+ * Returns null on ANY read failure — the caller then shows nothing rather than a
+ * confident zero. Zero reads as "you are keeping none of your photos", which is
+ * exactly the alarming thing to say when the truth is "we could not count".
+ */
+export type PreservationTotals = {
+  /** Captures the couple has CHOSEN to keep at full resolution. Starts at 0. */
+  kept: number;
+  /** Captures not chosen — under opt-in this starts as every one of them. */
+  released: number;
+  /** kept + released — the couple's own captures that still have an original. */
+  total: number;
+  /**
+   * ⚠ WHAT THE KEPT CAPTURES ARE WORTH IN PAPIC CREDITS — the unit preservation
+   * is PRICED in (owner 2026-08-10: ₱500/year per 5,000 credits' worth).
+   *
+   * 🔑 A COUNT OF ITEMS IS NOT A BILL. One 10-second video costs EIGHT credits
+   * and one photo costs one, so "412 kept" says nothing about what a couple
+   * owes. Weighted here, from the same constants the capture path charges with.
+   */
+  keptCredits: number;
+};
+
+export async function fetchPreservationTotals(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PreservationTotals | null> {
+  if (!eventId) return null;
+
+  // ⚠ COUNTED PER MEDIA KIND, because the two cost different amounts. The
+  // column differs between the two tables (`photo_type` vs `media_type`) and the
+  // value for a video differs too — a single shared literal here would silently
+  // count one table's clips as photos.
+  const countOf = async (
+    table: 'papic_photos' | 'papic_guest_captures',
+    picked: boolean,
+    clipsOnly: boolean | null,
+  ): Promise<number | null> => {
+    const kindCol = table === 'papic_photos' ? 'photo_type' : 'media_type';
+    let q = supabase
+      .from(table)
+      .select('event_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('full_res_dropped_at', null);
+    q = picked ? q.not('preserved_at', 'is', null) : q.is('preserved_at', null);
+    if (clipsOnly === true) q = q.eq(kindCol, 'clip');
+    if (clipsOnly === false) q = q.neq(kindCol, 'clip');
+    const { count, error } = await q;
+    // A rejected query resolves with `{ error }` and a null count — it never
+    // throws. Treating that as 0 is how a failed read becomes a confident lie.
+    return error ? null : (count ?? 0);
+  };
+
+  const [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatUnpicked, guestUnpicked] =
+    await Promise.all([
+      countOf('papic_photos', true, false),
+      countOf('papic_photos', true, true),
+      countOf('papic_guest_captures', true, false),
+      countOf('papic_guest_captures', true, true),
+      countOf('papic_photos', false, null),
+      countOf('papic_guest_captures', false, null),
+    ]);
+
+  const parts = [seatKeptPhotos, seatKeptClips, guestKeptPhotos, guestKeptClips, seatUnpicked, guestUnpicked];
+  if (parts.some((n) => n === null)) return null;
+
+  const keptPhotos = seatKeptPhotos! + guestKeptPhotos!;
+  const keptClips = seatKeptClips! + guestKeptClips!;
+  const kept = keptPhotos + keptClips;
+  // ⚠ OPT-IN: this is what the couple has NOT chosen, which starts as everything.
+  const released = seatUnpicked! + guestUnpicked!;
+
+  return {
+    kept,
+    released,
+    total: kept + released,
+    // Derived from the capture path's own constants — never a re-typed 8.
+    keptCredits:
+      keptPhotos * papicCaptureCost('photo') + keptClips * papicCaptureCost('clip'),
+  };
 }

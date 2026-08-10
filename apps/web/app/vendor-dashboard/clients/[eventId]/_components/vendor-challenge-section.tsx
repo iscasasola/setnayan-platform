@@ -12,7 +12,11 @@ import { Trophy, Check, ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchVendorChallenges } from '@/lib/papic-games';
-import { vendorChallengeStatus, type VendorChallengeStatus } from '@/lib/papic-missions';
+import {
+  displayChallengePrompt,
+  vendorChallengeStatus,
+  type VendorChallengeStatus,
+} from '@/lib/papic-missions';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
@@ -129,7 +133,7 @@ export async function VendorChallengeSection({
                 className="rounded-xl border border-ink/10 bg-white px-3 py-2.5"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-ink/90">{c.prompt}</p>
+                  <p className="text-sm text-ink/90">{displayChallengePrompt(c.prompt)}</p>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.cls}`}
                   >

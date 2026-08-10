@@ -25,3 +25,29 @@ The claimed address now renders directly above the city, in the identity block t
 Verified: **7313/7313** unit · all 20 `lint-*.mjs` · `tsc` clean.
 
 SPEC IMPACT: None — the verification contract is unchanged; the reviewer is simply shown a field the record already held.
+
+---
+
+## 2026-08-10 · fix(open-shop): the pin now records an ADDRESS, not just a dot
+
+Owner, correcting the previous entry's direction: *"ok scratch that. we just want them to pin the address so we can verify with their documents when they send it after. just fix the location pinning properly."*
+
+**That sentence is the design.** The pin is a CLAIM; the DTI/SEC registration, the BIR 2303 and the Mayor's Permit are the proof, checked later by a person. Nothing here tries to verify anything — it just has to capture the claim honestly and let the vendor see it before it commits.
+
+Three defects, all in "capture it honestly":
+
+**1 · A tapped pin submitted NO address.** Type-to-search filled the address box; tapping the map or pressing *Use my location* filled the city and the coordinates and left the address **empty**. So the reviewer holding a permit that names a full street had a dot and the word "Quezon City" to check it against — the exact comparison the review exists to make, missing, for anyone who used the map the way a map invites you to use it. The lookup already knows the street; it is now written down.
+
+🔑 **But only into an EMPTY box.** A vendor who typed their address said it in their own words, and those are the words that will match the permit. A geocoder rewriting *"Unit 4B, 12 Banawe"* into *"Barangay 123, Fourth District"* is worse than leaving it blank — it reads as the form correcting them, and it makes the document check disagree with itself. Rule extracted to `lib/pin-address.ts` and mutation-tested, because it lived as a callback inside a `setState` where nothing could break it on purpose.
+
+🪤 **Writing into the box re-triggered the search that produced it** — the pin drifts off the spot the vendor just tapped, for no reason they can see. One-shot `echo` ref.
+
+**2 · The map still relied on an observer firing at the right moment.** All four steps are mounted at once and step 4 is `display:none`, so Leaflet measures 0×0 and keeps believing it. The ResizeObserver fix is correct and stays, but it makes a visible map depend on an observer we have not tested in every browser. There is now an explicit signal — the step says *"I am on screen"* and the map re-measures, over two animation frames because a single one can still land before layout settles.
+
+**3 · The map was 180px tall.** Not enough to place a pin accurately with a thumb. 240px.
+
+⏭ **Deliberately NOT added:** any automatic check that the typed address matches the documents. Reading a scanned Mayor's Permit is what a person is for, and this queue is already shaped that way.
+
+Verified: **7316/7316** unit · 20/20 `lint-*.mjs` · `tsc` clean · the fill rule breaks its test when sabotaged.
+
+SPEC IMPACT: None.

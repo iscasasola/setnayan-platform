@@ -607,7 +607,14 @@ export function OpenShopWizard({
                   up with "QC", "Quezon city" and "Q.C." as three places. The pin
                   writes the city; the field stays editable so a rural pin that
                   resolves to a province can be corrected. */}
-              <CityPin defaultCity={defaults.locationCity} defaultAddress={defaults.hqAddress} />
+              <CityPin
+                defaultCity={defaults.locationCity}
+                defaultAddress={defaults.hqAddress}
+                /* The map is built inside a `display:none` panel, so it measures
+                   0×0 and keeps believing it. This tells it the moment it is
+                   actually on screen. */
+                active={step === 4}
+              />
             </div>
           </div>
 

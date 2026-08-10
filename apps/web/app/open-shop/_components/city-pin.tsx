@@ -4,6 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { Check, Crosshair, Loader2, MapPin } from 'lucide-react';
 
+import { addressFromPin } from '@/lib/pin-address';
+
 import { detectShopCity, locateShopAddress } from '../city-actions';
 
 type LeafletModule = typeof import('leaflet');
@@ -65,9 +67,19 @@ const DEFAULT_CENTER: [number, number] = [14.5995, 120.9842];
 export function CityPin({
   defaultCity,
   defaultAddress = '',
+  active = true,
 }: {
   defaultCity: string;
   defaultAddress?: string;
+  /**
+   * True once this step is the one on screen. Belt AND braces with the
+   * ResizeObserver: a ResizeObserver fires on a SIZE change, and while that does
+   * happen when `display:none` lifts, relying on it alone makes the map's
+   * correctness depend on an observer firing at the right moment in a browser we
+   * have not tested. This is the explicit signal — when the step becomes
+   * visible, re-measure.
+   */
+  active?: boolean;
 }) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -91,6 +103,15 @@ export function CityPin({
    */
   const [proposed, setProposed] = useState<{ city: string; address: string } | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const raf2 = useRef<number | null>(null);
+  /**
+   * Set when WE wrote the address box, so the type→pin effect skips that one
+   * change. Without it, filling the box from a tapped pin re-geocodes the text
+   * we just derived from that pin and moves the pin to wherever the geocoder
+   * lands — a vendor watching their own pin drift away from the spot they
+   * tapped, for no reason they can see.
+   */
+  const echo = useRef(false);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [missed, setMissed] = useState(false);
@@ -147,6 +168,23 @@ export function CityPin({
       // work they did — so on a miss the existing value stands and we say so.
       if (r.city) setCityValue(r.city);
       else setMissed(true);
+      // ── A PIN WITH NO ADDRESS IS NOT WHAT WAS ASKED FOR ───────────────────
+      // Owner 2026-08-10: *"we just want them to pin the address so we can
+      // verify with their documents when they send it after."* A vendor who
+      // taps the map instead of typing was submitting coordinates and a city
+      // and NO address — so the reviewer holding a Mayor's Permit had a dot on
+      // a map and a city name to check a full street address against. The
+      // lookup already knows the street; write it down.
+      //
+      // Only when the box is EMPTY. Whatever the vendor typed is their own
+      // words for their own address, and a geocoder's phrasing does not get to
+      // replace it.
+      setAddress((current) => {
+        const next = addressFromPin(current, r.address);
+        if (next === null) return current;
+        echo.current = true;
+        return next;
+      });
       // Dragging the pin is choosing a different place; the previous
       // confirmation was about the previous spot.
       setConfirmed(false);
@@ -164,6 +202,10 @@ export function CityPin({
   // address cannot overwrite a newer one — otherwise typing "Banawe" then
   // "Banawe Street QC" can settle on the pin for "Banawe".
   useEffect(() => {
+    if (echo.current) {
+      echo.current = false;
+      return;
+    }
     const q = address.trim();
     if (q.length < 3) {
       setNoMatch(false);
@@ -203,6 +245,22 @@ export function CityPin({
     // `showOnMap` and `setCityValue` are stable for this component's lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
+
+  // Re-measure on becoming visible. Two frames, deliberately: the first runs
+  // before the browser has finished laying the panel out, so a single
+  // invalidateSize can still measure the old zero size.
+  useEffect(() => {
+    if (!active) return;
+    const a = requestAnimationFrame(() => {
+      mapRef.current?.invalidateSize();
+      const b = requestAnimationFrame(() => mapRef.current?.invalidateSize());
+      raf2.current = b;
+    });
+    return () => {
+      cancelAnimationFrame(a);
+      if (raf2.current) cancelAnimationFrame(raf2.current);
+    };
+  }, [active]);
 
   useEffect(() => {
     let cancelled = false;
@@ -306,7 +364,7 @@ export function CityPin({
       ) : null}
 
       <div className="relative overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-        <div ref={mapDivRef} className="h-[180px] w-full" />
+        <div ref={mapDivRef} className="h-[240px] w-full" />
         <button
           type="button"
           onClick={useMyLocation}

@@ -48,6 +48,7 @@ import StylePicker from './style-picker';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
 import QualityPicker from './quality-picker';
+import { FIDELITY_READ_FAILSAFE } from '@/lib/papic-fidelity';
 import {
   fetchCameraRates,
   papicRungRate,
@@ -249,8 +250,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Per-event photo fidelity tier (brief PR-4) — the WRITE seam's current
   // state. Read defensively like papic_style: the column lands in migration
-  // 20270825539466, so a pre-migration DB errors this select and we keep the
-  // full_res default (today's behavior) — the page never breaks on the column.
+  // 20270825539466, so a pre-migration DB errors this select — the page never
+  // breaks on the column.
+  //
+  // ⚠ The fallback is the READ FAIL-SAFE, not the new-event default. A new
+  // event's tier is materialized by the database default ('optimal' since
+  // 20271127772092) and arrives here as a real value; reaching this `??` means
+  // the read failed, and the honest thing to show then is the tier that
+  // processes nothing. Never re-type the literal — that is how the two
+  // meanings got merged in the first place.
   const { data: qualityRow } = await supabase
     .from('events')
     .select('papic_quality_tier')
@@ -258,7 +266,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     .maybeSingle();
   const papicQualityTier =
     (qualityRow as { papic_quality_tier?: string } | null)
-      ?.papic_quality_tier ?? 'full_res';
+      ?.papic_quality_tier ?? FIDELITY_READ_FAILSAFE;
 
   // ⚠ A DEAD ROUND TRIP, REMOVED. `eventOwnsPapicSeats(...)` ran alongside this
   // read and its answer was destructured into `ownsPapicSeats` and then

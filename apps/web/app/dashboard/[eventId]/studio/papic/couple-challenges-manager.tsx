@@ -5,16 +5,43 @@
 // APPROVED missions (RLS-scoped authenticated client) — pending vendor challenges
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
-import { Trophy, Eye, EyeOff, Trash2, Plus } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { displayChallengePrompt, type PapicMissionSource } from '@/lib/papic-missions';
 import {
   createCoupleChallengeAction,
+  addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
   deleteCoupleChallengeAction,
 } from './actions';
+
+/** A story question the couple has not added yet. */
+type StoryRow = {
+  library_id: number;
+  category: string;
+  title: string;
+  prompt: string;
+};
+
+/** The two story groups, in the order the couple reads them. `stories` carries
+ *  the {who} side token — each guest is asked about the half they know — while
+ *  `stories_couple` is always about the pair. The copy has to say which,
+ *  because "Share a story about the couple" and "…about the bride" look like
+ *  the same question on this screen and are not. */
+const STORY_GROUPS = [
+  {
+    category: 'stories',
+    heading: 'About whichever of you they know',
+    line: 'Their side decides the wording — your guests get asked about you, yours about you.',
+  },
+  {
+    category: 'stories_couple',
+    heading: 'About the two of you together',
+    line: 'Everyone gets the same question, whichever side they came from.',
+  },
+] as const;
 
 type MissionRow = {
   mission_id: string;
@@ -51,6 +78,47 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
 
   const missions = (data ?? []) as MissionRow[];
 
+  // ── The story picker ──────────────────────────────────────────────────────
+  // Every story question Setnayan supplies, minus the ones this event already
+  // carries. Two reads, not a join: `papic_challenge_library` is a global
+  // catalogue and `papic_missions` is event-scoped under RLS, so the exclusion
+  // happens here.
+  //
+  // ⚠ The taken-set is read WITHOUT an is_active filter on purpose. A question
+  // the couple has hidden is still THEIRS — re-offering it in the picker would
+  // read as "add this" while their own list a few centimetres below says
+  // "Hidden from guests", and tapping it would do nothing visible. Hidden means
+  // taken; un-hiding is the Show button, not a second Add.
+  const { data: takenRows, error: takenErr } = await supabase
+    .from('papic_missions')
+    .select('library_id')
+    .eq('event_id', eventId)
+    .not('library_id', 'is', null);
+  const { data: storyRows, error: storyErr } = await supabase
+    .from('papic_challenge_library')
+    .select('library_id,category,title,prompt')
+    .in('category', ['stories', 'stories_couple'])
+    .eq('is_active', true)
+    .order('library_id', { ascending: true });
+
+  // 🔑 A REJECTED READ RESOLVES WITH `{ error }` AND A NULL ROW — IT DOES NOT
+  // THROW. `?? []` on a failed read renders an empty picker that is
+  // indistinguishable from "you have added them all", which is the most
+  // reassuring possible way to show a broken screen. Suppress the whole section
+  // instead, and only when BOTH reads are good is the list trustworthy: a
+  // failed taken-read with a good story-read would offer questions they already
+  // have.
+  const pickerReadable = !takenErr && !storyErr;
+  const taken = new Set((takenRows ?? []).map((r) => r.library_id as number));
+  const availableStories = pickerReadable
+    ? ((storyRows ?? []) as StoryRow[]).filter((s) => !taken.has(s.library_id))
+    : [];
+
+  // The board shows at most 10 of the couple's own picks. Past that an added
+  // question is real but waits its turn, and saying so beats a guest board that
+  // quietly does not match what this screen lists.
+  const couplePicked = missions.filter((m) => m.source === 'couple').length;
+
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -83,6 +151,69 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
           Add challenge
         </SubmitButton>
       </form>
+
+      {/* Story questions — pick from Setnayan's set.
+          These are the only challenges that ask a guest to SAY something
+          rather than photograph something, so they get their own block
+          instead of being buried in the list below. */}
+      {availableStories.length > 0 ? (
+        <div className="mt-5 rounded-xl border border-gold/25 bg-gold/[0.04] p-4">
+          <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+            <MessageSquareQuote aria-hidden className="h-4 w-4 text-gold-700" strokeWidth={1.75} />
+            Ask your guests for a story
+          </h4>
+          <p className="mt-1 text-xs text-ink/60">
+            Ten seconds to camera each. A few are already on your guests&rsquo;
+            board &mdash; add any of these and they&rsquo;ll be asked those too.
+          </p>
+          {couplePicked >= 10 ? (
+            <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
+              Your guests see up to 10 of your own picks at once. Anything you add
+              now waits until you hide one of yours.
+            </p>
+          ) : null}
+
+          {STORY_GROUPS.map((group) => {
+            const rows = availableStories.filter((s) => s.category === group.category);
+            if (rows.length === 0) return null;
+            return (
+              <div key={group.category} className="mt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gold-700">
+                  {group.heading}
+                </p>
+                <p className="mt-0.5 text-[11px] text-ink/55">{group.line}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {rows.map((s) => (
+                    <li
+                      key={s.library_id}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-ink">{s.title}</p>
+                        {/* Neutral wording — the raw {who} token never shown. */}
+                        <p className="mt-0.5 text-sm text-ink/80">
+                          {displayChallengePrompt(s.prompt)}
+                        </p>
+                      </div>
+                      <form action={addLibraryChallengeAction} className="shrink-0">
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="library_id" value={s.library_id} />
+                        <SubmitButton
+                          pendingLabel="Adding"
+                          className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+                        >
+                          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          Add
+                        </SubmitButton>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {/* Curate the live set */}
       {missions.length > 0 ? (

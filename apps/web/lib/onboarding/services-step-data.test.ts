@@ -293,9 +293,56 @@ test('every render site is guarded on the view being present', () => {
   assert.match(generic, /\.\.\.\(servicesStepView \? \['services'\] : \[\]\)/);
   assert.match(generic, /screen === 'services' && servicesStepView/);
 
-  // simple page: one conditional card under the form, no wizard involved.
+  // simple page: one conditional card, no wizard involved. Since 2026-08-11 it
+  // renders through <PapicStepFields>, the client wrapper that mirrors the
+  // picker's state into hidden inputs — that page is a plain server <form>, so
+  // the selection has to reach commitSimpleEvent as FormData like every other
+  // field on it. The GUARD is unchanged: still conditional on the view.
   const simple = read('app/onboarding/simple/page.tsx');
-  assert.match(simple, /\{servicesStepView \? <ServicesStep/);
+  assert.match(simple, /\{servicesStepView \? \(?\s*\n?\s*<PapicStepFields/);
+});
+
+test('the simple page posts the picker INSIDE its form, or the picks go nowhere', () => {
+  // The one way this wrapper can silently fail: rendered after </form>, the
+  // hidden inputs post nothing, commitSimpleEvent reads null for all three, and
+  // the couple's pick evaporates with no error anywhere. That is exactly where
+  // the read-only card used to sit, so it is a one-line regression away.
+  const simple = read('app/onboarding/simple/page.tsx');
+  const openForm = simple.indexOf('<form');
+  const closeForm = simple.indexOf('</form>');
+  const picker = simple.indexOf('<PapicStepFields');
+  assert.ok(openForm >= 0 && closeForm > openForm, 'the simple page must still have a form');
+  assert.ok(picker > openForm, '<PapicStepFields> must come after <form>');
+  assert.ok(
+    picker < closeForm,
+    '<PapicStepFields> is OUTSIDE the form — its hidden inputs post nothing and every pick is silently dropped',
+  );
+});
+
+test('the three simple-page field names are spelled ONCE and shared', () => {
+  // Reader and writer must agree. A field name spelled separately in the client
+  // component and the server action still renders, still submits, and simply
+  // returns null on the other side the day one of them is edited.
+  const names = read('app/onboarding/simple/_components/papic-step-field-names.ts');
+  const fields = read('app/onboarding/simple/_components/papic-step-fields.tsx');
+  const action = read('app/onboarding/simple/actions.ts');
+  for (const konst of [
+    'PAPIC_FIELD_POOL_RUNG',
+    'PAPIC_FIELD_ONE_RUNG',
+    'PAPIC_FIELD_ONE_CAMERAS',
+  ]) {
+    assert.match(names, new RegExp(`export const ${konst} =`), `${konst} must be defined once`);
+    assert.match(fields, new RegExp(konst), `${konst} must be USED by the inputs, not re-typed`);
+    assert.match(action, new RegExp(konst), `${konst} must be READ by the action, not re-typed`);
+  }
+  // And neither side may carry a raw literal that could drift from the constant.
+  for (const [file, src] of [['fields', fields], ['action', action]] as const) {
+    assert.equal(
+      /['"]papic_(pool_rung|one_rung|one_cameras)['"]/.test(src),
+      false,
+      `${file} spells a field name literally — use the shared constant`,
+    );
+  }
 });
 
 test('the step is not smuggled into the wedding paywall tail', () => {
@@ -309,10 +356,17 @@ test('the step is not smuggled into the wedding paywall tail', () => {
   );
 });
 
-test('the step never renders a checkout affordance', () => {
-  // Structural, not lexical: the doc comment legitimately says "no checkout", so
-  // the assertion is about what the file IMPORTS and RENDERS. Papic is already
-  // on and Setnayan AI is bought in the studio — nothing here may take money.
+test('the step CHOOSES, it never checks out', () => {
+  // ⚠ REASONING UPDATED 2026-08-11, ASSERTION DELIBERATELY UNCHANGED. This used
+  // to be justified as "Papic is already on, nothing here may take money". The
+  // owner has since made the step a picker that DOES lead to a charge — so the
+  // rule it enforces now matters MORE, not less, and its shape is exactly right.
+  //
+  // The step is a CHOOSER. It collects an intent; the money is resolved in the
+  // event-commit path, which re-reads every rung from the tier tables and every
+  // price from the active catalog (SEC-4). If this file ever grew its own form,
+  // submit button, or order/billing import, the browser would be deciding a
+  // peso figure — which is the one thing the whole design refuses.
   const step = read('app/onboarding/_shared/services-step.tsx');
   const code = step.slice(step.indexOf("import {"));
   for (const forbidden of [
@@ -326,6 +380,50 @@ test('the step never renders a checkout affordance', () => {
       forbidden.test(code),
       false,
       `services-step.tsx must take no money — found ${forbidden}`,
+    );
+  }
+});
+
+test('the picker only appears where the commit carries the pick to an order', () => {
+  // THE FAKE-DOOR RULE, pinned. The steppers render only when a mount passes
+  // BOTH `selection` and `onSelectionChange`; a flow that passes them without
+  // sending `papicSelection` to its commit would show a couple a price, take
+  // their choice, and charge nothing — losing the sale AND their shots, with
+  // nothing anywhere to notice.
+  const step = read('app/onboarding/_shared/services-step.tsx');
+  assert.match(
+    step,
+    /const interactive = selection != null && onSelectionChange != null;/,
+    'the controls must be gated on BOTH props, never on one',
+  );
+
+  // Every mount that hands the step a selection must also send it at commit.
+  const MOUNTS: Array<[string, string]> = [
+    ['app/onboarding/[type]/_components/generic-onboarding.tsx', 'commitOnboardingEvent'],
+    ['app/onboarding/wedding/_components/onboarding-shell.tsx', 'commitOnboardingWedding'],
+    ['app/onboarding/simple/_components/papic-step-fields.tsx', 'PAPIC_FIELD_POOL_RUNG'],
+  ];
+  for (const [file, proof] of MOUNTS) {
+    const src = read(file);
+    if (!/selection=\{/.test(src)) continue; // read-only mount — nothing to prove
+    assert.match(
+      src,
+      /papicSelection|PAPIC_FIELD_POOL_RUNG/,
+      `${file} renders the picker but never carries the selection anywhere`,
+    );
+    assert.match(src, new RegExp(proof), `${file} must reach its commit path`);
+  }
+
+  // …and each commit path must actually mint from it.
+  for (const file of [
+    'app/onboarding/_shared/commit-event.ts',
+    'app/onboarding/wedding/actions.ts',
+    'app/onboarding/simple/actions.ts',
+  ]) {
+    assert.match(
+      read(file),
+      /mintPapicOnboardingOrders/,
+      `${file} accepts a Papic selection but never turns it into an order`,
     );
   }
 });

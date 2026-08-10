@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
   computeGuestStats,
   computePaxProgress,
@@ -958,8 +959,16 @@ async function fetchJoinUrl(
   eventId: string,
 ): Promise<string | null> {
   const [{ data, error }, { data: ev }] = await Promise.all([
-    supabase.from('event_join_tokens').select('token').eq('event_id', eventId).maybeSingle(),
-    supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
+    supabase
+      .from('event_join_tokens')
+      .select('token, revoked_at, expires_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    supabase
+      .from('events')
+      .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   // Surface silent errors so a future event_join_tokens column rename
   // / RLS regression doesn't quietly hide the share-invite affordance
@@ -973,6 +982,25 @@ async function fetchJoinUrl(
       'graceful_degrade',
     );
   }
+  // ⚠ A LINK NOBODY CAN OPEN IS NOT A SHARE AFFORDANCE. On a PRIVATE event both
+  // doors refuse — the branded /{slug}/invite page and the opaque /join token
+  // action alike — so Share-invite was handing the host a link that answers
+  // "Link not found" to every guest. Returning null hides the control, and the
+  // guest-invite page (linked right beside it) says why. See
+  // lib/shared-join-link.ts.
+  if (
+    !sharedJoinLinkState({
+      event: (ev ?? {}) as Parameters<typeof sharedJoinLinkState>[0]['event'],
+      tokenValid:
+        !!data?.token &&
+        !(data as { revoked_at?: string | null }).revoked_at &&
+        (!(data as { expires_at?: string | null }).expires_at ||
+          new Date((data as { expires_at: string }).expires_at) > new Date()),
+    }).usable
+  ) {
+    return null;
+  }
+
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Branded invite link when the event has a public slug (e.g. /cale-ice/invite).

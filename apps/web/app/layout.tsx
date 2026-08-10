@@ -17,6 +17,7 @@ import {
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { HistoryStormProbeMount } from './_components/history-storm-probe-mount';
 import { NativeBridge } from './_components/native-bridge';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
@@ -613,6 +614,8 @@ export default async function RootLayout({
               2026-07-03). */}
           <SiteFooterChrome />
         </Providers>
+        {/* TEMPORARY — names the caller behind the signed-in replaceState storm. Remove once identified. */}
+        <HistoryStormProbeMount />
         <ClientTypeDetector />
         <NativeBridge />
         {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;

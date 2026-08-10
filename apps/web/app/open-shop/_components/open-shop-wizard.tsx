@@ -13,6 +13,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
+import { locationStepError } from '@/lib/open-shop-location-gate';
 import { CityPin } from './city-pin';
 import {
   ServicePicker,
@@ -186,17 +187,19 @@ export function OpenShopWizard({
     }
     const el = (name: string) =>
       formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
-    const city = el('location_city')?.value ?? '';
-    if (!city.trim()) return OPEN_SHOP_ERRORS.locationCity;
-    // ── A MACHINE GUESS MUST BE AGREED TO (owner 2026-08-10) ─────────────────
-    // The vendor pressed Enter, the form submitted, and a shop was created
-    // before they could see whether the address was right. `location_confirmed`
-    // exists only once they have answered "Are you in X?", so a geocode nobody
-    // looked at can no longer carry a shop past this step. A hand-typed city
-    // with no pin has nothing to confirm and passes on the line above.
-    const pinned = !!el('hq_latitude')?.value;
-    if (pinned && !el('location_confirmed')?.value) return OPEN_SHOP_ERRORS.locationConfirm;
-    return null;
+    // ── THE PIN IS REQUIRED, AND CONFIRMING IT COMPLETES THE STEP ────────────
+    // Owner-locked 2026-08-10: *"needs to have a pin on the map before they can
+    // continue. so you have to ask them if the pin location is correct. once
+    // they confirm, that is when they can only complete the 4 step."*
+    //
+    // The rule itself lives in `locationStepError` so it can be RUN. It used to
+    // be three `if`s here, guarded by regexes over this file's own source text —
+    // which notice a deletion and nothing else.
+    return locationStepError({
+      hasPin: !!el('hq_latitude')?.value,
+      confirmed: !!el('location_confirmed')?.value,
+      city: el('location_city')?.value ?? '',
+    });
   };
 
   /**

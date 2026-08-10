@@ -156,7 +156,10 @@ test('the point currency is derived from the capture-path constants', () => {
 });
 
 test('Setnayan AI renders only when the gate resolved a price', () => {
-  assert.deepEqual(build().ai, { priceLabel: '₱1,499' });
+  // The numeric twin was added 2026-08-11 so the running total can add the tick
+  // up. Both must be present and must agree — a label and a figure that disagree
+  // is a couple charged something other than what they read.
+  assert.deepEqual(build().ai, { priceLabel: '₱1,499', pricePhp: 1499 });
   // The vendor-free gate closes it with null — never with a ₱0 offer, because
   // "Setnayan AI cannot be free" (owner 2026-07-27).
   assert.equal(build({ aiPricePhp: null }).ai, null);
@@ -387,7 +390,7 @@ test('the step CHOOSES, it never checks out', () => {
 test('the picker only appears where the commit carries the pick to an order', () => {
   // THE FAKE-DOOR RULE, pinned. The steppers render only when a mount passes
   // BOTH `selection` and `onSelectionChange`; a flow that passes them without
-  // sending `papicSelection` to its commit would show a couple a price, take
+  // sending `servicesSelection` to its commit would show a couple a price, take
   // their choice, and charge nothing — losing the sale AND their shots, with
   // nothing anywhere to notice.
   const step = read('app/onboarding/_shared/services-step.tsx');
@@ -408,11 +411,30 @@ test('the picker only appears where the commit carries the pick to an order', ()
     if (!/selection=\{/.test(src)) continue; // read-only mount — nothing to prove
     assert.match(
       src,
-      /papicSelection|PAPIC_FIELD_POOL_RUNG/,
+      /servicesSelection|PAPIC_FIELD_POOL_RUNG/,
       `${file} renders the picker but never carries the selection anywhere`,
     );
     assert.match(src, new RegExp(proof), `${file} must reach its commit path`);
   }
+
+  // 🚨 SETNAYAN AI MUST BE PRICED BY THE CHARGE AUTHORITY, NEVER THE CATALOG.
+  // Its price depends on the EVENT TYPE and that override is live in prod: the
+  // flat catalog row is the WEDDING figure. Reading the catalog for it — which
+  // is exactly what the two Papic branches in the same file correctly do —
+  // would overcharge every non-wedding couple on their very first order, and
+  // the order row would look perfectly well-formed. This pins the asymmetry.
+  const minter = read('lib/onboarding-services-orders.ts');
+  assert.match(
+    minter,
+    /resolveOrderChargeCentavos\(\{\s*\n?\s*serviceKey: SETNAYAN_AI_SKU/,
+    'the AI order must be priced through resolveOrderChargeCentavos',
+  );
+  const aiBlock = minter.slice(minter.indexOf('selection.ai'));
+  assert.equal(
+    /priceOf\(admin, SETNAYAN_AI_SKU\)|service_code.*SETNAYAN_AI/.test(aiBlock),
+    false,
+    'the AI branch reads the flat catalog row — that is the WEDDING price',
+  );
 
   // …and each commit path must actually mint from it.
   for (const file of [
@@ -422,7 +444,7 @@ test('the picker only appears where the commit carries the pick to an order', ()
   ]) {
     assert.match(
       read(file),
-      /mintPapicOnboardingOrders/,
+      /mintOnboardingServiceOrders/,
       `${file} accepts a Papic selection but never turns it into an order`,
     );
   }

@@ -62,9 +62,9 @@ import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-fl
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
-  EMPTY_PAPIC_SELECTION,
-  type PapicSelection,
-} from '@/lib/papic-onboarding-selection';
+  EMPTY_SERVICES_SELECTION,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -1705,8 +1705,8 @@ export function OnboardingShell({
    * nobody just agreed to. Starting empty means a resumed draft is free until
    * the couple presses + on this visit — the free floor is always the default.
    */
-  const [papicSelection, setPapicSelection] = useState<PapicSelection>(
-    EMPTY_PAPIC_SELECTION,
+  const [servicesSelection, setServicesStepSelection] = useState<ServicesStepSelection>(
+    EMPTY_SERVICES_SELECTION,
   );
   const [commitError, setCommitError] = useState<string | null>(null);
   const committingRef = useRef(false);
@@ -3058,7 +3058,7 @@ export function OnboardingShell({
       // must not reach the localStorage draft — see the useState above). A CLAIM
       // only: the commit re-parses it and re-prices every rung from the live
       // catalog, and no amount is sent from here.
-      payload.papicSelection = papicSelection;
+      payload.servicesSelection = servicesSelection;
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -3123,14 +3123,14 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-    // ⚠ `papicSelection` MUST stay in this list. It deliberately lives outside
+    // ⚠ `servicesSelection` MUST stay in this list. It deliberately lives outside
     // `state` (so it never reaches the localStorage draft), which means pressing
     // + on the services step changes NO other dependency here. Without it this
     // callback is never rebuilt after a pick and commits the selection it
     // captured on its last render — in practice the empty one, so the couple's
     // choice silently evaporates and they are charged nothing. Nothing errors;
     // the order simply never exists. Caught by react-hooks/exhaustive-deps.
-  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, papicSelection]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection]);
 
   return (
     <div className="onbw">
@@ -4489,8 +4489,8 @@ export function OnboardingShell({
                    flow's commit carries the selection through to a real order —
                    see commitOnboardingWedding. Do not copy these two props to a
                    mount whose commit ignores them. */
-                selection={papicSelection}
-                onSelectionChange={setPapicSelection}
+                selection={servicesSelection}
+                onSelectionChange={setServicesStepSelection}
               />
             </section>
           ) : null}

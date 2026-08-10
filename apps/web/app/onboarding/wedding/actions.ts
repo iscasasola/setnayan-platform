@@ -18,7 +18,7 @@ import {
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
-import { mintPapicOnboardingOrders } from '@/lib/papic-onboarding-orders';
+import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
@@ -320,17 +320,17 @@ export type OnboardingCommitPayload = {
   /**
    * What the couple picked on the Papic services step (owner 2026-08-11) — the
    * shared-pool rung and how many dedicated cameras to add. Shape:
-   * `lib/papic-onboarding-selection.ts` · PapicSelection.
+   * `lib/onboarding-services-selection.ts` · ServicesStepSelection.
    *
    * ⚠ UNTRUSTED, and deliberately typed `unknown`. It carries service_codes and
    * a count and NO amount; the commit re-parses it and re-prices every rung from
-   * the live catalog (SEC-4). Typing it as PapicSelection here would suggest the
+   * the live catalog (SEC-4). Typing it as ServicesStepSelection here would suggest the
    * server may trust its shape, which it may not.
    *
    * Absent ⇒ nothing was picked ⇒ no order. Every couple still gets the free
    * pool grant and the free dedicated camera.
    */
-  papicSelection?: unknown;
+  servicesSelection?: unknown;
 };
 
 export type OnboardingCommitResult =
@@ -844,7 +844,7 @@ export async function commitOnboardingWedding(
   // ── what the couple picked on the Papic services step (owner 2026-08-11) ──
   // LAST, and deliberately so: the event, its ownership row, both free grants
   // and the whole vendor fan-out above are already done, so nothing here can
-  // cost the couple their wedding. `mintPapicOnboardingOrders` never throws — a
+  // cost the couple their wedding. `mintOnboardingServiceOrders` never throws — a
   // rung that went inactive mid-flow, a failed insert, a camera that could not
   // be provisioned all come back as `paymentPath: null`, landing them on the
   // ordinary dashboard with a working, free Papic and no charge.
@@ -853,10 +853,10 @@ export async function commitOnboardingWedding(
   // shots appear only when an admin approves the payment. That is exactly why
   // this must not gate the finish — reconciliation is manual and takes up to a
   // day (see services-step.tsx's docblock).
-  const papic = await mintPapicOnboardingOrders(admin, {
+  const papic = await mintOnboardingServiceOrders(admin, {
     eventId: insertedEvent.event_id,
     userId: user.id,
-    rawSelection: payload.papicSelection,
+    rawSelection: payload.servicesSelection,
   });
 
   return { ok: true, eventId: insertedEvent.event_id, paymentPath: papic.paymentPath };

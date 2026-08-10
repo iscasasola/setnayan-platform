@@ -19,3 +19,9 @@
 export const PAPIC_FIELD_POOL_RUNG = 'papic_pool_rung';
 export const PAPIC_FIELD_ONE_RUNG = 'papic_one_rung';
 export const PAPIC_FIELD_ONE_CAMERAS = 'papic_one_cameras';
+/**
+ * Setnayan AI's yes/no. Posted as the STRING 'true' or 'false' — never as a
+ * bare checkbox, whose unchecked state posts NOTHING at all and would be
+ * indistinguishable from the field having been renamed away.
+ */
+export const AI_FIELD_SELECTED = 'setnayan_ai_selected';

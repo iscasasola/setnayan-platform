@@ -11,23 +11,24 @@ import assert from 'node:assert/strict';
 
 import type { PapicTypeView } from '@/lib/onboarding/services-step-data';
 import {
-  EMPTY_PAPIC_SELECTION,
+  EMPTY_SERVICES_SELECTION,
   ONBOARDING_MAX_EXTRA_CAMERAS,
   oneCameraTotal,
   onePriceOf,
   oneRungOf,
-  parsePapicSelection,
+  parseServicesStepSelection,
   poolPriceAt,
   poolRungAt,
   poolShotsAt,
   poolStepCount,
   poolStepOf,
-  quotePapicSelection,
+  quoteServicesStepSelection,
   selectionHasPurchase,
+  setAi,
   setOneCameras,
   setOneRung,
   stepPool,
-} from './papic-onboarding-selection';
+} from './onboarding-services-selection';
 
 const POOL: PapicTypeView = {
   id: 'pool',
@@ -57,7 +58,7 @@ const TYPES = [POOL, ONE];
 // ── the pool ladder ────────────────────────────────────────────────────────
 
 test('step 0 is the free floor: real shots, no charge', () => {
-  assert.equal(poolStepOf(POOL, EMPTY_PAPIC_SELECTION), 0);
+  assert.equal(poolStepOf(POOL, EMPTY_SERVICES_SELECTION), 0);
   assert.equal(poolRungAt(POOL, 0), null);
   assert.equal(poolShotsAt(POOL, 0), POOL.freePoints);
   assert.equal(poolPriceAt(POOL, 0), 0);
@@ -76,7 +77,7 @@ test('the free floor is ADDED to every paid step, never replaced by it', () => {
 });
 
 test('+ walks up the ladder and stops at the top; − walks back to free', () => {
-  let s = EMPTY_PAPIC_SELECTION;
+  let s = EMPTY_SERVICES_SELECTION;
   const top = poolStepCount(POOL) - 1;
   for (let i = 0; i < top; i += 1) s = stepPool(POOL, s, +1);
   assert.equal(poolStepOf(POOL, s), top);
@@ -93,7 +94,7 @@ test('+ walks up the ladder and stops at the top; − walks back to free', () =>
 });
 
 test('every reachable step names a rung the catalog priced', () => {
-  let s = EMPTY_PAPIC_SELECTION;
+  let s = EMPTY_SERVICES_SELECTION;
   for (let i = 1; i < poolStepCount(POOL); i += 1) {
     s = stepPool(POOL, s, +1);
     assert.ok(
@@ -107,13 +108,13 @@ test('a ladder with no sellable rung still has its free floor', () => {
   const dead: PapicTypeView = { ...POOL, rungs: [] };
   assert.equal(poolStepCount(dead), 1);
   assert.equal(poolShotsAt(dead, 0), dead.freePoints);
-  assert.equal(stepPool(dead, EMPTY_PAPIC_SELECTION, +1).poolRungKey, null);
+  assert.equal(stepPool(dead, EMPTY_SERVICES_SELECTION, +1).poolRungKey, null);
 });
 
 test('a selection whose rung was deactivated falls back to FREE, not another rung', () => {
   // The dangerous alternative is resolving by index: rung 2 disappearing would
   // silently slide the couple onto a different — possibly dearer — rung.
-  const stale = { ...EMPTY_PAPIC_SELECTION, poolRungKey: 'GONE' };
+  const stale = { ...EMPTY_SERVICES_SELECTION, poolRungKey: 'GONE' };
   assert.equal(poolStepOf(POOL, stale), 0);
   assert.equal(poolPriceAt(POOL, poolStepOf(POOL, stale)), 0);
 });
@@ -136,7 +137,7 @@ test('the ladder is DATA — a nine-rung Pool needs no code change', () => {
   assert.equal(poolStepCount(NINE), 10, 'the free floor plus nine rungs');
 
   // Walk the whole ladder with + and check every landing.
-  let s = EMPTY_PAPIC_SELECTION;
+  let s = EMPTY_SERVICES_SELECTION;
   const seen: Array<{ shots: number; php: number }> = [];
   for (let i = 0; i < 12; i += 1) {
     s = stepPool(NINE, s, +1);
@@ -178,31 +179,31 @@ test('the ladder is DATA — a nine-rung Pool needs no code change', () => {
 // ── papic one ──────────────────────────────────────────────────────────────
 
 test('the camera count defaults to the free camera alone, at no charge', () => {
-  assert.equal(oneCameraTotal(ONE, EMPTY_PAPIC_SELECTION), ONE.freeCameras);
-  assert.equal(onePriceOf(ONE, EMPTY_PAPIC_SELECTION), 0);
+  assert.equal(oneCameraTotal(ONE, EMPTY_SERVICES_SELECTION), ONE.freeCameras);
+  assert.equal(onePriceOf(ONE, EMPTY_SERVICES_SELECTION), 0);
 });
 
 test('extra cameras bill per camera at the chosen rung', () => {
-  const s = setOneCameras(ONE, EMPTY_PAPIC_SELECTION, 3);
+  const s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 3);
   assert.equal(s.oneExtraCameras, 3);
   assert.equal(onePriceOf(ONE, s), ONE.rungs[0]!.pricePhp * 3);
   assert.equal(oneCameraTotal(ONE, s), ONE.freeCameras! + 3);
 });
 
 test('the rung defaults to the CHEAPEST — a default may never over-quote', () => {
-  assert.equal(oneRungOf(ONE, EMPTY_PAPIC_SELECTION)?.key, 'O_A');
+  assert.equal(oneRungOf(ONE, EMPTY_SERVICES_SELECTION)?.key, 'O_A');
   const cheapest = Math.min(...ONE.rungs.map((r) => r.pricePhp));
-  assert.equal(oneRungOf(ONE, EMPTY_PAPIC_SELECTION)?.pricePhp, cheapest);
+  assert.equal(oneRungOf(ONE, EMPTY_SERVICES_SELECTION)?.pricePhp, cheapest);
 });
 
 test('picking a rung with the counter at zero starts it at one', () => {
-  const s = setOneRung(EMPTY_PAPIC_SELECTION, 'O_B');
+  const s = setOneRung(EMPTY_SERVICES_SELECTION, 'O_B');
   assert.equal(s.oneExtraCameras, 1);
   assert.equal(onePriceOf(ONE, s), ONE.rungs[1]!.pricePhp);
 });
 
 test('dropping back to zero cameras clears the rung — no phantom purchase', () => {
-  const bought = setOneCameras(ONE, EMPTY_PAPIC_SELECTION, 2);
+  const bought = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 2);
   const cleared = setOneCameras(ONE, bought, 0);
   assert.equal(cleared.oneExtraCameras, 0);
   assert.equal(
@@ -214,14 +215,14 @@ test('dropping back to zero cameras clears the rung — no phantom purchase', ()
 });
 
 test('the camera stepper is bounded, and the bound is not a product rule', () => {
-  const s = setOneCameras(ONE, EMPTY_PAPIC_SELECTION, 9_999);
+  const s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 9_999);
   assert.equal(s.oneExtraCameras, ONBOARDING_MAX_EXTRA_CAMERAS);
-  assert.equal(setOneCameras(ONE, EMPTY_PAPIC_SELECTION, -4).oneExtraCameras, 0);
+  assert.equal(setOneCameras(ONE, EMPTY_SERVICES_SELECTION, -4).oneExtraCameras, 0);
 });
 
 test('no live camera rung ⇒ no camera can be added', () => {
   const dead: PapicTypeView = { ...ONE, rungs: [] };
-  const s = setOneCameras(dead, EMPTY_PAPIC_SELECTION, 5);
+  const s = setOneCameras(dead, EMPTY_SERVICES_SELECTION, 5);
   assert.equal(s.oneExtraCameras, 0);
   assert.equal(onePriceOf(dead, s), 0);
 });
@@ -229,54 +230,55 @@ test('no live camera rung ⇒ no camera can be added', () => {
 // ── the quote ──────────────────────────────────────────────────────────────
 
 test('the running total is the two products summed', () => {
-  let s = stepPool(POOL, EMPTY_PAPIC_SELECTION, +1);
+  let s = stepPool(POOL, EMPTY_SERVICES_SELECTION, +1);
   s = setOneCameras(ONE, s, 2);
-  const q = quotePapicSelection(TYPES, s);
+  const q = quoteServicesStepSelection(TYPES, s);
   assert.equal(q.poolPhp, POOL.rungs[0]!.pricePhp);
   assert.equal(q.onePhp, ONE.rungs[0]!.pricePhp * 2);
   assert.equal(q.totalPhp, q.poolPhp + q.onePhp);
 });
 
 test('touching nothing costs nothing', () => {
-  assert.equal(quotePapicSelection(TYPES, EMPTY_PAPIC_SELECTION).totalPhp, 0);
-  assert.equal(selectionHasPurchase(EMPTY_PAPIC_SELECTION), false);
+  assert.equal(quoteServicesStepSelection(TYPES, EMPTY_SERVICES_SELECTION).totalPhp, 0);
+  assert.equal(selectionHasPurchase(EMPTY_SERVICES_SELECTION), false);
 });
 
 test('either product alone counts as a purchase', () => {
-  assert.equal(selectionHasPurchase(stepPool(POOL, EMPTY_PAPIC_SELECTION, +1)), true);
-  assert.equal(selectionHasPurchase(setOneCameras(ONE, EMPTY_PAPIC_SELECTION, 1)), true);
+  assert.equal(selectionHasPurchase(stepPool(POOL, EMPTY_SERVICES_SELECTION, +1)), true);
+  assert.equal(selectionHasPurchase(setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 1)), true);
 });
 
 // ── the untrusted boundary ─────────────────────────────────────────────────
 
-test('parse strips anything that is not the three fields', () => {
-  assert.deepEqual(parsePapicSelection(null), EMPTY_PAPIC_SELECTION);
-  assert.deepEqual(parsePapicSelection('P_A'), EMPTY_PAPIC_SELECTION);
-  assert.deepEqual(parsePapicSelection(42), EMPTY_PAPIC_SELECTION);
-  assert.deepEqual(parsePapicSelection({ poolRungKey: 'P_A', evil: 'x', totalPhp: 0 }), {
+test('parse strips anything that is not one of the four fields', () => {
+  assert.deepEqual(parseServicesStepSelection(null), EMPTY_SERVICES_SELECTION);
+  assert.deepEqual(parseServicesStepSelection('P_A'), EMPTY_SERVICES_SELECTION);
+  assert.deepEqual(parseServicesStepSelection(42), EMPTY_SERVICES_SELECTION);
+  assert.deepEqual(parseServicesStepSelection({ poolRungKey: 'P_A', evil: 'x', totalPhp: 0 }), {
     poolRungKey: 'P_A',
     oneRungKey: null,
     oneExtraCameras: 0,
+    ai: false,
   });
 });
 
 test('parse bounds the camera count a tampered payload can post', () => {
-  const s = parsePapicSelection({ oneRungKey: 'O_A', oneExtraCameras: 1e9 });
+  const s = parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: 1e9 });
   assert.equal(s.oneExtraCameras, ONBOARDING_MAX_EXTRA_CAMERAS);
   assert.equal(
-    parsePapicSelection({ oneRungKey: 'O_A', oneExtraCameras: -5 }).oneExtraCameras,
+    parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: -5 }).oneExtraCameras,
     0,
   );
   assert.equal(
-    parsePapicSelection({ oneRungKey: 'O_A', oneExtraCameras: Number.NaN }).oneExtraCameras,
+    parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: Number.NaN }).oneExtraCameras,
     0,
   );
 });
 
 test('parse keeps the count and the rung consistent in both directions', () => {
-  assert.equal(parsePapicSelection({ oneExtraCameras: 3 }).oneExtraCameras, 0);
-  assert.equal(parsePapicSelection({ oneRungKey: 'O_A' }).oneRungKey, null);
-  const ok = parsePapicSelection({ oneRungKey: 'O_A', oneExtraCameras: 3 });
+  assert.equal(parseServicesStepSelection({ oneExtraCameras: 3 }).oneExtraCameras, 0);
+  assert.equal(parseServicesStepSelection({ oneRungKey: 'O_A' }).oneRungKey, null);
+  const ok = parseServicesStepSelection({ oneRungKey: 'O_A', oneExtraCameras: 3 });
   assert.equal(ok.oneRungKey, 'O_A');
   assert.equal(ok.oneExtraCameras, 3);
 });
@@ -286,12 +288,95 @@ test('parse does not authorise — it only shapes', () => {
   // priced is the server's question, answered against the tier tables. Deciding
   // it here would put an allow-list in the browser bundle that goes stale the
   // moment an admin edits a row.
-  const s = parsePapicSelection({ poolRungKey: 'NOT_A_RUNG' });
+  const s = parseServicesStepSelection({ poolRungKey: 'NOT_A_RUNG' });
   assert.equal(s.poolRungKey, 'NOT_A_RUNG');
   assert.equal(poolStepOf(POOL, s), 0, 'and the ladder still refuses to price it');
 });
 
 test('an over-long key is dropped rather than carried to the server', () => {
-  assert.equal(parsePapicSelection({ poolRungKey: 'x'.repeat(200) }).poolRungKey, null);
-  assert.equal(parsePapicSelection({ poolRungKey: '   ' }).poolRungKey, null);
+  assert.equal(parseServicesStepSelection({ poolRungKey: 'x'.repeat(200) }).poolRungKey, null);
+  assert.equal(parseServicesStepSelection({ poolRungKey: '   ' }).poolRungKey, null);
+});
+
+// ── setnayan ai ────────────────────────────────────────────────────────────
+
+const AI_PHP = 499;
+
+test('AI is OFF by default and adds nothing', () => {
+  assert.equal(EMPTY_SERVICES_SELECTION.ai, false);
+  const q = quoteServicesStepSelection(TYPES, EMPTY_SERVICES_SELECTION, AI_PHP);
+  assert.equal(q.aiPhp, 0);
+  assert.equal(q.totalPhp, 0);
+});
+
+test('ticking AI adds its OWN line and leaves the Papic subtotal alone', () => {
+  // The whole reason the quote reports papicPhp separately (owner: "yes it can
+  // be just 50 and 499"): the two must never be conflated on screen.
+  let s = setOneCameras(ONE, EMPTY_SERVICES_SELECTION, 1);
+  const papicOnly = quoteServicesStepSelection(TYPES, s, AI_PHP);
+  s = setAi(s, true);
+  const withAi = quoteServicesStepSelection(TYPES, s, AI_PHP);
+
+  assert.equal(withAi.papicPhp, papicOnly.papicPhp, 'ticking AI must not move the Papic figure');
+  assert.equal(withAi.aiPhp, AI_PHP);
+  assert.equal(withAi.totalPhp, papicOnly.papicPhp + AI_PHP);
+});
+
+test('AI alone is a purchase — a couple may buy only the planner', () => {
+  const s = setAi(EMPTY_SERVICES_SELECTION, true);
+  assert.equal(selectionHasPurchase(s), true);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP).papicPhp, 0);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP).totalPhp, AI_PHP);
+});
+
+test('a ticked AI with NO price offered on this type charges nothing', () => {
+  // `view.ai === null` (a vendor-free type) means the card never rendered, so a
+  // selection carrying ai:true can only come from a stale or tampered payload.
+  // It must quote ZERO rather than fall back to some other type's figure.
+  const s = setAi(EMPTY_SERVICES_SELECTION, true);
+  assert.equal(quoteServicesStepSelection(TYPES, s, null).aiPhp, 0);
+  assert.equal(quoteServicesStepSelection(TYPES, s, 0).aiPhp, 0);
+  assert.equal(quoteServicesStepSelection(TYPES, s, null).totalPhp, 0);
+});
+
+test('un-ticking AI removes it completely', () => {
+  const s = setAi(setAi(EMPTY_SERVICES_SELECTION, true), false);
+  assert.equal(s.ai, false);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP).aiPhp, 0);
+  assert.equal(selectionHasPurchase(s), false);
+});
+
+test("parse treats the STRING 'false' as NO — Boolean('false') is true", () => {
+  // The simple-event flow posts this as a form field, where every value is a
+  // string. A naive Boolean() would leave the planner permanently ticked and
+  // silently bill every one of those couples.
+  assert.equal(parseServicesStepSelection({ ai: 'false' }).ai, false);
+  assert.equal(parseServicesStepSelection({ ai: '0' }).ai, false);
+  assert.equal(parseServicesStepSelection({ ai: '' }).ai, false);
+  assert.equal(parseServicesStepSelection({ ai: 'yes' }).ai, false);
+  assert.equal(parseServicesStepSelection({}).ai, false);
+  assert.equal(parseServicesStepSelection({ ai: 1 }).ai, false);
+  // Only a genuine yes, in either of the two shapes that legitimately reach us.
+  assert.equal(parseServicesStepSelection({ ai: true }).ai, true);
+  assert.equal(parseServicesStepSelection({ ai: 'true' }).ai, true);
+});
+
+test('the selection carries NO price and NO tier for AI', () => {
+  // Setnayan AI is priced per EVENT TYPE, server-side, from the event's stored
+  // type. If a price or tier ever appears on this object, a tampered payload
+  // could pick a cheaper one.
+  const s = setAi(EMPTY_SERVICES_SELECTION, true);
+  assert.deepEqual(Object.keys(s).sort(), [
+    'ai',
+    'oneExtraCameras',
+    'oneRungKey',
+    'poolRungKey',
+  ]);
+  const parsed = parseServicesStepSelection({ ai: true, aiPricePhp: 1, aiTier: 'D' });
+  assert.deepEqual(Object.keys(parsed).sort(), [
+    'ai',
+    'oneExtraCameras',
+    'oneRungKey',
+    'poolRungKey',
+  ]);
 });

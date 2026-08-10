@@ -140,3 +140,53 @@ SPEC IMPACT: applied — `DECISION_LOG.md` rows for 2026-08-11 (the picker, the 
 Papic One single price); `Onboarding_Papic_AI_Cards_BUILD_SPEC_2026-07-27.md` § 3 Card 1 ("Action:
 none. The card informs.") and its § 0 rung/rule table; `Papic_Promotion_Surfaces_BUILD_SPEC_2026-07-29.md`
 § 1; `WHATS_NEXT_Card_Family_Handoff_2026-07-29.md`.
+
+## 2026-08-11 · feat(onboarding): Setnayan AI can be bought on the same screen, as its own line
+
+Owner asked how to strategise Papic One and Setnayan AI *"so the papic and setnayan AI can be
+costed at the beginning so they can purchase it instantly"*, then confirmed the split: *"yes it can
+be just 50 and 499."*
+
+**Setnayan AI is now a tick on the services step**, off by default, joining a single commit. What
+was missing was only the ability to say yes there — the card already showed the price and pointed
+at the studio.
+
+✅ **Checked, not assumed: per-event-type AI pricing is ALREADY LIVE in prod**
+(`platform_settings.setnayan_ai_per_event_pricing_enabled = true`). ₱1,499 is the WEDDING figure;
+most types already resolve to ₱499, the lightest to ₱99, and a vendor-free type is not offered it
+at all. The onboarding card was already showing each couple their own correct number — verified
+before writing anything, because the opposite would have been a live defect on the screen we were
+turning into a paywall.
+
+### 🚨 The trap that would have overcharged every non-wedding couple
+
+The two Papic branches in the order minter read the flat catalog row directly, and that is
+**correct for them** — it lets a retired rung be rejected before an order exists. Doing the obvious
+thing and reusing that helper for Setnayan AI would have billed the **wedding** price to every
+birthday, debut and christening — ₱1,499 instead of ₱499, on their very first order, with the order
+row looking perfectly well-formed. AI is priced through `resolveOrderChargeCentavos`, the single
+authority that applies the per-type override and re-reads the event's **stored** type so a tampered
+payload cannot pick a cheaper tier. `services-step-data.test.ts` now pins that asymmetry and is
+**mutation-tested** — swapping the AI branch to the catalog helper turns it red.
+
+### Two lines, never one number
+
+Papic and the planner are shown separately and only summed at the end. On most event types Papic is
+a few tens of pesos and the planner several hundred; one blended figure reads as though Papic is
+what got expensive. `quoteServicesStepSelection` returns `papicPhp` and `aiPhp` alongside the total
+so the screen cannot accidentally conflate them.
+
+🪤 **`Boolean('false')` is `true`.** The simple-event flow posts this as a form field, where every
+value is a string, so the parser accepts only a genuine `true` / `'true'`. A naive coercion would
+have left the planner permanently ticked and silently billed every one of those couples. Pinned by
+a test that walks `'false'`, `'0'`, `''`, `'yes'`, `1` and a missing field.
+
+🔒 **No price and no tier ride on the selection** — only a yes/no. A test asserts the object has
+exactly four keys, so a future "helpful" addition of `aiPricePhp` cannot slip in and become
+something a tampered payload gets an opinion about.
+
+♻️ **Renamed for honesty:** `PapicSelection` → `ServicesStepSelection`, and its module and the order
+minter with it. The object now carries something that is not Papic, and a type named for one of its
+two contents is the same naming lie this session already corrected twice.
+
+SPEC IMPACT: applied — `DECISION_LOG.md` 2026-08-11 row for the AI tick and the per-type finding.

@@ -63,7 +63,7 @@
  * 🔑 + AND − WALK THE LADDER, NOT SINGLE SHOTS. There is no SKU for an
  * arbitrary shot count; the Pool sells whole blocks. A free-running counter
  * would display a quantity that cannot be ordered, priced or granted. See the
- * long note in lib/papic-onboarding-selection.ts — that module owns all of this
+ * long note in lib/onboarding-services-selection.ts — that module owns all of this
  * arithmetic and is where its tests live.
  *
  * 🔒 THE CONTROLS ONLY APPEAR WHERE THE FLOW CAN TAKE THE ORDER — i.e. when the
@@ -90,12 +90,13 @@ import {
   poolShotsAt,
   poolStepCount,
   poolStepOf,
-  quotePapicSelection,
+  quoteServicesStepSelection,
+  setAi,
   setOneCameras,
   setOneRung,
   stepPool,
-  type PapicSelection,
-} from '@/lib/papic-onboarding-selection';
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 
 /** Copy that varies by product but not by event — keyed on the stable id. */
 const TYPE_COPY: Record<
@@ -236,8 +237,8 @@ function PoolPicker({
   eventWord,
 }: {
   type: PapicTypeView;
-  selection: PapicSelection;
-  onChange: (next: PapicSelection) => void;
+  selection: ServicesStepSelection;
+  onChange: (next: ServicesStepSelection) => void;
   eventWord: string;
 }) {
   const step = poolStepOf(type, selection);
@@ -275,8 +276,8 @@ function OnePicker({
   onChange,
 }: {
   type: PapicTypeView;
-  selection: PapicSelection;
-  onChange: (next: PapicSelection) => void;
+  selection: ServicesStepSelection;
+  onChange: (next: ServicesStepSelection) => void;
 }) {
   const rung = oneRungOf(type, selection);
   const extra = selection.oneExtraCameras;
@@ -342,8 +343,8 @@ function PapicType({
   type: PapicTypeView;
   suggested: boolean;
   /** Both present ⇒ this product gets controls. Absent ⇒ read-only ladder. */
-  selection?: PapicSelection;
-  onSelectionChange?: (next: PapicSelection) => void;
+  selection?: ServicesStepSelection;
+  onSelectionChange?: (next: ServicesStepSelection) => void;
   eventWord: string;
 }) {
   const copy = TYPE_COPY[type.id];
@@ -434,8 +435,8 @@ export function ServicesStep({
    * through to an order (see the docblock). Wiring the control without the
    * commit is a fake door that quietly loses the sale AND the couple's shots.
    */
-  selection?: PapicSelection;
-  onSelectionChange?: (next: PapicSelection) => void;
+  selection?: ServicesStepSelection;
+  onSelectionChange?: (next: ServicesStepSelection) => void;
   /** Server-resolved live view-model. `view.ai === null` hides card 2 entirely. */
   view: ServicesStepView;
   /**
@@ -466,9 +467,9 @@ export function ServicesStep({
   const quote = useMemo(
     () =>
       selection
-        ? quotePapicSelection(papic.types, selection)
-        : { poolPhp: 0, onePhp: 0, totalPhp: 0 },
-    [papic.types, selection],
+        ? quoteServicesStepSelection(papic.types, selection, ai?.pricePhp ?? null)
+        : { poolPhp: 0, onePhp: 0, aiPhp: 0, papicPhp: 0, totalPhp: 0 },
+    [papic.types, selection, ai],
   );
 
   return (
@@ -513,34 +514,15 @@ export function ServicesStep({
           ))}
         </div>
 
-        {/* ── THE RUNNING TOTAL ────────────────────────────────────────────
-            Only where the controls are live. It states the FREE case as
-            plainly as the paid one: a couple who touches nothing must be able
-            to read — not infer — that they owe nothing and still have a
-            working event. */}
+        {/* The Papic subtotal stays INSIDE the Papic card. The grand total,
+            with Setnayan AI on its own line, sits below both cards. */}
         {interactive ? (
-          <div className="mt-4 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] p-4">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-sm font-semibold text-ink">Your total today</span>
-              <span className="font-sans text-2xl font-semibold tabular-nums text-ink">
-                {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
-              </span>
-            </p>
-            <p className="mt-1.5 text-xs leading-relaxed text-ink/55">
-              {quote.totalPhp > 0 ? (
-                <>
-                  We&rsquo;ll show you where to send it right after this — your{' '}
-                  {eventWord} and your free shots are live either way, and the extra
-                  shots land once your payment is confirmed.
-                </>
-              ) : (
-                <>
-                  Nothing to pay. Your {eventWord} and your free shots go live the
-                  moment you finish — you can add more whenever you want.
-                </>
-              )}
-            </p>
-          </div>
+          <p className="mt-4 flex items-baseline justify-between gap-3 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] px-4 py-3">
+            <span className="text-sm font-semibold text-ink">Papic</span>
+            <span className="font-sans text-xl font-semibold tabular-nums text-ink">
+              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+            </span>
+          </p>
         ) : null}
 
         <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 rounded-[var(--m-r-sm)] border border-dashed border-ink/15 px-3 py-2 font-mono text-xs text-ink/60">
@@ -585,7 +567,43 @@ export function ServicesStep({
           {/* The nine wired capabilities, type-aware (#3865). Never re-authored here. */}
           {aiValue ? <div className="mt-4">{aiValue}</div> : null}
 
-          {aiHref ? (
+          {/* ── THE TICK (owner 2026-08-11) ───────────────────────────────
+              Only where the flow can take the order, exactly like the Papic
+              steppers. Off by default: on many event types this single line is
+              worth ten times the whole Papic side, so pre-ticking it would be
+              adding the expensive thing to a couple's bill on their behalf.
+              Elsewhere the card keeps its original "find it in your studio"
+              wording, because a tick that charges nothing is a fake door. */}
+          {interactive ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={selection.ai}
+              onClick={() => onSelectionChange(setAi(selection, !selection.ai))}
+              className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                selection.ai
+                  ? 'border-terracotta bg-terracotta/[0.07]'
+                  : 'border-ink/15 hover:border-ink/30'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs ${
+                  selection.ai
+                    ? 'border-terracotta bg-terracotta text-cream'
+                    : 'border-ink/25'
+                }`}
+                aria-hidden
+              >
+                {selection.ai ? '✓' : ''}
+              </span>
+              <span className="flex-1 text-sm font-medium text-ink">
+                {selection.ai ? 'Added to your plan' : `Add Setnayan AI to my ${eventWord}`}
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                {ai.priceLabel}
+              </span>
+            </button>
+          ) : aiHref ? (
             <a
               href={aiHref}
               className="mt-5 block w-full rounded-xl border border-terracotta px-4 py-3 text-center text-sm font-semibold text-terracotta-700 transition hover:bg-terracotta/[0.06]"
@@ -599,6 +617,55 @@ export function ServicesStep({
             </p>
           )}
         </article>
+      ) : null}
+
+      {/* ── WHAT THEY OWE, AS TWO LINES ───────────────────────────────────
+          Owner 2026-08-11, confirming the split: *"yes it can be just 50 and
+          499"*. Papic and the planner are shown SEPARATELY and only summed at
+          the end, because on most event types Papic is a few tens of pesos and
+          the planner is several hundred — one blended number reads as though
+          Papic is what got expensive. It also states the FREE case in words: a
+          couple who touches nothing must be able to READ that they owe nothing
+          and still have a working event, not infer it from a missing figure. */}
+      {interactive ? (
+        <div className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
+          <dl className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-ink/70">Papic</dt>
+              <dd className="font-mono text-sm tabular-nums text-ink/80">
+                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+              </dd>
+            </div>
+            {ai ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-sm text-ink/70">Setnayan AI</dt>
+                <dd className="font-mono text-sm tabular-nums text-ink/80">
+                  {quote.aiPhp > 0 ? peso(quote.aiPhp) : 'Not added'}
+                </dd>
+              </div>
+            ) : null}
+            <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
+              <dt className="text-sm font-semibold text-ink">Your total today</dt>
+              <dd className="font-sans text-2xl font-semibold tabular-nums text-ink">
+                {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-xs leading-relaxed text-ink/55">
+            {quote.totalPhp > 0 ? (
+              <>
+                We&rsquo;ll show you where to send it right after this — your {eventWord}{' '}
+                and your free shots are live either way, and what you added arrives once
+                your payment is confirmed.
+              </>
+            ) : (
+              <>
+                Nothing to pay. Your {eventWord} and your free shots go live the moment
+                you finish — you can add more whenever you want.
+              </>
+            )}
+          </p>
+        </div>
       ) : null}
 
       <p className="text-center text-xs text-ink/45">

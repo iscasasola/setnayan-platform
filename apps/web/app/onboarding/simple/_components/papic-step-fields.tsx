@@ -19,7 +19,7 @@
  * ⚠ THE HIDDEN INPUTS ARE A CLAIM, NOT A PRICE. They carry two service_codes
  * and a count. No amount is posted, and none would be trusted: the server
  * re-resolves every rung from the live tier tables and every price from the
- * ACTIVE catalog (SEC-4). `parsePapicSelection` re-shapes and bounds whatever
+ * ACTIVE catalog (SEC-4). `parseServicesStepSelection` re-shapes and bounds whatever
  * arrives before any of it is used.
  */
 
@@ -28,9 +28,9 @@ import { useState } from 'react';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import {
-  EMPTY_PAPIC_SELECTION,
-  type PapicSelection,
-} from '@/lib/papic-onboarding-selection';
+  EMPTY_SERVICES_SELECTION,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 
 // Field names live in their own boundary-free module — commitSimpleEvent reads
 // exactly these, and spelling them twice is how a field silently stops posting.
@@ -38,6 +38,7 @@ import {
   PAPIC_FIELD_ONE_CAMERAS,
   PAPIC_FIELD_ONE_RUNG,
   PAPIC_FIELD_POOL_RUNG,
+  AI_FIELD_SELECTED,
 } from './papic-step-field-names';
 
 export function PapicStepFields({
@@ -47,7 +48,7 @@ export function PapicStepFields({
   view: ServicesStepView;
   className?: string;
 }) {
-  const [selection, setSelection] = useState<PapicSelection>(EMPTY_PAPIC_SELECTION);
+  const [selection, setSelection] = useState<ServicesStepSelection>(EMPTY_SERVICES_SELECTION);
 
   return (
     <div className={className}>
@@ -58,7 +59,7 @@ export function PapicStepFields({
       />
       {/* Empty strings rather than omitted inputs: a field that is always present
           and sometimes blank is easier to reason about server-side than one that
-          appears only under some picks, and `parsePapicSelection` already treats
+          appears only under some picks, and `parseServicesStepSelection` already treats
           blank as "not buying this". */}
       <input type="hidden" name={PAPIC_FIELD_POOL_RUNG} value={selection.poolRungKey ?? ''} />
       <input type="hidden" name={PAPIC_FIELD_ONE_RUNG} value={selection.oneRungKey ?? ''} />
@@ -67,6 +68,7 @@ export function PapicStepFields({
         name={PAPIC_FIELD_ONE_CAMERAS}
         value={String(selection.oneExtraCameras)}
       />
+      <input type="hidden" name={AI_FIELD_SELECTED} value={String(selection.ai)} />
     </div>
   );
 }

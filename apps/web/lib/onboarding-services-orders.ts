@@ -1,23 +1,33 @@
 import 'server-only';
 
 /**
- * papic-onboarding-orders.ts — turn the onboarding Papic picker's selection into
- * real apply-then-pay orders (owner 2026-08-11).
+ * onboarding-services-orders.ts — turn what the couple picked on the onboarding
+ * services step into real apply-then-pay orders (owner 2026-08-11).
  *
  * Called from the event-commit paths, AFTER the event row and its free grants
- * exist. Mints at most two orders — one for the shared Pool rung, one covering
- * every extra dedicated camera — and returns where to send the couple.
+ * exist. Mints at most THREE orders and returns where to send the couple:
+ *   • the shared Papic Pool rung
+ *   • one order covering EVERY extra dedicated Papic One camera
+ *   • Setnayan AI
  *
  * ── SEC-4: THE BROWSER CHOOSES *WHAT*, THIS FILE DECIDES THE PESO FIGURE ────
- * The selection carries service_codes and a camera count and NOTHING ELSE. No
- * amount, no points figure, no total crosses the boundary. Every rung is
- * re-resolved from the live tier tables and every price from the ACTIVE catalog
- * here, exactly as `purchasePapicPoolTopUp` and `purchasePapicOneCamera` do —
- * this is deliberately their third sibling and not a new pricing engine.
+ * The selection carries service_codes, a camera count and a yes/no — and NOTHING
+ * ELSE. No amount, no points figure, no total crosses the boundary. Every figure
+ * is re-resolved server-side here.
  *
- * `is_active` is checked HERE and not left to the shared charge resolver, which
- * prices by service_code alone: a rung an admin retired would otherwise still
- * quote. The reject has to happen before an order exists, not after.
+ * ── ⚠ THE TWO PRODUCTS ARE PRICED BY DIFFERENT AUTHORITIES. DO NOT UNIFY. ──
+ * • PAPIC (Pool + One) → the ACTIVE catalog row, read directly. `is_active` is
+ *   checked HERE and not left to the shared charge resolver, which prices by
+ *   service_code alone: a rung an admin retired would otherwise still quote, and
+ *   the reject has to happen before an order exists. Same shape as
+ *   `purchasePapicPoolTopUp` / `purchasePapicOneCamera` — this is their sibling.
+ * • SETNAYAN AI → `resolveOrderChargeCentavos`, NEVER the catalog row. Its price
+ *   depends on the EVENT TYPE and that override is LIVE in prod (verified
+ *   2026-08-11). The flat catalog row is the WEDDING figure; most types resolve
+ *   to a much smaller one. Reading the catalog for it — the obvious thing, and
+ *   what the Papic branches correctly do — would overcharge every non-wedding
+ *   couple on their very first order, with the order row looking perfectly
+ *   well-formed. That asymmetry is the single most important thing in this file.
  *
  * ── IT MUST NEVER COST THE COUPLE THEIR EVENT ──────────────────────────────
  * By the time this runs the event is committed and the free grants are armed.
@@ -39,9 +49,11 @@ import { mintPapicReferenceCode, provisionPaidCamerasAdmin } from '@/lib/papic-c
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
-import { parsePapicSelection, type PapicSelection } from '@/lib/papic-onboarding-selection';
+import { parseServicesStepSelection, type ServicesStepSelection } from '@/lib/onboarding-services-selection';
+import { resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
+import { SETNAYAN_AI_SKU } from '@/lib/setnayan-ai-event-pricing';
 
-export type PapicOnboardingOrderResult = {
+export type OnboardingOrderResult = {
   /** Public order ids minted, for logging. Empty when nothing was bought. */
   orderPublicIds: string[];
   /**
@@ -52,7 +64,7 @@ export type PapicOnboardingOrderResult = {
   paymentPath: string | null;
 };
 
-const NOTHING: PapicOnboardingOrderResult = { orderPublicIds: [], paymentPath: null };
+const NOTHING: OnboardingOrderResult = { orderPublicIds: [], paymentPath: null };
 
 /** Live, active, and priced — or null. The single price gate for both products. */
 async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<number | null> {
@@ -72,16 +84,17 @@ async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<numb
  * `rawSelection` is UNTRUSTED — it comes from the browser through the commit
  * action — and is re-parsed here rather than trusted from the caller.
  */
-export async function mintPapicOnboardingOrders(
+export async function mintOnboardingServiceOrders(
   admin: SupabaseClient,
   input: { eventId: string; userId: string; rawSelection: unknown },
-): Promise<PapicOnboardingOrderResult> {
-  const selection: PapicSelection = parsePapicSelection(input.rawSelection);
+): Promise<OnboardingOrderResult> {
+  const selection: ServicesStepSelection = parseServicesStepSelection(input.rawSelection);
   const { eventId, userId } = input;
   if (!eventId || !userId) return NOTHING;
 
   const orderPublicIds: string[] = [];
   let firstReference: string | null = null;
+  let aiOrdered = false;
 
   try {
     // ── the shared Pool rung ────────────────────────────────────────────────
@@ -114,13 +127,13 @@ export async function mintPapicOnboardingOrders(
           orderPublicIds.push(String(order.public_id));
           firstReference = firstReference ?? referenceCode;
         } else {
-          console.error('[papic-onboarding-orders] pool order failed:', error?.message);
+          console.error('[onboarding-services-orders] pool order failed:', error?.message);
         }
       } else {
         // Not worth failing on — an admin retiring a rung between the render and
         // the commit is a legitimate race, and the couple is simply not charged.
         console.warn(
-          '[papic-onboarding-orders] pool rung not sellable at commit:',
+          '[onboarding-services-orders] pool rung not sellable at commit:',
           selection.poolRungKey,
         );
       }
@@ -159,7 +172,7 @@ export async function mintPapicOnboardingOrders(
           .select('order_id, public_id')
           .maybeSingle();
         if (error || !order) {
-          console.error('[papic-onboarding-orders] camera order failed:', error?.message);
+          console.error('[onboarding-services-orders] camera order failed:', error?.message);
         } else {
           const orderId = String(order.order_id);
           const win = await fetchEventPapicWindow(admin, eventId);
@@ -180,7 +193,7 @@ export async function mintPapicOnboardingOrders(
               .eq('paid_order_id', orderId);
             seatIds = (fresh ?? []).map((r: { seat_id: unknown }) => String(r.seat_id));
           } catch (e) {
-            console.error('[papic-onboarding-orders] camera provisioning threw:', e);
+            console.error('[onboarding-services-orders] camera provisioning threw:', e);
           }
 
           // One mapping row PER CAMERA — this is what the grant function reads,
@@ -214,7 +227,7 @@ export async function mintPapicOnboardingOrders(
           // would then succeed for the seats that do exist — leaving a couple
           // billed for cameras nobody ever created.
           if (mapErr || seatIds.length !== count) {
-            console.error('[papic-onboarding-orders] camera mapping incomplete — cancelling:', {
+            console.error('[onboarding-services-orders] camera mapping incomplete — cancelling:', {
               orderId,
               wanted: count,
               got: seatIds.length,
@@ -228,15 +241,67 @@ export async function mintPapicOnboardingOrders(
         }
       } else {
         console.warn(
-          '[papic-onboarding-orders] camera rung not sellable at commit:',
+          '[onboarding-services-orders] camera rung not sellable at commit:',
           selection.oneRungKey,
         );
+      }
+    }
+
+    // ── Setnayan AI (owner 2026-08-11) ──────────────────────────────────────
+    // 🚨 PRICED THROUGH THE CHARGE AUTHORITY, NEVER THROUGH `priceOf` ABOVE.
+    // Setnayan AI is priced per EVENT TYPE and that override is LIVE in prod
+    // (`platform_settings.setnayan_ai_per_event_pricing_enabled = true`,
+    // verified 2026-08-11). The flat catalog row is the WEDDING figure; most
+    // event types resolve to a much smaller one. Reading the catalog directly
+    // here — the obvious thing to do, and what the two Papic branches above
+    // correctly do — would overcharge every non-wedding couple by the whole
+    // difference, on their very first order, with the order row itself looking
+    // perfectly well-formed.
+    //
+    // `resolveOrderChargeCentavos` is the single authority that applies the
+    // per-type override, and it re-reads the event's STORED type, so a tampered
+    // payload cannot pick a cheaper tier. It also REFUSES rather than guessing
+    // when it cannot resolve a price — and a refusal here simply means no AI
+    // order, which is the safe half of the trade.
+    if (selection.ai) {
+      const charge = await resolveOrderChargeCentavos({
+        serviceKey: SETNAYAN_AI_SKU,
+        eventId,
+      });
+      if (!charge.ok) {
+        console.warn('[onboarding-services-orders] AI charge refused:', charge.refusal);
+      } else {
+        const pricePhp = Number(charge.total) / 100;
+        if (Number.isFinite(pricePhp) && pricePhp > 0) {
+          const referenceCode = mintPapicReferenceCode();
+          const { data: order, error } = await createMoneyWriterClient()
+            .from('orders')
+            .insert({
+              event_id: eventId,
+              user_id: userId,
+              service_key: SETNAYAN_AI_SKU,
+              description: 'Setnayan AI — the assisted planner for this event',
+              requested_total_php: pricePhp,
+              reference_code: referenceCode,
+              status: 'submitted',
+              platform: 'web',
+            })
+            .select('public_id')
+            .maybeSingle();
+          if (!error && order) {
+            orderPublicIds.push(String(order.public_id));
+            firstReference = firstReference ?? referenceCode;
+            aiOrdered = true;
+          } else {
+            console.error('[onboarding-services-orders] AI order failed:', error?.message);
+          }
+        }
       }
     }
   } catch (e) {
     // Non-fatal by contract — see the docblock. The event and its free grants
     // are already committed and must survive anything that happens here.
-    console.error('[papic-onboarding-orders] threw (non-fatal):', e);
+    console.error('[onboarding-services-orders] threw (non-fatal):', e);
   }
 
   if (orderPublicIds.length === 0) return NOTHING;

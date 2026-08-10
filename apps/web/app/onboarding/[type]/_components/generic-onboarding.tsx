@@ -45,9 +45,9 @@ import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } fro
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
-  EMPTY_PAPIC_SELECTION,
-  type PapicSelection,
-} from '@/lib/papic-onboarding-selection';
+  EMPTY_SERVICES_SELECTION,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -196,8 +196,8 @@ export function GenericOnboarding(props: Props) {
    * Starting empty means a resumed draft is free until the couple presses + on
    * this visit — the free floor is always the default answer.
    */
-  const [papicSelection, setPapicSelection] = useState<PapicSelection>(
-    EMPTY_PAPIC_SELECTION,
+  const [servicesSelection, setServicesStepSelection] = useState<ServicesStepSelection>(
+    EMPTY_SERVICES_SELECTION,
   );
 
   // The experience-quiz axis ids, in order (keys are locked; copy is editable).
@@ -479,7 +479,7 @@ export function GenericOnboarding(props: Props) {
       signatureDetails: { ...details, ...normalizeSpecialtyValues(specialtyFields, specialtyValues) },
       // The Papic picks. A CLAIM only — the commit re-parses this and re-prices
       // every rung from the live catalog; no amount is sent from here.
-      papicSelection,
+      servicesSelection,
     };
     // Anon-draft commit mints a Supabase anonymous session that global captcha
     // gates — mint a Turnstile token (no-op/undefined when unconfigured).
@@ -928,8 +928,8 @@ export function GenericOnboarding(props: Props) {
             // flow's commit carries the selection through to a real order —
             // see commitOnboardingEvent. Do not copy these two props to a
             // mount whose commit ignores them.
-            selection={papicSelection}
-            onSelectionChange={setPapicSelection}
+            selection={servicesSelection}
+            onSelectionChange={setServicesStepSelection}
           />
         </div>
       );

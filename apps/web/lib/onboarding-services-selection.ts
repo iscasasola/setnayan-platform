@@ -1,5 +1,5 @@
 /**
- * papic-onboarding-selection.ts — the PURE math behind the onboarding Papic
+ * onboarding-services-selection.ts — the PURE math behind the onboarding Papic
  * picker (owner 2026-08-11).
  *
  * ── WHAT THE OWNER ASKED FOR ────────────────────────────────────────────────
@@ -44,7 +44,7 @@ import type { PapicTypeView, PapicRungView } from '@/lib/onboarding/services-ste
  * product", which is the default and the whole reason the step can still be
  * finished for free.
  */
-export type PapicSelection = {
+export type ServicesStepSelection = {
   /** The chosen Pool rung's service_code, or null for the free grant alone. */
   poolRungKey: string | null;
   /** The chosen Papic One rung's service_code, or null when no camera is added. */
@@ -54,12 +54,29 @@ export type PapicSelection = {
    * `oneRungKey` is null; the two move together (see setOneCameras).
    */
   oneExtraCameras: number;
+  /**
+   * Setnayan AI, added at onboarding (owner 2026-08-11). A plain yes/no, because
+   * there is exactly one of it per event — no rung, no count.
+   *
+   * ⚠ NO PRICE AND NO SKU RIDES WITH IT, and that is not an oversight. Setnayan
+   * AI is priced PER EVENT TYPE, live in production: a wedding is one figure,
+   * most events another, the smallest another again, and a vendor-free event is
+   * not offered it at all. The figure is resolved server-side from the event's
+   * STORED type at mint time, so a boolean is the only thing the browser is
+   * allowed to have an opinion about. Sending a tier or an amount from here
+   * would let a tampered payload pick a cheaper one.
+   */
+  ai: boolean;
 };
 
-export const EMPTY_PAPIC_SELECTION: PapicSelection = {
+export const EMPTY_SERVICES_SELECTION: ServicesStepSelection = {
   poolRungKey: null,
   oneRungKey: null,
   oneExtraCameras: 0,
+  // OFF by default. It is the largest single figure on the screen — on many
+  // event types it is worth ten times the whole Papic side — so pre-ticking it
+  // would be adding the expensive thing to a couple's bill on their behalf.
+  ai: false,
 };
 
 /**
@@ -97,7 +114,7 @@ export function poolRungAt(type: PapicTypeView, step: number): PapicRungView | n
  * a rung mid-session) falls back to the free floor instead of silently pointing
  * at a different, possibly dearer, rung.
  */
-export function poolStepOf(type: PapicTypeView, selection: PapicSelection): number {
+export function poolStepOf(type: PapicTypeView, selection: ServicesStepSelection): number {
   if (!selection.poolRungKey) return 0;
   const i = type.rungs.findIndex((r) => r.key === selection.poolRungKey);
   return i === -1 ? 0 : i + 1;
@@ -117,9 +134,9 @@ export function poolPriceAt(type: PapicTypeView, step: number): number {
 /** Move the Pool stepper by ±1, clamped at both ends. Returns a new selection. */
 export function stepPool(
   type: PapicTypeView,
-  selection: PapicSelection,
+  selection: ServicesStepSelection,
   delta: number,
-): PapicSelection {
+): ServicesStepSelection {
   const next = clamp(poolStepOf(type, selection) + delta, 0, poolStepCount(type) - 1);
   return { ...selection, poolRungKey: poolRungAt(type, next)?.key ?? null };
 }
@@ -134,7 +151,7 @@ export function stepPool(
  */
 export function oneRungOf(
   type: PapicTypeView,
-  selection: PapicSelection,
+  selection: ServicesStepSelection,
 ): PapicRungView | null {
   if (type.rungs.length === 0) return null;
   const named = selection.oneRungKey
@@ -154,9 +171,9 @@ export function oneRungOf(
  */
 export function setOneCameras(
   type: PapicTypeView,
-  selection: PapicSelection,
+  selection: ServicesStepSelection,
   cameras: number,
-): PapicSelection {
+): ServicesStepSelection {
   const rung = oneRungOf(type, selection);
   const n = rung === null ? 0 : clamp(Math.trunc(cameras), 0, ONBOARDING_MAX_EXTRA_CAMERAS);
   return {
@@ -167,7 +184,7 @@ export function setOneCameras(
 }
 
 /** Switch which Papic One rung the extra cameras are bought at. */
-export function setOneRung(selection: PapicSelection, rungKey: string): PapicSelection {
+export function setOneRung(selection: ServicesStepSelection, rungKey: string): ServicesStepSelection {
   return {
     ...selection,
     oneRungKey: rungKey,
@@ -179,14 +196,14 @@ export function setOneRung(selection: PapicSelection, rungKey: string): PapicSel
 }
 
 /** What the extra cameras cost. Zero cameras — or no live rung — is free. */
-export function onePriceOf(type: PapicTypeView, selection: PapicSelection): number {
+export function onePriceOf(type: PapicTypeView, selection: ServicesStepSelection): number {
   const rung = oneRungOf(type, selection);
   if (!rung || selection.oneExtraCameras <= 0) return 0;
   return rung.pricePhp * selection.oneExtraCameras;
 }
 
 /** Total dedicated cameras the couple ends up with: the free one plus extras. */
-export function oneCameraTotal(type: PapicTypeView, selection: PapicSelection): number {
+export function oneCameraTotal(type: PapicTypeView, selection: ServicesStepSelection): number {
   return (type.freeCameras ?? 0) + Math.max(0, selection.oneExtraCameras);
 }
 
@@ -198,15 +215,26 @@ export function oneCameraTotal(type: PapicTypeView, selection: PapicSelection): 
  * order — the browser chooses WHAT, the server decides the peso figure. This
  * exists so the couple sees a running total while they press the buttons.
  */
-export function quotePapicSelection(
+export function quoteServicesStepSelection(
   types: readonly PapicTypeView[],
-  selection: PapicSelection,
-): { poolPhp: number; onePhp: number; totalPhp: number } {
+  selection: ServicesStepSelection,
+  /**
+   * The event's own Setnayan AI price, already resolved for THIS event type
+   * (view.ai.pricePhp). Null / 0 when the card is not offered at all.
+   */
+  aiPricePhp: number | null = null,
+): { poolPhp: number; onePhp: number; aiPhp: number; papicPhp: number; totalPhp: number } {
   const pool = types.find((t) => t.id === 'pool');
   const one = types.find((t) => t.id === 'one');
   const poolPhp = pool ? poolPriceAt(pool, poolStepOf(pool, selection)) : 0;
   const onePhp = one ? onePriceOf(one, selection) : 0;
-  return { poolPhp, onePhp, totalPhp: poolPhp + onePhp };
+  const aiPhp = selection.ai && aiPricePhp && aiPricePhp > 0 ? aiPricePhp : 0;
+  // `papicPhp` is kept SEPARATE from the grand total on purpose (owner
+  // 2026-08-11, confirming "yes it can be just 50 and 499"): on many event types
+  // the whole Papic side is a few tens of pesos and the planner is several
+  // hundred, so folding them into one number makes Papic look like the thing
+  // that got expensive. The screen shows two lines.
+  return { poolPhp, onePhp, aiPhp, papicPhp: poolPhp + onePhp, totalPhp: poolPhp + onePhp + aiPhp };
 }
 
 /**
@@ -214,11 +242,20 @@ export function quotePapicSelection(
  * and so whether the couple is sent to a payment page or straight to their
  * dashboard.
  */
-export function selectionHasPurchase(selection: PapicSelection): boolean {
+export function selectionHasPurchase(selection: ServicesStepSelection): boolean {
   return (
     selection.poolRungKey !== null ||
-    (selection.oneRungKey !== null && selection.oneExtraCameras > 0)
+    (selection.oneRungKey !== null && selection.oneExtraCameras > 0) ||
+    selection.ai
   );
+}
+
+/** Toggle Setnayan AI. Its own setter so the AI card never touches Papic state. */
+export function setAi(
+  selection: ServicesStepSelection,
+  ai: boolean,
+): ServicesStepSelection {
+  return { ...selection, ai };
 }
 
 /**
@@ -229,8 +266,8 @@ export function selectionHasPurchase(selection: PapicSelection): boolean {
  * whether those keys name real, live, purchasable rungs is decided server-side
  * against the tier tables, exactly as the studio's own buy paths do.
  */
-export function parsePapicSelection(raw: unknown): PapicSelection {
-  if (!raw || typeof raw !== 'object') return EMPTY_PAPIC_SELECTION;
+export function parseServicesStepSelection(raw: unknown): ServicesStepSelection {
+  if (!raw || typeof raw !== 'object') return EMPTY_SERVICES_SELECTION;
   const o = raw as Record<string, unknown>;
   const key = (v: unknown): string | null =>
     typeof v === 'string' && v.trim().length > 0 && v.trim().length <= 64 ? v.trim() : null;
@@ -243,5 +280,11 @@ export function parsePapicSelection(raw: unknown): PapicSelection {
     // naming a rung with a zero count, or a count with no rung, buys nothing.
     oneRungKey: cameras > 0 ? oneRungKey : null,
     oneExtraCameras: oneRungKey === null ? 0 : cameras,
+    // Anything but a genuine yes is a no. `'true'` is accepted because the
+    // `/onboarding/simple` flow posts this as a FORM FIELD, where every value is
+    // a string and `Boolean('false')` is `true` — the classic way a checkbox
+    // ends up permanently ticked. Everything else, including 'false', '0', '',
+    // and a missing field, is false.
+    ai: o.ai === true || o.ai === 'true',
   };
 }

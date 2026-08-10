@@ -69,6 +69,16 @@ export type PapicCardView = {
 export type AiCardView = {
   /** Display price, e.g. "₱1,499". Resolved from the type's tier SKU. */
   priceLabel: string;
+  /**
+   * The same figure as a NUMBER, so the running total can add it up.
+   *
+   * ⚠ FOR DISPLAY ONLY, like every other peso figure the step carries. Setnayan
+   * AI is priced per EVENT TYPE and the authoritative charge is re-resolved
+   * server-side from the event's stored type at mint time — this exists so the
+   * couple can see what the tick costs while they decide, never so a client can
+   * tell the server what to bill.
+   */
+  pricePhp: number;
 };
 
 export type ServicesStepView = {
@@ -166,7 +176,9 @@ export function buildServicesStepView(input: {
   return {
     papic: { eventWord, types, currencyTerms: papicPointCurrencyTerms() },
     ai:
-      aiPricePhp != null && aiPricePhp > 0 ? { priceLabel: peso(aiPricePhp) } : null,
+      aiPricePhp != null && aiPricePhp > 0
+        ? { priceLabel: peso(aiPricePhp), pricePhp: aiPricePhp }
+        : null,
   };
 }
 

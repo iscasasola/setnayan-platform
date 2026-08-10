@@ -118,17 +118,17 @@ export type GenericOnboardingPayload = {
   /**
    * What the couple picked on the Papic services step (owner 2026-08-11) — the
    * shared-pool rung and how many dedicated cameras to add. Shape:
-   * `lib/papic-onboarding-selection.ts` · PapicSelection.
+   * `lib/onboarding-services-selection.ts` · ServicesStepSelection.
    *
    * ⚠ UNTRUSTED, and deliberately typed `unknown`. It carries service_codes and
    * a count and NO amount; the commit re-parses it and re-prices every rung
-   * from the live catalog (SEC-4). Typing it as PapicSelection here would
+   * from the live catalog (SEC-4). Typing it as ServicesStepSelection here would
    * suggest the server may trust its shape, which it may not.
    *
    * Absent / undefined ⇒ nothing was picked ⇒ no order. Every couple still gets
    * the free pool grant and the free dedicated camera.
    */
-  papicSelection?: unknown;
+  servicesSelection?: unknown;
 };
 
 export type GenericCommitResult =

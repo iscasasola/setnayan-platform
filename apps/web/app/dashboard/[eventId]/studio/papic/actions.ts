@@ -197,6 +197,88 @@ export async function createCoupleChallengeAction(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
+/**
+ * Add one of Setnayan's LIBRARY challenges to this event — the couple's story
+ * picker (owner 2026-08-10: "make more").
+ *
+ * 🔑 THE library_id IS THE POINT, NOT THE PROMPT. `createCoupleChallengeAction`
+ * above copies free text and leaves library_id NULL, which is right for
+ * something the couple wrote. Copying a LIBRARY prompt that way would look
+ * identical on screen and be wrong underneath: the board resolver dedupes the
+ * Setnayan auto-fill against `couple picks WHERE library_id = …`, so a
+ * library-less copy is invisible to that check and the same question lands on
+ * the board TWICE — once as theirs, once as ours. Always carry the id.
+ *
+ * 🔑 AND THE PROMPT IS READ FROM THE LIBRARY, NEVER FROM THE FORM. The form
+ * posts an id; the text comes from the table. A client-supplied prompt here
+ * would be free-text authoring wearing a library label — it would bypass
+ * nothing (the § 2.2 blocklist trigger still fires) but it would let any
+ * posted string be stamped with a library_id and inherit its dedup identity.
+ */
+export async function addLibraryChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const rawLibraryId = formData.get('library_id');
+  const libraryId = Number(typeof rawLibraryId === 'string' ? rawLibraryId : NaN);
+  if (!Number.isInteger(libraryId)) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const supabase = await createClient();
+
+  // The library is SELECT-granted to `authenticated`, so this runs as the
+  // couple — no admin client, no widened reach. `is_active` is re-checked here
+  // and not trusted from the render: the picker's list was built on a previous
+  // request and a row can be retired between the page load and the tap.
+  const { data: row, error } = await supabase
+    .from('papic_challenge_library')
+    .select('library_id,prompt,mission_type,capture_kind,is_active')
+    .eq('library_id', libraryId)
+    .eq('is_active', true)
+    .maybeSingle();
+  // A rejected read resolves with `{ error }` and a null row — it never throws.
+  // Falling through on that would insert a mission with an empty prompt, so the
+  // two cases are handled together and neither one writes.
+  if (error || !row) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  // Idempotent: tapping Add twice (or a double-submit) must not put the same
+  // question on the board twice. The picker already hides what is taken; this
+  // is the guard that survives a stale render.
+  const { data: existing } = await supabase
+    .from('papic_missions')
+    .select('mission_id')
+    .eq('event_id', eventId)
+    .eq('library_id', libraryId)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/studio/papic`);
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  await supabase.from('papic_missions').insert({
+    event_id: eventId,
+    mission_type: row.mission_type,
+    source: 'couple',
+    prompt: row.prompt,
+    library_id: row.library_id,
+    capture_kind: row.capture_kind,
+    approved: true,
+    is_active: true,
+  });
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
+}
+
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
  *  approved vendor, or the couple's own. Curation, not deletion. */
 export async function setCoupleChallengeActiveAction(formData: FormData) {

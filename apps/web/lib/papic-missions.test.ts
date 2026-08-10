@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   boothMissionPrompt,
   isMissionLive,
@@ -433,5 +434,80 @@ test('side token — every occurrence is replaced, not just the first', () => {
   assert.equal(
     displayChallengePrompt(`A story about ${CHALLENGE_SIDE_TOKEN} and what ${CHALLENGE_SIDE_TOKEN} said.`),
     `A story about ${CHALLENGE_SIDE_NEUTRAL} and what ${CHALLENGE_SIDE_NEUTRAL} said.`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The expanded story set (45–60, owner 2026-08-10 "make more") — SAFETY.
+//
+// The § 2.2 blocklist stops DARES. It does not stop tactlessness, and the
+// owner's constraint was "safe enough to share" — a question whose honest
+// answer embarrasses someone in front of both families is unsafe even though
+// every word passes the filter. These assert the wording rules the migration
+// commits to, so a future "fun" addition cannot quietly break them.
+// ---------------------------------------------------------------------------
+
+// Words that invite an answer nobody wants on a projector. Not a moderation
+// layer — a constraint on what we AUTHOR.
+const UNSAFE_STORY_ASKS = [
+  /\bembarrass/i, /\bwildest\b/i, /\bsecret/i, /\bnever told\b/i, /\bworst\b/i,
+  /\bregret/i, /\bex[- ]/i, /\bcheat/i, /\bdirt\b/i, /\bconfess/i,
+];
+
+test('story prompts ask for something good, never for dirt', () => {
+  // The shipped set, kept in step with the migrations by the db test that reads
+  // the real table; here they are the literals so a bad EDIT is caught too.
+  const shipped = [
+    'Share a story about your most memorable experience with {who}. Ten seconds.',
+    'Brag about {who} for ten seconds. Go.',
+    'What are you most proud of {who} for? Ten seconds.',
+    'The kindest thing {who} has ever done for you. Ten seconds.',
+    'The last time {who} made you laugh. Ten seconds — keep it kind.',
+    'What did you think the first time you met {who}? Ten seconds. Be nice.',
+    'When did you know these two were it? Ten seconds.',
+    'What will you tell their kids about them one day? Ten seconds.',
+  ];
+  for (const p of shipped) {
+    for (const bad of UNSAFE_STORY_ASKS) {
+      assert.ok(!bad.test(p), `story prompt invites an unsafe answer (${bad}): ${p}`);
+    }
+    // And none may trip the existing dare blocklist either.
+    assert.equal(isChallengePromptBlocked(p), false, `blocklist rejects: ${p}`);
+  }
+});
+
+test('the two prompts that could tip carry their steer IN the prompt', () => {
+  // "Funniest thing they did" and "first impression" are the two that can turn
+  // unkind. The steer has to be where the GUEST reads it — a rule in a doc is
+  // not a mechanism.
+  assert.match('The last time {who} made you laugh. Ten seconds — keep it kind.', /keep it kind/i);
+  assert.match('What did you think the first time you met {who}? Ten seconds. Be nice.', /be nice/i);
+});
+
+test('the couple picker writes library_id — the dedup identity, not just the words', () => {
+  // ⚠ A SOURCE SCAN, and a narrow one. The action is a cookie-bound server
+  // action, so the db test replicates the row it writes rather than invoking
+  // it — which proves the SHAPE works and NOT that the action still writes it.
+  // This closes that gap for the one field whose loss is silent: without
+  // library_id the board resolver's dedup (which matches couple picks BY
+  // library_id) cannot see the pick, and Setnayan's auto-fill puts the very
+  // same question on the board a second time. Identical on screen, wrong
+  // underneath — the failure shows up as a guest being asked twice.
+  const src = readFileSync(
+    new URL('../app/dashboard/[eventId]/studio/papic/actions.ts', import.meta.url),
+    'utf8',
+  );
+  const start = src.indexOf('export async function addLibraryChallengeAction');
+  assert.ok(start > 0, 'addLibraryChallengeAction must exist');
+  const body = src.slice(start, src.indexOf('\nexport ', start + 10));
+  assert.match(body, /\.from\('papic_missions'\)\s*\.insert\(/, 'it inserts a mission');
+  assert.match(body, /library_id:\s*row\.library_id/, 'the insert must carry the library id');
+  // And the prompt must come from the LIBRARY ROW, never from the posted form —
+  // otherwise any string could be stamped with a library id and inherit its
+  // dedup identity.
+  assert.match(body, /prompt:\s*row\.prompt/, 'the prompt is read from the library, not the form');
+  assert.ok(
+    !/prompt:\s*(prompt|formData)/.test(body),
+    'the prompt must never come from the submitted form',
   );
 });

@@ -119,7 +119,12 @@ test('the four story challenges exist, are active, and are clip-answered', async
   }
 });
 
-test('every story carries a rank — an unranked one could never reach a guest', async () => {
+// ⚠ SCOPED TO THE ORIGINAL FOUR (41–44), and the name says so. When the set
+// expanded to 20 (2026-08-10) most of the new ones ship UNRANKED on purpose —
+// they are reached by the couple's picker instead (see the last test). A test
+// called "every story carries a rank" would now be asserting something false
+// about the feature while passing, because its filter only ever saw four rows.
+test('the four ALWAYS-ON stories each carry a guaranteed rank', async () => {
   const r = await db.query<{ slug: string; priority_rank: number | null }>(
     `SELECT slug, priority_rank FROM public.papic_challenge_library WHERE slug = ANY($1)`,
     [[...STORY_SLUGS]],
@@ -212,4 +217,121 @@ test('the reader still fails CLOSED on a role-scoped mission', async () => {
     [F.bride, scoped],
   );
   assert.equal(seen.rows.length, 0, 'a role-scoped mission must not leak to an ordinary guest');
+});
+
+// ---------------------------------------------------------------------------
+// The expanded set (45–60, owner 2026-08-10 "make more").
+//
+// 🔑 These assert against the REAL table, so an edit to a prompt's wording in a
+// later migration is caught here even though the unit test holds literals.
+// ---------------------------------------------------------------------------
+
+const UNSAFE_STORY_ASKS = [
+  /\bembarrass/i, /\bwildest\b/i, /\bsecret/i, /\bnever told\b/i, /\bworst\b/i,
+  /\bregret/i, /\bex[- ]/i, /\bcheat/i, /\bdirt\b/i, /\bconfess/i,
+];
+
+test('the story set covers BOTH kinds — the one they know, and the two of them', async () => {
+  const r = await db.query<{ category: string; n: number | string }>(
+    `SELECT category, count(*) AS n FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple') AND is_active GROUP BY category`,
+  );
+  const by = new Map(r.rows.map((x) => [x.category, Number(x.n)]));
+  // "uplift the groom, bride" is delivered by the side token; "as a couple"
+  // can ONLY come from the untokenised set. Neither may be empty.
+  assert.ok((by.get('stories') ?? 0) >= 8, 'side-token stories present');
+  assert.ok((by.get('stories_couple') ?? 0) >= 8, 'couple stories present');
+});
+
+test('every story is clip-answered, says ten seconds, and asks for nothing unsafe', async () => {
+  const r = await db.query<{ slug: string; prompt: string; capture_kind: string }>(
+    `SELECT slug, prompt, capture_kind FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple')`,
+  );
+  assert.ok(r.rows.length >= 20, 'the full story set is seeded');
+  for (const row of r.rows) {
+    assert.equal(row.capture_kind, 'clip', `${row.slug} must be answered to camera`);
+    assert.match(row.prompt, /[Tt]en seconds/, `${row.slug} must state the length`);
+    for (const bad of UNSAFE_STORY_ASKS) {
+      assert.ok(!bad.test(row.prompt), `${row.slug} invites an unsafe answer (${bad})`);
+    }
+  }
+});
+
+test('side token appears in the side set and NEVER in the couple set', async () => {
+  const r = await db.query<{ slug: string; category: string; prompt: string }>(
+    `SELECT slug, category, prompt FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple')`,
+  );
+  for (const row of r.rows) {
+    const hasToken = row.prompt.includes('{who}');
+    if (row.category === 'stories') {
+      assert.ok(hasToken, `${row.slug} is a side story and must carry {who}`);
+    } else {
+      // A token here would silently turn an "about the two of you" question
+      // into a one-sided one — the couple picked it precisely to avoid that.
+      assert.ok(!hasToken, `${row.slug} is a COUPLE story and must not carry {who}`);
+    }
+  }
+});
+
+test('exactly six stories hold a guaranteed board slot — errands keep the rest', async () => {
+  const r = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple') AND priority_rank IS NOT NULL`,
+  );
+  // Ranking all of them would leave a 20-slot board with ZERO errands, and the
+  // errands are what walk a guest to the paid line items. If this number grows,
+  // that trade-off was made — make it on purpose.
+  assert.equal(Number(r.rows[0]!.n), 6, 'six ranked stories: 10 heroes + 6 stories + 4 errands');
+});
+
+test('the default board still asks about the two of them, not only about one side', async () => {
+  const r = await db.query<{ category: string }>(
+    `SELECT category FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple') AND priority_rank IS NOT NULL`,
+  );
+  assert.ok(
+    r.rows.some((x) => x.category === 'stories_couple'),
+    'at least one couple story must be on every board — 41-44 are all side-token',
+  );
+});
+
+test('an unranked story is still REACHABLE — the couple picker can add it', async () => {
+  // The whole reason 14 of these may ship unranked. If a library row is neither
+  // ranked nor addable, it is a dead row, and this is the assertion that says
+  // so out loud.
+  const pick = await db.query<{ library_id: number; prompt: string; mission_type: string; capture_kind: string }>(
+    `SELECT library_id, prompt, mission_type, capture_kind
+       FROM public.papic_challenge_library
+      WHERE category IN ('stories','stories_couple') AND priority_rank IS NULL AND is_active
+      ORDER BY library_id LIMIT 1`,
+  );
+  assert.equal(pick.rows.length, 1, 'there is an unranked story to pick');
+  const row = pick.rows[0]!;
+
+  // Exactly what addLibraryChallengeAction writes.
+  await db.query(
+    `INSERT INTO public.papic_missions
+       (event_id, mission_type, source, prompt, library_id, capture_kind, approved, is_active)
+     VALUES ($1, $2, 'couple', $3, $4, $5, true, true)`,
+    [F.event, row.mission_type, row.prompt, row.library_id, row.capture_kind],
+  );
+
+  // It reaches the guest, worded for their side, with no raw token.
+  const seen = await db.query<{ prompt: string }>(
+    `SELECT prompt FROM public.papic_guest_missions($1) WHERE library_id = $2`,
+    [F.groom, row.library_id],
+  );
+  assert.equal(seen.rows.length, 1, 'a picked story must reach the guest board');
+  assert.ok(!seen.rows[0]!.prompt.includes('{who}'), 'no raw token');
+
+  // 🔑 AND IT CARRIES ITS library_id, which is what stops the Setnayan
+  // auto-fill placing the very same question a second time.
+  const dup = await db.query<{ n: number | string }>(
+    `SELECT count(*) AS n FROM public.papic_missions
+      WHERE event_id = $1 AND library_id = $2`,
+    [F.event, row.library_id],
+  );
+  assert.equal(Number(dup.rows[0]!.n), 1, 'one row per library question per event');
 });

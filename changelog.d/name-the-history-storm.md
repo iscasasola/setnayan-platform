@@ -28,6 +28,8 @@ Rules it obeys, because a diagnostic that changes behaviour is worthless for dia
 - **Path only, never the query string** — this app's query strings can carry guest tokens, and a diagnostic must not become the thing that leaks one. Tested.
 - `keepalive` on the POST, because the page it reports from is about to die; without it the request goes with the document and the one piece of evidence never arrives.
 
+🔑 **INSTALLED AT MODULE SCOPE, NOT IN AN EFFECT — and that correction is the difference between getting an answer and not.** The failure kills the page during hydration, and if hydration dies, effects never run. A probe waiting for `useEffect` would install only on the loads that did not need it and report nothing on exactly the loads that did. Module scope in a client component runs when the chunk is evaluated, before React starts, so it is already watching.
+
 ⏭ **Remove this once the caller is identified.** It is marked temporary at the mount site.
 
 Verified: 8 probe tests · `tsc` clean · 20/20 `lint-*.mjs`.

@@ -510,6 +510,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     business_name: profile.business_name ?? '',
     business_owner_name: profile.business_owner_name ?? '',
     hq_address: profile.hq_address ?? '',
+    location_city: profile.location_city ?? '',
     hq_latitude: profile.hq_latitude ?? null,
     hq_longitude: profile.hq_longitude ?? null,
     contact_phone: profile.contact_phone ?? '',

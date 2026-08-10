@@ -247,7 +247,7 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
   const isPublished = formData.get('is_published') === 'on';
 
   const admin = createAdminClient();
-  const { error: updateErr } = await admin
+  const { data: updated, error: updateErr } = await admin
     .from('vendor_profiles')
     .update({
       business_name: businessName,
@@ -261,8 +261,20 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_profile_id', vendorProfileId)
-    .is('user_id', null);
+    .is('user_id', null)
+    // ── A FILTER THAT MATCHES NOTHING IS NOT AN ERROR ────────────────────────
+    // `.is('user_id', null)` is deliberate — it stops an admin overwriting a
+    // profile a vendor claimed mid-edit. But on a CLAIMED shop it matches zero
+    // rows and PostgREST returns no error, so the admin pressed Save, saw no
+    // complaint, and nothing changed. Silence that looks exactly like success.
+    // Asking for the rows back is what makes the refusal visible.
+    .select('vendor_profile_id');
   if (updateErr) throw new Error(updateErr.message);
+  if (!updated || updated.length === 0) {
+    throw new Error(
+      'This shop belongs to a vendor, so it can’t be edited here. Ask them to change it in My Shop — or approve a correction request from /admin/corrections.',
+    );
+  }
 
   // Best-effort geocode on save. Failures are silent; admin re-saves to
   // retry or sets coords manually via a future tool.

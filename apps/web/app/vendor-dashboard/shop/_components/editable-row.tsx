@@ -26,6 +26,7 @@ export type ProfileFieldData = {
   business_name: string;
   business_owner_name: string;
   hq_address: string;
+  location_city: string;
   /** Saved HQ pin (server geocode or a vendor-dragged map pin). Null until geocoded. */
   hq_latitude: number | null;
   hq_longitude: number | null;
@@ -915,6 +916,21 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
         placeholder="123 Katipunan Ave, Quezon City, Metro Manila"
         className="input-field"
       />
+      {/* ── THE CITY (added 2026-08-10) ────────────────────────────────────
+          Sits with the address because it is the same fact, and because this
+          was the only public claim a vendor could not change: there was no city
+          field anywhere on My Shop, and the admin editor refuses claimed shops.
+          A vendor who typed their street here at signup vanished from every
+          city search, permanently. */}
+      <input
+        name="location_city"
+        defaultValue={data.location_city}
+        onChange={onDirty}
+        maxLength={64}
+        placeholder="City"
+        aria-label="City"
+        className="input-field"
+      />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
@@ -958,6 +974,7 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
         <>
           <input type="hidden" name="hq_latitude" value={submitPin.lat.toFixed(6)} />
           <input type="hidden" name="hq_longitude" value={submitPin.lng.toFixed(6)} />
+
         </>
       ) : null}
     </div>

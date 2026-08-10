@@ -29,6 +29,17 @@ export const LOCKED_IDENTITY_FIELD_KEYS = [
   'services',
   'in_business_since_year',
   'logo_url',
+  // Added 2026-08-10. The city is what the marketplace FILTERS on, and it was
+  // the one public claim with no way to change it: no field on My Shop, and the
+  // only admin writer refuses claimed shops. A vendor who typed their street
+  // into it at signup — which prod shows happening — disappeared from every
+  // city search permanently, with nobody able to put it right.
+  //
+  // Locked rather than freely editable, for the same reason the address is: it
+  // is a claim about where the business physically is, checked against their
+  // DTI registration, BIR 2303 and Mayor's Permit. A verified shop must not be
+  // able to quietly relocate.
+  'location_city',
 ] as const;
 
 export type LockedIdentityFieldKey = (typeof LOCKED_IDENTITY_FIELD_KEYS)[number];
@@ -51,6 +62,7 @@ export const LOCKED_FIELD_LABEL: Record<LockedIdentityFieldKey, string> = {
   services: 'Services',
   in_business_since_year: 'In business since',
   logo_url: 'Logo',
+  location_city: 'City',
 };
 
 /** The exact copy surfaced when a verified vendor tries to edit a locked field. */

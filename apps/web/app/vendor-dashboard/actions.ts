@@ -410,6 +410,17 @@ export async function updateVendorProfileField(
     case 'maps_pin': {
       const v = nullIfBlank(formData.get('hq_address'));
       patch = { hq_address: v };
+      // The city travels WITH the address rather than as its own row, for two
+      // reasons. It is the same fact — a street and the city it is in — and
+      // splitting them invites the two to disagree. And a new checklist row
+      // would flip every existing vendor's Business Profile from complete to
+      // incomplete overnight for a field they were never asked for.
+      //
+      // `nullIfBlank`, not a blank-guard: clearing the city is a real edit here,
+      // unlike the signup wizard where an absent field means "not asked".
+      if (formData.has('location_city')) {
+        patch = { ...patch, location_city: nullIfBlank(formData.get('location_city')) };
+      }
       // Vendor-placed map pin (My Shop's inline editor posts hidden
       // hq_latitude/hq_longitude when the vendor dragged the pin, clicked the
       // map, or accepted a client-side geocode of THIS text): more precise than

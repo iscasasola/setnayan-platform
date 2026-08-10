@@ -212,6 +212,33 @@ export function isChallengePromptBlocked(prompt: string): boolean {
   return BLOCKED_PROMPT_RE.test(prompt);
 }
 
+// ── The {who} side token ───────────────────────────────────────────────────
+// The story challenges (library 41–44, owner 2026-08-10) store their prompt
+// with a `{who}` placeholder so the same board row can ask a bride-side guest
+// about THE BRIDE and a groom-side guest about THE GROOM. The substitution that
+// matters is done in SQL, per guest, by papic_guest_missions — that reader is
+// the only place that knows which guest is asking, because the board itself is
+// per EVENT and one row serves the whole wedding.
+//
+// 🔑 THIS HELPER IS FOR EVERY OTHER SCREEN. The couple's manager, the vendor
+// approval list and the vendor's delivered-photos page all read
+// papic_missions.prompt DIRECTLY out of the table, never through that reader —
+// so without this they render a literal "{who}" at the couple. None of those
+// readers has a side to resolve (the couple is not a side), so they get the
+// neutral wording, which is the one phrasing that is never wrong.
+//
+// A prompt with no token is returned unchanged, so this is a safe no-op on all
+// 40 shipped challenges and on every couple- or vendor-authored prompt. Call it
+// at the RENDER site rather than filtering on "is this a story challenge" — the
+// token is the only thing that decides, and a new tokenised prompt then needs
+// no second edit here.
+export const CHALLENGE_SIDE_TOKEN = '{who}';
+export const CHALLENGE_SIDE_NEUTRAL = 'the couple';
+
+export function displayChallengePrompt(prompt: string): string {
+  return prompt.split(CHALLENGE_SIDE_TOKEN).join(CHALLENGE_SIDE_NEUTRAL);
+}
+
 // A vendor's own custom challenge for an event (from the papic_vendor_challenges
 // RPC): the copy + its approval/active status + a completion count (a non-PII
 // aggregate — the photos themselves stay DPO-gated in a later phase).

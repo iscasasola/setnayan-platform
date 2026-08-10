@@ -6,6 +6,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { fetchVendorChallengePhotos } from '@/lib/papic-games';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 
 export const metadata = { title: 'Challenge photos · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -101,7 +102,7 @@ export default async function VendorChallengePhotosPage({
       ) : (
         sections.map((s, i) => (
           <div key={i} className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
-            <p className="text-sm font-medium text-ink">{s.prompt}</p>
+            <p className="text-sm font-medium text-ink">{displayChallengePrompt(s.prompt)}</p>
             <p className="mt-0.5 text-xs text-ink/45">
               {s.tiles.length} shared {s.tiles.length === 1 ? 'shot' : 'shots'}
             </p>

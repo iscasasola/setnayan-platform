@@ -9,6 +9,9 @@ import {
   vendorChallengeStatus,
   resolveChallengeBoard,
   isChallengePromptBlocked,
+  displayChallengePrompt,
+  CHALLENGE_SIDE_TOKEN,
+  CHALLENGE_SIDE_NEUTRAL,
   BOARD_SIZE,
 } from './papic-missions';
 import type {
@@ -104,12 +107,28 @@ test('vendorChallengeStatus maps approved/active to a lifecycle', () => {
 // (priority_rank 1..10; library #5 = Pabati). NOTE: this validates the ALGORITHM,
 // not the SQL — the SQL applies against a real DB.
 // ---------------------------------------------------------------------------
-const RANK: Record<number, number> = { 1: 1, 40: 2, 5: 3, 2: 4, 15: 5, 38: 6, 4: 7, 18: 8, 6: 9, 22: 10 };
-const CLIPS = new Set([1, 4, 12, 15, 16, 17, 19, 20, 21, 25, 32, 37, 38, 40]);
+// Ranks 1..10 = the §9.4 Top-10 heroes. Ranks 11..14 = the four STORY
+// challenges (library 41–44, owner 2026-08-10) — see LIBRARY_SIZE below for why
+// their rank is the whole point.
+const RANK: Record<number, number> = {
+  1: 1, 40: 2, 5: 3, 2: 4, 15: 5, 38: 6, 4: 7, 18: 8, 6: 9, 22: 10,
+  41: 11, 42: 12, 43: 13, 44: 14,
+};
+const CLIPS = new Set([1, 4, 12, 15, 16, 17, 19, 20, 21, 25, 32, 37, 38, 40, 41, 42, 43, 44]);
+
+// 🔑 44, NOT 40 — AND THE STORY IDS MUST CARRY A RANK.
+// The board is 20 slots and the Setnayan lane backfills by (rank NULLS LAST,
+// library_id). With 40 ranked-or-low-id rows ahead of them, story rows added at
+// 41–44 with a NULL rank would sort dead last and NEVER be placed — and no other
+// surface reads the library (the couple's manager has no picker), so they would
+// be unreachable by any human. Drop the four RANK entries above and T-STORY-1
+// goes red: that is the whole guard.
+const STORY_IDS = [41, 42, 43, 44] as const;
+const LIBRARY_SIZE = 44;
 
 function makeLibrary(): ChallengeLibraryItem[] {
   const lib: ChallengeLibraryItem[] = [];
-  for (let id = 1; id <= 40; id++) {
+  for (let id = 1; id <= LIBRARY_SIZE; id++) {
     lib.push({
       libraryId: id,
       priorityRank: RANK[id] ?? null,
@@ -139,7 +158,8 @@ function laneKeys(board: BoardEntry[], lane: 'couple' | 'vendor'): string[] {
 test('T1 — empty event, Pabati active → 20 Setnayan by rank then library order', () => {
   const board = resolveChallengeBoard({ couplePicks: [], vendorMissions: [], library: makeLibrary(), pabatiActive: true });
   assert.equal(board.length, BOARD_SIZE);
-  assert.deepEqual(setnayanIds(board), [1, 40, 5, 2, 15, 38, 4, 18, 6, 22, 3, 7, 8, 9, 10, 11, 12, 13, 14, 16]);
+  // 10 heroes (ranks 1–10) → 4 stories (ranks 11–14) → 6 errands by library id.
+  assert.deepEqual(setnayanIds(board), [1, 40, 5, 2, 15, 38, 4, 18, 6, 22, 41, 42, 43, 44, 3, 7, 8, 9, 10, 11]);
   // board_slot is 1..20, contiguous and ordered.
   assert.deepEqual(board.map((b) => b.slot), Array.from({ length: 20 }, (_, i) => i + 1));
 });
@@ -175,18 +195,19 @@ test('T4 — couple picks the Top-5 as library items → no duplication, backfil
   });
   const ids = setnayanIds(board);
   for (const hero of [1, 40, 5, 2, 15]) assert.ok(!ids.includes(hero), `#${hero} must not appear twice`);
-  assert.deepEqual(ids, [38, 4, 18, 6, 22, 3, 7, 8, 9, 10]);
+  assert.deepEqual(ids, [38, 4, 18, 6, 22, 41, 42, 43, 44, 3]);
   assert.equal(board.length, BOARD_SIZE);
 });
 
-test('T5 — couple picks all Top-10 → Setnayan is pure library-order backfill', () => {
+test('T5 — couple picks all Top-10 → stories lead, then library-order backfill', () => {
   const board = resolveChallengeBoard({
     couplePicks: couple(1, 40, 5, 2, 15, 38, 4, 18, 6, 22),
     vendorMissions: [],
     library: makeLibrary(),
     pabatiActive: true,
   });
-  assert.deepEqual(setnayanIds(board), [3, 7, 8, 9, 10, 11, 12, 13, 14, 16]);
+  // Taking all ten heroes leaves ranks 11–14 at the head of the remainder.
+  assert.deepEqual(setnayanIds(board), [41, 42, 43, 44, 3, 7, 8, 9, 10, 11]);
 });
 
 test('T6 — 8 vendor missions → capped at 5, PAID before booth', () => {
@@ -273,7 +294,7 @@ test('veto — couple hides a Top-5 hero → excluded, board backfills the next 
   const ids = setnayanIds(board);
   assert.ok(!ids.includes(40), 'a vetoed hero is never resurrected');
   assert.equal(board.length, BOARD_SIZE, 'veto wins but the board still fills to 20');
-  assert.ok(ids.includes(17), 'backfill pulls in the next item that would otherwise be off-board');
+  assert.ok(ids.includes(12), 'backfill pulls in the next item that would otherwise be off-board');
 });
 
 test('face_verified library items are never placed (dormant face model)', () => {
@@ -306,4 +327,111 @@ test('minor-safety guard blocks drinking dares, allows a toast', () => {
   for (const ok of ['Toast with your drink — any drink counts', 'Dance with grandma', "Order the couple's signature mocktail"]) {
     assert.equal(isChallengePromptBlocked(ok), false, `should allow: ${ok}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Story challenges (library 41–44, owner 2026-08-10) — REACHABILITY.
+//
+// 🔑 The whole risk with these rows is that they ship INVISIBLE. Adding library
+// rows changes nothing a guest can see unless the board actually places them,
+// and the board is 20 slots deep over a 44-row library. These tests exist to
+// fail the moment a story stops being placed — not to restate the algorithm.
+// ---------------------------------------------------------------------------
+
+test('T-STORY-1 — an ordinary event places ALL FOUR stories on the guest board', () => {
+  // The common case by far: no couple picks, no booked vendors → the Setnayan
+  // lane fills all 20 slots on its own.
+  const board = resolveChallengeBoard({
+    couplePicks: [],
+    vendorMissions: [],
+    library: makeLibrary(),
+    pabatiActive: true,
+  });
+  const ids = setnayanIds(board);
+  for (const id of STORY_IDS) {
+    assert.ok(ids.includes(id), `story #${id} must reach the board — a story nobody is asked is not a feature`);
+  }
+});
+
+test('T-STORY-2 — a FULL couple lane + a FULL vendor lane still leaves no story room', () => {
+  // The worst case: 10 couple picks + 5 vendor missions leaves the Setnayan lane
+  // exactly 5 slots, and the Top-5 heroes take all of them. The stories rank
+  // BELOW the heroes deliberately — a wedding that has curated its own board
+  // keeps its own board. This asserts the documented trade-off rather than
+  // pretending the stories are always present.
+  const board = resolveChallengeBoard({
+    couplePicks: couple(null, null, null, null, null, null, null, null, null, null),
+    vendorMissions: vend(
+      { key: 'v1', paid: true }, { key: 'v2', paid: true }, { key: 'v3', paid: false },
+      { key: 'v4', paid: false }, { key: 'v5', paid: false },
+    ),
+    library: makeLibrary(),
+    pabatiActive: true,
+  });
+  const ids = setnayanIds(board);
+  assert.equal(ids.length, 5);
+  for (const id of STORY_IDS) assert.ok(!ids.includes(id), `story #${id} yields to a curated board`);
+});
+
+test('T-STORY-3 — an UNRANKED story would never be placed (why the rank is load-bearing)', () => {
+  // Sabotage: strip the four ranks, exactly as "just add the rows" would have.
+  // This is the failure the migration exists to prevent, asserted directly.
+  const lib = makeLibrary().map((l) =>
+    (STORY_IDS as readonly number[]).includes(l.libraryId) ? { ...l, priorityRank: null } : l,
+  );
+  const ids = setnayanIds(
+    resolveChallengeBoard({ couplePicks: [], vendorMissions: [], library: lib, pabatiActive: true }),
+  );
+  for (const id of STORY_IDS) {
+    assert.ok(!ids.includes(id), `#${id} unranked must fall off — proving the rank is what makes it reachable`);
+  }
+});
+
+test('T-STORY-4 — the couple can veto a story like any other challenge', () => {
+  const ids = setnayanIds(
+    resolveChallengeBoard({
+      couplePicks: [],
+      vendorMissions: [],
+      library: makeLibrary(),
+      vetoedLibraryIds: [43], // "When It Mattered" — the heaviest of the four
+      pabatiActive: true,
+    }),
+  );
+  assert.ok(!ids.includes(43), 'a vetoed story stays off, same as a vetoed hero');
+  assert.ok(ids.includes(41) && ids.includes(42) && ids.includes(44), 'the other three are untouched');
+});
+
+// ---------------------------------------------------------------------------
+// The {who} side token — the NON-guest render path.
+// The per-guest substitution is SQL (papic_guest_missions) and is covered by the
+// db test; this covers every screen that reads papic_missions.prompt directly.
+// ---------------------------------------------------------------------------
+
+test('side token — a story prompt never renders the raw token to the couple', () => {
+  const stored = 'Share a story about the first time you met {who}. Ten seconds.';
+  const shown = displayChallengePrompt(stored);
+  assert.equal(shown, 'Share a story about the first time you met the couple. Ten seconds.');
+  assert.ok(!shown.includes(CHALLENGE_SIDE_TOKEN), 'the raw token must never reach a screen');
+});
+
+test('side token — a prompt without the token is returned byte-identical', () => {
+  // All 40 shipped challenges plus every couple/vendor free-text prompt take
+  // this path. If this ever changes, the helper has become a rewriter.
+  for (const p of [
+    'Catch the newlyweds mid-kiss.',
+    'Sneak onto the floor and dance with the bride or groom. Now. Go.',
+    "Get a photo at Elena's Flowers's booth",
+    '',
+  ]) {
+    assert.equal(displayChallengePrompt(p), p);
+  }
+});
+
+test('side token — every occurrence is replaced, not just the first', () => {
+  // A future prompt could name the side twice ("...with {who}, and what {who}
+  // said"). A single-shot replace would leave a raw token mid-sentence.
+  assert.equal(
+    displayChallengePrompt(`A story about ${CHALLENGE_SIDE_TOKEN} and what ${CHALLENGE_SIDE_TOKEN} said.`),
+    `A story about ${CHALLENGE_SIDE_NEUTRAL} and what ${CHALLENGE_SIDE_NEUTRAL} said.`,
+  );
 });

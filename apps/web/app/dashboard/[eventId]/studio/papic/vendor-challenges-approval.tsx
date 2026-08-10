@@ -9,6 +9,7 @@ import { Trophy, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 import { reviewVendorChallengeAction } from './actions';
 
 type PendingRow = { mission_id: string; prompt: string };
@@ -46,7 +47,7 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
             key={m.mission_id}
             className="rounded-xl border border-ink/10 bg-cream/70 p-4"
           >
-            <p className="text-sm text-ink/90">{m.prompt}</p>
+            <p className="text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <form action={reviewVendorChallengeAction}>
                 <input type="hidden" name="event_id" value={eventId} />

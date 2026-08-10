@@ -9,7 +9,7 @@ import { Trophy, Eye, EyeOff, Trash2, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
-import type { PapicMissionSource } from '@/lib/papic-missions';
+import { displayChallengePrompt, type PapicMissionSource } from '@/lib/papic-missions';
 import {
   createCoupleChallengeAction,
   setCoupleChallengeActiveAction,
@@ -109,7 +109,10 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
                     >
                       {badge.label}
                     </span>
-                    <p className="mt-1 text-sm text-ink/90">{m.prompt}</p>
+                    {/* The story challenges store a {who} side token that the
+                        guest reader swaps per guest. The couple is not a side,
+                        so they see the neutral wording — never the raw token. */}
+                    <p className="mt-1 text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
                     {!m.is_active ? (
                       <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
                     ) : null}

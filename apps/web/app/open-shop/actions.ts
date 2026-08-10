@@ -12,6 +12,7 @@ import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
+import { parseCoordPair } from '@/lib/parse-coord';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
@@ -350,11 +351,18 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // admin already set — this action's "blanks never clobber" contract.
   // Parsed and range-checked here rather than trusted: they arrive from a form,
   // and a NaN would be written straight into a numeric column.
-  const lat = Number(formData.get('hq_latitude'));
-  const lng = Number(formData.get('hq_longitude'));
-  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-    patch.hq_latitude = lat;
-    patch.hq_longitude = lng;
+  //
+  // 🔴 THIS IS WHERE NULL ISLAND CAME FROM. The guard here used to read
+  // `Number(formData.get('hq_latitude'))` and then check finiteness and range —
+  // which sounds thorough and is not, because `Number(null)` is 0, and 0 is
+  // both finite and inside ±90. A vendor who never dropped a pin was written to
+  // 0,0: open ocean off Ghana, ~10,000 km from every Philippine wedding, so the
+  // shop silently vanished from every distance filter while its own dashboard
+  // looked perfect. Measured in prod 2026-08-10.
+  const pin = parseCoordPair(formData.get('hq_latitude'), formData.get('hq_longitude'));
+  if (pin) {
+    patch.hq_latitude = pin.lat;
+    patch.hq_longitude = pin.lng;
   }
   const { error: updErr } = await admin
     .from('vendor_profiles')

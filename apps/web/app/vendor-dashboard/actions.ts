@@ -32,6 +32,7 @@ import {
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
+import { parseCoordPair } from '@/lib/parse-coord';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -415,15 +416,13 @@ export async function updateVendorProfileField(
       // any server re-geocode of the address — save it directly and skip the
       // Nominatim round-trip. Absent/malformed coords fall through to today's
       // geocode path unchanged.
-      const parseCoord = (raw: FormDataEntryValue | null, absMax: number): number | null => {
-        if (typeof raw !== 'string' || raw.trim() === '') return null;
-        const n = Number(raw.trim());
-        return Number.isFinite(n) && Math.abs(n) <= absMax ? n : null;
-      };
-      const lat = parseCoord(formData.get('hq_latitude'), 90);
-      const lng = parseCoord(formData.get('hq_longitude'), 180);
-      if (v && lat !== null && lng !== null) {
-        patch = { ...patch, hq_latitude: lat, hq_longitude: lng };
+      // This copy was already CORRECT — it string-checked before coercing. It
+      // moves to the shared helper anyway: three hand-written copies of one
+      // rule, two right and one wrong, is exactly how the wizard shipped the
+      // Null Island bug while this screen was fine.
+      const pin = parseCoordPair(formData.get('hq_latitude'), formData.get('hq_longitude'));
+      if (v && pin) {
+        patch = { ...patch, hq_latitude: pin.lat, hq_longitude: pin.lng };
       } else {
         geocodeAddress = v; // best-effort geocode below, same as the full form
       }

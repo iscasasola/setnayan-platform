@@ -19,6 +19,7 @@ import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
+import { parseCoordPair } from '@/lib/parse-coord';
 
 function err(message: string): BranchActionState {
   return { status: 'error', message };
@@ -182,17 +183,6 @@ function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
 }
 
 /** Parse an optional finite coordinate from a form field. */
-function parseCoord(
-  raw: FormDataEntryValue | null,
-  lo: number,
-  hi: number,
-): number | null {
-  const s = String(raw ?? '').trim();
-  if (!s) return null;
-  const n = Number(s);
-  if (!Number.isFinite(n) || n < lo || n > hi) return null;
-  return n;
-}
 
 function revalidateBranchSurfaces() {
   revalidatePath('/vendor-dashboard/branches');
@@ -229,8 +219,15 @@ export async function createBranch(
   const address = String(formData.get('branch_address') ?? '')
     .trim()
     .slice(0, BRANCH_ADDRESS_MAX);
-  const lat = parseCoord(formData.get('branch_latitude'), -90, 90);
-  const lng = parseCoord(formData.get('branch_longitude'), -180, 180);
+  // Third copy of the same rule, folded into the shared helper. This one was
+  // correct too; the point is that a rule kept in one tested place cannot end
+  // up disagreeing with itself across screens.
+  const branchPin = parseCoordPair(
+    formData.get('branch_latitude'),
+    formData.get('branch_longitude'),
+  );
+  const lat = branchPin?.lat ?? null;
+  const lng = branchPin?.lng ?? null;
   const channelRaw = String(formData.get('channel') ?? '').trim();
 
   if (!label || label.length > BRANCH_LABEL_MAX) {

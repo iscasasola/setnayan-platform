@@ -73,6 +73,46 @@ test('the launcher offers /open-shop to someone with no shop', () => {
     'The row must be gated on the same flag the real shop rows use, so the ' +
       'create-door and a real shop row can never both render.',
   );
+  // Owner 2026-08-10: "place a button on the user home WHERE THE SHOP BUTTON
+  // WILL BE". That means inside the divided row list, ahead of the HQ row —
+  // shops are pushed to `spaces` before HQ. Rendered after the list instead, an
+  // admin with no shop reads it BELOW HQ, which is not the shop slot.
+  const list = src.indexOf('<OpenShopRow />');
+  const rows = src.indexOf('{spaces.map((space) => (');
+  assert.ok(
+    list > 0 && rows > 0 && list < rows,
+    'The create-door must render INSIDE the row list and BEFORE the mapped ' +
+      'space rows — that is where a real shop row sits.',
+  );
+});
+
+/**
+ * The visible words, which are an OWNER INSTRUCTION and not a style choice.
+ * The first release said "Open your shop"; the owner corrected it, because in a
+ * list where every other row takes you INTO something, "Open" reads as "go to
+ * my shop" — the one thing this row does not do.
+ */
+test('both doorways say "Create your shop", not "Open your shop"', () => {
+  for (const [name, path] of [
+    ['switcher', SWITCHER],
+    ['launcher', LAUNCHER],
+  ] as const) {
+    const src = readFileSync(path, 'utf8');
+    assert.ok(
+      src.includes('Create your shop'),
+      `${name}: the owner asked for "Create your shop" (2026-08-10).`,
+    );
+    // Comments explaining the rename legitimately quote the old label, so this
+    // checks only what a person can actually read on screen.
+    const visible = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    assert.ok(
+      !visible.includes('Open your shop'),
+      `${name}: "Open your shop" is back in the UI — it reads as "go to my ` +
+        `shop", which is what the owner corrected.`,
+    );
+  }
 });
 
 /**

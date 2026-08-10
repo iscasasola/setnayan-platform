@@ -190,7 +190,7 @@ function SwitcherPanelBody({
               <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
             </Link>
           ) : null}
-          {/* Open your shop — the SAME defect as Your Story above, in the same
+          {/* Create your shop — the SAME defect as Your Story above, in the same
               panel, found 2026-08-10: /open-shop is a finished wizard whose only
               doorways in the entire app were the PUBLIC /vendors marketing page
               and /vendor-dashboard/shop — which you can only reach if you
@@ -212,7 +212,7 @@ function SwitcherPanelBody({
               className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
               onClick={close}
             >
-              <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Open your shop
+              <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Create your shop
             </Link>
           ) : null}
           {data.isAnonymous ? (

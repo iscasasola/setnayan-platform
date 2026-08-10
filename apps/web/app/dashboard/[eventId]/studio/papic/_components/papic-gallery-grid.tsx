@@ -2,9 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Play, Download, Sparkles, X, Loader2, Gem } from 'lucide-react';
-import type { GalleryPhoto, GalleryTagSource } from '@/lib/papic-gallery';
-import { papicCaptureCost } from '@/lib/papic-cameras';
-import { PRESERVATION_BLOCK_POINTS } from '@/lib/papic-storage-telemetry';
+import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -46,9 +44,17 @@ export function PapicGalleryGrid({
   photos,
   eventId,
   kwentoDensity,
+  preservationTotals,
 }: {
   photos: GalleryPhoto[];
-  eventId?: string;
+  /**
+   * ⚠ REQUIRED. It was optional, so a caller that forgot it silently rendered a
+   * gallery with no preserve toggle, no sparkle and no meter — no build error,
+   * no visible cause. A missing event id must break the build, not the feature.
+   */
+  eventId: string;
+  /** Whole-event preservation counts. Null when the count could not be read. */
+  preservationTotals?: PreservationTotals | null;
   /** Map of photoId → story count. When provided, photos with ≥1 story get a
    *  small density dot in the lower-right corner of their thumbnail. */
   kwentoDensity?: Map<string, number>;
@@ -110,7 +116,7 @@ export function PapicGalleryGrid({
         </p>
       ) : null}
 
-      <PreservationMeterLine photos={photos} />
+      <PreservationMeterLine totals={preservationTotals ?? null} />
 
       {shown.length === 0 ? (
         <p className="text-sm text-ink/55">No photos in this view yet.</p>
@@ -350,50 +356,44 @@ function ShowcaseToggle({
 }
 
 /**
- * How much of the paid allowance the couple's kept originals use.
+ * ⚠ WHAT IS BEING KEPT SHARP — counted over the WHOLE event, or not shown.
  *
- * 🗣 A PERCENTAGE OF A COUNT — never a gigabyte, and never a raw point total.
- * Owner 2026-08-10: *"do not price by drive. price by number of photos and
- * videos"*, and ₱500 buys 5,000 Papic points. The points are DERIVED from
- * `papicCaptureCost`, the same currency every camera spends, so this line can
- * never disagree with what a capture actually cost.
+ * 🚨 THIS WAS COMPUTED FROM THE GALLERY ARRAY, which is capped at 120 per source.
+ * At a real wedding that made "N of M kept" and every percentage built on it
+ * plainly wrong — and wrong in the direction that looks plausible. It now takes
+ * a server-side count of the couple's own captures, and renders NOTHING when
+ * that count is unavailable: a zero here reads as "you are keeping none of your
+ * photos", which is the alarming thing to say when the truth is "we could not
+ * count".
  *
- * ⚠ Shown to everyone, not only payers. A couple who has bought nothing still
- * sees what they are holding — the bar is what makes "you are over what you paid
- * for" legible before it matters, rather than a surprise six months later.
+ * ⚠ NO PERCENTAGE, AND NO "FOREVER". The earlier version showed a share of a
+ * one-year allowance and told couples their picks stayed full resolution
+ * forever. Preservation is a PAID option (owner, 2026-08-10: *"no. not free"*)
+ * whose price is not yet set, and "forever" was retired on 2026-08-07. Showing a
+ * percentage of an allowance nobody has bought, against a promise we do not
+ * make, is two untruths in one line. What is true, and all that is said:
+ * everything is kept at full size until three months after the event ends, and
+ * releasing something never removes it — only its size changes.
  */
-function PreservationMeterLine({ photos }: { photos: GalleryPhoto[] }) {
-  const kept = photos.filter((p) => p.preserved);
-  const points = kept.reduce(
-    (n, p) => n + papicCaptureCost(p.kind === 'clip' ? 'clip' : 'photo'),
-    0,
-  );
-  if (photos.length === 0) return null;
-
-  const allowance = PRESERVATION_BLOCK_POINTS;
-  const pct = Math.round((points / allowance) * 100);
-  const over = points > allowance;
+function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }) {
+  if (!totals || totals.total === 0) return null;
 
   return (
     <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-xs font-medium text-ink/80">
-          {kept.length} of {photos.length} kept at full resolution
-        </p>
-        <p className={over ? 'font-mono text-xs text-terracotta' : 'font-mono text-xs text-ink/55'}>
-          {pct}%
-        </p>
-      </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-        <div
-          className={over ? 'h-full bg-terracotta' : 'h-full bg-success-500'}
-          style={{ width: `${Math.min(100, pct)}%` }}
-        />
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
-        {over
-          ? 'You are keeping more than one year of preservation covers. Release a few, or add another year — nothing is lost either way: everything stays in your gallery, just smaller.'
-          : 'Everything is kept sharp by default. Anything you release stays in your gallery — it simply stops being held at full size.'}
+      <p className="text-xs font-medium text-ink/80">
+        <span className="tabular-nums">{totals.kept.toLocaleString('en-PH')}</span> of{' '}
+        <span className="tabular-nums">{totals.total.toLocaleString('en-PH')}</span> kept at full
+        size
+        {totals.released > 0 ? (
+          <>
+            {' '}— you released{' '}
+            <span className="tabular-nums">{totals.released.toLocaleString('en-PH')}</span>
+          </>
+        ) : null}
+      </p>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
+        Everything is kept at full size until three months after your event ends. Anything you
+        release stays in your gallery — only its size changes, and nothing is ever deleted.
       </p>
     </div>
   );

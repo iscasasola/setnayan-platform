@@ -405,3 +405,72 @@ export async function fetchTeaserFrames(
   );
   return frames.filter((f): f is TeaserFrame => Boolean(f.url));
 }
+
+/**
+ * ⚠ HOW MANY CAPTURES ARE BEING KEPT SHARP — counted over the WHOLE event.
+ *
+ * 🚨 THE DEFECT THIS EXISTS TO FIX. The preservation meter was computed from the
+ * gallery array, and `fetchPapicGallery` caps each source at GALLERY_LIMIT (120).
+ * At a real wedding — thousands of captures — "412 of 240 kept" and every
+ * percentage built on it are simply wrong, and wrong in the direction that looks
+ * plausible. A number a couple cannot check is worse than no number.
+ *
+ * ⚠ VENDOR CAPTURES ARE EXCLUDED FROM BOTH HALVES. They belong to the supplier,
+ * are never preservable by the couple, and counting them inflates the
+ * denominator so the couple appears to be keeping less of their own event than
+ * they are.
+ *
+ * ⚠ ALREADY-COMPRESSED CAPTURES ARE EXCLUDED TOO. Once the full-resolution
+ * original has been replaced there is nothing left to keep, so counting it as
+ * "not kept" would invite a couple to act on a choice that no longer exists.
+ *
+ * Returns null on ANY read failure — the caller then shows nothing rather than a
+ * confident zero. Zero reads as "you are keeping none of your photos", which is
+ * exactly the alarming thing to say when the truth is "we could not count".
+ */
+export type PreservationTotals = {
+  /** Captures still held at full resolution (the default). */
+  kept: number;
+  /** Captures the couple has released. */
+  released: number;
+  /** kept + released — the couple's own captures that still have an original. */
+  total: number;
+};
+
+export async function fetchPreservationTotals(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PreservationTotals | null> {
+  if (!eventId) return null;
+
+  const countOf = async (
+    table: 'papic_photos' | 'papic_guest_captures',
+    declined: boolean,
+  ): Promise<number | null> => {
+    let q = supabase
+      .from(table)
+      .select('event_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('full_res_dropped_at', null);
+    q = declined ? q.not('preserve_declined_at', 'is', null) : q.is('preserve_declined_at', null);
+    const { count, error } = await q;
+    // A rejected query resolves with `{ error }` and a null count — it never
+    // throws. Treating that as 0 is how a failed read becomes a confident lie.
+    return error ? null : (count ?? 0);
+  };
+
+  const [seatKept, seatGone, guestKept, guestGone] = await Promise.all([
+    countOf('papic_photos', false),
+    countOf('papic_photos', true),
+    countOf('papic_guest_captures', false),
+    countOf('papic_guest_captures', true),
+  ]);
+
+  if (seatKept === null || seatGone === null || guestKept === null || guestGone === null) {
+    return null;
+  }
+
+  const kept = seatKept + guestKept;
+  const released = seatGone + guestGone;
+  return { kept, released, total: kept + released };
+}

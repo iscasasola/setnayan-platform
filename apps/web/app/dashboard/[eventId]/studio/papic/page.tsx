@@ -33,7 +33,7 @@ import {
   getDriveOAuthConfig,
   PAPIC_DRIVE_SUBFOLDERS,
 } from '@/lib/papic-drive';
-import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
@@ -1835,7 +1835,7 @@ async function GalleryPreviewCard({
   eventId: string;
 }) {
   const supabase = await createClient();
-  const [photos, densityRows, seesAll] = await Promise.all([
+  const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
     getKwentoDensity(eventId, 60),
     // Asked SEPARATELY on purpose — an RLS refusal on the two couple-only
@@ -1844,6 +1844,10 @@ async function GalleryPreviewCard({
     // was shown the vendor's documentation shots as if they were the whole
     // album.
     viewerSeesCoupleScopedPapic(supabase, eventId),
+    // ⚠ COUNTED SEPARATELY FROM THE GALLERY, over the WHOLE event. The gallery
+    // is capped at 120 per source, so a meter computed from it is wrong at any
+    // real wedding — and wrong in the direction that looks plausible.
+    fetchPreservationTotals(supabase, eventId),
   ]);
   const hasPhotos = photos.length > 0;
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
@@ -1873,7 +1877,12 @@ async function GalleryPreviewCard({
       </div>
 
       {hasPhotos ? (
-        <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />
+        <PapicGalleryGrid
+          photos={photos}
+          eventId={eventId}
+          kwentoDensity={kwentoDensity}
+          preservationTotals={preservationTotals}
+        />
       ) : (
         <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">

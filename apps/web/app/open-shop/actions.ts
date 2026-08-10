@@ -13,7 +13,7 @@ import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
 import { parseCoordPair } from '@/lib/parse-coord';
-import { parsePhPhone } from '@/lib/ph-phone';
+import { parseVendorPhone } from '@/lib/phone-rules';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import {
@@ -141,7 +141,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // Stored in its canonical `+63…` form rather than as typed, so the same
   // number written four ways is one value — which is what makes it comparable
   // later, and what stops a couple seeing a different spelling than an admin.
-  const phone = contactPhoneRaw ? parsePhPhone(contactPhoneRaw) : null;
+  // Checked against the country the pin landed in, via the one place that maps
+  // a country to its rules. One entry today; a second country is a new entry
+  // there rather than a change here.
+  const phone = contactPhoneRaw
+    ? parseVendorPhone(contactPhoneRaw, (clean(formData.get('hq_country'), 2) ?? '').toUpperCase())
+    : null;
   const contactPhone = phone?.ok ? phone.e164 : contactPhoneRaw;
   const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
@@ -417,6 +422,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (pin) {
     patch.hq_latitude = pin.lat;
     patch.hq_longitude = pin.lng;
+    // The country of the pin, recorded rather than assumed. Only written
+    // alongside real coordinates — a country with no pin is a claim about a
+    // place nobody marked. Shape-checked here as well as by the column's CHECK,
+    // because this is a server action reachable by direct POST.
+    const country = (clean(formData.get('hq_country'), 2) ?? '').toUpperCase();
+    if (/^[A-Z]{2}$/.test(country)) patch.hq_country = country;
   }
   const { error: updErr } = await admin
     .from('vendor_profiles')

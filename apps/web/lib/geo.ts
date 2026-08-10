@@ -194,6 +194,18 @@ export type GeocodedAddress = {
   longitude: number;
   /** Best-guess city/municipality; '' when the provider names none. */
   city: string;
+  /**
+   * ISO-3166 alpha-2 country of the match, UPPERCASED — 'PH' today.
+   *
+   * Nominatim has always returned this and we have always thrown it away, so
+   * every vendor's country has been an ASSUMPTION rather than a record. It is
+   * captured now, while there is only one, so that adding a second is a value
+   * flowing through rather than a schema change under live data.
+   *
+   * '' when the provider names none: a pin in open water resolves to nothing,
+   * and an empty string says "not known" where 'PH' would be a guess.
+   */
+  country: string;
   /** The provider's full display name for what it matched. */
   displayName: string;
 };
@@ -248,6 +260,7 @@ export async function geocodeAddressWithCity(
       latitude: lat,
       longitude: lng,
       city: typeof city === 'string' ? city : '',
+      country: typeof a.country_code === 'string' ? a.country_code.toUpperCase() : '',
       displayName:
         typeof first.display_name === 'string' ? first.display_name : trimmed,
     };
@@ -263,6 +276,18 @@ export type ReverseGeocodeResult = {
   /** Best-guess city/municipality for the pin (city → town → municipality →
    *  village → county, first that resolves). Empty string if none. */
   city: string;
+  /**
+   * ISO-3166 alpha-2 country of the match, UPPERCASED — 'PH' today.
+   *
+   * Nominatim has always returned this and we have always thrown it away, so
+   * every vendor's country has been an ASSUMPTION rather than a record. It is
+   * captured now, while there is only one, so that adding a second is a value
+   * flowing through rather than a schema change under live data.
+   *
+   * '' when the provider names none: a pin in open water resolves to nothing,
+   * and an empty string says "not known" where 'PH' would be a guess.
+   */
+  country: string;
   /** Full human-readable address line for the pin. */
   displayName: string;
 };
@@ -318,6 +343,7 @@ export async function reverseGeocodeNominatim(
       '';
     return {
       city: typeof city === 'string' ? city : '',
+      country: typeof a.country_code === 'string' ? a.country_code.toUpperCase() : '',
       displayName:
         typeof obj.display_name === 'string' ? obj.display_name : '',
     };

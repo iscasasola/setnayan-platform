@@ -35,19 +35,71 @@ const THREAD = '00000000-0000-4000-8000-00000000c4a7';
    1 · THE SHAPE RULE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('EVERY pathPrefix in the repo resolves to a kind the route can check', () => {
+/**
+ * What each discovered prefix root ACTUALLY carries, and therefore which table
+ * can confirm it.
+ *
+ * 🚨 THIS MAP IS THE FIX FOR A GUARD THAT COULD NOT FAIL. The previous version
+ * of this test scanned the repo, resolved each root, and accepted the answer if
+ * the kind was one of event/thread/order. But **'event' is the resolver's
+ * fall-through default**, so every unrecognised root resolved to 'event' and
+ * passed — which is precisely how `vendors/<vendorProfileId>` and
+ * `profile-photo/<authUserId>` shipped refused-403 with this test green. The
+ * old assertion proved the route KNEW A KIND. It never proved the check COULD
+ * PASS.
+ *
+ * 🔑 THE SCAN IS GENERATED, THIS SIDE IS DECLARED, AND THAT ASYMMETRY IS THE
+ * POINT. Two hand-typed lists drift together silently; a generated list checked
+ * against a declared one cannot. Add a new upload surface and this test fails
+ * until someone writes down which id its prefix carries — and writing that down
+ * is the moment the mistake becomes obvious.
+ */
+const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'user' | null> = {
+  // Genuinely an event id — the resolver's default is right for these.
+  editorial: 'event',
+  events: 'event',
+  'force-majeure': 'event',
+  handovers: 'event',
+  inspiration: 'event',
+  paperwork: 'event',
+  'payment-proof': 'event',
+  'payment-screenshots': 'event',
+  'zone-walkthroughs': 'event',
+  // Their own tables.
+  chat: 'thread',
+  payments: 'order',
+  vendors: 'vendor',
+  'profile-photo': 'user',
+  // No UUID in the prefix at all, so this module says nothing about them.
+  'merchant-qr': null,
+  onboarding: null,
+  papic: null,
+  refinements: null,
+  taxonomy: null,
+};
+
+/**
+ * How the route must confirm each kind. A table name for the three that name
+ * someone else's object; `null` for `user`, which names the CALLER and is
+ * answered by comparing ids — no read, so no dependence on a row a trigger
+ * creates.
+ */
+const KIND_TABLE: Record<string, string | null> = {
+  event: 'events',
+  thread: 'chat_threads',
+  order: 'orders',
+  vendor: 'vendor_profiles',
+  user: null,
+};
+
+test('EVERY pathPrefix root in the repo is DECLARED, not silently defaulted', () => {
   // 🚨 THIS TEST USED TO BE A HAND-TYPED LIST OF SIX PREFIXES, and that is
-  // exactly how `payments/<orderId>` shipped broken. It was never added to the
-  // list, so the list stayed green while the real call site was refused every
-  // single time. **Two hand-maintained things are not a guard; they drift
-  // together.** It is now an actual scan of the source.
-  //
-  // What it enforces: every prefix a component actually passes must resolve to
-  // a tenancy KIND the upload route knows how to verify. A new prefix family
-  // whose id is neither an event, a thread nor an order will fail here — at
-  // authoring time — instead of failing closed in a user's face with an upload
+  // exactly how `payments/<orderId>` shipped broken. Making it a real source
+  // scan fixed that half. This is the other half: the scan now has to agree
+  // with a declaration, so a root nobody has thought about fails HERE, at
+  // authoring time, instead of failing closed in a person's face with an upload
   // box that turns red and logs nothing.
-  const roots = new Set();
+  const roots = new Set<string>();
   for (const dir of ['app', 'components', 'lib']) {
     const base = join(process.cwd(), dir);
     if (!existsSync(base)) continue;
@@ -61,14 +113,75 @@ test('EVERY pathPrefix in the repo resolves to a kind the route can check', () =
 
   assert.ok(roots.size > 0, 'the scan found no pathPrefix call sites — the regex is stale');
 
-  const unhandled = [];
+  const undeclared = [...roots].filter((r) => !(r in ROOT_CARRIES)).sort();
+  assert.deepEqual(
+    undeclared,
+    [],
+    `new upload prefix root(s) with nothing written down about them: ${undeclared.join(', ')}. ` +
+      'Add each to ROOT_CARRIES saying which id it carries — and if that id is not an event id, ' +
+      'the resolver needs a root set and the route needs an arm, or every upload there is refused 403.',
+  );
+
+  // And the declaration has to match what the resolver actually does. Roots
+  // declared to carry no id are probed with a NON-uuid segment, because that is
+  // their real shape — `merchant-qr/bdo`, `papic/seat-3`. Appending a UUID to
+  // them would manufacture an id they never have and assert against a case that
+  // cannot occur.
   for (const root of roots) {
-    const kind = tenancyForPathPrefix(`${root}/${EVENT}`)?.kind;
-    // 'event' is the default and always checkable; thread and order have their
-    // own arms in the route. Anything else means the route cannot verify it.
-    if (!kind || !['event', 'thread', 'order'].includes(kind)) unhandled.push(root);
+    const expected = ROOT_CARRIES[root];
+    if (expected === null) {
+      assert.equal(
+        tenancyForPathPrefix(`${root}/plain-segment`),
+        null,
+        `prefix root '${root}' is declared to carry no id, but a plain segment still resolved to a tenancy`,
+      );
+      continue;
+    }
+    const actual = tenancyForPathPrefix(`${root}/${EVENT}`)?.kind ?? null;
+    assert.equal(
+      actual,
+      expected,
+      `prefix root '${root}' is declared to carry ${expected} but resolves to ${actual ?? 'null'}`,
+    );
   }
-  assert.deepEqual(unhandled, [], `these prefix roots resolve to no checkable tenancy: ${unhandled.join(', ')}`);
+});
+
+test('a vendor uploading to their OWN shop is not checked against events', () => {
+  // 🚨 THE LIVE BREAK, AND THE WORST ONE OF THE THREE. Everything a vendor
+  // sends about their shop is filed under `vendors/<vendorProfileId>` — the
+  // logo, portfolio and service photos, the payment QR, the booth poster, and
+  // the DTI registration, BIR 2303 and Mayor's Permit that verification runs
+  // on. Read as an event id, all of it was refused 403. Documents gate
+  // approval and approval gates a shop going public, so NO VENDOR COULD EVER
+  // BE VERIFIED.
+  //
+  // Measured in production: the shop `setnaprod` holds a logo under
+  // `vendors/<its own vendor id>/logo/…` — that UUID is its vendor_profile_id, and it
+  // matches no row in events or chat_threads. The object exists only because
+  // it predates this guard.
+  // Synthetic on purpose. The real prod id belongs in the finding, not in the
+  // repo — and the secret scanner is right about that: a high-entropy literal
+  // next to a name like AUTH is indistinguishable from a leaked key, and a
+  // scanner that had to tell them apart would be one that could be talked out
+  // of firing. What the test needs is the SHAPE of a uuid, which this has.
+  const VENDOR_SHOP = '00000000-0000-4000-8000-00000000ce11';
+  assert.deepEqual(tenancyForPathPrefix(`vendors/${VENDOR_SHOP}`), { kind: 'vendor', id: VENDOR_SHOP });
+  assert.notEqual(
+    tenancyForPathPrefix(`vendors/${VENDOR_SHOP}`)?.kind,
+    'event',
+    'a vendors prefix carries a vendor id — checking it against events refuses every vendor upload',
+  );
+  // The wizard's pre-profile logo path has no id and must stay unchecked: a
+  // vendor has no vendor_profile_id yet when they pick their logo.
+  assert.equal(tenancyForPathPrefix('vendors/unassigned/logo'), null);
+});
+
+test('changing your profile picture is not checked against events', () => {
+  // Found by sweeping all eighteen roots rather than stopping at the reported
+  // one. `profile-photo/<authUserId>` carries a user id, so it was refused for
+  // everyone, couple and vendor alike, on the only screen that offers it.
+  const SIGNED_IN_PERSON = '00000000-0000-4000-8000-0000000005e4';
+  assert.deepEqual(tenancyForPathPrefix(`profile-photo/${SIGNED_IN_PERSON}`), { kind: 'user', id: SIGNED_IN_PERSON });
 });
 
 test('a payments prefix demands the ORDER, never the event', () => {
@@ -91,10 +204,29 @@ test('the route checks each tenancy kind against its OWN table', () => {
   // A kind the resolver can return but the route cannot check would fail
   // closed exactly like the original bug, silently.
   const route = readFileSync(join(process.cwd(), 'app/api/upload/route.ts'), 'utf8');
-  assert.match(route, /kind === 'order'/, 'the route must handle order tenancy');
-  assert.match(route, /from\('orders'\)/, 'order tenancy must be checked against the orders table');
-  assert.match(route, /from\('events'\)/, 'event tenancy must still be checked against events');
-  assert.match(route, /from\('chat_threads'\)/, 'thread tenancy must still be checked against chat_threads');
+  // Every kind the resolver can return must have somewhere to be confirmed.
+  // A kind with no arm fails closed exactly like the original bug, silently.
+  for (const [kind, table] of Object.entries(KIND_TABLE)) {
+    if (table === null) continue;
+    assert.ok(
+      route.includes(`from('${table}')`),
+      `${kind} tenancy must be checked against ${table} — without an arm every upload under that prefix is refused 403`,
+    );
+  }
+  // `user` is the one kind confirmed by identity rather than a read.
+  assert.match(
+    route,
+    /tenancy\.id !== user\.id/,
+    'user tenancy must be confirmed against the caller\'s own id',
+  );
+  // And the kinds the resolver can actually produce must be exactly the kinds
+  // the table map covers, so neither side can grow without the other.
+  const produced = new Set(
+    ['events', 'chat', 'payments', 'vendors', 'profile-photo'].map(
+      (r) => tenancyForPathPrefix(`${r}/${EVENT}`)?.kind,
+    ),
+  );
+  assert.deepEqual([...produced].sort(), Object.keys(KIND_TABLE).sort());
 });
 
 test('chat is the one thread-rooted family', () => {

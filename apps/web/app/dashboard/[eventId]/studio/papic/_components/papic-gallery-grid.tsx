@@ -410,11 +410,12 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
         />
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-ink/55">
-        A photo is one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}. Keeping this much at
-        full size costs {formatPhp(annualPhp)} a year
-        {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. Everything stays
-        at full size until three months after your event ends — after that, anything you release
-        stays in your gallery, only smaller, and nothing is ever deleted.
+        Everything is kept at full size until three months after your event ends — that part is
+        included. <strong className="font-medium text-ink/70">After that</strong>, keeping this
+        much at full size would be {formatPhp(annualPhp)} a year
+        {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is one
+        credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}. Release anything you don&rsquo;t need
+        kept and it stays in your gallery, only smaller — nothing is ever deleted.
         {totals.released > 0 ? (
           <>
             {' '}You have released{' '}

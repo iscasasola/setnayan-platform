@@ -129,3 +129,24 @@ wolf on a colour token teaches you to skim past it.
 Mutation-tested: bill by item count (caught) · yearly price typed into the copy
 (caught) · block size typed into the copy (caught) · credits left unweighted
 (caught) · video cost typed in (caught) · plus the six from the earlier revision.
+
+### Owner ruling 2026-08-10 — everyone can choose, so the price is CONDITIONAL
+
+Owner: *"they can choose which should be preserved."* The picker is open to every
+couple, paid or not — what they pick decides the cost. No gate, which is what
+already shipped here: the toggle renders on every non-vendor capture.
+
+🚨 **But that exposed a wording problem worth fixing before anyone saw it.**
+Everything is kept **by default** — a couple picks what to RELEASE — so a couple
+who has done nothing still has every capture selected. The meter said *"Keeping
+this much at full size costs ₱500 a year"*, which presents a **bill** for a
+selection they never made, covering a period that is **free**.
+
+It now names the included window first, then states the figure conditionally:
+*everything is kept at full size until three months after your event ends — that
+part is included. After that, keeping this much would be ₱500 a year.*
+
+Guarded: the copy must say "would be", must name the free window as included,
+must state when it ends in the owner's own words, and a bare "costs ₱X a year" is
+rejected. Mutation-tested both ways — restoring the standing-bill wording, and
+dropping the free-window sentence — each caught.

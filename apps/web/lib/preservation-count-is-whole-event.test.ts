@@ -152,6 +152,30 @@ test('🚨 the meter promises no "forever" and claims no deletion', () => {
   );
 });
 
+test('🚨 the price reads as a FUTURE choice, never a standing bill', () => {
+  // Everything is kept by default (a couple picks what to RELEASE), so a couple
+  // who has done nothing still has every capture selected. Saying "keeping this
+  // costs ₱500 a year" to them presents a bill for a selection they never made
+  // and a period that is included free. The figure must be conditional and
+  // clearly after the free window.
+  const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
+  assert.match(
+    meter,
+    /would be \{formatPhp\(annualPhp\)\}/,
+    'the price must be conditional ("would be"), not stated as an amount owed',
+  );
+  assert.match(meter, /included/, 'the free window must be named as included');
+  assert.match(
+    meter,
+    /three months after your event ends/,
+    'and the free window must say when it ends, in the words the owner set',
+  );
+  assert.ok(
+    !/costs \{formatPhp/.test(meter),
+    'a bare "costs ₱X a year" reads as a debt for a choice the couple never made',
+  );
+});
+
 test('the meter stays silent when there is nothing to say', () => {
   const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
   assert.match(meter, /!totals\s*\|\|\s*totals\.total\s*===\s*0/, 'no totals, or none held → render nothing');

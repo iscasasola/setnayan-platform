@@ -13,6 +13,7 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { isShopLive } from '@/lib/vendor-visibility';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
@@ -60,12 +61,27 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const admin = createAdminClient();
   const { data: vendor } = await admin
     .from('vendor_profiles')
+    // The two liveness columns are spelled out rather than interpolated from
+    // SHOP_LIVE_COLUMNS: a template literal costs PostgREST's literal-type
+    // inference on the returned row. The constant remains the single place the
+    // pair is NAMED, and `one-definition-of-live.test.ts` is what keeps a call
+    // site from selecting only half of it.
     .select(
-      'vendor_profile_id, business_name, tagline, logo_url, services, location_city, is_published',
+      'vendor_profile_id, business_name, tagline, logo_url, services, location_city, public_visibility, verification_state',
     )
     .eq('business_slug', slug)
     .maybeSingle();
-  if (!vendor || !vendor.is_published) notFound();
+  // 🚨 THIS LINE READ `!vendor.is_published` AND 404'd FOR EVERY VENDOR ALIVE.
+  // Nothing in the approval flow writes that column — /admin/verify sets
+  // public_visibility + verification_state and never touches it, so a fully
+  // approved shop (the owner's own included, measured 2026-08-11) handed its
+  // own customers a not-found page. See `isShopLive` for the whole story.
+  //
+  // The gate is deliberately NOT loosened: an unapproved shop still 404s here,
+  // exactly as it does on its public shop page, because this screen publishes
+  // the business name, logo, tagline and services to anyone holding the slug.
+  // What changed is only WHICH definition of "approved" is asked.
+  if (!vendor || !isShopLive(vendor)) notFound();
 
   // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.

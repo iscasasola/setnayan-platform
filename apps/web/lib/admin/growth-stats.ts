@@ -385,7 +385,17 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
   try {
     [accountHolders, vendorsPublished, servicesActive] = await Promise.all([
       headCount(admin.from('users').select('*', HEAD)),
-      headCount(admin.from('vendor_profiles').select('*', HEAD).eq('is_published', true)),
+      // 🚨 WAS `.eq('is_published', true)` — a column the approval flow never
+      // writes, so "vendors published" reported 0 no matter how many shops were
+      // approved. A zero on a growth dashboard reads as a fact about the
+      // business, not as a broken query.
+      headCount(
+        admin
+          .from('vendor_profiles')
+          .select('*', HEAD)
+          .eq('public_visibility', 'verified')
+          .eq('verification_state', 'verified'),
+      ),
       headCount(admin.from('vendor_services').select('*', HEAD).eq('is_active', true)),
     ]);
   } catch (e) {

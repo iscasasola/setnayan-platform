@@ -377,7 +377,11 @@ export async function runAllFraudScoring(
   const { data: vendorRows } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id')
-    .eq('is_published', true);
+    // 🚨 WAS `.eq('is_published', true)` — nothing in the approval flow sets
+    // that column, so fraud detection has been running over an EMPTY vendor
+    // list. Same one definition as the RLS and every other reader.
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified');
   const vendorIds = ((vendorRows ?? []) as { vendor_profile_id: string }[]).map(
     (v) => v.vendor_profile_id,
   );

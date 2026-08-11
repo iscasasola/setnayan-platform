@@ -50,7 +50,9 @@ export function clampWallPhotoCount(n: number | null | undefined): number {
 // reasonably believe the wall was off — it was still running in every guest's
 // hand, because the guest surfaces gated on SKU ownership alone. This column
 // existed for exactly that choice and had ZERO readers and ZERO writers for
-// nine months: the third "gate with no handle" in this project.
+// nine months: the FIFTH "gate with no handle" here. (gates-have-handles.test.ts
+// already tracked four; it is registered there now, so removing the writer fails
+// the build instead of quietly making the wall uncontrollable again.)
 //
 // The venue projection does NOT consult this. It projects regardless
 // (owner-locked 2026-06-11) behind its own single-use screen code.

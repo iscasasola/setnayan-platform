@@ -11,7 +11,12 @@ import {
 } from './live-wall-logic';
 
 /**
- * THE LIVE PHOTO WALL'S GUEST PHONE MIRROR — the third "gate with no handle".
+ * THE LIVE PHOTO WALL'S GUEST PHONE MIRROR — the FIFTH "gate with no handle".
+ *
+ * (The task brief called it the third. `gates-have-handles.test.ts` already
+ * carried four: live_media_public, papic_face_mode, author_named_publicly,
+ * is_founder. Counting from the guard's own registry rather than from the brief
+ * is the point — the registry is evidence, the brief is a claim.)
  *
  * `events.live_photo_wall_visibility` shipped on 2026-11-04 and had ZERO
  * readers, ZERO writers and no database consumer but its own CHECK constraint
@@ -21,8 +26,8 @@ import {
  * code would reasonably believe the wall was off. It was still running in every
  * guest's hand.
  *
- * These tests exist because the previous three instances of this bug were all
- * green in CI. So they check two different things:
+ * These tests exist because every previous instance of this bug was green in
+ * CI. So they check two different things:
  *
  *   1. the pure decision (does 'off' actually close it?), and
  *   2. that the decision is REACHED — that no guest-facing wall surface can

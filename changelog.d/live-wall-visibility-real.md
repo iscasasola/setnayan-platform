@@ -12,7 +12,7 @@ hundred hands.
 `events.live_photo_wall_visibility` (migration `20261104000959`) had **zero
 readers, zero writers**, and no database consumer beyond its own CHECK
 constraint and the `events_host` projection. All five production events sat on
-the untouched default. This is the **third "gate with no handle"** in this
+the untouched default. This is the **fifth "gate with no handle"** in this
 project: a column that nothing writes, or nothing reads, silently disabling a
 shipped feature.
 

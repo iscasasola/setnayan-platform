@@ -3,8 +3,10 @@
 -- events.live_photo_wall_visibility shipped on 2026-11-04 (migration
 -- 20261104000959) and until today had ZERO readers, ZERO writers and ZERO
 -- database consumers beyond its own CHECK constraint and the events_host
--- projection. It is the third "gate with no handle" in this project: a column
--- that nothing writes, or nothing reads, silently disabling a shipped feature.
+-- projection. It is the FIFTH "gate with no handle" here — a column that nothing
+-- writes, or nothing reads, silently disabling a shipped feature. (Counted from
+-- gates-have-handles.test.ts, which already tracked four; the task brief that
+-- prompted this said "third", and the registry is the evidence.)
 --
 -- WHAT THE COLUMN IS FOR. The ₱2,500 SKU is titled "Live VENUE Photo Wall" and
 -- the couple's control card only ever talked about a venue projection and

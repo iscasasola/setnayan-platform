@@ -62,6 +62,10 @@ import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-fl
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import {
+  EMPTY_SERVICES_SELECTION,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
+import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
   ONBOARDING_DRAFT_TTL_DAYS,
@@ -1692,6 +1696,18 @@ export function OnboardingShell({
   const [mfDay, setMfDay] = useState('');
   const [committedEventId, setCommittedEventId] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
+  /**
+   * What the couple picked on the Papic services step (owner 2026-08-11).
+   *
+   * Held OUTSIDE `state` on purpose, so it is NOT written into the localStorage
+   * onboarding draft: it is a purchase intent, and a draft resumed days later
+   * that silently still carried "buy the biggest pool" would mint a charge
+   * nobody just agreed to. Starting empty means a resumed draft is free until
+   * the couple presses + on this visit — the free floor is always the default.
+   */
+  const [servicesSelection, setServicesStepSelection] = useState<ServicesStepSelection>(
+    EMPTY_SERVICES_SELECTION,
+  );
   const [commitError, setCommitError] = useState<string | null>(null);
   const committingRef = useRef(false);
   /* Finishing overlay — blocking "creating your dashboard" screen shown the instant
@@ -2932,7 +2948,19 @@ export function OnboardingShell({
     // overlay covers everything until the dashboard actually swaps in — no flash
     // of the onboarding underneath + no click-lag on Home/Guests/Services/Website/
     // More once they land (owner 2026-06-02).
-    const goToDashboard = (eventId: string, toServices = false) => {
+    const goToDashboard = (
+      eventId: string,
+      toServices = false,
+      /**
+       * Set only when the couple bought Papic shots or cameras on the services
+       * step (owner 2026-08-11) — the studio, carrying its payment banner. It
+       * sits BELOW every explicit destination below and below `nextPath`: a
+       * couple who tapped Purchase Now, or who arrived mid-errand from a vendor
+       * invite, asked to go somewhere, and the payment banner is waiting for
+       * them in the studio either way.
+       */
+      papicPaymentPath: string | null = null,
+    ) => {
       const base = `/dashboard/${eventId}`;
       // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
       // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
@@ -2952,8 +2980,9 @@ export function OnboardingShell({
             ? `${base}/vendors`
             // Plain "continue free" finish: if the couple was sent here from a
             // vendor-invite claim to create their first event, return them to it
-            // (vendor-invite/[slug]) to finish shortlisting; else land on Home.
-            : (nextPath ?? base);
+            // (vendor-invite/[slug]) to finish shortlisting; then the Papic
+            // payment page if they bought shots or cameras; else land on Home.
+            : (nextPath ?? papicPaymentPath ?? base);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
@@ -3024,6 +3053,12 @@ export function OnboardingShell({
       // Supabase captcha gates. Mint a Turnstile token so the commit succeeds
       // under captcha. No-op (undefined, instant) when Turnstile is unconfigured.
       payload.captchaToken = await mintTurnstileToken('onboarding');
+      // The Papic picks. Attached HERE rather than inside the memoized payload
+      // builder because the selection deliberately lives outside `state` (it
+      // must not reach the localStorage draft — see the useState above). A CLAIM
+      // only: the commit re-parses it and re-prices every rung from the live
+      // catalog, and no amount is sent from here.
+      payload.servicesSelection = servicesSelection;
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -3040,7 +3075,7 @@ export function OnboardingShell({
         // the onboarding before it proceeded to the dashboard"). Clearing the draft
         // above already makes a re-open blank; the committedEventId guard keeps the
         // persist effect from re-writing it. The overlay stays up, then we navigate.
-        goToDashboard(res.eventId, purchase);
+        goToDashboard(res.eventId, purchase, res.paymentPath ?? null);
       } else if (res.error === 'not_authenticated') {
         setFinishing(false);
         if (ANON_DRAFT_ENABLED) {
@@ -3088,7 +3123,14 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath]);
+    // ⚠ `servicesSelection` MUST stay in this list. It deliberately lives outside
+    // `state` (so it never reaches the localStorage draft), which means pressing
+    // + on the services step changes NO other dependency here. Without it this
+    // callback is never rebuilt after a pick and commits the selection it
+    // captured on its last render — in practice the empty one, so the couple's
+    // choice silently evaporates and they are charged nothing. Nothing errors;
+    // the order simply never exists. Caught by react-hooks/exhaustive-deps.
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection]);
 
   return (
     <div className="onbw">
@@ -4443,6 +4485,12 @@ export function OnboardingShell({
                    service list orders the two Papic products, and nothing more. */
                 interestedServices={state.interestedServices}
                 aiValue={servicesStepAiValue}
+                /* The picker (owner 2026-08-11). Safe to pass HERE because this
+                   flow's commit carries the selection through to a real order —
+                   see commitOnboardingWedding. Do not copy these two props to a
+                   mount whose commit ignores them. */
+                selection={servicesSelection}
+                onSelectionChange={setServicesStepSelection}
               />
             </section>
           ) : null}

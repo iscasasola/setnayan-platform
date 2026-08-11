@@ -4,10 +4,11 @@
  * The onboarding SERVICES STEP — two cards, one shared component, mounted by all
  * three onboarding flows (BUILD SPEC § 3 · prototype 2026-07-29).
  *
- * Card 1 · Papic — ALREADY ON and free by the time the couple gets here (the
- *   free pool grant + the free dedicated camera are armed at every commit path).
- *   So the card INFORMS; it never sells. No checkout, no cart, no price the
- *   couple has to act on. Upgrades live in the Papic studio.
+ * Card 1 · Papic — ALWAYS ON and always free at its floor (the free pool grant +
+ *   the free dedicated camera are armed at every commit path, whatever is picked
+ *   here). Since 2026-08-11 the card can also SELL: the couple sets how many
+ *   shots they want for the event and how many dedicated cameras to add, and
+ *   that becomes a real order at commit. See "THE PICKER" below.
  * Card 2 · Setnayan AI — introduced, never given away, and absent entirely on a
  *   vendor-free type. The gate is resolved server-side (services-step-server.ts);
  *   `view.ai === null` means it does not render at all.
@@ -39,6 +40,37 @@
  * onboarding. What a booked vendor may capture is the vendor's own decision on
  * their own console, and promising it here would sell the couple something
  * neither they nor we control.
+ *
+ * ── THE PICKER (owner 2026-08-11) ───────────────────────────────────────────
+ * Owner: *"how many shots do you want for this event? 50 - Free … then they can
+ * press + and minus. which will set how much they will pay. Or papic one (pick
+ * how many papic one) they want to add. so this can be their paywall for the
+ * onboarding. can add more later."*
+ *
+ * This REVERSES two of the owner's own earlier rulings — the 2026-06-21 "no
+ * paywall in onboarding" lock and the 2026-07-27 "Papic informs, never sells /
+ * NO checkout in onboarding" lock — at the owner's own instruction. The rest of
+ * both stands: `PAYWALL_SCREENS` in the wedding shell is untouched, and the
+ * retired bundle / à-la-carte tail stays out of the funnel. What comes back is
+ * ONE product's ladder, on the screen that was already showing it.
+ *
+ * 🔑 IT ASKS, IT DOES NOT BLOCK. Paying means a bank or GCash transfer that a
+ * human reconciles — up to 24 hours. A step that refused to finish until the
+ * money landed would lock every new couple out of their own dashboard
+ * overnight, so the free floor is always a complete, finishable answer and the
+ * order is minted ALONGSIDE the event, never in front of it.
+ *
+ * 🔑 + AND − WALK THE LADDER, NOT SINGLE SHOTS. There is no SKU for an
+ * arbitrary shot count; the Pool sells whole blocks. A free-running counter
+ * would display a quantity that cannot be ordered, priced or granted. See the
+ * long note in lib/onboarding-services-selection.ts — that module owns all of this
+ * arithmetic and is where its tests live.
+ *
+ * 🔒 THE CONTROLS ONLY APPEAR WHERE THE FLOW CAN TAKE THE ORDER — i.e. when the
+ * mount passes `selection` + `onSelectionChange`. A flow whose commit does not
+ * yet carry a selection renders the original read-only ladder, because a stepper
+ * that changes a price and then charges nothing is a fake door. Do NOT default
+ * these props to local state to "turn it on everywhere".
  */
 
 import { useMemo, type ReactNode } from 'react';
@@ -49,6 +81,22 @@ import {
   type PapicTypeView,
   type ServicesStepView,
 } from '@/lib/onboarding/services-step-data';
+import {
+  ONBOARDING_MAX_EXTRA_CAMERAS,
+  oneCameraTotal,
+  onePriceOf,
+  oneRungOf,
+  poolPriceAt,
+  poolShotsAt,
+  poolStepCount,
+  poolStepOf,
+  quoteServicesStepSelection,
+  setAi,
+  setOneCameras,
+  setOneRung,
+  stepPool,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 
 /** Copy that varies by product but not by event — keyed on the stable id. */
 const TYPE_COPY: Record<
@@ -74,9 +122,13 @@ const TYPE_COPY: Record<
       'A named camera with its own QR and its own shots — for your best friend, ' +
       'your ninang, the one person you trust to catch everything. Their shots ' +
       'never draw from the shared pool.',
+    // ⚠ "the same rungs" (plural) was true of the retired two-rung ladder.
+    // Papic One has had ONE price since 2026-08-11, and a reload buys exactly
+    // the same thing at exactly the same price — which is simpler to say and is
+    // the actual product rule, not a simplification of it.
     note:
       'One free camera to try it — then add as many dedicated cameras as you ' +
-      'want, and reload any of them with the same rungs when they run low. No ' +
+      'want, and top any of them up for the same price when they run low. No ' +
       'new QR needed.',
     Icon: UserRound,
   },
@@ -111,9 +163,193 @@ function LadderRow({
   );
 }
 
-function PapicType({ type, suggested }: { type: PapicTypeView; suggested: boolean }) {
+/**
+ * The − / + control. Deliberately the same gesture as the one on /pricing, so it
+ * is already familiar by the time a couple reaches the studio.
+ *
+ * Both buttons stay MOUNTED and are disabled at the ends rather than removed: a
+ * control that disappears from under the thumb mid-tap is how a couple ends up
+ * on a rung they did not choose.
+ */
+function Stepper({
+  value,
+  sub,
+  onDec,
+  onInc,
+  canDec,
+  canInc,
+  decLabel,
+  incLabel,
+}: {
+  value: string;
+  sub: string;
+  onDec: () => void;
+  onInc: () => void;
+  canDec: boolean;
+  canInc: boolean;
+  decLabel: string;
+  incLabel: string;
+}) {
+  const btn =
+    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 ' +
+    'text-xl leading-none text-ink/70 transition hover:bg-ink/[0.05] ' +
+    'disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent';
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <button type="button" onClick={onDec} disabled={!canDec} aria-label={decLabel} className={btn}>
+        −
+      </button>
+      <span className="min-w-0 flex-1 text-center">
+        <span className="block font-mono text-2xl font-semibold tabular-nums text-ink">
+          {value}
+        </span>
+        <span className="mt-0.5 block text-xs text-ink/55">{sub}</span>
+      </span>
+      <button type="button" onClick={onInc} disabled={!canInc} aria-label={incLabel} className={btn}>
+        +
+      </button>
+    </div>
+  );
+}
+
+/** The live price of whatever is currently picked, or the free label. */
+function PriceLine({ pricePhp }: { pricePhp: number }) {
+  return pricePhp > 0 ? (
+    <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-ink/[0.03] px-3 py-2">
+      <span className="text-sm text-ink/65">You&rsquo;ll pay</span>
+      <span className="font-mono text-base font-semibold tabular-nums text-ink">
+        {peso(pricePhp)}
+      </span>
+    </p>
+  ) : (
+    <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-terracotta/10 px-3 py-2">
+      <span className="text-sm text-ink/70">Included</span>
+      <span className="font-mono text-base font-semibold text-terracotta-700">Free</span>
+    </p>
+  );
+}
+
+/** The shared Pool: one stepper over the ladder, free floor at the bottom. */
+function PoolPicker({
+  type,
+  selection,
+  onChange,
+  eventWord,
+}: {
+  type: PapicTypeView;
+  selection: ServicesStepSelection;
+  onChange: (next: ServicesStepSelection) => void;
+  eventWord: string;
+}) {
+  const step = poolStepOf(type, selection);
+  const last = poolStepCount(type) - 1;
+  return (
+    <div className="mx-3 mb-3">
+      <p className="mb-2 text-sm font-medium text-ink">
+        How many shots do you want for this {eventWord}?
+      </p>
+      <Stepper
+        decLabel="Fewer shots"
+        incLabel="More shots"
+        value={pts(poolShotsAt(type, step))}
+        sub={step === 0 ? 'Yours already' : 'Shared by every camera'}
+        canDec={step > 0}
+        canInc={step < last}
+        onDec={() => onChange(stepPool(type, selection, -1))}
+        onInc={() => onChange(stepPool(type, selection, +1))}
+      />
+      <PriceLine pricePhp={poolPriceAt(type, step)} />
+      {step === last && last > 0 ? (
+        <p className="mt-2 text-center text-xs text-ink/45">
+          That&rsquo;s the biggest pool we sell in one go — add more any time from your
+          Papic studio.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Papic One: how many dedicated cameras to add, and at which size. */
+function OnePicker({
+  type,
+  selection,
+  onChange,
+}: {
+  type: PapicTypeView;
+  selection: ServicesStepSelection;
+  onChange: (next: ServicesStepSelection) => void;
+}) {
+  const rung = oneRungOf(type, selection);
+  const extra = selection.oneExtraCameras;
+  const total = oneCameraTotal(type, selection);
+  // No live rung means there is nothing to sell — the free camera still exists,
+  // so the card simply grows no controls rather than offering an empty one.
+  if (!rung) return null;
+  return (
+    <div className="mx-3 mb-3">
+      <p className="mb-2 text-sm font-medium text-ink">
+        How many dedicated cameras do you want?
+      </p>
+      <Stepper
+        decLabel="Fewer cameras"
+        incLabel="More cameras"
+        value={String(total)}
+        sub={
+          extra === 0
+            ? 'Your free one'
+            : `Your free one, plus ${extra === 1 ? 'one you add' : `${extra} you add`}`
+        }
+        canDec={extra > 0}
+        canInc={extra < ONBOARDING_MAX_EXTRA_CAMERAS}
+        onDec={() => onChange(setOneCameras(type, selection, extra - 1))}
+        onInc={() => onChange(setOneCameras(type, selection, extra + 1))}
+      />
+      {/* The size choice only earns its space once a camera is being added, and
+          only when there is genuinely more than one size to choose between. */}
+      {extra > 0 && type.rungs.length > 1 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {type.rungs.map((r) => {
+            const on = r.key === rung.key;
+            return (
+              <button
+                key={r.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onChange(setOneRung(selection, r.key))}
+                className={`rounded-full border px-3 py-1.5 font-mono text-xs tabular-nums transition ${
+                  on
+                    ? 'border-terracotta bg-terracotta/[0.08] text-terracotta-700'
+                    : 'border-ink/15 text-ink/65 hover:border-ink/30'
+                }`}
+              >
+                {pts(r.points)} · {peso(r.pricePhp)} each
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <PriceLine pricePhp={onePriceOf(type, selection)} />
+    </div>
+  );
+}
+
+function PapicType({
+  type,
+  suggested,
+  selection,
+  onSelectionChange,
+  eventWord,
+}: {
+  type: PapicTypeView;
+  suggested: boolean;
+  /** Both present ⇒ this product gets controls. Absent ⇒ read-only ladder. */
+  selection?: ServicesStepSelection;
+  onSelectionChange?: (next: ServicesStepSelection) => void;
+  eventWord: string;
+}) {
   const copy = TYPE_COPY[type.id];
   const { Icon } = copy;
+  const interactive = selection != null && onSelectionChange != null;
   const showFree =
     type.freePoints > 0 && (type.freeCameras === null || type.freeCameras > 0);
 
@@ -137,26 +373,42 @@ function PapicType({ type, suggested }: { type: PapicTypeView; suggested: boolea
 
       <p className="px-4 pt-1.5 text-sm leading-relaxed text-ink/60">{copy.desc}</p>
 
-      <ul className="mx-2.5 my-3 flex list-none flex-col">
-        {showFree ? (
-          <LadderRow
-            free
-            left={pts(type.freePoints)}
-            right={
-              type.freeCameras === null
-                ? 'Free — yours now'
-                : `Free — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
-            }
+      {interactive ? (
+        // The controls REPLACE the ladder rather than sitting under it. Showing
+        // both would print every rung's price beside a stepper that already
+        // states the one being charged — two answers to "what does this cost".
+        type.id === 'pool' ? (
+          <PoolPicker
+            type={type}
+            selection={selection}
+            onChange={onSelectionChange}
+            eventWord={eventWord}
           />
-        ) : null}
-        {type.rungs.map((r) => (
-          <LadderRow
-            key={r.key}
-            left={type.id === 'pool' ? `+${pts(r.points)}` : pts(r.points)}
-            right={peso(r.pricePhp)}
-          />
-        ))}
-      </ul>
+        ) : (
+          <OnePicker type={type} selection={selection} onChange={onSelectionChange} />
+        )
+      ) : (
+        <ul className="mx-2.5 my-3 flex list-none flex-col">
+          {showFree ? (
+            <LadderRow
+              free
+              left={pts(type.freePoints)}
+              right={
+                type.freeCameras === null
+                  ? 'Free — yours now'
+                  : `Free — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
+              }
+            />
+          ) : null}
+          {type.rungs.map((r) => (
+            <LadderRow
+              key={r.key}
+              left={type.id === 'pool' ? `+${pts(r.points)}` : pts(r.points)}
+              right={peso(r.pricePhp)}
+            />
+          ))}
+        </ul>
+      )}
 
       {copy.note ? (
         <p className="px-4 pb-4 text-xs italic leading-relaxed text-ink/45">{copy.note}</p>
@@ -170,8 +422,21 @@ export function ServicesStep({
   interestedServices = [],
   aiValue = null,
   aiHref = null,
+  selection,
+  onSelectionChange,
   className,
 }: {
+  /**
+   * What the couple has picked so far. Present WITH `onSelectionChange` ⇒ the
+   * Papic card grows its steppers and the running total. Both absent ⇒ the
+   * original read-only ladder, unchanged.
+   *
+   * ⚠ Pass these ONLY from a mount whose commit actually carries the selection
+   * through to an order (see the docblock). Wiring the control without the
+   * commit is a fake door that quietly loses the sale AND the couple's shots.
+   */
+  selection?: ServicesStepSelection;
+  onSelectionChange?: (next: ServicesStepSelection) => void;
   /** Server-resolved live view-model. `view.ai === null` hides card 2 entirely. */
   view: ServicesStepView;
   /**
@@ -198,6 +463,14 @@ export function ServicesStep({
   );
   const named = useMemo(() => new Set(interestedServices), [interestedServices]);
   const eventWord = papic.eventWord || 'event';
+  const interactive = selection != null && onSelectionChange != null;
+  const quote = useMemo(
+    () =>
+      selection
+        ? quoteServicesStepSelection(papic.types, selection, ai?.pricePhp ?? null)
+        : { poolPhp: 0, onePhp: 0, aiPhp: 0, papicPhp: 0, totalPhp: 0 },
+    [papic.types, selection, ai],
+  );
 
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
@@ -230,9 +503,27 @@ export function ServicesStep({
 
         <div className="mt-4 flex flex-col gap-3">
           {types.map((t) => (
-            <PapicType key={t.id} type={t} suggested={named.has(t.inappKey)} />
+            <PapicType
+              key={t.id}
+              type={t}
+              suggested={named.has(t.inappKey)}
+              eventWord={eventWord}
+              selection={selection}
+              onSelectionChange={onSelectionChange}
+            />
           ))}
         </div>
+
+        {/* The Papic subtotal stays INSIDE the Papic card. The grand total,
+            with Setnayan AI on its own line, sits below both cards. */}
+        {interactive ? (
+          <p className="mt-4 flex items-baseline justify-between gap-3 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] px-4 py-3">
+            <span className="text-sm font-semibold text-ink">Papic</span>
+            <span className="font-sans text-xl font-semibold tabular-nums text-ink">
+              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+            </span>
+          </p>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 rounded-[var(--m-r-sm)] border border-dashed border-ink/15 px-3 py-2 font-mono text-xs text-ink/60">
           {papic.currencyTerms.map((term) => (
@@ -276,7 +567,43 @@ export function ServicesStep({
           {/* The nine wired capabilities, type-aware (#3865). Never re-authored here. */}
           {aiValue ? <div className="mt-4">{aiValue}</div> : null}
 
-          {aiHref ? (
+          {/* ── THE TICK (owner 2026-08-11) ───────────────────────────────
+              Only where the flow can take the order, exactly like the Papic
+              steppers. Off by default: on many event types this single line is
+              worth ten times the whole Papic side, so pre-ticking it would be
+              adding the expensive thing to a couple's bill on their behalf.
+              Elsewhere the card keeps its original "find it in your studio"
+              wording, because a tick that charges nothing is a fake door. */}
+          {interactive ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={selection.ai}
+              onClick={() => onSelectionChange(setAi(selection, !selection.ai))}
+              className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                selection.ai
+                  ? 'border-terracotta bg-terracotta/[0.07]'
+                  : 'border-ink/15 hover:border-ink/30'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs ${
+                  selection.ai
+                    ? 'border-terracotta bg-terracotta text-cream'
+                    : 'border-ink/25'
+                }`}
+                aria-hidden
+              >
+                {selection.ai ? '✓' : ''}
+              </span>
+              <span className="flex-1 text-sm font-medium text-ink">
+                {selection.ai ? 'Added to your plan' : `Add Setnayan AI to my ${eventWord}`}
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                {ai.priceLabel}
+              </span>
+            </button>
+          ) : aiHref ? (
             <a
               href={aiHref}
               className="mt-5 block w-full rounded-xl border border-terracotta px-4 py-3 text-center text-sm font-semibold text-terracotta-700 transition hover:bg-terracotta/[0.06]"
@@ -292,8 +619,59 @@ export function ServicesStep({
         </article>
       ) : null}
 
+      {/* ── WHAT THEY OWE, AS TWO LINES ───────────────────────────────────
+          Owner 2026-08-11, confirming the split: *"yes it can be just 50 and
+          499"*. Papic and the planner are shown SEPARATELY and only summed at
+          the end, because on most event types Papic is a few tens of pesos and
+          the planner is several hundred — one blended number reads as though
+          Papic is what got expensive. It also states the FREE case in words: a
+          couple who touches nothing must be able to READ that they owe nothing
+          and still have a working event, not infer it from a missing figure. */}
+      {interactive ? (
+        <div className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
+          <dl className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-ink/70">Papic</dt>
+              <dd className="font-mono text-sm tabular-nums text-ink/80">
+                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+              </dd>
+            </div>
+            {ai ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-sm text-ink/70">Setnayan AI</dt>
+                <dd className="font-mono text-sm tabular-nums text-ink/80">
+                  {quote.aiPhp > 0 ? peso(quote.aiPhp) : 'Not added'}
+                </dd>
+              </div>
+            ) : null}
+            <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
+              <dt className="text-sm font-semibold text-ink">Your total today</dt>
+              <dd className="font-sans text-2xl font-semibold tabular-nums text-ink">
+                {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-xs leading-relaxed text-ink/55">
+            {quote.totalPhp > 0 ? (
+              <>
+                We&rsquo;ll show you where to send it right after this — your {eventWord}{' '}
+                and your free shots are live either way, and what you added arrives once
+                your payment is confirmed.
+              </>
+            ) : (
+              <>
+                Nothing to pay. Your {eventWord} and your free shots go live the moment
+                you finish — you can add more whenever you want.
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
+
       <p className="text-center text-xs text-ink/45">
-        No payment in this step. Upgrades live in your studio, whenever you want them.
+        {interactive
+          ? 'Nothing is charged now, and finishing never waits on a payment. You can add more from your studio whenever you want.'
+          : 'No payment in this step. Upgrades live in your studio, whenever you want them.'}
       </p>
     </div>
   );

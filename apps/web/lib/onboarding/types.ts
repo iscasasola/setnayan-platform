@@ -115,10 +115,38 @@ export type GenericOnboardingPayload = {
    * generic JSONB and future per-type UI sends richer shapes; do not re-narrow.
    */
   signatureDetails?: Record<string, unknown>;
+  /**
+   * What the couple picked on the Papic services step (owner 2026-08-11) — the
+   * shared-pool rung and how many dedicated cameras to add. Shape:
+   * `lib/onboarding-services-selection.ts` · ServicesStepSelection.
+   *
+   * ⚠ UNTRUSTED, and deliberately typed `unknown`. It carries service_codes and
+   * a count and NO amount; the commit re-parses it and re-prices every rung
+   * from the live catalog (SEC-4). Typing it as ServicesStepSelection here would
+   * suggest the server may trust its shape, which it may not.
+   *
+   * Absent / undefined ⇒ nothing was picked ⇒ no order. Every couple still gets
+   * the free pool grant and the free dedicated camera.
+   */
+  servicesSelection?: unknown;
 };
 
 export type GenericCommitResult =
-  | { ok: true; eventId: string }
+  | {
+      ok: true;
+      eventId: string;
+      /**
+       * Where to send the couple when they bought Papic shots or cameras on the
+       * services step — the studio, carrying its payment banner.
+       *
+       * OPTIONAL AND ALWAYS SKIPPABLE. Absent means "nothing was bought, or the
+       * order could not be minted", and the caller falls through to the normal
+       * dashboard landing. The event is committed and its free grants armed
+       * before this is ever computed, so a couple must never be blocked, bounced
+       * or stranded because of it.
+       */
+      paymentPath?: string | null;
+    }
   /**
    * `blocking` rides ONLY with error 'life_event_exists'. Without it the client
    * could say no more than "something went wrong", which is what made the

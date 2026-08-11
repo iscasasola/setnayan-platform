@@ -20,7 +20,15 @@ import {
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
-import { PAPIC_ONE_50_SKU, PAPIC_ONE_100_SKU } from '@/lib/papic-one';
+import {
+  ONBOARDING_SERVICES_SKU,
+  readOnboardingOrderItems,
+} from '@/lib/onboarding-order-items';
+import {
+  PAPIC_ONE_SKU,
+  PAPIC_ONE_LEGACY_MINI_SKU,
+  PAPIC_ONE_LEGACY_100_SKU,
+} from '@/lib/papic-one';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
   isVendorAiAddonActive,
@@ -181,10 +189,23 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
     const points = await papicPassPointsForSku(ctx.admin, ctx.serviceKey);
     if (points === null || points <= 0) return;
 
+    // 🚨 SCOPED TO `source`, NOT JUST THE ORDER (fixed 2026-08-11). This used to
+    // ask "has this ORDER produced ANY grant row?" — correct while an order
+    // could only ever cover one product, and a silent data-loss bug the moment
+    // it could cover several. On an onboarding basket the CAMERA grant writes
+    // rows against the same order_id; whichever hook ran first would make the
+    // other one see "already done" and return having granted NOTHING. The couple
+    // pays for 13,000 shots, the admin approves, and the pool stays empty — no
+    // throw, no log, nothing to notice.
+    //
+    // The camera side already got this right (`… AND source = 'camera_grant'`).
+    // This is the same shape. Single-product orders behave exactly as before,
+    // because they only ever had rows of one source anyway.
     const { data: existing } = await ctx.admin
       .from('papic_event_point_grants')
       .select('grant_id')
       .eq('order_id', ctx.orderId)
+      .eq('source', 'topup_order')
       .limit(1);
     if (Array.isArray(existing) && existing.length > 0) return;
 
@@ -867,6 +888,19 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
+  // 🚨 THE LADDER TO 30,000 (owner 2026-08-11 · migration 20271129155172).
+  // EVERY SELLABLE POOL RUNG MUST APPEAR IN THIS MAP. `activateOrderSku` ends
+  // `if (!hook) return; // default no-op`, so a rung that is on sale and absent
+  // here takes the couple's money, marks the order paid, and grants ZERO shots —
+  // no throw, no log, nothing to notice but an empty pool. Adding a rung is a
+  // migration AND a line here, and `papic-rungs-are-fundable.db.test.ts`
+  // fails the build if the two ever drift apart.
+  PAPIC_GUEST_13K: grantPapicPassPoints,
+  PAPIC_GUEST_16K: grantPapicPassPoints,
+  PAPIC_GUEST_20K: grantPapicPassPoints,
+  PAPIC_GUEST_23K: grantPapicPassPoints,
+  PAPIC_GUEST_26K: grantPapicPassPoints,
+  PAPIC_GUEST_30K: grantPapicPassPoints,
   // Retired 2026-07-29 (catalog + papic_pass_tiers row both deactivated) because
   // every rung is additive now, so a separate "+10,000 top-up" was a duplicate of
   // PAPIC_GUEST_10K. The hook stays wired: an order minted before the retirement
@@ -884,8 +918,14 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // instead of forking per SKU. Every shape writes seat-scoped grants, which is
   // what keeps a One camera's shots out of the shared pool.
   PAPIC_CAMERAS: grantPapicCameraPoints,
-  [PAPIC_ONE_50_SKU]: grantPapicCameraPoints,
-  [PAPIC_ONE_100_SKU]: grantPapicCameraPoints,
+  // ONE price since 2026-08-11 (150 credits ₱50 · migration 20271129422037).
+  [PAPIC_ONE_SKU]: grantPapicCameraPoints,
+  // The two retired rungs keep their hooks, exactly as PAPIC_GUEST_TOPUP does:
+  // neither is purchasable, but an order minted before the change must still
+  // convert on approval. Their deactivated tier rows are what make that
+  // conversion resolve to the value they were sold at rather than a new one.
+  [PAPIC_ONE_LEGACY_MINI_SKU]: grantPapicCameraPoints,
+  [PAPIC_ONE_LEGACY_100_SKU]: grantPapicCameraPoints,
 
   // ── NO LIVE-STUDIO CAMERA HOOK, on purpose (2026-08-06) ─────────────────────
   //
@@ -958,6 +998,11 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // children through their own hooks. See activateBundleChildren below.
   GUIDED_PACK: (ctx) => activateBundleChildren(ctx),
   MEDIA_PACK: (ctx) => activateBundleChildren(ctx),
+
+  // The onboarding services basket — ONE bill covering the couple's Papic and
+  // Setnayan AI picks. Its children are PER ORDER, not static, so it gets its
+  // own fan-out. See activateOnboardingBasket.
+  [ONBOARDING_SERVICES_SKU]: (ctx) => activateOnboardingBasket(ctx),
 });
 
 /**
@@ -974,6 +1019,70 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * gate. Idempotent (child hooks are idempotent); a child with no hook is
  * skipped; bundle codes are never children, so there is no recursion.
  */
+/**
+ * Fan a freshly-approved ONBOARDING BASKET through each item's own hook.
+ *
+ * Owner 2026-08-11: *"it will also integrate the approval of both at the same
+ * time once verified."* The basket is ONE order — one total, one QR, one
+ * reference — so one approval has to switch on everything it covered.
+ *
+ * The sibling of activateBundleChildren, and the difference is the whole point:
+ * a bundle's membership is STATIC (bundle_components), a basket's is PER ORDER.
+ * Registering every possible child against one bundle code would hand Setnayan
+ * AI to a couple who bought only shots.
+ *
+ * Each child runs under its OWN service_key, which is what makes the existing
+ * hooks work unchanged: the Pool grant resolves its points from the key it is
+ * given, the camera grant is already order-scoped, and the AI hook stamps the
+ * event. Fault-isolated per item — one failing child must not starve its
+ * siblings, exactly as in the bundle version.
+ *
+ * ⚠ AN ITEM WITH NO HOOK IS PAID FOR AND NEVER PROVISIONED. It is skipped here
+ * (the dispatcher's own contract), and `onboarding-basket-fans-out.db.test.ts`
+ * fails the build if a basket can be assembled from a key that owns no hook —
+ * because the symptom otherwise is an absence, not an error.
+ */
+async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
+  const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
+  if (items.length === 0) {
+    // Either the read failed or the basket is empty. Both leave a paid order
+    // with nothing provisioned, which an admin can re-run — never a guess.
+    console.error('[sku-activation] onboarding basket has no items (non-fatal):', {
+      order_id: ctx.orderId,
+    });
+    reportActivationFault('activate:onboarding_basket_empty', ctx, new Error('no items'));
+    return;
+  }
+  for (const item of items) {
+    const childHook = EXACT_HOOKS[item.serviceCode];
+    if (!childHook) {
+      console.error('[sku-activation] onboarding basket item has NO HOOK (non-fatal):', {
+        order_id: ctx.orderId,
+        service_code: item.serviceCode,
+      });
+      reportActivationFault(
+        'activate:onboarding_basket_child_unhooked',
+        { ...ctx, serviceKey: item.serviceCode },
+        new Error('no activation hook'),
+      );
+      continue;
+    }
+    try {
+      await childHook({ ...ctx, serviceKey: item.serviceCode });
+    } catch (e) {
+      console.error(
+        `[sku-activation] onboarding basket child ${item.serviceCode} threw (non-fatal):`,
+        e,
+      );
+      reportActivationFault(
+        'activate:onboarding_basket_child',
+        { ...ctx, serviceKey: item.serviceCode },
+        e,
+      );
+    }
+  }
+}
+
 async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
   const children =
     BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS];
@@ -1663,8 +1772,19 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     }
   }
 
+  // 🚨 THE BASKET COUNTS TOO (2026-08-11). Before this, refund-awareness knew
+  // only the direct SKU and the STATIC bundle map — so refunding an onboarding
+  // basket that included Setnayan AI clawed back the shots and the cameras and
+  // left the planner unlocked FOREVER. That is precisely the "refund the money,
+  // keep the feature" hole this whole reversal path exists to close; it simply
+  // could not see a bill shaped like this. Read the basket's real contents.
+  const basketItems =
+    ctx.serviceKey === ONBOARDING_SERVICES_SKU
+      ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
+      : [];
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

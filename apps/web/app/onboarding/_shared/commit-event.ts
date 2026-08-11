@@ -21,6 +21,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
+import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
@@ -191,5 +192,23 @@ export async function commitOnboardingEvent(
     return { ok: false, error: memberError.message };
   }
 
-  return { ok: true, eventId: insertedEvent.event_id };
+  // ── what the couple picked on the Papic services step (owner 2026-08-11) ──
+  // LAST, and deliberately so: the event, its ownership row and BOTH free
+  // grants are already committed by this point, so nothing below can cost the
+  // couple their event. `mintOnboardingServiceOrders` never throws — a rung that
+  // went inactive mid-flow, a failed insert, a camera that could not be
+  // provisioned all come back as `paymentPath: null`, which lands them on the
+  // ordinary dashboard with a working, free Papic and no charge.
+  //
+  // Nothing is granted here either. The orders are minted `submitted` and the
+  // shots appear only when an admin approves the payment — which is exactly why
+  // this step must not gate the finish (see services-step.tsx's docblock:
+  // reconciliation is manual and takes up to a day).
+  const papic = await mintOnboardingServiceOrders(admin, {
+    eventId: insertedEvent.event_id,
+    userId: user.id,
+    rawSelection: payload.servicesSelection,
+  });
+
+  return { ok: true, eventId: insertedEvent.event_id, paymentPath: papic.paymentPath };
 }

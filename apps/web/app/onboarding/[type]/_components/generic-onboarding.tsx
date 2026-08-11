@@ -44,6 +44,10 @@ import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
+import {
+  EMPTY_SERVICES_SELECTION,
+  type ServicesStepSelection,
+} from '@/lib/onboarding-services-selection';
 import { SpecialtyFields } from './specialty-fields';
 
 type Props = {
@@ -183,6 +187,18 @@ export function GenericOnboarding(props: Props) {
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * What the couple picked on the Papic services step (owner 2026-08-11).
+   *
+   * Deliberately NOT persisted into the localStorage draft: it is a purchase
+   * intent, and a resumed draft that silently still carried "buy the biggest
+   * pool" from a session days ago would mint a charge nobody just agreed to.
+   * Starting empty means a resumed draft is free until the couple presses + on
+   * this visit — the free floor is always the default answer.
+   */
+  const [servicesSelection, setServicesStepSelection] = useState<ServicesStepSelection>(
+    EMPTY_SERVICES_SELECTION,
+  );
 
   // The experience-quiz axis ids, in order (keys are locked; copy is editable).
   const axisIds = useMemo<string[]>(() => quizAxes.map((a) => a.id), [quizAxes]);
@@ -461,6 +477,9 @@ export function GenericOnboarding(props: Props) {
       // Rich fields are normalised on the way out: numbers → numbers, roster
       // cells coerced, empties + show_when-hidden fields dropped (specialty-values).
       signatureDetails: { ...details, ...normalizeSpecialtyValues(specialtyFields, specialtyValues) },
+      // The Papic picks. A CLAIM only — the commit re-parses this and re-prices
+      // every rung from the live catalog; no amount is sent from here.
+      servicesSelection,
     };
     // Anon-draft commit mints a Supabase anonymous session that global captcha
     // gates — mint a Turnstile token (no-op/undefined when unconfigured).
@@ -476,7 +495,13 @@ export function GenericOnboarding(props: Props) {
       // vendor-invite claim to create their first event, return them to it
       // (/vendor-invite/[slug]) to finish shortlisting; else land on the
       // event dashboard. Mirrors the wedding flow's post-commit goToDashboard.
-      router.replace(nextPath ?? `/dashboard/${res.eventId}`);
+      //
+      // `paymentPath` (owner 2026-08-11) only appears when they actually bought
+      // shots or cameras on the services step, and it yields to `nextPath`: a
+      // couple who came from a vendor invite is mid-errand, and the payment
+      // banner is waiting for them in the studio either way. Absent ⇒ nothing
+      // was bought, or the order could not be minted ⇒ ordinary landing.
+      router.replace(nextPath ?? res.paymentPath ?? `/dashboard/${res.eventId}`);
       return;
     }
     setCommitting(false);
@@ -899,6 +924,12 @@ export function GenericOnboarding(props: Props) {
             // both always render, at their real prices.
             interestedServices={planServices}
             aiValue={servicesStepAiValue}
+            // The picker (owner 2026-08-11). Safe to pass HERE because this
+            // flow's commit carries the selection through to a real order —
+            // see commitOnboardingEvent. Do not copy these two props to a
+            // mount whose commit ignores them.
+            selection={servicesSelection}
+            onSelectionChange={setServicesStepSelection}
           />
         </div>
       );

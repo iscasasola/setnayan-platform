@@ -153,6 +153,17 @@ const ORDER_MINTERS: Record<string, string> = {
     'Papic camera/window buys. Amount is a server-computed quote (quote.totalPhp / ' +
     'quote.frozenBillPhp); the form supplies quantities and windows, never pesos. ' +
     'Already service-role before SEC-4b — unchanged.',
+  'lib/onboarding-services-orders.ts':
+    'The ONBOARDING SERVICES BASKET (owner 2026-08-11) — ONE bill covering the couple’s ' +
+    'Papic Pool rung, their extra Papic One cameras, and Setnayan AI, so they get one total, ' +
+    'one QR, one reference and one approval. The browser sends service_codes, a camera count ' +
+    'and a yes/no; NO amount crosses the boundary. The total is the SUM of parts resolved ' +
+    'here, and the two halves use DIFFERENT authorities ON PURPOSE: Papic reads the ACTIVE ' +
+    'catalog row directly (so a retired rung is rejected before an order exists), while ' +
+    'SETNAYAN_AI goes through resolveOrderChargeCentavos because its price depends on the ' +
+    'EVENT TYPE — reading the flat catalog row for it would bill every non-wedding couple ' +
+    'the wedding figure. Service-role (`moneyWriter`); authorized by the event-commit path ' +
+    'that just created the event and its ownership row.',
   'app/papic/buy/actions.ts':
     'GUEST-bought Papic — a pool top-up or a reload of the buyer’s OWN camera, at the same rungs ' +
     'the host pays (owner-locked 2026-07-29). The form carries a service_code CHOICE only; points ' +

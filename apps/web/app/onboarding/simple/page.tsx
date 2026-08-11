@@ -5,7 +5,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
-import { ServicesStep } from '@/app/onboarding/_shared/services-step';
+import { PapicStepFields } from './_components/papic-step-fields';
 import { commitSimpleEvent } from './actions';
 
 export const metadata = { title: 'Create a Simple Event' };
@@ -114,6 +114,14 @@ export default async function SimpleOnboardingPage({
           <p className="text-xs text-ink/50">You can change this later in event settings.</p>
         </div>
 
+        {/* The Papic picker (owner 2026-08-11). INSIDE the form on purpose — it
+            posts its picks as hidden inputs, which commitSimpleEvent reads. It
+            sits ABOVE the submit button because it is now a question being
+            asked, not a note being left after the decision. */}
+        {servicesStepView ? (
+          <PapicStepFields className="pt-2" view={servicesStepView} />
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row">
           <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Creating event…">
             Create event
@@ -123,8 +131,6 @@ export default async function SimpleOnboardingPage({
           </Link>
         </div>
       </form>
-
-      {servicesStepView ? <ServicesStep className="mt-10" view={servicesStepView} /> : null}
     </div>
   );
 }

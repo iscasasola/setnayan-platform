@@ -6,6 +6,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
+import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
+import {
+  PAPIC_FIELD_ONE_CAMERAS,
+  PAPIC_FIELD_ONE_RUNG,
+  PAPIC_FIELD_POOL_RUNG,
+  AI_FIELD_SELECTED,
+} from './_components/papic-step-field-names';
 import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
@@ -143,5 +150,29 @@ export async function commitSimpleEvent(formData: FormData) {
     // analytics never breaks the user-facing flow.
   }
 
-  return redirect(`/dashboard/${insertedEvent.event_id}`);
+  // ── what they picked on the Papic step (owner 2026-08-11) ────────────────
+  // LAST, after the event, its ownership row and both free grants are committed,
+  // so nothing here can cost them their event. Never throws: a rung that went
+  // inactive mid-flow or a failed insert comes back as `paymentPath: null` and
+  // they land on the ordinary dashboard with a working, free Papic and no
+  // charge. Nothing is granted here — the order is minted `submitted` and the
+  // shots appear only when an admin approves the payment, which is why this
+  // cannot gate the finish (reconciliation is manual, up to a day).
+  //
+  // The three fields come from <PapicStepFields>, and carry service_codes + a
+  // count and NO amount; mintOnboardingServiceOrders re-parses and re-prices them.
+  const papic = await mintOnboardingServiceOrders(admin, {
+    eventId: insertedEvent.event_id,
+    userId: user.id,
+    rawSelection: {
+      poolRungKey: formData.get(PAPIC_FIELD_POOL_RUNG),
+      oneRungKey: formData.get(PAPIC_FIELD_ONE_RUNG),
+      oneExtraCameras: formData.get(PAPIC_FIELD_ONE_CAMERAS),
+      // Arrives as the STRING 'true'/'false' — parseServicesStepSelection
+      // accepts only a genuine yes, because Boolean('false') is true.
+      ai: formData.get(AI_FIELD_SELECTED),
+    },
+  });
+
+  return redirect(papic.paymentPath ?? `/dashboard/${insertedEvent.event_id}`);
 }

@@ -297,12 +297,19 @@ export async function sendChatMessageCore(
     };
   }
 
+  // sender_user_id / sender_role are NOT sent. This insert runs under the
+  // caller's own RLS-scoped session, and `authenticated` holds no INSERT
+  // privilege on either column — naming one is a hard permission failure, not
+  // a silent ignore. The database derives both from auth.uid() in
+  // tg_chat_messages_derive_sender (migration 20271132839561), which resolves
+  // membership with the same three branches `senderRole` was derived from
+  // above. `senderRole` is still computed here because the gates below it —
+  // the accept-gate, the couple follow-up rule, the notify fan-out — all
+  // branch on it; it just no longer decides what lands in the row.
   const { error } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: user.id,
-    sender_role: senderRole,
     body: trimmed,
     ...(attachment ?? {}),
   });

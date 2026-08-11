@@ -150,12 +150,15 @@ async function supersedeAndPostCard(
   // sender_role='vendor' also stamps vendor_first_reply_at via the DB trigger.
   const priceLabel = totalCentavos > 0 ? formatCentavos(totalCentavos) : 'Price on request';
   const body = `📄 Proposal — “${title}” · ${priceLabel}. Tap to review and accept.`;
+  // sender_user_id / sender_role omitted — `authenticated` cannot write either
+  // (migration 20271132839561); the DB derives them from auth.uid(). The row
+  // still lands as 'vendor' because gateVendorProposalThread has already
+  // established that the caller OWNS this vendor profile and that the thread
+  // belongs to it, which is exactly what the derivation resolves.
   const { error: msgErr } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: eventId,
     vendor_profile_id: thread.vendor_profile_id,
-    sender_user_id: userId,
-    sender_role: 'vendor',
     body,
     proposal_id: proposalId,
   });

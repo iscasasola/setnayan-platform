@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
+import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
 
 // Resolves an `?invite=<token>` link by validating the token, signing the
 // guest-session cookie, recording a scan_events row, and redirecting to
@@ -59,6 +60,29 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (!event) {
+    // 🎟 THE ONE URL THAT IS ACTUALLY PRINTED ON AN INVITATION ENDS UP HERE.
+    // A personal QR encodes `/{slug}?invite={token}` (lib/qr.ts), and the page
+    // short-circuits every tokened URL straight to this route BEFORE any
+    // forwarding runs — so after a rename the retired-address forward, which
+    // only ever saw the bare URL, never got the chance to carry the token.
+    //
+    // What the guest experienced: this branch dropped the token and bounced
+    // them to `/{oldSlug}`, which forwarded to the right event — as a COMPLETE
+    // STRANGER. No seat, no RSVP, no find-my-table; a private lock screen
+    // telling them to "scan your invitation QR", which is exactly what they
+    // just did. Every re-scan of a card already in someone's hand reproduced
+    // it. That is worse than the 404 this all replaced, because it reads as the
+    // couple having shut them out rather than as a broken link.
+    //
+    // Carry the token to the CURRENT address instead. The bare word is what
+    // this route needs, so it resolves the slug rather than a path.
+    const movedToSlug = await resolveRenamedEventSlug(admin, slug);
+    if (movedToSlug && SAFE_SLUG.test(movedToSlug)) {
+      const moved = new URL(`/${movedToSlug}/redeem`, url.origin);
+      moved.searchParams.set('slug', movedToSlug);
+      moved.searchParams.set('token', token);
+      return NextResponse.redirect(moved);
+    }
     return NextResponse.redirect(target);
   }
 

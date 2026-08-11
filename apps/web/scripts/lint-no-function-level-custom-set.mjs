@@ -52,6 +52,21 @@ const MIGRATIONS = join(HERE, '../../../supabase/migrations');
  */
 const FUNCTION_LEVEL_SET = /^[ \t]*SET[ \t]+setnayan\.[a-z_]+[ \t]*(TO|=)/gim;
 
+/**
+ * ⚠ THE SAME REJECTION HAS MORE THAN ONE SPELLING, AND THE FIRST CUT OF THIS
+ * GUARD KNEW ONLY ONE. `CREATE FUNCTION … SET setnayan.x` starts a line, but
+ * `ALTER FUNCTION f() SET setnayan.x TO 'on'` does not — and it is rejected by
+ * prod for exactly the same reason (the clause is validated against the role's
+ * privilege on the parameter). So are the `ALTER ROLE` / `ALTER DATABASE`
+ * forms, which additionally require ownership nobody here has.
+ *
+ * A guard that catches one spelling of a trap teaches you that the trap is
+ * handled. `[^;]*?` keeps the match inside a single statement so an unrelated
+ * later `SET` cannot be dragged in.
+ */
+const ALTER_LEVEL_SET =
+  /\bALTER[ \t]+(FUNCTION|PROCEDURE|ROUTINE|ROLE|USER|DATABASE)\b[^;]*?\bSET[ \t]+setnayan\.[a-z_]+/gis;
+
 /** `SET LOCAL setnayan.x` inside a body — legal, but reported as a WARNING. */
 const SET_LOCAL_IN_BODY = /^[ \t]*SET[ \t]+LOCAL[ \t]+setnayan\.[a-z_]+/gim;
 
@@ -72,10 +87,16 @@ for (const file of files) {
     .map((line) => (line.trimStart().startsWith('--') ? '' : line))
     .join('\n');
 
-  for (const m of code.matchAll(FUNCTION_LEVEL_SET)) {
+  const rejected = [
+    ...code.matchAll(FUNCTION_LEVEL_SET),
+    ...code.matchAll(ALTER_LEVEL_SET),
+  ].sort((a, b) => a.index - b.index);
+
+  for (const m of rejected) {
     const line = code.slice(0, m.index).split('\n').length;
+    const shown = m[0].trim().replace(/\s+/g, ' ').slice(0, 90);
     console.error(
-      `✗ ${file}:${line} — function-level \`${m[0].trim()}\` will be REJECTED by prod ` +
+      `✗ ${file}:${line} — \`${shown}\` will be REJECTED by prod ` +
         `(42501: permission denied to set parameter). The PGlite replay runs as a ` +
         `superuser and will NOT catch this.\n` +
         `  Use set_config('<param>', 'on', true) at runtime around the smallest ` +

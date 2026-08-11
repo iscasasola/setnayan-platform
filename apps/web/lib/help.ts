@@ -1,4 +1,5 @@
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
+import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -187,7 +188,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'event-id-vs-slug',
         title: 'Event ID vs slug',
-        body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). The slug is editable on the Invitation tab. Old slugs auto-redirect for 90 days.',
+        body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). The slug is editable on the Invitation tab. Old slugs auto-redirect for ' + slugForwardingLabel() + ', so links and QR codes already printed keep working.',
       },
     ],
   },

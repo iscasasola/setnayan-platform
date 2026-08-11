@@ -3,10 +3,11 @@ import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
@@ -744,6 +745,24 @@ export async function renderVendorBySlug({
       ? search.service.trim()
       : null;
   const vendor = await fetchVendor(slug);
+
+  // 🔁 A CORRECTED SHOP ADDRESS FORWARDS HERE TOO.
+  //
+  // The admin correction form promises "links and QR codes already printed keep
+  // working", and the BARE ROOT honours that — the dispatcher forwards before it
+  // reaches this renderer. This route does not go through that dispatcher: a
+  // review QR, an older share or an indexed result on the LEGACY `/v/{slug}`
+  // form arrived here and hard-404'd, so the promise held for one of the two
+  // addresses the same shop has been published under.
+  //
+  // Only on the genuine miss (`!vendor`) — a hidden or archived shop must keep
+  // 404ing rather than disclose that it exists, so the visibility check below is
+  // deliberately NOT part of this branch.
+  if (!vendor) {
+    const movedTo = await resolveRenamedPath(createAdminClient(), slug, ['vendor']);
+    if (movedTo) redirect(movedTo);
+  }
+
   // Hidden + archived vendors 404 from the public surface (don't leak the
   // existence of suspended / closed profiles). Coming-soon + verified render.
   if (!vendor || !isPubliclyVisible(vendor.public_visibility)) notFound();

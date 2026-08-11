@@ -262,6 +262,16 @@ export async function correctShopAddress(formData: FormData) {
 
   if (!currentSlug || !newSlug) fail('Enter the shop’s current address and the new one.');
   if (!SLUG_FORMAT.test(newSlug)) fail(SLUG_CONFLICT_MESSAGE.invalid_format);
+  // 🚨 THE ADDRESS BEING MOVED MUST BE MATCHED EXACTLY, NEVER AS A PATTERN.
+  // This looked the shop up with `.ilike(currentSlug)` and validated only the
+  // DESTINATION — so `banawe%`, or an `_` typed where the slug has a `-`, is a
+  // LIKE wildcard. If exactly one shop matched, the form would move THAT shop's
+  // permanent public address, and the operator would see a success message
+  // naming the pattern they typed rather than the business they hit. A shop
+  // address is immutable; the only way back is a second correction.
+  if (!SLUG_FORMAT.test(currentSlug)) {
+    fail('Enter the shop’s current address exactly — not a partial or a pattern.');
+  }
   // A permanent public address is being moved. WHY is the part a future admin
   // will need and cannot reconstruct — the same reason a review override
   // refuses to run without one.
@@ -274,7 +284,10 @@ export async function correctShopAddress(formData: FormData) {
   const { data: shopRow, error: shopErr } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, business_slug')
-    .ilike('business_slug', currentSlug)
+    // `.eq`, not `.ilike` — the format check above guarantees a bare lowercase
+    // slug, so these are equivalent for every legal value and only `.eq` stays
+    // safe if that check is ever loosened.
+    .eq('business_slug', currentSlug)
     .maybeSingle();
   // ⚠ An unreadable probe is NOT "no such shop" — say which one it was.
   if (shopErr) fail(`Couldn’t look that shop up: ${shopErr.message}`);
@@ -305,7 +318,15 @@ export async function correctShopAddress(formData: FormData) {
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath(`/${newSlug}`);
   revalidatePath(`/${currentSlug}`);
-  redirect('/admin/corrections?address_moved=1');
+  // Name the BUSINESS that moved, not just the words. An operator who typed the
+  // wrong address should read the outcome and recognise the mistake immediately
+  // — a message echoing only what they typed cannot tell them they hit the
+  // wrong shop.
+  redirect(
+    `/admin/corrections?address_moved=${encodeURIComponent(
+      shop!.business_name?.trim() || newSlug,
+    )}`,
+  );
 }
 
 /** Decline — stamps the verdict; the vendor's profile is untouched. */

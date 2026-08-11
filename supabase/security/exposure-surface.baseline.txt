@@ -6048,7 +6048,7 @@ view	public.events_host	type=view owner=postgres honours_rls=NO select=authentic
 view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_active_tools	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_completed_events	type=view owner=postgres honours_rls=NO select=anon,authenticated
-view	public.vendor_full_completed_events_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated
+view	public.vendor_full_completed_events_stats	type=matview owner=postgres honours_rls=NO select=authenticated
 view	public.vendor_market_stats	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_public_completed_events_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_review_stats	type=matview owner=postgres honours_rls=NO select=anon,authenticated

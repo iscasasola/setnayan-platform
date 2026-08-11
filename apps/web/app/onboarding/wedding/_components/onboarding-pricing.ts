@@ -201,7 +201,11 @@ export const BUNDLE_MEMBERS: { essentials: string[]; complete: string[] } = {
     'PABATI',
     'PAPIC_ADDON_THANK_YOU', // Thank You
     'LIVE_WALL', // PhotoWall
-    'LIVE_BACKGROUND',
+    // LIVE_BACKGROUND is GONE, not merely retired — the LED wall backdrop was
+    // removed from the product 2026-08-11. The "left listed for lineage"
+    // convention above applies to SKUs that still EXIST but are off sale; a
+    // bundle cannot include a thing that no longer exists at all, and the
+    // membership guard requires this list to match the code + SQL mirrors.
     'PANOOD_SYSTEM',
     'PAKANTA',
   ],

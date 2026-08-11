@@ -127,9 +127,27 @@ for (const file of SOURCE_FILES) {
 // GUARD 2 — the three bundle-membership mirrors must agree.
 // ===========================================================================
 
-/** Pull the quoted UPPER_SNAKE tokens out of a source slice. */
+/**
+ * Pull the quoted UPPER_SNAKE tokens out of a source slice.
+ *
+ * 🔑 COMMENTS ARE STRIPPED FIRST, AND THAT IS THE WHOLE POINT. Without this,
+ * a token merely MENTIONED in a comment inside the array literal counts as a
+ * member — so the ordinary, well-intentioned act of replacing an entry with
+ * `// 'FOO' dropped 2026-08-11 because …` leaves this guard reporting the
+ * three mirrors "in sync" while one of them no longer lists FOO at all.
+ *
+ * That is not hypothetical: it happened on 2026-08-11 when the LED wall
+ * backdrop was removed. The removal PR deleted `'LIVE_BACKGROUND',` from
+ * MEDIA_PACK and left a comment quoting the name; this guard went green while
+ * TWO genuine drifts (onboarding-pricing.ts and the SQL seed still listed it)
+ * sat behind it. A guard switched off by the very change it exists to inspect
+ * is worse than no guard, because it prints a tick.
+ */
 function skuTokens(slice) {
-  return new Set((slice.match(/'([A-Z][A-Z0-9_]+)'/g) || []).map((t) => t.slice(1, -1)));
+  const code = slice
+    .replace(/\/\*[\s\S]*?\*\//g, ' ') // block comments
+    .replace(/\/\/[^\n]*/g, ' '); // line comments
+  return new Set((code.match(/'([A-Z][A-Z0-9_]+)'/g) || []).map((t) => t.slice(1, -1)));
 }
 
 /** Slice between an opener substring and the next closer char (balanced enough for flat literals). */
@@ -219,7 +237,18 @@ let sqlMedia = null;
   if (!seedFile) {
     guard2Errors.push('Could not find a migration seeding public.bundle_components (INSERT INTO public.bundle_components) — update this linter.');
   } else {
-    const src = readFileSync(join(migDir, seedFile), 'utf8');
+    // 🔑 STRIP SQL COMMENTS BEFORE LOCATING ANYTHING. Both anchors below are
+    // plain indexOf on raw text, so a comment can hijack them two ways, and
+    // BOTH were hit for real on 2026-08-11 by a single migration:
+    //   • a header comment that QUOTES `INSERT INTO public.bundle_components`
+    //     (explaining what this very linter reads) moved `insertStart` a
+    //     thousand characters early, and
+    //   • an ordinary semicolon inside prose — "…removed on 2026-08-11; it…" —
+    //     became the statement terminator, truncating the VALUES block so only
+    //     8 of 22 tuples parsed.
+    // The result was "Parsed 0 pairs / did the seed shape change?", i.e. a
+    // confusing linter failure caused purely by someone documenting the seed.
+    const src = readFileSync(join(migDir, seedFile), 'utf8').replace(/--[^\n]*/g, ' ');
     // Slice to just the INSERT ... VALUES ... block so we never accidentally
     // match a tuple from an unrelated statement (e.g. a re-declared fn).
     const insertStart = src.indexOf(seedNeedle);

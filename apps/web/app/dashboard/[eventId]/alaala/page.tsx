@@ -68,7 +68,6 @@ const ARC: ReadonlyArray<Stage> = [
       { key: 'mood-board' },
       { key: 'animated-monogram' },
       { key: 'pakanta' },
-      { key: 'led' },
       { key: 'playlist' },
     ],
   },
@@ -79,6 +78,31 @@ const ARC: ReadonlyArray<Stage> = [
     chips: [{ key: 'landing-page' }, { key: 'photo-delivery' }, { key: 'indoor-blueprint' }],
   },
 ];
+
+// EVERY chip key must name a real add-on. `resolve()` below falls through to
+// `chip.key` when the catalog has no entry, so a stale key does NOT error — it
+// renders the RAW SLUG as the button's label ("led", lowercase, mid-sentence)
+// and links to a page that 404s. That is exactly what shipped on 2026-08-11
+// when the LED wall backdrop was removed and this list was not swept: on the
+// one screen whose whole job is to feel finished, a couple saw a button
+// labelled "led" and tapping it took them nowhere.
+//
+// A chip carrying its OWN label + href (the Kwento chip) is legitimately
+// keyless-in-catalog and is exempt. Static data, so this can only fire while
+// editing — it fails `next build`, never a visitor's page load.
+{
+  const known = new Set(ADD_ONS.map((a) => a.key));
+  const stale = ARC.flatMap((s) => s.chips)
+    .filter((c) => c.key && !c.label && !known.has(c.key))
+    .map((c) => c.key);
+  if (stale.length > 0) {
+    throw new Error(
+      `alaala: chip key(s) ${stale.join(', ')} are not in ADD_ONS. They would render ` +
+        `as their raw slug and link to a 404. Remove the chip, or give it an explicit ` +
+        `label + href.`,
+    );
+  }
+}
 
 export default async function AlaalaPage({ params }: Props) {
   const { eventId } = await params;

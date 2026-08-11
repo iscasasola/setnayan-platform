@@ -447,8 +447,8 @@ export default function PrivacyPage() {
           <p>
             Setnayan may feature finished work from real events — such as a
             published event recap, or a consented artifact like an animated
-            monogram, save-the-date, event website, personal reel, or LED
-            design — on Setnayan&rsquo;s own social channels (for example our
+            monogram, save-the-date, event website, or personal reel — on
+            Setnayan&rsquo;s own social channels (for example our
             Facebook, Instagram, or TikTok) to showcase what the platform makes.
             This is optional and governed by consent:
           </p>

@@ -402,11 +402,10 @@ export const BUNDLE_CHILD_SKUS = Object.freeze({
     'PABATI',
     'PAPIC_ADDON_THANK_YOU',
     'LIVE_WALL',
-    // 'LIVE_BACKGROUND' dropped 2026-08-11 with the LED wall backdrop. This
-    // list is the CODE-side fallback for `bundle_components`, whose matching
-    // row the same PR's migration deletes — leaving it here would have the
-    // fallback grant a SKU the database no longer bundles, for a surface that
-    // no longer exists.
+    // The LED wall backdrop SKU was dropped here 2026-08-11 with the product
+    // itself; the same PR's migration deleted its bundle_components row. Its
+    // name is deliberately NOT quoted in this comment — a quoted token inside
+    // this array literal is counted as a member by lint-entitlement-gates.
     'PANOOD_SYSTEM',
     'PAKANTA',
   ]),

@@ -17,12 +17,19 @@
  * Facebook page) — no Graph API, no crons ([[project_setnayan_cron_free]]).
  */
 
+// ⛔ 'led_design' was removed 2026-08-11 with the LED wall backdrop itself.
+// Setnayan does not make an LED design, so it cannot feature one — the caption
+// ("The LED wall at …'s celebration — designed on Setnayan") was still drafted
+// and still wired to the posting queue, so the claim could have reached the
+// public feed. Verified 0 rows of that type in prod before narrowing this.
+// ⚠ The DATABASE CHECK on marketing_share_consents.artifact_type still permits
+// the value; that is deliberate. A CHECK that permits a value nothing can
+// produce is inert, whereas narrowing it is a live-data migration for no gain.
 export type ShareArtifactType =
   | 'monogram'
   | 'save_the_date'
   | 'website'
-  | 'reel'
-  | 'led_design';
+  | 'reel';
 
 export type ShareCreditMode = 'first_names' | 'anonymous';
 
@@ -32,7 +39,6 @@ export const SHARE_ARTIFACT_LABEL: Record<ShareArtifactType, string> = {
   save_the_date: 'Save the Date',
   website: 'Wedding website',
   reel: 'Reel',
-  led_design: 'LED design',
 };
 
 /**
@@ -82,7 +88,6 @@ export function coupleCreationCaption({
     save_the_date: `${credit} said "Save the Date" in style — made on Setnayan, straight to every feed.`,
     website: `A wedding website made by ${credit} on Setnayan — every detail, one beautiful page.`,
     reel: `A little reel of love from ${credit}'s big day — made with Setnayan.`,
-    led_design: `The LED wall at ${credit}'s celebration — designed on Setnayan, glowing all night.`,
   };
   return `${lead[artifactType]} Set na 'yan. ✨\n\n#Setnayan #SetNaYan`;
 }

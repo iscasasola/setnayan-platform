@@ -26,7 +26,6 @@ const VALID_ARTIFACT_TYPES: ReadonlyArray<ShareArtifactType> = [
   'save_the_date',
   'website',
   'reel',
-  'led_design',
 ];
 
 const VALID_CREDIT_MODES: ReadonlyArray<ShareCreditMode> = [

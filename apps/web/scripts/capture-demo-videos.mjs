@@ -21,7 +21,7 @@
  */
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, statSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,12 +31,35 @@ const OUT_DIR = join(__dirname, '..', 'public', 'add-ons', 'demo');
 const BASE = process.env.CAPTURE_BASE_URL || 'http://localhost:3000';
 const FFMPEG = process.env.FFMPEG_BIN || 'ffmpeg';
 
-// Mirror of RICH_DEMO_SLUGS (studio-card-demo.tsx) — the 14 features with scenes.
-const ALL_SLUGS = [
-  'papic', 'save-the-date', 'animated-monogram', 'mood-board', 'custom-qr-guest',
-  'photo-delivery', 'patiktok', 'led', 'indoor-blueprint', 'setnayan-ai',
-  'landing-page', 'music-creator', 'pakanta', 'playlist',
-];
+// DERIVED from RICH_DEMO_SLUGS, never re-typed.
+//
+// 🔑 This was a HAND-TYPED MIRROR and it drifted the first time the real list
+// changed. When the LED wall backdrop was removed on 2026-08-11, `'led'` stayed
+// here as the 8th of 14 slugs. A slug with no scenes renders "unknown demo
+// slug" and never sets `data-reel-ready`, so capture() blocks for its full
+// 30s timeout and the unguarded loop aborts the process — leaving the SIX
+// slugs after it silently never re-recorded, with the first seven already
+// overwritten. A half-finished run that reports failure still leaves the
+// cards playing stale footage for features nobody thinks were touched.
+//
+// Parsed out of the .ts source rather than imported because this is a plain
+// .mjs script with no TypeScript loader. The file is a flat `as const` array
+// of quoted slugs and exists precisely to be read by non-bundler consumers.
+const SLUGS_SRC = readFileSync(
+  join(__dirname, '..', 'app', '_components', 'app-store', 'rich-demo-slugs.ts'),
+  'utf8',
+);
+const SLUGS_BLOCK = SLUGS_SRC.slice(
+  SLUGS_SRC.indexOf('RICH_DEMO_SLUGS'),
+  SLUGS_SRC.indexOf('] as const'),
+).replace(/\/\/[^\n]*/g, ' '); // strip comments — a commented-out slug is not a slug
+const ALL_SLUGS = (SLUGS_BLOCK.match(/'([a-z0-9-]+)'/g) || []).map((s) => s.slice(1, -1));
+if (ALL_SLUGS.length === 0) {
+  throw new Error(
+    'capture-demo-videos: parsed 0 slugs from rich-demo-slugs.ts — did its shape change? ' +
+      'Refusing to run rather than silently capturing nothing.',
+  );
+}
 
 const slugs = process.argv.slice(2).length ? process.argv.slice(2) : ALL_SLUGS;
 

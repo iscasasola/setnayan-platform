@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePublicProfile } from '@/lib/public-profile';
+import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { formatEventDate } from '@/lib/events';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -130,7 +132,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AccountProfilePage({ params }: Props) {
   const { userSlug } = await params;
   const resolved = await resolvePublicProfile(userSlug);
-  if (!resolved) notFound();
+  // Retired-handle forwarding. The handle field on Profile promises the old
+  // link keeps working, and every rename writes the ledger row — but NOTHING
+  // ANYWHERE READ THOSE ROWS, at any flag setting, so a person who corrected
+  // their handle broke every link anyone had already shared. Only on the miss
+  // path, so a live profile costs nothing.
+  if (!resolved) {
+    const movedTo = await resolveRenamedPath(createAdminClient(), userSlug, ['user']);
+    if (movedTo) redirect(movedTo);
+    notFound();
+  }
 
   const { user, publicWebsiteEvents } = resolved;
   const canonicalSlug = (user.slug as string | null) ?? userSlug;

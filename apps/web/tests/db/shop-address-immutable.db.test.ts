@@ -14,9 +14,13 @@
  * merely discouraged: save-the-dates go out 6–12 months ahead, locked QR codes
  * are issued per customer, and the sitemap has published it — and shops have
  * **no rename forwarding**. `slug_change_log` supports `entity_type='vendor'`
- * but nothing has ever written a vendor row, and the bare-root resolver reads it
- * only for renamed EVENTS. A moved shop address does not redirect. It 404s, for
- * everyone holding the old one, forever.
+ * but NOTHING HAS EVER WRITTEN A VENDOR ROW. A moved shop address does not
+ * redirect. It 404s, for everyone holding the old one, forever.
+ *
+ * ⚠ CORRECTED — the sentence above used to add "and the bare-root resolver
+ * reads it only for renamed EVENTS". That is no longer true: `resolveRenamedPath`
+ * reads event, shop AND person rows. The READER is ready; the WRITER is what is
+ * still missing, which is the whole reason this trigger stays closed.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

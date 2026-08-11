@@ -16,10 +16,10 @@ import { previewShopAddress } from '@/lib/business-slug';
  * A first cut here hand-rolled its own two probes (vendors + events) and was
  * WRONG IN TWO WAYS the shared helper already handles: it never asked about
  * **people** (`users.slug` — same namespace, `setnayan.com/{word}`), and it never
- * asked about **retired addresses still forwarding** (`slug_change_log`, 90
- * days), so it would have reported "Available" for a word that sends visitors to
- * someone else's page. Two hand-rolled answers to one question is how the
- * namespace drifted in the first place.
+ * asked about **retired addresses still forwarding** (`slug_change_log`), so it
+ * would have reported "Available" for a word that sends visitors to someone
+ * else's page. Two hand-rolled answers to one question is how the namespace
+ * drifted in the first place.
  *
  * It also fails CLOSED where mine failed open: a probe that errors returns
  * `'unverified'`, never "free".

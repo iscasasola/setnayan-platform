@@ -97,56 +97,12 @@ export async function resolveEventOwnerSlug(
   return (owner as { slug?: string | null } | null)?.slug?.trim() || null;
 }
 
-/**
- * Wire the long-dormant `slug_change_log` read: given a bare slug that maps to
- * NO current event, check whether it is a PRIOR slug of one (updateEventSlug
- * logs every old→new rename) and, if so, return the event's CURRENT canonical
- * PATH to redirect to. Returns null when there is no live redirect row, the
- * event was deleted, or the old slug already equals the current slug.
- *
- * Resolving via the change row's `entity_id` → the event's CURRENT slug (rather
- * than the stored `new_slug`) makes this robust to chained renames and to the
- * stored new_slug shape, and lets it emit the nested `/u/` form post-cutover.
- * Admin client required (RLS on slug_change_log is admin-read only).
- */
-export async function resolveRenamedEventPath(
-  admin: SupabaseClient,
-  oldSlug: string,
-): Promise<string | null> {
-  // Flag-gated so the whole cutover stays INERT (zero added queries, zero
-  // behaviour change) while OFF — the pre-existing rename-404 is fixed as part
-  // of the cutover, not as a separate always-on change. Mirrors
-  // resolveEventOwnerSlug's self-noop.
-  if (!isUserNestingCutoverEnabled()) return null;
-
-  // Exact, lowercase match (stored old_slug is always ^[a-z0-9-]{3,32}$): .eq —
-  // not .ilike — so a crafted URL segment with a % or _ can't act as a SQL LIKE
-  // wildcard and spuriously match a rename row.
-  const { data: row } = await admin
-    .from('slug_change_log')
-    .select('entity_id')
-    .eq('entity_type', 'event')
-    .eq('old_slug', oldSlug.toLowerCase())
-    .gt('redirect_until', new Date().toISOString())
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const entityId = (row as { entity_id?: string } | null)?.entity_id;
-  if (!entityId) return null;
-
-  const { data: ev } = await admin
-    .from('events')
-    .select('event_id, slug')
-    .eq('event_id', entityId)
-    .maybeSingle();
-  const event = ev as { event_id: string; slug: string | null } | null;
-  const currentSlug = event?.slug?.trim();
-  if (!event || !currentSlug) return null;
-  // The current slug matching the queried old slug can't happen on the miss path
-  // (fetchEventBySlug would have matched it) — defensive guard against a redirect
-  // loop onto the same URL.
-  if (currentSlug.toLowerCase() === oldSlug.toLowerCase()) return null;
-
-  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
-  return publicEventPath(currentSlug, ownerSlug);
-}
+// ⚠ `resolveRenamedEventPath` USED TO LIVE HERE, AND ITS FIRST LINE WAS
+// `if (!isUserNestingCutoverEnabled()) return null;`.
+//
+// Forwarding a retired address is NOT part of this cutover — it is a promise
+// printed on the couple's address field and the person's handle field, and
+// tying it to a flag that has never been on meant the promise was never once
+// kept. It moved to `lib/slug-forwarding.ts` as `resolveRenamedPath`, ungated,
+// covering events, shops AND people. Nothing else in this module changed: the
+// `/u/` nesting cutover stays flag-dark exactly as before.

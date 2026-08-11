@@ -68,9 +68,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (!clash) {
     // ⚠ NO EVENT OWNS IT — THAT IS NOT THE SAME AS FREE. A renamed event keeps
-    // forwarding its old address for 90 days, so the word is still carrying
-    // printed invitations and shared links. Handing it to a new couple lands
-    // those guests on a stranger's page.
+    // forwarding its old address (window: SLUG_FORWARDING_MONTHS in
+    // lib/slug-forwarding-window.ts — do not restate the figure here), so the
+    // word is still carrying printed invitations and shared links. Handing it
+    // to a new couple lands those guests on a stranger's page.
     const forwarding = await isSlugForwarding(admin, slug, { eventId: entityId || null });
     if (!forwarding) {
       return NextResponse.json({ status: 'available', slug });

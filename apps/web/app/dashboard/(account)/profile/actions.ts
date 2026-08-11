@@ -464,9 +464,15 @@ export async function updateUserSlug(formData: FormData) {
     );
   }
 
-  // Append the 90-day redirect ledger row so the old handle keeps resolving
-  // (entity_type 'user' is permitted by migration 20270424889744). Best-effort:
-  // a ledger hiccup must not fail an already-committed rename.
+  // Append the redirect ledger row so the old handle keeps resolving
+  // (entity_type 'user' is permitted by migration 20270424889744; the window is
+  // the `redirect_until` DEFAULT — SLUG_FORWARDING_MONTHS, never restated here).
+  // Best-effort: a ledger hiccup must not fail an already-committed rename.
+  //
+  // ⚠ FOR MOST OF THIS FILE'S LIFE THESE ROWS WERE WRITE-ONLY. Nothing read a
+  // 'user' row anywhere, at any flag setting, so a person who corrected their
+  // handle broke every link they had already shared while this comment said the
+  // old one "keeps resolving". `app/u/[userSlug]/page.tsx` now reads them.
   if (currentSlug) {
     await admin.from('slug_change_log').insert({
       entity_type: 'user',

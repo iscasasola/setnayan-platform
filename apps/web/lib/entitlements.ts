@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { eventBasketOrdersGranting } from '@/lib/onboarding-order-items';
 import {
   isSkuFreeForCouplesNow,
   promoFreeSkusForCouples,
@@ -556,6 +558,30 @@ const CANONICALS_FOR_ALIAS: ReadonlyMap<string, ReadonlyArray<string>> = (() => 
  * (it delegates to it). Passing a bundle code itself still works via the direct
  * check.
  */
+/**
+ * Does an ONBOARDING BASKET confer `serviceKey` on this event?
+ *
+ * The basket is ONE order covering several products (owner 2026-08-11), so a
+ * couple who bought Setnayan AI inside it has NO order whose `service_key` is
+ * `SETNAYAN_AI` — the two functions below would say they do not own it, and the
+ * studio would invite them to buy it a second time. Membership is per-order, so
+ * it cannot ride on `bundle_components` (see lib/onboarding-order-items.ts).
+ *
+ * `live` picks the liveness rule of the caller: ownership counts a pending
+ * `submitted` order (so a couple mid-review cannot double-buy), the ACTIVE gate
+ * requires an admin-approved one. Fails CLOSED on a read error — the reader
+ * returns [] — which matches every other branch here.
+ */
+async function basketGrantsSku(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+  live: (status: string) => boolean,
+): Promise<boolean> {
+  const rows = await eventBasketOrdersGranting(supabase, eventId, serviceKey);
+  return rows.some((r) => live(r.status));
+}
+
 export async function eventOwnsSku(
   supabase: SupabaseClient,
   eventId: string,
@@ -570,6 +596,22 @@ export async function eventOwnsSku(
   const composition = await fetchBundleComponents(supabase);
   for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
     if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
+  }
+
+  // 2b. An ONBOARDING BASKET that includes this SKU. Same intent as the bundle
+  //     pass above, but membership is per-ORDER rather than per-SKU-code, so it
+  //     cannot be expressed through bundle_components. Ownership counts a
+  //     pending order, so a couple whose basket is still being reconciled is not
+  //     invited to buy the same thing twice.
+  if (
+    await basketGrantsSku(
+      supabase,
+      eventId,
+      serviceKey,
+      (status) => !RELINQUISHED_STATUSES.has(status),
+    )
+  ) {
+    return true;
   }
 
   // 3. Admin comp grant — a host of this event was gifted free access covering
@@ -609,6 +651,13 @@ export async function eventSkuActive(
   const composition = await fetchBundleComponents(supabase);
   for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
     if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
+  }
+
+  // An ONBOARDING BASKET that includes this SKU, ADMIN-APPROVED. Feature gates
+  // call this one, so the rule is stricter than eventOwnsSku's: a basket still
+  // awaiting reconciliation confers nothing, exactly like every other order.
+  if (await basketGrantsSku(supabase, eventId, serviceKey, (s) => ACTIVE_STATUSES.has(s))) {
+    return true;
   }
 
   // Promo free window — a live admin announcement (PROMO_FREE_WINDOWS_ENABLED)

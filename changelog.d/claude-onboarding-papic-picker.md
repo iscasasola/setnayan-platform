@@ -190,3 +190,63 @@ minter with it. The object now carries something that is not Papic, and a type n
 two contents is the same naming lie this session already corrected twice.
 
 SPEC IMPACT: applied — `DECISION_LOG.md` 2026-08-11 row for the AI tick and the per-type finding.
+
+## 2026-08-11 · feat(payments): the onboarding basket is ONE bill — one total, one QR, one approval
+
+Owner: *"it will total and create a custom QR, okay?"* … *"it will also integrate the approval of
+both at the same time once verified."*
+
+The three picks (Pool rung · N dedicated cameras · Setnayan AI) were becoming three separate
+orders. The payment QR carries the **amount only** — GCash rejects a reference inside the code,
+tested on real wallets 2026-07-31 — so a couple scanning one QR for the total sends ONE transfer
+that reconciles cleanly against **none** of three bills. Now it is a single order, with
+`onboarding_order_items` recording what it covers, and one approval fans out over that list.
+
+**Why one order rather than a "bill group" across three.** Reconciliation is the most delicate,
+most human, most money-critical path we have: the shortfall guard, the duplicate detector and the
+paste-the-bank-alert matcher all reason about one order, one amount, one reference. Making the
+basket a single order leaves every one of them **byte-identical** and moves the new complexity into
+activation, which already fans out for bundles.
+
+### 🚨 Three silent-money defects found on the way
+
+1. **The pool grant would have swallowed itself.** Its idempotency guard asked *"has this ORDER
+   granted anything?"* — correct while an order covered one product, silent data loss the moment it
+   covered several. On one bill the camera grant writes rows against the same order id, so whichever
+   ran first made the other see "already done" and hand over **nothing**. Couple pays for 13,000
+   shots, admin approves, pool stays empty, nothing throws. Now scoped to `source`, matching what
+   the camera side already did.
+2. **A refund would have kept Setnayan AI switched on forever.** Refund-awareness knew only the
+   direct SKU and the STATIC bundle map, so a refunded basket clawed back the shots and cameras and
+   left the planner unlocked — the exact "refund the money, keep the feature" hole that reversal
+   path exists to close. It simply could not see a bill shaped like this.
+3. **Ownership could not see it either**, so a couple who bought the planner inside their basket
+   would have been invited to buy it a second time.
+
+All three now read the same per-order item list (`lib/onboarding-order-items.ts`) — one reader,
+three call sites, deliberately not three private copies of the same idea.
+
+### 🪤 And three traps in the guards themselves
+
+- **A hand-stamped `user_id`.** Under service_role nothing downstream checks the identity columns,
+  so writing them by hand is a hole with no second line of defence. Caught by an existing guard;
+  now goes through `orderRowFor`.
+- **A comment made a security scanner blind to this file.** `order-price-authority` finds
+  order-minting modules with a regex allowing only 80 characters between the table selector and the
+  insert. A paragraph in that gap dropped this file out of **four** separate scans while every one
+  still reported green.
+- **Then the comment explaining that trap tripped it.** The regex scans the whole file, comments
+  included, so quoting the two calls verbatim made the scanner match the paragraph itself and report
+  the client as `<unresolved>`. Describe those calls; never spell them.
+
+### Guarded
+
+`onboarding-basket-one-bill.db.test.ts` — 11 tests, **mutation-tested** (sabotaging the four
+source-level assertions turns exactly those four red): the schema carries several items per bill,
+refuses a duplicate line, funds the shots **and** every camera on one bill, keeps dedicated credits
+out of the shared pool, reverses everything in one delete, cascades items with their bill, and
+denies every session role. Billing also **bills DOWN** rather than cancelling — if cameras cannot be
+provisioned the camera line is removed and the total reduced, so a good Pool and planner purchase is
+not thrown away because a camera failed.
+
+SPEC IMPACT: applied — `DECISION_LOG.md` 2026-08-11 row for the one-bill model and the three defects.

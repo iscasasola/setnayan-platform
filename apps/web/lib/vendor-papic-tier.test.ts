@@ -3,11 +3,12 @@
  * (owner-locked 2026-07-18). Invariants: with tokens retired (2026-07-21) the
  * interim base tier is EARNED only by a founder-comp accept (→ Ltd; else Lite), a
  * paid Unli upgrade wins, Lite is the 50-pt gift + video (owner 2026-07-22), the
- * points ledger (photo=1, clip=7) enforces each tier's budget, and the fee-scaled
+ * points ledger (photo=1, clip=the shared ceiling) enforces each tier's budget, and the fee-scaled
  * allowance runs 50 pts (₱0) → 200 pts (₱4,000).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras';
 
 import {
   pointsForMedia,
@@ -30,12 +31,20 @@ const prov = (p: Partial<VendorAcceptProvenance>): VendorAcceptProvenance => ({
   ...p,
 });
 
-test('capture points: photo=1, clip=7', () => {
-  assert.equal(pointsForMedia('photo'), 1);
-  assert.equal(pointsForMedia('clip'), 7);
+test('capture points are DERIVED from the couple pool, not re-typed', () => {
+  // 🚨 THIS TEST USED TO PIN 7 — and that is exactly how the drift survived.
+  // vendor-papic-tier.ts said `clip: 7` while its own docblock said 8 in two
+  // places and claimed to mirror the couple pool. The docblock was right and the
+  // number was stale (the couple's clip moved 7 → 8 on 2026-07-29). A test that
+  // hard-codes the same wrong number as the code is not a guard: it is a second
+  // copy of the mistake, and it agreed with the bug for weeks of green CI.
+  //
+  // Pinned to the SHARED constant now, so the two meters cannot separate again.
+  assert.equal(pointsForMedia('photo'), PAPIC_POINTS_PER_PHOTO);
+  assert.equal(pointsForMedia('clip'), PAPIC_CLIP_COST_MAX);
   assert.equal(
     pointsSpent([{ media_type: 'photo' }, { media_type: 'clip' }, { media_type: 'photo' }]),
-    9,
+    2 * PAPIC_POINTS_PER_PHOTO + PAPIC_CLIP_COST_MAX,
   );
   assert.equal(pointsSpent([]), 0);
 });
@@ -109,9 +118,10 @@ test('fee-scaled points: junk fee (negative / NaN) → the gift floor', () => {
 test('canCapture: Lite now allows clips (documentation is photos + video)', () => {
   assert.deepEqual(canCapture('lite', 0, 'clip'), { ok: true });
   assert.deepEqual(canCapture('lite', 0, 'photo'), { ok: true });
-  // A clip costs 7 pts, so 43 spent + a 7-pt clip = 50 (still fits); 44 overflows.
-  assert.deepEqual(canCapture('lite', 43, 'clip'), { ok: true });
-  assert.deepEqual(canCapture('lite', 44, 'clip'), {
+  // The last clip that fits under the 50-point Lite ceiling, and the first that
+  // does not — both derived, so a reprice moves them together.
+  assert.deepEqual(canCapture('lite', 50 - PAPIC_CLIP_COST_MAX, 'clip'), { ok: true });
+  assert.deepEqual(canCapture('lite', 50 - PAPIC_CLIP_COST_MAX + 1, 'clip'), {
     ok: false,
     reason: 'out_of_points',
   });
@@ -125,9 +135,9 @@ test('canCapture: Lite runs out at 50 points', () => {
   });
 });
 
-test('canCapture: Ltd — a clip needs 7 points of headroom', () => {
-  assert.deepEqual(canCapture('ltd', 63, 'clip'), { ok: true }); // 63 + 7 = 70
-  assert.deepEqual(canCapture('ltd', 64, 'clip'), {
+test('canCapture: Ltd — a clip needs a whole clip of headroom', () => {
+  assert.deepEqual(canCapture('ltd', 70 - PAPIC_CLIP_COST_MAX, 'clip'), { ok: true });
+  assert.deepEqual(canCapture('ltd', 70 - PAPIC_CLIP_COST_MAX + 1, 'clip'), {
     ok: false,
     reason: 'out_of_points',
   });

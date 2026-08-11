@@ -38,14 +38,34 @@
  * admin Data Privacy control (see lib/vendor-dayof-flags.ts).
  */
 
+import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras';
+
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
 
-/** Points a single capture costs. 1 photo = 1 pt · 1×10s clip = 8 pts
- *  (owner override 2026-07-22 · §0). Mirrors the couple pool's clip weight. */
+/**
+ * Points a single vendor capture costs.
+ *
+ * 🚨 THIS SAID 7 WHILE ITS OWN DOCBLOCK SAID 8, IN TWO PLACES, SINCE 2026-07-29.
+ * The header above and the line right here both claimed "1×10s clip = 8 pts" and
+ * both claimed to mirror the couple pool's clip weight; the value was 7. It
+ * drifted when the owner moved the couple's clip 7 → 8 with the two-type lock,
+ * and nothing pointed the two at each other, so the reprice reached one meter
+ * and not the other. Corrected here by DERIVING it, which is the only fix that
+ * cannot drift again.
+ *
+ * 🔒 VENDOR CLIPS STAY FLAT — they are NOT band-priced by length, even though
+ * couple captures are since 2026-08-11. Two reasons, both deliberate:
+ *   • this is a different meter (a vendor's documentation allowance, not the
+ *     couple's credits), and the owner's length table was a decision about what
+ *     a COUPLE pays;
+ *   • the vendor capture route charges server-side from a media TYPE and has no
+ *     duration in hand, so band-pricing it would silently bill every vendor clip
+ *     at the ceiling anyway — the same number, reached less honestly.
+ */
 export const VENDOR_PAPIC_POINTS: Record<VendorPapicMedia, number> = {
-  photo: 1,
-  clip: 7,
+  photo: PAPIC_POINTS_PER_PHOTO,
+  clip: PAPIC_CLIP_COST_MAX,
 };
 
 export function pointsForMedia(media: VendorPapicMedia): number {

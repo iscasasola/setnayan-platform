@@ -130,10 +130,26 @@ test('🚨 the meter prices the selection in CREDITS, derived — never re-typed
   const counter = codeOnly(LIB).slice(codeOnly(LIB).indexOf('export async function fetchPreservationTotals'));
   assert.match(
     counter,
-    /papicCaptureCost\(\s*'clip'\s*\)/,
-    'clips must be weighted at the clip cost — an unweighted sum is not credits',
+    /PAPIC_PRESERVATION_UNITS_PER_CLIP/,
+    'clips must be weighted at the storage cost — an unweighted sum is not credits',
   );
-  assert.match(counter, /papicCaptureCost\(\s*'photo'\s*\)/);
+  // ⚠ THE CONSTANT MOVED, THE INTENT DID NOT (2026-08-11). This asked for
+  // `papicCaptureCost('clip')`. Capture is now billed BY LENGTH, and that call
+  // only still returns the storage figure because a missing duration falls to
+  // the ceiling — so preservation would have been resting on a default argument
+  // rather than on a decision. PAPIC_PRESERVATION_UNITS_PER_CLIP says out loud
+  // that storage is billed flat and why (a stored row carries `is_clip` and no
+  // duration). What this test guards is unchanged: a clip must be WEIGHTED, not
+  // counted as one item.
+  assert.ok(
+    !/papicCaptureCost\(\s*'clip'\s*\)/.test(counter),
+    'preservation must not bill through the capture-cost helper — that is now length-aware, and its flat answer here is only a default',
+  );
+  // Same move on the photo side: PAPIC_POINTS_PER_PHOTO rather than
+  // `papicCaptureCost('photo')`. The helper is length-aware now, and a photo
+  // reaching it with no duration is a coincidence of the signature, not a
+  // statement about storage.
+  assert.match(counter, /PAPIC_POINTS_PER_PHOTO/);
 });
 
 test('🚨 the meter promises no "forever" and claims no deletion', () => {

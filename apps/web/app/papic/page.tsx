@@ -112,8 +112,8 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Papic Pool — one shared pool of shots any guest’s phone can spend from',
-    'Papic One — a dedicated camera with its own QR and its own shots',
+    'One shared pot of shots any guest’s phone can spend from',
+    'Give any camera its own shots, on its own QR, that nobody else can spend',
     'Free to start on every event — no card, no trial clock',
     'Guests become the photo crew — everyone contributes',
     'A QR scan tags who is in a photo — no typing',
@@ -146,7 +146,7 @@ const FAQ = [
   },
   {
     q: 'Who takes the photos?',
-    a: 'Your choice. Add one or more dedicated cameras for the friends or family you trust (Papic One), or open a shared pool so every guest shoots from their own phone into one gallery (Papic Pool — like handing each table a digital disposable camera).',
+    a: 'Everyone, and you decide how. Every guest can shoot from their own phone into one shared gallery — like handing each table a digital disposable camera. And you can set aside some of your shots for one particular camera, so the friend you trust with the important moments has shots nobody else can spend.',
   },
   {
     q: 'Will we get all the photos?',
@@ -300,14 +300,14 @@ export default async function PapicLandingPage() {
                   <ul className="mt-3 space-y-1.5 text-sm text-[#5F5E5A]">
                     {anchor.freePoolPhrase ? (
                       <li>
-                        <span className="font-medium text-[var(--m-ink)]">Papic Pool</span> —
-                        a shared pool of shots for the whole celebration, {anchor.freePoolPhrase}.
+                        <span className="font-medium text-[var(--m-ink)]">Shared shots</span> —
+                        one pot for the whole celebration, {anchor.freePoolPhrase}.
                       </li>
                     ) : null}
                     {anchor.freeOnePhrase ? (
                       <li>
-                        <span className="font-medium text-[var(--m-ink)]">Papic One</span> —
-                        one camera of its own, {anchor.freeOnePhrase}.
+                        <span className="font-medium text-[var(--m-ink)]">A camera of its own</span> —
+                        set aside shots for one QR, {anchor.freeOnePhrase}.
                       </li>
                     ) : null}
                   </ul>
@@ -415,19 +415,28 @@ export default async function PapicLandingPage() {
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Two ways to run it
           </LineRevealHeading>
+          {/* ⚠ STILL "two ways", and that is correct — it is two ways to use ONE
+              product, not two products to buy. Since 2026-08-11 you buy shots
+              once and then decide how much of them belongs to a particular
+              camera; the choice below is what you DO with them, not what you
+              pay for. The headings deliberately name the behaviour rather than
+              a SKU, because a product name here is what taught people there
+              were two things to buy. */}
           <RevealBand className="mt-7 grid gap-6 sm:grid-cols-2" stagger={0.08}>
             <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic One</h3>
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Give a camera its own shots</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
-                A camera of its own for the few friends or family you trust — their shots, all night. Add as many as you
-                like. The rest of your guests can put their phones down and just be there.
+                Set aside some of your shots for the few friends or family you trust — theirs alone, all night, on their
+                own QR. Nobody else can spend them, and you can take back whatever they don’t use. Cameras are free, so
+                make as many as you like.
               </p>
             </div>
             <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic Pool</h3>
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Let the whole room shoot</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
-                Every guest shoots from their own phone into one shared pool — like handing each table a digital
-                disposable camera. The whole room shares its view of the night, and everyone keeps their own.
+                Everything you haven’t set aside stays in one shared pot, and every guest shoots from their own phone —
+                like handing each table a digital disposable camera. The whole room shares its view of the night, and
+                everyone keeps their own.
               </p>
             </div>
           </RevealBand>

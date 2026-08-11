@@ -161,16 +161,16 @@ export function buildServicesStepView(input: {
         pricePhpByCode,
       ),
     },
-    {
-      id: 'one',
-      inappKey: PAPIC_ONE_INAPP_KEY,
-      freePoints: Math.max(0, freeOnePoints),
-      // Exactly one, and structurally so — see PAPIC_FREE_ONE_CAMERA_COUNT. A
-      // zeroed allowance means the SQL arms no camera, so the free rung goes
-      // with it rather than promising a camera that is never minted.
-      freeCameras: freeOnePoints > 0 ? PAPIC_FREE_ONE_CAMERA_COUNT : 0,
-      rungs: rungsFrom(oneTiers, pricePhpByCode),
-    },
+    // ⚠ NO 'one' ENTRY (owner 2026-08-11). Papic One is retired: there is one
+    // product, and a dedicated camera is made in the studio by handing it shots
+    // the couple already owns.
+    //
+    // 🔑 REMOVED RATHER THAN LEFT TO EMPTY ITSELF. It would have emptied on its
+    // own — free_one_camera_points is 0 and no One rung is active, so the view
+    // resolves to zero free shots, zero cameras and an empty ladder. But
+    // "renders as an empty card" is not "is not offered": the couple would still
+    // meet a product heading on the screen where they choose what to pay for,
+    // with nothing underneath it. That reads as a broken page, not a retirement.
   ];
 
   return {

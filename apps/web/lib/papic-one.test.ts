@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   PAPIC_ONE_LEGACY_MINI_SKU,
   PAPIC_ONE_SKU,
+  fetchPapicOneTiers,
   isPapicOneSku,
   normalisePapicOneTiers,
   papicOneOrderRow,
@@ -202,4 +203,37 @@ test('a bucket never promises an exact photo+clip split, and discloses the clip 
   assert.equal(/\d+\s*photos?\s*\+\s*\d+\s*clips?/i.test(phrase), false);
   assert.match(papicBucketPhrase(1), /about 1 photo\b/);
   assert.match(papicBucketPhrase(3000), /about 3,000 photos/);
+});
+
+test('🚨 an EMPTY rung table means nothing is on sale — it must not re-arm the seed', async () => {
+  // THE REGRESSION THIS EXISTS TO STOP. Papic One is retired (owner 2026-08-11)
+  // and every papic_one_tiers row is is_active=false, so the live query returns
+  // ZERO ROWS. The old code treated `data.length === 0` as "unreadable" and
+  // answered with FALLBACK_ONE_TIERS — a seeded rung that looks completely live,
+  // on a path the GUEST BUY action reads. A retired product would have walked
+  // back onto sale at a price that came from a constant, not the catalog.
+  const readableButEmpty = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({ order: async () => ({ data: [], error: null }) }),
+      }),
+    }),
+  } as unknown as Parameters<typeof fetchPapicOneTiers>[0];
+  assert.deepEqual(await fetchPapicOneTiers(readableButEmpty), []);
+
+  // …but a genuine read FAILURE still falls back, because then we truly cannot
+  // see what is on sale and refusing everything would break a working shop.
+  const unreadable = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          order: async () => ({ data: null, error: { message: 'permission denied' } }),
+        }),
+      }),
+    }),
+  } as unknown as Parameters<typeof fetchPapicOneTiers>[0];
+  assert.ok(
+    (await fetchPapicOneTiers(unreadable)).length > 0,
+    'a failed read must still fall back — an empty answer and a broken answer are different things',
+  );
 });

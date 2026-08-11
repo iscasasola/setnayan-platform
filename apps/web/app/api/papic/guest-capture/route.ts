@@ -352,7 +352,10 @@ export async function POST(req: Request) {
 
   // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
   // event pool meters (Free / Papic One / Papic Pool all draw the same pool).
-  const cost = papicCaptureCost(isClip ? 'clip' : 'photo');
+  // Same as the seat record seam: the length is already parsed above (and
+  // clamped to the 10s cap), so a guest's video costs what its length costs.
+  // An absent or unparseable duration falls to the top band, never the cheap one.
+  const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs);
 
   // Pre-check the shared event pool so we don't PUT an object the reserve would
   // then refuse — keeps R2 free of orphans for the common exhausted case. The

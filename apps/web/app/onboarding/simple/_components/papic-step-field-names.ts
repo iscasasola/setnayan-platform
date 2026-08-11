@@ -17,8 +17,9 @@
  */
 
 export const PAPIC_FIELD_POOL_RUNG = 'papic_pool_rung';
-export const PAPIC_FIELD_ONE_RUNG = 'papic_one_rung';
-export const PAPIC_FIELD_ONE_CAMERAS = 'papic_one_cameras';
+// PAPIC_FIELD_ONE_RUNG / PAPIC_FIELD_ONE_CAMERAS were here. Papic is one
+// product since 2026-08-11 — cameras are free and unlimited, so this flow has
+// nothing about them to post.
 /**
  * Setnayan AI's yes/no. Posted as the STRING 'true' or 'false' — never as a
  * bare checkbox, whose unchecked state posts NOTHING at all and would be

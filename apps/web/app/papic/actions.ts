@@ -376,7 +376,17 @@ export async function recordSeatCapture(
       // silently un-meter. The presign probe (api/upload) is only the
       // orphan-byte leak guard; this reserve is the gate of record.
       {
-        const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo');
+        // 🔑 THE LENGTH IS KNOWN HERE, so this is where a video is billed for
+        // what it actually was (owner 2026-08-11: 1-2s=2 · 3s=3 · 4-6s=5 ·
+        // 7-10s=8). The presign seam above could not know it — no file exists
+        // yet — so it gates on the cheapest band and this reserve is the gate
+        // of record, exactly as it already was for the flat price.
+        //
+        // `durationMs` is client-stamped and this file already calls it
+        // spoofable (see the clip_too_long check). papicClipCost bills an
+        // absent or nonsense length at the TOP band, so the only thing a
+        // tampered client can do by lying is pay MORE.
+        const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
         let seatGate: PointsGateVerdict = 'allow';
         let seatBooked = false;
         if (!unlocked) {

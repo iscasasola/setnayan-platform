@@ -45,15 +45,15 @@ import type { PapicTypeView, PapicRungView } from '@/lib/onboarding/services-ste
  * finished for free.
  */
 export type ServicesStepSelection = {
-  /** The chosen Pool rung's service_code, or null for the free grant alone. */
-  poolRungKey: string | null;
-  /** The chosen Papic One rung's service_code, or null when no camera is added. */
-  oneRungKey: string | null;
   /**
-   * How many EXTRA dedicated cameras, on top of the free one. Always 0 when
-   * `oneRungKey` is null; the two move together (see setOneCameras).
+   * The chosen rung's service_code, or null for the free 50 alone.
+   *
+   * ⚠ The name still says "pool" and that is still TRUE, not a leftover: what a
+   * couple buys lands in the shared pot, and handing some of it to one camera's
+   * QR happens later, in the studio, out of shots they already own. There is
+   * nothing on this screen to buy that is not shared to begin with.
    */
-  oneExtraCameras: number;
+  poolRungKey: string | null;
   /**
    * Setnayan AI, added at onboarding (owner 2026-08-11). A plain yes/no, because
    * there is exactly one of it per event — no rung, no count.
@@ -71,25 +71,16 @@ export type ServicesStepSelection = {
 
 export const EMPTY_SERVICES_SELECTION: ServicesStepSelection = {
   poolRungKey: null,
-  oneRungKey: null,
-  oneExtraCameras: 0,
   // OFF by default. It is the largest single figure on the screen — on many
   // event types it is worth ten times the whole Papic side — so pre-ticking it
   // would be adding the expensive thing to a couple's bill on their behalf.
   ai: false,
 };
 
-/**
- * A ceiling on the camera stepper — NOT a product rule.
- *
- * The owner locked "no seat cap" (2026-07-29): an event may hold unlimited
- * dedicated cameras, and the studio sells them without limit. This bounds only
- * what one ONBOARDING screen can add in a single order, so a stuck "+" (or a
- * tampered payload) cannot mint a five-figure charge for a couple who has not
- * yet seen their dashboard. Adding more later is one tap in the studio, which
- * the card says.
- */
-export const ONBOARDING_MAX_EXTRA_CAMERAS = 20;
+// ONBOARDING_MAX_EXTRA_CAMERAS was here — a ceiling on how many dedicated
+// cameras one onboarding screen could add in a single order, so a stuck "+"
+// could not mint a five-figure charge for a couple who had not yet seen their
+// dashboard. There is no camera stepper any more, so there is nothing to bound.
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -141,71 +132,17 @@ export function stepPool(
   return { ...selection, poolRungKey: poolRungAt(type, next)?.key ?? null };
 }
 
-/**
- * The Papic One rung a selection is on, defaulting to the CHEAPEST live rung.
- *
- * Defaulting matters: the camera stepper is the thing the couple touches, and
- * making them pick a rung first would put a second decision in front of the one
- * the owner asked for. Cheapest-first is also the only safe default — it can
- * never quote more than the couple expected.
- */
-export function oneRungOf(
-  type: PapicTypeView,
-  selection: ServicesStepSelection,
-): PapicRungView | null {
-  if (type.rungs.length === 0) return null;
-  const named = selection.oneRungKey
-    ? type.rungs.find((r) => r.key === selection.oneRungKey)
-    : null;
-  return named ?? type.rungs[0] ?? null;
-}
-
-/**
- * Set the number of EXTRA dedicated cameras.
- *
- * Keeps `oneRungKey` and `oneExtraCameras` consistent in BOTH directions: going
- * above zero pins the rung being charged (so the price cannot drift if the
- * ladder re-orders), and returning to zero clears it. A selection carrying a
- * rung key with a zero count would bill nothing while looking like a purchase
- * in every log and audit that reads the key.
- */
-export function setOneCameras(
-  type: PapicTypeView,
-  selection: ServicesStepSelection,
-  cameras: number,
-): ServicesStepSelection {
-  const rung = oneRungOf(type, selection);
-  const n = rung === null ? 0 : clamp(Math.trunc(cameras), 0, ONBOARDING_MAX_EXTRA_CAMERAS);
-  return {
-    ...selection,
-    oneExtraCameras: n,
-    oneRungKey: n > 0 ? (rung?.key ?? null) : null,
-  };
-}
-
-/** Switch which Papic One rung the extra cameras are bought at. */
-export function setOneRung(selection: ServicesStepSelection, rungKey: string): ServicesStepSelection {
-  return {
-    ...selection,
-    oneRungKey: rungKey,
-    // Choosing a rung is an intent to buy: a couple who taps a rung while the
-    // counter sits at zero has said what they want and would otherwise see the
-    // price stay ₱0 with no indication why.
-    oneExtraCameras: Math.max(1, selection.oneExtraCameras),
-  };
-}
-
-/** What the extra cameras cost. Zero cameras — or no live rung — is free. */
-export function onePriceOf(type: PapicTypeView, selection: ServicesStepSelection): number {
-  const rung = oneRungOf(type, selection);
-  if (!rung || selection.oneExtraCameras <= 0) return 0;
-  return rung.pricePhp * selection.oneExtraCameras;
-}
-
-/** Total dedicated cameras the couple ends up with: the free one plus extras. */
-export function oneCameraTotal(type: PapicTypeView, selection: ServicesStepSelection): number {
-  return (type.freeCameras ?? 0) + Math.max(0, selection.oneExtraCameras);
-}
+// ── PAPIC ONE IS GONE FROM THIS SCREEN (owner 2026-08-11) ──────────────────
+//
+// `oneRungOf` · `setOneCameras` · `setOneRung` · `onePriceOf` · `oneCameraTotal`
+// lived here, driving a "how many dedicated cameras do you want" stepper.
+// Papic is one product now: cameras are FREE and UNLIMITED, and a dedicated one
+// is made in the studio by handing it shots the couple already owns.
+//
+// 🔑 THE WHOLE CONTROL WAS DELETED, not defaulted to zero. A stepper whose only
+// legal answer is zero is a fake door: it asks a question with one possible
+// answer, and the couple reasonably concludes the thing it names still costs
+// money. Deleting it is the only way the screen states the truth.
 
 /**
  * The whole quote, for DISPLAY ONLY.
@@ -223,18 +160,16 @@ export function quoteServicesStepSelection(
    * (view.ai.pricePhp). Null / 0 when the card is not offered at all.
    */
   aiPricePhp: number | null = null,
-): { poolPhp: number; onePhp: number; aiPhp: number; papicPhp: number; totalPhp: number } {
+): { poolPhp: number; aiPhp: number; papicPhp: number; totalPhp: number } {
   const pool = types.find((t) => t.id === 'pool');
-  const one = types.find((t) => t.id === 'one');
   const poolPhp = pool ? poolPriceAt(pool, poolStepOf(pool, selection)) : 0;
-  const onePhp = one ? onePriceOf(one, selection) : 0;
   const aiPhp = selection.ai && aiPricePhp && aiPricePhp > 0 ? aiPricePhp : 0;
   // `papicPhp` is kept SEPARATE from the grand total on purpose (owner
   // 2026-08-11, confirming "yes it can be just 50 and 499"): on many event types
   // the whole Papic side is a few tens of pesos and the planner is several
   // hundred, so folding them into one number makes Papic look like the thing
   // that got expensive. The screen shows two lines.
-  return { poolPhp, onePhp, aiPhp, papicPhp: poolPhp + onePhp, totalPhp: poolPhp + onePhp + aiPhp };
+  return { poolPhp, aiPhp, papicPhp: poolPhp, totalPhp: poolPhp + aiPhp };
 }
 
 /**
@@ -243,11 +178,7 @@ export function quoteServicesStepSelection(
  * dashboard.
  */
 export function selectionHasPurchase(selection: ServicesStepSelection): boolean {
-  return (
-    selection.poolRungKey !== null ||
-    (selection.oneRungKey !== null && selection.oneExtraCameras > 0) ||
-    selection.ai
-  );
+  return selection.poolRungKey !== null || selection.ai;
 }
 
 /** Toggle Setnayan AI. Its own setter so the AI card never touches Papic state. */
@@ -271,15 +202,12 @@ export function parseServicesStepSelection(raw: unknown): ServicesStepSelection 
   const o = raw as Record<string, unknown>;
   const key = (v: unknown): string | null =>
     typeof v === 'string' && v.trim().length > 0 && v.trim().length <= 64 ? v.trim() : null;
-  const n = Number(o.oneExtraCameras);
-  const cameras = Number.isFinite(n) ? clamp(Math.trunc(n), 0, ONBOARDING_MAX_EXTRA_CAMERAS) : 0;
-  const oneRungKey = key(o.oneRungKey);
   return {
     poolRungKey: key(o.poolRungKey),
-    // Same both-directions consistency setOneCameras keeps — a posted payload
-    // naming a rung with a zero count, or a count with no rung, buys nothing.
-    oneRungKey: cameras > 0 ? oneRungKey : null,
-    oneExtraCameras: oneRungKey === null ? 0 : cameras,
+    // ⚠ `oneRungKey` / `oneExtraCameras` are deliberately NOT read, even though
+    // a tab opened before this change will still post them. Dropping them here
+    // is what makes a stale payload buy the couple's actual pick instead of a
+    // retired product at a price nobody set.
     // Anything but a genuine yes is a no. `'true'` is accepted because the
     // `/onboarding/simple` flow posts this as a FORM FIELD, where every value is
     // a string and `Boolean('false')` is `true` — the classic way a checkbox

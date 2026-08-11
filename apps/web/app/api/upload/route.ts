@@ -22,6 +22,7 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
+  PAPIC_CLIP_COST_MIN,
   resolvePointsGate,
   type PointsGateVerdict,
   eventUnliFreeViaUnlock,
@@ -405,7 +406,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         )
           ? 'clip'
           : 'photo';
-        const cost = papicCaptureCost(cameraKind);
+        // ⚠ THE CHEAPEST CLIP, NOT THE DEAREST — and this is a real decision,
+        // not a rounding choice. No file exists at presign time, so the length
+        // is unknowable here; billing it at the top band would mean a shooter
+        // with 3 credits left is refused a URL for a two-second clip that
+        // costs 2 and that they can plainly afford. Refusing a shot somebody
+        // CAN pay for is a user-facing defect; the cost of gating at the floor
+        // is a rare orphan object when someone with 2-7 credits shoots long,
+        // and the authoritative reserve (app/papic/actions) still refuses it.
+        //
+        // This seam's stated job has always been "no URL ⇒ no orphan R2 bytes",
+        // never "decide the price". It now refuses only when the camera cannot
+        // afford ANY clip at all.
+        const cost =
+          cameraKind === 'clip'
+            ? PAPIC_CLIP_COST_MIN
+            : papicCaptureCost(cameraKind);
         let seatGate: PointsGateVerdict = 'allow';
         if (!unlocked) {
           try {

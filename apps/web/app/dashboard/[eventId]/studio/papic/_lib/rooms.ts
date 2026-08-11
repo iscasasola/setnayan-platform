@@ -89,6 +89,11 @@ export function roomForOutcome(params: Record<string, unknown>): PapicRoom | nul
     has('papic_error') ||
     has('papic_one_error') ||
     has('papic_pool_error') ||
+    // Handing shots to one camera's QR, and taking unspent ones back
+    // (owner 2026-08-11). Lands in the same room as everything else about
+    // shots — the card that reports these sits beside the one that sells them.
+    has('shots_error') ||
+    has('shots_set') ||
     has('papic_unlock_provisioned') ||
     has('limited_synced') ||
     has('limited_error') ||

@@ -30,7 +30,7 @@ import { purchasePapicPoolTopUp } from '../actions';
  * flag-dark behind NEXT_PUBLIC_PAPIC_POOL_BAR. So it could not have closed this
  * even when switched on. This card is the buy path; that one is the meter.
  *
- * ── THE SHAPE, MIRRORED FROM PapicOneCard ────────────────────────────────────
+ * ── THE SHAPE ────────────────────────────────────
  * Same contract, deliberately: rungs READ from `papic_pass_tiers` (admin-
  * editable, `is_active` filtered in the fetch), price READ from
  * `platform_retail_catalog_v2`, phrase from lib/papic-tier-copy. A rung whose
@@ -93,7 +93,7 @@ export async function PapicPoolCard({
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
           <Users aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-          Papic Pool — shots everyone shares
+          Add shots to your event
         </p>
         {/* ⚠ THIS SENTENCE WAS A PROMISE WITH NOTHING BEHIND IT. It read "Every
             guest who scans your QR shoots from it" — which reads as ONE QR the

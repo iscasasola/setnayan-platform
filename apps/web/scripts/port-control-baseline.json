@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5069fb269",
-  "routeCount": 400,
-  "destinations": 675,
-  "actions": 513,
-  "blocks": 3525,
+  "generatedFromRef": "b53837621",
+  "routeCount": 401,
+  "destinations": 680,
+  "actions": 515,
+  "blocks": 3545,
   "routes": {
     "/": {
       "files": [
@@ -926,6 +926,7 @@
       "actions": [],
       "blocks": [
         "Block",
+        "FieldTable",
         "Link",
         "Row"
       ]
@@ -3127,6 +3128,7 @@
         "/dashboard/people",
         "/dashboard/samahan/new",
         "/dashboard/year",
+        "/open-shop",
         "/v/[seg]"
       ],
       "actions": [],
@@ -3166,6 +3168,7 @@
         "MobileEventHero",
         "MomentRow",
         "NewEventCard",
+        "OpenShopRow",
         "PhotosTab",
         "ProgressRing",
         "SectionLabel",
@@ -3979,7 +3982,8 @@
       "destinations": [
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/guests/claims"
+        "/dashboard/[seg]/guests/claims",
+        "/dashboard/[seg]/website"
       ],
       "actions": [],
       "blocks": [
@@ -5136,14 +5140,15 @@
         "dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx",
         "dashboard/[eventId]/studio/papic/_components/magazine-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
-        "dashboard/[eventId]/studio/papic/_components/papic-one-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-toggle.tsx",
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
+        "dashboard/[eventId]/studio/papic/_lib/rooms.ts",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
@@ -5169,17 +5174,20 @@
         "/dashboard/[seg]/studio/papic/gallery-zip",
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
-        "/dashboard/[seg]/studio/papic/recap"
+        "/dashboard/[seg]/studio/papic/recap",
+        "/dashboard/[seg]/studio/papic?tab=[seg]"
       ],
       "actions": [
         "action",
         "activatePapicLimited",
+        "addLibraryChallengeAction",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
         "purchasePapicExtras",
-        "purchasePapicOneCamera",
         "purchasePapicPoolTopUp",
         "reviewVendorChallengeAction",
+        "setCameraShots",
+        "setCapturePreserved",
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",
         "setPapicGuestCaptureEarly",
@@ -5193,6 +5201,7 @@
       "blocks": [
         "ActionResult",
         "CaptureDefaultsSection",
+        "ChallengeRow",
         "ClipLightbox",
         "CoupleChallengesManager",
         "DriveConnectCTA",
@@ -5218,13 +5227,15 @@
         "LiveWallControls",
         "MagazineCard",
         "MiniTour",
+        "PapicCamerasCard",
         "PapicGalleryGrid",
-        "PapicOneCard",
         "PapicPoolCard",
         "PapicWindowPicker",
         "PaymentUnderReview",
         "PoolGalleryCard",
         "PoolGalleryToggle",
+        "PreservationMeterLine",
+        "PreserveToggle",
         "QualityPicker",
         "RadioDot",
         "RecapCard",
@@ -5250,7 +5261,9 @@
         "dashboard/[eventId]/studio/papic/crew/loading.tsx",
         "dashboard/[eventId]/studio/papic/crew/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/website"
+      ],
       "actions": [
         "provisionPapicSeats",
         "reissuePapicSeat"
@@ -6703,6 +6716,7 @@
         "OpenMultiselect",
         "Roster",
         "ServicesStep",
+        "ServicesStepSelection",
         "SetnayanAiValue",
         "SpecialtyFields",
         "Title"
@@ -6710,6 +6724,8 @@
     },
     "/onboarding/simple": {
       "files": [
+        "onboarding/simple/_components/papic-step-field-names.ts",
+        "onboarding/simple/_components/papic-step-fields.tsx",
         "onboarding/simple/actions.ts",
         "onboarding/simple/page.tsx"
       ],
@@ -6722,7 +6738,9 @@
       ],
       "blocks": [
         "Link",
+        "PapicStepFields",
         "ServicesStep",
+        "ServicesStepSelection",
         "SubmitButton"
       ]
     },
@@ -6781,6 +6799,7 @@
         "SDLoader",
         "ScreenId",
         "ServicesStep",
+        "ServicesStepSelection",
         "SetnayanAiValue",
         "SetnayanMark",
         "Sk",
@@ -6795,10 +6814,12 @@
     "/open-shop": {
       "files": [
         "open-shop/_components/address-preview.tsx",
+        "open-shop/_components/city-pin.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/service-picker.tsx",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
+        "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
       "destinations": [],
@@ -6808,10 +6829,18 @@
       "blocks": [
         "AddressCheck",
         "AddressPreview",
+        "CityPin",
+        "DetectedCity",
         "FileUpload",
+        "HTMLDivElement",
         "HTMLFormElement",
+        "LeafletMap",
+        "LeafletMarker",
+        "LeafletModule",
+        "LocatedAddress",
         "OpenShopWizard",
         "ServicePicker",
+        "Step",
         "SubmitButton"
       ]
     },
@@ -7302,6 +7331,20 @@
       "blocks": [
         "Link",
         "Section"
+      ]
+    },
+    "/privacy/google-access": {
+      "files": [
+        "privacy/google-access/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": [],
+      "blocks": [
+        "LegalLayout",
+        "LegalSection",
+        "Link"
       ]
     },
     "/proposals/[publicId]": {

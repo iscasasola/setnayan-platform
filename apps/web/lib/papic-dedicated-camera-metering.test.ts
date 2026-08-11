@@ -1,21 +1,32 @@
 /**
- * Papic TWO-TYPE MODEL — END-TO-END DB verification (executed, not prose).
+ * A DEDICATED CAMERA METERS ITS OWN SHOTS — END-TO-END DB verification.
  *
- * Replays the REAL migrations into an in-process PGlite (../tests/db/
- * replay-migrations.ts) and asserts the four things the owner's 2026-07-29 lock
- * actually depends on:
+ * ⚠ THIS FILE USED TO TEST THE TWO-TYPE MODEL (Papic Pool + Papic One, owner
+ * 2026-07-29). That model is RETIRED: Papic is one product now, and a dedicated
+ * camera is something the host MAKES by handing shots to a QR rather than
+ * something they BUY (owner 2026-08-11 · migrations 20271130515135 +
+ * 20271131476413).
  *
- *   (1) THE CATALOG IS THE PRICE. The Pool rungs' prices and points live in
- *       platform_retail_catalog_v2 + papic_pass_tiers, at the owner's numbers,
- *       and every rung is repeatable. Papic One is ₱1 per photo on both rungs.
- *   (2) DEDICATED MEANS UNSHARED. A camera holding a seat-scoped grant meters
- *       against its OWN bucket, refuses at its own zero, and its points are
- *       invisible to the shared pool — which is also not charged for its
- *       captures.
- *   (3) RELOAD IS ADDITIVE AND KEEPS THE QR. Granting the same seat again
- *       raises that camera's balance without minting a second camera.
- *   (4) THE FREE ONE CAMERA IS IDEMPOTENT. Re-running the provisioner produces
- *       exactly one camera and exactly one grant, however many times it runs.
+ * Three of its assertions went with the model and are gone from here — the
+ * Pool/One rung numbers, the One product's single rung, and the free One
+ * camera's own 5 shots. Their replacements live in
+ * tests/db/papic-one-product-hand-out.db.test.ts, which owns the new ladder and
+ * the hand-out. Restating them here too would mean two files claiming authority
+ * over one set of numbers, and the day they disagree the reader has no way to
+ * know which is stale.
+ *
+ * WHAT SURVIVED IS THE METERING, UNCHANGED AND STILL LOAD-BEARING — the half
+ * the new model is built ON TOP OF rather than the half it replaced:
+ *
+ *   (1) DEDICATED MEANS UNSHARED. A camera holding a dedicated balance meters
+ *       against its OWN bucket, refuses at its own zero, and its shots are
+ *       invisible to the shared pool — which is also never charged for its
+ *       captures. This is exactly what makes "hand 200 shots to this QR" mean
+ *       anything at all; without it, handing out would be decoration.
+ *   (2) A CLIP COSTS ITS FULL WEIGHT or nothing, never a part of it.
+ *   (3) TOPPING UP IS ADDITIVE AND KEEPS THE QR. Granting the same camera again
+ *       raises its balance without minting a second camera — the reason a
+ *       reload never strands whoever is already holding the first QR.
  *
  * Lives under lib/ (not tests/db/) so it runs in the `test:unit` glob alongside
  * papic-pool-metering.test.ts; the replay harness is fully in-process (no
@@ -26,8 +37,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from '../tests/db/replay-migrations';
-import { papicCaptureCost, PAPIC_FREE_ONE_CAMERA_INDEX } from './papic-cameras';
-import { PAPIC_ONE_LEGACY_MINI_SKU, PAPIC_ONE_SKU } from './papic-one';
+import { papicCaptureCost } from './papic-cameras';
+// PAPIC_ONE_SKU still appears here because the RELOAD test replays a real
+// pre-retirement camera order — the shape an event minted before 2026-08-11 and
+// the reason those activation hooks stay wired even though nobody can buy one.
+import { PAPIC_ONE_SKU } from './papic-one';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -92,108 +106,6 @@ async function poolTotal(eventId: string): Promise<number> {
   );
   return Number(r.rows[0]!.total_points);
 }
-
-// ── (1) the catalog IS the price ───────────────────────────────────────────
-
-test('Papic POOL rungs come from the catalog, at the owner numbers, all repeatable', async () => {
-  const rows = await db.query<{
-    service_code: string;
-    price: string;
-    is_active: boolean;
-    points: number;
-    is_topup: boolean;
-  }>(
-    `SELECT c.service_code, c.retail_price_php AS price, c.is_active, t.points, t.is_topup
-       FROM public.platform_retail_catalog_v2 c
-       JOIN public.papic_pass_tiers t ON t.service_code = c.service_code
-      WHERE t.is_active
-      ORDER BY t.sort_order`,
-  );
-  assert.deepEqual(
-    rows.rows.map((r) => [r.service_code, Number(r.price), Number(r.points), r.is_active]),
-    // ⚠ EXTENDED 2026-08-11 (owner): "3000, 6000, 10000, 13000, 16000, 20000
-    // 23000, 26000, 30000", ₱1,000 per step. The three original rungs are
-    // UNCHANGED — this lengthened the ladder, it did not reprice it, and that
-    // is the thing worth checking here. Migration 20271129155172.
-    [
-      ['PAPIC_GUEST', 1000, 3000, true],
-      ['PAPIC_GUEST_6K', 2000, 6000, true],
-      ['PAPIC_GUEST_10K', 3000, 10000, true],
-      ['PAPIC_GUEST_13K', 4000, 13000, true],
-      ['PAPIC_GUEST_16K', 5000, 16000, true],
-      ['PAPIC_GUEST_20K', 6000, 20000, true],
-      ['PAPIC_GUEST_23K', 7000, 23000, true],
-      ['PAPIC_GUEST_26K', 8000, 26000, true],
-      ['PAPIC_GUEST_30K', 9000, 30000, true],
-    ],
-  );
-  // Every rung is a repeatable TOP-UP now, so none may still be gated behind
-  // "you must already hold 10,000 points" — that gate is what made the old
-  // fourth rung necessary, and it is gone with it.
-  assert.equal(rows.rows.every((r) => r.is_topup === false), true);
-
-  // The superseded rung must be un-sellable in BOTH places: dark in the
-  // catalog, AND worth zero points if an order for it somehow exists — because
-  // resolveRetailChargeCentavos() prices by service_code without checking
-  // is_active, so catalog-dark alone is not a fence.
-  assert.equal(
-    await one<boolean>(
-      `SELECT is_active FROM public.platform_retail_catalog_v2 WHERE service_code = 'PAPIC_GUEST_TOPUP'`,
-    ),
-    false,
-  );
-  assert.equal(
-    await one<boolean>(
-      `SELECT is_active FROM public.papic_pass_tiers WHERE service_code = 'PAPIC_GUEST_TOPUP'`,
-    ),
-    false,
-  );
-});
-
-test('Papic ONE is ONE rung — 150 credits for ₱50 — and 250 is gone', async () => {
-  const rows = await db.query<{ service_code: string; price: string; points: number }>(
-    `SELECT c.service_code, c.retail_price_php AS price, t.points
-       FROM public.platform_retail_catalog_v2 c
-       JOIN public.papic_one_tiers t ON t.service_code = c.service_code
-      WHERE t.is_active AND c.is_active
-      ORDER BY t.sort_order`,
-  );
-  assert.deepEqual(
-    rows.rows.map((r) => [r.service_code, Number(r.price), Number(r.points)]),
-    // ⚠ SUPERSEDED 2026-08-11 (owner): "100 papic credits for 50 pesos … remove
-    // the 100 pesos. let's just have one price for papic one." The two-rung
-    // ladder AND the flat "₱1 = 1 credit" rule that went with it are both gone;
-    // the rate is now ₱0.333 per credit on the single surviving rung —
-    // within ~11% of the Pool's ₱0.30, where it used to be 3×.
-    // Migration 20271129422037.
-    [[PAPIC_ONE_SKU, 50, 150]],
-  );
-  assert.equal(rows.rows.length, 1, 'a second sellable rung means the ₱100 offer came back');
-
-  // The 50-credit rung is retired, and must be un-sellable in BOTH places —
-  // catalog-dark alone is not a fence, because resolveRetailChargeCentavos()
-  // prices by service_code without checking is_active.
-  for (const table of ['platform_retail_catalog_v2', 'papic_one_tiers']) {
-    assert.equal(
-      await one<boolean>(
-        `SELECT is_active FROM public.${table} WHERE service_code = '${PAPIC_ONE_LEGACY_MINI_SKU}'`,
-      ),
-      false,
-      `${PAPIC_ONE_LEGACY_MINI_SKU} is still live in ${table} — the superseded ` +
-        `₱50/50-credit offer is back on the ladder beside the ₱50/100-credit one`,
-    );
-  }
-
-  // The retired ₱100 -> 250 conversion must not survive as a live value.
-  assert.equal(
-    Number(
-      await one<number>(
-        `SELECT camera_grant_points FROM public.papic_event_pool_config WHERE config_key = 'default'`,
-      ),
-    ),
-    0,
-  );
-});
 
 // ── (2) dedicated means unshared ───────────────────────────────────────────
 
@@ -334,80 +246,4 @@ test('a RELOAD adds to the same camera — same seat, same QR, more shots', asyn
     [eventId],
   );
   assert.equal(await poolTotal(eventId), Number(shared));
-});
-
-// ── (4) the free One camera ────────────────────────────────────────────────
-
-test('the free Papic One camera is ONE camera with 5 shots, however often it runs', async () => {
-  const eventId = await createEvent('Free One E');
-
-  const first = await one<string>(`SELECT public.papic_ensure_free_one_camera($1)`, [eventId]);
-  assert.ok(first, 'the free One camera is armed');
-  assert.equal(Number(await dedicated(first)), 5, 'with its own 5 dedicated shots');
-
-  // This runs from every event-commit path AND lazily from the Papic studio, so
-  // it WILL run more than once. Stacking 5s would silently inflate the camera.
-  for (let i = 0; i < 4; i += 1) {
-    assert.equal(
-      await one<string>(`SELECT public.papic_ensure_free_one_camera($1)`, [eventId]),
-      first,
-      're-running returns the SAME camera',
-    );
-  }
-  assert.equal(Number(await dedicated(first)), 5, 'and never stacks a second grant');
-
-  // The index is pinned to the app constant, so the SQL function and the code
-  // that reasons about "the free One camera" can never drift to two places.
-  const seats = await db.query<{ c: number }>(
-    `SELECT COUNT(*) AS c FROM public.paparazzi_seats WHERE event_id = $1 AND seat_index = $2`,
-    [eventId, PAPIC_FREE_ONE_CAMERA_INDEX],
-  );
-  assert.equal(Number(seats.rows[0]!.c), 1, 'exactly one free One camera');
-
-  const grants = await db.query<{ c: number }>(
-    `SELECT COUNT(*) AS c FROM public.papic_event_point_grants
-      WHERE seat_id = $1 AND source = 'camera_grant' AND order_id IS NULL`,
-    [first],
-  );
-  assert.equal(Number(grants.rows[0]!.c), 1, 'exactly one free grant');
-
-  // It is a FREE-tier seat on purpose: the paid gate refuses any paid-tier seat
-  // whose order is not settled, and this camera has no order to settle.
-  assert.equal(
-    await one<string>(`SELECT tier FROM public.paparazzi_seats WHERE seat_id = $1`, [first]),
-    'free',
-  );
-
-  // Its 5 shots are its own — the shared pool neither gains them nor is charged
-  // when they are spent.
-  const poolBefore = await poolTotal(eventId);
-  for (let i = 1; i <= 5; i += 1) {
-    assert.equal(await reserveCamera(first, eventId, 1), true, `free One shot ${i}`);
-  }
-  assert.equal(await reserveCamera(first, eventId, 1), false, 'the 6th is refused');
-  assert.equal(await poolTotal(eventId), poolBefore, 'the shared pool is untouched');
-
-  // A reload can top up the FREE camera too — that is the point of "including
-  // the free one", and it is why the once-per-seat guard is scoped to grants
-  // with NO order_id: the free grant is once, paid reloads stack forever.
-  const userId = await one<string>(
-    `INSERT INTO auth.users (email, raw_user_meta_data)
-     VALUES ($1, jsonb_build_object('account_type', 'customer')) RETURNING id`,
-    [`papic-free-reload-${randomUUID()}@test.dev`],
-  );
-  const orderId = await one<string>(
-    `INSERT INTO public.orders
-       (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
-     VALUES ($1, $2, $3, 'Papic One reload of the free camera', 50, 'paid', $4)
-     RETURNING order_id`,
-    [eventId, userId, PAPIC_ONE_LEGACY_MINI_SKU, `SN${randomUUID().slice(0, 12).toUpperCase()}`],
-  );
-  await db.query(
-    `INSERT INTO public.papic_one_orders (order_id, event_id, seat_id, service_code, points, is_reload)
-     VALUES ($1, $2, $3, $4, 50, TRUE)`,
-    [orderId, eventId, first, PAPIC_ONE_LEGACY_MINI_SKU],
-  );
-  await db.query(`SELECT public.papic_grant_camera_points($1, $2)`, [eventId, orderId]);
-  assert.equal(Number(await cameraRemaining(first)), 50, 'the reload revives the free camera');
-  assert.equal(Number(await dedicated(first)), 55, 'free 5 + reloaded 50');
 });

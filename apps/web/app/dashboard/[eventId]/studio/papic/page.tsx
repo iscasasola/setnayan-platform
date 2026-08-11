@@ -90,7 +90,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { PapicOneCard } from './_components/papic-one-card';
+import { PapicCamerasCard } from './_components/papic-cameras-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -134,6 +134,8 @@ type Props = {
     papic_error?: string;
     papic_one_error?: string;
     papic_pool_error?: string;
+    shots_error?: string;
+    shots_set?: string;
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -202,6 +204,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papic_error: papicError,
     papic_one_error: papicOneError,
     papic_pool_error: papicPoolError,
+    shots_error: shotsError,
+    shots_set: shotsSet,
     papic_unlock_provisioned: papicUnlockProvisioned,
     limited_synced: limitedSynced,
     limited_error: limitedError,
@@ -863,7 +867,18 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             Self-gating to null when no rung has a live catalog price. */}
         <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
 
-        <PapicOneCard eventId={eventId} error={papicOneError ?? null} />
+        {/* YOUR CAMERAS — hand shots to one camera's QR, or take unspent ones
+            back (owner 2026-08-11). This replaced the Papic One buy card: a
+            dedicated camera is no longer bought, it is made out of shots the
+            couple already owns. Mounted directly under the buy card because the
+            two are one flow now — buy shots above, share them out below.
+            `papicOneError` is still read from the URL above so a redirect from
+            an order minted before the change still finds somewhere to land. */}
+        <PapicCamerasCard
+          eventId={eventId}
+          error={shotsError ?? papicOneError ?? null}
+          justSet={shotsSet ?? null}
+        />
 
         {/* Guests chipped in (owner-locked 2026-07-29) — flag-dark behind
             NEXT_PUBLIC_PAPIC_GUEST_BUY, self-gating to null when off, when the

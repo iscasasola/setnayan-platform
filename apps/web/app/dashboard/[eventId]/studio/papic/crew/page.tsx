@@ -352,7 +352,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                     {/* The free Papic ONE camera sits at a FIXED index (110),
                      *  deliberately clear of the free SHARED range (100..102).
                      *  The `>= 100` branch swallowed it and rendered
-                     *  "Free camera 11" (110 − 99), while papic-one-card.tsx
+                     *  "Free camera 11" (110 − 99), while papic-cameras-card.tsx
                      *  calls the same seat "Camera #110" — one camera with two
                      *  names, neither of which says what it is. It is the one
                      *  camera here whose shots are its OWN, so it is named for

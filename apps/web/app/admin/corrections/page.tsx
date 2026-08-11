@@ -11,7 +11,11 @@ import {
   type CorrectionRequestStatus,
   type VendorCorrectionRequestRow,
 } from '@/lib/vendor-corrections';
-import { applyCorrectionRequest, declineCorrectionRequest } from './actions';
+import {
+  applyCorrectionRequest,
+  correctShopAddress,
+  declineCorrectionRequest,
+} from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Profile corrections · Admin' };
@@ -61,6 +65,7 @@ export default async function AdminCorrectionsPage({
     applied?: string;
     declined?: string;
     already_resolved?: string;
+    address_moved?: string;
     error?: string;
   }>;
 }) {
@@ -124,6 +129,14 @@ export default async function AdminCorrectionsPage({
           That request was already resolved by another admin — nothing changed.
         </p>
       ) : null}
+      {search.address_moved === '1' ? (
+        <FormFlash tone="success">
+          Address corrected. The old one now forwards to it, so links and QR
+          codes already printed keep working.
+        </FormFlash>
+      ) : null}
+
+      <ShopAddressCorrection />
 
       <nav className="mb-4 flex flex-wrap gap-2" aria-label="Request status">
         {STATUS_FILTERS.map((t) => {
@@ -245,5 +258,83 @@ function RequestCard({
         </p>
       ) : null}
     </article>
+  );
+}
+
+/**
+ * Correct a shop's web address.
+ *
+ * ⚠ THIS IS A DIRECT FORM, NOT A QUEUE ITEM, AND THAT IS DELIBERATE. Nothing
+ * anywhere can FILE a correction request — `requestProfileCorrection` has zero
+ * callers and production holds zero rows — so routing the only remedy for a
+ * permanent address through this queue would have shipped a fix nobody can
+ * reach. The applied record is still written, so the decision is auditable.
+ *
+ * ⛔ The immutability trigger is NOT weakened. This is the one door it always
+ * anticipated, behind the service role and an admin session.
+ */
+function ShopAddressCorrection() {
+  return (
+    <details className="sn-tile mb-6">
+      <summary className="cursor-pointer text-sm font-medium text-ink/85">
+        Correct a shop&rsquo;s web address
+      </summary>
+      <div className="mt-4 space-y-4">
+        <p className="max-w-2xl text-sm text-ink/65">
+          A shop&rsquo;s address is permanent — it goes on save-the-dates,
+          printed QR codes and the sitemap, and the shop cannot change it
+          themselves. This is the only way to move one, for a typo, a
+          trademark complaint, or an address built from a name the business
+          has since corrected. The old address will keep working and send
+          visitors to the new one.
+        </p>
+        <form action={correctShopAddress} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+                Current address
+              </span>
+              <input
+                name="current_slug"
+                required
+                placeholder="banaweflorals"
+                className="input-field w-full font-mono text-sm"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+                New address
+              </span>
+              <input
+                name="new_slug"
+                required
+                pattern="[a-z0-9-]{3,32}"
+                placeholder="banaweblooms"
+                className="input-field w-full font-mono text-sm"
+              />
+            </label>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+              Why (recorded against the shop)
+            </span>
+            <textarea
+              name="reason"
+              required
+              minLength={10}
+              rows={2}
+              placeholder="Registered as “Banawe Flroals” — typo in the shop name at signup."
+              className="input-field w-full text-sm"
+            />
+          </label>
+          <SubmitButton
+            pendingLabel="Moving…"
+            className="button-secondary inline-flex h-9 items-center px-3 text-xs"
+          >
+            Move the address
+          </SubmitButton>
+        </form>
+      </div>
+    </details>
   );
 }

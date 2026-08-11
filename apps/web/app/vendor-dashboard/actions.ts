@@ -713,8 +713,14 @@ export async function requestProfileCorrection(
   // Own profile + a display snapshot of the current value for the admin queue.
   const { data: profRow, error: profErr } = await supabase
     .from('vendor_profiles')
+    // ⚠ EVERY KEY IN `LOCKED_IDENTITY_FIELD_KEYS` MUST BE IN THIS SELECT. The
+    // snapshot below reads `prof[fieldKey]`, so a key that is missing here
+    // silently records `current_value = null` — the admin then reviews "change
+    // <field> from (blank) to X" and cannot tell a genuinely empty field from
+    // one this query forgot to fetch. `location_city` was missing from the day
+    // it was added to the key list.
     .select(
-      'vendor_profile_id,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url',
+      'vendor_profile_id,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url,location_city,business_slug',
     )
     .eq('user_id', user.id)
     .maybeSingle();

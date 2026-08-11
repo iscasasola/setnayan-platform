@@ -424,6 +424,16 @@ const nextConfig: NextConfig = {
   // was open at rename time) keep working instead of 404-ing.
   async redirects() {
     return [
+      // 2026-08-11 — Papic became ONE product, so the help article
+      // 'Papic Pool or Papic One — which one do I want?' answers a question that
+      // no longer exists. It was rewritten (how do I make sure one person never
+      // runs out?) under an accurate slug; this carries any bookmark or indexed
+      // link to the new answer instead of a 404.
+      {
+        source: '/help/papic-pool-vs-papic-one',
+        destination: '/help/papic-giving-a-camera-its-own-shots',
+        permanent: true,
+      },
       { source: '/weddings', destination: '/realstories', permanent: true },
       { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
       // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`

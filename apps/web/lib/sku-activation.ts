@@ -214,7 +214,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
       points,
       source: 'topup_order',
       order_id: ctx.orderId,
-      note: `Papic Pool · ${ctx.serviceKey}`,
+      note: `Papic · ${ctx.serviceKey}`,
     });
     if (error) {
       console.error('[sku-activation] Papic One grant insert failed (non-fatal):', {

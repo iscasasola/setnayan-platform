@@ -121,7 +121,7 @@ const SERVICE_LABELS: Record<string, string> = {
   // product. PAPIC_SEATS (₱2,999 five-seat pass, is_active=false, zero orders
   // ever) is retired — its label is kept only so a legacy row still renders a
   // clean "Powered by", and it must not read as a live product name.
-  PAPIC_GUEST: 'Papic Pool',
+  PAPIC_GUEST: 'Papic',
   PAPIC_SEATS: 'Papic',
   PATIKTOK_COMPILER: 'Patiktok',
   PRO_RSVP: 'Pro RSVP',

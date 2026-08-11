@@ -629,7 +629,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     tags: ['Photos', 'Capture', 'Day-of', 'Shared'],
     surface: 'rsvp',
     opensDirect: true,
-    label: 'Papic Pool',
+    label: 'Papic',
     Icon: Camera,
     iteration: '0012',
     status: 'web_v1',

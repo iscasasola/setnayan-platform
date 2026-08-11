@@ -187,7 +187,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
                   : 'text-ink/70 hover:bg-ink/[0.05]'
               }`}
             >
-              {m === 'one' ? (one?.label ?? 'Papic One') : 'Papic Pool'}
+              {m === 'one' ? (one?.label ?? 'A camera of its own') : 'Papic'}
             </button>
           ))}
         </div>
@@ -325,8 +325,8 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
         {effectiveMode === 'one'
-          ? `Papic One is a flat per-camera price${rates.freeCameras > 0 ? `, with ${rates.freeCameras} free to try` : ''} — no per-day or per-hour math. Add-ons are charged separately.`
-          : 'Papic Pool is one flat pass for the whole event. Add-ons are charged separately.'}{' '}
+          ? `A camera of its own is a flat per-camera price${rates.freeCameras > 0 ? `, with ${rates.freeCameras} free to try` : ''} — no per-day or per-hour math. Add-ons are charged separately.`
+          : 'Papic is one flat pass for the whole event. Add-ons are charged separately.'}{' '}
         Estimate only — no charge is made here.
       </p>
     </div>

@@ -40,6 +40,82 @@ export function clampWallPhotoCount(n: number | null | undefined): number {
   return Math.min(60, Math.max(6, v));
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// THE GUEST PHONE MIRROR — events.live_photo_wall_visibility.
+//
+// The ₱2,500 SKU is called "Live VENUE Photo Wall" and the couple's card only
+// ever described a venue projection and screen codes. The same screened feed is
+// ALSO mirrored onto every invited guest's phone for the whole live window
+// (owner 2026-06-12). A couple who revoked every venue screen code would
+// reasonably believe the wall was off — it was still running in every guest's
+// hand, because the guest surfaces gated on SKU ownership alone. This column
+// existed for exactly that choice and had ZERO readers and ZERO writers for
+// nine months: the FIFTH "gate with no handle" here. (gates-have-handles.test.ts
+// already tracked four; it is registered there now, so removing the writer fails
+// the build instead of quietly making the wall uncontrollable again.)
+//
+// The venue projection does NOT consult this. It projects regardless
+// (owner-locked 2026-06-11) behind its own single-use screen code.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * The stored vocabulary, matching the DB CHECK constraint exactly.
+ *
+ * ⚠ 'tagged_only' is LEGAL BUT UNIMPLEMENTED. Nothing anywhere filters the
+ * mirror down to the photos a guest actually appears in. It is kept because the
+ * per-guest filter is a real future build, and it resolves to "show everything"
+ * below — deliberately, and under test. The app WRITER must never emit it (see
+ * `storedWallGuestMirror`), because storing a promise the product does not keep
+ * is how `sponsored_included` misled two independent readers.
+ */
+export type WallGuestVisibility = 'tagged_only' | 'all_with_consent' | 'off';
+export const WALL_GUEST_VISIBILITIES: readonly WallGuestVisibility[] = [
+  'tagged_only',
+  'all_with_consent',
+  'off',
+];
+/** What every event created from this migration forward stores. */
+export const DEFAULT_WALL_GUEST_VISIBILITY: WallGuestVisibility = 'all_with_consent';
+
+/**
+ * Narrow an arbitrary DB string to a known visibility.
+ *
+ * FAILS OPEN, on purpose and against the usual instinct. An unreadable or
+ * pre-migration value must land on the behaviour the product has always had
+ * (the mirror on) rather than silently removing a feature the couple paid
+ * ₱2,500 for. Turning the mirror off is a decision only the couple makes, and
+ * `'off'` is the only value that means it — a typo, a NULL or a future enum
+ * member never speaks for them in either direction.
+ */
+export function asWallGuestVisibility(
+  value: string | null | undefined,
+): WallGuestVisibility {
+  return value && (WALL_GUEST_VISIBILITIES as readonly string[]).includes(value)
+    ? (value as WallGuestVisibility)
+    : DEFAULT_WALL_GUEST_VISIBILITY;
+}
+
+/**
+ * THE decision every guest-facing wall surface needs: does the wall mirror onto
+ * guests' phones at all?
+ *
+ * Only `'off'` closes it. `'tagged_only'` returns true — i.e. shows everything —
+ * because no filter exists; that is the honest reading of a column nothing has
+ * ever implemented, not an oversight. When the per-guest filter is built, this
+ * is the function that stops being a boolean.
+ */
+export function wallGuestMirrorOn(value: string | null | undefined): boolean {
+  return asWallGuestVisibility(value) !== 'off';
+}
+
+/**
+ * The couple's switch, in the only two values the app is allowed to write.
+ * `true` → the mirror is on; `false` → venue screens only.
+ */
+export function storedWallGuestMirror(on: boolean): WallGuestVisibility {
+  return on ? 'all_with_consent' : 'off';
+}
+
 /**
  * Merge incremental tiles into the existing list: dedupe by feedId (existing
  * object identity wins — keeps React keys stable), append in sort order.

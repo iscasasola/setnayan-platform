@@ -19,6 +19,7 @@ import {
   asWallTileLayout,
   clampWallPhotoCount,
   resolveWallMode,
+  wallGuestMirrorOn,
   type WallMode,
 } from '@/lib/live-wall-logic';
 import {
@@ -112,7 +113,9 @@ export default async function LiveWallConsolePage({
     // now surfaced instead of silently degrading to "brand new event".
     admin
       .from('events')
-      .select('event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout')
+      .select(
+        'event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout, live_photo_wall_visibility',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -284,11 +287,15 @@ export default async function LiveWallConsolePage({
           tiles={tiles}
           photoCount={clampWallPhotoCount(event?.wall_photo_count as number | null)}
           tileLayout={asWallTileLayout(event?.wall_tile_layout as string | null)}
+          guestMirrorOn={wallGuestMirrorOn(
+            event?.live_photo_wall_visibility as string | null,
+          )}
         />
         <p className="mt-3 text-xs text-ink/50">
           Projector URL:{' '}
           <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open
-          it on any TV or projector browser and enter a screen code.
+          it on any TV or projector browser and enter a screen code. The wall also
+          plays on your guests&rsquo; own phones unless you switch that off above.
         </p>
       </section>
 

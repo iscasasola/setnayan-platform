@@ -93,6 +93,27 @@ const SWITCHES: {
       'no business can ever be made a founding supplier — the unlimited-category ' +
       'and unlimited-services-per-category override works and nobody can receive it',
   },
+  {
+    // 🚨 FIFTH INSTANCE, registered 2026-08-12 — and the first where the column
+    // had neither a writer NOR a reader. `events.live_photo_wall_visibility`
+    // shipped 2026-11-04 with a CHECK constraint, a column comment naming the
+    // exact surface it governs, and nothing at either end for nine months.
+    //
+    // What that cost: the ₱2,500 SKU is titled "Live VENUE Photo Wall", and it
+    // also mirrored the wall onto every invited guest's phone for the whole
+    // celebration. The couple's only "off" was revoking the venue screen codes,
+    // which did nothing to the phones. So a couple who deliberately shut the
+    // wall down still had their wedding playing in a hundred hands.
+    //
+    // ⚠ AN APPLIED MIGRATION MISDESCRIBED IT as "(venue wall)" — the misreading
+    // that let it live. This guard does not read comments, which is the point.
+    column: 'live_photo_wall_visibility',
+    whoFlips: 'the couple, on the Live Photo Wall card (Papic page / day-of console)',
+    whatBreaksWhenStuck:
+      'the photo wall plays on every invited guest’s phone for the whole ' +
+      'celebration and the couple cannot stop it — revoking every venue screen ' +
+      'code, the only “off” the product offers them, leaves it running',
+  },
 ];
 
 /** Every .ts/.tsx under apps/web that is not a test, a type file, or generated. */

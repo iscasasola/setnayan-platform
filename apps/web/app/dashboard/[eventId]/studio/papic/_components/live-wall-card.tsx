@@ -5,7 +5,11 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  wallGuestMirrorOn,
+} from '@/lib/live-wall-logic';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
 
 /**
@@ -95,7 +99,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
       .limit(12),
     supabase
       .from('events')
-      .select('wall_photo_count, wall_tile_layout')
+      .select('wall_photo_count, wall_tile_layout, live_photo_wall_visibility')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -135,13 +139,21 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
               guest's own phone. site-body.tsx renders that mirror on the event
               page for the live window whenever the event owns LIVE_WALL, so it
               is part of what they are already buying, not an upsell.
-              ⛔ Copy only. The on/off control for the mirror is Session 7's. */}
+
+              ✅ THE CONTROL NOW EXISTS — this comment's "the on/off control for
+              the mirror is Session 7's" is done, and the last sentence points at
+              it. Disclosure and control had to land together: telling a couple
+              their wedding is on a hundred phones without giving them a way to
+              stop it is worse than not telling them, and a switch with no
+              explanation beside it is not a choice either. The fact is here; the
+              switch is one card down, in LiveWallControls. */}
           <p className="mt-1 text-sm text-ink/60">
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
             screen&rsquo;s browser and enter a screen code. The same wall also appears
             on your guests&rsquo; phones on your event page while the celebration is
-            running — so everyone sees the photos, screen or no screen.
+            running — so everyone sees the photos, screen or no screen. If you
+            would rather keep it to the venue, you can switch the phones off below.
           </p>
         </div>
       </div>
@@ -151,6 +163,9 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
         tiles={tiles}
         photoCount={clampWallPhotoCount(cfg?.wall_photo_count as number | null)}
         tileLayout={asWallTileLayout(cfg?.wall_tile_layout as string | null)}
+        guestMirrorOn={wallGuestMirrorOn(
+          cfg?.live_photo_wall_visibility as string | null,
+        )}
       />
     </section>
   );

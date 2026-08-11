@@ -32,7 +32,6 @@ import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventSkuActive } from '@/lib/entitlements';
 import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
@@ -55,7 +54,7 @@ import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
-import { getWallSnapshot } from '@/lib/live-wall';
+import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
 import { youTubeEmbedUrl } from '@/lib/panood-watch';
@@ -692,11 +691,15 @@ export const loadLiveLayer = cache(
         // day-of page surfaces the wall mirror. The old
         // event_software_activations_v2 reads had no payment-path writer (their
         // only writer, verify_and_activate_manual_payment, has zero callers).
-        const [ownsWall, watchUrls] = await Promise.all([
-          eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
+        // guestWallMirrorActive fuses that ownership check with the couple's
+        // own answer to "does the wall also play on my guests' phones?" — the
+        // question this surface asked for nine months without ever reading the
+        // setting that was built to answer it.
+        const [mirrorOn, watchUrls] = await Promise.all([
+          guestWallMirrorActive(admin, event.event_id),
           readEventWatchUrls(admin, event.event_id),
         ]);
-        if (ownsWall) {
+        if (mirrorOn) {
           const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
           liveWall = {
             tiles: snap.tiles,
